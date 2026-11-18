@@ -161,6 +161,12 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 - If the focused swimlane is deleted while focus mode is active (e.g. by another session), focus mode exits automatically and the collapse state is restored.
 - If the `?focus=` URL param contains an ID that no longer exists on the board, it is silently ignored.
 
+## Child cards setting
+
+*Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board is either a parent board, whose cards can have child cards on another board, or a child board, which can only hold children. A board never plays both roles.
+
+A board admin chooses which one in **Board Settings → Rules → Child cards** with the **Cards can have child cards** switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. Linking cards is not available yet; this setting is the prerequisite for it. Once links exist, the switch cannot be changed while links depend on it.
+
 ## Collapsed columns
 
 Click a column header to collapse it to a narrow vertical strip. When collapsed:

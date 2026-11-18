@@ -105,6 +105,21 @@
               "type": "integer",
               "minimum": 1
             },
+            "attachmentMaxPerCard": {
+              "description": "ATTACHMENT_MAX_PER_CARD — most attachments one card may hold (#2007). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "attachmentMaxBytesPerCard": {
+              "description": "ATTACHMENT_MAX_BYTES_PER_CARD — most attachment bytes one card may hold (#2007). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "attachmentUploadRate": {
+              "description": "ATTACHMENT_THROTTLE_UPLOAD_RATE — per-user attachment upload rate, <n>/<second|minute|hour|day> (#2007). Empty = the backend default, 120/hour.",
+              "type": "string",
+              "pattern": "^$|^[1-9][0-9]*/(s|sec|second|m|min|minute|h|hour|d|day)$"
+            },
             "dbPool": {
               "description": "Opt-in PostgreSQL connection pool (DATABASE_POOL, DATABASE_POOL_MIN_SIZE, DATABASE_POOL_MAX_SIZE; #1958). The pool is per backend process.",
               "type": "object",
@@ -112,6 +127,15 @@
                 "enabled": { "type": "boolean" },
                 "minSize": { "type": "integer", "minimum": 1 },
                 "maxSize": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "cacheTimeouts": {
+              "description": "Valkey cache socket timeouts in seconds (REDIS_CACHE_SOCKET_CONNECT_TIMEOUT, REDIS_CACHE_SOCKET_TIMEOUT; #1465). null keeps the backend default of 0.5.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "connectSeconds": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+                "socketSeconds": { "type": ["number", "null"], "exclusiveMinimum": 0 }
               }
             },
             "numProxies": {
@@ -445,7 +469,18 @@
           "properties": {
             "enabled": { "type": "boolean" },
             "interval": { "type": "integer", "minimum": 1 },
-            "resources": { "type": "object" }
+            "resources": { "type": "object" },
+            "networkPolicy": {
+              "description": "Opt-in egress NetworkPolicy for the dispatcher pod (#2067). Needs a CNI that enforces NetworkPolicy.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "denyCIDRs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "denyCIDRsIPv6": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+                "allowedCIDRs": { "type": "array", "items": { "type": "string" } }
+              }
+            }
           }
         }
       }
@@ -542,6 +577,31 @@
         },
         "computeHealthStatus": {
           "description": "manage.py compute_health_status — auto health status for boards that turned it on (#2245).",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
+        "sweepWebhookSecrets": {
+          "description": "manage.py sweep_webhook_secrets — deletes expired previous webhook signing secrets (#2119).",
           "type": "object",
           "additionalProperties": false,
           "properties": {

@@ -539,8 +539,8 @@ def build_mcp_server():
         mime_type="application/json",
         description=(
             "Card detail plus audit history: movements, activities, "
-            "comments, and checklist items (activities and comments are the "
-            "200 newest, with activities_truncated/comments_truncated flags). Requires membership on the "
+            "comments, and checklist items (movements, activities and comments are the "
+            "200 newest, with movements_truncated/activities_truncated/comments_truncated flags). Requires membership on the "
             "card's board."
         ),
     )

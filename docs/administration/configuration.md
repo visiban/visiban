@@ -227,6 +227,26 @@ Without a ceiling, Valkey grows until the container or pod is OOM-killed, which 
 
 Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the chart's own and wins. Set `valkey.primary.maxmemory` to an empty string to remove the ceiling. For an external Valkey or Redis (`externalRedis`), set `maxmemory` and `maxmemory-policy volatile-lru` on that server yourself.
 
+### If Valkey goes down
+
+> **Changed in 1.3** (#1465).
+
+A Valkey outage no longer takes the app offline. The readiness probe stays `200` and reports `{"status": "degraded"}`, so pods stay in the Service, and:
+
+- **Ordinary REST requests keep working.** The global `anon` and `user` rate limits fail open: they are not enforced until Valkey returns. Maintenance mode, registration mode and the uploads toggle are read from the database instead.
+- **The Git lens board fails closed** (experimental, `GIT_LENS_ENABLED`): it returns `503` with `code: "lens_unavailable"` and makes no GitHub or GitLab request until Valkey returns, because its fetch budgets and lock live in Valkey.
+- **Security rate limits fail closed.** Login (including the failed-login lockout), registration, password change and reset, user search, invite-link and share-link redemption, and the other endpoints with their own limit return `500` until Valkey returns, rather than run without brute-force protection. With the default database session engine, signed-in users keep their sessions.
+- **Realtime updates stop** until Valkey returns.
+
+Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache unreachable` log lines, not on the readiness probe. See [Health API](../api/health.md#get-apihealthreadiness).
+
+**Cache timeouts.** Every cache call gives up after a bounded wait, so a Valkey that is unreachable without refusing connections (a dropped route, a firewall that discards packets, a node that disappeared) fails fast instead of hanging each request. The readiness probe makes one cache call, so its answer arrives inside the 1-second Kubernetes default probe timeout. The timeouts apply to the Django cache only: the realtime (Channels) connection keeps its own settings, because it holds blocking reads open on purpose.
+
+| Variable | Description | Default |
+|---|---|---|
+| `REDIS_CACHE_SOCKET_CONNECT_TIMEOUT` | Seconds to wait for a connection to the cache (`REDIS_CACHE_URL`). Must be greater than 0. Keep it below 1 unless you also raise the readiness probe's `timeoutSeconds`. Helm: `backend.settings.cacheTimeouts.connectSeconds`. *(new in 1.3)* | `0.5` |
+| `REDIS_CACHE_SOCKET_TIMEOUT` | Seconds to wait for each cache reply. Must be greater than 0. Helm: `backend.settings.cacheTimeouts.socketSeconds`. *(new in 1.3)* | `0.5` |
+
 ## Webhooks
 
 > **Added in 1.3** (#863).
@@ -236,7 +256,7 @@ Under Helm, a `maxmemory` line in `valkey.commonConfiguration` comes after the c
 | Variable | Default | Description |
 |---|---|---|
 | `WEBHOOKS_ENABLED` | `false` | Turns the feature on. Helm: `backend.settings.webhooksEnabled`. |
-| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). |
+| `WEBHOOK_ALLOWED_PRIVATE_TARGETS` | empty | Comma-separated exact hostnames, IPs or CIDRs of private destinations webhooks may reach. Hostname and CIDR entries admit RFC 1918, CGNAT and IPv6 unique-local addresses; loopback, link-local and cloud-metadata addresses need an exact single-address entry (`127.0.0.1`, `::1/128`). `http://` and ports below 1024 other than 443 are allowed only for these destinations. A `/0`, a public range or a reserved address is a startup error (`webhooks.E002`). Helm: `backend.settings.webhookAllowedPrivateTargets`. See [Private and LAN destinations](../features/webhooks.md#private-and-lan-destinations). With the Helm dispatcher egress policy on, add each private destination to `webhooks.dispatcher.networkPolicy.allowedCIDRs` as well, or the network policy still blocks it; see [Dispatcher egress policy](../features/webhooks.md#dispatcher-egress-policy-kubernetes). |
 | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | `3` | Connect timeout per delivery. |
 | `WEBHOOK_TIMEOUT_SECONDS` | `10` | Overall timeout per delivery, connect included. |
 | `WEBHOOK_MAX_PER_BOARD` | `10` | Webhooks per board. |
@@ -286,6 +306,43 @@ created:
   least `IMPORT_MAX_SIZE_BYTES` + 10 MB.
 - The application server (daphne) and the web client set no request timeout
   of their own.
+
+---
+
+## Attachment limits
+
+*(new in 1.3)* Card attachments are capped per file, per card and per user
+(#2007). Before 1.3 only the per-file size and the general API rate limit
+applied, so one collaborator could fill the media volume for every board on
+the instance by uploading in a loop.
+
+| Variable | Description | Default |
+|---|---|---|
+| `MAX_UPLOAD_SIZE_BYTES` | Largest single attachment, **in bytes**. Also caps native board imports. Helm: `backend.settings.maxUploadSizeBytes`. | `10485760` (10 MB) |
+| `ATTACHMENT_MAX_PER_CARD` | Most attachments one card may hold. `0` = no limit. Helm: `backend.settings.attachmentMaxPerCard`. | `100` |
+| `ATTACHMENT_MAX_BYTES_PER_CARD` | Most attachment bytes one card may hold, **in bytes**, counting the file being uploaded. `0` = no limit. Helm: `backend.settings.attachmentMaxBytesPerCard`. | `1073741824` (1 GiB) |
+| `ATTACHMENT_THROTTLE_UPLOAD_RATE` | Attachment uploads per user, as `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Counted on top of the general per-user API limit; listing attachments is not counted. Empty = the default. Applies in development (`DEBUG`) too, where the default is otherwise `9999/hour`. Helm: `backend.settings.attachmentUploadRate`. | `120/hour` |
+
+- An upload that would break a per-card quota gets `400` with
+  `"code": "attachment_quota_exceeded"` and nothing is stored. An upload over
+  the rate limit gets `429` with a `Retry-After` header.
+- The defaults are chosen so an existing install keeps working: few cards hold
+  anywhere near 100 files. At the default 10 MB file size the count quota is
+  reached before the byte quota, which starts to matter when you raise
+  `MAX_UPLOAD_SIZE_BYTES`.
+- Plain-text and CSV uploads are scanned in full for HTML markup before they
+  are stored, so raising `MAX_UPLOAD_SIZE_BYTES` far beyond the default also
+  lengthens each such upload request.
+- Lowering a quota never deletes anything. A card already over it keeps its
+  attachments and accepts new ones only once it is back under the quota.
+- Only attachments are capped. Per-card limits on comments and checklist items
+  are not in place yet; tracked in #2376.
+- The quota is checked while the card row is locked, so two uploads racing for
+  a card's last slot cannot both succeed.
+- These quotas bound one card. A user can still spread uploads over many cards,
+  which is what the rate limit bounds: at the defaults one account can add at
+  most about 1.2 GB an hour. Size the media volume, or lower the rate, with
+  that in mind. Turning uploads off entirely is in **Admin → Settings**.
 
 ---
 
@@ -449,13 +506,13 @@ The backend exposes two health check endpoints for use by load balancers, monito
 | Endpoint | Method | Purpose | Checks | Success |
 |---|---|---|---|---|
 | `/api/health/liveness/` | GET | Is the process alive? | ASGI server responds | `200 {"status": "ok"}` |
-| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Valkey are reachable | `200 {"status": "ok"}` |
+| `/api/health/readiness/` | GET | Can the process serve traffic? | Database reachable; a Valkey outage reports `degraded` with HTTP 200 | `200 {"status": "ok"}` |
 
 Both endpoints are unauthenticated and do not require a valid `Host` header.
 
 **Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
 
-**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with working database and Valkey connections.
+**Tip:** for external load balancers (AWS ALB, HAProxy, etc.), point the health check at `/api/health/readiness/` on the backend port (8000), so traffic reaches only instances with a working database connection. A Valkey outage does not fail this check: it answers `200 {"status": "degraded"}` (see [If Valkey goes down](#if-valkey-goes-down)). A load balancer that must also avoid a Valkey outage has to match `"status":"ok"` in the body.
 
 ---
 

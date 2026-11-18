@@ -148,6 +148,7 @@ Some endpoints have their own scope in place of or alongside these. The ones tha
 | `POST /api/v1/auth/registration/` | `register` | 10 requests/minute per IP, anonymous requests only |
 | `POST /api/v1/auth/choose-username/` | `choose_username` | 10 requests/minute per user, shared with username and email changes on `PATCH /api/v1/auth/me/` and `PUT`/`PATCH /api/v1/auth/user/` |
 | `POST /api/v1/auth/password/reset/confirm/` | `password_reset_confirm` | 10 requests/hour per IP |
+| `POST /api/v1/boards/{board_id}/cards/{id}/attachments/` | `attachment_upload` | 120 uploads/hour per user, alongside `user` *(since 1.3)*; `ATTACHMENT_THROTTLE_UPLOAD_RATE` changes it |
 
 Each endpoint's page lists its own scope and rate. These are the production defaults; development (`DEBUG`) mode raises most of them to 9999/hour. Nothing here applies to [`/mcp`](mcp.md#rate-limiting), which has its own limiter.
 
@@ -190,9 +191,9 @@ Some list endpoints deliberately **do not** use it. Check the endpoint's own pag
 | `GET /boards/{id}/events/` | `{results, next_cursor}` cursor feed; `next_cursor` is an integer event id (pass it as `after`), and the deprecated `next` is also returned with the same value. See [Change Feed](events.md) |
 | `GET /groups/{id}/descendant-boards/` | Bare JSON array, not paginated and **not bounded**: it returns every board in the group's subtree that the caller can access, which for a top-level group can be the whole organization. Use `GET /groups/{id}/descendant-boards/paged/` for bounded pages |
 | `GET /groups/{id}/members/`, `GET /groups/{id}/subgroups/`, `GET /groups/{id}/boards/` | Bare JSON array, not paginated and **not bounded**: `members` includes every inherited ancestor member, so a subgroup under a large root returns the root's whole membership, and `boards` can be every board in a flat organization. Use the `/paged/` sibling of each (since 1.3: `members/paged/`, `subgroups/paged/`, `boards/paged/`) for `{count, offset, page_size, results}` pages. See [Groups API](groups.md) |
-| `GET /boards/{id}/cards/{card_id}/activities/`, `comments/`, `attachments/` | Bare JSON array of every row by default. Since 1.3, optional `limit` (max 200) and `offset`, and `X-Total-Count` / `X-Truncated` headers on every response. See [Cards API](cards.md#paging-a-cards-history-lists) |
+| `GET /boards/{id}/cards/{card_id}/movements/`, `activities/`, `comments/`, `attachments/` | Bare JSON array of every row by default. Since 1.3, optional `limit` (max 200) and `offset`, and `X-Total-Count` / `X-Truncated` headers on every response. See [Cards API](cards.md#paging-a-cards-history-lists) |
 | `GET /boards/{id}/invite-links/`, `GET /admin/invite-links/` | Bare JSON array: every pending invite plus at most the 50 most recent past ones. Since 1.3, `X-Total-Count` counts every invite and `X-Truncated` is `true` when older past ones were left out |
-| Group invite links and group labels | Bare JSON array, not paginated and not capped. Invite links hold at most 5 active shareable links and 50 pending emailed invites per group, but also every consumed or expired link, so the list grows with use (tracked in #2253); labels grow only as admins add them (tracked in #2256) |
+| `GET /groups/{id}/invite-links/` and `GET /groups/{id}/labels/` | Bare JSON array, not paginated and not capped. Invite links hold at most 5 active shareable links and 50 pending emailed invites per group, but also every consumed or expired link, so the list grows with use; labels grow only as admins add them. Since 1.3, `GET /groups/{id}/invite-links/paged/` and `GET /groups/{id}/labels/paged/` return the same rows in the standard envelope |
 | Small, bounded lists (board saved filters; `GET /users/` (search, capped at 10 rows); sample boards and templates; notifications; personal access tokens; connected accounts; a card's checklist and relations) | Bare JSON array, not paginated |
 
 ### Maintenance mode (503)

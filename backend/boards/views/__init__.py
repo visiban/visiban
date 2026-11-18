@@ -36,7 +36,6 @@ from ._helpers import (  # noqa: F401
 )
 from .cards import (  # noqa: F401
     _validate_upload_mime,
-    _MAGIC_SIGNATURES,
     _ALLOWED_MIME_TYPES,
 )
 from .import_export import _sanitize_csv_field  # noqa: F401

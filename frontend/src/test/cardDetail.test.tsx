@@ -115,6 +115,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
     commitment_column_uid: null,
+    cards_can_have_children: false,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
@@ -3608,6 +3609,30 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       fireEvent.change(input, { target: { files: [file] } })
       await waitFor(() => expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument())
       expect(mockUp).toHaveBeenCalledTimes(2)
+    })
+
+    it('file upload: a 400 refusal shows the server detail (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({
+        response: { status: 400, data: { code: 'attachment_quota_exceeded', detail: 'This card already has 100 attachments.' } },
+      })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      const err = await screen.findByText('This card already has 100 attachments.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument()
+    })
+
+    it('file upload: a 429 shows a rate-limit message (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({ response: { status: 429, data: { detail: 'Request was throttled.' } } })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      expect(await screen.findByText('Too many uploads. Please wait a while and try again.')).toBeInTheDocument()
     })
   })
 

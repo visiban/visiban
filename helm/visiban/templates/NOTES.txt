@@ -130,8 +130,9 @@ NOTE: Scheduled jobs are off (scheduledJobs.enabled=false). Nothing runs the
 {{- else }}
 
 Scheduled jobs (CronJobs, times in {{ .Values.scheduledJobs.timeZone | default "the cluster controller's zone (usually UTC)" }}):
-{{- range $key := list "notifyDueSoon" "notifyStaleCards" "computeHealthStatus" "pruneBoardEvents" "pruneNotifications" }}
+{{- range $key := list "notifyDueSoon" "notifyStaleCards" "computeHealthStatus" "sweepWebhookSecrets" "pruneBoardEvents" "pruneNotifications" }}
 {{- $cfg := index $.Values.scheduledJobs $key }}
+{{- if and (eq $key "sweepWebhookSecrets") (not $cfg) }}{{- $cfg = dict "enabled" true "schedule" "0 4 * * *" }}{{- end }}
   - {{ $key }}: {{ if $cfg.enabled }}"{{ $cfg.schedule }}"{{ else }}off{{ end }}
 {{- end }}
   List them: kubectl get cronjobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=scheduler

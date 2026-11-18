@@ -722,10 +722,12 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/groups/{id}/descendant-boards/": {"id": "group_pk"},
     "/api/v1/groups/{id}/descendant-boards/paged/": {"id": "group_pk"},  # #1317
     "/api/v1/groups/{id}/invite-links/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/invite-links/paged/": {"id": "group_pk"},  # #2253
     "/api/v1/groups/{id}/invite-links/{link_id}/": {
         "id": "group_pk", "link_id": "group_invite_link_id",
     },
     "/api/v1/groups/{id}/labels/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/labels/paged/": {"id": "group_pk"},  # #2256
     "/api/v1/groups/{id}/labels/{label_id}/": {
         "id": "group_pk", "label_id": "group_label_id",
     },

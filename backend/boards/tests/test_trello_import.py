@@ -220,6 +220,10 @@ class TrelloImportConfirmTests(TrelloImportBase):
         self.assertEqual(resp.data["board"]["name"], "My Imported Board")
 
     def test_no_notifications_or_movements_created(self):
+        # "ada" exists but shares nothing with the importer, so nobody is
+        # matched or added: no card notice and no membership notice. The
+        # membership notice for a matched member (#2122) is pinned in
+        # TrelloImportMemberMatchingTests.
         User.objects.create_user(username="ada", password="x")
         self.confirm({"add_matched_members": True})
         self.assertEqual(Notification.objects.count(), 0)
@@ -328,6 +332,90 @@ class TrelloImportMemberMatchingTests(TrelloImportBase):
         self.assertEqual(stranger.author, self.user)
         self.assertEqual(stranger.imported_from_username, "Stranger Danger")
         self.assertTrue(stranger.body.startswith("(imported from Trello)\n\n"))
+
+
+class TrelloImportAddedMemberNoticeTests2122(TrelloImportBase):
+    """#2122: confirm mode with ``add_matched_members``.
+
+    Membership: exactly the importer (admin) and the matched, visible user
+    (role ``member``). An unmatched name (Grace) and an existing account
+    outside the importer's pool (``outsider``) get no row. Notice: the added
+    member gets the ``board_invite`` notification an ordinary add sends, and
+    nobody else gets anything.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # Same pool as TrelloImportMemberMatchingTests: "Ada" shares a board
+        # with the importer (visible), "outsider" shares nothing.
+        self.ada = User.objects.create_user(username="Ada", password="x")
+        shared = Board.objects.create(name="Shared", owner=self.user)
+        BoardMembership.objects.create(board=shared, user=self.user, role=BoardMembership.Role.ADMIN)
+        BoardMembership.objects.create(board=shared, user=self.ada)
+        self.outsider = User.objects.create_user(username="outsider", password="x")
+
+    def _confirm_board(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self.confirm({"add_matched_members": True})
+        self.assertEqual(resp.status_code, 201)
+        return Board.objects.get(pk=resp.data["board"]["id"])
+
+    def test_only_matched_visible_users_become_members_with_role_member(self):
+        board = self._confirm_board()
+        rows = dict(BoardMembership.objects.filter(board=board).values_list("user__username", "role"))
+        self.assertEqual(rows, {"importer": BoardMembership.Role.ADMIN, "Ada": BoardMembership.Role.MEMBER})
+
+    def test_added_member_is_notified_like_an_ordinary_add(self):
+        board = self._confirm_board()
+        notes = list(Notification.objects.all())
+        self.assertEqual(len(notes), 1)
+        note = notes[0]
+        self.assertEqual(note.recipient, self.ada)
+        self.assertEqual(note.actor, self.user)
+        self.assertEqual(note.action_type, Notification.ActionType.BOARD_INVITE)
+        self.assertEqual(note.board, board)
+        self.assertEqual(note.verb, f'importer added you to "{board.name}" while importing it from Trello')
+
+    def test_opted_out_member_is_added_but_not_notified(self):
+        self.ada.notif_board_invite = False
+        self.ada.save(update_fields=["notif_board_invite"])
+        board = self._confirm_board()
+        self.assertTrue(BoardMembership.objects.filter(board=board, user=self.ada).exists())
+        self.assertFalse(Notification.objects.exists())
+
+    def test_inactive_matched_user_is_not_notified(self):
+        # match_members only matches active users; this pins the funnel too.
+        from boards.services import trello_import as ti
+
+        board = Board.objects.create(name="x", owner=self.user)
+        self.ada.is_active = False
+        self.ada.save(update_fields=["is_active"])
+        ti._notify_added_members(board, self.user, [self.ada.pk])
+        self.assertFalse(Notification.objects.exists())
+
+    def test_no_notice_without_the_opt_in(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.confirm()
+        self.assertFalse(Notification.objects.exists())
+
+    def test_importer_matching_themself_is_not_notified(self):
+        data = load_fixture()
+        data["members"].append({"id": "m-self", "fullName": "Me", "username": "importer"})
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = self.post("confirm", data=data, mapping=json.dumps({"add_matched_members": True}))
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(
+            list(Notification.objects.values_list("recipient__username", flat=True)), ["Ada"]
+        )
+
+    def test_rolled_back_import_notifies_nobody(self):
+        with mock.patch.object(trello_import, "Column") as column:
+            column.objects.bulk_create.side_effect = RuntimeError("boom")
+            with self.assertRaises(RuntimeError):
+                with self.captureOnCommitCallbacks(execute=True):
+                    self.confirm({"add_matched_members": True})
+        self.assertFalse(Notification.objects.exists())
+        self.assertFalse(BoardMembership.objects.filter(user=self.ada).exclude(board__name="Shared").exists())
 
 
 class TrelloImportValidationTests(TrelloImportBase):

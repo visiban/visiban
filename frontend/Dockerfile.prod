@@ -5,7 +5,7 @@
 ARG BASE_REGISTRY=docker.io/library
 
 # Stage 1 — build the React app
-FROM ${BASE_REGISTRY}/node:20-alpine AS build
+FROM ${BASE_REGISTRY}/node:22-alpine AS build
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2 — serve with Nginx
-FROM ${BASE_REGISTRY}/nginx:1.27-alpine
+FROM ${BASE_REGISTRY}/nginx:1.30-alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 # Default server config: listens on 8080 and sends the same response headers as

@@ -616,7 +616,7 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET` on a card's `activities/`, `comments/` and `attachments/` returns a bare JSON array of **every** row on the card, as it always has. A long-lived card's activity log grows on every field edit, so since 1.3 each of the three also accepts optional paging parameters and always sends the card list's count headers. The body is the same bare array either way.
+`GET` on a card's `movements/`, `activities/`, `comments/` and `attachments/` returns a bare JSON array of **every** row on the card, as it always has. A long-lived card's activity log grows on every field edit, so since 1.3 each of the four also accepts optional paging parameters and always sends the card list's count headers. The body is the same bare array either way.
 
 | Query param | Notes |
 |---|---|
@@ -628,7 +628,7 @@ The `*_uid` fields in the movement record are permanent: they stay set after the
 | `X-Total-Count` | Number of rows on the card, ignoring `limit`/`offset` |
 | `X-Truncated` | `true` when more rows exist after the returned ones, otherwise `false` |
 
-Order is fixed with the row `id` as a tiebreaker (activities and attachments newest first, comments oldest first), so offset paging neither skips nor repeats a row on an unchanged card. Access checks are unchanged: a card you cannot see is a `404` whatever the query string.
+Order is fixed with the row `id` as a tiebreaker (movements, activities and attachments newest first, comments oldest first), so offset paging neither skips nor repeats a row on an unchanged card. Access checks are unchanged: a card you cannot see is a `404` whatever the query string.
 
 ```
 GET /api/v1/boards/4/cards/17/activities/?limit=200            -> X-Total-Count: 450, X-Truncated: true
@@ -636,7 +636,7 @@ GET /api/v1/boards/4/cards/17/activities/?limit=200&offset=400 -> X-Total-Count:
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/movements/`
-Full movement history for a card (uncapped; tracked in #2255). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
+Movement history for a card, newest first, as a bare array. Every movement by default; since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`, like the other history lists (see [Paging a card's history lists](#paging-a-cards-history-lists)). Each record includes `card_uid`, `card_title`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, and `to_swimlane_uid` in addition to the FK and name fields, and since 1.2 `imported_from_username` (see the activities table below). UID fields are stable across column/swimlane renames and deletions. See [Stable UIDs](../features/stable-uids.md).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/activities/`
 Activity log (field changes, comments, attachments, checklist events, and since 1.3 manual blocks: `blocked` carries the reason in `to_value`; `unblocked` carries the cleared reason in `from_value` and the resolution in `to_value`). Newest first. Since 1.3, accepts `limit`/`offset` and sends `X-Total-Count`/`X-Truncated`; see [Paging a card's history lists](#paging-a-cards-history-lists).
@@ -828,11 +828,11 @@ curl -O -J http://localhost:8000/media/attachments/abc123.pdf \
 ```
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/attachments/`
-Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
+Upload an attachment (`multipart/form-data`, field name `file`). Max size: 10 MB by default, operator-configurable via the `MAX_UPLOAD_SIZE_BYTES` env var. Since 1.3 a card also has a count and byte quota, and uploads have their own rate limit (see the errors below and [Attachment limits](../administration/configuration.md#attachment-limits)). **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
 **Allowed file types**
 
-The server validates both the declared `Content-Type` and the file's magic bytes. Uploads with a disallowed type are rejected with `HTTP 400`.
+The server validates both the declared `Content-Type` and the file's magic bytes. Uploads with a disallowed type are rejected with `HTTP 400`. Since 1.3 (#2007) the magic bytes must belong to the declared type: a PDF sent as `image/png` is rejected, where earlier versions accepted any allowed signature for any binary type. A WebP file must carry `WEBP` after its `RIFF` header. Plain-text and CSV uploads are checked for HTML or script markup over the whole file, not only the first 4 KB.
 
 | Category | Accepted types |
 |---|---|
@@ -851,7 +851,13 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 **Error response (magic-byte mismatch)**
 
 ```json
-{ "detail": "File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented." }
+{ "detail": "File content does not match its declared type (image/png). The file may be corrupt or its type may have been misrepresented." }
+```
+
+**Error response (markup in a text file)** — `400 Bad Request`. A `text/plain` or `text/csv` upload containing `<script`, `<svg`, `<!doctype`, `<html` or `<iframe` (any case, anywhere in the file since 1.3).
+
+```json
+{ "detail": "File contains HTML/script content and cannot be uploaded as text/plain. Rename it with an appropriate extension or remove the embedded markup." }
 ```
 
 **Error response (no file provided)** — `400 Bad Request`
@@ -864,6 +870,26 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 
 ```json
 { "detail": "File too large. Maximum size is 10 MB." }
+```
+
+**Error response (card quota reached)** — `400 Bad Request` *(since 1.3)*. A card holds at most `ATTACHMENT_MAX_PER_CARD` files (default 100) and `ATTACHMENT_MAX_BYTES_PER_CARD` bytes (default 1 GiB), both operator-configurable (see [Attachment limits](../administration/configuration.md#attachment-limits)). The upload that would break either is refused and nothing is stored; attachments already on the card are kept. Deleting one makes room.
+
+```json
+{ "code": "attachment_quota_exceeded", "detail": "This card already has the maximum of 100 attachments. Delete one to upload another." }
+```
+
+The byte quota uses the same `code` with a different `detail`:
+
+```json
+{ "code": "attachment_quota_exceeded", "detail": "This upload would take the card's attachments over its 1 GB limit. Delete an attachment to make room." }
+```
+
+Branch on `code`, not on `detail`: the message names the configured limit and its wording may change.
+
+**Error response (upload rate limit)** — `429 Too Many Requests` *(since 1.3)*. Uploads have their own per-user limit, the `attachment_upload` throttle scope (default 120 per hour, `ATTACHMENT_THROTTLE_UPLOAD_RATE`), on top of the general per-user API limit. Listing attachments does not count against it. The `Retry-After` header gives the wait in seconds.
+
+```json
+{ "detail": "Request was throttled. Expected available in 1800 seconds." }
 ```
 
 **Error response (viewer role)** — `403 Forbidden`. Viewers cannot upload attachments; collaborators and above can.

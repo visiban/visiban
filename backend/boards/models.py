@@ -302,6 +302,19 @@ class Board(models.Model):
             "out of the column a card was created in."
         ),
     )
+    # Two-tier card links (#2208, prerequisite for #1104): a board with this on
+    # is a "parent tier" board whose cards may have child cards on another
+    # board; a board with it off can only host children. Structural by design,
+    # so the rule is one boolean per board rather than a per-card guess
+    # (boards/services/card_links.py holds the shared predicate). db_default
+    # keeps the column add zero-downtime and existing boards behave as before.
+    cards_can_have_children = models.BooleanField(
+        default=False, db_default=False,
+        help_text=(
+            "Cards on this board can have child cards on another board (#2208). "
+            "Off (the default) means the board can only hold child cards."
+        ),
+    )
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board

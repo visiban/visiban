@@ -1,6 +1,6 @@
 ---
 name: fix-mr
-description: Get a blocked GitLab MR to green AND mergeable. Reads both axes of readiness (pipeline status and mergeability), resolves conflicts with `main`, diagnoses pipeline failures with parallel sub-agents, applies fixes, commits, pushes, and re-checks (max 3 iterations).
+description: Get a blocked GitLab MR to green AND mergeable. Reads both axes of readiness (pipeline status and mergeability), resolves conflicts by rebasing onto `main`, diagnoses pipeline failures with parallel sub-agents, applies fixes, commits, pushes once per round, and re-checks (max 3 iterations, two strikes on the same job).
 disable-model-invocation: true
 argument-hint: "[MR number ...]"
 ---
@@ -59,7 +59,7 @@ already an answer:
 | any | `checking` / `unchecked` | **Wait, re-read.** GitLab has not computed mergeability yet; never route on this value |
 | `failed` | `mergeable` / `ci_must_pass` | Step 2 (pipeline only) |
 | `success` | `conflict` / `need_rebase` | **Step 3b** (conflict only) |
-| `failed` | `conflict` / `need_rebase` | **Step 3b first** — merging `main` often clears the red too |
+| `failed` | `conflict` / `need_rebase` | **Step 3b first** — rebasing onto `main` often clears the red too |
 | `failed` | `not_approved`, `discussions_not_resolved`, `draft_status`, `blocked_status` | Step 2 (pipeline only) — and report the human-blocker status verbatim alongside it |
 | `success` | `mergeable` | Step 6 — genuinely done |
 | `running` / `pending` | any | Step 5, then re-read both |
@@ -105,14 +105,27 @@ a stale merge base (Step 3b clears it) — not code. A zero-job failure is never
 about the diff: wait for active pipelines to drain, then re-trigger. Do not diagnose
 code against it. See `.claude/skills/mass_merge/SKILL.md` for the same check.
 
-Otherwise, launch **2 sub-agents in parallel** (both with `model: "sonnet"`). Wait for
-both.
+**Then match the red's shape — do not debug code that is not broken:**
+
+| Red shape | Action |
+|---|---|
+| 0 jobs, `yaml_errors: null` | Stale base or job-quota exhaustion — rebase (Step 3b) or wait; not a code fix |
+| `suppressions-check` red because a cited `SUPPRESSED-UNTIL(#NNNN)` issue is now closed | Remove the suppression or re-point it at an open issue; the code under it is not the problem. An inconclusive API lookup fails open, so a red here is real |
+| A job that failed closed on a GitLab API timeout or 429 (an API-lookup gate such as `suppressions-check`) | Retry the job; no code change |
+| `dep-scan-osv` orange ("passed with warnings", exit 2) | Not a pipeline failure, but clear the warnings rather than leaving them |
+| A path-discriminated gate (Helm, docs) | Check whether your diff touches the path before debugging |
+| `success` hiding a failed `allow_failure: true` job | Query the jobs, not the pipeline summary |
+
+Otherwise, launch **2 sub-agents in parallel** (default `model: "sonnet"`; use `"opus"`
+for Sub-agent 1's diagnosis when an escalation criterion in *Escalation and the strike
+rule* below already holds, and name the criterion in the report). Wait for both.
 
 **Sub-agent 1 — Fetch failed job logs:**
 > List the failed jobs of pipeline `$PIPELINE_ID` with
 > `glab api "projects/:id/pipelines/$PIPELINE_ID/jobs?scope[]=failed"`. For each, fetch
 > its log with `glab ci trace <job-id>`. Return the job name, stage, and the log tail
-> that contains the failure — not the whole log.
+> that contains the failure — not the whole log. Read **every** failed job up front and
+> cluster them by root cause: one bad import often reds several jobs.
 
 **Sub-agent 2 — Gather context:**
 > Run `git log --oneline -5` and `git diff origin/main...HEAD --stat` to understand the
@@ -135,10 +148,16 @@ Using the sub-agent results:
 3. Apply the fix (edit files, run formatters, update tests, etc.)
 4. Verify locally:
    ```bash
-   cd packages/api && pytest <test_file> -q   # backend test failures
-   cd packages/web && npx tsc --noEmit        # frontend type errors
+   cd backend && python -m pytest <test_file> -q   # backend test failures
+   cd frontend && npx tsc -p tsconfig.app.json --noEmit   # frontend type errors
    ```
-   (Run the linter named in the failing job for lint failures.)
+   (Run the linter named in the failing job for lint failures.) Reproduce the failing
+   job's local equivalent before every push — each push is a full pipeline. The repo's
+   only `pre-push` hook (optional, from `scripts/setup-hooks.sh`) just checks for issue
+   collisions; it is not a lint, type, or test gate, so that local reproduction is the
+   whole check.
+5. **Fix each root-cause cluster as its own commit, then push once for all of them.**
+   Diagnose a failure as soon as its job fails; do not wait for the rest of the pipeline.
 
 ### Step 3b — Merge conflict (`detailed_merge_status: conflict`)
 
@@ -164,16 +183,21 @@ git rev-list --left-right --count HEAD...origin/<branch>  # LEFT=ahead RIGHT=beh
 
 ```bash
 git fetch origin
-git merge origin/main
+git rebase origin/main
 ```
 
-Prefer **merge over rebase** to resolve a conflict — it needs no force-push, so the
-no-force-push rule below stays satisfied without a round trip. (This is distinct from the
-global "rebase before each merge" rule for batched MR sequences, which refreshes a
-*stale base* before landing; this rule is about *resolving a conflict* on one MR.)
+**Rebase, never merge `main`.** Do not add a `merge main` commit to resolve a conflict.
+This matches `/wave`'s rebase-onto-`origin/main` step. Rebasing the MR's own branch and
+pushing with a bare `--force-with-lease` needs no confirmation. Still confirm with the
+user first for plain `--force` (never use it), for rewriting another author's commits,
+and for the diverged `N / M` row above.
 
-If you rebase anyway (the user wants linear history), the push needs a lease, and only
-with the user's confirmation:
+**Rebase only when you are pushing anyway.** A rebase whose sole purpose is tidying
+history cancels the running pipeline and starts another. The exception is a stale-base
+red (0 jobs, `yaml_errors: null`), which is failing regardless.
+
+If the branch already carries a merge commit from `main`, the rebase can conflict
+spuriously. Abort (`git rebase --abort`) and report rather than hand-resolving.
 
 ```bash
 git fetch origin
@@ -190,30 +214,43 @@ git push --force-with-lease origin "<branch>"   # BARE form only
 - Never fall back to plain `--force`.
 
 **Resolve in place, between the conflict markers.** Never rebuild a conflicted file from
-`git show :2:<path>`. Stage 2 is the branch's *pre-merge* blob, so copying it over the
-working-tree file silently discards every hunk the merge already auto-settled elsewhere
-in that same file — and `git status` still reports the file resolved. The tell is a test
-failing on a symbol your change never mentions, in a block the *other* branch
-contributed.
+`git show :2:<path>` or `:3:<path>`. Under rebase ours/theirs are swapped, so neither
+stage is "your side", and either is a single-sided blob that silently discards every hunk
+git already auto-settled elsewhere in that same file — and `git status` still reports the
+file resolved. The tell is a test failing on a symbol your change never mentions, in a
+block the *other* branch contributed.
 
-**After merging, check what a merge commonly breaks:**
-- `ls changelog.d/` — a merge can leave a **duplicate** fragment
+**After the rebase, check what an integration commonly breaks:**
+- `ls changelog.d/` — a rebase can leave a **duplicate** fragment
 - Sequence-numbered files (migrations, ADRs, numbered rules in `frontend/CLAUDE.md`) — these collide only on the
-  *merged* tree, so both sides were green alone
+  *integrated* tree, so both sides were green alone
 
-Then re-run the scoped tests for the files the merge touched and push. A merge commit's default message is fine. Then go to Step 4b and record the cost before you read the pipeline again.
+Then re-run the scoped tests for the files the rebase touched and push with the lease
+above. Then go to Step 4b and record the cost before you read the pipeline again.
 
 ---
 
 ## Step 4 — Commit and push
 
-Commit the fix with a descriptive message:
+Commit each root-cause cluster separately (one fix per commit), then push **once** for
+all of them. Use a heredoc, and fill the trailer with the model running this session —
+do not copy a name from an earlier commit:
 
 ```bash
 git add <fixed files>
-git commit -m "fix(ci): <what was fixed>"
-git push origin "$(git branch --show-current)"
+git commit -m "$(cat <<'EOF'
+fix(ci): <what was fixed and why>
+
+Co-Authored-By: Claude <model> <noreply@anthropic.com>
+EOF
+)"
+git push origin "$(git branch --show-current)"   # after a rebase: git push --force-with-lease origin "<branch>"
 ```
+
+Never use `--no-verify` to skip hooks; fix the underlying issue. A changelog-check
+failure is fixed with a `changelog.d/<issue-or-slug>.<type>.md` fragment (types `added`,
+`changed`, `fixed`, `security`) — never by editing `CHANGELOG.md`. The job auto-skips
+only non-product diffs, or an MR carrying the `no-changelog` label.
 
 ---
 
@@ -223,7 +260,7 @@ git push origin "$(git branch --show-current)"
 before reading the pipeline again.** This step used to sit at the end of Step 6, but Step 5
 ends the pass when the pipeline is still running, so a pass that pushed and stopped on a
 running pipeline never reached it and posted no record. That is the common case for a
-conflict-only fix: merging `main` always starts a new pipeline. MR !1917 lost its record this
+conflict-only fix: rebasing onto `main` always starts a new pipeline. MR !1917 lost its record this
 way on 2026-11-16. The record measures the session's work, not the pipeline's result, so it
 never waits for CI.
 
@@ -248,13 +285,39 @@ this step was skipped.
 
 ## Step 5 — Wait and re-check
 
-After pushing, read both axes again (the Step 1 call). If the pipeline is still running,
-tell the user and stop — do not poll in a foreground loop. If you must wait, run a
+After pushing, read both axes again (the Step 1 call) — the MR's `head_pipeline`, never
+the branch ref. If the pipeline is still running, act on the first failed job instead of
+waiting for the whole pipeline; otherwise tell the user and stop — do not poll in a foreground loop. If you must wait, run a
 bounded poll in the background and make no other tool calls until it reports.
 
 If the pipeline has completed:
 - **Green**: go to Step 6
-- **Red with new failures**: go back to Step 2 (max 3 iterations)
+- **Red with new failures**: go back to Step 2, subject to the strike rule below and the
+  3-iteration cap
+
+---
+
+## Escalation and the strike rule
+
+**Strike rule.** If the same job fails twice with no new diagnosis, stop pushing and ask
+the user — even if fewer than 3 iterations have run. A new diagnosis means a different
+root cause, not a different guess at the same one. The 3-iteration cap is the hard outer
+bound across *different* failures; the strike rule is the tighter bound on a *repeated*
+one, so whichever trips first stops the loop.
+
+**Escalate to Opus** (sub-agents default to Sonnet) when any of these holds, and name the
+criterion in the report:
+- a test failure where either the test or the code could be wrong — a design judgment
+- a rebase conflict in a high-risk surface: `backend/*/migrations/`,
+  `backend/git_lens/` (pipeline derivation), `backend/boards/broadcast.py` or
+  `consumers.py` (WebSocket), or `backend/boards/template_sync.py`
+- a red job whose root cause is not in the log tail
+
+For the test-failure and unknown-root-cause criteria, escalating means running that
+diagnosis (Step 2 Sub-agent 1) with `model: "opus"`, or recommending the user rerun
+`/fix-mr` on Opus. For a rebase-conflict escalation (Step 3b), Sub-agent 1 does not
+diagnose conflicts, so recommend the user rerun `/fix-mr` on Opus. There is no tier above Opus: a pipeline
+Opus cannot diagnose after a strike-two stop goes to the user.
 
 ---
 
@@ -285,8 +348,10 @@ those verbatim rather than calling the MR ready; they need a human.
 ## Rules
 
 - **Check both axes before reporting anything** — a green pipeline is half the answer; `detailed_merge_status` is the other half
-- **Never force-push** without user confirmation — create new commits for fixes, and merge (not rebase) to resolve conflicts
+- **Rebase onto `origin/main`, never merge it** — resolve conflicts by rebase and push with a bare `--force-with-lease`; plain `--force`, another author's commits, and a diverged ahead/behind state still need user confirmation
+- **Stop at two strikes, escalate by the list** — same job failing twice with no new diagnosis stops the loop; see *Escalation and the strike rule*
 - **Max 3 fix iterations** — if the pipeline still fails after 3 rounds, report the remaining failures and stop. The user needs to investigate.
+- **Reproduce locally, fix every cluster, push once** — each push is a full pipeline
 - **Never merge the MR** — hand back the URL and stop. The user merges manually.
 - **Post the cost record after the push, never after the pipeline** — Step 4b runs on every pass that pushes, including one that ends at Step 5 on a running pipeline
 - **Do not retry without a code change** unless the failure is clearly infrastructure-related (runner timeout, network error, OOM, a zero-job pipeline)

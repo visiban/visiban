@@ -164,6 +164,34 @@ WEBHOOK_ALLOWED_PRIVATE_TARGETS=n8n.lan,192.168.10.0/24
 
 A board admin who tries to save a destination that is not allowed sees one message, which says to ask the operator. It does not name this setting, and it is the same whatever the reason, so it reveals nothing about the network.
 
+### Dispatcher egress policy (Kubernetes)
+
+Added in 1.3. The dispatcher already checks every destination address itself, so this is a second layer: an optional Kubernetes NetworkPolicy that stops the dispatcher pod reaching cluster-internal ranges even if that check were bypassed. It is off by default and needs a CNI that enforces NetworkPolicy (Calico, Cilium). It does nothing on kind's default networking.
+
+```yaml
+webhooks:
+  dispatcher:
+    enabled: true
+    networkPolicy:
+      enabled: true
+```
+
+With it on, the dispatcher pod may reach:
+
+- DNS,
+- the chart's own PostgreSQL and Valkey pods,
+- public addresses, except the ranges in `webhooks.dispatcher.networkPolicy.denyCIDRs` (and `denyCIDRsIPv6`): `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `169.254.0.0/16`, `127.0.0.0/8`, and the IPv6 unique-local, link-local and loopback ranges,
+- anything inside `webhooks.dispatcher.networkPolicy.allowedCIDRs`.
+
+Everything else is refused, including the Kubernetes API and other pods in the cluster.
+
+The policy is never rendered in public demo mode (`demo.enabled`): there the demo egress policy already limits the dispatcher, like every other Visiban pod, to DNS and the chart's own datastores, and this policy's public egress rule would widen that.
+
+!!! warning "Keep `WEBHOOK_ALLOWED_PRIVATE_TARGETS` and `allowedCIDRs` in step"
+    A private destination in `WEBHOOK_ALLOWED_PRIVATE_TARGETS` (`backend.settings.webhookAllowedPrivateTargets`) is admitted by the application, but the network policy still blocks it. Add its address to `allowedCIDRs` too, for example `["192.168.10.0/24"]`. The same applies to an external PostgreSQL or Valkey on a private address (`externalDatabase`, `externalRedis`): without an `allowedCIDRs` entry the dispatcher loses its database.
+
+If your pod, service or node ranges are not in the default deny list, replace `denyCIDRs` with the ranges your cluster uses. Some CNIs do not apply `ipBlock` rules to pod IPs, so the policy is defense in depth; the application-level check remains the primary control.
+
 ### Limits and tuning
 
 All settings, with their defaults, are in [Configuration — Webhooks](../administration/configuration.md#webhooks): timeouts, retry and turn-off thresholds, and caps of 10 webhooks per board, 25 per user and 1000 per server.

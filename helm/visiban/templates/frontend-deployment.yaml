@@ -46,7 +46,7 @@ spec:
             # is read-only: its client/proxy/fastcgi/uwsgi/scgi buffering temp
             # dirs (all under /var/cache/nginx by this image's compile-time
             # --http-*-temp-path defaults) and /run for nginx.pid and
-            # nginx.lock (/var/run is a symlink to /run in nginx:1.27-alpine).
+            # nginx.lock (/var/run is a symlink to /run in nginx:1.30-alpine).
             # The access/error logs are pre-symlinked to /dev/stdout /
             # /dev/stderr by the base image, so /var/log/nginx itself needs no
             # writable mount. /tmp is empty otherwise, kept for parity with
