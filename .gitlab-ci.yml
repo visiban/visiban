@@ -923,6 +923,8 @@ backend-diff-coverage:
     - !reference [.pip-floor, script]
     - pip install --quiet diff-cover
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
+    - git fetch origin "$CI_COMMIT_SHA" --depth=100
   script:
     - cd backend
     - diff-cover coverage.xml
@@ -3018,6 +3020,8 @@ frontend-diff-coverage:
     - !reference [.pip-floor, script]
     - pip install --quiet diff-cover
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
+    - git fetch origin "$CI_COMMIT_SHA" --depth=100
   script:
     - diff-cover frontend/coverage/cobertura-coverage.xml
         --compare-branch=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
@@ -3060,6 +3064,8 @@ added-files-coverage-check:
   before_script:
     - apk add --no-cache git
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
+    - git fetch origin "$CI_COMMIT_SHA" --depth=100
   script:
     - node scripts/check-added-files-covered.mjs
         --target-ref origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
@@ -3315,6 +3321,8 @@ changelog-check:
     - apk add --no-cache git
   script:
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
+    - git fetch origin "$CI_COMMIT_SHA" --depth=100
     - BASE=$(git merge-base origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME HEAD || echo "")
     - |
       if [ -z "$BASE" ]; then
