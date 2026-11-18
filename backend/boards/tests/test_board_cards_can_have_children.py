@@ -167,11 +167,28 @@ class LinkAllowedTruthTableTests(TestCase):
             with self.subTest(parent=p.name, child=c.name):
                 self.assertIs(card_links.link_allowed(p, c), expected)
 
-    def test_hook_has_nothing_to_refuse_yet(self):
+    def test_hook_refuses_a_flip_under_live_links(self):
+        # Filled in by #1104: a flip that would invalidate an existing link
+        # is refused, and an unchanged value or a board with no links is not.
+        from rest_framework.exceptions import ValidationError
+
+        from boards.models import CardParentLink
+        from boards.tests.conftest import _make_card, _make_column, _make_swimlane
+
         owner = User.objects.create_user(username="cchc_hook", password="pass")
-        b = Board.objects.create(name="B", owner=owner)
-        self.assertEqual(card_links.links_blocking_flag_flip(b, True), 0)
-        card_links.check_flag_flip(b, True)  # no raise
+        p = Board.objects.create(name="P", owner=owner, cards_can_have_children=True)
+        c = Board.objects.create(name="C", owner=owner)
+        lone = Board.objects.create(name="L", owner=owner)
+        self.assertEqual(card_links.links_blocking_flag_flip(lone, True), 0)
+        card_links.check_flag_flip(lone, True)  # no links: no raise
+        pc = _make_card(_make_column(p), _make_swimlane(p))
+        cc = _make_card(_make_column(c), _make_swimlane(c))
+        CardParentLink.objects.create(parent=pc, child=cc)
+        card_links.check_flag_flip(p, True)  # unchanged value: no raise
+        for board, value in ((p, False), (c, True)):
+            with self.subTest(board=board.name), self.assertRaises(ValidationError) as ctx:
+                card_links.check_flag_flip(board, value)
+            self.assertIn("cards_can_have_children", ctx.exception.detail)
 
 
 class CardsCanHaveChildrenMigrationTests(TestCase):

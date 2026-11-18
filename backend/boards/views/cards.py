@@ -22,7 +22,9 @@ from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 from accounts.permissions import TokenHasScope
 from visiban.exceptions import INVALID_QUERY_PARAM, INVALID_QUERY_PARAM_SCHEMA, CodedValidationError
-from visiban.request_shape import MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset, query_text
+from visiban.request_shape import (
+    MAX_OFFSET, OFFSET_QUERY_PARAMETER, parse_offset, query_text, require_json_object,
+)
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -30,6 +32,7 @@ from visiban.permissions import (
 
 from ..card_signals import blocked_q, overdue_q, signal_today
 from .. import broadcast as _broadcast
+from ..services import card_links
 from ..services import cards as card_services
 from ..services.notifications import (
     card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
@@ -38,7 +41,7 @@ from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
-    CardChecklist, CardComment, CardMovement, CardRelation, Label,
+    CardChecklist, CardComment, CardMovement, CardParentLink, CardRelation, Label,
     Notification,
 )
 from ..permissions import SITE_ADMIN
@@ -61,6 +64,9 @@ logger = logging.getLogger(__name__)
 
 # Permission error messages — extracted to avoid string duplication.
 _PERM_DENIED = "You do not have permission to perform this action."
+# Page size of GET .../children/ (#1104). Half the per-parent cap, so a full
+# parent is two pages.
+CHILDREN_PAGE_SIZE = 50
 _VIEWER_DENIED = "Viewers cannot perform this action."
 
 
@@ -2634,6 +2640,101 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             relation.delete()
             self._broadcast_relation_change(board, from_card, to_card, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ─── Cross-board parent/child links (#1104) ─────────────────────────────
+    #
+    # Thin wrappers: every rule (roles on the OTHER board, two tiers, one
+    # child board per parent, the cap, the locks, history and events) lives in
+    # boards.services.card_links, the one write and read path for links.
+
+    @extend_schema(
+        methods=["POST"],
+        request=inline_serializer(
+            "CardParentLinkCreate", fields={"parent_id": serializers.IntegerField()},
+        ),
+        responses={201: OpenApiResponse(description="Linked: `{parent_id, child_id}`.")},
+        description=(
+            "Link this card (the child) to a parent card on another board. "
+            "Minimum role: member on BOTH boards. A parent id that is missing or "
+            "on a board the caller cannot open is a 404, identical in both cases. "
+            "Two-tier, already-linked, other-child-board and 100-children refusals "
+            "are 400s carrying a `code`."
+        ),
+    )
+    @extend_schema(
+        methods=["DELETE"],
+        responses={204: OpenApiResponse(description="Unlinked.")},
+        description=(
+            "Remove this card's parent link. Minimum role: member on this card's "
+            "board; the caller need not be able to open the parent."
+        ),
+    )
+    @action(detail=True, methods=["post", "delete"], url_path="parent")
+    def parent(self, request, board_pk=None, pk=None):
+        """Link this card to a parent, or remove its parent link."""
+        board, role = self._board_and_role()
+        # IDOR gate: the card in the URL must be on the board resolved above.
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        if request.method == "DELETE":
+            if role not in card_links.LINK_WRITE_ROLES:
+                raise PermissionDenied(_PERM_DENIED)
+            link = get_object_or_404(
+                CardParentLink.objects.select_related("parent", "child"), child=card,
+            )
+            card_links.remove_link(link, actor=request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        body = require_json_object(request)
+        link = card_links.create_link(
+            user=request.user, child=card, child_role=role, parent_id=body.get("parent_id"),
+        )
+        return Response(
+            {"parent_id": link.parent_id, "child_id": link.child_id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        parameters=[OFFSET_QUERY_PARAMETER],
+        responses={200: OpenApiResponse(description=(
+            "`{count, visible, offset, limit, results}`. When the caller cannot "
+            "open the child board, `visible` is false and only `count` is given."
+        ))},
+        description=(
+            "This card's children, computed for the caller. Minimum role: any "
+            "role on this card's board. Children are on one board; titles are "
+            "returned only when the caller can open it."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="children")
+    def children(self, request, board_pk=None, pk=None):
+        """List this parent card's children, as the caller may see them."""
+        board, _role = self._board_and_role()
+        card = get_object_or_404(Card, pk=pk, board=board)
+        return Response(card_links.children_for_viewer(
+            card, request.user, offset=parse_offset(request), limit=CHILDREN_PAGE_SIZE,
+        ))
+
+    @extend_schema(
+        responses={204: OpenApiResponse(description="Unlinked.")},
+        description=(
+            "Unlink one child from this parent card. Minimum role: member on "
+            "this card's board."
+        ),
+    )
+    @action(detail=True, methods=["delete"], url_path=r"children/(?P<child_pk>[0-9]+)")
+    def child_detail(self, request, board_pk=None, pk=None, child_pk=None):
+        """Remove one child link, from the parent's end."""
+        board, role = self._board_and_role()
+        if role not in card_links.LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        card = get_object_or_404(Card, pk=pk, board=board)
+        # Scoped to this parent: a link elsewhere on the instance 404s.
+        link = get_object_or_404(
+            CardParentLink.objects.select_related("parent", "child"),
+            parent=card, child_id=child_pk,
+        )
+        card_links.remove_link(link, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _broadcast_relation_change(self, board, from_card, to_card, request):

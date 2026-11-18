@@ -1,10 +1,10 @@
 from types import SimpleNamespace
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 
 from rest_framework.exceptions import NotFound
 
@@ -445,6 +445,14 @@ class CardAdmin(admin.ModelAdmin):
                 CardMovement.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
                     board_id=obj.board_id,
                 )
+                # A card moved to another board leaves its parent/child links
+                # (#1104): a moved child would split its parent's one child
+                # board, and a moved parent may land on a child tier. Both
+                # cards record the unlink, and both boards get the ping.
+                if stored is not None and stored.board_id != obj.board_id:
+                    from .services.card_links import unlink_all
+
+                    unlink_all(obj, actor=request.user)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it
@@ -1023,6 +1031,10 @@ class BoardAdminForm(RowVersionFormMixin, forms.ModelForm):
         fields = "__all__"
 
 
+class _FlagFlipRefused(Exception):
+    """A ``cards_can_have_children`` flip that live card links refuse (#1104)."""
+
+
 @admin.register(Board)
 class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Board that broadcasts mutations to both the board channel and
@@ -1063,10 +1075,21 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
         "The page now shows the current state of the board; make your changes again."
     )
 
-    # cards_can_have_children is editable here via fields="__all__", but this
-    # write path deliberately does not call check_flag_flip yet: no link model
-    # exists (links_blocking_flag_flip returns 0). The card-link MR (#1104) must
-    # call it here so staff cannot flip the flag under live links.
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """Turn a flag flip refused under the board lock into a message (#1104).
+
+        The refusal is raised inside ``changeform_view``'s transaction, so the
+        save rolls back whole, then the staff user is sent back to the form.
+        """
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except _FlagFlipRefused as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            return HttpResponseRedirect(request.get_full_path())
+
+    # cards_can_have_children is editable here via fields="__all__". The flip
+    # is checked against live card links (#1104) under the board row lock that
+    # create_link also takes, so a staff flip and a link create serialize.
     def save_model(self, request, obj, form, change):
         old_group_id = None
         stored = None
@@ -1118,6 +1141,20 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                     "staleness_threshold_days",
                 ).first()
             )
+        if change:
+            locked_flag = (
+                Board.objects.filter(pk=obj.pk)
+                .values_list("cards_can_have_children", flat=True).first()
+            )
+            if locked_flag is not None and locked_flag != obj.cards_can_have_children:
+                from .services.card_links import links_blocking_flag_flip
+
+                blocking = links_blocking_flag_flip(obj, obj.cards_can_have_children)
+                if blocking:
+                    raise _FlagFlipRefused(
+                        f"Cannot change \"cards can have children\" while {blocking} "
+                        "card link(s) depend on it. Remove those links first."
+                    )
         super().save_model(request, obj, form, change)
         if old_auto_settings is not None:
             # The REST PATCH's path (#2245): turning auto off clears every

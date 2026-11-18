@@ -1,19 +1,47 @@
-"""Two-tier card-link rules (#2208, prerequisite for #1104).
+"""Cross-board parent/child card links (#1104) and their two-tier rules (#2208).
 
 Cards link parent -> child across boards, and the hierarchy is two-tier by
 design: a board is either a parent tier (``cards_can_have_children`` is True)
 or a child tier (False), never both. Making the tier a property of the board
 rather than of each card keeps the rule structural: an admin decides once what
 a board is for, and a card can never end up as both a grandparent and a child.
-The per-card check in the card-link write path (a later MR) is defense in
-depth on top of this predicate, not a substitute for it.
+The per-card check in :func:`create_link` is defense in depth on top of this
+predicate, not a substitute for it.
 
-No link model exists yet, so :func:`links_blocking_flag_flip` has nothing to
-refuse today. It is wired into the board write path now so the card-link MR
-only has to fill in its query.
+This module is the ONE place that writes a link and the ONE place that
+computes a parent's children for a viewer (threat model, Rule 10). REST calls
+it today; MCP, export and the #2212 extension slot must call
+:func:`children_for_viewer` rather than querying ``CardParentLink`` on their
+own, so a second transport can never show more than REST does.
+
+**Why every read is per viewer:** a link crosses an authorization boundary.
+Whoever can open the parent board is not necessarily able to open the child
+board, and the reverse. A child board the viewer has no role on is reported
+as a count only (owner sign-off 2026-11-17, decision B), never a title, board,
+column or id.
 """
 
-from rest_framework.exceptions import ValidationError
+from django.db import connection, transaction
+from django.db.models import Q
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+
+from visiban.exceptions import CodedValidationError
+
+from .. import broadcast as _broadcast
+from ..models import Board, BoardMembership, Card, CardActivity, CardParentLink
+from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
+
+#: Hard cap on the children of one parent (threat model: write amplification
+#: and rollup cost). Enforced under the parent card's row lock.
+CHILDREN_PER_PARENT_LIMIT = 100
+
+#: Roles that may create or remove a link on a board. An allow-list, as for
+#: ``CardViewSet.relations``: a link changes how another card reads for
+#: everyone on its board, so it sits on the card-state side of the
+#: collaborator line.
+LINK_WRITE_ROLES = (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+_PERM_DENIED = "You do not have permission to perform this action."
 
 
 def link_allowed(parent_board, child_board) -> bool:
@@ -31,12 +59,15 @@ def link_allowed(parent_board, child_board) -> bool:
 def links_blocking_flag_flip(board, new_value: bool) -> int:
     """Count the existing links that flipping ``board`` to ``new_value`` would invalidate.
 
-    Hook for the card-link MR (#1104): once links exist, turning the flag off
-    on a board that has child links as a parent, or on for a board that is
-    already a child, would leave links the predicate refuses. Until then there
-    are no links, so this returns 0.
+    Turning the flag OFF on a parent board would leave its cards' children
+    linked to a child-tier parent; turning it ON on a child board would make
+    its linked children sit on a parent tier. Either breaks :func:`link_allowed`
+    for a link that already exists. Callers hold the board row lock, and
+    :func:`create_link` takes the same lock, so a flip and a link serialize.
     """
-    return 0
+    if new_value:
+        return CardParentLink.objects.filter(child__board_id=board.pk).count()
+    return CardParentLink.objects.filter(parent__board_id=board.pk).count()
 
 
 def check_flag_flip(board, new_value: bool) -> None:
@@ -54,3 +85,252 @@ def check_flag_flip(board, new_value: bool) -> None:
                 "Remove those links first."
             ]
         })
+
+
+# ─── Lookup ──────────────────────────────────────────────────────────────────
+
+
+def resolve_card_for_user(user, card_id):
+    """Return ``(card, role)`` for a card id from a request body.
+
+    A missing id, a non-numeric id and an id on a board the user cannot open
+    all raise the SAME ``NotFound``: the lookup must not be an oracle for the
+    existence of cards on other boards (threat model, risk 1; Rule 7).
+    """
+    try:
+        pk = int(card_id)
+    except (TypeError, ValueError):
+        raise NotFound() from None
+    if isinstance(card_id, bool) or pk <= 0:
+        raise NotFound()
+    card = (
+        Card.objects.select_related(f"board__{GROUP_ANCESTOR_SELECT_RELATED}")
+        .filter(pk=pk)
+        .first()
+    )
+    if card is None:
+        raise NotFound()
+    role = get_board_roles(user, [card.board])[card.board_id]
+    if role is None:
+        raise NotFound()
+    return card, role
+
+
+# ─── Write path ──────────────────────────────────────────────────────────────
+
+
+def _lock_endpoints(parent_pk, child_pk, board_pks=()):
+    """Lock both boards, then both cards, each in pk order.
+
+    Boards first, ``FOR NO KEY UPDATE`` (the mode the board PATCH and the
+    Django-admin board save take), so a concurrent ``cards_can_have_children``
+    flip either commits before the link reads the flags or waits for the link
+    to commit and then counts it in :func:`links_blocking_flag_flip`. Cards
+    second, so two links naming the same parent (the one-child-board and cap
+    checks) or the same pair in opposite directions (the two-tier check)
+    queue instead of both passing on a stale read. pk order on both, so two
+    requests naming the same rows in opposite roles queue, not deadlock.
+
+    Returns ``{card_pk: board_id}`` for the cards still present, read under
+    the lock so a card moved to another board meanwhile is judged where it is.
+    """
+    if not connection.features.has_select_for_update:
+        # SQLite (the default test harness) serializes writers database-wide,
+        # so the race these locks guard against cannot occur there.
+        return dict(
+            Card.objects.filter(pk__in=[parent_pk, child_pk]).values_list("pk", "board_id")
+        )
+    # An unlink passes no boards: removing a link can only lower the count a
+    # flag flip reads, so it does not need to hold the flip off.
+    list(
+        Board.objects.select_for_update(no_key=True)
+        .filter(pk__in=sorted(set(board_pks)))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    return dict(
+        Card.objects.select_for_update()
+        .filter(pk__in=sorted({parent_pk, child_pk}))
+        .order_by("pk")
+        .values_list("pk", "board_id")
+    )
+
+
+def _record(card_id, event_type, actor, *, to_value="", from_value=""):
+    CardActivity.objects.create(
+        card_id=card_id, event_type=event_type, actor=actor,
+        to_value=to_value, from_value=from_value,
+    )
+
+
+def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
+    """Record the two ids-only pings, published when the transaction commits.
+
+    ``record_board_event`` defers the publish with ``transaction.on_commit``,
+    so a rolled-back link broadcasts nothing. The child's own card events are
+    never fanned out to the parent board: the parent board only ever learns
+    "this parent's children changed" (Rule 8 row, #1104).
+    """
+    _broadcast.record_board_event(
+        parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
+        {"parent_id": parent_id}, actor_id=actor_id,
+    )
+    _broadcast.record_board_event(
+        child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+        {"card_ids": [child_id]}, actor_id=actor_id,
+    )
+
+
+def create_link(*, user, child, child_role, parent_id):
+    """Link ``child`` (already resolved on a board the user can open) to a parent.
+
+    Authorization: MEMBER or higher on BOTH boards. ``child_role`` is the
+    caller's role on the child's board; the parent's board role is resolved
+    here, and a parent the user cannot open is a 404 identical to a missing
+    one. Every rule that depends on other rows is decided under
+    :func:`_lock_endpoints`. Returns the new ``CardParentLink``.
+    """
+    if child_role not in LINK_WRITE_ROLES:
+        raise PermissionDenied(_PERM_DENIED)
+    parent, parent_role = resolve_card_for_user(user, parent_id)
+    if parent.pk == child.pk:
+        raise CodedValidationError("self_link", "A card cannot be its own parent.")
+    if parent_role not in LINK_WRITE_ROLES:
+        raise PermissionDenied(_PERM_DENIED)
+
+    with transaction.atomic():
+        boards_now = _lock_endpoints(parent.pk, child.pk, [parent.board_id, child.board_id])
+        # Judge the cards where they are under the lock: a card deleted or
+        # moved to another board after the lookup is a 404, not a link to a
+        # board the role checks above were not made against.
+        if boards_now.get(child.pk) != child.board_id or boards_now.get(parent.pk) != parent.board_id:
+            raise NotFound()
+        flags = dict(
+            Board.objects.filter(pk__in=[parent.board_id, child.board_id])
+            .values_list("pk", "cards_can_have_children")
+        )
+        parent.board.cards_can_have_children = flags[parent.board_id]
+        child.board.cards_can_have_children = flags[child.board_id]
+        if not link_allowed(parent.board, child.board):
+            raise CodedValidationError(
+                "link_not_allowed",
+                "A parent must be on a board whose cards can have children, and "
+                "the child on a board whose cards cannot.",
+            )
+        # Defense in depth for "exactly two tiers": the board predicate makes
+        # these unreachable while every flag flip goes through check_flag_flip.
+        if CardParentLink.objects.filter(parent_id=child.pk).exists():
+            raise CodedValidationError("child_is_parent", "This card has children, so it cannot have a parent.")
+        if CardParentLink.objects.filter(child_id=parent.pk).exists():
+            raise CodedValidationError("parent_is_child", "That card has a parent, so it cannot have children.")
+        existing = CardParentLink.objects.filter(child_id=child.pk).first()
+        if existing is not None:
+            if existing.parent_id == parent.pk:
+                raise CodedValidationError("link_exists", "This card is already linked to that parent.")
+            raise CodedValidationError("already_has_parent", "This card already has a parent. Unlink it first.")
+        siblings = CardParentLink.objects.filter(parent_id=parent.pk)
+        # One child board per parent (epic #2206 decision A, enforced pending
+        # the owner's confirmation; relaxing it later is backward compatible).
+        if siblings.exclude(child__board_id=child.board_id).exists():
+            raise CodedValidationError(
+                "children_on_other_board",
+                "That parent's children are on another board. All of a parent's "
+                "children live on one board.",
+            )
+        if siblings.count() >= CHILDREN_PER_PARENT_LIMIT:
+            raise CodedValidationError(
+                "children_limit",
+                f"That parent has {CHILDREN_PER_PARENT_LIMIT} children (the limit).",
+            )
+        link = CardParentLink.objects.create(parent=parent, child=child, created_by=user)
+        _record(child.pk, CardActivity.EventType.PARENT_LINKED, user, to_value=str(parent.pk))
+        _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user, to_value=str(child.pk))
+        _announce(parent.board_id, parent.pk, child.board_id, child.pk, user.id)
+    return link
+
+
+def remove_link(link, *, actor):
+    """Delete ``link`` and record it on both cards and both boards.
+
+    Authorization is the caller's: either end may unlink, with MEMBER or
+    higher on the board of the end it acts from (threat model decision 3).
+    Unlinking edits only the caller's own card's link, so a child-board member
+    who cannot open the parent may still remove it.
+    """
+    with transaction.atomic():
+        boards_now = _lock_endpoints(link.parent_id, link.child_id)
+        deleted, _ = CardParentLink.objects.filter(pk=link.pk).delete()
+        if not deleted:
+            # A concurrent unlink won; answer as for a link that is gone.
+            raise NotFound()
+        _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor, from_value=str(link.parent_id))
+        _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor, from_value=str(link.child_id))
+        _announce(
+            boards_now.get(link.parent_id, link.parent.board_id), link.parent_id,
+            boards_now.get(link.child_id, link.child.board_id), link.child_id,
+            getattr(actor, "id", None),
+        )
+
+
+def unlink_all(card, *, actor=None):
+    """Remove every link ``card`` takes part in, either end.
+
+    For paths that move a card to another board (the Django admin): a moved
+    child would split its parent's one child board, and a moved parent could
+    land on a child tier. Called inside the caller's transaction.
+    """
+    links = CardParentLink.objects.select_related("parent", "child").filter(
+        Q(child_id=card.pk) | Q(parent_id=card.pk)
+    ).order_by("pk")
+    for link in list(links):
+        remove_link(link, actor=actor)
+
+
+# ─── Read path ───────────────────────────────────────────────────────────────
+
+
+def children_for_viewer(parent, user, *, offset=0, limit=50):
+    """The one children read for every transport. Computed per viewer.
+
+    Returns ``{"count", "visible", "offset", "limit", "results"}``. All of a
+    parent's children are on one board, so the viewer either can open that
+    board (``visible`` true, rows with titles) or cannot (``visible`` false,
+    ``results`` empty, ``count`` only: the accepted disclosure). No board,
+    column or card id is returned for a board the viewer cannot open.
+
+    The role is resolved on every call with ``get_board_roles``, never cached,
+    so a viewer who loses the child board stops seeing titles on the next
+    request (Rules 2 and 3).
+    """
+    links = CardParentLink.objects.filter(parent_id=parent.pk)
+    count = links.count()
+    out = {"count": count, "visible": False, "offset": offset, "limit": limit, "results": []}
+    if count == 0:
+        out["visible"] = True
+        return out
+    child_board_id = links.values_list("child__board_id", flat=True).first()
+    child_board = (
+        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=child_board_id).first()
+    )
+    if child_board is None or get_board_roles(user, [child_board])[child_board.pk] is None:
+        return out
+    out["visible"] = True
+    cards = (
+        Card.objects.filter(parent_link__parent_id=parent.pk)
+        .select_related("column", "swimlane")
+        .order_by("pk")[offset:offset + limit]
+    )
+    out["results"] = [
+        {
+            "id": c.pk,
+            "title": c.title,
+            "board_id": c.board_id,
+            "column_id": c.column_id,
+            "column_name": c.column.name,
+            "swimlane_id": c.swimlane_id,
+            "swimlane_name": c.swimlane.name,
+            "archived": c.archived_at is not None,
+        }
+        for c in cards
+    ]
+    return out

@@ -80,6 +80,14 @@ EVT_CARD_ARCHIVED = "card.archived"
 # WS name by this contract, the hook name by the 1.0+ extension guarantee. They
 # are not a typo, and neither may be "corrected" to match the other.
 EVT_CARD_UNARCHIVED = "card.unarchived"
+# Cross-board parent/child links (#1104). Both are ids-only pings: a client
+# refetches over REST, where the server resolves what that viewer may see.
+# ``card.children_changed {parent_id}`` goes to the PARENT's board;
+# ``card.parent_changed {card_ids}`` goes to the CHILD's board. Neither ever
+# carries a title, column or count from the other board (security-invariants
+# Rule 8, and its named timing residual).
+EVT_CARD_CHILDREN_CHANGED = "card.children_changed"
+EVT_CARD_PARENT_CHANGED = "card.parent_changed"
 
 EVT_MEMBER_ADDED = "member.added"
 EVT_MEMBER_UPDATED = "member.updated"
@@ -148,6 +156,8 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_CARD_MOVED,
     EVT_CARD_ARCHIVED,
     EVT_CARD_UNARCHIVED,
+    EVT_CARD_CHILDREN_CHANGED,
+    EVT_CARD_PARENT_CHANGED,
     EVT_MEMBER_ADDED,
     EVT_MEMBER_UPDATED,
     EVT_MEMBER_REMOVED,
@@ -176,6 +186,16 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
         "that did not exist a moment ago. It is broadcast for symmetry with the "
         "group channel (where it does drive the boards list) and to put the row "
         "in the change feed; BoardView has nothing to do with it."
+    ),
+    EVT_CARD_CHILDREN_CHANGED: (
+        "Backend-first (#1104): the parent-side Children tab and rollup that "
+        "refetch on this ping ship in #2209/#2210. Until then no client view "
+        "shows children, so there is nothing to refresh."
+    ),
+    EVT_CARD_PARENT_CHANGED: (
+        "Backend-first (#1104): the child-side parent line and Parent row that "
+        "refetch on this ping ship in the #1104 card-link UI MR. Until then no "
+        "client view shows a card's parent, so there is nothing to refresh."
     ),
 }
 
