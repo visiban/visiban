@@ -554,6 +554,7 @@ cost-ledger-selftest:
         - scripts/subagent-tokens.py
         - scripts/orchestrator-tokens.py
         - scripts/est-cost.py
+        - .claude/skills/wave/SKILL.md
         - scripts/cost-table.py
         - scripts/post-mr-cost.py
         - .claude/hooks/post-mr-cost.sh
