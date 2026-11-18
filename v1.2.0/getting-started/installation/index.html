@@ -5216,6 +5216,11 @@
 <td style="text-align: center;">No</td>
 <td>Maximum Trello JSON export size for the <a href="../../features/trello-import/">Trello import wizard</a>, in bytes (default: <code>26214400</code>, 25 MB). Your reverse proxy must accept bodies at least this large; see <a href="../../administration/configuration/#import-limits">Import limits</a>. The 1.2 pre-release name <code>VISIBAN_IMPORT_MAX_SIZE</code> still works as a deprecated alias.</td>
 </tr>
+<tr>
+<td><code>SHARE_BOARD_CACHE_TTL_SECONDS</code></td>
+<td style="text-align: center;">No</td>
+<td>Seconds the anonymous <a href="../../features/board/#board-sharing">share-link</a> board view is cached (default: <code>15</code>). Must be a whole number; <code>0</code> or a negative value turns the cache off. Not currently exposed by the Helm chart.</td>
+</tr>
 </tbody>
 </table>
 <p><a id="local-development"></a></p>

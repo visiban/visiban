@@ -5589,6 +5589,11 @@ real sender address is set, by either method.</p>
 <td><a href="../scheduled-jobs/">Scheduled jobs</a></td>
 </tr>
 <tr>
+<td><code>SHARE_BOARD_CACHE_TTL_SECONDS</code> (default <code>15</code>)</td>
+<td>How long, in seconds, the anonymous <a href="../../features/board/#board-sharing">share-link</a> board view is cached. <code>0</code> turns the cache off. Revoking, rotating, expiring or deactivating a link is never delayed by it. Must be a whole number (a non-numeric value fails at startup); a negative value also turns the cache off. Set it through the Compose/<code>.env</code> path; the Helm chart does not currently expose it. <em>(1.3+, #1965)</em></td>
+<td><a href="../../features/board/#board-sharing">Board sharing</a></td>
+</tr>
+<tr>
 <td><code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, <code>OIDC_SERVER_URL</code>, <code>OIDC_PROVIDER_NAME</code></td>
 <td>Generic OIDC single sign-on. Set the first three together to enable it; the provider name labels the login button (default <code>SSO</code>).</td>
 <td><a href="../../getting-started/oauth/">OAuth and SSO</a>, <a href="../authentication/">Authentication</a></td>
