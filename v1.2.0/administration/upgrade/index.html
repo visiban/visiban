@@ -4922,6 +4922,15 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Read the notes for every version between your current release and the target before you upgrade. Each callout is a change an operator may need to act on: a changed default, a renamed setting, or a new requirement.</p>
 <h3 id="upgrading-to-13x">Upgrading to 1.3.x<a class="headerlink" href="#upgrading-to-13x" title="Permanent link">&para;</a></h3>
 <div class="admonition note">
+<p class="admonition-title">A Valkey outage no longer fails the readiness probe: monitors on its <code>503</code> stop firing</p>
+<p>Since 1.3, <code>/api/health/readiness/</code> depends on the database only. When Valkey is unreachable it answers <code>200</code> with <code>{"status": "degraded"}</code> instead of <code>503</code> with a <code>redis</code> key, so pods stay in the Service and ordinary REST requests keep working (#1465). See <a href="../configuration/#if-valkey-goes-down">If Valkey goes down</a> for what still fails.</p>
+<ul>
+<li><strong>Monitors and load balancers</strong> that alert on, or route by, a readiness <code>503</code> for Valkey will no longer fire for a Valkey outage. Alert on the <code>status</code> field (<code>degraded</code>), on Valkey's own metrics, or on the <code>Readiness degraded: cache</code> log line instead.</li>
+<li><strong><code>helm test</code></strong> still fails on a Valkey problem: its readiness step requires <code>{"status": "ok"}</code>. <code>helm upgrade --wait</code> alone no longer does, because it waits on the readiness probe, so run <code>helm test</code> after an upgrade that changes Valkey settings (URL, password, <code>externalRedis</code>).</li>
+<li><strong>New cache timeouts.</strong> Every cache call now gives up after 0.5 seconds (<code>REDIS_CACHE_SOCKET_CONNECT_TIMEOUT</code>, <code>REDIS_CACHE_SOCKET_TIMEOUT</code>; Helm <code>backend.settings.cacheTimeouts</code>). Before, a Valkey that dropped packets instead of refusing connections made requests hang. Raise them only for a Valkey with unusually slow replies.</li>
+</ul>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Valkey now has a memory ceiling and an eviction policy</p>
 <p>Since 1.3, Valkey runs with <code>maxmemory</code> and <code>maxmemory-policy volatile-lru</code> (#1130), so a busy instance evicts old cache entries instead of growing until it is OOM-killed.</p>
 <ul>
@@ -5901,7 +5910,7 @@ only, no table rewrite). What this means for you:</p>
 <li><strong>The frontend Service's own port is unchanged</strong> (<code>frontend.service.port</code>, <code>80</code> by default). It targets the container by its named <code>http</code> port, which moves with it automatically, so <code>helm install</code>/<code>helm upgrade</code>, <code>kubectl port-forward svc/&lt;release&gt;-visiban-frontend</code>, and the Ingress all need no changes.</li>
 <li><strong>Direct pod port-forwards change:</strong> a <code>kubectl port-forward &lt;frontend-pod-name&gt; 8080:80</code> run directly against the pod (bypassing the Service) must become <code>8080:8080</code>. The NOTES printed after <code>helm install</code>/<code>helm upgrade</code> already show the updated command, but a script or shell alias built from an older NOTES output needs updating by hand.</li>
 </ul>
-<p><strong>What could break:</strong> a custom frontend image not built on <code>nginx:1.27-alpine</code>, or one that writes anywhere but <code>/var/cache/nginx</code>, <code>/run</code> or <code>/tmp</code>, may fail under a read-only root filesystem or lack the <code>101:101</code> <code>nginx</code> user/group this chart defaults to. Verify an overridden <code>frontend.image</code> on staging first.</p>
+<p><strong>What could break:</strong> a custom frontend image not built on <code>nginx:1.30-alpine</code>, or one that writes anywhere but <code>/var/cache/nginx</code>, <code>/run</code> or <code>/tmp</code>, may fail under a read-only root filesystem or lack the <code>101:101</code> <code>nginx</code> user/group this chart defaults to. Verify an overridden <code>frontend.image</code> on staging first.</p>
 <p><strong>If your image cannot run under this hardening</strong>, relax just the field that conflicts. For example, to keep a writable root filesystem on a custom frontend image:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>-f<span class="w"> </span>my-values.yaml<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">  </span>--set<span class="w"> </span>frontend.securityContext.container.readOnlyRootFilesystem<span class="o">=</span><span class="nb">false</span>

@@ -1823,6 +1823,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#dispatcher-egress-policy-kubernetes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dispatcher egress policy (Kubernetes)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#limits-and-tuning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4511,6 +4522,28 @@
 <li><code>0.0.0.0/8</code>, multicast and reserved ranges are never admitted. A <code>/0</code> or a public range is a startup error (<code>webhooks.E002</code>).</li>
 </ul>
 <p>A board admin who tries to save a destination that is not allowed sees one message, which says to ask the operator. It does not name this setting, and it is the same whatever the reason, so it reveals nothing about the network.</p>
+<h3 id="dispatcher-egress-policy-kubernetes">Dispatcher egress policy (Kubernetes)<a class="headerlink" href="#dispatcher-egress-policy-kubernetes" title="Permanent link">&para;</a></h3>
+<p>Added in 1.3. The dispatcher already checks every destination address itself, so this is a second layer: an optional Kubernetes NetworkPolicy that stops the dispatcher pod reaching cluster-internal ranges even if that check were bypassed. It is off by default and needs a CNI that enforces NetworkPolicy (Calico, Cilium). It does nothing on kind's default networking.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">webhooks</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">dispatcher</span><span class="p">:</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">networkPolicy</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+<p>With it on, the dispatcher pod may reach:</p>
+<ul>
+<li>DNS,</li>
+<li>the chart's own PostgreSQL and Valkey pods,</li>
+<li>public addresses, except the ranges in <code>webhooks.dispatcher.networkPolicy.denyCIDRs</code> (and <code>denyCIDRsIPv6</code>): <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>, <code>100.64.0.0/10</code>, <code>169.254.0.0/16</code>, <code>127.0.0.0/8</code>, and the IPv6 unique-local, link-local and loopback ranges,</li>
+<li>anything inside <code>webhooks.dispatcher.networkPolicy.allowedCIDRs</code>.</li>
+</ul>
+<p>Everything else is refused, including the Kubernetes API and other pods in the cluster.</p>
+<p>The policy is never rendered in public demo mode (<code>demo.enabled</code>): there the demo egress policy already limits the dispatcher, like every other Visiban pod, to DNS and the chart's own datastores, and this policy's public egress rule would widen that.</p>
+<div class="admonition warning">
+<p class="admonition-title">Keep <code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code> and <code>allowedCIDRs</code> in step</p>
+<p>A private destination in <code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code> (<code>backend.settings.webhookAllowedPrivateTargets</code>) is admitted by the application, but the network policy still blocks it. Add its address to <code>allowedCIDRs</code> too, for example <code>["192.168.10.0/24"]</code>. The same applies to an external PostgreSQL or Valkey on a private address (<code>externalDatabase</code>, <code>externalRedis</code>): without an <code>allowedCIDRs</code> entry the dispatcher loses its database.</p>
+</div>
+<p>If your pod, service or node ranges are not in the default deny list, replace <code>denyCIDRs</code> with the ranges your cluster uses. Some CNIs do not apply <code>ipBlock</code> rules to pod IPs, so the policy is defense in depth; the application-level check remains the primary control.</p>
 <h3 id="limits-and-tuning">Limits and tuning<a class="headerlink" href="#limits-and-tuning" title="Permanent link">&para;</a></h3>
 <p>All settings, with their defaults, are in <a href="../../administration/configuration/#webhooks">Configuration — Webhooks</a>: timeouts, retry and turn-off thresholds, and caps of 10 webhooks per board, 25 per user and 1000 per server.</p>
 <h3 id="secret-key-rotation">Secret key rotation<a class="headerlink" href="#secret-key-rotation" title="Permanent link">&para;</a></h3>

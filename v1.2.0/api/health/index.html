@@ -4285,7 +4285,7 @@
 
 <h1 id="probe-visibans-health-with-two-unauthenticated-gets">Probe Visiban's health with two unauthenticated GETs<a class="headerlink" href="#probe-visibans-health-with-two-unauthenticated-gets" title="Permanent link">&para;</a></h1>
 <p>Point your liveness probe at <code>/api/health/liveness/</code> and your readiness probe at <code>/api/health/readiness/</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/api/health/readiness/<span class="w">   </span><span class="c1"># 200 {"status": "ok"}, or 503 when a dependency is down</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/api/health/readiness/<span class="w">   </span><span class="c1"># 200 {"status": "ok"}, 200 {"status": "degraded"} if only Valkey is down, 503 if the database is down</span>
 </code></pre></div>
 <p><strong>Why it matters:</strong> the two probes answer different questions. A failed liveness probe means restart the container; a failed readiness probe means stop sending it traffic.</p>
 <p><strong>The big picture:</strong> two unauthenticated endpoints for liveness and readiness probes — usable with Kubernetes, Docker Compose <code>healthcheck</code> directives, or any uptime monitoring tool.</p>
@@ -4308,7 +4308,7 @@
 </tr>
 <tr>
 <td><code>GET /api/health/readiness/</code></td>
-<td>Database and Valkey cache reachable</td>
+<td>Database reachable (Valkey is reported, not required)</td>
 <td><code>200</code></td>
 <td><code>503</code>; withhold traffic</td>
 </tr>
@@ -4323,48 +4323,59 @@
 <p>Use this as a <strong>liveness probe</strong> — if it fails, the container should be restarted.</p>
 <hr />
 <h2 id="get-apihealthreadiness"><code>GET /api/health/readiness/</code><a class="headerlink" href="#get-apihealthreadiness" title="Permanent link">&para;</a></h2>
-<p>Returns <code>200 OK</code> if both the database and Valkey cache are reachable. No authentication required.</p>
+<p>Returns <code>200 OK</code> while the database is reachable. No authentication required. A Valkey outage does not fail readiness (see below).</p>
 <p><strong>Response — healthy</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">}</span>
 </code></pre></div></p>
-<p><strong>Response — degraded</strong> (<code>503 Service Unavailable</code>)
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">"db"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unavailable"</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">"redis"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unavailable"</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">}</span>
+<p><strong>Response — Valkey down</strong> (<code>200 OK</code>)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"degraded"</span><span class="p">}</span>
 </code></pre></div></p>
-<p>Only the failing subsystems appear in <code>errors</code>, each with the fixed value <code>unavailable</code>. Failure details are written to the server log, not the response. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
+<p>Valkey backs realtime updates and the cache. With it down the database is fine, so the pod stays ready instead of every pod leaving the Service at once <em>(1.3+, <a href="https://gitlab.com/visiban/visiban/-/issues/1465">#1465</a>)</em>. The body names no component; the server log carries <code>Readiness degraded: cache</code>. Alert on that log line or on Valkey's own metrics, not on the probe.</p>
+<p><strong>What works while Valkey is down</strong> <em>(1.3+)</em>. Each cache call gives up after <code>REDIS_CACHE_SOCKET_TIMEOUT</code> / <code>REDIS_CACHE_SOCKET_CONNECT_TIMEOUT</code> (0.5 s by default), so this holds whether Valkey refuses connections or silently drops them:</p>
+<ul>
+<li><strong>Ordinary REST requests succeed.</strong> The global <code>anon</code> (300/hour) and <code>user</code> (5000/hour) rate limits <strong>fail open</strong>: they cannot read their counters, so they let the request through and are not enforced until Valkey returns. Maintenance mode, the registration mode and the uploads toggle are read from the database instead of the cache, so they keep their real values.</li>
+<li><strong>The Git lens board fails closed</strong> <em>(experimental, <code>GIT_LENS_ENABLED</code>)</em>: <code>GET /api/v1/git-lens/board/{board_id}/</code> returns <code>503</code> with <code>code: "lens_unavailable"</code> and makes no request to GitHub or GitLab until Valkey returns. Its per-user fetch budgets, refresh cooldown and fetch lock live in Valkey, so it cannot fetch without them and has no cached copy to serve.</li>
+<li><strong>Endpoints with their own security rate limit fail closed</strong> and return <code>500</code> until Valkey returns: login (including the failed-login lockout), registration, password change and reset, user search, invite-link redemption, share-link reads, and the other named limits in <code>DEFAULT_THROTTLE_RATES</code>. These limits exist to stop brute force and enumeration, so they are never silently lifted. With the default database session engine, signed-in users keep their sessions; with <code>SESSION_ENGINE</code> set to the cache-only engine, session requests return a retryable <code>503</code> until Valkey returns, and nobody is signed out.</li>
+<li><strong>Realtime board updates stop</strong>, and WebSocket connections cannot be opened, until Valkey returns.</li>
+</ul>
+<p>The server log carries one <code>Cache unreachable (...)</code> warning per affected component per minute per process while the outage lasts.</p>
+<p><strong>Response — not ready</strong> (<code>503 Service Unavailable</code>)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"error"</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">"errors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">"db"</span><span class="p">:</span><span class="w"> </span><span class="s2">"unavailable"</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
+</code></pre></div></p>
+<p>Only the database can fail readiness, so <code>db</code> is the only key that appears in <code>errors</code>, with the fixed value <code>unavailable</code>. (Before 1.3 a Valkey failure returned <code>503</code> with a <code>redis</code> key; it now returns the <code>200</code> <code>degraded</code> response above.) Failure details are written to the server log, not the response. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Deprecated <em>(1.3+)</em>: the <code>errors</code> object</p>
-<p>The <code>errors</code> object, and its component keys <code>db</code> and <code>redis</code>, are deprecated. They are still returned unchanged on every <code>503</code> for all of 1.x, but they name the backing services to anonymous callers, so they are planned for removal in 2.0 (<a href="https://gitlab.com/visiban/visiban/-/issues/1902">#1902</a>). After that the degraded body is <code>{"status": "error"}</code> only.</p>
-<p>Decide readiness from the HTTP status code (<code>200</code> or <code>503</code>), or from <code>status</code>. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses <code>errors</code>, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (<code>Readiness check failed: database</code> or <code>Readiness check failed: cache</code>).</p>
+<p>The <code>errors</code> object is deprecated. It is still returned, with its <code>db</code> key, on every <code>503</code> for all of 1.x, but it names the backing services to anonymous callers, so it is planned for removal in 2.0 (<a href="https://gitlab.com/visiban/visiban/-/issues/1902">#1902</a>). After that the not-ready body is <code>{"status": "error"}</code> only. The <code>redis</code> key no longer appears from 1.3, because a Valkey failure no longer fails readiness (see above).</p>
+<p>Decide readiness from the HTTP status code (<code>200</code> or <code>503</code>), or from <code>status</code>. The Helm probes, the Helm test hook, and the deploy drills already read only those. If an external monitor or load balancer parses <code>errors</code>, switch it to the status code before upgrading to 2.0. Which component failed is in the server log (<code>Readiness check failed: database</code> or <code>Readiness degraded: cache</code>).</p>
 </div>
 <hr />
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
 <p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>401 Unauthorized</code> (with a <code>WWW-Authenticate: Token</code> header).</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.2.0"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.2.0"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <p>The value is read from the <code>APP_VERSION</code> environment variable set at deploy time (see <code>.env.example</code>). Use this to confirm which version is deployed before running migrations or checking the changelog. See <a href="../version/">Version API</a> for the full reference.</p>
 <hr />
 <h2 id="kubernetes-example">Kubernetes example<a class="headerlink" href="#kubernetes-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">livenessProbe</span><span class="p">:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/liveness/</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nt">readinessProbe</span><span class="p">:</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/readiness/</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">  </span><span class="nt">failureThreshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">livenessProbe</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/liveness/</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nt">readinessProbe</span><span class="p">:</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nt">httpGet</span><span class="p">:</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health/readiness/</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">initialDelaySeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nt">periodSeconds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="nt">failureThreshold</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </code></pre></div>
 
 

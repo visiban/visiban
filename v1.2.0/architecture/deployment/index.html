@@ -4733,6 +4733,21 @@
 <td>CPU and memory requests and limits for the dispatcher pod</td>
 </tr>
 <tr>
+<td><code>webhooks.dispatcher.networkPolicy.enabled</code></td>
+<td><code>false</code></td>
+<td>Renders an egress NetworkPolicy for the dispatcher pod: DNS, the bundled datastores and public addresses only. Needs a CNI that enforces NetworkPolicy (added in 1.3; see <a href="../../features/webhooks/#dispatcher-egress-policy-kubernetes">Dispatcher egress policy</a>)</td>
+</tr>
+<tr>
+<td><code>webhooks.dispatcher.networkPolicy.denyCIDRs</code> / <code>denyCIDRsIPv6</code></td>
+<td>RFC 1918, <code>100.64.0.0/10</code>, link-local, loopback; IPv6 ULA, link-local, loopback</td>
+<td>Ranges the public-egress rule excludes</td>
+</tr>
+<tr>
+<td><code>webhooks.dispatcher.networkPolicy.allowedCIDRs</code></td>
+<td><code>[]</code></td>
+<td>CIDRs allowed even inside a denied range: private webhook targets and external datastores</td>
+</tr>
+<tr>
 <td><code>backend.settings.numProxies</code></td>
 <td>unset (renders <code>2</code> with the ingress enabled and a <code>ClusterIP</code> frontend Service, otherwise the backend default of <code>1</code>)</td>
 <td><code>NUM_PROXIES</code>: trusted proxy hops that append to <code>X-Forwarded-For</code>, so per-client rate limits and the <code>/admin/</code> allowlist see the real client address. An explicit value always wins</td>

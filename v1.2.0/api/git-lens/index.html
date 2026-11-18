@@ -5162,6 +5162,11 @@ renders a board instead of returning <code>400</code>.</p>
 <td><code>{ "detail": "...", "code": "lens_error" }</code></td>
 <td>Upstream provider returned an unexpected error or the request timed out. Redirects are not followed, so a moved or renamed repository (the provider answers <code>301</code>) also returns this error; update the connection's repo slug.</td>
 </tr>
+<tr>
+<td><code>503 Service Unavailable</code></td>
+<td><code>{ "detail": "...", "code": "lens_unavailable" }</code></td>
+<td>The cache (Valkey) is unreachable <em>(1.3+)</em>. The fetch budgets, refresh cooldown and fetch lock live there, so no upstream request is made and no cached copy can be read. Retry once Valkey is back.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="current-milestone">Current milestone<a class="headerlink" href="#current-milestone" title="Permanent link">&para;</a></h2>

@@ -4666,7 +4666,7 @@
 </tr>
 <tr>
 <td>readiness</td>
-<td>It runs but can't reach PostgreSQL or Valkey</td>
+<td>It runs but can't reach PostgreSQL or Valkey. The step requires <code>{"status": "ok"}</code>: since 1.3 a Valkey outage answers HTTP 200 with <code>{"status": "degraded"}</code>, which keeps pods in the Service but fails this step</td>
 </tr>
 <tr>
 <td>through nginx</td>
@@ -5032,7 +5032,7 @@
 <tr>
 <td><code>frontend.securityContext.pod</code></td>
 <td><code>runAsNonRoot: true</code>, <code>runAsUser</code>/<code>runAsGroup: 101</code>, <code>seccompProfile: RuntimeDefault</code></td>
-<td>Pod-level <code>securityContext</code> for the frontend (nginx) Deployment. <code>101</code> is <code>nginx:1.27-alpine</code>'s built-in <code>nginx</code> user and group.</td>
+<td>Pod-level <code>securityContext</code> for the frontend (nginx) Deployment. <code>101</code> is <code>nginx:1.30-alpine</code>'s built-in <code>nginx</code> user and group.</td>
 </tr>
 <tr>
 <td><code>frontend.securityContext.container</code></td>
@@ -5061,7 +5061,7 @@
 <li><strong>The frontend Service's port is unchanged</strong> (<code>frontend.service.port</code>, <code>80</code> by default). The Service targets the container by its named <code>http</code> port, which follows automatically.</li>
 <li><strong>The one visible change:</strong> a <code>kubectl port-forward &lt;frontend-pod&gt; 8080:80</code> run directly against the pod, bypassing the Service. The NOTES printed after <code>helm install</code>/<code>helm upgrade</code> already show the new <code>8080:8080</code>, but a script or alias built from older NOTES output needs updating.</li>
 </ul>
-<p><strong>Why 8080:</strong> <code>nginx:1.27-alpine</code> can't bind a port below 1024 as the non-root <code>frontend.securityContext.pod.runAsUser</code> without <code>CAP_NET_BIND_SERVICE</code>. That capability doesn't help either. Docker's and containerd's runc-based runtimes don't add a capability to an already non-root process's effective or ambient set from <code>capabilities.add</code> alone, so the process can never use it (verified empirically against <code>nginx:1.27-alpine</code>, #1224). Moving to an unprivileged port needs no capability at all.</p>
+<p><strong>Why 8080:</strong> <code>nginx:1.30-alpine</code> can't bind a port below 1024 as the non-root <code>frontend.securityContext.pod.runAsUser</code> without <code>CAP_NET_BIND_SERVICE</code>. That capability doesn't help either. Docker's and containerd's runc-based runtimes don't add a capability to an already non-root process's effective or ambient set from <code>capabilities.add</code> alone, so the process can never use it (verified empirically against <code>nginx:1.27-alpine</code>, #1224). Moving to an unprivileged port needs no capability at all.</p>
 </div>
 <h2 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h2>
 <p>Turn on network policies to restrict pod-to-pod traffic to only the paths Visiban needs:</p>
@@ -5136,11 +5136,11 @@
 <tr>
 <td><code>/api/health/readiness/</code></td>
 <td>Can the process serve traffic?</td>
-<td>HTTP 200 if the database and Valkey are reachable</td>
+<td>HTTP 200 if the database is reachable; a Valkey outage reports <code>degraded</code> with HTTP 200</td>
 </tr>
 </tbody>
 </table>
-<p>They also work for external load balancer health checks. The readiness probe uses <code>initialDelaySeconds: 5</code> and <code>failureThreshold: 3</code>, so a pod leaves the Service within about 35 seconds of a dependency failure.</p>
+<p>They also work for external load balancer health checks. The readiness probe uses <code>initialDelaySeconds: 5</code> and <code>failureThreshold: 3</code>, so a pod leaves the Service within about 35 seconds of a database failure. A Valkey outage does not remove pods: REST traffic keeps flowing with realtime updates paused, as described in <a href="../../api/health/#get-apihealthreadiness">Health API</a>.</p>
 <h2 id="sample-data">Sample data<a class="headerlink" href="#sample-data" title="Permanent link">&para;</a></h2>
 <p>The backend image ships the sample board JSON files. Import one with <strong>Import</strong> on the dashboard → <strong>Start from a sample</strong>. To import a file by hand, download it from <a href="https://gitlab.com/visiban/visiban/-/tree/main/backend/boards/sample_boards"><code>backend/boards/sample_boards/</code></a> and use <strong>Dashboard → Import</strong>. See <a href="../sample-boards/">Sample boards</a>.</p>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
