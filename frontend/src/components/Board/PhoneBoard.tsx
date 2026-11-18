@@ -190,6 +190,8 @@ export default function PhoneBoard({
   const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
   // Phone sub-column switcher (#2278): which sub-column of a split stage is shown.
   const [subIndex, setSubIndex] = useState(0);
+  // Each column starts on its first sub-column; the index is not carried across columns.
+  useEffect(() => { setSubIndex(0); }, [selectedId]);
   const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
     const next = new Set(prev);
     if (!next.delete(laneId)) next.add(laneId);

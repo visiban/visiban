@@ -3001,7 +3001,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             movesPaused={movesPaused}
             // Phone only (#2359): the peek sheet's reorder, in the detail panel a tap opens (#2358).
-            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds) : undefined}
+            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds, board.columns.find((c) => c.id === (liveSelectedCard ?? selectedCard)?.column)) : undefined}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
@@ -3814,7 +3814,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onForceMoveCard={(cardId, columnId, swimlaneId, position) => forceMoveCardTo(cardId, columnId, swimlaneId, position)}
             movesPaused={movesPaused}
             // Phone only (#2359): the peek sheet's reorder, in the detail panel a tap opens (#2358).
-            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds) : undefined}
+            cellOrder={isPhone ? cellOrderOf(board.cards, liveSelectedCard ?? selectedCard, filteredCardIds, board.columns.find((c) => c.id === (liveSelectedCard ?? selectedCard)?.column)) : undefined}
             userDateFormat={userDateFormat}
             userTimeFormat={userTimeFormat}
             userTimezone={userTimezone}
