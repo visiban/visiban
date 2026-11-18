@@ -284,7 +284,8 @@ self_test() {
     if [ -n "${3:-}" ] && ! grep -qF -- "$3" <<<"$OUT"; then ok=0; fi
     if [ "$ok" -eq 1 ]; then echo "  ok    $1"; else echo "  FAIL  $1 (rc=$RC, wanted $2${3:+, output containing '$3'})"; echo "$OUT" | sed 's/^/        /'; fails=$((fails+1)); fi
   }
-  local probe_ok="true" probe_beta_only="$(mktemp)"
+  local probe_ok="true" probe_beta_only
+  probe_beta_only="$(mktemp)"
   cat > "$probe_beta_only" <<'PROBE'
 #!/usr/bin/env bash
 case "$1" in *:v0.4.0-beta.3) exit 0 ;; *) exit 1 ;; esac
