@@ -24,7 +24,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from ..models import Card, CardBlock, CardMovement, CardRelation, Column, SwimlaneCustomFieldValue
@@ -942,6 +942,8 @@ def blocked_card_ids(flow, cards):
             to_card_id__in=[card.id for card in cards],
             relation_type=CardRelation.Type.BLOCKS,
             from_card__archived_at__isnull=True,
+            # Only same-board relation rows count (#2229).
+            from_card__board_id=F("to_card__board_id"),
         ).values_list("to_card_id", flat=True)
     )
     return by_relation | {card.id for card in cards if card.blocked_at is not None}

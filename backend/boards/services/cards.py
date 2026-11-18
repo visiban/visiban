@@ -289,10 +289,14 @@ def _blocked_peer_ids(card):
 
     Call this **before** a hard delete — the relation rows cascade away with
     the card, so afterwards there is nothing left to read.
+
+    Only same-board peers are returned (#2229): a peer on another board does
+    not count this card as a blocker, so its ``blocker_count`` does not move.
     """
     return list(
         card.outgoing_relations.filter(
-            relation_type=CardRelation.Type.BLOCKS
+            relation_type=CardRelation.Type.BLOCKS,
+            to_card__board_id=card.board_id,
         ).values_list("to_card_id", flat=True)
     )
 
@@ -321,7 +325,10 @@ def _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many=None
     if render_many is not None:
         payloads = render_many(peer_ids)
     elif render is not None:
-        payloads = [render(peer) for peer in Card.objects.filter(pk__in=peer_ids)]
+        # Filtered to the board the frames go to (#2229).
+        payloads = [
+            render(peer) for peer in Card.objects.filter(pk__in=peer_ids, board_id=board_id)
+        ]
     else:
         return
     for payload in payloads:

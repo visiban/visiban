@@ -36,7 +36,11 @@ from rest_framework.test import APIClient
 
 from accounts.models import get_maintenance_state
 from boards.models import Card, CardRelation
-from boards.serializers import CardSerializer, PublicCardSerializer, _card_queryset
+from boards.card_signals import blocked_q
+from boards.serializers import (
+    CardSerializer, PublicCardSerializer, _blocker_count, _card_queryset, _is_blocked,
+)
+from boards.services import flow_metrics as fm
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
     _make_user,
@@ -790,6 +794,131 @@ class CardRelationExposureTests(_RelationTestBase):
     def test_relations_endpoint_is_not_reachable_anonymously(self):
         r = self.anon.get(self._url(self.card_a))
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class CardRelationSameBoardBlockerTests(_RelationTestBase):
+    """Only same-board blockers count (#2229).
+
+    A relation row whose two cards are on different boards never counts.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.other_board = _make_board(self.owner, name="Other board")
+        self.other_col = _make_column(self.other_board)
+        self.other_lane = _make_swimlane(self.other_board)
+        # card_a blocks card_b, then card_a is moved to the other board.
+        self._link(self.card_a, self.card_b)
+        r = self.client.post(f"/api/v1/boards/{self.board.id}/share/")
+        self.token = r.data["share_token"]
+
+    def _move_blocker_off_board(self):
+        Card.objects.filter(pk=self.card_a.pk).update(
+            board=self.other_board, column=self.other_col, swimlane=self.other_lane,
+        )
+
+    def _find(self, cards, key, value):
+        return next(c for c in cards if c[key] == value)
+
+    def test_same_board_blocker_still_counts_everywhere(self):
+        full = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        card = self._find(full.data["cards"], "id", self.card_b.id)
+        self.assertEqual(card["blocker_count"], 1)
+        self.assertTrue(card["is_blocked"])
+        public = APIClient().get(f"/api/share/{self.token}/")
+        self.assertEqual(self._find(public.data["cards"], "uid", self.card_b.uid)["blocker_count"], 1)
+        self.assertIn(self.card_b.id, fm.blocked_card_ids(None, [self.card_b]))
+        self.assertTrue(Card.objects.filter(pk=self.card_b.pk).filter(blocked_q()).exists())
+
+    def test_off_board_blocker_is_not_counted_on_full(self):
+        self._move_blocker_off_board()
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        card = self._find(r.data["cards"], "id", self.card_b.id)
+        self.assertEqual(card["blocker_count"], 0)
+        self.assertIs(card["is_blocked"], False)
+
+    def test_off_board_blocker_is_not_counted_on_token_read(self):
+        self._move_blocker_off_board()
+        r = APIClient().get(f"/api/share/{self.token}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        card = self._find(r.data["cards"], "uid", self.card_b.uid)
+        self.assertEqual(card["blocker_count"], 0)
+
+    def test_off_board_blocker_is_not_listed_in_relations(self):
+        self.assertEqual(len(self.client.get(self._url(self.card_b)).data), 1)  # control
+        self._move_blocker_off_board()
+        r = self.client.get(self._url(self.card_b))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data, [])
+
+    def _other_url(self, card, relation_id=None):
+        base = f"/api/v1/boards/{self.other_board.id}/cards/{card.id}/relations/"
+        return base if relation_id is None else f"{base}{relation_id}/"
+
+    def _capture(self, fn):
+        """Run ``fn``; return (response, card.updated calls) after commit."""
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = fn()
+        updates = [c for c in mock_broadcast.call_args_list if c.args[1] == "card.updated"]
+        return response, updates
+
+    def test_off_board_blocker_lists_no_relations_on_its_own_board(self):
+        self.assertEqual(len(self.client.get(self._url(self.card_a)).data), 1)  # control
+        self._move_blocker_off_board()
+        r = self.client.get(self._other_url(self.card_a))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data, [])
+
+    def test_off_board_relation_cannot_be_deleted_by_id(self):
+        rel_id = CardRelation.objects.get(from_card=self.card_a, to_card=self.card_b).id
+        self._move_blocker_off_board()
+        for url in (self._url(self.card_b, rel_id), self._other_url(self.card_a, rel_id)):
+            r, updates = self._capture(lambda url=url: self.client.delete(url))
+            self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND, url)
+            self.assertEqual(updates, [], url)
+        self.assertTrue(CardRelation.objects.filter(pk=rel_id).exists())
+
+    def test_same_board_relation_delete_still_broadcasts_both_ends(self):
+        rel_id = CardRelation.objects.get(from_card=self.card_a, to_card=self.card_b).id
+        r, updates = self._capture(lambda: self.client.delete(self._url(self.card_b, rel_id)))
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(
+            sorted((c.args[0], c.args[2]["id"]) for c in updates),
+            sorted([(self.board.id, self.card_a.id), (self.board.id, self.card_b.id)]),
+        )
+        self.assertFalse(CardRelation.objects.filter(pk=rel_id).exists())
+
+    def test_off_board_blocker_is_not_counted_in_swimlane_blocked_cards(self):
+        def blocked():
+            r = self.client.get(f"/api/v1/boards/{self.board.id}/summary/")
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
+            return next(s for s in r.data["swimlanes"] if s["id"] == self.lane.id)["blocked_cards"]
+
+        self.assertEqual(blocked(), 1)  # control: same-board blocker counts
+        self._move_blocker_off_board()
+        self.assertEqual(blocked(), 0)
+
+    def test_off_board_blocker_is_not_counted_on_card_read(self):
+        self._move_blocker_off_board()
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card_b.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data["blocker_count"], 0)
+        self.assertIs(r.data["is_blocked"], False)
+
+    def test_off_board_blocker_cold_path_counts_zero(self):
+        self._move_blocker_off_board()
+        card = Card.objects.get(pk=self.card_b.pk)  # no prefetch: fallback query
+        self.assertEqual(_blocker_count(card), 0)
+        self.assertFalse(_is_blocked(card))
+
+    def test_off_board_blocker_is_not_blocked_in_flow_metrics(self):
+        self._move_blocker_off_board()
+        self.assertEqual(fm.blocked_card_ids(None, [self.card_b]), set())
+
+    def test_off_board_blocker_does_not_match_blocked_filter(self):
+        self._move_blocker_off_board()
+        self.assertFalse(Card.objects.filter(pk=self.card_b.pk).filter(blocked_q()).exists())
 
 
 class CardRelationPeerBroadcastQueryCountTests(_RelationTestBase):

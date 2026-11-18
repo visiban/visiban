@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, F, Prefetch, Q, Sum
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -759,6 +759,8 @@ class CardViewSet(viewsets.ModelViewSet):
         same for an N-row queryset as for a one-row one, so anything that has to
         render a set of cards — the peer cards whose blocker_count moves when a
         card is archived or deleted — goes through here instead.
+
+        Filtered to this board, like ``render_card_payloads`` (#2229).
         """
         bc = self._board_context()
         ctx = {
@@ -770,7 +772,9 @@ class CardViewSet(viewsets.ModelViewSet):
         }
         return [
             CardSerializer(c, context=ctx).data
-            for c in _card_queryset(Card.objects.filter(pk__in=list(card_ids)))
+            for c in _card_queryset(
+                Card.objects.filter(pk__in=list(card_ids), board_id=bc["board"].pk)
+            )
         ]
 
     def get_throttles(self):
@@ -2403,8 +2407,13 @@ class CardViewSet(viewsets.ModelViewSet):
         than hidden so a relation left dangling by an archive is visible enough
         to delete.
         """
-        outgoing = card.outgoing_relations.select_related("to_card")
-        incoming = card.incoming_relations.select_related("from_card")
+        # Only same-board relation rows are listed (#2229).
+        outgoing = card.outgoing_relations.filter(
+            to_card__board_id=card.board_id,
+        ).select_related("to_card")
+        incoming = card.incoming_relations.filter(
+            from_card__board_id=card.board_id,
+        ).select_related("from_card")
         rows = []
         for rel in outgoing:
             rows.append({
@@ -2616,6 +2625,8 @@ class CardViewSet(viewsets.ModelViewSet):
         relation = get_object_or_404(
             CardRelation.objects.select_related("from_card", "to_card"),
             Q(from_card=card) | Q(to_card=card),
+            # Only same-board relation rows are addressable (#2229).
+            from_card__board_id=F("to_card__board_id"),
             pk=relation_pk,
         )
         from_card, to_card = relation.from_card, relation.to_card
@@ -2654,7 +2665,9 @@ class CardViewSet(viewsets.ModelViewSet):
         bc = self._board_context()
         by_id = {
             c.pk: c
-            for c in _card_queryset(Card.objects.filter(pk__in=[from_card.pk, to_card.pk]))
+            for c in _card_queryset(
+                Card.objects.filter(pk__in=[from_card.pk, to_card.pk], board_id=board.id)
+            )
         }
         for card_pk in (from_card.pk, to_card.pk):
             refetched = by_id.get(card_pk)
