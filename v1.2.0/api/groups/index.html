@@ -2402,6 +2402,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-apiv1groupsidinvite-linkspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/invite-links/paged/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#post-apiv1groupsidinvite-links" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2534,6 +2545,17 @@
     <span class="md-ellipsis">
       
         GET /api/v1/groups/{id}/labels/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1groupsidlabelspaged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/groups/{id}/labels/paged/
       
     </span>
   </a>
@@ -5515,7 +5537,9 @@
 <p>Upgrade cleanup: on upgrade, unused links whose creator was already deleted or deactivated are deactivated once. <strong>Not backfilled:</strong> links whose creator still exists and is active but was demoted, removed, or moved out of administering the group before this fix (tracked in #1565). They stay listed as active and hold a slot until revoked manually, but still admit nobody.</p>
 <p>Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.</p>
 <h3 id="get-apiv1groupsidinvite-links"><code>GET /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#get-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
-<p>List all invite links for this group. Requires group admin.</p>
+<p>List all invite links for this group, as one array. Requires group admin. Consumed single-use links stay listed for audit, and expired links are not removed, so the list grows with use; use <a href="#get-apiv1groupsidinvite-linkspaged"><code>invite-links/paged/</code></a> for bounded pages.</p>
+<h3 id="get-apiv1groupsidinvite-linkspaged"><code>GET /api/v1/groups/{id}/invite-links/paged/</code><a class="headerlink" href="#get-apiv1groupsidinvite-linkspaged" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3.</em> The same links and per-row shape as <code>invite-links/</code>, in <code>{count, offset, page_size, results}</code> pages (<code>offset</code> default 0; <code>page_size</code> default 50, max 200), ordered by creation time, oldest first, with the link <code>id</code> as a tiebreaker. Requires group admin, exactly as the bare list does. The bare <code>invite-links/</code> response is unchanged.</p>
 <h3 id="post-apiv1groupsidinvite-links"><code>POST /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#post-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
 <p>Create a new invite link. Requires group admin.</p>
 <p><strong>Request</strong>
@@ -5824,8 +5848,10 @@
 <h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
 <p>Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.</p>
 <h3 id="get-apiv1groupsidlabels"><code>GET /api/v1/groups/{id}/labels/</code><a class="headerlink" href="#get-apiv1groupsidlabels" title="Permanent link">&para;</a></h3>
-<p>List group shared labels. Requires group membership.</p>
+<p>List group shared labels, as one array. Requires group membership. For bounded pages use <a href="#get-apiv1groupsidlabelspaged"><code>labels/paged/</code></a>.</p>
 <p><strong>Response</strong> <code>[{ "id": 1, "name": "Bug", "color": "#EF4444" }, ...]</code></p>
+<h3 id="get-apiv1groupsidlabelspaged"><code>GET /api/v1/groups/{id}/labels/paged/</code><a class="headerlink" href="#get-apiv1groupsidlabelspaged" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3.</em> The same labels and per-row shape as <code>labels/</code>, in <code>{count, offset, page_size, results}</code> pages (<code>offset</code> default 0; <code>page_size</code> default 50, max 200), ordered by label <code>id</code> ascending. Requires group membership, exactly as the bare list does. The bare <code>labels/</code> response is unchanged.</p>
 <h3 id="post-apiv1groupsidlabels"><code>POST /api/v1/groups/{id}/labels/</code><a class="headerlink" href="#post-apiv1groupsidlabels" title="Permanent link">&para;</a></h3>
 <p>Create a group shared label. Requires group admin.</p>
 <p><strong>Request</strong> <code>{ "name": "Feature", "color": "#3B82F6" }</code></p>
