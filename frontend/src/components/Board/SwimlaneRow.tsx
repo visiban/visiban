@@ -20,7 +20,8 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
-import { laneBandFields, laneBandLimit, type LaneBandField } from "../../utils/laneBand";
+import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
+import LaneFieldGrid from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
@@ -102,10 +103,10 @@ interface Props {
   /**
    * #1418 — the board's `show_row_chip_field_names` is off: pinned row chips
    * show values without their `{name}:` label. Board-level admin setting, not
-   * a per-viewer preference. The `+N` popover always lists names.
+   * a per-viewer preference. The field grid always lists names.
    */
   hideRowChipFieldNames?: boolean;
-  /** Admin-only shortcut from the expanded `+N` fields to Board settings -> Swimlane
+  /** Admin-only shortcut from the open field grid to Board settings -> Swimlane
    *  fields (#1458). BoardView omits it when there is no order to edit. */
   onEditFieldOrder?: () => void;
   onCardUpdated?: (card: Card) => void;
@@ -168,14 +169,17 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   const focusTriggerRef = useRef(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
-  // `+N` reveals the remaining lane fields in place (#2271).
+  // The "N fields" toggle opens the aligned field grid (#2354).
   const [fieldsOpen, setFieldsOpen] = useState(false);
   const extraFieldsId = useId();
 
-  // The band shows the first two fields inline; the rest sit behind `+N` (#2271,
+  // The band shows the first two fields inline; the full grid sits behind "N fields" (#2271, #2354,
   // on-demand tier #2335). Pinning no longer decides what shows: position does.
   // Guards and order: `laneBandFields`, shared with the phone band (#2329).
-  const { inline: inlineFields, extra: extraFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
+  const { inline: inlineFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
+  const gridFields = laneGridFields(swimlane, swimlaneFieldDefinitions, isAdmin);
+  // Until the band slots (#2356) land, K is the inline fields shown today.
+  const showFieldToggle = gridFields.length > INLINE_FIELD_COUNT; // constant, so every lane shows the toggle or none does
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -293,7 +297,6 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   } = useSortable({ id: `swim:${swimlane.id}`, disabled: !isAdmin });
 
   const color = swimlane.color || "";
-  const fieldTriggerText = fieldsOpen ? "Less" : `+${extraFields.length}`;
 
   const renderField = ({ def, value }: LaneBandField) => (
     <CustomFieldValueDisplay
@@ -335,7 +338,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           data-tour-step="swimlane"
           data-testid="swimlane-band"
           data-no-pan
-          // A double-click on a control inside the band (rename input, chevron, +N, icons) is
+          // A double-click on a control inside the band (rename input, chevron, N fields, icons) is
           // that control's own gesture, never "open Edit Swimlane".
           onDoubleClick={isAdmin ? (e) => { if (!(e.target as HTMLElement).closest("button, input, a, [role=button]")) setEditing(true); } : undefined}
         >
@@ -490,36 +493,26 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           <span role="status" aria-live="polite" className="sr-only">{healthAnnouncement}</span>
           {renameError && <span className="text-xs text-danger-on-tint" role="alert">{renameError}</span>}
 
-          {/* The first two lane fields as "Label value", then `+N`. They stay in the band
-              when the lane is collapsed (the band is the collapsed lane's header). */}
-          {inlineFields.map(renderField)}
-          {extraFields.length > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setFieldsOpen((o) => !o); }}
-                aria-expanded={fieldsOpen}
-                aria-controls={extraFieldsId}
-                // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
-                aria-label={`${fieldTriggerText}: ${fieldsOpen ? "Hide" : "Show"} ${extraFields.length} more field ${extraFields.length === 1 ? "value" : "values"} for ${swimlane.name}`}
-                className="inline-flex items-center min-h-6 text-xs px-2 py-0.5 rounded-full border border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                {fieldTriggerText}
-              </button>
-              <div id={extraFieldsId} className="contents" data-testid="swimlane-extra-fields">
-                {fieldsOpen && extraFields.map(renderField)}
-                {fieldsOpen && isAdmin && onEditFieldOrder && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); onEditFieldOrder(); }}
-                    className="text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    Change field order
-                  </button>
-                )}
-              </div>
-            </>
+          {/* The "N fields" toggle sits before the two inline fields, so opening and closing
+              never moves it; open, the inline fields hide because the grid shows everything. */}
+          {showFieldToggle && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setFieldsOpen((o) => !o); }}
+              aria-expanded={fieldsOpen}
+              aria-controls={fieldsOpen ? extraFieldsId : undefined}
+              // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
+              aria-label={`${gridFields.length} fields: show all field values for ${swimlane.name}`}
+              data-testid="swimlane-fields-toggle"
+              className={`inline-flex items-center gap-1 min-h-6 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+            >
+              {gridFields.length} fields
+              <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+            </button>
           )}
+          {/* The first two lane fields as "Label value". They stay in the band when the lane
+              is collapsed (the band is the collapsed lane's header). */}
+          {!(showFieldToggle && fieldsOpen) && inlineFields.map(renderField)}
 
           <div className="flex-1 min-w-0" />
 
@@ -549,6 +542,21 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           </div>
           )}
 
+          {/* The aligned field grid: last in the band, on its own line (#2354). */}
+          {showFieldToggle && fieldsOpen && (
+            <>
+              <LaneFieldGrid id={extraFieldsId} laneName={swimlane.name} laneColor={color} fields={gridFields} userDateFormat={userDateFormat} />
+              {isAdmin && onEditFieldOrder && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEditFieldOrder(); }}
+                  className="inline-flex items-center min-h-6 text-xs text-info-on-tint underline rounded shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Change field order
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Grid row. Expanded: one cell per column. Collapsed: a strip of count + status

@@ -181,44 +181,115 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(screen.queryByText('orphan')).not.toBeInTheDocument()
   })
 
-  it('shows the first two fields inline, in position order, and the rest behind +N', () => {
+  it('shows the first two fields inline, in position order, and the rest behind the N fields toggle', () => {
     const { defs, lane } = trio()
     renderRow(lane, defs)
     expect(screen.getByText('Owner')).toBeInTheDocument()
     expect(screen.getByText('Region')).toBeInTheDocument()
     expect(screen.queryByText('Tier')).not.toBeInTheDocument()
     expect(screen.queryByText('Quota')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^\+2:/ })).toHaveTextContent('+2')
+    expect(screen.getByRole('button', { name: /^4 fields:/ })).toHaveTextContent('4 fields')
   })
 
-  it('shows no +N when two or fewer fields are set', () => {
+  it('shows no toggle when every eligible field is already inline', () => {
     renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), [makeDef({ id: 1, name: 'Owner' })])
-    expect(screen.queryByRole('button', { name: /more field/ })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('swimlane-fields-toggle')).not.toBeInTheDocument()
   })
 
-  it('+N reveals the remaining fields in place, announces aria-expanded, and reads "Less"', async () => {
+  it('counts every eligible field, set or not, so the toggle shows when only empty fields remain', () => {
+    const { defs } = trio()
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }] }), defs)
+    expect(screen.getByRole('button', { name: /^4 fields:/ })).toBeInTheDocument()
+  })
+
+  it('opens an aligned grid of every field in order, keeps aria-expanded, focus and position on the toggle', async () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
     renderRow(lane, defs)
-    const toggle = screen.getByRole('button', { name: /^\+2:/ })
+    const band = screen.getByTestId('swimlane-band')
+    const toggle = screen.getByRole('button', { name: /^4 fields:/ })
+    const posBefore = Array.from(band.querySelectorAll('*')).indexOf(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(toggle).toHaveAttribute('aria-controls', screen.getByTestId('swimlane-extra-fields').id)
+    expect(toggle).not.toHaveAttribute('aria-controls')
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(toggle).toHaveTextContent('Less')
-    expect(within(screen.getByTestId('swimlane-extra-fields')).getByText('Tier')).toBeInTheDocument()
-    expect(within(screen.getByTestId('swimlane-extra-fields')).getByText('Quota')).toBeInTheDocument()
+    expect(toggle).toHaveFocus()
+    expect(toggle).toHaveTextContent('4 fields')
+    expect(toggle).toHaveClass('text-info-on-tint')
+    const grid = screen.getByTestId('swimlane-field-grid')
+    expect(toggle).toHaveAttribute('aria-controls', grid.id)
+    expect(grid).not.toHaveAttribute('aria-label')
+    expect(grid.className).toContain('grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]')
+    expect(Array.from(grid.querySelectorAll('dt')).map((e) => e.textContent)).toEqual(['Owner', 'Region', 'Tier', 'Quota'])
+    expect(within(grid).getByText('600')).toBeInTheDocument()
+    expect(grid.querySelector('dt')).toHaveClass('w-36')
+    // The toggle did not move, the inline fields hid, and the grid is last in the band.
+    expect(Array.from(band.querySelectorAll('*')).indexOf(toggle)).toBe(posBefore)
+    expect(within(band).queryByText('Owner', { selector: 'span' })).not.toBeInTheDocument()
+    expect(band.lastElementChild).toBe(grid)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Tier')).not.toBeInTheDocument()
+    expect(toggle).toHaveFocus()
+    expect(screen.queryByTestId('swimlane-field-grid')).not.toBeInTheDocument()
+    expect(screen.getByText('Owner')).toBeInTheDocument()
   })
 
-  it('+N toggles from the keyboard', async () => {
+  it('renders an unset field as a dash with sr-only "Not set", the same rows as any lane', async () => {
+    const user = userEvent.setup()
+    const { defs } = trio()
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 1, value: 'J. Rivera' }, { field_definition: 3, value: '' }] }), defs)
+    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
+    const rows = within(screen.getByTestId('swimlane-field-grid')).getAllByRole('term')
+    expect(rows).toHaveLength(4)
+    const region = rows[1].nextElementSibling as HTMLElement
+    expect(region).toHaveTextContent('—')
+    expect(within(region).getByText('Not set')).toHaveClass('sr-only')
+    expect(region.querySelector('[aria-hidden="true"]')).toHaveTextContent('—')
+  })
+
+  it('marks an admin-only field in the grid label with the padlock', async () => {
+    const user = userEvent.setup()
+    const defs = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'ARR', position: 2, is_admin_only: true })]
+    renderRow(makeSwimlane({ custom_field_values: [{ field_definition: 3, value: '480000' }] }), defs)
+    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    const dt = within(screen.getByTestId('swimlane-field-grid')).getByText('ARR').closest('dt') as HTMLElement
+    expect(within(dt).getByLabelText('Admin-only field')).toBeInTheDocument()
+  })
+
+  it('excludes an admin-only field from a member\'s toggle count and grid', async () => {
+    const user = userEvent.setup()
+    const defs = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 }), makeDef({ id: 4, uid: 'sfuid0000004', name: 'ARR', position: 3, is_admin_only: true })]
+    renderRow(makeSwimlane(), defs, false, { isAdmin: false })
+    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    const grid = screen.getByTestId('swimlane-field-grid')
+    expect(within(grid).queryByText('ARR')).toBeNull()
+    expect(within(grid).getAllByRole('term')).toHaveLength(3)
+  })
+
+  it('shows the same toggle on every lane of a two-field board, whatever values are set', () => {
+    const two = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 })]
+    for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }]]) {
+      const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), two)
+      expect(screen.queryByRole('button', { name: /fields:/ })).toBeNull()
+      unmount()
+    }
+  })
+
+  it('shows the toggle on every lane of a three-field board, whatever values are set', () => {
+    const three = [makeDef({ id: 1, name: 'Owner', position: 0 }), makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', position: 1 }), makeDef({ id: 3, uid: 'sfuid0000003', name: 'Site', position: 2 })]
+    for (const values of [[], [{ field_definition: 1, value: 'a' }], [{ field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' }]]) {
+      const { unmount } = renderRow(makeSwimlane({ custom_field_values: values }), three)
+      expect(screen.getByRole('button', { name: /^3 fields:/ })).toBeInTheDocument()
+      unmount()
+    }
+  })
+
+  it('toggles from the keyboard', async () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
     renderRow(lane, defs)
-    const toggle = screen.getByRole('button', { name: /^\+2:/ })
+    const toggle = screen.getByRole('button', { name: /^4 fields:/ })
     toggle.focus()
     await user.keyboard('{Enter}')
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -226,46 +297,46 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('keeps the fields and +N on a collapsed lane: the band is its header', () => {
+  it('keeps the fields and the toggle on a collapsed lane: the band is its header', () => {
     const { defs, lane } = trio()
     renderRow(lane, defs, true)
     expect(screen.getByText('Owner')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^\+2:/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^4 fields:/ })).toBeInTheDocument()
   })
 
-  it('orders the band: name, then health, then fields, then +N, then the stats (#871 ordering)', () => {
+  it('orders the band: name, then health, then the N fields toggle, then fields, then the stats (#871 ordering)', () => {
     const { defs, lane } = trio()
     renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs, false, { cards: [makeCardFor(1, { is_stale: true })] })
     const band = screen.getByTestId('swimlane-band')
     const pos = (el: Element) => Array.from(band.querySelectorAll('*')).indexOf(el)
     const name = pos(screen.getByTestId('swimlane-name'))
     const health = pos(screen.getByRole('button', { name: /health/i }))
+    const more = pos(screen.getByRole('button', { name: /^4 fields:/ }))
     const field = pos(screen.getByText('Owner'))
-    const more = pos(screen.getByRole('button', { name: /^\+2:/ }))
     const stats = pos(screen.getByTestId('swimlane-band-stats'))
-    expect([name, health, field, more, stats]).toEqual([...[name, health, field, more, stats]].sort((a, b) => a - b))
-    expect(new Set([name, health, field, more, stats]).size).toBe(5)
+    expect([name, health, more, field, stats]).toEqual([...[name, health, more, field, stats]].sort((a, b) => a - b))
+    expect(new Set([name, health, more, field, stats]).size).toBe(5)
   })
 
-  it('tab order: a SET health pill precedes Focus, and the lane menu precedes the +N toggle (#2353)', () => {
+  it('tab order: a SET health pill precedes Focus, and the lane menu precedes the N fields toggle (#2353)', () => {
     const { defs, lane } = trio()
     renderRow({ ...lane, health_status: 'at_risk' } as Swimlane, defs)
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
     const pill = screen.getByRole('button', { name: /health status/i })
     const focus = screen.getByRole('button', { name: /^Focus on / })
     const menu = screen.getByRole('button', { name: /^Actions for swimlane/ })
-    const more = screen.getByRole('button', { name: /^\+2:/ })
+    const more = screen.getByRole('button', { name: /^4 fields:/ })
     expect(before(pill, focus)).toBe(true)
     expect(before(menu, more)).toBe(true)
   })
 
-  it('admins get a "Change field order" shortcut inside the expanded fields', async () => {
+  it('admins get a "Change field order" shortcut after the open grid', async () => {
     const user = userEvent.setup()
     const onEditFieldOrder = vi.fn()
     const { defs, lane } = trio()
     renderRow(lane, defs, false, { onEditFieldOrder })
     expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /^\+2:/ }))
+    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
     await user.click(screen.getByRole('button', { name: 'Change field order' }))
     expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
   })
@@ -274,7 +345,7 @@ describe('SwimlaneRow — lane fields in the band (#1140, #2271)', () => {
     const user = userEvent.setup()
     const { defs, lane } = trio()
     renderRow(lane, defs, false, { isAdmin: false, onEditFieldOrder: vi.fn() })
-    await user.click(screen.getByRole('button', { name: /^\+2:/ }))
+    await user.click(screen.getByRole('button', { name: /^4 fields:/ }))
     expect(screen.queryByRole('button', { name: 'Change field order' })).not.toBeInTheDocument()
   })
 })
@@ -304,7 +375,7 @@ describe('SwimlaneRow — hidden field names (#1418)', () => {
     expect(screen.getByText('Signed')).not.toHaveClass('sr-only')
   })
 
-  it('keeps names in the revealed +N fields when names are hidden', async () => {
+  it('keeps names in the field grid when names are hidden', async () => {
     const user = userEvent.setup()
     const defs = [
       makeDef({ id: 1, name: 'Owner', position: 0 }),
@@ -314,8 +385,9 @@ describe('SwimlaneRow — hidden field names (#1418)', () => {
     renderRow(makeSwimlane({ custom_field_values: [
       { field_definition: 1, value: 'a' }, { field_definition: 2, value: 'b' }, { field_definition: 3, value: 'c' },
     ] }), defs, false, { hideRowChipFieldNames: true })
-    await user.click(screen.getByRole('button', { name: /^\+1:/ }))
-    expect(screen.getByTitle('Tier: c')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    expect(within(screen.getByTestId('swimlane-field-grid')).getByText('Tier')).toBeInTheDocument()
+    expect(screen.queryByText('Tier:')).not.toBeInTheDocument()
   })
 })
 
@@ -577,11 +649,11 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
 })
 
 describe('BoardSettingsSwimlaneFieldsTab — header count hint (#2271)', () => {
-  it('says the header shows the first two values and the rest are behind +N', () => {
+  it('says the header shows the first two values and any beyond them are behind the N fields toggle', () => {
     render(
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
     )
-    expect(screen.getByText('The swimlane header shows the first two field values in the order below; the rest are behind +N.')).toBeInTheDocument()
+    expect(screen.getByText('The swimlane header shows the first two field values in the order below; any beyond the first two are behind the N fields toggle.')).toBeInTheDocument()
   })
 })
 
@@ -1323,7 +1395,7 @@ describe('Swimlane URL fields (#1390)', () => {
     expect(screen.getByText('data:text/html,hi')).toBeInTheDocument()
   })
 
-  it('renders the url as a hostname link in the revealed +N fields too', async () => {
+  it('renders the url as a link in the field grid too', async () => {
     const user = userEvent.setup()
     const defs = [
       makeDef({ id: 1, name: 'Owner', position: 0 }),
@@ -1335,8 +1407,8 @@ describe('Swimlane URL fields (#1390)', () => {
       { field_definition: 2, value: 'EMEA' },
       { field_definition: 3, value: 'https://crm.example.com/acct/42' },
     ] }), defs)
-    await user.click(screen.getByRole('button', { name: /^\+1:/ }))
-    expect(screen.getByRole('link', { name: 'Open crm.example.com in new tab' })).toHaveAttribute('href', 'https://crm.example.com/acct/42')
+    await user.click(screen.getByRole('button', { name: /^3 fields:/ }))
+    expect(within(screen.getByTestId('swimlane-field-grid')).getByRole('link')).toHaveAttribute('href', 'https://crm.example.com/acct/42')
   })
 
   it('offers URL in the swimlane field type picker', async () => {

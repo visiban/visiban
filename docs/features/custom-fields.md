@@ -262,7 +262,7 @@ In the [Filter panel](board.md#filter-panel), a number field's row has an **is**
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A multi-select swimlane field shows up to three of its picks on the band, wrapping onto further lines.
 
-**By the numbers:** up to **15 swimlane fields**. The swimlane band shows the first two values by field order and folds the rest into a `+N` button; see [Swimlane fields in the lane band](#swimlane-fields-in-the-lane-band).
+**By the numbers:** up to **15 swimlane fields**. The swimlane band shows the first two values by field order and puts every field in an **N fields** grid behind a button; see [Swimlane fields in the lane band](#swimlane-fields-in-the-lane-band).
 
 Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Text and URL fields offer **contains**, **does not contain**, and **matches wildcard** (`*` any text, `?` one character, matches any part of the value): see [Text operators and wildcards](board.md#text-operators-and-wildcards). Admin-only fields are offered there to board admins only.
 
@@ -270,7 +270,7 @@ Dropdown, number, date, text, and URL swimlane fields can also hide lanes from t
 
 Open **Board Settings** and select **Swimlane fields**, beside **Card fields**. Only board admins can create, edit, reorder, or delete swimlane fields. Reorder by dragging the `⋮⋮` handle, or with the keyboard: Tab to the handle, Space to pick up, arrow keys to move, Space to drop.
 
-**Shortcut:** when a swimlane's `+N` fields are revealed and the board has two or more swimlane fields, admins can choose **Change field order** beside them. It opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
+**Shortcut:** when a swimlane's field grid is open and the board has two or more swimlane fields, admins can choose **Change field order** beside them. It opens Board Settings on the Swimlane fields tab. The order is shared by every swimlane on the board.
 
 The tab lists fields in display order with the same glyph, name, and type label as the Card fields tab. The header shows a running count, for example `12 of 15`. At **13–14 fields**, a warning line shows how many are left before **+ Add field** locks out; at **15 fields**, **+ Add field** is disabled with an inline explanation.
 
@@ -283,9 +283,9 @@ The editor matches the card field editor (name, type, help text, choices for dro
 
 ### Swimlane fields in the lane band
 
-A swimlane's header is a full-width band (see [Swimlanes](board.md#swimlanes)). The band shows the swimlane's first **two** field values inline, as `Label value` pairs in the order set on the Swimlane fields tab, right after the name. Any further values sit behind a **+N** button: it reveals them in place on the same band and then reads **Less**. Screen readers hear the button's expanded or collapsed state. The band shows the same fields at every card density, under the Classic preset too, and keeps them when the lane is collapsed.
+A swimlane's header is a full-width band (see [Swimlanes](board.md#swimlanes)). The band shows the swimlane's first **two** field values inline, as `Label value` pairs in the order set on the Swimlane fields tab, right after the name. An **N fields** button (N counts every field you can see, set or not) sits before them and opens an aligned grid on its own line inside the band: one row per field in Swimlane fields order, labels in a fixed column, values beside them, and **—** for a field with no value, so a field sits in the same place on every lane. The grid always shows field names, even when row chip field names are hidden, and the button stays put when it opens. Screen readers hear the button's expanded or collapsed state and "Not set" for an empty value. The band shows the same fields at every card density, under the Classic preset too, and keeps them when the lane is collapsed.
 
-*Changed in 1.3 (#2303):* swimlane fields are no longer pinned. The band has room for the first two by order and the rest are one click away, so the Swimlane fields tab no longer shows a **Pin** button, a pinned count or a **Pin to swimlane row** switch, and the card density descriptions no longer state a number of swimlane values. A field pinned before 1.3 keeps its `show_on_row` value in the API; it just has no effect on the board. To choose which two values show, reorder the fields. Admins also get a **Change field order** link beside the revealed values; it opens Board Settings on the Swimlane fields tab.
+*Changed in 1.3 (#2303):* swimlane fields are no longer pinned. The band has room for the first two by order and the rest are one click away, so the Swimlane fields tab no longer shows a **Pin** button, a pinned count or a **Pin to swimlane row** switch, and the card density descriptions no longer state a number of swimlane values. A field pinned before 1.3 keeps its `show_on_row` value in the API; it just has no effect on the board. To choose which two values show, reorder the fields. Admins also get a **Change field order** link after the open grid; it opens Board Settings on the Swimlane fields tab.
 
 #### Hiding field names on row chips
 

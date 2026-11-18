@@ -58,7 +58,7 @@ Swimlanes represent entities moving through your pipeline (customers, projects, 
 
 - a collapse chevron (it points down when expanded and turns to point right when collapsed);
 - a small square in the swimlane color, then the name in larger semibold type (admins also see the contact email, and a set [health status](health-status.md#lane-status) follows the name);
-- the swimlane's first two field values as `Label value` pairs, then a **+N** button for the rest (it reveals them in place and then reads **Less**; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band));
+- an **N fields** button (shown when the lane has more than two fields; it opens an aligned grid of every field, with labels in a fixed column and **—** for an unset value, inside the band; see [Swimlane fields in the lane band](custom-fields.md#swimlane-fields-in-the-lane-band)); then the swimlane's first two field values as `Label value` pairs;
 - at the right: **N overdue** and **N stale** (each omitted when zero), the [row limit](#swimlane-limits) line when the row has one, and the swimlane rollup total (`$413k open`) when the board has chosen one.
 
 The band wraps onto a second line when it runs out of room. The name is cut short only when it alone is wider than the band; the full name shows when you hover it. The drag handle, the **Focus** button and, for admins, the **⋮** menu sit next to the swimlane name and appear when you hover over the band or move keyboard focus to them. On a touch device, which has no hover, they are always shown. **Focus** shows only that swimlane. The **⋮** menu (**Actions for swimlane**) holds **Edit swimlane…** and **Change field order…**. On a phone, the swimlane's action row has **Edit** and **Field order** buttons for admins.
@@ -139,7 +139,7 @@ Board import restores row limits as exported and does not check them, as with co
 
 Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction, which helps on dense boards with many swimlanes.
 
-**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) at its right end, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
+**Entering focus mode:** hover over any swimlane band to reveal the crosshair icon (⊙) beside the lane name, and click it. The icon is always visible (highlighted in blue) when that swimlane is currently focused.
 
 **What changes when focus is active:**
 
@@ -397,7 +397,7 @@ Below 640px wide the board shows one column at a time instead of the grid. A row
 
 The limit line shows the card count against the WIP limit (with ⛔ when the board enforces a hard limit and the column is over it) and, when the column is over its weight budget, **Weight** total/budget, as the column header does on a larger screen. Beside it, a column with a policy shows a **Policy** button for everyone; it opens the policy, and board admins can edit it from there.
 
-Swimlanes stack. Each lane has a band showing its name and how many cards it has in this column ("2 here"); tap that line to collapse or expand the lane. A second line shows the lane's first two field values, a **+N** button for the rest (it shows them in place and then reads **Less**), the overdue and stale counts, the lane's [row limit](#swimlane-limits) line and the rollup total, the same as on a larger screen. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
+Swimlanes stack. Each lane has a band showing its name and how many cards it has in this column ("2 here"); tap that line to collapse or expand the lane. A second line shows an **N fields** button when the lane has more than two fields (it opens the same aligned grid, one column wide), the lane's first two field values, the overdue and stale counts, the lane's [row limit](#swimlane-limits) line and the rollup total, the same as on a larger screen. Under each band are the lane's actions: its health status (board admins set it; everyone else sees a set status read-only), **Add card** (people who can edit, in columns that allow new cards), **Edit** (board admins) and **Focus**. Board admins also get **Edit column** beside the column's limit line, and **Add swimlane** and **Add column** at the end of the board. These open the same dialogs as on a larger screen. The Show chips sit in one row that scrolls sideways, and every button and card on the board is at least 44px tall.
 
 Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**, or use the **⋯ More actions** button on a selected card (see [Touch screens](#touch-screens)). Reordering, a drag on a larger screen, uses buttons instead:
 
@@ -756,7 +756,7 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and `+N` like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
+| **Classic** | The board as it looked before presets existed, except the Comfortable urgency border tint and its screen-reader priority text (#977, owner decision 2026-11-13), the redesigned column headers, grid cells and the swimlane band (#2270, #2271), and the Show chip row, which appears under Classic too (#2272). The swimlane band shows the first two lane fields and the **N fields** button like every preset (#2271, superseding #1417): the board's own [card density](#card-density), no overlay. Classic also keeps the earlier urgency badge and due date (the ⚑ / ⏱ text symbols and the lighter amber due-soon text); the flag and stopwatch icons appear under any other preset. A board with no preset looks the same as Classic. |
 | **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
 
 Presets are built in; you cannot create or edit your own yet.

@@ -550,7 +550,7 @@ test.describe('board phone layout', () => {
     await expect(page.getByLabel(/New card title/)).toBeVisible()
   })
 
-  test('lane band second line: fields, +N, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
+  test('lane band second line: fields, N fields grid, lane WIP; one 44px collapse target (#2329)', async ({ page }) => {
     const def = (id: number, name: string, field_type = 'text') => ({
       id, uid: `sfd0000${id}x`, name, field_type, choices: [], position: id, show_on_row: false,
       is_admin_only: false, choice_colors: {}, number_prefix: '', number_suffix: '', number_decimals: null, created_at: '2026-01-01T00:00:00Z',
@@ -572,15 +572,23 @@ test.describe('board phone layout', () => {
     await expect(band.getByTestId('swimlane-limit-stat')).toHaveText(/WIP \d+ \/ 0 over/)
     // One collapse target, at least 44px tall; the second line is outside it.
     const toggle = band.getByRole('button', { name: /Collapse lane/ })
-    await expect(band.locator('[aria-expanded]').filter({ has: page.locator('svg') })).toHaveCount(1)
+    await expect(band.getByRole('button', { name: /(Collapse|Expand) lane/ })).toHaveCount(1)
     expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     await expect(toggle.getByTestId('phone-lane-band-details')).toHaveCount(0)
-    const more = band.getByRole('button', { name: /^\+1:/ })
+    const more = band.getByRole('button', { name: /^\d+ fields:/ })
     const box = (await more.boundingBox())!
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
     await more.click()
     await expect(details).toContainText('West')
-    await expect(band.getByRole('button', { name: /^Less:/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(band.getByRole('button', { name: /^\d+ fields:/ })).toHaveAttribute('aria-expanded', 'true')
+    // Measured, not just a class string: at 390px the grid is one column (all values share one left edge, stacked).
+    const values = band.getByTestId('swimlane-field-grid').locator('dd')
+    await expect(values).toHaveCount(3)
+    const boxes = await values.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: r.y, right: r.right } }))
+    expect(new Set(boxes.map((b) => b.x)).size).toBe(1)
+    expect(boxes[1].y).toBeGreaterThan(boxes[0].y)
+    expect(boxes[2].y).toBeGreaterThan(boxes[1].y)
+    expect(Math.max(...boxes.map((b) => b.right))).toBeLessThanOrEqual(390)
     // The long name wraps rather than pushing the page sideways.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
     await toggle.click()

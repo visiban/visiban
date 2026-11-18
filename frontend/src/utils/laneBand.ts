@@ -8,7 +8,7 @@ import { laneLimitState, laneUsage, swimlaneLimitModes, type LaneLimitReading, t
  * § Swimlane bands (#2335).
  */
 
-/** Lane fields shown inline before `+N` (#2271). The rest are on demand (#2335). */
+/** Lane fields shown inline beside the "N fields" toggle (#2271). The rest are on demand (#2335). */
 export const INLINE_FIELD_COUNT = 2;
 
 export interface LaneBandField {
@@ -18,7 +18,9 @@ export interface LaneBandField {
 
 /**
  * The lane's field values in Swimlane fields tab order, split into the first
- * two (inline) and the rest (behind `+N`). Three guards, all deliberate: an
+ * two (inline) and the rest. `extra` is retained for compatibility and is no
+ * longer rendered by any band: the aligned `LaneFieldGrid` replaced the +N
+ * expansion (#2354). Three guards, all deliberate: an
  * empty-string value renders nothing (dashed already means "unset" on the card
  * face, and Edit Swimlane lists every field, so an empty value is never
  * stranded); a value whose definition is missing is dropped silently (a WS race
@@ -33,6 +35,22 @@ export function laneBandFields(lane: Swimlane, definitions: SwimlaneCustomFieldD
     .filter((x): x is LaneBandField => !!x.def)
     .sort((a, b) => a.def.position - b.def.position);
   return { inline: entries.slice(0, INLINE_FIELD_COUNT), extra: entries.slice(INLINE_FIELD_COUNT) };
+}
+
+/**
+ * Every eligible field for the aligned grid (#2354), in Swimlane fields order,
+ * empty values included (`""`), so each lane's grid has the same rows in the same
+ * places. The server ships every swimlane definition to every board reader (only
+ * row values are filtered), so an admin-only definition is dropped here for a
+ * non-admin: it would otherwise inflate the "N fields" count and render as an
+ * unset row, which falsely says the field is empty. The length is the count.
+ */
+export function laneGridFields(lane: Swimlane, definitions: SwimlaneCustomFieldDefinition[] | undefined, isAdmin: boolean): LaneBandField[] {
+  const values = new Map((lane.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
+  return (definitions ?? [])
+    .filter((d) => isAdmin || !d.is_admin_only)
+    .sort((a, b) => a.position - b.position)
+    .map((def) => ({ def, value: values.get(def.id) ?? "" }));
 }
 
 export interface LaneBandLimit {
