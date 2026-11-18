@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, CARD, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, CARD, COLUMN_DONE, COLUMN_TODO } from './fixtures/board'
 
 // Board states and the keyboard move path on the redesigned board (#2276).
 
@@ -176,5 +176,31 @@ test.describe('keyboard move', () => {
     // Same cell, the previous card's slot: it lands right before it.
     expect(moved).toMatchObject({ column_id: CARD.column, swimlane_id: CARD.swimlane, position: CARD.position })
     await expect.poll(order).toEqual([String(second.id), String(CARD.id)])
+  })
+
+  test('Shift+F10, Move on to the next sub-column: a split stage card advances with no pointer (#2278, #2327)', async ({ page }) => {
+    await routeAuth(page)
+    // The smallest split-stage board: To Do gets two ordered sub-columns, the card starts in the first.
+    const split = { ...COLUMN_TODO, sub_columns: [{ id: 1, uid: 'sub00000001', position: 0, name: 'Doing' }, { id: 2, uid: 'sub00000002', position: 1, name: 'Ready' }], tracks: [] }
+    const card = { ...CARD, gates_passed: 0 }
+    await routeBoard(page, { ...BOARD_FULL, columns: BOARD_FULL.columns.map((c) => (c.id === split.id ? split : c)), cards: [card] })
+    let moved: unknown = null
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/move/**`, async (route) => {
+      moved = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...card, gates_passed: 1, version: 2 } }) })
+    })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(cardFace(page)).toBeVisible({ timeout: 10_000 })
+    await cardFace(page).focus()
+    await page.keyboard.press('Shift+F10')
+    const menu = page.getByRole('menu', { name: `Card actions: ${CARD.title}` })
+    await expect(menu).toBeVisible()
+    await menu.getByRole('menuitem', { name: /Move to/ }).focus()
+    await page.keyboard.press('ArrowRight')
+    await page.getByRole('menuitem', { name: 'Move on to Ready' }).focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(() => moved).not.toBeNull()
+    expect(moved).toMatchObject({ column_id: COLUMN_TODO.id, gates_passed: 1 })
+    await expect(page.locator('[data-sub-column]').or(page.getByRole('group', { name: 'To Do: Ready' })).first()).toBeVisible()
   })
 })
