@@ -277,7 +277,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
                       graceTimer.current = setTimeout(() => { graceTimer.current = null; setSubmenu(null); }, SUBMENU_CLOSE_GRACE_MS);
                     }
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-sm transition flex flex-col ${
+                  className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 max-sm:justify-center text-sm transition flex flex-col ${
                     entry.enabled ? "hover:bg-surface-hover" : "cursor-not-allowed"
                   } ${danger ? MENU_ITEM_FOCUS_RING_DANGER : MENU_ITEM_FOCUS_RING}`}
                 >
@@ -326,7 +326,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
               tabIndex={-1}
               onClick={() => onAction(submenu.id, item.value)}
               onKeyDown={(e) => onSubKeyDown(e, i)}
-              className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover flex items-center gap-2 ${
+              className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 text-sm transition hover:bg-surface-hover flex items-center gap-2 ${
                 item.italic ? "italic text-fg-tertiary hover:text-fg-secondary" : "text-fg-secondary"
               } ${MENU_ITEM_FOCUS_RING}`}
             >

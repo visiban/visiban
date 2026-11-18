@@ -32,9 +32,15 @@ Every pod:
       (dict "key" "pruneNotifications" "command" "prune_notifications" "suffix" "prune-notifications")
       (dict "key" "notifyDueSoon" "command" "notify_due_soon" "suffix" "notify-due-soon")
       (dict "key" "notifyStaleCards" "command" "notify_stale_cards" "suffix" "notify-stale-cards")
-      (dict "key" "computeHealthStatus" "command" "compute_health_status" "suffix" "compute-health-status") }}
+      (dict "key" "computeHealthStatus" "command" "compute_health_status" "suffix" "compute-health-status")
+      (dict "key" "sweepWebhookSecrets" "command" "sweep_webhook_secrets" "suffix" "sweep-webhook-secrets" "fallback" (dict "enabled" true "schedule" "0 4 * * *" "args" (list))) }}
+{{- /* `helm upgrade --reuse-values` from a release that predates a job carries no
+values key for it. A job with a "fallback" behaves as its shipped default then
+(sweepWebhookSecrets: on, so the expired-secret sweep is not silently lost);
+the older jobs keep a missing key off rather than a nil-pointer render error.
+scripts/helm-structure-check.sh section 19 pins this. */ -}}
 {{- range $job := $jobs }}
-{{- $cfg := index $sj $job.key }}
+{{- $cfg := index $sj $job.key | default $job.fallback | default dict }}
 {{- if $cfg.enabled }}
 ---
 apiVersion: batch/v1

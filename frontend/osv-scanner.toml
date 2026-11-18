@@ -18,3 +18,15 @@ id = "GHSA-g3hv-75wg-m249"
 # when the eslint toolchain moves to minimatch >= 11.0.1 (tracked in #2018).
 ignoreUntil = 2027-01-31
 reason = "No minimatch fix within the 3.x/10.x ranges eslint requires; dev-only lint tooling, never sees untrusted input"
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+# picomatch ReDoS through single-branch repeated extglobs (HIGH, published
+# 2026-10-19). The advisory lists every release through 4.0.7 (the current
+# npm latest) as affected and no fixed version exists, so there is nothing to
+# upgrade to. picomatch is reached only through dev tooling (vite, vitest,
+# micromatch, chokidar, anymatch) matching the repo's own static globs; it is
+# not in the production bundle and never sees untrusted patterns. Remove when
+# a fixed release ships and the lockfile picks it up.
+ignoreUntil = 2027-01-15
+reason = "No fixed picomatch release exists (affected through latest 4.0.7); dev-only tooling, never sees untrusted patterns"

@@ -34,6 +34,13 @@ export interface SwimlaneStat {
    */
   age_is_warning?: Record<string, boolean>;
   throughput_is_warning?: Record<string, boolean>;
+  /**
+   * The whole heatmap tier from the unrounded mean, 1-day floor on every tier
+   * (#2331); null for a cell with no mean. Absent from a server older than this
+   * field, where the flags above decide.
+   */
+  age_heat_level?: Record<string, HeatLevel | null>;
+  throughput_heat_level?: Record<string, HeatLevel | null>;
   deal_velocity_days: number | null;
   stalled_cards: StalledCard[];
 }
@@ -121,3 +128,6 @@ export function exportCsv(data: AnalyticsData, mode: ViewMode) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** A heatmap cell tier: red, yellow or green (#2331). */
+export type HeatLevel = "high" | "warning" | "ok";

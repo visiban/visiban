@@ -321,6 +321,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
+    commitment_column_uid: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
@@ -1317,17 +1318,14 @@ describe('BoardView', () => {
     expect(screen.getByTestId('summary-view')).toBeInTheDocument()
   })
 
-  // #2321 / #2333: the phone toolbar keeps its tabs on row 2 in every view, so switching views
-  // never moves them. jsdom has no layout, so assert the structure the e2e measures.
-  it.each(['summary', 'history', 'analytics'])('the %s toolbar reserves the phone icon row and puts the tabs on row 2', (view) => {
+  // #2321 / #2348: the phone toolbar is one tab-strip row in every view (the board's icons sit after its
+  // tabs), so switching views never moves the tabs and no empty row is reserved. jsdom has no layout.
+  it.each(['summary', 'history', 'analytics'])('the %s toolbar reserves no phone icon row (#2348)', (view) => {
     mockSearchParams = new URLSearchParams(`view=${view}`)
     render(<BoardView {...defaultProps()} />)
     const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
-    const row1 = within(nav).getByTestId('phone-toolbar-row-1')
-    expect(row1).toHaveAttribute('aria-hidden', 'true')
-    expect(row1).toHaveClass('max-sm:order-1', 'max-sm:h-11', 'max-sm:w-full')
-    const tabs = within(nav).getByRole('button', { name: 'Board' }).closest('div.max-sm\\:order-2')
-    expect(tabs).not.toBeNull()
+    expect(within(nav).queryByTestId('phone-toolbar-row-1')).toBeNull()
+    expect(within(nav).getByRole('button', { name: 'Board' })).toBeInTheDocument()
   })
 
   it('reads view from ?view=analytics param on mount and renders AnalyticsView', () => {

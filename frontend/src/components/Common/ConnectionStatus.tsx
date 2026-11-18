@@ -17,6 +17,8 @@ interface Props {
   onReloadPage?: () => void;
   className?: string;
   tourStep?: string;
+  /** Phone chrome (#2348): drop the healthy dot below 640px; a degraded state (stale, offline, failed) still shows. */
+  hideWhenHealthyOnPhone?: boolean;
 }
 
 type EffectiveState = SocketStatus | "stale";
@@ -38,6 +40,7 @@ export default function ConnectionStatus({
   onReloadPage,
   className = "",
   tourStep,
+  hideWhenHealthyOnPhone = false,
 }: Props) {
   const isStale = useIsStale(status, lastEventAt);
   const effective: EffectiveState = status === "connected" && isStale ? "stale" : status;
@@ -135,7 +138,7 @@ export default function ConnectionStatus({
       role="dialog"
       aria-label="Connection status"
       style={{ position: "fixed", top: anchor.top, right: anchor.right }}
-      className="w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2"
+      className="w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2 max-sm:[&_button]:min-h-11"
     >
       <PopoverBody
         state={effective}
@@ -158,14 +161,15 @@ export default function ConnectionStatus({
         aria-expanded={open}
         aria-label={variant.aria}
         data-tour-step={tourStep}
-        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}`}
+        className={`flex items-center justify-center gap-1 max-sm:min-h-11 max-sm:min-w-11 text-xs font-medium shrink-0 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${variant.wrapper}${hideWhenHealthyOnPhone && effective === "connected" ? " max-sm:hidden" : ""}`}
       >
         <span className={variant.dot} aria-hidden="true" />
         {variant.label && <span className={variant.labelClass}>{variant.label}</span>}
-        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-          {effective === "connected" ? "" : variant.aria}
-        </span>
       </button>
+      {/* Outside the button, so hiding the healthy dot on phones never unmounts the live region: a change to reconnecting or offline must still be announced. */}
+      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {effective === "connected" ? "" : variant.aria}
+      </span>
       {panel && createPortal(panel, document.body)}
     </div>
   );

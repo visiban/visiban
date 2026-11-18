@@ -3,6 +3,7 @@ import { userDisplayName } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
 import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
+import { isOverdue } from "./cardUrgency";
 import { isCardBlocked } from "./blockedState";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 
@@ -96,7 +97,10 @@ export function filterCards(
   todayOverride?: string, // YYYY-MM-DD; when provided overrides the local clock (timezone-aware callers pass this)
   // #1848 — board field definitions, so a checkbox filter can treat a card with
   // no stored row as "false". Optional: omitted means no field is a checkbox.
-  customFieldDefs?: ReadonlyArray<{ id: number; field_type: string }>
+  customFieldDefs?: ReadonlyArray<{ id: number; field_type: string }>,
+  // #2313 — ids of done columns, so the Overdue filter skips finished cards like the
+  // Show chip and the server do. Omitted means no column is done.
+  doneColumnIds?: ReadonlySet<number>
 ): number[] {
   const todayStr = todayOverride ?? getTodayStr();
   const nextWeekStr = getNextWeekStr(todayStr);
@@ -144,7 +148,9 @@ export function filterCards(
       if (filters.dueDate !== null) {
         if (filters.dueDate === "none" && card.due_date !== null) return false;
         if (filters.dueDate === "overdue") {
-          if (!card.due_date || card.due_date >= todayStr) return false;
+          // The one overdue rule (#2313): instance time zone, open cards only; not the
+          // browser's or the user's date.
+          if (!isOverdue(card.due_date, !!card.archived_at || !!doneColumnIds?.has(card.column))) return false;
         }
         if (filters.dueDate === "today") {
           if (card.due_date !== todayStr) return false;

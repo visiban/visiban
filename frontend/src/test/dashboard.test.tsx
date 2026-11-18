@@ -893,4 +893,58 @@ describe('Dashboard health status (#1133)', () => {
     expect(await screen.findByText('Not reviewed in 18 days')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Stale Board Health status: At risk ?, Not reviewed in 18 days$/ })).toBeInTheDocument()
   })
+
+  describe('Needs review list (#2309)', () => {
+    const day = 24 * 60 * 60 * 1000
+    const board = (id: number, name: string, extra: Record<string, unknown>) => ({
+      id, name, description: '', owner: fakeUser, group: 7, group_name: 'Team', member_count: 1,
+      created_at: '', updated_at: '', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
+      health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
+      health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
+      is_starred: false,
+      ...extra,
+    })
+
+    it('lists a grouped, unstarred board past its review date, with its cue', async () => {
+      mockListBoards.mockResolvedValue([board(1, 'Grouped Board', {})])
+      renderDashboard()
+      const section = await screen.findByRole('region', { name: 'Needs review' })
+      expect(within(section).getByText('Grouped Board')).toBeInTheDocument()
+      expect(within(section).getByText('Not reviewed in 18 days')).toBeInTheDocument()
+    })
+
+    it('lists a nested subgroup past its review date, not a top-level or reviewed one', async () => {
+      mockListBoards.mockResolvedValue([])
+      const group = (id: number, name: string, parent: number | null, extra: Record<string, unknown> = {}) => ({
+        id, name, parent, parent_name: parent ? 'Top' : null, navigation_only: false,
+        health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
+        health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
+        health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
+        ...extra,
+      })
+      mockListGroups.mockResolvedValue([
+        group(1, 'Top', null),
+        group(2, 'Stale Sub', 1),
+        group(3, 'Fresh Sub', 1, { health_review_due_at: new Date(Date.now() + 4 * day).toISOString() }),
+      ] as never)
+      renderDashboard()
+      const section = await screen.findByRole('region', { name: 'Needs review' })
+      expect(within(section).getByText('Stale Sub')).toBeInTheDocument()
+      expect(within(section).getByText('Not reviewed in 18 days')).toBeInTheDocument()
+      expect(within(section).queryByText('Top')).toBeNull()
+      expect(within(section).queryByText('Fresh Sub')).toBeNull()
+    })
+
+    it('leaves out boards that already have a row, are reviewed, or are computed', async () => {
+      mockListBoards.mockResolvedValue([
+        board(1, 'Starred Board', { is_starred: true }),
+        board(2, 'Ungrouped Board', { group: null, group_name: null }),
+        board(3, 'Reviewed Board', { health_review_due_at: new Date(Date.now() + 4 * day).toISOString() }),
+        board(4, 'Auto Board', { health_status_origin: 'computed' }),
+      ])
+      renderDashboard()
+      await screen.findByText('Ungrouped Board')
+      expect(screen.queryByRole('region', { name: 'Needs review' })).toBeNull()
+    })
+  })
 })

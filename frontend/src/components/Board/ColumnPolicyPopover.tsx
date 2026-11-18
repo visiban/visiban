@@ -101,7 +101,7 @@ export default function ColumnPolicyPopover({ columnName, policy, anchorRect, on
       role="dialog"
       tabIndex={-1}
       aria-label={`Column policy for ${columnName}`}
-      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl py-1 focus:outline-none"
+      className="fixed z-50 bg-surface border border-line-strong rounded-lg shadow-xl py-1 focus:outline-none max-sm:[&_button]:min-h-11"
       style={{
         top: top ?? 0,
         left,

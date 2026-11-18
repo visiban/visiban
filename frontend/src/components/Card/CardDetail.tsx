@@ -33,8 +33,9 @@ import { CARD_DETAIL_TABS, HISTORY_PAGE_LIMIT, getRememberedCardDetailTab, remem
 import { lastActivitySummary } from "../../utils/cardTimelineLabels";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
-import { formatDateStr, formatDueDate, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
+import { formatDateStr, formatDateTimeUser, formatRelativeTime } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
+import { isOverdue } from "../../utils/cardUrgency";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
@@ -87,6 +88,11 @@ interface Props {
    * fact stay in place but are disabled, with the reason in text.
    */
   movesPaused?: boolean;
+  /**
+   * The card's place in its cell (#2359, phone only; `cellOrderOf`). Given, the panel
+   * offers Move earlier / Move later with the peek sheet's handler: the phone has no drag.
+   */
+  cellOrder?: { index: number; count: number; earlier: number | null; later: number | null };
   userDateFormat?: string;
   userTimeFormat?: string;
   userTimezone?: string;
@@ -169,7 +175,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -886,6 +892,25 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     }
   };
 
+  // #2359 — the peek sheet's Move earlier / Move later (CardPeekSheet.reorder): the endpoint's
+  // raw slot for the step (`cellOrderOf`), not index + 1, since a same-cell move does not compact.
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorder = async (dir: -1 | 1) => {
+    const position = !cellOrder ? null : dir === -1 ? cellOrder.earlier : cellOrder.later;
+    if (!onMoveCard || position === null || reordering) return;
+    setReordering(true);
+    setReorderError(null);
+    try {
+      const result = await onMoveCard(localCard.id, localCard.column, localCard.swimlane, position);
+      if (result && result.ok === false) setReorderError(moveFailureMessage(result.error));
+    } catch (err) {
+      setReorderError(moveFailureMessage(err));
+    } finally {
+      setReordering(false);
+    }
+  };
+
   // Changing the target invalidates the last failure's message and override.
   const clearMoveFailure = () => {
     setMovePopoverError(null);
@@ -1047,8 +1072,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         const base = liveCardBase();
         onUpdated({ ...base, attachment_count: base.attachment_count + 1 });
       }
-    } catch {
-      setAttachError("Could not upload attachment.");
+    } catch (err) {
+      // The server's refusals say why (over the card quota, file type does not
+      // match its content, #2007); show that rather than a generic failure.
+      const res = (err as { response?: { status?: number; data?: { detail?: unknown } } } | null)?.response;
+      if (res?.status === 400 && typeof res.data?.detail === "string" && res.data.detail) {
+        setAttachError(res.data.detail);
+      } else if (res?.status === 429) {
+        setAttachError("Too many uploads. Please wait a while and try again.");
+      } else {
+        setAttachError("Could not upload attachment.");
+      }
     } finally {
       uploadInFlight.current = false;
       setUploading(false);
@@ -1624,7 +1658,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     // On coarse pointers (touch) this is the non-drag way to move a card,
                     // but a 20px icon is too small to tap and its hover tooltip never
                     // shows (#1287). Grow it to 32px and show the "Move" label inline.
-                    className="w-5 h-5 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-muted aria-disabled:hover:bg-transparent transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="w-5 h-5 max-sm:min-h-11 max-sm:min-w-11 [@media(pointer:coarse)]:w-auto [@media(pointer:coarse)]:h-8 [@media(pointer:coarse)]:px-2 [@media(pointer:coarse)]:gap-1 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-muted aria-disabled:hover:bg-transparent transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     aria-label="Move card to different column or swimlane"
                   >
                     {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
@@ -1647,6 +1681,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div role="status" aria-live="polite" aria-atomic="true" data-testid="move-notice">
               {moveNotice && <p className="text-xs text-warning mt-1 px-1">{moveNotice}</p>}
             </div>
+            {/* Phone (#2359): the peek sheet's reorder, one step earlier or later in the cell, since there is no drag. */}
+            {canEdit && onMoveCard && cellOrder !== undefined && cellOrder.count > 1 && (
+              <div className="mt-2 flex gap-2 px-1" data-testid="card-detail-reorder">
+                <button type="button" disabled={cellOrder.earlier === null} aria-disabled={movesPaused || reordering || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(-1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move earlier</button>
+                <button type="button" disabled={cellOrder.later === null} aria-disabled={movesPaused || reordering || undefined} aria-describedby={movesPaused ? "card-detail-moves-paused" : undefined} onClick={movesPaused ? undefined : () => void reorder(1)} className="disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover rounded px-4 py-2 text-sm min-h-11">Move later</button>
+              </div>
+            )}
+            {reorderError && <p role="alert" className="mt-2 text-sm text-danger px-1">{reorderError}</p>}
           </div>
           {canBlock && !manuallyBlocked && (
             <button
@@ -1864,7 +1906,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       When a date is already set, overlay an invisible native input over a
                       styled display so the user always sees their chosen format. */}
                   {localCard.due_date ? (() => {
-                    const info = formatDueDate(localCard.due_date, userTimezone, userDateFormat);
                     return (
                       <div className="flex items-center gap-1.5">
                         {/* The transparent input sits over the styled display and receives clicks
@@ -1872,7 +1913,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
                         <div className="relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -2628,7 +2669,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             // Owns the inline role="alert" for a refused move, so the shared
             // toast mirrors it silently (MoveBlockedToast, frontend/CLAUDE.md § Toasts).
             data-move-popover=""
-            className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
+            className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3 max-sm:[&_button]:min-h-11"
             style={{ top: movePopoverAnchor.top, left: movePopoverAnchor.left }}
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">Move to</p>

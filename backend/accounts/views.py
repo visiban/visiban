@@ -1103,6 +1103,12 @@ class SiteConfigView(APIView):
                 "git_lens_enabled": drf_serializers.BooleanField(),
                 "maintenance_mode": drf_serializers.BooleanField(),
                 "maintenance_message": drf_serializers.CharField(),
+                "instance_timezone": drf_serializers.CharField(
+                    help_text=(
+                        "INSTANCE_TIMEZONE, the IANA zone whose date decides when a card turns "
+                        "overdue. The browser applies the same rule as the server (#2313)."
+                    ),
+                ),
             },
         ),
     )
@@ -1135,6 +1141,13 @@ class SiteConfigView(APIView):
             "git_lens_enabled": flags["git_lens_enabled"],
             "maintenance_mode": flags["maintenance_mode"],
             "maintenance_message": flags["maintenance_message"],
+            # #2313: the zone the overdue rule reads "today" in, so the card face
+            # turns a card overdue at the same midnight as the server's filter and
+            # auto health. A deployment locale, not a secret: it is not caller
+            # dependent, carries no credential, and only names which midnight
+            # the instance counts from. Anonymous because shared read-only boards
+            # render overdue cues before (or without) a sign-in.
+            "instance_timezone": settings.INSTANCE_TIMEZONE,
         })
 
     @staticmethod

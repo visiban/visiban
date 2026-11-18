@@ -114,6 +114,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
+    commitment_column_uid: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
@@ -2027,6 +2028,63 @@ describe('CardDetail', () => {
       expect(onMoveCard).not.toHaveBeenCalled()
     })
 
+    describe('phone reorder (#2359)', () => {
+      const order = { index: 1, count: 3, earlier: 0, later: 3 }
+      const renderWith = (extra: Record<string, unknown> = {}, onMoveCard = vi.fn().mockResolvedValue({ ok: true })) => {
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} cellOrder={order} {...extra} />)
+        return onMoveCard
+      }
+
+      it('steps the card with the cell order\'s raw slots, in the card\'s own cell', async () => {
+        const onMoveCard = renderWith()
+        const card = defaultProps().card
+        await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+        expect(onMoveCard).toHaveBeenLastCalledWith(card.id, card.column, card.swimlane, 0)
+        await userEvent.click(screen.getByRole('button', { name: 'Move later' }))
+        expect(onMoveCard).toHaveBeenLastCalledWith(card.id, card.column, card.swimlane, 3)
+      })
+
+      it('disables a step with no visible neighbor, and shows nothing without cellOrder or for a single card', () => {
+        renderWith({ cellOrder: { index: 0, count: 2, earlier: null, later: 2 } })
+        expect(screen.getByRole('button', { name: 'Move earlier' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Move later' })).toBeEnabled()
+      })
+
+      it('is absent without cellOrder', () => {
+        render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} />)
+        expect(screen.queryByTestId('card-detail-reorder')).not.toBeInTheDocument()
+      })
+
+      it('says why when the move fails', async () => {
+        renderWith({}, vi.fn().mockResolvedValue({ ok: false, error: new Error('boom') }))
+        await userEvent.click(screen.getByRole('button', { name: 'Move earlier' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent(/could not be moved/i)
+      })
+
+      it('keeps focus on the pressed step while the move is in flight, by aria-disabled rather than disabled', async () => {
+        let resolve!: (v: { ok: true }) => void
+        const onMoveCard = vi.fn().mockReturnValue(new Promise((r) => { resolve = r }))
+        renderWith({}, onMoveCard)
+        const btn = screen.getByRole('button', { name: 'Move later' })
+        btn.focus()
+        await userEvent.click(btn)
+        expect(btn).toHaveAttribute('aria-disabled', 'true')
+        expect(btn).not.toBeDisabled()
+        expect(btn).toHaveFocus()
+        await userEvent.click(btn)
+        expect(onMoveCard).toHaveBeenCalledTimes(1)
+        resolve({ ok: true })
+      })
+
+      it('offline: aria-disabled with the reason, and no move', async () => {
+        const onMoveCard = renderWith({ movesPaused: true })
+        const btn = screen.getByRole('button', { name: 'Move earlier' })
+        expect(btn).toHaveAttribute('aria-disabled', 'true')
+        await userEvent.click(btn)
+        expect(onMoveCard).not.toHaveBeenCalled()
+      })
+    })
+
     it('offline: the Column key fact is inert, not a button (#2325)', () => {
       render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={vi.fn()} movesPaused />)
       expect(within(screen.getByRole('list', { name: 'Key facts' })).queryByRole('button', { name: /Go to Move/ })).not.toBeInTheDocument()
@@ -3550,6 +3608,30 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       fireEvent.change(input, { target: { files: [file] } })
       await waitFor(() => expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument())
       expect(mockUp).toHaveBeenCalledTimes(2)
+    })
+
+    it('file upload: a 400 refusal shows the server detail (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({
+        response: { status: 400, data: { code: 'attachment_quota_exceeded', detail: 'This card already has 100 attachments.' } },
+      })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      const err = await screen.findByText('This card already has 100 attachments.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.queryByText('Could not upload attachment.')).not.toBeInTheDocument()
+    })
+
+    it('file upload: a 429 shows a rate-limit message (#2007)', async () => {
+      const { uploadCardAttachment } = await import('../api/cards')
+      const mockUp = uploadCardAttachment as ReturnType<typeof vi.fn>
+      mockUp.mockRejectedValueOnce({ response: { status: 429, data: { detail: 'Request was throttled.' } } })
+      const { container } = render(<CardDetail {...defaultProps()} />)
+      const { input, file } = pick(container)
+      fireEvent.change(input, { target: { files: [file] } })
+      expect(await screen.findByText('Too many uploads. Please wait a while and try again.')).toBeInTheDocument()
     })
   })
 

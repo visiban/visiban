@@ -182,3 +182,33 @@ describe('ConnectionStatus viewport dismissals (#1171)', () => {
     expect(screen.queryByRole('dialog', { name: 'Connection status' })).not.toBeInTheDocument()
   })
 })
+
+describe('ConnectionStatus on phones (#2348)', () => {
+  it('hides only the healthy dot below 640px when asked', () => {
+    const { rerender } = render(<ConnectionStatus status="connected" lastEventAt={Date.now()} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('button', { name: 'Real-time updates active', hidden: true })).toHaveClass('max-sm:hidden')
+    rerender(<ConnectionStatus status="reconnecting" lastEventAt={null} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('button', { name: /Offline, reconnecting/ })).not.toHaveClass('max-sm:hidden')
+    rerender(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
+    expect(screen.getByRole('button', { name: 'Real-time updates active' })).not.toHaveClass('max-sm:hidden')
+  })
+
+  it('lifts the details panel buttons to 44px below 640px (#2350)', () => {
+    // The panel is portaled to document.body, out of reach of any toolbar rule, so its root carries the rule.
+    // Not swept in board-phone.spec.ts: a phone only shows the dot when unhealthy, and the e2e stub cannot hold
+    // a stale or failed state long enough to open it.
+    render(<ConnectionStatus status="failed" lastEventAt={null} onReloadPage={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Offline, real-time updates unavailable' }))
+    const panel = screen.getByRole('dialog', { name: 'Connection status' })
+    expect(panel).toHaveClass('max-sm:[&_button]:min-h-11')
+    expect(panel.parentElement).toBe(document.body)
+  })
+
+  it('keeps its live region mounted outside the trigger so a hidden healthy dot still announces a change', () => {
+    const { rerender } = render(<ConnectionStatus status="connected" lastEventAt={Date.now()} hideWhenHealthyOnPhone />)
+    const region = screen.getByRole('status', { hidden: true })
+    expect(region.closest('button')).toBeNull()
+    rerender(<ConnectionStatus status="failed" lastEventAt={null} hideWhenHealthyOnPhone />)
+    expect(screen.getByRole('status')).toHaveTextContent('Offline, real-time updates unavailable')
+  })
+})

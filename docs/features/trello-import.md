@@ -85,12 +85,12 @@ Only people you can already see in Visiban are checked: people who share a board
 
 **Add matched members to this board** is off by default.
 
-- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card) and to their checklist items.
+- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card) and to their checklist items. *(1.3+)* Each person added gets a [board invite notification](notifications.md#board-invite-notifications) saying you added them while importing from Trello, unless they turned board invite notifications off (#2122).
 - **Off:** cards and checklist items are unassigned.
 
 A checklist item assigned to someone who did not match imports unassigned.
 
-Either way, comments are attributed to you (see below). Importing never sends notifications.
+Either way, comments are attributed to you (see below). Apart from that board invite notice, importing sends no notifications: nobody is told about the cards, checklist items, comments or @mentions it creates.
 
 ## Comment authors
 

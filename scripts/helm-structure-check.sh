@@ -564,6 +564,11 @@ check_frontend_security_headers() {
     bad=1
   fi
 
+  if ! grep -qE "^[[:space:]]*add_header[[:space:]]+X-Content-Type-Options[[:space:]]+nosniff[[:space:]]+always;" <<< "$conf"; then
+    fail "nginx does not send 'X-Content-Type-Options nosniff always' (the bundled templates do) (#1073)"
+    bad=1
+  fi
+
   # Referrer-Policy goes through a map so Django's own (possibly stricter,
   # e.g. the password-reset redirect's no-referrer) value is never overridden:
   # nginx adds same-origin only when the upstream sent none (#1531).
@@ -636,7 +641,7 @@ check_frontend_security_headers() {
       bad=1
     fi
   done
-  [ "$bad" -eq 0 ] && pass "nginx sends X-Frame-Options DENY and a CSP identical to the bundled template (connect-src host list aside), with the right connect-src per ingress variant"
+  [ "$bad" -eq 0 ] && pass "nginx sends X-Frame-Options DENY, X-Content-Type-Options nosniff and a CSP identical to the bundled template (connect-src host list aside), with the right connect-src per ingress variant"
   return 0
 }
 
@@ -2373,10 +2378,35 @@ check_db_pool() {
 }
 
 # ---------------------------------------------------------------------------
-# 19. The dispatcher egress NetworkPolicy is opt-in and shaped right (#2067).
+# 19. The webhook-secret sweep CronJob survives `--reuse-values` (#2119).
+# ---------------------------------------------------------------------------
+check_sweep_webhook_secrets_fallback() {
+  section "19. The sweep_webhook_secrets CronJob renders when scheduledJobs.sweepWebhookSecrets is missing, and not when scheduledJobs is off (#2119)"
+  local got bad=0 rendered
+  # `helm upgrade --reuse-values` from 1.2 carries no sweepWebhookSecrets key.
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set scheduledJobs.enabled=true --set scheduledJobs.sweepWebhookSecrets=null 2>&1)" \
+    || { fail "scheduledJobs.sweepWebhookSecrets=null does not render: $(head -c 300 <<< "$rendered")"; return 0; }
+  got="$(grep -c 'sweep_webhook_secrets' <<< "$rendered" || true)"
+  if [ "$got" -lt 1 ]; then
+    fail "scheduledJobs.sweepWebhookSecrets=null renders no sweep_webhook_secrets CronJob (the sweep is silently lost on --reuse-values)"; bad=1
+  fi
+  if ! grep -qF 'schedule: "0 4 * * *"' <<< "$rendered"; then
+    fail "the missing-key fallback does not use the shipped schedule 0 4 * * *"; bad=1
+  fi
+  rendered="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set scheduledJobs.enabled=false 2>&1)" \
+    || { fail "scheduledJobs.enabled=false does not render"; return 0; }
+  got="$(grep -c 'sweep_webhook_secrets' <<< "$rendered" || true)"
+  if [ "$got" -ne 0 ]; then
+    fail "scheduledJobs.enabled=false still renders the sweep_webhook_secrets CronJob"; bad=1
+  fi
+  [ "$bad" -eq 0 ] && pass "the sweep CronJob renders with the key missing (0 4 * * *) and is absent when scheduledJobs is off"
+}
+
+# ---------------------------------------------------------------------------
+# 20. The dispatcher egress NetworkPolicy is opt-in and shaped right (#2067).
 # ---------------------------------------------------------------------------
 check_dispatcher_egress_policy() {
-  section "19. The webhook dispatcher egress NetworkPolicy renders only when both the dispatcher and its networkPolicy are enabled, and denies cluster-internal ranges (#2067)"
+  section "20. The webhook dispatcher egress NetworkPolicy renders only when both the dispatcher and its networkPolicy are enabled, and denies cluster-internal ranges (#2067)"
   local bad=0 rendered name="webhook-dispatcher-egress"
   # RENDER_ARGS already turns the dispatcher on (section 7), so the default
   # render proves "dispatcher on, networkPolicy off renders no policy".
@@ -2450,6 +2480,7 @@ run_all_checks() {
   check_num_proxies_default
   check_feature_flags
   check_db_pool
+  check_sweep_webhook_secrets_fallback
   check_dispatcher_egress_policy
 }
 
@@ -2509,6 +2540,7 @@ self_test() {
     "frontend CSP header removed|templates/frontend-configmap.yaml|s/add_header Content-Security-Policy /add_header X-Policy-Removed /"
     "frontend Referrer-Policy removed|templates/frontend-configmap.yaml|s/add_header Referrer-Policy /add_header X-Policy-Removed-RP /"
     "frontend Referrer-Policy fallback map removed|templates/frontend-configmap.yaml|s/\"\"      \"same-origin\";/\"\"      \"\";/"
+    "frontend X-Content-Type-Options removed|templates/frontend-configmap.yaml|s/add_header X-Content-Type-Options    nosniff always;/add_header X-Nosniff-Removed 1;/"
     "frontend X-Frame-Options weakened|templates/frontend-configmap.yaml|s/X-Frame-Options           DENY/X-Frame-Options           SAMEORIGIN/"
     # 4g (#1952): CSP img-src widened; an add_header inside a location (drops the
     # inherited server-level headers); the `:*` (port) connect-src entry dropped.
@@ -2583,13 +2615,13 @@ self_test() {
     "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
     "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
-    # 19 (#2067): the dispatcher egress policy stops excepting the internal
+    # 20 (#2067): the dispatcher egress policy stops excepting the internal
     # ranges, so "public egress" quietly includes the whole cluster.
-    "19 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
-    # 19 (#2067): the policy renders without its own opt-in.
-    "19 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
-    # 19 (#1465 round 2): the policy renders in demo mode, on top of demo-egress.
-    "19 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
+    "20 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
+    # 20 (#2067): the policy renders without its own opt-in.
+    "20 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
+    # 20 (#1465 round 2): the policy renders in demo mode, on top of demo-egress.
+    "20 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
     "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
@@ -2635,6 +2667,9 @@ self_test() {
     "15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
     # 15 (#1911): an empty or null postgresql.image renders `image:` empty again.
     "15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
+    # 19 (#2119): the missing-key fallback is dropped, so --reuse-values from 1.2
+    # silently loses the sweep CronJob.
+    "19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
   )
 
   for fixture in "${fixtures[@]}"; do

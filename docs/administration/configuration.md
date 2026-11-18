@@ -279,7 +279,7 @@ Two API throttle scopes bound the endpoints that resolve or contact a destinatio
 
 | Variable | Description | Default |
 |---|---|---|
-| `INSTANCE_TIMEZONE` | IANA time zone name (for example `America/Los_Angeles` or `Asia/Tokyo`) that decides what "today" is for the date-based card signals: the server-side **overdue** filter and count (card overdue badges, borders and Show chips are computed in the browser from the card's due date, at UTC midnight at the start of the due day, and do not read this setting; aligning them is tracked in #2313), the `notify_due_soon` job's due-soon window, and [auto health status](../features/health-status.md). Due dates are plain dates, so without a zone a card turns overdue at midnight UTC. An unknown name stops the server at startup with a clear error rather than falling back to UTC. Does not change timestamps, the scheduler's clock (see [Scheduled jobs](scheduled-jobs.md)) or Django's `TIME_ZONE`. Helm: `backend.settings.instanceTimezone`. *(new in 1.3)* | `UTC` |
+| `INSTANCE_TIMEZONE` | IANA time zone name (for example `America/Los_Angeles` or `Asia/Tokyo`) that decides what "today" is for the date-based card signals: **overdue** everywhere it shows: the card list filter, the auto health count, and the card face's overdue badge, border, status line and Show chips (the web app reads the zone from `GET /api/v1/auth/site-config/`, so both sides turn a card overdue at the same midnight, *changed in 1.3*, #2313; see [Overdue](../features/board.md#overdue)), the `notify_due_soon` job's due-soon window, and [auto health status](../features/health-status.md). Due dates are plain dates, so without a zone a card turns overdue at midnight UTC. An unknown name stops the server at startup with a clear error rather than falling back to UTC. Does not change timestamps, the scheduler's clock (see [Scheduled jobs](scheduled-jobs.md)) or Django's `TIME_ZONE`. Helm: `backend.settings.instanceTimezone`. *(new in 1.3)* | `UTC` |
 
 Existing installs are unaffected until you set it, with one exception: the card list's `?overdue=` filter used the host's local date (`date.today()`) and now uses the instance zone, so on a host whose own zone is not UTC its day boundary moves to UTC until you set this. After changing it, the next auto health run
 (or a board admin's **Recompute now**) applies the new day boundary. Changing it does not move the scheduled jobs: auto health runs at 02:00 UTC by default, which is 18:00 or 19:00 the previous day in Los Angeles and about 11 hours after local midnight in Tokyo, so a card that turns overdue at local midnight is not counted until the next auto run. Also set Helm `scheduledJobs.timeZone` to the same zone, or on Compose move `SCHEDULE_COMPUTE_HEALTH` and `SCHEDULE_NOTIFY_DUE_SOON` to the UTC times just after local midnight and in the local morning. See [Scheduled jobs](scheduled-jobs.md).
@@ -306,6 +306,43 @@ created:
   least `IMPORT_MAX_SIZE_BYTES` + 10 MB.
 - The application server (daphne) and the web client set no request timeout
   of their own.
+
+---
+
+## Attachment limits
+
+*(new in 1.3)* Card attachments are capped per file, per card and per user
+(#2007). Before 1.3 only the per-file size and the general API rate limit
+applied, so one collaborator could fill the media volume for every board on
+the instance by uploading in a loop.
+
+| Variable | Description | Default |
+|---|---|---|
+| `MAX_UPLOAD_SIZE_BYTES` | Largest single attachment, **in bytes**. Also caps native board imports. Helm: `backend.settings.maxUploadSizeBytes`. | `10485760` (10 MB) |
+| `ATTACHMENT_MAX_PER_CARD` | Most attachments one card may hold. `0` = no limit. Helm: `backend.settings.attachmentMaxPerCard`. | `100` |
+| `ATTACHMENT_MAX_BYTES_PER_CARD` | Most attachment bytes one card may hold, **in bytes**, counting the file being uploaded. `0` = no limit. Helm: `backend.settings.attachmentMaxBytesPerCard`. | `1073741824` (1 GiB) |
+| `ATTACHMENT_THROTTLE_UPLOAD_RATE` | Attachment uploads per user, as `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Counted on top of the general per-user API limit; listing attachments is not counted. Empty = the default. Applies in development (`DEBUG`) too, where the default is otherwise `9999/hour`. Helm: `backend.settings.attachmentUploadRate`. | `120/hour` |
+
+- An upload that would break a per-card quota gets `400` with
+  `"code": "attachment_quota_exceeded"` and nothing is stored. An upload over
+  the rate limit gets `429` with a `Retry-After` header.
+- The defaults are chosen so an existing install keeps working: few cards hold
+  anywhere near 100 files. At the default 10 MB file size the count quota is
+  reached before the byte quota, which starts to matter when you raise
+  `MAX_UPLOAD_SIZE_BYTES`.
+- Plain-text and CSV uploads are scanned in full for HTML markup before they
+  are stored, so raising `MAX_UPLOAD_SIZE_BYTES` far beyond the default also
+  lengthens each such upload request.
+- Lowering a quota never deletes anything. A card already over it keeps its
+  attachments and accepts new ones only once it is back under the quota.
+- Only attachments are capped. Per-card limits on comments and checklist items
+  are not in place yet; tracked in #2376.
+- The quota is checked while the card row is locked, so two uploads racing for
+  a card's last slot cannot both succeed.
+- These quotas bound one card. A user can still spread uploads over many cards,
+  which is what the rate limit bounds: at the defaults one account can add at
+  most about 1.2 GB an hour. Size the media volume, or lower the rate, with
+  that in mind. Turning uploads off entirely is in **Admin → Settings**.
 
 ---
 

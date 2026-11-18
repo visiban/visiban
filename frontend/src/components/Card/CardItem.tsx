@@ -459,13 +459,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // compact layout keep the absolutely-positioned bottom-right avatar (#1411).
   const avatarInRow = calmFace && !compact && !!card.assignee;
   const AvatarWrap: React.ElementType = avatarInRow ? "div" : Fragment;
-  const isOverdueCard = calmFace && classifyCardUrgency({ due_date: card.due_date, is_stale: false, last_moved_at: null })?.kind === "overdue";
+  // The overdue rule (#2313): finished work (a Done column, or archived) is never overdue.
+  const cardClosed = inDoneColumn || !!card.archived_at;
+  const isOverdueCard = calmFace && classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null })?.kind === "overdue";
   const priorityColor = colorForPriority(card.priority);
   // Comfortable density only (#977, A-Q4): overdue / due-soon also take the
   // border, since that density has no priority badge and its urgency badge is
   // the only other cue. Precedence lives in classifyCardBorder.
   const borderTone = classifyCardBorder(
-    { due_date: card.due_date, is_stale: card.is_stale, last_moved_at: card.last_moved_at, manuallyBlocked: isManuallyBlocked(card) },
+    { due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale, last_moved_at: card.last_moved_at, manuallyBlocked: isManuallyBlocked(card) },
     { density, compact },
   );
   const borderColor = calmFace
@@ -490,7 +492,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const urgency = density === "dense"
     ? null
     : classifyCardUrgency(
-        { due_date: card.due_date, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
+        { due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
       );
   // Suppress the dedicated due-date pill at lower densities when the urgency
   // badge is already carrying that information (overdue / due-soon). At dense
@@ -500,7 +502,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // the row at Standard, a short form at Dense. The compact layout keeps the
   // AgingCue glyph and has no status line.
   const statusUrgency = calmFace && !compact
-    ? classifyCardUrgency({ due_date: card.due_date, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null })
+    ? classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null })
     : null;
   const status = statusUrgency && (statusUrgency.kind === "overdue" || statusUrgency.kind === "due-soon" || statusUrgency.kind === "stale")
     ? buildCardStatusLine({
@@ -525,17 +527,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // never hue-only (#871). Overdue follows the user's-timezone verdict that
   // `formatDueDate` already gives the pill's red text.
   // Known divergence: two clocks decide this pill. "Overdue" uses the user-timezone
-  // date (`formatDueDate`), while "due soon" uses `classifyCardUrgency`, which parses
-  // the date as UTC midnight. A date that is still today for the user can already be
-  // past UTC midnight, so it renders due soon here. Open question 6 on #871 owns the
-  // fix (unifying the boundary).
-  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo || classicFace
+  // date (`formatDueDate`), while the badge, border and Show chips use
+  // `classifyCardUrgency`, which follows the server's overdue rule in the instance
+  // time zone (#2313). A date that is past in one zone and today in the other renders
+  // due soon here. Open question 6 on #871 owns aligning the pill's label clock.
+  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo || classicFace || cardClosed
     ? null
     : dueInfo.overdue
     ? "overdue"
-    : ["overdue", "due-soon"].includes(classifyCardUrgency({ due_date: card.due_date, is_stale: false, last_moved_at: null })?.kind ?? "")
-    ? // Due today parses as UTC midnight, already "overdue" to the classifier,
-      // while formatDueDate (user's timezone) still calls it today: due soon.
+    : ["overdue", "due-soon"].includes(classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null })?.kind ?? "")
+    ? // Overdue in the instance zone while formatDueDate (user's timezone) still
+      // calls it today, or due within the window: due soon.
       "due-soon"
     : null;
   // Suppress the recently-moved dot when urgency is already showing "Just moved".
@@ -1284,7 +1286,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   <span
                     className={`text-xs font-medium shrink-0 ${
                       classicFace
-                        ? dueInfo.overdue ? "text-danger" : "text-fg-tertiary"
+                        ? dueInfo.overdue && !cardClosed ? "text-danger" : "text-fg-tertiary"
                         : duePillGlyph ? urgencyBadgeToneClass(duePillGlyph === "overdue" ? "danger" : "warning", aging.stage) : "text-fg-tertiary"
                     }`}
                     title={`Due ${card.due_date}`}

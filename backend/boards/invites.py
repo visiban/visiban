@@ -248,13 +248,16 @@ def redeem(link: BoardInviteLink, user, board, *, via: str) -> bool:
         BoardInviteLink.objects.filter(pk=link.pk).update(**updates)
 
     if membership is not None:
-        from .serializers import BoardMembershipSerializer
+        from .serializers import BROADCAST_PAYLOAD_CONTEXT_KEY, BoardMembershipSerializer
 
-        # Serialized without a request: the stored payload keeps is_moderator /
+        # A broadcast payload, so serialized unfiltered (said explicitly, #1075:
+        # an empty context strips): the stored payload keeps is_moderator /
         # is_site_admin and the consumer and change feed strip them per reader,
         # exactly as for the members endpoint. ``invite`` is additive — it
         # lets an admin's open invite list refetch when its invite is redeemed.
-        payload = dict(BoardMembershipSerializer(membership).data)
+        payload = dict(BoardMembershipSerializer(
+            membership, context={BROADCAST_PAYLOAD_CONTEXT_KEY: True},
+        ).data)
         payload["invite"] = {"id": link.pk, "created_by_id": link.created_by_id}
         _broadcast.record_board_event(
             board.pk, _broadcast.EVT_MEMBER_ADDED, payload, actor_id=user.pk,

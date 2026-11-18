@@ -20,7 +20,11 @@ prerequisite). The import is bounded instead by the upload size cap
 Why ``bulk_create`` and never the card service layer: ``create_card`` sends
 @mention notifications and single-row ``CardMovement`` saves fire
 ``notify_on_card_moved``. Trello descriptions are full of @handles, so going
-through those paths would notify real users about an import.
+through those paths would notify real users about an import. The one
+notification an import does send is deliberate: with ``add_matched_members``
+each person added to the new board gets the same ``board_invite`` notice as
+an ordinary member add (#2122), so a file cannot put someone on a board
+without telling them. See ``_notify_added_members``.
 """
 
 from __future__ import annotations
@@ -43,7 +47,7 @@ from visiban.parsers import first_lone_surrogate
 from groups.models import GroupMembership
 
 from ..models import (
-    Board, BoardMembership, Card, CardChecklist, CardComment, Column, Label, Swimlane,
+    Board, BoardMembership, Card, CardChecklist, CardComment, Column, Label, Notification, Swimlane,
 )
 
 # ---------------------------------------------------------------------------
@@ -1096,12 +1100,47 @@ _BATCH = 1000
 _UPDATE_BATCH = 500
 
 
+def _notify_added_members(board: Board, importer, user_ids: list[int]) -> None:
+    """Tell each member an import added that they were added (#2122).
+
+    The same ``board_invite`` notice, and the same opt-out
+    (``notif_board_invite``), as an ordinary add through the members endpoint;
+    the verb names the import. ``create_notifications`` drops inactive users
+    and delivers after the commit, so a rolled-back import tells nobody.
+
+    No ``member.added`` event is recorded: the board is created in this same
+    transaction, so no client can be subscribed to it yet, and its
+    ``board.created`` payload already carries the member count.
+    """
+    if not user_ids:
+        return
+    from .notifications import create_notifications
+
+    recipients = User.objects.filter(pk__in=user_ids, notif_board_invite=True).values_list("pk", flat=True)
+    verb = f'{importer.username} added you to "{board.name}" while importing it from Trello'
+    create_notifications(
+        [
+            Notification(
+                recipient_id=uid,
+                actor=importer,
+                action_type=Notification.ActionType.BOARD_INVITE,
+                verb=verb[:500],
+                board=board,
+            )
+            for uid in recipients
+        ],
+        context={"role": BoardMembership.Role.MEMBER},
+    )
+
+
 def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None = None) -> Board:
     """Create the board described by ``plan``. All-or-nothing.
 
     Uses ``bulk_create`` throughout, which bypasses model signals and the card
     service layer on purpose (see module docstring): an import must not send
-    notifications or fire card-mutation hooks.
+    card notifications (mentions, assignments, moves) or fire card-mutation
+    hooks. The exception is the board-membership notice to each matched member
+    it adds (#2122), delivered after the commit.
     """
     if not plan.columns:
         raise TrelloImportError(
@@ -1120,6 +1159,7 @@ def execute_plan(plan: ImportPlan, user, *, group=None, board_name: str | None =
             for uid in plan.member_user_ids if uid != user.pk
         ]
         BoardMembership.objects.bulk_create(memberships)
+        _notify_added_members(board, user, [m.user_id for m in memberships[1:]])
 
         col_objs = Column.objects.bulk_create([
             Column(board=board, name=c["name"], position=c["position"],

@@ -14,7 +14,7 @@ from .broadcast import (
     EVT_SAVED_FILTER_DELETED,
     EVT_SHARE_LINK_UPDATED,
 )
-from .models import BoardMembership
+from .models import Board, BoardMembership
 
 # groups.broadcast imports only this app's broadcast registry (already loaded
 # above), so this import cannot cycle.
@@ -679,16 +679,42 @@ def analytics_extensions_for_role(role):
     return allowed
 
 
+def _subject_board(obj):
+    """The Board a permission-class subject is, or points at; None if neither.
+
+    Strict on type (#1075). The old ``getattr(obj, "board", obj)`` handed any
+    object without a ``board`` attribute to ``get_board_role`` as if it were a
+    board, so a ``Group`` (which also has ``owner_id`` and ``memberships``)
+    would have been judged by its own owner and member rows. An unresolvable
+    subject now resolves to None and the permission classes deny.
+    """
+    if isinstance(obj, Board):
+        return obj
+    board = getattr(obj, "board", None)
+    return board if isinstance(board, Board) else None
+
+
 class IsBoardMember(BasePermission):
-    """Allow any board member (including owner and site admins)."""
+    """Allow any board member (including owner and site admins).
+
+    Denies when the subject is neither a Board nor an object with a ``board``
+    (#1075): an unresolvable subject is never a pass.
+    """
     def has_object_permission(self, request, view, obj):
-        board = getattr(obj, "board", obj)
+        board = _subject_board(obj)
+        if board is None:
+            return False
         return get_board_role(request.user, board) is not None
 
 
 class IsBoardAdminOrOwner(BasePermission):
-    """Allow only board admins, site admins, or the owner."""
+    """Allow only board admins, site admins, or the owner.
+
+    Denies on an unresolvable subject, as ``IsBoardMember`` does (#1075).
+    """
     def has_object_permission(self, request, view, obj):
-        board = getattr(obj, "board", obj)
+        board = _subject_board(obj)
+        if board is None:
+            return False
         role = get_board_role(request.user, board)
         return role in (BoardMembership.Role.ADMIN, SITE_ADMIN)

@@ -153,6 +153,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
+    commitment_column_uid: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
@@ -883,6 +884,16 @@ describe('BoardView — Show chips (#2272)', () => {
     expect(screen.getByText('Overdue high')).toBeInTheDocument()
     expect(screen.queryByText('Overdue medium')).not.toBeInTheDocument()
     expect(screen.queryByText('Calm high')).not.toBeInTheDocument()
+  })
+
+  it('the Overdue filter drops a card once its column is switched to done (memo reads board.columns)', () => {
+    const board = makeBoard({ cards: [makeCard(1, { title: 'Overdue one', due_date: '2026-06-10' })] })
+    const view = renderBoard(board, 'f_due=overdue')
+    expect(screen.getByText('Overdue one')).toBeInTheDocument()
+    const doneBoard = { ...board, columns: board.columns.map((c) => (c.id === board.cards[0].column ? { ...c, is_done: true } : c)) }
+    act(() => { mockBoardContextValue = context(doneBoard) })
+    view.rerender(<ToastProvider><BoardView /></ToastProvider>)
+    expect(screen.queryByText('Overdue one')).not.toBeInTheDocument()
   })
 
   it('swatches reuse the collapsed-lane square tokens', () => {

@@ -185,6 +185,7 @@ export default function SavedFiltersDropdown({
           returnFocusRef={triggerRef}
           role="group"
           aria-label="Saved filters"
+          className="max-sm:[&_button]:min-h-11 max-sm:[&_input[type=text]]:min-h-11"
           deps={[saveMode, saveError, loading, savedFilters.length]}
         >
           {/* Save current filter section */}

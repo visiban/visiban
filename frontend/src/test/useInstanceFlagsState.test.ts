@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useInstanceFlagsState } from '../hooks/useInstanceFlagsState'
 import { DEFAULT_INSTANCE_FLAGS } from '../contexts/InstanceFlagsContext'
+import { instanceTimezone, setInstanceTimezone } from '../utils/instanceTimezone'
 
 vi.mock('../api/auth', () => ({
   getSiteConfig: vi.fn(),
@@ -50,6 +51,18 @@ describe('useInstanceFlagsState (#1913)', () => {
     await waitFor(() => expect(result.current.loaded).toBe(true))
     expect(result.current.flags.maintenance_mode).toBe(true)
     expect(result.current.flags.maintenance_message).toBe('Back by 14:00 UTC.')
+  })
+
+  it('applies site-config instance_timezone to the overdue rule (#2313)', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...baseConfig, instance_timezone: 'Asia/Tokyo' })
+    try {
+      const { result } = renderHook(() => useInstanceFlagsState(true))
+      await waitFor(() => expect(result.current.loaded).toBe(true))
+      expect(instanceTimezone()).toBe('Asia/Tokyo')
+    } finally {
+      setInstanceTimezone('UTC')
+    }
+    expect(instanceTimezone()).toBe('UTC')
   })
 
   it('falls back to defaults and still reports loaded when site-config fails', async () => {

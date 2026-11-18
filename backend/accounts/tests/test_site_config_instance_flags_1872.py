@@ -59,6 +59,9 @@ SITE_CONFIG_KEYS = {
     "git_lens_enabled",
     "maintenance_mode",
     "maintenance_message",
+    # #2313: the zone the overdue rule counts "today" in. A deployment locale,
+    # not caller-dependent and not a secret.
+    "instance_timezone",
 }
 
 

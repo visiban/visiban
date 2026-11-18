@@ -32,6 +32,11 @@ export interface SiteConfig {
    * DEMO_MODE off, and outbound mail configured. A UI hint, not a guarantee. */
   invite_email_available: boolean;
   /**
+   * INSTANCE_TIMEZONE: the IANA zone whose date decides when a card turns
+   * overdue (#2313). Optional: absent from a server older than 1.3.
+   */
+  instance_timezone?: string;
+  /**
    * Whether the Issue Board Lens is enabled instance-wide (GIT_LENS_ENABLED).
    * Same value as `User.git_lens_enabled` (#1872).
    */
@@ -1158,6 +1163,13 @@ export interface Board {
    * away from number keeps its id here; the band hides the rollup then.
    */
   swimlane_rollup_field: number | null;
+  /**
+   * #2050 — uid of the column where cycle time and WIP age start (the
+   * commitment point), or null for the flow-metric ADR's default (the first
+   * move out of the creation column). A uid that no longer names a not-done
+   * column of the board reads as unset.
+   */
+  commitment_column_uid: string | null;
 }
 
 /**
@@ -1349,6 +1361,13 @@ export interface BoardFull {
    * away from number keeps its id here; the band hides the rollup then.
    */
   swimlane_rollup_field: number | null;
+  /**
+   * #2050 — uid of the column where cycle time and WIP age start (the
+   * commitment point), or null for the flow-metric ADR's default (the first
+   * move out of the creation column). A uid that no longer names a not-done
+   * column of the board reads as unset.
+   */
+  commitment_column_uid: string | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

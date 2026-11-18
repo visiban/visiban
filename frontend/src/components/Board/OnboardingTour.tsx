@@ -168,7 +168,8 @@ export default function OnboardingTour({ onComplete }: Props) {
 
     const findTarget = () => {
       const el = document.querySelector(currentStepDef.selector);
-      if (el) {
+      // A target hidden at this breakpoint (display: none, e.g. the healthy connection dot on phones, #2348) is still in the DOM but has no box: skip it like a missing one.
+      if (el && getComputedStyle(el).display !== "none") {
         setTargetRect(el.getBoundingClientRect());
       } else {
         // If target not found (e.g. board has no cards yet), skip to next step

@@ -137,7 +137,8 @@ export default function BoardActivityDrawer({
     <aside
       aria-label="Activity"
       data-testid="activity-drawer"
-      className={`w-96 max-w-full bg-surface border-line shadow-xl flex flex-col ${
+      // Phone (#2351): one descendant rule lifts the close button, tabs, filter popover and footer link to 44px.
+      className={`w-96 max-w-full bg-surface border-line shadow-xl flex flex-col max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 ${
         isLarge
           ? "absolute top-2 right-3 z-30 max-h-[calc(100%-1rem)] rounded-lg border"
           : "fixed inset-y-0 right-0 z-40 border-l"

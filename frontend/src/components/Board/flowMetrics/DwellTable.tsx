@@ -1,10 +1,8 @@
 import { agingStage, warningFraction } from "../../../utils/agingTint";
 import ActiveMark from "../../Common/ActiveMark";
-import type { AnalyticsData, SwimlaneStat, ViewMode } from "./heatmap";
+import type { AnalyticsData, HeatLevel, SwimlaneStat, ViewMode } from "./heatmap";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-type HeatLevel = "high" | "warning" | "ok";
 
 // Each level carries a non-color cue (glyph + text) so the threshold is not
 // conveyed by hue alone (WCAG 1.4.1, #1591). Glyphs differ in shape.
@@ -146,7 +144,12 @@ export default function DwellTable({ data, mode, days }: { data: AnalyticsData; 
                     // The server mirrors agingStage's warning rule, so the two agree.
                     const outlier = (mode === "age" ? sw.age_is_outlier : sw.throughput_is_outlier)?.[col];
                     const warning = (mode === "age" ? sw.age_is_warning : sw.throughput_is_warning)?.[col];
-                    if (tier !== null && outlier !== undefined && warning !== undefined) {
+                    const served = (mode === "age" ? sw.age_heat_level : sw.throughput_heat_level)?.[col];
+                    if (tier !== null && served) {
+                      // The server's tier from the unrounded mean, with the 1-day floor on red
+                      // too, so threshold 0 no longer takes red from a rounded 1.0 (#2331).
+                      tier = served;
+                    } else if (tier !== null && outlier !== undefined && warning !== undefined) {
                       // At a threshold of 0 the server calls every cell an outlier (mean >= 0) while the
                       // ratio divides by max(1, 0), so there the flag may only confirm a red the
                       // rounded value already shows. From 1 up the flag is exact and decides.

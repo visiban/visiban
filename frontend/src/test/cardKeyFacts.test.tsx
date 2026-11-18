@@ -70,6 +70,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
   return {
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
+    commitment_column_uid: null,
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [
@@ -101,6 +102,19 @@ describe('buildKeyFacts (#1916)', () => {
     const facts = buildKeyFacts(input(makeCard(), makeBoard()))
     expect(facts.map((f) => f.key)).toEqual(['column'])
     expect(facts[0].label).toBe('Review, column. Go to Move')
+  })
+
+  it('flags an open past-due card overdue but not one in a done column (#2313)', () => {
+    const open = buildKeyFacts(input(makeCard({ due_date: '2020-01-01' }), makeBoard())).find((f) => f.key === 'due')!
+    expect(open.tone).toBe('danger')
+    expect(open.label).toContain(', overdue')
+    const board = makeBoard()
+    board.columns = board.columns.map((c) => (c.id === 10 ? { ...c, is_done: true } : c))
+    const done = buildKeyFacts(input(makeCard({ due_date: '2020-01-01' }), board)).find((f) => f.key === 'due')!
+    expect(done.tone).toBeUndefined()
+    expect(done.label).not.toContain('overdue')
+    const archived = buildKeyFacts(input(makeCard({ due_date: '2020-01-01', archived_at: '2026-01-01T00:00:00Z' }), makeBoard())).find((f) => f.key === 'due')!
+    expect(archived.tone).toBeUndefined()
   })
 
   it('appends the swimlane only when the board has more than one', () => {

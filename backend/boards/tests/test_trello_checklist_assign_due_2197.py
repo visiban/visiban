@@ -83,8 +83,14 @@ class TrelloChecklistAssignDueTests(TrelloImportBase):
         self.assertFalse(any(i.assignee_id for i in items.values()))
 
     def test_import_sends_no_notification(self):
+        # No checklist-assignment notice. Being added to the board is the one
+        # notice an import sends (#2122), pinned in test_trello_import.py.
         self._items({"add_matched_members": True})
-        self.assertFalse(Notification.objects.filter(recipient=self.ada).exists())
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.ada)
+            .exclude(action_type=Notification.ActionType.BOARD_INVITE)
+            .exists()
+        )
 
     def test_bad_types_are_refused(self):
         for bad in ({"due": 5}, {"idMember": ["x"]}):
