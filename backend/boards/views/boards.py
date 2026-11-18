@@ -511,8 +511,9 @@ class BoardViewSet(
             # after validation is a 400 here, not an IntegrityError at commit.
             serializer.recheck_rollup_field_under_lock(board)
             # Two-tier card links (#2208): refuse a flip that would invalidate
-            # existing links, decided against the locked row. A hook for the
-            # card-link MR (#1104); nothing to refuse until a link model exists.
+            # existing card links (#1104), decided against the locked row.
+            # card_links.create_link takes this same board lock, so a flip and
+            # a link create serialize.
             if "cards_can_have_children" in serializer.validated_data:
                 check_flag_flip(board, serializer.validated_data["cards_can_have_children"])
             # The group the board is in before this write, read from the
