@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import StageSettingsPanel, { stageErrorMessage } from '../components/Board/StageSettingsPanel'
+import StageSettingsPanel from '../components/Board/StageSettingsPanel'
+import { stageErrorMessage } from '../utils/stageSettings'
 import TrackChips, { GateProgress } from '../components/Card/TrackChips'
 import type { Column, CustomFieldDefinition, Swimlane } from '../types'
 
@@ -59,6 +60,10 @@ describe('StageSettingsPanel (#2278)', () => {
     fireEvent.click(add)
     expect(screen.getByText('Every sub-column needs a name.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save stage' })).toBeDisabled()
+    // The invalid input names its error (WCAG 3.3.1).
+    const third = screen.getByLabelText('Sub-column 3 name')
+    expect(third).toHaveAttribute('aria-invalid', 'true')
+    expect(third).toHaveAccessibleDescription('Every sub-column needs a name.')
     fireEvent.change(screen.getByLabelText('Sub-column 3 name'), { target: { value: 'doing' } })
     expect(screen.getByText('Sub-column names must be different.')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Sub-column 3 name'), { target: { value: 'Review' } })
@@ -157,7 +162,10 @@ describe('StageSettingsPanel (#2278)', () => {
     mockSave.mockRejectedValue({ response: { status: 400, data: { sub_columns: ['A stage can have at most 4 sub-columns.'] } } })
     const { onSaved, onCancel } = renderPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('A stage can have at most 4 sub-columns.')
+    expect(await screen.findByText('A stage can have at most 4 sub-columns.')).toHaveAttribute('role', 'alert')
+    // After a failed save focus returns to Save, and the live regions stay mounted (WCAG 4.1.3).
+    expect(screen.getByRole('button', { name: 'Save stage' })).toHaveFocus()
+    expect(screen.getByRole('status')).toBeInTheDocument()
     expect(onSaved).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()

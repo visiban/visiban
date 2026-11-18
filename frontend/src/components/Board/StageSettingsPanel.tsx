@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import { createCustomFieldDefinition, saveColumnStage, type StageSettingsBody } from "../../api/boards";
 import { cardSubColumnIndex, stageSubColumns } from "../../utils/stages";
+import { NEW_TRACK_RESOLUTIONS, NEW_TRACK_CHOICES, SUB_COLUMN_MAX, SUB_COLUMN_MIN, stageErrorMessage } from "../../utils/stageSettings";
 
 /**
  * Stage settings (#2278, spec § Stage settings): sub-columns in order, tracks
@@ -18,12 +19,6 @@ import { cardSubColumnIndex, stageSubColumns } from "../../utils/stages";
  * Phase 1 is warn-and-record (#1102): the "Every track must be done" rule is
  * deferred, so there is no rule checkbox here.
  */
-
-export const SUB_COLUMN_MIN = 2;
-export const SUB_COLUMN_MAX = 4;
-/** "Add track" creates a dimension dropdown with these choices (#1921). */
-export const NEW_TRACK_CHOICES = ["Done", "Not applicable"] as const;
-const NEW_TRACK_RESOLUTIONS = { Done: "satisfied", "Not applicable": "not_applicable" } as const;
 
 interface SubRow { key: string; id?: number; name: string }
 interface TrackRow { key: string; fieldId?: number; name: string }
@@ -49,26 +44,6 @@ interface Props {
   footerTarget?: HTMLElement | null;
 }
 
-/** A server refusal, by string code first; field messages second (#2278). */
-export function stageErrorMessage(err: unknown): string {
-  const data = (err as { response?: { status?: number; data?: unknown } })?.response?.data as
-    | { code?: string; detail?: string } & Record<string, unknown>
-    | undefined;
-  const status = (err as { response?: { status?: number } })?.response?.status;
-  if (data?.code === "version_conflict") return "Someone changed this stage or its cards while you were editing. Close and try again.";
-  if (data?.code === "column_not_found") return "This column was deleted.";
-  if (status === 403) return "Only board admins can change stage settings.";
-  if (data && typeof data === "object") {
-    // name / choices / field_type come from creating a new track's field first.
-    for (const key of ["sub_columns", "tracks", "not_applicable", "name", "choices", "field_type", "non_field_errors", "detail"]) {
-      const v = data[key];
-      const msg = typeof v === "string" ? v : Array.isArray(v) && typeof v[0] === "string" ? v[0] : null;
-      if (msg) return key === "name" ? `Track name: ${msg}` : msg;
-    }
-    if (status !== undefined && status >= 400 && status < 500) return "The stage didn't save. Check the settings and try again.";
-  }
-  return "The stage didn't save. Check your connection and try again.";
-}
 
 let rowSeq = 0;
 const nextKey = () => `row-${++rowSeq}`;
@@ -94,6 +69,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   // Focus after add / remove (G4): an element id, applied once the row exists.
   const [focusTarget, setFocusTarget] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const saveRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!focusTarget) return;
     rootRef.current?.querySelector<HTMLElement>(`[data-focus-key="${focusTarget}"]`)?.focus();
@@ -203,6 +179,11 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   }, [cards, column, initialSubs, subs]);
 
   const canSave = subError === null && !saving;
+  // The fieldset and Save are disabled while saving, which drops focus to the body; after a failed
+  // save put it back on Save so the error is read in place and a retry is one key away (WCAG 3.2/4.1.3).
+  useEffect(() => {
+    if (!saving && error) saveRef.current?.focus();
+  }, [saving, error]);
 
   const save = async () => {
     if (!canSave) return;
@@ -249,13 +230,13 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const footer = (
     <div className="flex flex-1 items-center gap-2" data-testid="stage-settings-footer">
       <div className="text-xs flex-1 min-w-0">
-        {error
-          ? <p className="text-danger" role="alert">{error}</p>
-          : <p className="text-fg-secondary" role="status" aria-live="polite" aria-atomic="true">{saving ? "Saving the stage…" : ""}</p>}
+        <p className="text-danger" role="alert">{error ?? ""}</p>
+        <p className="text-fg-secondary" role="status" aria-live="polite" aria-atomic="true">{saving ? "Saving the stage…" : ""}</p>
       </div>
       <button type="button" onClick={onCancel} className="text-sm px-3 py-1.5 max-sm:min-h-11 rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
       <button
         type="button"
+        ref={saveRef}
         onClick={() => void save()}
         disabled={!canSave}
         className="text-sm px-3 py-1.5 max-sm:min-h-11 rounded bg-button-primary text-on-primary hover:bg-button-primary-hover disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -278,6 +259,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   data-focus-key={`sub-input-${s.key}`}
                   value={s.name}
                   maxLength={100}
+                  aria-invalid={subError ? true : undefined}
+                  aria-describedby={subError ? `${uid}-suberr` : undefined}
                   onChange={(e) => setSubs((prev) => prev.map((r) => (r.key === s.key ? { ...r, name: e.target.value } : r)))}
                   className={INPUT}
                 />
@@ -318,7 +301,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
               {consequences.map((line) => <li key={line}>{line}</li>)}
             </ul>
           )}
-          {subError && <p className="mt-1 text-xs text-danger" role="alert">{subError}</p>}
+          {subError && <p id={`${uid}-suberr`} className="mt-1 text-xs text-danger" role="alert">{subError}</p>}
         </section>
 
         <section aria-labelledby={`${uid}-tracks`}>

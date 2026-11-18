@@ -167,7 +167,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             tabIndex={tab === t.id ? 0 : -1}
             onClick={() => setTab(t.id)}
             onKeyDown={onTabKeyDown}
-            className={`px-3 py-2.5 font-medium whitespace-nowrap shrink-0 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded ${
+            className={`px-3 py-2.5 max-sm:min-h-11 font-medium whitespace-nowrap shrink-0 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded ${
               tab === t.id ? "border-b-2 border-info text-info" : "text-fg-tertiary hover:text-fg-secondary"
             }`}
           >
@@ -198,7 +198,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleSave(); }} // handleSave manages its own saving/error state and never rejects
-                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                  className="w-full bg-surface border border-line rounded px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                 />
               </div>
 
@@ -209,7 +209,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                     value={wipLimit}
                     onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
                     placeholder="None"
-                    className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                    className="w-full bg-surface border border-line rounded px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                   />
                 </div>
                 <div>
@@ -218,7 +218,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                     value={weightLimit}
                     onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
                     placeholder="None"
-                    className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                    className="w-full bg-surface border border-line rounded px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                   />
                 </div>
               </div>
@@ -228,7 +228,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 <ColorSwatchPicker colors={COLUMN_COLORS} value={color} onChange={setColor} allowCustom boardColors={boardColors} />
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+              <label className="flex items-center gap-2 cursor-pointer select-none max-sm:min-h-11">
                 <input
                   type="checkbox"
                   checked={allowCardCreation}
@@ -268,7 +268,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                   type="button"
                   onClick={() => { onClose(); onRequestDelete(column); }}
                   disabled={cardCount > 0}
-                  className="w-full px-3 py-1.5 text-sm font-medium bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+                  className="w-full px-3 py-1.5 max-sm:min-h-11 text-sm font-medium bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
                 >
                   Delete column
                 </button>
@@ -326,12 +326,12 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <p id={`${tabsId}-status`} className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true">
           <span className="text-danger">{error ?? (name.trim() ? "" : "Name is required.")}</span>
         </p>
-        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
           aria-describedby={name.trim() ? undefined : `${tabsId}-status`}
-          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 max-sm:min-h-11 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           {saving ? "Saving…" : "Save"}
         </button>

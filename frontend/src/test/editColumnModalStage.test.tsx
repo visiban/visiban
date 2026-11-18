@@ -30,6 +30,13 @@ describe('EditColumnModal Stage tab (#2278)', () => {
     expect(screen.queryByTestId('stage-settings-panel')).not.toBeInTheDocument()
   })
 
+  it('keeps phone targets at 44px: tabs and Settings controls carry max-sm:min-h-11', () => {
+    renderModal({ swimlanes: lanes, customFieldDefinitions: defs })
+    for (const t of screen.getAllByRole('tab')) expect(t.className).toContain('max-sm:min-h-11')
+    expect(screen.getByRole('button', { name: 'Save' }).className).toContain('max-sm:min-h-11')
+    expect(screen.getByRole('button', { name: 'Cancel' }).className).toContain('max-sm:min-h-11')
+  })
+
   it('seeds lane exceptions from the lanes the caller passes, with Save in the fixed footer', () => {
     renderModal({ initialTab: 'stage', swimlanes: lanes, customFieldDefinitions: defs })
     expect(screen.getByText('APAC: Technical is not applicable')).toBeInTheDocument()
