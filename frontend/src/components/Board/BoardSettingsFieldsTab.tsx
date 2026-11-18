@@ -4,7 +4,8 @@ import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { BoardFull, CustomFieldDefinition, CustomFieldType } from "../../types";
+import type { BoardFull, CustomFieldDefinition, CustomFieldType, DimensionResolution } from "../../types";
+import { isDimensionField } from "../../utils/stages";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
@@ -84,17 +85,42 @@ interface FormState {
   /** #1122: threshold marking; sent only for number and date fields. */
   thresholds: ThresholdDraft;
   show_on_card: boolean;
+  /** #1921: a track field; its `choice_resolutions` follow renames so a rename never silently resets a resolution. */
+  is_dimension: boolean;
+  choice_resolutions: Record<string, DimensionResolution>;
 }
 
 function emptyForm(): FormState {
-  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, thresholds: EMPTY_THRESHOLD_DRAFT, show_on_card: false };
+  return { name: "", field_type: "text", choices: [], help_text: "", number_format: EMPTY_NUMBER_FORMAT, choice_colors: {}, thresholds: EMPTY_THRESHOLD_DRAFT, show_on_card: false, is_dimension: false, choice_resolutions: {} };
 }
 
 function formFromDefinition(d: CustomFieldDefinition): FormState {
-  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, thresholds: thresholdDraftFrom(d), show_on_card: d.show_on_card };
+  return { name: d.name, field_type: d.field_type, choices: [...d.choices], help_text: d.help_text, number_format: numberFormatDraftFrom(d), choice_colors: { ...(d.choice_colors ?? {}) }, thresholds: thresholdDraftFrom(d), show_on_card: d.show_on_card, is_dimension: isDimensionField(d), choice_resolutions: { ...(d.choice_resolutions ?? {}) } };
 }
 
 const TYPE_LOCKED_MESSAGE = typeLockedMessage("cards");
+const TRACK_PIN_REASON = "Tracks show as chips, not pinned fields";
+
+/** Move a choice's resolution to its new name (own-entries rebuild, so a `__proto__` choice stays a real key). */
+function renameResolution(draft: Record<string, DimensionResolution>, from: string, to: string): Record<string, DimensionResolution> {
+  if (!Object.hasOwn(draft, from)) return draft;
+  const value = draft[from];
+  return Object.fromEntries([...Object.entries(draft).filter(([k]) => k !== from && k !== to), [to, value]]);
+}
+
+function withoutResolution(draft: Record<string, DimensionResolution>, choice: string): Record<string, DimensionResolution> {
+  if (!Object.hasOwn(draft, choice)) return draft;
+  return Object.fromEntries(Object.entries(draft).filter(([k]) => k !== choice));
+}
+
+/** The map sent on save: trimmed choices only, matching the server's own pruning. */
+function resolutionsPayload(choices: string[], draft: Record<string, DimensionResolution>): Record<string, DimensionResolution> {
+  const entries: [string, DimensionResolution][] = [];
+  for (const raw of choices) {
+    if (Object.hasOwn(draft, raw) && raw.trim() !== "") entries.push([raw.trim(), draft[raw]]);
+  }
+  return Object.fromEntries(entries);
+}
 
 /**
  * Board Settings → Fields tab (#371) — Layout 1: single pane, inline
@@ -136,7 +162,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
   const fieldDrag = useSortableFieldDrag(fields);
 
-  const pinnedCount = fields.filter((f) => f.show_on_card).length;
+  // Tracks (#1921) render as chips and never pin to the card face (CardItem), so they neither pin nor count against PIN_CAP.
+  const pinnedCount = fields.filter((f) => f.show_on_card && !isDimensionField(f)).length;
 
   const commit = (next: CustomFieldDefinition[]) => {
     const sorted = [...next].sort((a, b) => a.position - b.position);
@@ -218,6 +245,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
   };
 
   const handlePin = (def: CustomFieldDefinition) => {
+    if (isDimensionField(def)) return;
     setSwapError(null);
     if (def.show_on_card) {
       void savePin(def, false);
@@ -282,12 +310,16 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     ...f,
     choices: f.choices.filter((_, idx) => idx !== i),
     choice_colors: withoutChoiceColor(f.choice_colors, f.choices[i]),
+    // The choice is gone, so the server prunes its resolution too; the editor says so (dimension note).
+    choice_resolutions: withoutResolution(f.choice_resolutions, f.choices[i]),
   }));
   const updateChoice = (i: number, value: string) =>
     setForm((f) => ({
       ...f,
       choices: f.choices.map((c, idx) => (idx === i ? value : c)),
       choice_colors: f.choices[i] === value ? f.choice_colors : withoutChoiceColor(f.choice_colors, f.choices[i]),
+      // A track's resolution moves with the rename (unlike a color); the server keeps no map for a name it no longer lists.
+      choice_resolutions: f.choices[i] === value ? f.choice_resolutions : renameResolution(f.choice_resolutions, f.choices[i], value),
     }));
   const moveChoice = (from: number, to: number) =>
     setForm((f) => ({ ...f, choices: arrayMove(f.choices, from, to) }));
@@ -390,6 +422,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
           help_text: form.help_text.trim() || undefined,
           ...numberFormat,
           ...thresholds,
+          // Sent for a track so a rename keeps its resolution; omitted, the server keeps the old map by the old name.
+          ...(form.is_dimension ? { choice_resolutions: resolutionsPayload(cleanedChoices, form.choice_resolutions) } : {}),
           ...(pinChanged && !needsSwap ? { show_on_card: form.show_on_card } : {}),
         });
         commit(fields.map((f) => (f.id === editingId ? updated : f)));
@@ -512,7 +546,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                 onDelete={() => setDeleteTarget(def)}
                 onPin={() => handlePin(def)}
                 swapPromptOpen={swapPromptId === def.id}
-                pinnedFields={fields.filter((f) => f.show_on_card)}
+                pinnedFields={fields.filter((f) => f.show_on_card && !isDimensionField(f))}
                 onSwap={(replaceId) => void swapPin(replaceId, def.id)}
                 onCancelSwap={() => setSwapPromptId(null)}
               >
@@ -712,6 +746,9 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
         <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
+        {isDimensionField(def) ? (
+          <span id={`track-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap shrink-0">{TRACK_PIN_REASON}</span>
+        ) : (
         <button
           onClick={onPin}
           aria-label={`${def.show_on_card ? "Unpin" : "Pin"} ${def.name} ${def.show_on_card ? "from" : "to"} card face`}
@@ -723,6 +760,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         >
           {def.show_on_card ? "Pinned" : `Pin (${pinnedFields.length} of ${PIN_CAP})`}
         </button>
+        )}
         <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
           <button type="button" onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
           <button type="button" onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
@@ -790,7 +828,7 @@ function FieldEditPanel({
 }: FieldEditPanelProps) {
   const pastedCount = pasteListOpen ? pastedChoicesToAdd(pasteListText, form.choices).length : 0;
   const inputClasses = "bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-full";
-  const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card;
+  const atPinCap = pinnedCount >= PIN_CAP && !form.show_on_card && !form.is_dimension;
   // The type button that raised the "Change type" prompt is the trigger focus returns to (#1367).
   const typeTriggerRef = useConfirmFocusReturn(pendingTypeChange);
   useConfirmAnnouncement(
@@ -908,6 +946,9 @@ function FieldEditPanel({
           {form.choices.some((c) => isChoiceColorKey(draftChoiceColor(form.choice_colors, c))) && (
             <p className="text-xs text-fg-muted mb-1.5">Renaming a choice resets its color.</p>
           )}
+          {form.is_dimension && (
+            <p className="text-xs text-fg-muted mb-1.5">Renaming a choice keeps its resolution. Removing a choice drops it.</p>
+          )}
           <div className="flex items-center gap-3">
             <button onClick={addChoice} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">+ Add choice</button>
             <button onClick={() => { if (pasteListOpen) { applyPastedChoices(); setPasteListOpen(false); setPasteListText(""); } else { setPasteListOpen(true); } }} className="text-xs text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Paste a list</button>
@@ -938,9 +979,10 @@ function FieldEditPanel({
       )}
 
       <div className="flex items-center gap-2 mb-1 pt-2 border-t border-line">
-        <Toggle checked={form.show_on_card} onChange={(v) => setForm((f) => ({ ...f, show_on_card: v }))} aria-label="Pin to card face" />
+        <Toggle checked={form.is_dimension ? false : form.show_on_card} ariaDisabled={form.is_dimension} onChange={(v) => setForm((f) => ({ ...f, show_on_card: v }))} aria-label="Pin to card face" aria-describedby={form.is_dimension ? "track-pin-reason-edit" : undefined} />
         <span className="text-xs text-fg-secondary">Pin to card face</span>
-        {atPinCap && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
+        {form.is_dimension && <span id="track-pin-reason-edit" className="text-xs text-fg-muted ml-1">{TRACK_PIN_REASON}</span>}
+        {atPinCap && !form.is_dimension && <span className="text-xs text-fg-muted ml-1">2 of 2 pinned — you'll pick a swap.</span>}
       </div>
 
       <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite" aria-atomic="true">

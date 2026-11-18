@@ -1229,3 +1229,77 @@ describe("BoardSettingsFieldsTab — type lock from has_values (#2202)", () => {
     expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
   });
 });
+
+describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
+  const track = (overrides: Partial<CustomFieldDefinition> = {}) => makeDefinition({
+    id: 7, name: "Approval", field_type: "dropdown", choices: ["Pending", "Approved", "Waived"],
+    is_dimension: true, choice_resolutions: { Approved: "satisfied", Waived: "not_applicable" },
+    ...overrides,
+  });
+
+  it("a track is not pinnable, not counted against the pin cap, and says why", () => {
+    const defs = [
+      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+      track({ show_on_card: true }),
+    ];
+    render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Pin Approval|Unpin Approval/ })).not.toBeInTheDocument();
+    const reason = screen.getByText("Tracks show as chips, not pinned fields");
+    expect(reason).toHaveAttribute("id", "track-pin-reason-7");
+    // Only Sprint counts: 1 of 2, not 2 of 2.
+    expect(screen.getByText(/1 of 2 pinned/)).toBeInTheDocument();
+  });
+
+  it("a track in the editor has its pin switch disabled with a described reason", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard([track()])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const pin = screen.getByRole("switch", { name: "Pin to card face" });
+    expect(pin).toHaveAttribute("aria-disabled", "true");
+    expect(pin).toHaveAttribute("aria-describedby", "track-pin-reason-edit");
+    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Tracks show as chips, not pinned fields");
+  });
+
+  it("renaming a choice carries its resolution to the new name and sends the map", async () => {
+    const user = userEvent.setup();
+    const def = track();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, choices: ["Pending", "Signed", "Waived"] });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const input = screen.getByDisplayValue("Approved");
+    await user.clear(input);
+    await user.type(input, "Signed");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choices: ["Pending", "Signed", "Waived"],
+      choice_resolutions: { Signed: "satisfied", Waived: "not_applicable" },
+    }));
+  });
+
+  it("removing a choice drops only its resolution, and the editor says so", async () => {
+    const user = userEvent.setup();
+    const def = track();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    expect(screen.getByText("Renaming a choice keeps its resolution. Removing a choice drops it.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove choice Waived" }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choice_resolutions: { Approved: "satisfied" },
+    }));
+  });
+
+  it("a plain dropdown never sends choice_resolutions", async () => {
+    const user = userEvent.setup();
+    const def = makeDefinition({ id: 8, name: "Size", field_type: "dropdown", choices: ["S", "M"] });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Size"));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(boardsApi.updateCustomFieldDefinition).mock.calls[0][2]).not.toHaveProperty("choice_resolutions");
+  });
+});

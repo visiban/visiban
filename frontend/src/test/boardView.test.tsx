@@ -169,9 +169,18 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: (opts?: { peek?: boolean }) => void }) => <div onClick={(e) => onClick?.(e.shiftKey ? { peek: true } : undefined)} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
-vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
-}))
+// #2278: the sub-column Move tests hand BoardView's props to the REAL CardDetail.
+let renderRealCardDetail = false
+vi.mock('../components/Card/CardDetail', async () => {
+  const { default: RealCardDetail } = await vi.importActual<typeof import('../components/Card/CardDetail')>('../components/Card/CardDetail')
+  return {
+    default: (props: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onMoveCard?: (...a: number[]) => Promise<unknown>; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => {
+      const { card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest } = props
+      if (renderRealCardDetail) return <RealCardDetail {...(props as unknown as React.ComponentProps<typeof RealCardDetail>)} />
+      return <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 20, 9999, 2) }}>Force Sub-column From Detail</button>}</div>
+    },
+  }
+})
 vi.mock('../components/Board/AddColumnModal', async () => {
   const { default: RealAddColumnModal } = await vi.importActual<typeof import('../components/Board/AddColumnModal')>('../components/Board/AddColumnModal')
   return {
@@ -293,7 +302,10 @@ let mockSearchTruncation: { shown: number; total: number } | null = null
 vi.mock('../hooks/useCardSearch', () => ({
   useCardSearch: () => ({ searchMatchIds: null, isSearching: false, truncation: mockSearchTruncation }),
 }))
-vi.mock('../api/cards', () => ({
+// The real CardDetail (#2278 Move popover tests) reads the rest of this module: every export not
+// mocked below becomes a call that never settles, so no loader hits the network or sets state.
+vi.mock('../api/cards', async (importOriginal) => ({
+  ...Object.fromEntries(Object.entries(await importOriginal<Record<string, unknown>>()).map(([k, v]) => [k, typeof v === 'function' ? () => new Promise(() => {}) : v])),
   getCardStatus: vi.fn(),
   // The peek sheet's history (phone reorder test, #2277).
   getCardMovements: vi.fn(() => Promise.resolve([])),
@@ -4323,5 +4335,44 @@ describe('BoardView leave warning and sub-column steps (#2278)', () => {
     expect(moveSpy).toHaveBeenCalledTimes(2)
     expect(await screen.findByText("Card 'Card 1' moved to sub-column 'Doing' in 'Review'")).toBeInTheDocument()
     expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  describe('CardDetail Move popover through BoardView (#2278)', () => {
+    beforeEach(() => { renderRealCardDetail = true })
+    afterEach(() => { renderRealCardDetail = false })
+
+    const openDetailAndPick = async (stop: string, cardList = [reviewCard(1, 0)], currentColumn = 'Review') => {
+      mockSearchParams = new URLSearchParams('card=1')
+      const moveSpy = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: cardList as never }), moveCard: moveSpy })
+      const { container } = render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: /Move card to different column or swimlane/ }))
+      const popover = container.ownerDocument.querySelector('[class*="w-64"]')! as HTMLElement
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes(currentColumn))!
+      await user.click(colTrigger)
+      await user.click(screen.getByText(stop))
+      await user.click(within(popover).getByRole('button', { name: 'Move' }))
+      return moveSpy
+    }
+
+    it('a sub-column stop of another stage reaches useBoard.moveCard with gatesPassed', async () => {
+      const moveSpy = await openDetailAndPick('Review: Ready', [{ ...reviewCard(1, 0), column: 10 }], 'To Do')
+      await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 1))
+    })
+
+    it("a sub-column change inside the card's own stage reaches useBoard.moveCard with gatesPassed", async () => {
+      const moveSpy = await openDetailAndPick('Review: Signed off')
+      await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 2))
+    })
+  })
+
+  it('hands CardDetail an onForceMoveCard that forwards gatesPassed to the context forceMoveCardTo', async () => {
+    mockSearchParams = new URLSearchParams('card=1')
+    const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: [reviewCard(1, 0)] as never }), forceMoveCardTo })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Force Sub-column From Detail' }))
+    expect(forceMoveCardTo).toHaveBeenCalledWith(1, 11, 20, 9999, 2)
   })
 })

@@ -711,7 +711,7 @@ ones, directly and under `migrate`), `groups/tests/test_groups.py`
 
 ## Rule 14: A card placement respects its column's and its swimlane's limits
 
-**Gated stages (#1102).** A move that changes only `gates_passed` within one column is not a placement: it writes no `CardMovement` and checks no limit, on REST and MCP alike (`boards/tests/test_stages.py::MoveGateTests`). A move into a new column checks limits exactly as before; the stage WIP limit covers every sub-column. The bulk move (`frontend/src/utils/cardActions.ts`) omits `gates_passed`, so its cards land at 0.
+**Gated stages (#1102).** A move that changes only `gates_passed` within one column is not a placement: it writes no `CardMovement` and checks no limit, on REST and MCP alike (`boards/tests/test_stages.py::MoveGateTests`). A move into a new column checks limits exactly as before; the stage WIP limit covers every sub-column. The bulk move (`frontend/src/utils/cardActions.ts`, `moveCardsToColumn`) omits `gates_passed` for a plain target column, so its cards land at 0 on a new column, as before; it sends `gates_passed` only when the toolbar's chosen target is a sub-column stop of a split stage (`BulkActionToolbar`).
 
 **Rule.** A write that puts a card into a cell, or grows a card inside one,
 honors the target column's `wip_limit`/`weight_limit` and, since 1.3 (#1150),

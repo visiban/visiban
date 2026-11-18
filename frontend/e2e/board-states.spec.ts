@@ -201,6 +201,8 @@ test.describe('keyboard move', () => {
     await page.keyboard.press('Enter')
     await expect.poll(() => moved).not.toBeNull()
     expect(moved).toMatchObject({ column_id: COLUMN_TODO.id, gates_passed: 1 })
-    await expect(page.locator('[data-sub-column]').or(page.getByRole('group', { name: 'To Do: Ready' })).first()).toBeVisible()
+    // The card face itself sits INSIDE the Ready group, and has left Doing (a bare group check passes with the card anywhere).
+    await expect(page.getByRole('group', { name: 'To Do: Ready' }).locator(`[data-card-id="${CARD.id}"]`)).toBeVisible()
+    await expect(page.getByRole('group', { name: 'To Do: Doing' }).locator(`[data-card-id="${CARD.id}"]`)).toHaveCount(0)
   })
 })

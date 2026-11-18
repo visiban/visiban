@@ -264,7 +264,7 @@ export const createCustomFieldDefinition = (boardId: number, data: {
 export const updateCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "threshold_direction" | "threshold_warn" | "threshold_alert" | "threshold_warn_days" | "threshold_alert_days">>
+  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "choice_resolutions" | "threshold_direction" | "threshold_warn" | "threshold_alert" | "threshold_warn_days" | "threshold_alert_days">>
 ) =>
   client.patch<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`, data).then((r) => r.data);
 
