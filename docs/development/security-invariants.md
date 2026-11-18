@@ -421,6 +421,20 @@ each surface that delivers them:
   recorded beside them, are not filtered further, and rows recorded before 1.3
   keep the actor they were written with until pruned; tracked in #2091 with no
   code change, to be re-decided or closed by that date;
+- the cross-board link events `card.children_changed` (parent's board) and
+  `card.parent_changed` (child's board) (#1104) carry ids only (`parent_id`,
+  `card_ids`), so there is nothing in them to filter per recipient, and the
+  child's own card events are never fanned out to the parent's board. Every
+  other detail of the other board is read over REST, through
+  `boards/services/card_links.py` `children_for_viewer`, which resolves the
+  reader's role on the child board on every request and returns a count only
+  when it resolves to none. Accepted residual (#1104, owner sign-off
+  2026-11-17, epic #2206 decision H, expires 2027-05-31): the *timing* of these
+  pings reaches every subscriber, change-feed reader and webhook of the
+  receiving board, including readers who cannot open the other board, so a
+  parent-board reader learns when a parent's children changed and a
+  child-board reader learns when a card's parent link changed. To be
+  re-decided (gated per recipient, or closed) by that date;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.
@@ -455,6 +469,9 @@ payload never carrying the token), `boards/tests/test_share_state_event_actor.py
 (the share-state `board.updated` has no actor on every writer, in the feed and on
 the socket), `boards/tests/test_actor_scoped_event_fields.py` (`is_starred` per recipient on
 both channels for each write path, and in the feed for every reader role),
+`boards/tests/test_card_parent_links.py` `LinkEventScopingTests` (the two link
+events are ids only on both boards, the fixed webhook reader sees no text from
+the other board, and a child card's events never reach the parent's board),
 `boards/tests/test_board_events.py` `ReadSideStrippingTests` (including the
 shared-helper identity check), `boards/tests/test_share_link.py`
 `ShareLinkActiveFieldTests` (`share_link_active` is in `ADMIN_ONLY_BOARD_FIELDS`

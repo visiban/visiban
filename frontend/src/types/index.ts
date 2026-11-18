@@ -1017,7 +1017,13 @@ export type CardActivityEventType =
   // `unblocked` the reason in from_value and the resolution in to_value.
   | "blocked"
   | "unblocked"
-  | "custom_field_changed";
+  | "custom_field_changed"
+  // Cross-board parent/child link (#1104): to_value (linked) / from_value
+  // (unlinked) is the other card's id only, never its title.
+  | "parent_linked"
+  | "parent_unlinked"
+  | "child_linked"
+  | "child_unlinked";
 
 export interface CardActivity {
   id: number;

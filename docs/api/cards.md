@@ -12,7 +12,7 @@ List a board's cards with `GET` on the same path.
 
 **Yes, but:** the target column must have `allow_card_creation` enabled, and WIP or weight limits can answer `409`. See [create](#post-apiv1boardsboard_idcards) and [WIP and weight limit enforcement](#wip-weight-limit-enforcement).
 
-**Go deeper:** [Cards](#cards), [Archive](#archive), [Move](#move), [History](#history), [Timeline](#timeline), [Comments](#comments), [Attachments](#attachments), [Relations](#relations-since-12), [Checklist](#checklist).
+**Go deeper:** [Cards](#cards), [Archive](#archive), [Move](#move), [History](#history), [Timeline](#timeline), [Comments](#comments), [Attachments](#attachments), [Relations](#relations-since-12), [Parent and children](#parent-and-children-since-13), [Checklist](#checklist).
 
 **Why it matters:** card writes appear in activity history and reach connected clients over WebSockets, so a script's moves are visible to the team.
 
@@ -1037,6 +1037,75 @@ Adding or removing a relation publishes **two** `card.updated` events on the
 board channel — one per card at each end — because both cards' relation lists,
 and the blocked card's `blocker_count`, change together. Each event carries a
 complete card payload. See [WebSockets](websockets.md).
+
+---
+
+## Parent and children (since 1.3)
+
+A card on a board whose cards can have children (`cards_can_have_children`,
+see [Boards](boards.md)) can be the **parent** of cards on another board, its
+**children** (#1104). Relations stay same-board; this link is the cross-board
+one. The rules:
+
+- **Two tiers.** The parent is on a board with `cards_can_have_children: true`,
+  the child on a board with `false`. A child is never a parent.
+- **One parent per child, one child board per parent.** All of a parent's
+  children are on one board, and a parent has at most 100 children.
+- **Roles.** Linking needs `member` or higher on **both** boards. Either end
+  may unlink with `member` or higher on its own board; the child's side does
+  not need to be able to open the parent.
+- **No oracle.** A `parent_id` that does not exist and one on a board you
+  cannot open both answer the same `404`.
+- **Moves.** A card moved to another board in the Django admin loses its links.
+  Deleting either card deletes the link.
+- Links are not exported or imported, and the [public share link](boards.md)
+  shows none of this.
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/parent/`
+
+Link this card (the child) to a parent. Body: `{"parent_id": <int>}`.
+`201` returns `{"parent_id", "child_id"}`. Refusals are `400` with a `code`:
+
+| `code` | Meaning |
+|---|---|
+| `link_not_allowed` | The parent's board is not a parent board, or this card's board is one |
+| `self_link` | `parent_id` is this card |
+| `link_exists` | Already linked to that parent |
+| `already_has_parent` | This card has another parent; unlink it first |
+| `children_on_other_board` | That parent's children are on another board |
+| `children_limit` | That parent has 100 children |
+| `child_is_parent` / `parent_is_child` | Would make a third tier |
+
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/parent/`
+
+Remove this card's parent link. `204`, or `404` when it has none.
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/children/`
+
+This parent's children, computed for you. Any role on the parent's board.
+Query: `offset` (pages of 50).
+
+```json
+{"count": 2, "visible": true, "offset": 0, "limit": 50,
+ "results": [{"id": 51, "title": "Pen-test scoping call", "board_id": 7,
+              "column_id": 30, "column_name": "Doing", "swimlane_id": 12,
+              "swimlane_name": "General", "archived": false}]}
+```
+
+When you cannot open the child board, `visible` is `false`, `results` is empty
+and only `count` is given: no title, board, column or id.
+
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/`
+
+Unlink one child from this parent. `member` or higher on the parent's board.
+
+### History and real-time
+
+Both cards record `parent_linked` / `child_linked` (and `parent_unlinked` /
+`child_unlinked`) in their [history](#history), carrying only the other card's
+id. Each link change publishes `card.children_changed {parent_id}` on the
+parent's board and `card.parent_changed {card_ids}` on the child's board, both
+ids only. See [WebSockets](websockets.md).
 
 ---
 

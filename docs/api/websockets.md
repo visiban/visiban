@@ -270,6 +270,8 @@ arrives as `swimlane.updated`, whose payload carries the swimlane's
 | `card.moved` | Card moved to a different column or swimlane, or reordered within its cell | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer>, "sibling_positions": [{ "id", "position", "version" }, ...] }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch. A reorder within the same column and swimlane sends no `movement` key. A move inside a gated stage (since 1.3, #1102) also sends no `movement` key. The `card` object carries `gates_passed`, and a move that passes or reopens gates adds a `gate_transitions` array (one entry per gate crossed, additive). `sibling_positions` (since 1.3) lists the other cards the move renumbered; see [the note below](#sibling-positions-on-cardmoved-since-13) |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
+| `card.children_changed` | Since 1.3 (#1104): a child was linked to or unlinked from a parent card on this board (including a child moved off its board in the Django admin). Sent on the **parent's** board only | `{ "parent_id": <int> }`, ids only. Refetch [`GET .../cards/{parent_id}/children/`](cards.md#parent-and-children-since-13), which answers for the reader. It never carries a count, title or board from the child board |
+| `card.parent_changed` | Since 1.3 (#1104): these cards' parent link was made or removed. Sent on the **child's** board only | `{ "card_ids": [<int>, ...] }`, ids only. It never carries the parent's title, board or column |
 
 !!! note "Manual blocked state rides on `card.updated` (since 1.3)"
 
