@@ -458,7 +458,10 @@ Upgrade cleanup: on upgrade, unused links whose creator was already deleted or d
 Inherited group-admin rights (which decide whether a link's creator still counts as an admin, and which links are revoked on demotion) are considered only up to 6 ancestor levels; nesting deeper than that is not honored for these checks.
 
 ### `GET /api/v1/groups/{id}/invite-links/`
-List all invite links for this group. Requires group admin.
+List all invite links for this group, as one array. Requires group admin. Consumed single-use links stay listed for audit, and expired links are not removed, so the list grows with use; use [`invite-links/paged/`](#get-apiv1groupsidinvite-linkspaged) for bounded pages.
+
+### `GET /api/v1/groups/{id}/invite-links/paged/`
+*Since 1.3.* The same links and per-row shape as `invite-links/`, in `{count, offset, page_size, results}` pages (`offset` default 0; `page_size` default 50, max 200), ordered by creation time, oldest first, with the link `id` as a tiebreaker. Requires group admin, exactly as the bare list does. The bare `invite-links/` response is unchanged.
 
 ### `POST /api/v1/groups/{id}/invite-links/`
 Create a new invite link. Requires group admin.
@@ -657,9 +660,12 @@ The previous owner becomes a regular admin after transfer. Returns the updated g
 Group labels are a shared label library. When a new board is created inside the group, it inherits the group's labels automatically.
 
 ### `GET /api/v1/groups/{id}/labels/`
-List group shared labels. Requires group membership.
+List group shared labels, as one array. Requires group membership. For bounded pages use [`labels/paged/`](#get-apiv1groupsidlabelspaged).
 
 **Response** `[{ "id": 1, "name": "Bug", "color": "#EF4444" }, ...]`
+
+### `GET /api/v1/groups/{id}/labels/paged/`
+*Since 1.3.* The same labels and per-row shape as `labels/`, in `{count, offset, page_size, results}` pages (`offset` default 0; `page_size` default 50, max 200), ordered by label `id` ascending. Requires group membership, exactly as the bare list does. The bare `labels/` response is unchanged.
 
 ### `POST /api/v1/groups/{id}/labels/`
 Create a group shared label. Requires group admin.

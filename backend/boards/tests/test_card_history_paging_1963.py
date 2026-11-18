@@ -12,7 +12,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
-from boards.models import CardActivity, CardAttachment, CardComment
+from boards.models import CardActivity, CardAttachment, CardComment, CardMovement
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane, _make_user,
 )
@@ -163,3 +163,76 @@ class McpCardDetailCapTests(_Setup):
         self.assertEqual([a["id"] for a in data["activities"]], act_ids[::-1][:3])
         # Newest three comments, still oldest first.
         self.assertEqual([c["id"] for c in data["comments"]], com_ids[-3:])
+
+
+class MovementPagingTests(_Setup):
+    """#2255: card movements/ takes the same opt-in paging; MCP caps and flags."""
+
+    def setUp(self):
+        super().setUp()
+        col = self.card.column
+        lane = self.card.swimlane
+        CardMovement.objects.bulk_create([
+            CardMovement(
+                card=self.card, to_column=col, to_column_name=col.name, to_column_uid=col.uid,
+                to_swimlane=lane, to_swimlane_name=lane.name, to_swimlane_uid=lane.uid,
+                moved_by=self.owner,
+            )
+            for _ in range(self.N)
+        ])
+        self.url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/movements/"
+
+    def test_bare_request_is_every_row_as_a_bare_array(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertIsInstance(r.json(), list)
+        self.assertEqual(len(r.json()), CardMovement.objects.filter(card=self.card).count())
+        self.assertEqual(r["X-Total-Count"], str(len(r.json())))
+        self.assertEqual(r["X-Truncated"], "false")
+
+    def test_limit_offset_walk_neither_skips_nor_repeats(self):
+        full = [row["id"] for row in self.client.get(self.url).json()]
+        self.assertEqual(full, sorted(full, reverse=True))
+        walked = []
+        for offset in range(0, len(full), 2):
+            r = self.client.get(self.url, {"limit": 2, "offset": offset})
+            self.assertEqual(r["X-Total-Count"], str(len(full)))
+            self.assertEqual(r["X-Truncated"], "true" if offset + 2 < len(full) else "false")
+            walked += [row["id"] for row in r.json()]
+        self.assertEqual(walked, full)
+
+    def test_bad_limit_is_coded_400_and_non_member_is_404(self):
+        r = self.client.get(self.url, {"limit": "abc"})
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "invalid_query_param")
+        stranger = APIClient()
+        stranger.force_authenticate(_make_user())
+        self.assertEqual(stranger.get(self.url, {"limit": "abc"}).status_code, 404)
+
+    def test_schema_publishes_params_and_headers(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/boards/{board_pk}/cards/{id}/movements/"]["get"]
+        self.assertTrue({"limit", "offset"} <= {p["name"] for p in op["parameters"]})
+        self.assertIn("X-Total-Count", op["responses"]["200"]["headers"])
+
+    def test_mcp_under_cap_is_complete_and_flagged_false(self):
+        token = set_current_user(self.viewer)
+        try:
+            data = tools.card_detail(card_id=self.card.pk)
+        finally:
+            reset_current_user(token)
+        self.assertEqual(len(data["movements"]), CardMovement.objects.filter(card=self.card).count())
+        self.assertIs(data["movements_truncated"], False)
+
+    def test_mcp_over_cap_keeps_newest_and_flags(self):
+        token = set_current_user(self.viewer)
+        try:
+            with mock.patch.object(tools, "_CARD_DETAIL_HISTORY_MAX", 3):
+                data = tools.card_detail(card_id=self.card.pk)
+        finally:
+            reset_current_user(token)
+        ids = sorted(CardMovement.objects.filter(card=self.card).values_list("id", flat=True))
+        self.assertIs(data["movements_truncated"], True)
+        self.assertEqual([m["id"] for m in data["movements"]], ids[::-1][:3])

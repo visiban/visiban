@@ -1456,18 +1456,32 @@ class CardViewSet(viewsets.ModelViewSet):
         return Response(result.payload)
 
     @extend_schema(
-        summary="List the full movement history for a card",
-        responses=CardMovementSerializer(many=True),
+        summary="List the movement history for a card",
+        description=(
+            "Newest first, as a bare array. Every movement by default; `limit`/`offset` "
+            "(since 1.3) bound the read, with the total in `X-Total-Count`."
+        ),
+        parameters=_card_history_paging_parameters("movements"),
+        responses={
+            200: CardMovementSerializer(many=True),
+            400: OpenApiResponse(
+                description="A bad `limit` or an `offset` above 2^62 (`invalid_query_param`).",
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+        },
     )
     @action(detail=True, methods=["get"])
     def movements(self, request, board_pk=None, pk=None):
-        """Return the full movement history for a card."""
+        """Return the movement history for a card (opt-in paging, #2255)."""
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
         movements = card.movements.select_related(
             "card", "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by"
+        ).order_by("-moved_at", "-pk")
+        return _card_history_response(
+            request, movements,
+            lambda rows: CardMovementSerializer(rows, many=True, context={"request": request}).data,
         )
-        return Response(CardMovementSerializer(movements, many=True, context={"request": request}).data)
 
     @extend_schema(
         summary="List field-change activity for a card",

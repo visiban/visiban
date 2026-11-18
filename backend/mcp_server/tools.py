@@ -1232,7 +1232,7 @@ def board_snapshot(*, board_id):
     }
 
 
-# Rows of each per-card history list (activities, comments) that the
+# Rows of each per-card history list (movements, activities, comments) that the
 # ``card://{card_id}`` resource returns (#1963); matches REST's history cap.
 _CARD_DETAIL_HISTORY_MAX = 200
 
@@ -1240,8 +1240,8 @@ _CARD_DETAIL_HISTORY_MAX = 200
 def card_detail(*, card_id):
     """Card detail + audit history for the ``card://{card_id}`` MCP resource.
 
-    Activities and comments are the 200 newest, with ``*_truncated`` flags.
-    Movements are uncapped (#2255).
+    Movements, activities and comments are the 200 newest, with
+    ``*_truncated`` flags (#1963, #2255).
 
     RBAC is enforced by ``_resolve_board_for_card`` — the same resolver every
     write tool uses — so board membership is required exactly as it is for
@@ -1279,11 +1279,16 @@ def card_detail(*, card_id):
 
     data = _serialize_card(card)
     data["archived_at"] = card.archived_at.isoformat() if card.archived_at else None
-    # The full history is the one reader that needs every movement, so it is
-    # fetched here for this single card rather than prefetched for every card
-    # a list read serves (#1883).
-    movements = CardMovement.objects.filter(card=card).select_related("moved_by").order_by("-moved_at")
-    data["movements"] = [_serialize_movement(m) for m in movements]
+    # Movements are fetched here for this single card rather than prefetched
+    # for every card a list read serves (#1883).
+    # Capped like activities and comments below (#2255): the newest
+    # _CARD_DETAIL_HISTORY_MAX movements, one extra row fetched to flag a cap.
+    movements = list(
+        CardMovement.objects.filter(card=card).select_related("moved_by")
+        .order_by("-moved_at", "-pk")[:_CARD_DETAIL_HISTORY_MAX + 1]
+    )
+    data["movements"] = [_serialize_movement(m) for m in movements[:_CARD_DETAIL_HISTORY_MAX]]
+    data["movements_truncated"] = len(movements) > _CARD_DETAIL_HISTORY_MAX
     data["checklist_items"] = [_serialize_checklist_item(i) for i in _card_checklist_items(card)]
     # Activities and comments are capped (#1963): a long-lived card writes an
     # activity on every field edit, and the whole history in one resource read
