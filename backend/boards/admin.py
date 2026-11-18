@@ -1059,6 +1059,10 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
         "The page now shows the current state of the board; make your changes again."
     )
 
+    # cards_can_have_children is editable here via fields="__all__", but this
+    # write path deliberately does not call check_flag_flip yet: no link model
+    # exists (links_blocking_flag_flip returns 0). The card-link MR (#1104) must
+    # call it here so staff cannot flip the flag under live links.
     def save_model(self, request, obj, form, change):
         old_group_id = None
         stored = None

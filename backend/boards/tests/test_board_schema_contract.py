@@ -420,6 +420,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "swimlane_rollup_field",
             # Additive (#2050): the commitment point.
             "commitment_column_uid",
+            # Additive (#2208): two-tier card links.
+            "cards_can_have_children",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")

@@ -385,6 +385,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
     health_status: null, effective_health_status: null, health_status_source: null, health_status_changed_at: null, health_status_changed_by: null, health_status_note: null, health_review_days: null, health_review_due_at: null, health_auto_enabled: false, health_off_track_cards: 3, computed_health_status: null, health_computed_at: null, health_computed_counts: null, health_status_origin: null, default_preset: null,
     swimlane_rollup_field: null,
     commitment_column_uid: null,
+    cards_can_have_children: false,
     id: 1, uid: 'boarduid0001', name: 'Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [], swimlanes, cards: [], labels: [],

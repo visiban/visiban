@@ -1747,6 +1747,25 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </div>
               </section>
 
+              {/* #2208 — two-tier card links: whether this board's cards can have child cards on another board */}
+              <section aria-labelledby="child-cards-heading">
+                <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
+                {isAdmin ? (
+                  <ToggleField
+                    checked={board.cards_can_have_children}
+                    onChange={(v) => onUpdateBoardSettings?.({ cards_can_have_children: v })}
+                    label="Cards can have child cards"
+                    descriptionId="cards-can-have-children-help"
+                    aria-describedby="cards-can-have-children-help"
+                    description="Cards on this board can have child cards on another board. A board is either a parent board or a child board, never both."
+                  />
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.
+                  </p>
+                )}
+              </section>
+
               {/* #2244 — health review cue, beside the stale-card threshold; #2245 — auto health */}
               <section aria-labelledby="health-review-heading">
                 <h3 id="health-review-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Health status</h3>
