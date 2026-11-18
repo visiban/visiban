@@ -1084,6 +1084,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#child-cards-setting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Child cards setting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#collapsed-columns" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5306,6 +5317,9 @@
 <li>If the focused swimlane is deleted while focus mode is active (e.g. by another session), focus mode exits automatically and the collapse state is restored.</li>
 <li>If the <code>?focus=</code> URL param contains an ID that no longer exists on the board, it is silently ignored.</li>
 </ul>
+<h2 id="child-cards-setting">Child cards setting<a class="headerlink" href="#child-cards-setting" title="Permanent link">&para;</a></h2>
+<p><em>Added in 1.3 (#2208).</em> Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board is either a parent board, whose cards can have child cards on another board, or a child board, which can only hold children. A board never plays both roles.</p>
+<p>A board admin chooses which one in <strong>Board Settings → Rules → Child cards</strong> with the <strong>Cards can have child cards</strong> switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. Linking cards is not available yet; this setting is the prerequisite for it. Once links exist, the switch cannot be changed while links depend on it.</p>
 <h2 id="collapsed-columns">Collapsed columns<a class="headerlink" href="#collapsed-columns" title="Permanent link">&para;</a></h2>
 <p>Click a column header to collapse it to a narrow vertical strip. When collapsed:</p>
 <ul>
