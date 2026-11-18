@@ -4922,7 +4922,7 @@ access described in Rule 2.</p>
 <tr>
 <td>Outbound webhook subscription (board events delivered to a URL its owner chose)</td>
 <td><code>webhooks/views.py</code> <code>WebhookSubscriptionViewSet.create</code>, <code>partial_update</code> (<code>url</code>), <code>reenable</code>, <code>rotate</code> (each re-stamps <code>configured_by</code>; session only, D4; taking over after <code>creator_lost_access</code> also re-verifies the caller with the current password or a recent provider sign-in)</td>
-<td>The owner losing board-admin standing (checked every dispatch run, Rule 2); <code>disable</code> (<code>manual</code>); <code>destroy</code>; automatic disable after repeated failures, cursor expiry or an undecryptable secret; board deletion (CASCADE). <code>rotate</code> with no overlap stops signing with the old secret at once and ends any open overlap; with <code>overlap_seconds</code> (at most seven days, a constant) the old secret, moved verbatim to <code>previous_secret_encrypted</code>, also signs until <code>previous_secret_expires_at</code> (#2054). That ends at the wall clock on every delivery (<code>get_previous_secret</code>, <code>previous_secret_active_until</code>), at a URL change, which clears both columns, and at the dispatcher's sweep (<code>sweep_expired_previous_secrets</code>, before its enabled gate, so disabled rows and a feature that is off are cleared too, but only while a dispatcher runs: Compose and Helm default it off, and with none running the expired ciphertext stays stored though it is never signed, #2119). A rotation never revokes the receiver's trust in the old secret; the docs and the confirm copy say so. Not exported with the board, not registered in the Django admin (#863)</td>
+<td>The owner losing board-admin standing (checked every dispatch run, Rule 2); <code>disable</code> (<code>manual</code>); <code>destroy</code>; automatic disable after repeated failures, cursor expiry or an undecryptable secret; board deletion (CASCADE). <code>rotate</code> with no overlap stops signing with the old secret at once and ends any open overlap; with <code>overlap_seconds</code> (at most seven days, a constant) the old secret, moved verbatim to <code>previous_secret_encrypted</code>, also signs until <code>previous_secret_expires_at</code> (#2054). That ends at the wall clock on every delivery (<code>get_previous_secret</code>, <code>previous_secret_active_until</code>), at a URL change, which clears both columns, and at three callers of one sweep (<code>sweep_expired_previous_secrets</code>, which clears disabled rows and a feature that is off too: the dispatcher run, before its enabled gate; a board admin's request to that board's webhook endpoints, <code>WebhookSubscriptionViewSet._board</code>, that board only; and the daily <code>sweep_webhook_secrets</code> job, every board, in the <code>run_scheduler</code> Compose sidecar and the Helm <code>sweepWebhookSecrets</code> CronJob, #2119). The expired ciphertext is never signed with either way, but it stays stored on an install that runs no dispatcher, no scheduler, and whose board admin never opens the webhook API. A rotation never revokes the receiver's trust in the old secret; the docs and the confirm copy say so. Not exported with the board, not registered in the Django admin (#863)</td>
 </tr>
 </tbody>
 </table>
@@ -5083,6 +5083,16 @@ the names resolve only against active users the importer can already see: the
 importer, co-members of their boards and groups, and the target group (a site
 admin or an all-content user matches every active user). A name outside that
 pool is dropped, so a file can't assign work to an arbitrary account.</p>
+<p>The Trello import is the one import that also writes <strong>board memberships</strong>.
+With <code>add_matched_members</code>, every matched member, from that same pool and no
+other, becomes a member of the new board with the fixed role <code>member</code>
+(<code>execute_plan</code>); no other role can come from the file, and an unmatched or
+out-of-pool name gets no row. This is not a new authority: the importer is the
+new board's admin and could add the same people through the members endpoint.
+Like that endpoint, the import tells each person it added with a
+<code>board_invite</code> notification (#2122), so a file cannot put someone on a board
+silently. It records no <code>member.added</code> event, because the board is created in
+the same transaction and no client can be subscribed to it yet.</p>
 <p>Imported history rows (JSON movement <code>moved_by</code>, activity <code>actor</code>) and imported
 comments (JSON comment <code>author</code>, Trello comment authors) aren't resolved at
 all, inside the pool or out of it: each row is recorded under the importer and
@@ -5120,7 +5130,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>Trello import</td>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin.import_trello</code></td>
-<td><code>boards/services/trello_import.py</code> <code>visible_users</code>, <code>match_members</code> (card members and, since #2197, checklist item members, both only with <code>add_matched_members</code>; comments use the importer and keep the author name in <code>imported_from_username</code>; Trello import writes no movement or activity rows)</td>
+<td><code>boards/services/trello_import.py</code> <code>visible_users</code>, <code>match_members</code>. With <code>add_matched_members</code> only: matched members become <strong>board members with role <code>member</code></strong> (<code>execute_plan</code>, constant role) and get a <code>board_invite</code> notification (<code>_notify_added_members</code>, #2122), and they are card assignees and, since #2197, checklist item assignees. Unmatched or out-of-pool names get no membership and no assignment. Comments use the importer and keep the author name in <code>imported_from_username</code>; Trello import writes no movement or activity rows. Pinned by <code>boards/tests/test_trello_import.py</code> (<code>TrelloImportAddedMemberNoticeTests2122</code>)</td>
 </tr>
 <tr>
 <td>User search</td>

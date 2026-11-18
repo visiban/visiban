@@ -5177,6 +5177,11 @@
 <td>Maximum card attachment size in bytes (default: <code>10485760</code>, 10 MB). Raise it for large attachments; lower it to limit storage use.</td>
 </tr>
 <tr>
+<td><code>ATTACHMENT_MAX_PER_CARD</code>, <code>ATTACHMENT_MAX_BYTES_PER_CARD</code>, <code>ATTACHMENT_THROTTLE_UPLOAD_RATE</code></td>
+<td style="text-align: center;">No</td>
+<td>Per-card attachment quotas and the per-user upload rate (defaults: <code>100</code> files, <code>1073741824</code> bytes, <code>120/hour</code>; <code>0</code> turns a quota off). See <a href="../../administration/configuration/#attachment-limits">Attachment limits</a>.</td>
+</tr>
+<tr>
 <td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
 <td style="text-align: center;">No</td>
 <td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own: schedule <code>manage.py prune_board_events</code> (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>) or the <code>board_events</code> table grows without bound. Set it longer than the longest outage a feed consumer must survive.</td>
@@ -5187,9 +5192,9 @@
 <td>How long an in-app notification is kept, read or unread, in days (default: <code>90</code>, minimum <code>14</code>). Enforced only when <code>manage.py prune_notifications</code> is scheduled (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>). Unscheduled, notifications are kept forever.</td>
 </tr>
 <tr>
-<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code>, <code>SCHEDULE_COMPUTE_HEALTH</code></td>
+<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code>, <code>SCHEDULE_COMPUTE_HEALTH</code>, <code>SCHEDULE_SWEEP_WEBHOOK_SECRETS</code></td>
 <td style="text-align: center;">No</td>
-<td>Daily run time (<code>HH:MM</code> UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>03:00</code>, <code>off</code>, <code>02:00</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
+<td>Daily run time (<code>HH:MM</code> UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>03:00</code>, <code>off</code>, <code>02:00</code>, <code>04:00</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
 </tr>
 <tr>
 <td><code>INSTANCE_TIMEZONE</code></td>
