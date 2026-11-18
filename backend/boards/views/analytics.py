@@ -1217,6 +1217,9 @@ class BoardAnalyticsMixin:
                     _mv_qs.filter(moved_at__lt=buffer_cutoff).order_by("-moved_at", "-id").values("to_column_id")[:1]
                 ),
             )
+            # Only the card fields this method reads. Without it every card's
+            # description and other wide columns are loaded and discarded (#1884).
+            .only("id", "uid", "title", "swimlane_id", "column_id", "position", "archived_at", "created_at")
             .prefetch_related(
                 Prefetch(
                     "movements",
@@ -1236,6 +1239,9 @@ class BoardAnalyticsMixin:
                     ).only(
                         "card_id", "to_column_id", "moved_at"
                     ).order_by("moved_at"),
+                    # A plain list on the card: reading it needs no per-card
+                    # queryset clone (#1884, the pattern #1212 flagged).
+                    to_attr="_analytics_movements",
                 )
             )
             .order_by("swimlane_id", "position")
@@ -1257,11 +1263,10 @@ class BoardAnalyticsMixin:
             deal_velocity_days = []
 
             for card in cards:
-                # .all() reads from the Prefetch cache (already ordered by moved_at at
-                # the DB level above); list() materialises it so len() and indexing work.
-                # The prefetch is scoped to a 2× window buffer — movements contains
-                # only entries from period_cutoff - days onward.
-                movements = list(card.movements.all())
+                # The to_attr list from the Prefetch above, already ordered by
+                # moved_at at the DB level. The prefetch is scoped to a 2× window
+                # buffer — movements contains only entries from period_cutoff - days onward.
+                movements = card._analytics_movements
 
                 # ── Clamped dwell (the frozen avg_days_per_column) ──────────────
                 # A column entered before the prefetch buffer has no prefetched

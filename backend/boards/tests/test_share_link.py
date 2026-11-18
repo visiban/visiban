@@ -13,7 +13,7 @@ import json
 from unittest.mock import patch
 
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -346,6 +346,8 @@ class PublicCardLabelsTests(TestCase):
             self.assertEqual(set(lb.keys()), {"id", "uid", "name", "color"})
         self.assertEqual(unlabeled["labels"], [])
 
+    # Cache off: this counts the queries of an uncached build (#1965).
+    @override_settings(SHARE_BOARD_CACHE_TTL_SECONDS=0)
     def test_label_query_count_does_not_grow_with_card_count(self):
         """Flat-SQL-query-count regression guard, not a to_attr proof.
 

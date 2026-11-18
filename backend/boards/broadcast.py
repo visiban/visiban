@@ -6,6 +6,8 @@ from channels.layers import get_channel_layer
 from django.db import connection, transaction
 from rest_framework.renderers import JSONRenderer
 
+from .services import share_cache
+
 logger = logging.getLogger(__name__)
 
 # ─── Board-channel event registry (#1078) ────────────────────────────────────
@@ -288,6 +290,10 @@ def broadcast_board_event(
     "never raises" guarantee: ``_json_safe`` runs outside the ``try``, so an
     unserializable payload — a code bug, not an outage — still raises.
     """
+    # Any board mutation makes the cached public share-link body stale (#1965).
+    # Before the channel-layer check: the cache must be invalidated even when
+    # no layer is configured.
+    share_cache.bump_board_version(board_id)
     channel_layer = get_channel_layer()
     if channel_layer is None:
         return

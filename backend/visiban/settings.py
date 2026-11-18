@@ -641,6 +641,11 @@ USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
 # nothing of that kind pruned after it keeps reading.
 BOARD_EVENT_RETENTION_DAYS = env.int("BOARD_EVENT_RETENTION_DAYS", default=30)
 
+# How long, in seconds, the anonymous share-link board body is cached (#1965).
+# 0 turns the cache off. boards/services/share_cache.py also tolerates a bad
+# value at read time, so a settings override cannot fail a public request.
+SHARE_BOARD_CACHE_TTL_SECONDS = env.int("SHARE_BOARD_CACHE_TTL_SECONDS", default=15)
+
 # Outbound webhooks (#863) — docs/administration/configuration.md#webhooks.
 # Off by default. When on, board admins can register signed outbound POSTs for
 # their board's change feed; `manage.py dispatch_webhooks` delivers them.
