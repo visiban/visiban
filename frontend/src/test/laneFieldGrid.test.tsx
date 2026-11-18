@@ -31,7 +31,7 @@ describe("LaneFieldGrid (#2354)", () => {
 
   it("does not let a double-click on the grid bubble to the band (it would open Edit swimlane)", () => {
     const onBand = vi.fn();
-    render(<div onDoubleClick={onBand}><LaneFieldGrid id="g1" laneName="North" laneColor={null} fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")], true)} /></div>);
+    render(<div onDoubleClick={onBand}><LaneFieldGrid id="g1" laneName="North" fields={laneGridFields(lane([[1, "x"]]), [def(1, "Owner")], true)} /></div>);
     fireEvent.doubleClick(screen.getByText("Owner"));
     expect(onBand).not.toHaveBeenCalled();
   });
