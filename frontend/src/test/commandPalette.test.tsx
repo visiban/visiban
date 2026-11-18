@@ -421,6 +421,16 @@ describe("CommandPalette — card actions (#2059)", () => {
     expect(onCardAction).toHaveBeenCalledWith({ cardIds: [1], action: "move", value: 10 });
   });
 
+  it("move lists a split stage once per sub-column and sends the stop value (#2278)", () => {
+    const onCardAction = vi.fn();
+    const stage = { ...makeColumn(10, "Review"), sub_columns: [{ id: 1, uid: "s1", position: 0, name: "Doing" }, { id: 2, uid: "s2", position: 1, name: "Ready" }] } as unknown as Column;
+    renderPalette({ cardTarget: target(), onCardAction, columns: [stage] });
+    fireEvent.click(screen.getByRole("option", { name: /^Move card to…/ }));
+    expect(options()).toEqual(["Review: Doing", "Review: Ready"]);
+    fireEvent.click(screen.getByRole("option", { name: "Review: Ready" }));
+    expect(onCardAction).toHaveBeenCalledWith({ cardIds: [1], action: "move", value: "stop:10:1" });
+  });
+
   it("Escape, ← and Backspace on an empty query back out one level; Escape then closes", () => {
     const onClose = vi.fn();
     renderPalette({ cardTarget: target(), onClose });

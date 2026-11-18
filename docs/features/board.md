@@ -1104,7 +1104,7 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 - Before you save, the tab lists what happens to cards in a sub-column you removed, for example "3 cards will move from Review back to Doing."
 - **Save stage** saves all three groups at once. It saves only the Stage tab and closes the dialog, so save Settings or Policy changes first; the tab warns you when you have some. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
 
-Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column.
+Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column (#1102, #1920).
 
 **Known limits.**
 
