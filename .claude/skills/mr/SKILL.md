@@ -244,7 +244,7 @@ is the contract; this is what the description carries.
   example `- gate: regression-check — 1 findings (sonnet; budget-stopped)`; never record
   a stopped gate's `0 findings` as clean.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
-  would read as a whole one.
+  would read as a whole one (except the documented `N+` form above).
 - **Check the draft** before `glab mr create`: `python3 scripts/cost_ledger_lines.py --file
   <body.md>` exits 1 on a malformed, doubled or contradictory cost line (it never requires one).
   The body file must be under the checkout, the temp dir or the git dir.
