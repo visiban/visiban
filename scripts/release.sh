@@ -111,6 +111,70 @@ security_deferred_gate_for_tag() {
   fi
 }
 
+# ─── Chart version pre-flight (#2375) ────────────────────────────────────────
+#
+# chart_version_for_tag <tag> <Chart.yaml> — prints the chart version the tag
+# pipeline's `helm-publish` WILL publish. Mirrors that job's computation in
+# .gitlab-ci.yml exactly: Chart.yaml's top-level `version:` for a stable tag,
+# `<version>-<pre-release>` (everything after the first `-` of the tag) for a
+# pre-release tag (v1.3.0-beta.1 -> 0.8.0-beta.1). Returns 1 when Chart.yaml has
+# no readable top-level version.
+chart_version_for_tag() {
+  local tag="$1" base
+  base="$(awk '/^version:/{print $2; exit}' "$2" 2>/dev/null | tr -d '"')"
+  [[ -n "$base" ]] || return 1
+  case "$tag" in
+    *-*) printf '%s\n' "${base}-${tag#*-}" ;;
+    *)   printf '%s\n' "$base" ;;
+  esac
+}
+
+# check_chart_version_free <tag> — returns 1 when the chart version helm-publish
+# would push is already in GHCR, BEFORE anything is tagged or pushed.
+#
+# helm-publish refuses an existing chart version (`helm push` would overwrite it
+# under everyone who pinned it, #1155), but it runs after the images are already
+# published. Chart.yaml's `version:` is bumped by hand (#1194), so a patch
+# release with no chart change would fail there, late. This runs the SAME guard
+# helm-publish runs (scripts/check-chart-registry.sh --candidate), with
+# CI_COMMIT_TAG set the way the job sets it, so the two cannot disagree.
+#
+# FAILS CLOSED like check_security_deferred_clear: an unreadable registry blocks,
+# because the tag pipeline would only discover the problem after publishing.
+# RELEASE_SKIP_CHART_VERSION_CHECK=1 bypasses it deliberately (note it inline).
+check_chart_version_free() {
+  local tag="$1" cand rc=0 out
+  local script; script="$(dirname "$0")/check-chart-registry.sh"
+  local chart="helm/visiban/Chart.yaml"
+  # Test-only overrides: honored solely under --self-test (_RELEASE_SELFTEST is
+  # assigned below, never inherited), so a stray exported variable cannot neuter
+  # the gate.
+  if [[ "$_RELEASE_SELFTEST" == 1 ]]; then
+    script="${CHART_REGISTRY_SCRIPT:-$script}"
+    chart="${CHART_YAML:-$chart}"
+  fi
+  if [[ "${RELEASE_SKIP_CHART_VERSION_CHECK:-}" == "1" ]]; then
+    echo "WARN: RELEASE_SKIP_CHART_VERSION_CHECK=1 — skipping the chart version pre-flight; helm-publish may refuse ${tag} after its images are published." >&2
+    return 0
+  fi
+  if ! cand="$(chart_version_for_tag "$tag" "$chart")"; then
+    echo "Error: could not read the chart version from ${chart}; refusing to cut ${tag} without knowing what helm-publish will push." >&2
+    return 1
+  fi
+  out="$(CI_COMMIT_TAG="$tag" bash "$script" --candidate "$cand" 2>&1)" || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    echo "Chart version pre-flight: OK (helm-publish would push chart ${cand}; it is not in the registry)."
+    return 0
+  fi
+  sed 's/^/  /' <<<"$out" >&2
+  if [[ $rc -eq 1 ]]; then
+    echo "Error: helm-publish would refuse chart version ${cand} for ${tag}. Bump \`version:\` in helm/visiban/Chart.yaml (via a merged MR), then re-run this release. To cut anyway: RELEASE_SKIP_CHART_VERSION_CHECK=1." >&2
+  else
+    echo "Error: could not read the chart registry (exit ${rc}); failing closed rather than tagging blind. Retry, or bypass deliberately with RELEASE_SKIP_CHART_VERSION_CHECK=1." >&2
+  fi
+  return 1
+}
+
 # ─── Idempotent release-MR merge + merge-commit SHA (#1821) ──────────────────
 #
 # mr_api_field <mr-num> <field> — prints one top-level field of the MR's API
@@ -822,6 +886,60 @@ dependencies:
   fi
   unset DIGEST_PROBE
 
+  # check_chart_version_free (#2375): stub check-chart-registry.sh stands in for the registry.
+  printf '%s\n' 'version: 0.8.0' 'appVersion: "1.2.0"' > "$tmp/chart-ok.yaml"
+  if [[ "$(chart_version_for_tag v1.3.1 "$tmp/chart-ok.yaml")" == "0.8.0" ]] \
+     && [[ "$(chart_version_for_tag v1.3.0-alpha.1 "$tmp/chart-ok.yaml")" == "0.8.0-alpha.1" ]] \
+     && [[ "$(chart_version_for_tag v1.3.0-rc.2 "$tmp/chart-ok.yaml")" == "0.8.0-rc.2" ]]; then
+    echo "SELF-TEST OK: chart_version_for_tag mirrors helm-publish (stable plain, pre-release suffixed)"
+  else
+    echo "SELF-TEST FAILED: chart_version_for_tag mirrors helm-publish" >&2; rc=1
+  fi
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$tmp/cr-ok.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "FAIL already published"' 'exit 1' > "$tmp/cr-taken.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'echo "could not read the tag list"' 'exit 2' > "$tmp/cr-unreadable.sh"
+  # Passes only when it is handed the pre-release chart version AND the tag, as helm-publish does.
+  printf '%s\n' '#!/usr/bin/env bash' '[[ "$1" == --candidate && "$2" == 0.8.0-alpha.1 && "${CI_COMMIT_TAG:-}" == v1.3.0-alpha.1 ]]' > "$tmp/cr-expect.sh"
+  if CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_chart_version_free passes when the chart version is free"
+  else
+    echo "SELF-TEST FAILED: check_chart_version_free passes when the chart version is free" >&2; rc=1
+  fi
+  cv_rc=0  # set -e: capture the nonzero status instead of aborting the self-test
+  cv_err=$(CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-taken.sh" check_chart_version_free v1.3.1 2>&1 >/dev/null) || cv_rc=$?
+  if [[ $cv_rc -ne 0 ]] && grep -q 'Bump `version:`' <<<"$cv_err"; then
+    echo "SELF-TEST OK: check_chart_version_free blocks a taken chart version and says to bump Chart.yaml"
+  else
+    echo "SELF-TEST FAILED: check_chart_version_free must block a taken chart version with a bump message" >&2; rc=1
+  fi
+  if CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-unreadable.sh" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: check_chart_version_free must fail closed on an unreadable registry" >&2; rc=1
+  else
+    echo "SELF-TEST OK: check_chart_version_free fails closed on an unreadable registry"
+  fi
+  if CHART_YAML="$tmp/missing.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: check_chart_version_free must fail closed when Chart.yaml is unreadable" >&2; rc=1
+  else
+    echo "SELF-TEST OK: check_chart_version_free fails closed when Chart.yaml is unreadable"
+  fi
+  if RELEASE_SKIP_CHART_VERSION_CHECK=1 CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-taken.sh" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_chart_version_free honors RELEASE_SKIP_CHART_VERSION_CHECK=1"
+  else
+    echo "SELF-TEST FAILED: check_chart_version_free honors RELEASE_SKIP_CHART_VERSION_CHECK=1" >&2; rc=1
+  fi
+  if CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-expect.sh" check_chart_version_free v1.3.0-alpha.1 >/dev/null 2>&1; then
+    echo "SELF-TEST OK: the guard receives the suffixed pre-release chart version and CI_COMMIT_TAG"
+  else
+    echo "SELF-TEST FAILED: the guard must receive the suffixed pre-release chart version and CI_COMMIT_TAG" >&2; rc=1
+  fi
+  # An exported override must be ignored outside the self-test (the real script then
+  # reads the repo's Chart.yaml and, offline or taken, must not be the stub's pass).
+  if _RELEASE_SELFTEST=0 CHART_YAML="$tmp/missing.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" CHART_TAGS="0.8.0" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: CHART_REGISTRY_SCRIPT/CHART_YAML must be ignored outside --self-test" >&2; rc=1
+  else
+    echo "SELF-TEST OK: CHART_REGISTRY_SCRIPT/CHART_YAML are ignored outside --self-test"
+  fi
+
   # check_security_deferred_clear: fails closed on a nonzero child, passes on zero, skip env bypasses.
   printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$tmp/sd-ok.sh"
   printf '%s\n' '#!/usr/bin/env bash' 'echo "#7 milestone=1.1 BLOCKER"' 'exit 1' > "$tmp/sd-block.sh"
@@ -1015,6 +1133,9 @@ RELEASE_SUMMARY_TEXT="$(resolve_release_summary "$VERSION" "$SUMMARY_FILE")" || 
 # Create release branch from latest main
 git checkout main
 git pull origin main
+# Before the release branch exists, so a taken chart version stops the cut with
+# nothing to clean up (#2375). Reads Chart.yaml from the freshly pulled main.
+check_chart_version_free "$TAG" || exit 1
 RELEASE_BRANCH="chore/release-${VERSION}"
 git checkout -b "$RELEASE_BRANCH"
 

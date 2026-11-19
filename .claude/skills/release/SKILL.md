@@ -246,9 +246,14 @@ The script will automatically:
    job hard-fails at tag time if it differs from the tag) with the new version. The chart's own
    `version:` is **not** touched — it is the chart packaging version, bumped by hand only when
    the chart's templates/values change (#1194). `helm-publish` refuses to re-publish a chart
-   version that is already in GHCR (#1155), so a stable release whose chart `version:` already
-   shipped fails at publish time: check `helm show chart oci://ghcr.io/visiban/charts/visiban`
-   before tagging a patch release
+   version that is already in GHCR (#1155), so `release.sh` pre-flights it (#2375): before the
+   release branch exists it computes the chart version the tag pipeline will publish (`version:`,
+   plus `-<pre-release>` for a pre-release tag, e.g. `v1.3.0-alpha.1` -> `0.8.0-alpha.1`) and runs
+   `scripts/check-chart-registry.sh --candidate` on it. A taken version stops the cut before any
+   tag or push: merge an MR that bumps `version:` in `helm/visiban/Chart.yaml`, then re-run. An
+   unreadable registry also stops it (fails closed); `RELEASE_SKIP_CHART_VERSION_CHECK=1` bypasses
+   it deliberately. A patch release with no chart change therefore needs a chart `version:` bump
+   MR first
 6. Verify version consistency across those files, `docker-compose.prod.yml`, and the Helm
    chart, and **abort the release if any check fails** — `git reset --hard`, checkout `main`,
    delete the release branch, same cleanup as step 3's abort path. Nothing is committed yet at
