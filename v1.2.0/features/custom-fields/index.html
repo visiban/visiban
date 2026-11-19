@@ -4591,7 +4591,7 @@
 <li><strong>Card fields:</strong> described on the rest of this page.</li>
 <li><strong>Swimlane fields:</strong> described in <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>. The two are separate per-board schemas. A board may define a card field and a swimlane field with the same name, and they are never merged or compared.</li>
 </ul>
-<p><strong>By the numbers:</strong> up to <strong>30 card fields</strong>, with up to <strong>2 of them pinned</strong> to the card face. Swimlane fields have smaller caps; see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.</p>
+<p><strong>By the numbers:</strong> up to <strong>30 card fields</strong>, with up to <strong>2 of them pinned</strong> to the card face (a <a href="#dimension-fields-13">track</a> shows as a chip instead and cannot be newly pinned). Swimlane fields have smaller caps; see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.</p>
 <p><strong>Yes, but:</strong> <code>is_required</code> isn't enforced (<a href="https://gitlab.com/visiban/visiban/-/issues/1433">#1433</a>) and only number filters have operators such as a range; date and choice filters match exact values (<a href="https://gitlab.com/visiban/visiban/-/issues/1847">#1847</a>). See <a href="#limitations-in-this-release">Limitations in this release</a>.</p>
 <h2 id="field-types">Field types<a class="headerlink" href="#field-types" title="Permanent link">&para;</a></h2>
 <p>Seven types are available:</p>
@@ -4655,7 +4655,7 @@
 <p class="admonition-title">Tab renamed in 1.2</p>
 <p>This tab was named <strong>Fields</strong> before 1.2. It was renamed to <strong>Card fields</strong> when <a href="#swimlane-row-custom-fields">swimlane fields</a> shipped, so the two tabs read unambiguously side by side.</p>
 </div>
-<p>Open <strong>Board Settings</strong> and select <strong>Card fields</strong> (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.</p>
+<p>Open <strong>Board Settings</strong> and select <strong>Card fields</strong> (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields. A track (a <a href="#dimension-fields-13">dimension field</a>) cannot be newly pinned to the card face: it shows as a chip, and its row says so. A track that was already pinned (for example through the API) still counts toward the 2-pin limit and shows an <strong>Unpin</strong> control.</p>
 <p>The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for <strong>✎ Edit</strong> and <strong>✕ Delete</strong>. Drag the <code>⋮⋮</code> handle to reorder, or use the keyboard: Tab to the handle, press Space to pick the field up, press the arrow keys to move it past its neighbors, and press Space to drop it (Escape cancels). That order is the order in the card detail panel and, for pinned fields, on the card face.</p>
 <h3 id="adding-or-editing-a-field">Adding or editing a field<a class="headerlink" href="#adding-or-editing-a-field" title="Permanent link">&para;</a></h3>
 <p>Click <strong>+ Add field</strong>, or <strong>✎</strong> on a field, to open the inline editor:</p>
@@ -4985,6 +4985,7 @@
 <h2 id="dimension-fields-13">Dimension fields (1.3)<a class="headerlink" href="#dimension-fields-13" title="Permanent link">&para;</a></h2>
 <p>A <strong>dimension</strong> is a dropdown field whose choices each carry a resolution: <code>open</code>, <code>satisfied</code> (shown as "done") or <code>not_applicable</code>. Set <code>is_dimension: true</code> and <code>choice_resolutions</code> (a map from choice to resolution) on a dropdown field; a choice without an entry, and a card with no value, count as open. Only dropdown fields can be dimensions. A value can move between any two choices in any order.</p>
 <p>Dimensions are what a stage's <strong>tracks</strong> are: a board admin binds dimension fields to a column as its tracks, and can mark a dimension not applicable for a whole swimlane. A lane's not-applicable mark overrides each card's own value for display, and the card's value is kept. Tracks count toward the 30-fields-per-board limit.</p>
+<p><strong>Renaming or removing a choice.</strong> Renaming a choice keeps its done/open setting for the choice itself, but stored card values are not rewritten, so cards that already hold the old name read as open until their value is updated. Removing a choice drops its setting.</p>
 <p>Every change to any custom field value, dimension or not, appears in the card's history with the old value, the new value and who made it.</p>
 
 
