@@ -10,9 +10,22 @@ import { REDESIGN_BOARD, REDESIGN_MOVEMENTS, REDESIGN_NOW } from './fixtures/red
  * purpose: that id resolves to this same board (#2279).
  *
  * Snapshots are Linux/Chromium images generated in the CI Playwright image; see
- * frontend/CLAUDE.md § Board redesign baseline for how to update them.
+ * frontend/CLAUDE.md § Board presets for how to update them. On any other platform the
+ * screenshot comparisons skip (with the reason) and the structural assertions still run.
  */
-const SHOT = { animations: 'disabled' as const, maxDiffPixelRatio: 0.01 }
+// An absolute pixel budget, not a ratio: on a 1440x2180 page a 1% ratio is about 31,000 pixels,
+// enough to hide a priority badge or one card losing its aging tint. The images come from the
+// same CI image that runs the comparison, so a few hundred pixels of antialiasing slack is plenty.
+const SHOT = { animations: 'disabled' as const, maxDiffPixels: 300 }
+
+const SHOT_SKIP_REASON =
+  'screenshot baselines are Linux/Chromium images generated in the CI Playwright image; other platforms render fonts differently (frontend/CLAUDE.md § Board presets)'
+
+/** `toHaveScreenshot` that skips, with a reason, off Linux. Assertions before it still run. */
+async function expectShot(page: Page, name: string, options: { animations?: 'disabled' | 'allow'; maxDiffPixels?: number; fullPage?: boolean } = {}) {
+  test.skip(process.platform !== 'linux', SHOT_SKIP_REASON)
+  await expect(page).toHaveScreenshot(name, options)
+}
 
 async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
   await page.clock.setFixedTime(new Date(REDESIGN_NOW))
@@ -64,7 +77,7 @@ test.describe('board redesign baseline', () => {
     for (const theme of ['light', 'dark'] as const) {
       test(`board ${theme}`, async ({ page }) => {
         await openBoard(page, theme, '?preset=classic')
-        await expect(page).toHaveScreenshot(`board-${theme}.png`, { ...SHOT, fullPage: true })
+        await expectShot(page, `board-${theme}.png`, { ...SHOT, fullPage: true })
       })
     }
   })
@@ -83,13 +96,17 @@ test.describe('board redesign baseline', () => {
       await openBoard(page, 'dark')
       await page.getByRole('button', { name: 'Collapse all lanes' }).click()
       await expect(page.getByRole('button', { name: 'Expand all lanes' })).toBeVisible()
-      await expect(page).toHaveScreenshot('board-collapsed.png', SHOT)
+      await expectShot(page, 'board-collapsed.png', SHOT)
     })
 
     test('hover peek is a tooltip, not a panel', async ({ page }) => {
       await openBoard(page, 'dark')
-      await page.locator('[data-card-id]').first().hover()
-      await expect(page.getByRole('tooltip').first()).toBeVisible({ timeout: 3_000 })
+      const card = page.locator('[data-card-id]').first()
+      const hoveredId = Number(await card.getAttribute('data-card-id'))
+      const hovered = REDESIGN_BOARD.cards.find((c) => c.id === hoveredId)!
+      await card.hover()
+      // The peek tooltip is portaled, so tie it to the hovered card by its title, not just any tooltip.
+      await expect(page.getByRole('tooltip').filter({ hasText: hovered.title })).toBeVisible({ timeout: 3_000 })
     })
 
     test('peek panel', async ({ page }) => {
@@ -99,7 +116,7 @@ test.describe('board redesign baseline', () => {
       await expect(page.getByRole('dialog', { name: /./ }).first()).toBeVisible()
       await expect(page.getByRole('button', { name: 'Close card peek' })).toBeVisible()
       await page.mouse.move(0, 0)
-      await expect(page).toHaveScreenshot('board-peek.png', SHOT)
+      await expectShot(page, 'board-peek.png', SHOT)
     })
 
     test('activity drawer', async ({ page }) => {
@@ -108,14 +125,14 @@ test.describe('board redesign baseline', () => {
       await expect(page.getByRole('complementary', { name: 'Activity' })).toBeVisible()
       await expect(page.getByRole('complementary', { name: 'Activity' }).getByText(REDESIGN_MOVEMENTS[0].card_title)).toBeVisible()
       await page.mouse.move(720, 890) // off the toolbar, so no tooltip draws over the board
-      await expect(page).toHaveScreenshot('board-activity.png', SHOT)
+      await expectShot(page, 'board-activity.png', SHOT)
     })
 
     test('view menu', async ({ page }) => {
       await openBoard(page, 'dark')
       await page.getByRole('button', { name: /^View/ }).first().click()
       await expect(page.getByText('Preset', { exact: true }).first()).toBeVisible()
-      await expect(page).toHaveScreenshot('board-menu-view.png', SHOT)
+      await expectShot(page, 'board-menu-view.png', SHOT)
     })
 
     test('empty board state', async ({ page }) => {
@@ -129,7 +146,7 @@ test.describe('board redesign baseline', () => {
       await page.goto(`/boards/${REDESIGN_BOARD.id}`)
       await expect(page.getByTestId('board-empty-state')).toBeVisible({ timeout: 15_000 })
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-      await expect(page).toHaveScreenshot('board-state-empty.png', SHOT)
+      await expectShot(page, 'board-state-empty.png', SHOT)
     })
   })
 
@@ -141,7 +158,7 @@ test.describe('board redesign baseline', () => {
       // The reference shows the gated stage (Discovery) with its sub-column control.
       await page.getByRole('tab', { name: /^Discovery,/ }).click()
       await expect(page.getByTestId('phone-sub-column-switcher')).toBeVisible()
-      await expect(page).toHaveScreenshot('board-phone.png', { ...SHOT, fullPage: true })
+      await expectShot(page, 'board-phone.png', { ...SHOT, fullPage: true })
     })
   })
 })
