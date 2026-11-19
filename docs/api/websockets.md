@@ -402,6 +402,17 @@ records the same single delete event. Cards *outside* the container whose
 `blocker_count` the delete lowered also get a `card.updated` frame each; see
 "Cards that survive the delete" below.
 
+Since 1.3 (#1104), a deleted card's parent/child links go with it, and the
+surviving end of each link is told the same way as for a single card delete:
+a parent on another board whose child was deleted records the unlink in its
+history and its board gets one `card.children_changed` per parent; children on
+another board whose parent was deleted record the unlink and their board gets
+one `card.parent_changed` listing them. Both frames carry ids only. This covers
+every container delete, REST and Django admin alike, so deleting a child board
+leaves each parent a history entry, and deleting a parent board leaves its
+children as ordinary cards with a history entry. A link whose two ends are both
+deleted gets no frame.
+
 A client that keeps cards locally must therefore treat a container delete as
 the delete of its cards:
 

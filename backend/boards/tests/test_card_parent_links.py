@@ -225,6 +225,89 @@ class LinkWriteTests(_LinkFixture, TestCase):
         self.assertTrue(CardActivity.objects.filter(card=self.child, event_type="parent_unlinked").exists())
 
 
+class ContainerDeleteLinkTests(_LinkFixture, TestCase):
+    """Every path that deletes cards tells the surviving end of each link (#1104).
+
+    The link rows CASCADE with the cards, so a path that skipped
+    ``announce_cards_removal`` would lose the peer's history entry for good
+    and leave the peer board's clients stale.
+    """
+
+    def setUp(self):
+        self._setup_boards()
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        self.request = RequestFactory().post("/")
+        self.request.user = self.owner
+
+    def _assert_parent_told(self):
+        rows = list(BoardEvent.objects.filter(board_id=self.pboard.pk))
+        self.assertEqual(
+            [(r.event, r.data) for r in rows],
+            [("card.children_changed", {"parent_id": self.parent.pk})],
+        )
+        row = CardActivity.objects.get(card=self.parent, event_type="child_unlinked")
+        self.assertEqual((row.from_value, row.to_value), ("", ""))
+
+    def _assert_child_told(self):
+        self.assertTrue(Card.objects.filter(pk=self.child.pk).exists())
+        rows = list(BoardEvent.objects.filter(board_id=self.cboard.pk))
+        self.assertEqual(
+            [(r.event, r.data) for r in rows],
+            [("card.parent_changed", {"card_ids": [self.child.pk]})],
+        )
+        row = CardActivity.objects.get(card=self.child, event_type="parent_unlinked")
+        self.assertEqual((row.from_value, row.to_value), ("", ""))
+
+    def test_rest_column_delete_tells_the_parent(self):
+        _make_column(self.cboard, name="Spare", order=1)  # the board keeps a column
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self._client(self.owner).delete(
+                f"/api/v1/boards/{self.cboard.pk}/columns/{self.col_c.pk}/"
+            )
+        self.assertEqual(res.status_code, 204, res.content)
+        self.assertFalse(Card.objects.filter(pk=self.child.pk).exists())
+        self._assert_parent_told()
+
+    def test_rest_child_board_delete_leaves_each_parent_a_history_entry(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self._client(self.owner).delete(f"/api/v1/boards/{self.cboard.pk}/")
+        self.assertEqual(res.status_code, 204, res.content)
+        self._assert_parent_told()
+
+    def test_rest_parent_board_delete_leaves_children_as_ordinary_cards(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self._client(self.owner).delete(f"/api/v1/boards/{self.pboard.pk}/")
+        self.assertEqual(res.status_code, 204, res.content)
+        self.assertFalse(CardParentLink.objects.exists())
+        self._assert_child_told()
+
+    def test_admin_card_delete_tells_the_parent(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            CardAdmin(Card, django_admin.site).delete_model(
+                self.request, Card.objects.get(pk=self.child.pk),
+            )
+        self._assert_parent_told()
+
+    def test_admin_board_delete_of_both_ends_records_nothing(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            BoardAdmin(Board, django_admin.site).delete_queryset(
+                self.request, Board.objects.filter(pk__in=[self.pboard.pk, self.cboard.pk]),
+            )
+        self.assertFalse(Card.objects.filter(pk__in=[self.parent.pk, self.child.pk]).exists())
+        self.assertFalse(
+            BoardEvent.objects.filter(
+                event__in=["card.children_changed", "card.parent_changed"],
+            ).exists()
+        )
+
+    def test_admin_parent_board_delete_tells_the_children(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            BoardAdmin(Board, django_admin.site).delete_model(
+                self.request, Board.objects.get(pk=self.pboard.pk),
+            )
+        self._assert_child_told()
+
+
 class ChildrenReadTests(_LinkFixture, TestCase):
     def setUp(self):
         self._setup_boards()

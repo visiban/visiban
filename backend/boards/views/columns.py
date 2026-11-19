@@ -20,6 +20,7 @@ from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Card, Column
 from ..permissions import SITE_ADMIN
 from ..serializers import ColumnSerializer
+from ..services.card_links import announce_cards_removal
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
     lock_board_row_or_404, lock_container_cascade, publish_blocked_peers,
@@ -183,6 +184,9 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # stale blocker_count unless told (#1634). Collected under the
             # cascade locks and before the delete, which removes the relations.
             peers = blocked_peers_of(Card.objects.filter(column_id=instance.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(column_id=instance.pk), actor=self.request.user)
             instance.delete()
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
             publish_blocked_peers(peers, self.request, boards=[board])

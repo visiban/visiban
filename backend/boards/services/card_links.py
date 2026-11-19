@@ -160,13 +160,15 @@ def _lock_endpoints(parent_pk, child_pk, board_pks=()):
     )
 
 
-def _record(card_id, event_type, actor, **_ignored):
+def _record(card_id, event_type, actor):
     """Write one link history row with NO reference to the other card.
 
     Not even its id: whoever reads this card's history may be unable to open
     the other card's board, and "never a title, board, column or id" holds for
     history as it does for ``children_for_viewer``. Clients read the current
     link from the parent/children endpoints, which resolve the reader's role.
+    The signature takes no value arguments on purpose, so no caller can hand
+    it the other card's id to store.
     """
     CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor)
 
@@ -251,8 +253,8 @@ def create_link(*, user, child, child_role, parent_id):
                 f"That parent has {CHILDREN_PER_PARENT_LIMIT} children (the limit).",
             )
         link = CardParentLink.objects.create(parent=parent, child=child, created_by=user)
-        _record(child.pk, CardActivity.EventType.PARENT_LINKED, user, to_value=str(parent.pk))
-        _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user, to_value=str(child.pk))
+        _record(child.pk, CardActivity.EventType.PARENT_LINKED, user)
+        _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
         _announce(parent.board_id, parent.pk, child.board_id, child.pk, user.id)
     return link
 
@@ -271,8 +273,8 @@ def remove_link(link, *, actor, moved_from=None):
         if not deleted:
             # A concurrent unlink won; answer as for a link that is gone.
             raise NotFound()
-        _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor, from_value=str(link.parent_id))
-        _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor, from_value=str(link.child_id))
+        _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
+        _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         # ``moved_from`` names the board a card is LEAVING: an admin move
         # unlinks after the card row already points at its new board, and the
         # board whose clients still show the link is the old one.
@@ -306,32 +308,63 @@ def unlink_all(card, *, actor=None, old_board_id=None):
 def announce_card_removal(card, *, actor=None):
     """Record what deleting ``card`` does to its links, before the delete.
 
-    The link rows CASCADE away with the card, so this must run first, inside
-    the delete's transaction (``services.cards.delete_card``). Each surviving
-    peer records the unlink in its own history, and only the PEER's board gets
-    a ping: a deleted child pings its parent's board (``card.children_changed``),
-    a deleted parent pings each child's board (``card.parent_changed``). The
-    deleted card's own board already gets ``card.deleted``.
+    The single-card form of :func:`announce_cards_removal`, for
+    ``services.cards.delete_card``.
+    """
+    announce_cards_removal(Card.objects.filter(pk=card.pk), actor=actor)
+
+
+def announce_cards_removal(cards, *, actor=None):
+    """Record what deleting the ``cards`` queryset does to their links, before the delete.
+
+    The link rows CASCADE away with the cards, so this must run first, inside
+    the delete's transaction: every path that deletes cards calls it next to
+    ``blocked_peers_of`` (the card delete, the Django-admin card, column,
+    swimlane and board deletes, and the REST column, swimlane and board
+    destroys). Each SURVIVING peer records the unlink in its own history, and
+    only the peer's board gets a ping: a deleted child pings its parent's board
+    (``card.children_changed``), a deleted parent pings each child's board
+    (``card.parent_changed``). This is what gives a deleted child board's
+    parents, and a deleted parent board's children, their history entry
+    (Lifecycle, #1104). A link whose two ends are both deleted is skipped:
+    nothing survives to read it. The deleted cards' own boards already get
+    their ``card.deleted`` / container-deleted event. Pings carry ids only and
+    are published on commit (``record_board_event``).
+
+    **Lock order (named residual, #2383):** the caller already holds the
+    deleted cards' locks, and the history rows inserted here take a key-share
+    lock on each peer card. That is card-then-peer, not the "both boards, then
+    both cards, in pk order" of :func:`_lock_endpoints`. Against a concurrent
+    link write taking the opposite order, Postgres aborts one of the two
+    transactions with a deadlock error; neither commits a partial state. See
+    ``docs/development/security-invariants.md``.
     """
     actor_id = getattr(actor, "id", None)
-    as_child = (
-        CardParentLink.objects.filter(child_id=card.pk)
-        .values_list("parent_id", "parent__board_id").first()
+    links = list(
+        CardParentLink.objects.filter(Q(child__in=cards) | Q(parent__in=cards))
+        .values_list("parent_id", "parent__board_id", "child_id", "child__board_id")
+        .order_by("pk")
     )
-    if as_child is not None:
-        parent_id, parent_board_id = as_child
-        _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor, from_value=str(card.pk))
+    if not links:
+        return
+    deleted = set(cards.values_list("pk", flat=True))
+    parents = {}  # parent_id -> its board, for each surviving parent of a deleted child
+    children_by_board = {}  # child board -> surviving child ids of a deleted parent
+    for parent_id, parent_board_id, child_id, child_board_id in links:
+        if child_id in deleted and parent_id not in deleted:
+            parents[parent_id] = parent_board_id
+        elif parent_id in deleted and child_id not in deleted:
+            children_by_board.setdefault(child_board_id, []).append(child_id)
+    for parent_id in sorted(parents):
+        _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         _broadcast.record_board_event(
-            parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
+            parents[parent_id], _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
         )
-    by_board = {}
-    for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card.pk).values_list(
-        "child_id", "child__board_id"
-    ).order_by("child_id"):
-        _record(child_id, CardActivity.EventType.PARENT_UNLINKED, actor, from_value=str(card.pk))
-        by_board.setdefault(child_board_id, []).append(child_id)
-    for child_board_id, child_ids in by_board.items():
+    for child_board_id in sorted(children_by_board):
+        child_ids = sorted(children_by_board[child_board_id])
+        for child_id in child_ids:
+            _record(child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
         _broadcast.record_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": child_ids}, actor_id=actor_id,
