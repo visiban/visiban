@@ -334,7 +334,7 @@ cache-warm-pip-test:
 cache-warm-npm:
   stage: deploy
   needs: [frontend-test]
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -1528,7 +1528,7 @@ clients-python-unit:
 clients-typescript-unit:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine  # stays on 20 on purpose: clients/typescript documents Node >=20.3 as its floor (#2374)
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -1563,7 +1563,7 @@ clients-typescript-unit:
 clients-contract:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-bookworm-slim
+  image: ${DOCKERHUB_MIRROR}/node:20-bookworm-slim  # stays on 20 on purpose: clients/typescript floor (#2374)
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
@@ -2740,7 +2740,7 @@ compose-prod-drill:
 frontend-lint:
   extends: .npm-cache
   stage: lint
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     # Cap below available RAM so V8 GCs aggressively instead of OOM-killing.
     # 1500 MB caused exit 137 on the 2 GB runner; 512 MB OOMed tsc as the app grew.
@@ -2904,7 +2904,7 @@ frontend-test:
   extends: .npm-cache
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
     NODE_OPTIONS: "--max-old-space-size=512"
@@ -3053,7 +3053,7 @@ added-files-coverage-check:
     - job: frontend-test
       artifacts: true
       optional: true
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3081,7 +3081,7 @@ added-files-coverage-check:
 added-files-coverage-check-self-test:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3538,7 +3538,7 @@ frontend-sast:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3586,7 +3586,7 @@ frontend-sast:
 clients-typescript-sast:
   stage: security
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine  # stays on 20 on purpose: clients/typescript documents Node >=20.3 as its floor (#2374)
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -3659,7 +3659,7 @@ frontend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3707,7 +3707,7 @@ frontend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   before_script:
     - cd frontend
     - npm ci --prefer-offline

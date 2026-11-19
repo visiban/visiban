@@ -479,7 +479,7 @@ An MR can legitimately fail this gate without meaning "add more tests": a pure r
 - the file is in scope: `backend/*.py` and `frontend/src/*.ts(x)`, excluding whatever `backend/.coveragerc`'s `omit` list and `vitest.config.ts`'s `coverage.exclude` list already exclude (plus migrations and `manage.py`, same as the diff-coverage `--exclude`);
 - the file has a `<class filename="...">` row in the report. If not, it fails the build, naming the file and explaining what to do about it in the job log.
 
-The script (`scripts/check-added-files-covered.mjs`) ships a `--self-test` mode, run in its own `added-files-coverage-check-self-test` CI job on the same `node:20-alpine` image as the real check. It builds a synthetic git repo and coverage fixtures in a temp directory (no network, no database, no changes to the real working tree) and asserts detection fires on a known-bad fixture and stays clean on a known-good one. This is the house pattern for bespoke gate scripts described in #1093.
+The script (`scripts/check-added-files-covered.mjs`) ships a `--self-test` mode, run in its own `added-files-coverage-check-self-test` CI job on the same `node:22-alpine` image as the real check. It builds a synthetic git repo and coverage fixtures in a temp directory (no network, no database, no changes to the real working tree) and asserts detection fires on a known-bad fixture and stays clean on a known-good one. This is the house pattern for bespoke gate scripts described in #1093.
 
 ### Stale dev venv
 
