@@ -1097,7 +1097,9 @@ and only `count` is given: no title, board, column or id.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/`
 
-Unlink one child from this parent. `member` or higher on the parent's board.
+Unlink one child from this parent. `member` or higher on the parent's board,
+and a role on the child's board. A child id that is not linked to this parent,
+or one on a board you cannot open, answers the same `404`.
 
 ### History and real-time
 

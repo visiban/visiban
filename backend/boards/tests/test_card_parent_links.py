@@ -184,10 +184,11 @@ class LinkWriteTests(_LinkFixture, TestCase):
 
     def test_unlink_from_parent_side(self):
         CardParentLink.objects.create(parent=self.parent, child=self.child)
-        parent_only = self._user("cpl_parentonly", parent_role=Role.MEMBER)
+        # MEMBER on the parent board plus any role on the child board.
+        both = self._user("cpl_parentboth", parent_role=Role.MEMBER, child_role=Role.VIEWER)
         base = f"/api/v1/boards/{self.pboard.pk}/cards/{self.parent.pk}/children/"
         other = _make_card(self.parent.column, self.parent.swimlane, title="other parent")
-        client = self._client(parent_only)
+        client = self._client(both)
         # A child id not linked to this parent is a 404.
         self.assertEqual(
             client.delete(f"/api/v1/boards/{self.pboard.pk}/cards/{other.pk}/children/{self.child.pk}/").status_code,
@@ -195,6 +196,21 @@ class LinkWriteTests(_LinkFixture, TestCase):
         )
         self.assertEqual(client.delete(f"{base}{self.child.pk}/").status_code, 204)
         self.assertFalse(CardParentLink.objects.exists())
+
+    def test_parent_side_unlink_without_child_board_role_is_the_missing_id_404(self):
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        parent_only = self._user("cpl_parentonly", parent_role=Role.MEMBER)
+        base = f"/api/v1/boards/{self.pboard.pk}/cards/{self.parent.pk}/children/"
+        missing_id = Card.objects.order_by("-pk").values_list("pk", flat=True).first() + 1000
+        client = self._client(parent_only)
+        missing = client.delete(f"{base}{missing_id}/")
+        hidden = client.delete(f"{base}{self.child.pk}/")
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(hidden.status_code, 404)
+        self.assertEqual(hidden.content, missing.content)
+        self.assertEqual(hidden.headers.get("Content-Type"), missing.headers.get("Content-Type"))
+        self.assertTrue(CardParentLink.objects.filter(parent=self.parent, child=self.child).exists())
+        self.assertFalse(CardActivity.objects.filter(event_type__in=["child_unlinked", "parent_unlinked"]).exists())
 
     def test_deleting_either_card_removes_the_link(self):
         CardParentLink.objects.create(parent=self.parent, child=self.child)

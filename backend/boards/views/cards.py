@@ -10,7 +10,7 @@ from django.db.models import Count, F, Prefetch, Q, Sum
 from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -44,7 +44,7 @@ from ..models import (
     CardChecklist, CardComment, CardMovement, CardParentLink, CardRelation, Label,
     Notification,
 )
-from ..permissions import SITE_ADMIN
+from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from ..serializers import (
     BlockCardSerializer, CardBlockSerializer, UnblockCardSerializer,
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
@@ -2730,10 +2730,19 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
         # Scoped to this parent: a link elsewhere on the instance 404s.
-        link = get_object_or_404(
-            CardParentLink.objects.select_related("parent", "child"),
-            parent=card, child_id=child_pk,
+        link = (
+            CardParentLink.objects.select_related(
+                "parent", f"child__board__{GROUP_ANCESTOR_SELECT_RELATED}",
+            )
+            .filter(parent=card, child_id=child_pk)
+            .first()
         )
+        # The caller must also hold a role on the child's board. A parent-board
+        # member without one only ever sees a count of these children, so a
+        # child id is not theirs to name: the answer is the same 404 as for an
+        # id that is not linked, and nothing is unlinked.
+        if link is None or get_board_roles(request.user, [link.child.board])[link.child.board_id] is None:
+            raise NotFound()
         card_links.remove_link(link, actor=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
