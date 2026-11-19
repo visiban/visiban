@@ -54,7 +54,7 @@ docs/development/nightly-load-test.md):
     # round number, and take the artifact from a NUC-runner job.
 
 --owner-token-file (the board owner, demo1) is REQUIRED for a meaningful
-board_list scenario: its 55ms budget was derived as the owner, whose access
+board_list scenario: its 60ms budget was derived as the owner, whose access
 query spans all 20 board memberships. Without it the scenario would run as the
 plain member demo2 and silently measure a cheaper path. Likewise
 --multi-board-token-file (demo3, who owns the --extra-boards fixture) is

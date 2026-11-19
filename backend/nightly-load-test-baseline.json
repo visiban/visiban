@@ -8,6 +8,7 @@
     "seed_command": "manage.py seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications",
     "swimlane_count": 200,
     "card_count": 2388,
+    "movement_count": 24919,
     "notification_count": 60,
     "note": "--scale 20 replicates the 10-swimlane demo layout 20x (11-13 cards/swimlane, same distribution as the normal demo board) rather than picking an arbitrary target card count directly. The load-test board has 20 members (5 demo users + 15 loadtest* filler accounts, #1723).",
     "member_count": 20,
