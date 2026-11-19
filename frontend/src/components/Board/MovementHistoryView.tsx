@@ -7,6 +7,7 @@ import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { formatDateTimeUser } from "../../utils/date";
 import { shouldIgnoreShortcut } from "../../utils/keyboard";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { movementGateNote } from "../../utils/stages";
 import { importedNote } from "../../utils/importedHistory";
 import type { UserDatePrefs } from "../../utils/date";
 import ActiveMark from "../Common/ActiveMark";
@@ -481,6 +482,10 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                               <span className="text-fg">{m.to_column_name ?? "—"}</span>
                               {m.to_swimlane_name && m.to_swimlane_name !== m.from_swimlane_name && (
                                 <span className="text-fg-muted"> · {m.to_swimlane_name}</span>
+                              )}
+                              {/* #1102: the gate position recorded on the move (warn and record only). */}
+                              {movementGateNote(m) && (
+                                <span data-testid="history-gate-note" className="text-xs text-fg-tertiary ml-1">· {movementGateNote(m)}</span>
                               )}
                             </>
                           )}

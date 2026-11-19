@@ -116,6 +116,13 @@ describe('MovementHistoryView — with data', () => {
     expect(screen.getAllByText('Done').length).toBeGreaterThan(0)
   })
 
+  it('shows the sub-column gate note on a move row (#1102, #2278)', async () => {
+    mockGetMovements.mockResolvedValue({ results: [makeMovement({ from_gates_open: 2, to_gates_passed: 1 })], count: 1 })
+    renderView()
+    const note = await screen.findByTestId('history-gate-note')
+    expect(note).toHaveTextContent('left 2 sub-columns early, entered at sub-column 2')
+  })
+
   it('shows count line with total count', async () => {
     renderView()
     await waitFor(() => expect(screen.getByText('1 events found')).toBeInTheDocument())
