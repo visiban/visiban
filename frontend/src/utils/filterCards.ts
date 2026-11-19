@@ -71,12 +71,37 @@ export function pruneStaleCustomFields(filters: FilterState, definitions: { id: 
   };
 }
 
-/** Both stale-reference prunes (labels #1888, custom fields #1928) for a board. */
+/**
+ * Drop sub-column ids that no longer exist on any of the board's stages (#2367).
+ * Saving a stage's settings replaces its sub-columns, so a saved or remembered
+ * filter can outlive the sub-column it names; it would hide every card and show
+ * no chip (same failure as #1888). A pruned-empty list becomes an absent key so
+ * the filter is not "active". Returns the same object when nothing is stale.
+ */
+export function pruneStaleSubColumnIds(
+  filters: FilterState,
+  columns: { sub_columns?: { id: number }[] }[],
+): FilterState {
+  const ids = filters.subColumnIds;
+  if (!ids || ids.length === 0) return filters;
+  const live = new Set(columns.flatMap((c) => (c.sub_columns ?? []).map((s) => s.id)));
+  if (ids.every((id) => live.has(id))) return filters;
+  const kept = ids.filter((id) => live.has(id));
+  const { subColumnIds: _dropped, ...rest } = filters;
+  return kept.length > 0 ? { ...rest, subColumnIds: kept } : rest;
+}
+
+/** The stale-reference prunes (labels #1888, custom fields #1928, sub-columns #2367) for a board. */
 export function pruneStaleFilters(
   filters: FilterState,
-  board: { labels: { id: number }[]; custom_field_definitions: { id: number }[] },
+  board: {
+    labels: { id: number }[];
+    custom_field_definitions: { id: number }[];
+    columns?: { sub_columns?: { id: number }[] }[];
+  },
 ): FilterState {
-  return pruneStaleCustomFields(pruneStaleLabelIds(filters, board.labels), board.custom_field_definitions);
+  const pruned = pruneStaleCustomFields(pruneStaleLabelIds(filters, board.labels), board.custom_field_definitions);
+  return pruneStaleSubColumnIds(pruned, board.columns ?? []);
 }
 
 /**

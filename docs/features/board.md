@@ -543,7 +543,7 @@ The toolbar's **Filter** button opens a panel with:
 - Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
 
-The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other, in the URL and in saved filters. Pressing `f` still toggles the filter bar, not the panel.
+The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other and in saved filters. Most filters also show in the page address; **Sub-column** and **Track state** do not (see [Sub-columns and tracks](#sub-columns-and-tracks-13)). Pressing `f` still toggles the filter bar, not the panel.
 
 ## Filtering
 
@@ -1121,5 +1121,5 @@ When the board has a split stage, the **Filter** panel gains a **Sub-column** ro
 
 - **Sub-column** shows only cards currently in a picked sub-column. Cards on a plain stage are hidden while it is active.
 - **Track state** shows a card when at least one of its tracks on its own stage is in a picked state. A lane's not-applicable exception counts as **Not applicable**.
-- Both combine with every other filter, are remembered per board, and are saved with [saved filters](saved-filters.md).
+- Both combine with every other filter, are remembered per board, and are saved with [saved filters](saved-filters.md). Not kept in the page address; a shared filter link does not carry them.
 

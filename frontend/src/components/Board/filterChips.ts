@@ -122,7 +122,7 @@ export function buildFilterChips(
   }
 
   // #2367 — one chip per picked sub-column ("Review: Doing") and per track state.
-  // An id that no longer resolves (a removed sub-column) has no chip, like a removed label.
+  // An id that no longer resolves (a removed sub-column) has no chip; BoardView prunes such ids before they reach here (pruneStaleSubColumnIds).
   for (const id of filters.subColumnIds ?? []) {
     for (const col of board.columns) {
       const sub = stageSubColumns(col).find((s) => s.id === id);
