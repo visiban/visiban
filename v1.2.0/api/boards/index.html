@@ -5828,7 +5828,7 @@
 <tr>
 <td><code>default_preset</code></td>
 <td>string / null</td>
-<td>The <a href="../../features/board/#board-presets">board preset</a> members see until they pick one themselves: <code>"classic"</code> (the board exactly as it rendered before presets) or <code>"default"</code>, or <code>null</code> for no board default (default: <code>null</code>). Presets are defined by the web client in 1.3; this field stores only the id. A member's own choice and a <code>?preset=</code> link take precedence over it. Admin-only when writing; any other value (including <code>""</code>) returns <code>400 Bad Request</code>. On every board payload, including <code>/full/</code> (read-only there), the group board lists and the <code>board.created</code> / <code>board.updated</code> <a href="../websockets/">WebSocket events</a>. Added in 1.3 (#1146).</td>
+<td>The <a href="../../features/board/#board-presets">board preset</a> members see until they pick one themselves: <code>"classic"</code> (the board's own density and no overlay; it renders the redesigned board) or <code>"default"</code>, or <code>null</code> for no board default (default: <code>null</code>). Presets are defined by the web client in 1.3; this field stores only the id. A member's own choice and a <code>?preset=</code> link take precedence over it. Admin-only when writing; any other value (including <code>""</code>) returns <code>400 Bad Request</code>. On every board payload, including <code>/full/</code> (read-only there), the group board lists and the <code>board.created</code> / <code>board.updated</code> <a href="../websockets/">WebSocket events</a>. Added in 1.3 (#1146).</td>
 </tr>
 <tr>
 <td><code>health_auto_enabled</code></td>

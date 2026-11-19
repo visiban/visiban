@@ -4669,8 +4669,8 @@ also be delivered by email (#1295).</p>
 <h3 id="stale-card-indicator">Stale card indicator<a class="headerlink" href="#stale-card-indicator" title="Permanent link">&para;</a></h3>
 <p>Stale cards are tinted on the board, and the tint deepens from orange to red to deep red at 1×, 2× and 3× the threshold.</p>
 <ul>
-<li><strong>Badge:</strong> at Comfortable and Standard density the badge shows the idle days (<code>Stale · 41d</code>).</li>
-<li><strong>Meter:</strong> where no badge is shown, for example in the Compact card layout, a one-to-three-bar meter at the start of the title marks the step.</li>
+<li><strong>Status line:</strong> the card's status line shows the idle days (<code>Stale 41d</code>; at Dense density just <code>41d</code>).</li>
+<li><strong>Meter:</strong> where the status line is not stale, for example in the Compact card layout or on an overdue card, a one-to-three-bar meter at the start of the title marks the step.</li>
 <li><strong>Never-moved cards</strong> are measured from their creation date, as in the threshold rule above.</li>
 <li><strong>Done columns:</strong> cards there are never tinted or badged, and the <code>notify_stale_cards</code> digest skips them too, so you are never notified about finished work.</li>
 <li><strong>API:</strong> the card API's <code>is_stale</code> field is unchanged and still ignores columns; clients decide how to display it.</li>
