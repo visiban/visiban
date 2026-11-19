@@ -1,4 +1,4 @@
-import type { CardActivity, CardMovement, CardTimelineEntry } from "../types";
+import type { CardActivity, CardGateTransition, CardMovement, CardTimelineEntry } from "../types";
 import { userDisplayName } from "../types";
 import { formatBlockedDuration } from "./blockedState";
 import { formatDateStr } from "./date";
@@ -99,6 +99,21 @@ export function activityLabel(
 }
 
 /**
+ * One-line description of a gate transition (#2365): a move between
+ * sub-columns inside a stage, or a stage-settings remap. The row names only
+ * the sub-column the card reached (snapshotted, so it survives a rename or
+ * delete); one with no name falls back to its 1-based position.
+ */
+export function gateTransitionLabel(
+  g: Pick<CardGateTransition, "kind" | "column_name" | "sub_column_name" | "to_index" | "cause">,
+): string {
+  const sub = g.sub_column_name || `sub-column ${g.to_index + 1}`;
+  const where = g.column_name ? `${sub} in ${g.column_name}` : sub;
+  const head = g.kind === "reopen" ? `Moved back to ${where}` : `Moved to ${where}`;
+  return g.cause === "stage_edited" ? `${head} (stage edited)` : head;
+}
+
+/**
  * The card sheet's "Last activity" line (#967): who did what, without the
  * time (the caller appends the relative time). A move reads as a verb phrase
  * ("Jordan moved to Review"); an activity uses its History row text.
@@ -109,6 +124,9 @@ export function lastActivitySummary(entry: CardTimelineEntry, userDateFormat = "
     const m = entry.data as unknown as CardMovement;
     const to = m.to_column_name || "another column";
     return m.from_column === null ? `${who} created it in ${to}` : `${who} moved to ${to}`;
+  }
+  if (entry.kind === "gate") {
+    return `${who}: ${gateTransitionLabel(entry.data as unknown as CardGateTransition)}`;
   }
   return `${who}: ${activityLabel(entry.event_type, entry.data, userDateFormat)}`;
 }

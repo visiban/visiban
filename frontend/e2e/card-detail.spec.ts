@@ -154,7 +154,7 @@ test.describe('card detail', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           count: 3, next: null, previous: null,
-          counts: { move: 2, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 },
+          counts: { move: 2, gate: 0, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 },
           results: [{
             id: 501, kind: 'move', ts: new Date(Date.now() - 2 * 3600_000).toISOString(), event_type: 'move',
             imported_from_username: null,
@@ -186,9 +186,9 @@ test.describe('card detail', () => {
     await line.click()
     await expect(dialog.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
     await expect(dialog.getByRole('tabpanel').getByRole('listitem').first()).toBeFocused()
-    // Six type toggles, all on, each with its count.
+    // Seven type toggles (Sub-column moves since #2365), all on, each with its count.
     const show = dialog.getByRole('group', { name: 'Show' })
-    await expect(show.getByRole('button')).toHaveCount(6)
+    await expect(show.getByRole('button')).toHaveCount(7)
     await expect(show.getByRole('button', { name: /Column moves/ })).toHaveAttribute('aria-pressed', 'true')
     await expect(show.getByRole('button', { name: /Column moves/ })).toContainText('2')
   })

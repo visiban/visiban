@@ -215,7 +215,8 @@ export async function searchAllCards(
 }
 
 /** The timeline's `event_types` filter groups (`views/cards.py` `_TIMELINE_EVENT_GROUPS`). */
-export type TimelineEventGroup = "move" | "comment" | "field" | "checklist" | "attachment" | "system";
+/** `gate` since 1.3 (#2365). */
+export type TimelineEventGroup = "move" | "gate" | "comment" | "field" | "checklist" | "attachment" | "system";
 
 /** Per-group totals, independent of `event_types`; their sum is the unfiltered `count` (#967). */
 export type TimelineCounts = Record<TimelineEventGroup, number>;

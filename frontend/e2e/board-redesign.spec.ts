@@ -63,6 +63,11 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
     }))
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(history) })
   })
+  // ...and its sub-column moves, from the timeline's gate group (#2365). None here, so the
+  // peek history is the movements alone and the pinned peek capture is unchanged.
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/timeline\/(\?.*)?$/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, next: null, previous: null, results: [] }) }),
+  )
   await page.goto(`/boards/${REDESIGN_BOARD.id}${search}`)
   await expect(page.locator('[data-card-id]').first()).toBeVisible({ timeout: 15_000 })
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)

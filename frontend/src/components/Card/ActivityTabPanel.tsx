@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { movementGateNote } from "../../utils/stages";
 import { getCardTimeline } from "../../api/cards";
 import type { TimelineCounts, TimelineEventGroup, TimelinePage } from "../../api/cards";
-import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
+import type { CardTimelineEntry, CardActivity, CardGateTransition, CardMovement, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 import { formatRelativeTime, formatDateTimeUser } from "../../utils/date";
 import type { UserDatePrefs } from "../../utils/date";
 import { historyAttribution } from "../../utils/importedHistory";
-import { activityLabel } from "../../utils/cardTimelineLabels";
+import { activityLabel, gateTransitionLabel } from "../../utils/cardTimelineLabels";
 import ActiveMark from "../Common/ActiveMark";
 import { HISTORY_PAGE_LIMIT } from "./cardDetailTabMemory";
 
@@ -34,6 +34,8 @@ interface ActivityTabPanelProps {
 
 const EVENT_TYPE_OPTIONS: readonly { value: TimelineEventGroup; label: string }[] = [
   { value: "move",       label: "Column moves" },
+  // #2365: a move between sub-columns inside a stage (or a stage remap).
+  { value: "gate",       label: "Sub-column moves" },
   { value: "comment",    label: "Comments" },
   { value: "field",      label: "Field changes" },
   { value: "checklist",  label: "Checklist" },
@@ -122,6 +124,8 @@ function dotColor(entry: CardTimelineEntry | ChecklistGroup): string {
     if (data.from_column === null) return "bg-success-emphasis";
     return "bg-primary-emphasis";
   }
+  // A sub-column move reads as a move (#2365).
+  if (entry.kind === "gate") return "bg-primary-emphasis";
   // activity kind
   switch (entry.event_type) {
     case "comment_added":
@@ -482,8 +486,10 @@ export default function ActivityTabPanel({
               );
             }
 
-            // Activity entry
-            const description = activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
+            // Activity or gate entry (#2365); a gate has no column-dwell line.
+            const description = timelineEntry.kind === "gate"
+              ? gateTransitionLabel(timelineEntry.data as unknown as CardGateTransition)
+              : activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
             return (
               <li key={`${timelineEntry.kind}-${timelineEntry.id}`} tabIndex={-1} className="relative mb-3 ml-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />

@@ -281,9 +281,10 @@ class CardTimelinePaginationTests(TestCase):
         self.assertEqual(self._timeline_count_queries({}), [])
 
     def test_limit_zero_issues_one_fallback_count_per_source(self):
-        # Movements + activities are both included by default: exactly one
-        # standalone COUNT each, in place of their page queries.
-        self.assertEqual(len(self._timeline_count_queries({"limit": 0})), 2)
+        # Movements, activities and gate transitions (#2365) are all included
+        # by default: exactly one standalone COUNT each, in place of their
+        # page queries.
+        self.assertEqual(len(self._timeline_count_queries({"limit": 0})), 3)
 
 
 class CardTimelineCountsTests(TestCase):
@@ -308,7 +309,9 @@ class CardTimelineCountsTests(TestCase):
         self.client.force_authenticate(self.user)
         self.url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/timeline/"
 
-    EXPECTED = {"move": 2, "comment": 1, "field": 2, "checklist": 1, "attachment": 1, "system": 1}
+    EXPECTED = {
+        "move": 2, "gate": 0, "comment": 1, "field": 2, "checklist": 1, "attachment": 1, "system": 1,
+    }
 
     def test_counts_absent_by_default(self):
         r = self.client.get(self.url)
@@ -346,7 +349,7 @@ class CardTimelineCountsTests(TestCase):
         data = self.client.get(self.url, {"include_counts": "true"}).json()
         self.assertEqual(data["counts"]["comment"], 1)
 
-    def test_counts_add_at_most_two_queries(self):
+    def test_counts_add_at_most_three_queries(self):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
 
@@ -354,8 +357,9 @@ class CardTimelineCountsTests(TestCase):
             self.client.get(self.url, {"event_types": "comment"})
         with CaptureQueriesContext(connection) as counted:
             self.client.get(self.url, {"event_types": "comment", "include_counts": "true"})
-        self.assertEqual(len(counted.captured_queries) - len(base.captured_queries), 2)
-        # Moves already counted by the page reuse that total: one extra query.
+        # Moves, gates (#2365) and the grouped activity aggregate.
+        self.assertEqual(len(counted.captured_queries) - len(base.captured_queries), 3)
+        # Moves and gates already counted by the page reuse those totals: one extra query.
         with CaptureQueriesContext(connection) as base_all:
             self.client.get(self.url)
         with CaptureQueriesContext(connection) as counted_all:

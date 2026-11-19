@@ -18,6 +18,8 @@ Open a card and click **History** in its detail panel. The timeline lists moveme
 - who made the change
 - when it happened (relative time, for example "3 days ago")
 
+*Since 1.3 (#2365).* On a board with split stages, History also lists a card's moves between the sub-columns of a stage, for example "Moved to Review in Build" or "Moved back to Doing in Build". A move that only changes the sub-column is not a column move, so it has no "Spent … here" line. When a stage's settings change and a card's sub-column is removed, the move that puts the card in another sub-column reads "(stage edited)". A move into a stage that starts the card past its first sub-column shows that on the column move entry ("entered at sub-column 3"), not as separate entries. The [card peek sheet](board.md#card-peek-sheet) lists the same sub-column moves in its History section.
+
 Movement entries keep the full column and swimlane names even after those are renamed or deleted. A deleted column's name shows in italic red with a **Deleted —** prefix and a hover tooltip, so you can tell live columns from removed ones at a glance.
 
 ### Tabs, counts and the last-activity line
@@ -32,7 +34,7 @@ You can also move between tabs from the keyboard: with a tab focused, the Left a
 
 ### Filter by event type
 
-*Since 1.3 (#967).* Above the timeline, six toggle buttons choose what the timeline shows: **Column moves**, **Comments**, **Field changes**, **Checklist**, **Attachments** and **System events**. Each one shows how many entries of that type the card has. They all start on. Click one to hide that type, and click it again to show it. At least one type always stays shown, so the last button that is on can't be switched off.
+*Since 1.3 (#967).* Above the timeline, seven toggle buttons choose what the timeline shows: **Column moves**, **Sub-column moves** (*since 1.3*, #2365), **Comments**, **Field changes**, **Checklist**, **Attachments** and **System events**. Each one shows how many entries of that type the card has. They all start on. Click one to hide that type, and click it again to show it. At least one type always stays shown, so the last button that is on can't be switched off.
 
 This replaces the filter menu and the **Show full history** setting of earlier versions. A **Show full history** choice saved before 1.3 is ignored.
 
@@ -180,6 +182,8 @@ Movement history and the activity log are available through the API:
 GET /api/v1/boards/{board_id}/cards/{card_id}/movements/
 GET /api/v1/boards/{board_id}/cards/{card_id}/activities/
 ```
+
+The [timeline endpoint](../api/cards.md#timeline) merges both, plus (since 1.3) the moves between sub-columns, into the one list the History tab shows.
 
 Movement records include `card_uid`, `card_title`, `from_column_name`, `to_column_name`, `from_swimlane_name`, `to_swimlane_name`, `from_column_uid`, `to_column_uid`, `from_swimlane_uid`, `to_swimlane_uid`, `moved_by`, `moved_at`, and `movement_type`. The column and swimlane name and UID fields are denormalized: captured at write time, accurate regardless of future renames or deletions. `card_uid` and `card_title` show the card's current values while the card exists, and the values kept on the record once it is deleted. See [Stable UIDs](stable-uids.md) for the full field reference and integration examples.
 

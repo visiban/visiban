@@ -6,7 +6,12 @@ import CardPeekSheet, { dwellKey } from '../components/Card/CardPeekSheet'
 import type { BoardFull, Card, CardMovement } from '../types'
 
 const getCardMovements = vi.fn()
-vi.mock('../api/cards', () => ({ getCardMovements: (...a: unknown[]) => getCardMovements(...a) }))
+const getCardTimeline = vi.fn()
+vi.mock('../api/cards', () => ({
+  getCardMovements: (...a: unknown[]) => getCardMovements(...a),
+  getCardTimeline: (...a: unknown[]) => getCardTimeline(...a),
+}))
+const emptyTimeline = { count: 0, next: null, previous: null, results: [] }
 
 const DAY = 86_400_000
 const iso = (daysAgo: number) => new Date(Date.now() - daysAgo * DAY).toISOString()
@@ -88,6 +93,7 @@ describe('CardPeekSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getCardMovements.mockResolvedValue(movements)
+    getCardTimeline.mockResolvedValue(emptyTimeline)
   })
 
   it('shows lane, title, banner, status strip, every field with Not set, and the pinned note', async () => {
@@ -140,6 +146,48 @@ describe('CardPeekSheet', () => {
     setup()
     expect(await screen.findByRole('alert')).toHaveTextContent('History could not be loaded.')
     expect(screen.getAllByText('History could not be loaded.')).toHaveLength(2)
+  })
+
+  // #2365: a move between sub-columns writes a gate transition, not a movement.
+  const gateEntry = (id: number, daysAgo: number, over: Record<string, unknown> = {}) => ({
+    id, kind: 'gate', ts: iso(daysAgo), actor: null, event_type: 'gate_passed', imported_from_username: null,
+    data: {
+      id, card_uid: 'c', card_title: 'Sakura Electronics', column: 2, column_name: 'Qualified', column_uid: 'q',
+      sub_column_name: 'Review', sub_column_uid: 'r', kind: 'pass', from_index: 0, to_index: 1, reason: '',
+      cause: 'move', movement: null, actor: null, created_at: iso(daysAgo), imported_from_username: null, ...over,
+    },
+  })
+
+  it('lists sub-column moves among the movements, newest first', async () => {
+    getCardTimeline.mockResolvedValueOnce({
+      ...emptyTimeline, count: 2,
+      results: [gateEntry(7, 10), gateEntry(8, 45, { kind: 'reopen', sub_column_name: '', to_index: 0, cause: 'stage_edited' })],
+    })
+    setup()
+    const history = await screen.findByTestId('card-peek-history')
+    const rows = within(history).getAllByRole('listitem').map((r) => r.textContent)
+    expect(rows).toHaveLength(4)
+    expect(rows[0]).toContain('Moved to Review in Qualified')
+    expect(rows[1]).toContain('Prospect to Qualified')
+    expect(rows[2]).toContain('Moved back to sub-column 1 in Qualified (stage edited)')
+    expect(rows[3]).toContain('Created in Prospect')
+    expect(getCardTimeline).toHaveBeenCalledWith(1, 9, { event_types: 'gate', limit: 200 })
+  })
+
+  it('ignores a timeline entry that is not a gate', async () => {
+    getCardTimeline.mockResolvedValueOnce({
+      ...emptyTimeline, count: 1,
+      results: [{ id: 3, kind: 'activity', ts: iso(1), actor: null, event_type: 'title_change', imported_from_username: null, data: {} }],
+    })
+    setup()
+    const history = await screen.findByTestId('card-peek-history')
+    expect(within(history).getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('reports a failure to load the sub-column moves', async () => {
+    getCardTimeline.mockRejectedValueOnce(new Error('x'))
+    setup()
+    expect(await screen.findByRole('alert')).toHaveTextContent('History could not be loaded.')
   })
 
   it('reads Never moved for a card that has never moved', async () => {
