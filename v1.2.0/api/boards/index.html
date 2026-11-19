@@ -5873,7 +5873,7 @@
 <tr>
 <td><code>cards_can_have_children</code></td>
 <td>boolean</td>
-<td>Whether cards on this board can have child cards on another board: <code>true</code> for a parent-tier board, <code>false</code> (the default) for a child-tier board. The two-tier card hierarchy never lets a board be both. Readable by every board member; admin-only when writing (a non-admin <code>PATCH</code> is <code>403</code>). Once card links exist, a change that would invalidate existing links is refused with <code>400</code>. On the board payloads and <code>/full/</code> (read-only there), and on the <code>board.updated</code> <a href="../websockets/">WebSocket event</a> and change feed; not on the public share-link payload. Added in 1.3 (#2208).</td>
+<td>Whether cards on this board can have child cards on another board: <code>true</code> for a parent-tier board, <code>false</code> (the default) for a child-tier board. The two-tier card hierarchy never lets a board be both. Readable by every board member; admin-only when writing (a non-admin <code>PATCH</code> is <code>403</code>). A change that would invalidate existing <a href="../cards/#parent-and-children-since-13">parent/child card links</a> is refused with <code>400</code> (keyed <code>cards_can_have_children</code>), here and in the Django admin (#1104). On the board payloads and <code>/full/</code> (read-only there), and on the <code>board.updated</code> <a href="../websockets/">WebSocket event</a> and change feed; not on the public share-link payload. Added in 1.3 (#2208).</td>
 </tr>
 </tbody>
 </table>

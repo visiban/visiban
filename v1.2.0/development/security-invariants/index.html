@@ -5296,6 +5296,11 @@ depend on whether a board id exists.</p>
 <td><code>mcp_server/tools.py</code></td>
 <td><code>404</code>-equivalent not-found result for inaccessible boards</td>
 </tr>
+<tr>
+<td>Cross-board card links (#1104)</td>
+<td><code>boards/services/card_links.py</code> <code>resolve_card_for_user</code>; <code>boards/views/cards.py</code> <code>CardViewSet.child_detail</code></td>
+<td>A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same <code>NotFound</code>, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same <code>404</code> for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>test_missing_and_inaccessible_parent_ids_answer_identically</code>, <code>test_parent_side_unlink_without_child_board_role_is_the_missing_id_404</code></td>
+</tr>
 </tbody>
 </table>
 <h2 id="rule-8-per-recipient-event-fields-are-gated-on-every-broadcast-and-replay-surface">Rule 8: Per-recipient event fields are gated on every broadcast and replay surface<a class="headerlink" href="#rule-8-per-recipient-event-fields-are-gated-on-every-broadcast-and-replay-surface" title="Permanent link">&para;</a></h2>
@@ -5346,6 +5351,36 @@ each surface that delivers them:</p>
   recorded beside them, are not filtered further, and rows recorded before 1.3
   keep the actor they were written with until pruned; tracked in #2091 with no
   code change, to be re-decided or closed by that date;</li>
+<li>the cross-board link events <code>card.children_changed</code> (parent's board) and
+  <code>card.parent_changed</code> (child's board) (#1104) carry ids only (<code>parent_id</code>,
+  <code>card_ids</code>), so there is nothing in them to filter per recipient, and the
+  child's own card events are never fanned out to the parent's board. Every
+  other detail of the other board is read over REST, through
+  <code>boards/services/card_links.py</code> <code>children_for_viewer</code>, which resolves the
+  reader's role on the child board on every request and returns a count only
+  when it resolves to none. Accepted residual (#2383; owner sign-off
+  2026-11-17, epic #2206 decision H, expires 2027-05-31): the <em>timing</em> of these
+  pings reaches every subscriber, change-feed reader and webhook of the
+  receiving board, including readers who cannot open the other board, so a
+  parent-board reader learns when a parent's children changed and a
+  child-board reader learns when a card's parent link changed. To be
+  re-decided (gated per recipient, or closed) by that date. Three of the
+  threat model's controls for these links are not built yet and are tracked in
+  the same issue, #2383: a throttle on link writes, a perf-bench case for the
+  children read, and the MCP/export parity test (Rule 10);</li>
+<li>card-link lock order (recorded here beside the link-event residual, since
+  both concern the same writes). The link writes take "both boards, then both
+  cards, in pk order" (<code>boards/services/card_links.py</code> <code>_lock_endpoints</code>). Two
+  paths take the peer card's lock after their own card's instead: a
+  Django-admin move of a card to another board holds the moved card's row and
+  then <code>remove_link</code> (through <code>unlink_all</code>) locks the peer card
+  (<code>boards/admin.py</code> <code>CardAdmin.save_model</code>); and a card or container delete
+  holds the deleted cards' rows and then <code>announce_cards_removal</code> inserts the
+  peer's history row, which takes a key-share lock on the peer card. Accepted
+  residual (#2383, expires 2027-05-31): against a concurrent link write that
+  takes the opposite order, PostgreSQL aborts one of the two transactions with
+  a deadlock error; nothing commits half-done and nothing is disclosed. To be
+  re-decided (reordered, or closed) by that date;</li>
 <li>admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.
@@ -5418,6 +5453,9 @@ payload never carrying the token), <code>boards/tests/test_share_state_event_act
 (the share-state <code>board.updated</code> has no actor on every writer, in the feed and on
 the socket), <code>boards/tests/test_actor_scoped_event_fields.py</code> (<code>is_starred</code> per recipient on
 both channels for each write path, and in the feed for every reader role),
+<code>boards/tests/test_card_parent_links.py</code> <code>LinkEventScopingTests</code> (the two link
+events are ids only on both boards, the fixed webhook reader sees no text from
+the other board, and a child card's events never reach the parent's board),
 <code>boards/tests/test_board_events.py</code> <code>ReadSideStrippingTests</code> (including the
 shared-helper identity check), <code>boards/tests/test_share_link.py</code>
 <code>ShareLinkActiveFieldTests</code> (<code>share_link_active</code> is in <code>ADMIN_ONLY_BOARD_FIELDS</code>
@@ -5620,6 +5658,16 @@ fails closed.</p>
 <td>Change feed and board export</td>
 <td><code>boards/serializers.py</code> <code>BoardEventSerializer.to_representation</code>; <code>boards/views/import_export.py</code> <code>BoardImportExportMixin.export</code></td>
 <td>Rule 8 rows: per-reader field gating with the reader's role</td>
+</tr>
+<tr>
+<td>Cross-board card links: children read (#1104)</td>
+<td><code>boards/services/card_links.py</code> <code>children_for_viewer</code></td>
+<td>The one children read: REST <code>GET .../cards/{id}/children/</code> calls it, and any other transport (MCP, export, the #2212 extension slot) must call it rather than query <code>CardParentLink</code>. It resolves the reader's role on the child board with <code>get_board_roles</code> on every call and returns a count only when there is none. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>ChildrenReadTests</code></td>
+</tr>
+<tr>
+<td>Cross-board card links on MCP and export (#1104)</td>
+<td><code>mcp_server/tools.py</code> <code>_serialize_card</code>; <code>boards/views/import_export.py</code></td>
+<td>Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). The parity test that pins this to REST is not built yet, tracked in #2383</td>
 </tr>
 <tr>
 <td>Outbound webhooks</td>
