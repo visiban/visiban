@@ -303,10 +303,8 @@ export function useBoardPreset({
     }
   }, [isModified, urlPresetId, linkPresetId, setUrlPreset]);
 
-  // The ⌘K palette lives outside the board view; tell it what is active. The card
-  // face reads it too (`useClassicCardFace`, #871), so publish in a layout effect:
-  // a passive one runs after paint, and a Default-preset board would flash the
-  // Classic face for a frame on load. The cleanup is a layout effect as well, so
+  // The ⌘K palette lives outside the board view; tell it what is active. Publish in
+  // a layout effect so the palette never reads a stale preset after paint. The cleanup is a layout effect as well, so
   // on a `key={board.id}` remount the old board's null runs before the new
   // board's publish instead of clobbering it.
   useLayoutEffect(() => {

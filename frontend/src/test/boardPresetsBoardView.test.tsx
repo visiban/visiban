@@ -1,11 +1,11 @@
 /**
  * Board presets in the board view (#1146): the toolbar picker, `?preset=` links,
- * the board default, Modified / Reset / Undo, and the Classic byte-for-byte
- * guarantee.
+ * the board default, Modified / Reset / Undo, and the `classic` id resolving to
+ * the redesigned board (#2279).
  *
  * Unlike the other BoardView suites this one renders the real grid (SwimlaneRow,
- * BoardCell, CardItem), because the Classic guarantee is about what the card face
- * renders, and a double that only echoes props could not see a change there.
+ * BoardCell, CardItem), because "classic shows the redesigned board" is about what
+ * the card face renders, and a double that only echoes props could not see it.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ToastProvider } from '../contexts/ToastContext'
@@ -210,7 +210,15 @@ function context(board: BoardFull): BoardContextType {
  * process, so they are normalized; nothing else is.
  */
 function gridHtml(): string {
-  return screen.getByRole('region', { name: 'Board' }).innerHTML.replace(/_r_[0-9a-z]+_/g, '_r_ID_')
+  // Attribute order follows when an attribute was first set (a title that appears after the
+  // density settles lands last), so normalize it: only the attribute values matter here.
+  const root = screen.getByRole('region', { name: 'Board' }).cloneNode(true) as HTMLElement
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+    const attrs = Array.from(el.attributes).map((a) => [a.name, a.value] as const).sort(([a], [b]) => a.localeCompare(b))
+    for (const [n] of attrs) el.removeAttribute(n)
+    for (const [n, v] of attrs) el.setAttribute(n, v)
+  }
+  return root.innerHTML.replace(/_r_[0-9a-z]+_/g, '_r_ID_')
 }
 
 function renderBoard(board: BoardFull = makeBoard(), search = '', currentUser: User | null = null) {
@@ -262,31 +270,41 @@ describe('BoardView — board presets (#1146)', () => {
     vi.useRealTimers()
   })
 
-  describe('Classic reproduces current behavior byte for byte', () => {
-    // One pinned snapshot per density tier. Each compares Classic against a board
-    // with no preset in the same build (a regression in the preset path), AND
-    // against a stored snapshot (a card-face change that reaches Classic, e.g.
-    // #871's redesign applied to every board, at any tier). Such a change must be
-    // gated out of Classic, not land by updating these snapshots.
+  describe('the classic id resolves to the redesigned board (#2279)', () => {
+    // There is no Classic rendering: the id stays accepted in links and Board.default_preset,
+    // and the board it names is the same grid a board with no preset renders. The per-density
+    // visual baseline is the Playwright screenshot spec (e2e/board-redesign-baseline.spec.ts).
     for (const card_density of ['comfortable', 'standard', 'dense'] as const) {
-      it(`renders a ${card_density} board byte for byte, and matches the pinned ${card_density} snapshot`, () => {
+      it(`a ?preset=classic link on a ${card_density} board renders the same grid as no preset`, () => {
         const { unmount } = renderBoard(makeBoard({ card_density }))
         const baseline = gridHtml()
         unmount()
 
-        // A member who had personal settings opens a Classic link.
+        // A member who had personal settings opens a link naming classic.
         localStorage.setItem(DENSITY_KEY, card_density === 'dense' ? 'comfortable' : 'dense')
         localStorage.setItem(OVERLAY_KEY, 'card-count')
         renderBoard(makeBoard({ card_density }), 'preset=classic')
-        const classic = gridHtml()
-
-        expect(classic).toBe(baseline)
-        expect(classic).toMatchSnapshot(`classic-${card_density}`)
+        expect(gridHtml()).toBe(baseline)
       })
     }
 
+    it('a link naming classic loads without error and shows the redesigned card face', () => {
+      renderBoard(makeBoard({ card_density: 'standard' }), 'preset=classic')
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+      const badge = screen.getAllByTitle('Due 2026-06-16')[0]
+      expect(badge.textContent).toBe('Due tomorrow')
+      expect(badge.textContent).not.toContain('⏱')
+      expect(badge.querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
+    })
+
+    it('a board whose default preset is classic loads and shows the redesigned card face', () => {
+      renderBoard(makeBoard({ card_density: 'standard', default_preset: 'classic' }))
+      expect(presetTrigger()).toHaveAccessibleName('Preset: Classic')
+      expect(screen.getAllByTitle('Due 2026-06-16')[0].querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
+    })
+
     // #2271: the swimlane band shows the first two lane fields at every density and
-    // folds the rest behind the N fields toggle, in Classic too (the redesign replaces the grid for every
+    // folds the rest behind the N fields toggle, for every preset (the redesign replaces the grid for every
     // preset, so the old #1417 density-following chip cap no longer exists).
     describe('swimlane band fields (#2271)', () => {
       const defs = Array.from({ length: 6 }, (_, i) => ({
@@ -309,10 +327,9 @@ describe('BoardView — board presets (#1146)', () => {
       })
     })
 
-    // #1122 named exception (frontend/CLAUDE.md § Board presets): threshold
-    // marks render under Classic. A separate case from the byte-for-byte
-    // snapshots above, which carry no custom fields.
-    it('renders custom-field threshold marks under Classic (#1122 exception)', () => {
+    // #1122: threshold marks render under every preset, classic included, so a mark's
+    // meaning never depends on the viewer's preset.
+    it('renders custom-field threshold marks under classic (#1122)', () => {
       const spend: CustomFieldDefinition = {
         id: 77, uid: 'cfuid077', name: 'Spend', field_type: 'number', choices: [], position: 0,
         show_on_card: true, is_required: false, help_text: '', number_prefix: '', number_suffix: '',
@@ -334,23 +351,16 @@ describe('BoardView — board presets (#1146)', () => {
       expect(gridHtml()).not.toBe(baseline)
     })
 
-    // #871 gate: the redesigned urgency face follows the active preset. Card 2 is due
-    // tomorrow, so at Standard (Default's density, and Classic on a standard board) its
-    // due-soon urgency badge renders; only the face differs.
-    it('the #871 urgency face reaches Default and stays out of Classic and no-preset boards', () => {
+    it('the urgency face is the redesigned one under Default and under no preset', () => {
       const badge = () => screen.getAllByTitle('Due 2026-06-16')[0]
-      for (const search of ['', 'preset=classic']) {
+      for (const search of ['', 'preset=default']) {
         const { unmount } = renderBoard(makeBoard({ card_density: 'standard' }), search)
-        expect(badge().textContent, search || 'no preset').toBe('⏱ Due tomorrow')
-        expect(badge().className).toMatch(/\btext-warning$/)
-        expect(badge().querySelector('svg')).toBeNull()
+        expect(badge().textContent, search || 'no preset').toBe('Due tomorrow')
+        expect(badge().className).toContain('text-fg-secondary')
+        expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
         unmount()
         localStorage.clear()
       }
-      renderBoard(makeBoard({ card_density: 'standard' }), 'preset=default')
-      expect(badge().textContent).toBe('Due tomorrow')
-      expect(badge().className).toContain('text-fg-secondary')
-      expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
     })
 
     it('a board with no default and no link writes nothing and shows the trigger at rest', () => {
@@ -769,9 +779,8 @@ describe('BoardView — board presets (#1146)', () => {
 
     it("a member's own density beats the board default, which then reads as modified", () => {
       localStorage.setItem(DENSITY_KEY, 'dense')
-      // The baseline carries the same board default preset: since #871 the card face
-      // follows the active preset (Classic and no preset keep the legacy face), so
-      // only the density is compared here, not the face.
+      // The baseline carries the same board default preset: only the density is
+      // compared here.
       const { unmount } = renderBoard(makeBoard({ card_density: 'dense', default_preset: 'default' }))
       const dense = gridHtml()
       unmount()

@@ -65,10 +65,10 @@ export interface BoardPreset {
 }
 
 /**
- * Classic: the board exactly as it rendered before presets existed — the board's
- * own density, no overlay, the board's own card-face fields, no filter. It is the
- * escape hatch that keeps #871's redesign from regressing an existing install, so
- * it must stay a no-op bundle (pinned by `boardPresets.test.tsx`'s snapshot).
+ * Classic: a persisted, public id (`Board.default_preset`, `?preset=` links) that
+ * resolves to the redesigned board (#2279; there is no Classic rendering). Its
+ * bundle stays the no-op one: the board's own density, no overlay, the board's own
+ * card-face fields, no filter. Never rename or remove the id.
  */
 const CLASSIC: BoardPreset = {
   schemaVersion: BOARD_PRESET_SCHEMA_VERSION,

@@ -48,7 +48,7 @@ changing the date records "Checklist item "Write tests" due: old → new" in His
 Checklist filter. The row names the item as it was worded at the time, so it stays
 readable after the item is renamed or removed. A name longer than 40 characters is
 shortened with "…" so the old and new values stay in view; hover the row for the full text. Rows recorded before that was added
-read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon outside the Classic preset)
+read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon)
 (in red) when unchecked items are past due in your timezone, otherwise `· mine 2`
 when unchecked items are assigned to you. Overdue checklist items do not change
 the card's own status line or border. **Hide completed** in the checklist
