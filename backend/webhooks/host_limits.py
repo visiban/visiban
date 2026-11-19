@@ -25,12 +25,17 @@ mid-request frees its slot when the key expires instead of leaking it.
 
 Fail-soft, never fail-open
 --------------------------
-If the cache raises (Valkey down), the rate limit falls back to a counter in
-this process, so one dispatcher still never exceeds the limit on its own; the
-concurrency limit is then 1 per process (the dispatcher is sequential). On a
+If the cache raises (Valkey down), the rate limit falls back to a counter that
+lives in this process, not in the run: it is keyed by host and minute window
+and survives from one run to the next, so a ``--loop`` dispatcher that starts a
+new run every few seconds still delivers at most the per-minute limit to a host
+while the cache is down. The concurrency limit is then 1 per process (the
+dispatcher delivers one request at a time, so it needs no counter). On a
 ``LocMemCache`` (tests, or a deployment with no shared cache) the counters are
-per process too. Either way the limit holds per dispatcher; it is summed across
-dispatchers only with a shared cache.
+per process too. Either way the limit holds per dispatcher process; it is
+summed across dispatchers only with a shared cache. The fallback counter is
+per process, so several dispatcher processes each get the full limit while the
+cache is down.
 
 The key is the stored ``url_host``, lower cased and without a trailing dot
 (``example.com.`` is ``example.com``). Two different names that resolve to one
@@ -42,6 +47,7 @@ Shared fate, by design
 The budget is per receiver, not per board: it protects the receiver, which
 sees one stream whoever sent it. So a board whose webhooks use a host's whole
 budget delays other boards' webhooks to that host too, never by a failure.
+The delay lasts until the host's minute window has room again.
 Runs take subscriptions least recently scanned first, and a delivery stamps the
 subscription to the back of that order. A subscription the limit stopped before
 it delivered anything keeps its previous stamp (``dispatch._deliver``), so it
@@ -65,6 +71,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+import threading
 import time
 
 from django.conf import settings
@@ -76,6 +83,19 @@ WINDOW_SECONDS = 60
 _KEY_PREFIX = "webhook:host"
 #: Margin over a request's own timeouts before a crashed dispatcher's slot frees.
 _SLOT_MARGIN_SECONDS = 5
+
+
+#: The cache-outage fallback rate counter, process-wide on purpose: a limiter is
+#: created per run, and a counter that restarted with it would let a looping
+#: dispatcher send the full limit again every run. Keyed by (host key, window).
+_local_rate: dict[tuple[str, int], int] = {}
+_local_rate_lock = threading.Lock()
+
+
+def reset_local_state():
+    """Clear the fallback counters (tests)."""
+    with _local_rate_lock:
+        _local_rate.clear()
 
 
 def _setting(name, default):
@@ -127,11 +147,10 @@ class HostSlot:
 
 
 class HostLimiter:
-    """One per dispatcher run. Holds the in-process fallback counters."""
+    """One per dispatcher run. The fallback counters are module state, not ours."""
 
     def __init__(self, *, clock=None):
         self._clock = clock if clock is not None else time.time
-        self._local: dict[tuple[str, int], int] = {}
         #: Set on the first cache error: the rest of the run uses the local
         #: counters without waiting on the cache again. A black-holed Valkey
         #: would otherwise cost a socket timeout per row.
@@ -180,8 +199,12 @@ class HostLimiter:
         return count <= limit
 
     def _take_local_rate(self, key: str, bucket: int, limit: int) -> bool:
-        count = self._local.get((key, bucket), 0) + 1
-        self._local[(key, bucket)] = count
+        with _local_rate_lock:
+            # Windows before this one can never be counted again: drop them.
+            for stale in [k for k in _local_rate if k[1] < bucket]:
+                del _local_rate[stale]
+            count = _local_rate.get((key, bucket), 0) + 1
+            _local_rate[(key, bucket)] = count
         return count <= limit
 
     def _mark_cache_down(self, exc: BaseException):

@@ -176,7 +176,7 @@ After it, every delivery carries one signature, from the current secret, which i
 
 With no overlap open it changes nothing and still answers `200`, so it is safe to retry. Like `rotate` it is session-only, so a personal access token gets `403 {"code": "session_required"}`.
 
-The alternative before 1.3, a second rotation with `overlap_seconds: 0`, also ends the overlap, but issues a new secret your receiver then has to install.
+Without it, a second rotation with `overlap_seconds: 0` also ends the overlap, but issues a new secret your receiver then has to install.
 
 ### `POST {id}/test/`
 

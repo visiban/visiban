@@ -646,6 +646,15 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             # The overlap was ended early (``end-overlap``, #2118) or swept:
             # not a reconfiguration, so the run carries on, with one signature.
             previous_secret = None
+        # The wall clock per row: the overlap can end during a run, and that is
+        # not a reconfiguration, so the run carries on with the current secret.
+        body, headers = build_request(
+            sub.pk,
+            board.pk,
+            payload,
+            secret,
+            previous_secret=previous_secret if sub.previous_secret_active_until else None,
+        )
         # Per destination host, across every board (#2055). A host at its limit
         # stops this subscription for the run without a failure; the cursor
         # stays before this row, so order holds and the next run resumes here.
@@ -664,15 +673,6 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
                     last_scanned_at=sub.last_scanned_at
                 )
             break
-        # The wall clock per row: the overlap can end during a run, and that is
-        # not a reconfiguration, so the run carries on with the current secret.
-        body, headers = build_request(
-            sub.pk,
-            board.pk,
-            payload,
-            secret,
-            previous_secret=previous_secret if sub.previous_secret_active_until else None,
-        )
         attempt_at = timezone.now()
         try:
             status, code = post(url, body, headers)

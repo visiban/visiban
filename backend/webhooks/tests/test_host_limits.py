@@ -20,6 +20,8 @@ class HostLimitBase(DispatcherBase):
     def setUp(self):
         super().setUp()
         cache.clear()
+        host_limits.reset_local_state()
+        self.addCleanup(host_limits.reset_local_state)
         # A second board's webhook to the same receiver: the fan-out the
         # per-subscription caps do not bound.
         self.board2 = _make_board(self.admin, name="Second board")
@@ -143,6 +145,15 @@ class RateLimitTests(HostLimitBase):
         self.assertEqual(len(rec.calls), 3)
         self.assertEqual(result.host_limited, 1)
 
+    def test_the_fallback_limit_holds_across_runs(self):
+        self.event_on(self.board, 6)
+        with patch("webhooks.host_limits.cache.incr", side_effect=ConnectionError("down")):
+            with patch("webhooks.host_limits.time.time", return_value=8_000_000.0):
+                rec1, _ = self.run_all()
+                rec2, result2 = self.run_all()
+        self.assertEqual(len(rec1.calls) + len(rec2.calls), 3)
+        self.assertEqual(result2.host_limited, 1)
+
     def test_after_one_cache_error_the_run_stops_asking_the_cache(self):
         self.event_on(self.board, 5)
         with patch("webhooks.host_limits.cache.incr", side_effect=ConnectionError("down")) as incr:
@@ -183,6 +194,17 @@ class ConcurrencyLimitTests(HostLimitBase):
         self.assertEqual(result.host_limited, 0)
         key = host_limits.host_key("hooks.example.com")
         self.assertIsNone(cache.get(f"webhook:host:slot:{key}:0"))
+
+    def test_a_slot_is_released_when_building_the_request_raises(self):
+        self.event_on(self.board, 1)
+        with patch("webhooks.dispatch.build_request", side_effect=RuntimeError("boom")):
+            with patch("visiban.egress.guarded_post", Recorder()), self.captureOnCommitCallbacks(execute=True):
+                result = dispatch.run_once()
+        self.assertEqual(result.errored, 1)
+        key = host_limits.host_key("hooks.example.com")
+        self.assertIsNone(cache.get(f"webhook:host:slot:{key}:0"))
+        rec, _ = self.run_all()
+        self.assertEqual(len(rec.calls), 1)
 
     def test_a_slot_expires_after_one_request_lifetime(self):
         self.assertEqual(host_limits._slot_ttl(), int(3.0 + 10.0) + host_limits._SLOT_MARGIN_SECONDS)
