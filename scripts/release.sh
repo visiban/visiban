@@ -934,7 +934,10 @@ dependencies:
   fi
   # An exported override must be ignored outside the self-test (the real script then
   # reads the repo's Chart.yaml and, offline or taken, must not be the stub's pass).
-  if _RELEASE_SELFTEST=0 CHART_YAML="$tmp/missing.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" CHART_TAGS="0.8.0" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+  # CHART_TAGS is derived from the real Chart.yaml so a future chart version bump cannot flip this case.
+  repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+  real_chart_ver="$(chart_version_for_tag v1.3.1 "$repo_root/helm/visiban/Chart.yaml")"
+  if (cd "$repo_root" && _RELEASE_SELFTEST=0 CHART_YAML="$tmp/missing.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" CHART_TAGS="$real_chart_ver" check_chart_version_free v1.3.1) >/dev/null 2>&1; then
     echo "SELF-TEST FAILED: CHART_REGISTRY_SCRIPT/CHART_YAML must be ignored outside --self-test" >&2; rc=1
   else
     echo "SELF-TEST OK: CHART_REGISTRY_SCRIPT/CHART_YAML are ignored outside --self-test"
