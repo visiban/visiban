@@ -286,10 +286,10 @@ The script will automatically:
 Do not interrupt the script. If it fails, read the error output before taking any action —
 each failure mode above prints what to check or do manually. The docs are deployed by CI,
 not by this script. The release merge sets `APP_VERSION=<tag>` in `.env.example` and edits
-`docs/`, so `main`'s own `docs-deploy` runs `mike deploy --push --update-aliases` for the new
-version as soon as the release MR merges, before the tag exists. The tag pipeline's
-`docs-deploy` redeploys the same version once the guard passes. Both forms of the job are the
-ones flagged in Step 1's pre-flight inventory if they changed recently.
+`docs/`, so `main`'s own `docs-deploy` runs, but it skips a version whose tag is not on origin
+yet (`resolve-docs-version.sh --require-tag`, #1997). The tag pipeline's `docs-deploy` runs
+`mike deploy --push --update-aliases` for the new version once the guard passes. Both forms
+of the job are the ones flagged in Step 1's pre-flight inventory if they changed recently.
 
 **What gates publishing on the tag pipeline.** Every publish job (`*-docker-push`,
 `*-docker-push-arm64`, `*-manifest`, `*-image-attest`, `helm-publish`, `github-release`,
@@ -305,10 +305,9 @@ when that variable is unset. There is no bypass variable.
 **A guard refusal is not "nothing happened".** `release.sh` does not wait for the tag
 pipeline. By the time the guard runs, the tag is pushed and mirrored to GitHub and the
 enterprise repository, the **GitLab Release** exists, and for a stable tag the milestone
-issues are closed, and the versioned docs went live when `main`'s `docs-deploy` ran on the
-release merge. The script has printed "Release <tag> is live" either way. A refusal stops the
+issues are closed. The script has printed "Release <tag> is live" either way. A refusal stops the
 images on both registries, the manifests and aliases, the signatures and SBOMs, the Helm
-chart, and the **GitHub** Release. It does not stop the docs. So after `release.sh` exits:
+chart, and the **GitHub** Release. It does not publish the versioned docs, because the tag pipeline's `docs-deploy` is gated too. So after `release.sh` exits:
 
 - **Open the tag pipeline and watch `release-main-pipeline-guard` first.** Report the release
   as done only once the guard and the publish jobs are green. Step 3 depends on them.
@@ -319,9 +318,12 @@ chart, and the **GitHub** Release. It does not stop the docs. So after `release.
 - **On a refusal**, fix the cause (usually by retrying the red job in the `main` pipeline),
   then retry the guard job. GitLab re-runs the skipped publish jobs under the same tag, so
   nothing needs re-tagging. Say plainly in the release summary that the GitLab Release page
-  and the docs were live before the images were. See `docs/maintainers/known-ci-failures.md`
-  for the refusal table, and for how to abandon a release instead, including the `mike` docs
-  rollback.
+  was live before the images were. See `docs/maintainers/known-ci-failures.md` for the
+  refusal table, and for how to abandon a release instead (the docs need no rollback unless a
+  manual `DOCS_VERSION` deploy ran).
+- **While a refusal is open, hold docs merges to `main` or abandon the release.** The refused
+  tag stays on origin, so the next `docs/**` or `mkdocs.yml` push to `main` passes
+  `--require-tag` and deploys that version's docs ungated (#2398).
 - **A refusal caused by the guard's own job lists needs a new tag.** That covers a renamed
   required job and a new `manual` job missing from the exemptions. The guard reads its lists
   from the tagged commit, so fix them on `main` and cut a **new** tag.

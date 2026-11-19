@@ -334,7 +334,7 @@ cache-warm-pip-test:
 cache-warm-npm:
   stage: deploy
   needs: [frontend-test]
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -1528,7 +1528,7 @@ clients-python-unit:
 clients-typescript-unit:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine  # stays on 20 on purpose: clients/typescript documents Node >=20.3 as its floor (#2374)
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -1563,7 +1563,7 @@ clients-typescript-unit:
 clients-contract:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-bookworm-slim
+  image: ${DOCKERHUB_MIRROR}/node:20-bookworm-slim  # stays on 20 on purpose: clients/typescript floor (#2374)
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
@@ -2740,7 +2740,7 @@ compose-prod-drill:
 frontend-lint:
   extends: .npm-cache
   stage: lint
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     # Cap below available RAM so V8 GCs aggressively instead of OOM-killing.
     # 1500 MB caused exit 137 on the 2 GB runner; 512 MB OOMed tsc as the app grew.
@@ -2904,7 +2904,7 @@ frontend-test:
   extends: .npm-cache
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   variables:
     # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
     NODE_OPTIONS: "--max-old-space-size=512"
@@ -3053,7 +3053,7 @@ added-files-coverage-check:
     - job: frontend-test
       artifacts: true
       optional: true
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3081,7 +3081,7 @@ added-files-coverage-check:
 added-files-coverage-check-self-test:
   stage: test
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3538,7 +3538,7 @@ frontend-sast:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3586,7 +3586,7 @@ frontend-sast:
 clients-typescript-sast:
   stage: security
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine  # stays on 20 on purpose: clients/typescript documents Node >=20.3 as its floor (#2374)
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -3659,7 +3659,7 @@ frontend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3707,7 +3707,7 @@ frontend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: ${DOCKERHUB_MIRROR}/node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -5219,6 +5219,9 @@ check-release-images:
 # allow_failure, for the same reason as check-release-images above. The publish
 # side of the same script runs in helm-publish (`--candidate`).
 check-chart-registry:
+  # cosign from `.cosign-pin` (#2373): the live check verifies the resolved
+  # chart's signature, same pinned+checksummed install as helm-publish.
+  extends: .cosign-pin
   stage: deploy
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
@@ -5226,6 +5229,13 @@ check-chart-registry:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
   before_script:
     - apk add --no-cache bash curl
+    - |
+      (
+        set -eu
+        curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+        echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+        chmod +x /usr/local/bin/cosign
+      )
   script:
     - bash scripts/check-chart-registry.sh --self-test
     - bash scripts/check-chart-registry.sh
@@ -5407,9 +5417,10 @@ docs-deploy:
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # #1154: the tag-pipeline run waits for the guard. On main the guard exits at
-  # once, so the main run is NOT gated, and the release merge's main pipeline
-  # (APP_VERSION=<tag> in .env.example, docs/ edited) deploys the new version's
-  # docs before the tag exists. Gating that run is a separate, deferred change.
+  # once, so the main run is not gated; #1997: instead, main skips any version
+  # whose tag is not on origin yet (`resolve-docs-version.sh --require-tag`). The
+  # release merge sets APP_VERSION=<tag> before the tag exists, so its versioned
+  # docs are now published only by the tag pipeline, after the guard.
   needs: [release-main-pipeline-guard]
   variables:
     DOCS_VERSION: ""
@@ -5431,7 +5442,16 @@ docs-deploy:
       # it's unit-testable (scripts/tests/resolve-docs-version.test.sh) —
       # see scripts/resolve-docs-version.sh for why normalization must be
       # unconditional across all three VERSION sources (#1270).
-      if ! VERSION=$(scripts/resolve-docs-version.sh); then
+      # --require-tag (#1997): a push to main whose APP_VERSION tag does not exist
+      # yet (the release merge) deploys nothing; the tag pipeline publishes it.
+      rc=0; VERSION=$(scripts/resolve-docs-version.sh --require-tag) || rc=$?
+      if [ "$rc" -eq 3 ]; then
+        echo "INFO: the release tag does not exist yet; its versioned docs are published by the tag pipeline, after release-main-pipeline-guard."
+        exit 0
+      elif [ "$rc" -eq 4 ]; then
+        echo "ERROR: could not look up the release tag on origin; failing rather than silently skipping the docs deploy." >&2
+        exit 1
+      elif [ "$rc" -ne 0 ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
         echo "INFO: no version to deploy. Re-run with DOCS_VERSION=<tag> to publish docs."
         exit 0

@@ -296,13 +296,14 @@ and are **not** undone by a refusal:
   issues.
 - `release.sh` printed `Release <tag> is live`. That message only means it finished. It does
   not wait for the tag pipeline.
-- **The versioned docs are already live.** `release.sh` sets `APP_VERSION=<tag>` in
-  `.env.example` and edits `docs/`, so the release merge's own `main` pipeline runs
-  `docs-deploy`. That job resolves the version from `.env.example` and runs `mike deploy` for
-  it: `<tag> v<MAJOR.MINOR> latest` (for example `v1.1`) plus `set-default` for a stable tag, or `<tag> next` for a
-  pre-release. All of this happens before the tag exists. On `main` the guard exits at once,
-  so it does not gate that job, and the tag pipeline's own `docs-deploy` only redeploys the
-  same version.
+- **The versioned docs are not live.** `release.sh` sets `APP_VERSION=<tag>` in `.env.example`
+  and edits `docs/`, so the release merge's own `main` pipeline runs `docs-deploy`, but that
+  run skips a version whose tag is not on origin yet (`resolve-docs-version.sh --require-tag`,
+  #1997) and deploys nothing. Only the tag pipeline's `docs-deploy`, which waits for the
+  guard, publishes the versioned docs, so a refusal leaves them unpublished. Caveat: the refused tag stays on origin, so the next
+  `docs/**` or `mkdocs.yml` push to `main` passes `--require-tag` and runs
+  `mike deploy <tag> MINOR latest` and `set-default` ungated. Hold docs merges to `main`
+  during a refusal, or abandon the release (#2398).
 
 What the refusal **did** stop, one tag-pipeline job each:
 
@@ -314,9 +315,9 @@ What the refusal **did** stop, one tag-pipeline job each:
 | `backend-image-attest`, `frontend-image-attest` | the cosign signatures and SBOM attestations |
 | `helm-publish` | the signed Helm chart |
 | `github-release` | the **GitHub** Release |
-| `docs-deploy` | nothing new: it redeploys the docs version `main` already published |
+| `docs-deploy` | the versioned docs: `<tag> v<MAJOR.MINOR> latest` plus `set-default` for a stable tag, or `<tag> next` for a pre-release |
 
-So the GitLab Release page and the docs name a version whose images cannot be pulled yet.
+So the GitLab Release page names a version whose images cannot be pulled yet.
 Treat the refusal as an open incident, not a quiet failure.
 
 **What to do:** fix the cause from the table below, then retry the guard job in the same tag
@@ -325,18 +326,17 @@ re-tagging. If the release has to be abandoned instead:
 
 1. Delete the GitLab Release and the tag. The mirrors carry the deletion.
 2. Reopen the milestone if it was closed.
-3. Roll back the docs that `main` already deployed. From a checkout with
-   `docs/requirements.txt` installed and push access to `gh-pages`, run
-   `mike delete --push <tag>`, which also drops the aliases that version held.
-   - For a stable tag, point the aliases back at the previous stable version:
-     `mike alias --push --update-aliases <previous-tag> latest v<previous MAJOR.MINOR>`, then
-     `mike set-default --push v<previous MAJOR.MINOR>`. Docs versions and aliases are always
-     `v`-prefixed (for example `v1.1.0` and `v1.1`); an unprefixed alias creates a stray
-     duplicate entry (#1270).
-   - For a pre-release, re-point `next` the same way, or leave it unset if there is no
-     earlier pre-release.
-
-   The `pages` job republishes docs.visiban.com from `gh-pages`.
+3. Nothing to roll back in the docs: the versioned docs are published only by the tag
+   pipeline after the guard (#1997), so a refused release never reached `gh-pages`, unless a
+   docs-touching push to `main` landed after the refusal (the tag is still on origin, so
+   `--require-tag` passes; #2398). If a docs deploy for the tag ran anyway (for example a manual `DOCS_VERSION=<tag>` run on
+   `main`), remove it with `mike delete --push <tag>` from a checkout with
+   `docs/requirements.txt` installed and push access to `gh-pages`. For a stable tag, also
+   point the aliases back at the previous stable version with
+   `mike alias --push --update-aliases <previous-tag> latest v<previous MAJOR.MINOR>`, then
+   `mike set-default --push v<previous MAJOR.MINOR>`. Docs versions and aliases are always
+   `v`-prefixed (for example `v1.1.0` and `v1.1`); an unprefixed alias creates a stray
+   duplicate entry (#1270).
 4. Cut a new version once `main` is green.
 
 **What the guard checks:** it finds the newest `main` pipeline at the tagged commit (source

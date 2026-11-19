@@ -82,6 +82,24 @@ echo "APP_VERSION=" > "$ENV_EMPTY_APP_VERSION"
 run "$ENV_EMPTY_APP_VERSION"
 expect ".env.example with APP_VERSION= (empty value): exits 1, not \"v\"" 1 ""
 
+# --- --require-tag (#1997): main must not publish a version before its tag ---
+ENV_REL="$TMP/env-release"; echo "APP_VERSION=v1.4.0" > "$ENV_REL"
+LOOKUP="$TMP/lookup"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ] && exit 0\nexit 2\n' > "$LOOKUP"; chmod +x "$LOOKUP"
+runrt() { RC=0; OUT=$(env -u DOCS_VERSION -u CI_COMMIT_TAG TAG_LOOKUP_CMD="$LOOKUP" "$@" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?; }
+runrt
+expect "main, APP_VERSION tag not on origin: exit 3, nothing on stdout" 3 ""
+FAILLOOK="$TMP/faillook"; printf '#!/bin/sh\nexit 128\n' > "$FAILLOOK"; chmod +x "$FAILLOOK"
+RC=0; OUT=$(env -u DOCS_VERSION -u CI_COMMIT_TAG TAG_LOOKUP_CMD="$FAILLOOK" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?
+expect "main, tag lookup itself fails: exit 4 (fail closed), not 3 (skip)" 4 ""
+ENV_REL="$TMP/env-tagged"; echo "APP_VERSION=v1.3.0" > "$ENV_REL"
+runrt
+expect "main, APP_VERSION tag already on origin: deploys it" 0 "v1.3.0"
+ENV_REL="$TMP/env-release"
+runrt env CI_COMMIT_TAG=v1.4.0
+expect "tag pipeline deploys its tag with no lookup" 0 "v1.4.0"
+runrt env DOCS_VERSION=v1.4.0
+expect "manual DOCS_VERSION recovery deploys with no lookup" 0 "v1.4.0"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "resolve-docs-version.test.sh: all $pass checks passed"

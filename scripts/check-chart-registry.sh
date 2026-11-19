@@ -24,6 +24,10 @@
 #       it: "a stable and its betas coexist" is the NORMAL state once 0.4.0 ships
 #       correctly, so that rule would go permanently red the day it is fixed.
 #
+#       It then asserts the resolved chart is cosign-signed (#2373): helm-publish
+#       signs every chart keyless from a release tag pipeline, so a chart at that
+#       path with no signature from that identity was published outside the job.
+#
 #   check-chart-registry.sh --candidate <version>
 #       PUBLISH guard (helm-publish, before `helm push`). Refuses, in order:
 #       - a STABLE chart version cut from a pre-release tag (CI_COMMIT_TAG
@@ -54,6 +58,12 @@
 # CHART_MANIFEST_STATUS_OF  command: prints the registry's HTTP status for the
 #                      image manifest in $1 (replaces only the network read, so
 #                      the status-to-verdict mapping in image_exists is tested)
+# CHART_DIGEST_OF      command: prints the manifest digest of the chart version in $1
+#                      (replaces the registry HEAD read)
+# CHART_COSIGN         the cosign binary or stub                       (cosign)
+# CHART_SIGN_IDENTITY_REGEXP / CHART_SIGN_ISSUER
+#                      the signer constraints; default to the identity helm-publish
+#                      signs with (docs/administration/image-verification.md)
 # CI_COMMIT_TAG        the release tag (GitLab sets it); --candidate refuses a
 #                      stable chart version when this is a pre-release tag
 # CHART_DEFAULT_IMAGES space-separated `<repo>` paths under $GHCR_HOST
@@ -70,6 +80,13 @@ CHART_REPO="${CHART_REPO:-visiban/charts/visiban}"
 GHCR_HOST="${GHCR_HOST:-ghcr.io}"
 CHART_DEFAULT_IMAGES="${CHART_DEFAULT_IMAGES:-visiban/visiban/backend visiban/visiban/frontend}"
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-$GHCR_HOST}"
+# Keyless identity helm-publish signs the chart with: the tag pipeline of
+# visiban/visiban only (no heads/main alternative, unlike the images). Must match
+# docs/administration/image-verification.md and IDENTITY_TAG in
+# scripts/check-release-attestations.sh.
+CHART_SIGN_IDENTITY_REGEXP="${CHART_SIGN_IDENTITY_REGEXP:-^https://gitlab\.com/visiban/visiban//\.gitlab-ci\.yml@refs/tags/v[0-9][^/]*\$}"
+CHART_SIGN_ISSUER="${CHART_SIGN_ISSUER:-https://gitlab.com}"
+CHART_COSIGN="${CHART_COSIGN:-cosign}"
 
 STABLE_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
 PRE_RE='^([0-9]+\.[0-9]+\.[0-9]+)-[0-9A-Za-z.-]+$'
@@ -237,6 +254,40 @@ manifest_status() {
     "https://${IMAGE_REGISTRY}/v2/${repo}/manifests/${tag}" || true
 }
 
+# The by-digest reference is what helm-publish signed (a tag can move, a digest
+# cannot), so resolve the tag to its digest first and verify that.
+chart_digest() {
+  if [ -n "${CHART_DIGEST_OF:-}" ]; then
+    $CHART_DIGEST_OF "$1"
+    return
+  fi
+  local token
+  token="$(curl -fsS --max-time 30 --retry 3 \
+    "https://${GHCR_HOST}/token?scope=repository:${CHART_REPO}:pull" \
+    | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')" || return 2
+  [ -n "$token" ] || return 2
+  curl -fsSI --max-time 30 --retry 3 -H "Authorization: Bearer ${token}" \
+    -H "Accept: application/vnd.oci.image.manifest.v1+json" \
+    "https://${GHCR_HOST}/v2/${CHART_REPO}/manifests/$1" \
+    | tr -d '\r' | awk 'tolower($1)=="docker-content-digest:"{print $2}'
+}
+
+# 0 = signed by the helm-publish identity, 1 = no valid signature, 2 = could not run.
+chart_signed() {
+  local ver="$1" digest ref out rc=0
+  command -v "$CHART_COSIGN" >/dev/null 2>&1 || [ -x "$CHART_COSIGN" ] \
+    || die "cosign ($CHART_COSIGN) is not installed; cannot verify the signature of chart $ver"
+  digest="$(chart_digest "$ver")" || die "could not resolve the digest of chart $ver"
+  [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || die "could not resolve the digest of chart $ver (got '${digest}')"
+  ref="${GHCR_HOST}/${CHART_REPO}@${digest}"
+  out="$("$CHART_COSIGN" verify "$ref" \
+    --certificate-identity-regexp "$CHART_SIGN_IDENTITY_REGEXP" \
+    --certificate-oidc-issuer "$CHART_SIGN_ISSUER" 2>&1)" || rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  printf '%s\n' "$out" | sed 's/^/  cosign: /' >&2
+  return 1
+}
+
 check_default() {
   local versions stables default appv tag ref rc bad=0
   versions="$(list_versions)"
@@ -266,7 +317,15 @@ check_default() {
     remediation "$default" image-missing >&2
     return 1
   fi
-  echo "check-chart-registry: OK  bare \`helm install\` resolves to chart $default; its default images ($tag) exist."
+  if ! chart_signed "$default"; then
+    echo "check-chart-registry: FAIL  chart $default, which a bare \`helm install oci://${GHCR_HOST}/${CHART_REPO}\` resolves to," \
+         "has no valid cosign signature from the helm-publish identity ($CHART_SIGN_IDENTITY_REGEXP, issuer $CHART_SIGN_ISSUER)." >&2
+    echo "helm-publish signs every chart it pushes, so an unsigned or differently-signed artifact at this path was" >&2
+    echo "published outside that job. Investigate who pushed it before deleting anything; the version in the" >&2
+    echo "registry may be the only evidence. Charts at or before v1.2.0-alpha.2 are unsigned (#1284)." >&2
+    return 1
+  fi
+  echo "check-chart-registry: OK  bare \`helm install\` resolves to chart $default; its default images ($tag) exist and the chart is signed by the helm-publish identity."
 }
 
 # --- self-test --------------------------------------------------------------
@@ -276,7 +335,11 @@ self_test() {
   run() { # <env assignments…> -- <args…>; sets OUT and RC
     local envs=()
     while [ "$1" != "--" ]; do envs+=("$1"); shift; done; shift
-    set +e; OUT="$(env "${envs[@]}" bash "$self" "$@" 2>&1)"; RC=$?; set -e
+    # Default stubs: a signed chart, so cases about other properties never reach
+    # the network for the digest or need a real cosign. Later assignments win.
+    set +e; OUT="$(env CHART_DIGEST_OF="${DIGEST_STUB:-}" CHART_COSIGN="${COSIGN_STUB:-}" \
+      SELFTEST_SIGNER="https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.3.0" \
+      "${envs[@]}" bash "$self" "$@" 2>&1)"; RC=$?; set -e
   }
   expect() { # <desc> <expected rc> [fragment]
     local ok=1
@@ -298,6 +361,26 @@ case "$1" in 0.4.0) echo 0.4.0 ;; 0.4.0-beta.3) echo 0.4.0-beta.3 ;; 0.3.0) echo
 APPV
   chmod +x "$appv_cmd"
 
+  # Signing stub: models a chart signed by $SELFTEST_SIGNER (empty = unsigned) and
+  # applies the REAL identity regexp / issuer the script passes, so a loosened or
+  # mistyped constraint fails here rather than only against Sigstore.
+  local cosign_stub digest_cmd; cosign_stub="$(mktemp)"; digest_cmd="$(mktemp)"; DIGEST_STUB="$digest_cmd"; COSIGN_STUB="$cosign_stub"
+  cat > "$cosign_stub" <<'COSIGN'
+#!/usr/bin/env bash
+re=""; iss=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --certificate-identity-regexp) re="$2"; shift 2 ;;
+    --certificate-oidc-issuer) iss="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+[ -n "${SELFTEST_SIGNER:-}" ] || { echo "Error: no signatures found" >&2; exit 1; }
+[ "$iss" = "https://gitlab.com" ] || { echo "Error: issuer mismatch ($iss)" >&2; exit 1; }
+[[ "$SELFTEST_SIGNER" =~ $re ]] || { echo "Error: none of the expected identities matched" >&2; exit 1; }
+COSIGN
+  printf '#!/usr/bin/env bash\necho sha256:%s\n' "$(printf 'a%.0s' $(seq 64))" > "$digest_cmd"
+  chmod +x "$cosign_stub" "$digest_cmd"
   echo "publish guard:"
   run CHART_TAGS="0.4.0 0.4.0-beta.2 0.4.0-beta.3 sha256-3aada.sig" -- --candidate 0.4.0-beta.4
   expect "the #1155 case: beta.4 refused while stable 0.4.0 is published" 1 "refusing to publish 0.4.0-beta.4"
@@ -356,6 +439,21 @@ APPV
     expect "manifest HTTP $code is 'could not ask' (exit 2), never MISSING" 2 "could not query"
   done
   rm -f "$status_cmd"
+
+  local signed_env=(CHART_TAGS="0.4.0" CHART_APPVERSION_OF="$appv_cmd" CHART_IMAGE_PROBE="$probe_ok")
+  echo "chart signature (#2373):"
+  run "${signed_env[@]}" SELFTEST_SIGNER="https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/tags/v1.3.0" --
+  expect "signed by the helm-publish tag identity: pass" 0 "signed by the helm-publish identity"
+  run "${signed_env[@]}" SELFTEST_SIGNER="" --
+  expect "unsigned chart: fail" 1 "no valid cosign signature"
+  expect "  …and the message names the identity constraint" 1 "refs/tags/v"
+  run "${signed_env[@]}" SELFTEST_SIGNER="https://gitlab.com/someone-else/fork//.gitlab-ci.yml@refs/tags/v1.3.0" --
+  expect "signed by another identity: fail" 1 "no valid cosign signature"
+  run "${signed_env[@]}" SELFTEST_SIGNER="https://gitlab.com/visiban/visiban//.gitlab-ci.yml@refs/heads/main" --
+  expect "signed from main, not a tag pipeline: fail" 1 "no valid cosign signature"
+  run "${signed_env[@]}" CHART_COSIGN=/nonexistent/cosign --
+  expect "cosign missing: exit 2, never a pass" 2 "not installed"
+  rm -f "$cosign_stub" "$digest_cmd"
 
   rm -f "$probe_beta_only" "$appv_cmd"
   echo
