@@ -142,7 +142,7 @@ export function buildFilterChips(
     if (!option) continue;
     chips.push({
       key: `track:${state}`,
-      label: `Track ${option.label.toLowerCase()}`,
+      label: `Any track ${option.label.toLowerCase()}`,
       onDismiss: () => {
         const rest = (filters.trackStates ?? []).filter((x) => x !== state);
         onChange({ ...filters, trackStates: rest.length > 0 ? rest : undefined });

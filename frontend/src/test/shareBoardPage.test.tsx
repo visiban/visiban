@@ -186,7 +186,7 @@ describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
   it('shows sub-column headers in position order with per-sub-column counts', async () => {
     renderSharePage()
     const headers = await screen.findAllByTestId('share-sub-column-header')
-    expect(headers.map((h) => h.textContent)).toEqual(['Doing2', 'Ready1'])
+    expect(headers.map((h) => h.textContent)).toEqual(['Doing2, 2 cards', 'Ready1, 1 card'])
   })
 
   it('splits the cell by gates_passed, each list in position order', async () => {

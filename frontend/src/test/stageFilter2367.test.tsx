@@ -84,7 +84,7 @@ describe('stage filters (#2367)', () => {
     const board = { columns: [review, backlog], cards: [], labels: [], custom_field_definitions: [], members: [], swimlanes: [] } as unknown as BoardFull
     const filters: FilterState = { ...EMPTY_FILTER, subColumnIds: [101, 999], trackStates: ['open'] }
     const chips = buildFilterChips(board, filters, onChange, 'MM/DD/YYYY')
-    expect(chips.map((c) => c.label)).toEqual(['Review: Doing', 'Track open'])
+    expect(chips.map((c) => c.label)).toEqual(['Review: Doing', 'Any track open'])
     chips[0].onDismiss()
     expect(onChange).toHaveBeenLastCalledWith({ ...filters, subColumnIds: [999] })
     chips[1].onDismiss()

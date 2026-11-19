@@ -122,6 +122,7 @@ function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn
       {subs.length > 0 && (
         <ul
           data-testid="share-sub-columns"
+          role="list"
           aria-label={`${column.name} sub-columns`}
           className="flex border-t border-line-subtle"
         >
@@ -134,14 +135,15 @@ function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn
                 className={`flex-1 min-w-0 px-2 py-1 flex items-center gap-1 text-xs text-fg-tertiary ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
               >
                 <span className="truncate flex-1" title={sub.name}>{sub.name}</span>
-                <span className="shrink-0">{count}</span>
+                <span className="shrink-0" aria-hidden="true">{count}</span>
+                <span className="sr-only">{`, ${count} ${count === 1 ? "card" : "cards"}`}</span>
               </li>
             );
           })}
         </ul>
       )}
       {tracks.length > 0 && (
-        <ul data-testid="share-track-chips" aria-label={`${column.name} tracks`} className="px-2 pb-2 flex flex-wrap gap-1">
+        <ul data-testid="share-track-chips" role="list" aria-label={`${column.name} tracks`} className="px-2 pb-2 flex flex-wrap gap-1">
           {tracks.map((t) => (
             <li key={t.id} className="inline-flex items-center rounded border border-line-strong px-1.5 py-px text-xs font-semibold leading-4 text-fg-secondary">
               {t.name}
@@ -216,6 +218,8 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
                     {splitCellBySubColumn(cellCards, col).map((list, i) => (
                       <div
                         key={i}
+                        role="group"
+                        aria-label={`${col.name}: ${stageSubColumns(col)[i]?.name ?? ""}`}
                         data-testid="share-sub-column-cell"
                         className={`flex-1 min-w-0 p-1.5 flex flex-col gap-1.5 ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
                       >

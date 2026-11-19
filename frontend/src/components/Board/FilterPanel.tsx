@@ -403,7 +403,8 @@ export default function FilterPanel({
         );
       case "trackState":
         return (
-          <div role="group" aria-label="Track state">
+          <div role="group" aria-label="Track state" aria-describedby={`${id}-track-hint`}>
+            <p id={`${id}-track-hint`} className="px-2 py-1 text-xs text-fg-tertiary">Cards with at least one track in a chosen state</p>
             {TRACK_STATE_OPTIONS.map((o) => checkbox(`track-${o.value}`, o.label, (filters.trackStates ?? []).includes(o.value), () => {
               const next = toggleIn(filters.trackStates ?? [], o.value);
               onChange({ ...filters, trackStates: next.length > 0 ? next : undefined });
