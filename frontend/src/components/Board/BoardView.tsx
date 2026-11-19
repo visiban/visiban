@@ -27,7 +27,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, CardMovedEventPayload, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardMembership, Card, CardMovedEventPayload, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User, WebhookChangedPayload } from "../../types";
 import { userDisplayName } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
@@ -510,6 +510,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #1967 — issued_at of the latest share_link.updated that issued a link,
   // passed to BoardSettingsModal so it can tell a rotation made elsewhere.
   const [shareLinkIssuedAt, setShareLinkIssuedAt] = useState<string | null>(null);
+  // #2057 — the latest admin-only webhook.changed frame, for an open Webhooks
+  // tab. `seq` makes two identical frames two changes.
+  const [webhookChange, setWebhookChange] = useState<(WebhookChangedPayload & { seq: number }) | null>(null);
 
   // #1444 — arriving from a board invite (JoinPage / the OAuth return in
   // App.tsx) carries what happened in navigation state.
@@ -902,6 +905,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // board state, not in it (BoardFull mirrors the /full/ serializer).
       const issuedAt = shareLinkIssuedAtFromEvent(sharePayload);
       if (issuedAt !== null) setShareLinkIssuedAt(issuedAt);
+    } else if (event.event === "webhook.changed") {
+      // Admin-only invalidation (#2057): the Webhooks tab refetches its list.
+      // Ids and codes only; nothing here is merged into board state.
+      const change = d as unknown as WebhookChangedPayload;
+      setWebhookChange((prev) => ({ ...change, seq: (prev?.seq ?? 0) + 1 }));
     } else if (event.event === "board.deleted") {
       // Deleted by someone else: re-read over REST so the 404 swaps in the
       // "isn't available" page (#2041). The deleter's own session also gets
@@ -3872,6 +3880,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onClose={closeSettings}
           initialTab={settingsInitialTab}
           focusFirstStoppedWebhook={webhookDeepLink}
+          webhookChange={webhookChange}
           currentUserHasPassword={currentUser?.has_usable_password !== false}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}

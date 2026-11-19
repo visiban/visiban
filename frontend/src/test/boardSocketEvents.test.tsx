@@ -86,13 +86,14 @@ const settingsDeleteHooks: { deleting?: () => void; failed?: () => void } = {}
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: ({ inviteReloadSignal, shareLinkIssuedAt, onBoardDeleting, onBoardDeleteFailed }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null; onBoardDeleting?: () => void; onBoardDeleteFailed?: () => void }) => (
+  default: ({ inviteReloadSignal, shareLinkIssuedAt, webhookChange, onBoardDeleting, onBoardDeleteFailed }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null; webhookChange?: { id: number; seq: number } | null; onBoardDeleting?: () => void; onBoardDeleteFailed?: () => void }) => (
     <div
       data-testid="settings-modal"
       data-on-deleting={String(!!onBoardDeleting)}
       ref={() => { settingsDeleteHooks.deleting = onBoardDeleting; settingsDeleteHooks.failed = onBoardDeleteFailed }}
       data-invite-signal={inviteReloadSignal ?? 0}
       data-share-issued-at={shareLinkIssuedAt ?? ''}
+      data-webhook-change={webhookChange ? `${webhookChange.id}:${webhookChange.seq}` : ''}
     />
   ),
 }))
@@ -951,6 +952,21 @@ describe('BoardView — board invites (#1444)', () => {
       })
     })
     expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-share-issued-at', '2026-11-01T10:05:00+00:00')
+  })
+
+  it('webhook.changed reaches the settings modal, one new seq per frame (#2057)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    await openSettings()
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-change', '')
+    const frame = { id: 4, status: 'failing', reason_code: '', consecutive_failures: 1, changed_by: null, at: '2026-11-19T12:00:00Z' }
+    act(() => { getOnEvent.dispatch({ event: 'webhook.changed', data: frame }) })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-change', '4:1')
+    // An identical frame is still a new change.
+    act(() => { getOnEvent.dispatch({ event: 'webhook.changed', data: frame }) })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-change', '4:2')
+    // Never merged into board state.
+    expect(ctx.mergeBoardState).not.toHaveBeenCalled()
   })
 
   it('member.added carrying an invite bumps the signal; a plain member.added does not', async () => {

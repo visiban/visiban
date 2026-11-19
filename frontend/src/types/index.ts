@@ -2425,6 +2425,21 @@ export interface BoardSummary {
 export type BoardEventPayload = Omit<Board, "is_starred"> & { is_starred?: boolean };
 
 /**
+ * `webhook.changed` WebSocket payload (#2057). Admin-only and broadcast-only
+ * (never in the change feed): an invalidation that tells an open Webhooks tab
+ * to refetch. Never carries the URL, host, label or a secret. `changed_by` is
+ * the acting user's id, null for the dispatcher.
+ */
+export interface WebhookChangedPayload {
+  id: number;
+  status: "active" | "failing" | "disabled" | "deleted";
+  reason_code: string;
+  consecutive_failures: number;
+  changed_by: number | null;
+  at: string;
+}
+
+/**
  * `share_link.updated` WebSocket payload (#1967). Admin-only: the server sends
  * it to admin / site_admin sockets only. `active` and `expires_at` are the
  * values `/full/` returns as `share_link_active` and `share_token_expires_at`

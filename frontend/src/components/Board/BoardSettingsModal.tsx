@@ -21,7 +21,7 @@ import { userDisplayName } from "../../types";
 import type { Column } from "../../types";
 import BoardSettingsPoliciesSection from "./BoardSettingsPoliciesSection";
 import { exportBoardCsv, exportBoardJson, patchColumn, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory, recomputeBoardHealth } from "../../api/boards";
-import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership } from "../../types";
+import type { BoardExportLogEntry, BoardExportMinRole, BoardMembership, WebhookChangedPayload } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -63,6 +63,8 @@ interface Props {
   initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
   /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses the first webhook that was turned off automatically. */
   focusFirstStoppedWebhook?: boolean;
+  /** #2057 — the latest `webhook.changed` frame; the Webhooks tab refetches on each. */
+  webhookChange?: (WebhookChangedPayload & { seq: number }) | null;
   /** #863 — false for an SSO-only account: a webhook take-over then needs a recent provider sign-in, not a password. */
   currentUserHasPassword?: boolean;
   onBoardDeleted?: () => void;
@@ -214,7 +216,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1967,6 +1969,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               currentUserHasPassword={currentUserHasPassword}
               registerCloseGuard={registerWebhookCloseGuard}
               onRequestClose={onClose}
+              remoteChange={webhookChange}
+              currentUserId={currentUserId}
             />
           )}
 

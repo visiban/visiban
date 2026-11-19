@@ -13,8 +13,14 @@ import {
   testWebhook,
   updateWebhook,
 } from "../../api/webhooks";
-import type { WebhookStatus, WebhookSubscription } from "../../types";
-import { webhookPosition } from "../../constants/webhooks";
+import type { WebhookChangedPayload, WebhookStatus, WebhookSubscription } from "../../types";
+import {
+  CHANGED_ELSEWHERE_MS,
+  SECRET_LEFT_COPY,
+  SECRET_PENDING_BOUND_MS,
+  SECRET_STUCK_COPY,
+  webhookPosition,
+} from "../../constants/webhooks";
 import WebhookList from "./webhooks/WebhookList";
 import WebhookCreateForm from "./webhooks/WebhookCreateForm";
 import { axiosResponse, outcomeUnknown } from "./webhooks/webhookFormUtils";
@@ -39,6 +45,42 @@ const SECRET_PENDING_COPY = "Wait for the new secret. It can only be shown once,
 
 const CLOCK_TICK_MS = 30_000;
 const HIGHLIGHT_MS = 1500;
+/** Frames and focus events within this window share one list read (#2057). */
+const REFETCH_COALESCE_MS = 300;
+/** Announcements of changes made elsewhere coalesce within this window (1.3 UI spec Part 9). */
+const ANNOUNCE_COALESCE_MS = 2000;
+
+type SecretOrigin = "create" | "rotate";
+interface LeftPending {
+  origin: SecretOrigin;
+  at: number;
+}
+
+// A create or rotate the user stopped waiting for (#2127). Kept in
+// sessionStorage, so the warning survives closing Board settings and a reload
+// in this browser tab; it holds no secret, only that one may have been issued.
+const leftPendingKey = (boardId: number) => `visiban.webhooks.leftPending.${boardId}`;
+
+function readLeftPending(boardId: number): LeftPending | null {
+  try {
+    const raw = window.sessionStorage.getItem(leftPendingKey(boardId));
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<LeftPending> | null;
+    if (v && (v.origin === "create" || v.origin === "rotate") && typeof v.at === "number") return { origin: v.origin, at: v.at };
+  } catch {
+    // Blocked or malformed storage: nothing to restore.
+  }
+  return null;
+}
+
+function writeLeftPending(boardId: number, value: LeftPending | null) {
+  try {
+    if (value) window.sessionStorage.setItem(leftPendingKey(boardId), JSON.stringify(value));
+    else window.sessionStorage.removeItem(leftPendingKey(boardId));
+  } catch {
+    // Blocked storage: the notice still shows until this tab unmounts.
+  }
+}
 
 /** The tab's answer to "may Board settings close / switch tabs now?". */
 export type WebhookCloseGuard = (proceed: () => void) => boolean;
@@ -53,6 +95,10 @@ interface Props {
   registerCloseGuard?: (guard: WebhookCloseGuard | null) => void;
   /** Close Board settings (the modal's own onClose). */
   onRequestClose?: () => void;
+  /** #2057 — the latest `webhook.changed` frame for this board; each new one refetches the list. */
+  remoteChange?: (WebhookChangedPayload & { seq: number }) | null;
+  /** Frames this user caused still refetch, but are not tagged as changed elsewhere. */
+  currentUserId?: number | null;
 }
 
 type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: number };
@@ -73,6 +119,8 @@ export default function BoardSettingsWebhooksTab({
   currentUserHasPassword = true,
   registerCloseGuard,
   onRequestClose,
+  remoteChange = null,
+  currentUserId = null,
 }: Props) {
   const [status, setStatus] = useState<WebhookStatus | null>(null);
   const [featureOff, setFeatureOff] = useState(false);
@@ -90,6 +138,12 @@ export default function BoardSettingsWebhooksTab({
   // keys the banner, so each refusal is a new alert and is announced again. The
   // key is prefixed: its siblings include WebhookDetail, keyed by a bare webhook id.
   const [refusals, setRefusals] = useState(0);
+  // #2127 — the create or rotate whose bound has passed: offer "Leave anyway".
+  const [stuck, setStuck] = useState<SecretOrigin | null>(null);
+  const [leftPending, setLeftPending] = useState<LeftPending | null>(() => readLeftPending(boardId));
+  // #2057 — rows another admin or the dispatcher changed in the last 30 s.
+  const [changedIds, setChangedIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [remoteLive, setRemoteLive] = useState("");
 
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const refusalRef = useRef<HTMLParagraphElement>(null);
@@ -104,6 +158,21 @@ export default function BoardSettingsWebhooksTab({
   const deepLinkDoneRef = useRef(false);
   const guardProceedRef = useRef<(() => void) | null>(null);
   const revealRefState = useRef<Reveal | null>(null);
+  // Each create/rotate gets a number; one the user left is "abandoned", and
+  // its late answer neither unlocks a newer request nor moves the view.
+  const pendingTokenRef = useRef(0);
+  const abandonedRef = useRef(new Set<number>());
+  // The way out the user last tried while a secret was on its way.
+  const refusedProceedRef = useRef<(() => void) | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refetchDeferredRef = useRef(false);
+  const changedTimersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const announceIdsRef = useRef(new Set<number>());
+  // A frame that arrived before this tab mounted is already in the first load.
+  const mountSeqRef = useRef(remoteChange?.seq ?? 0);
   // The guard protects the reveal only while it is on screen: a create reveal
   // above the list, a rotate reveal in its own webhook's detail. Any path that
   // takes it off screen disarms the guard (frontend/CLAUDE.md, close guards).
@@ -111,7 +180,10 @@ export default function BoardSettingsWebhooksTab({
     reveal !== null &&
     !featureOff &&
     ((reveal.origin === "create" && view.kind === "list") ||
-      (reveal.origin === "rotate" && view.kind === "detail" && view.id === reveal.subId));
+      // Not once the webhook is gone (deleted elsewhere, #2057): its detail,
+      // and so the reveal, no longer renders, and the guard must not ask about it.
+      (reveal.origin === "rotate" && view.kind === "detail" && view.id === reveal.subId &&
+        subs !== null && subs.some((s) => s.id === reveal.subId)));
   revealRefState.current = revealShown ? reveal : null;
 
   useEffect(() => {
@@ -120,7 +192,64 @@ export default function BoardSettingsWebhooksTab({
   }, []);
   useEffect(() => () => {
     if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
+    if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
+    if (announceTimerRef.current !== null) clearTimeout(announceTimerRef.current);
+    changedTimersRef.current.forEach((t) => clearTimeout(t));
   }, []);
+
+  // ── Live updates (#2057, 1.3 UI spec Part 9) ─────────────────────────────────
+  // A refetch only replaces the list: an open create form, confirm or secret
+  // reveal is separate state and is never disturbed by one.
+  const refetchList = useCallback(() => {
+    if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
+    refetchTimerRef.current = setTimeout(() => {
+      refetchTimerRef.current = null;
+      // A create's answer is about to add its row; read after it instead.
+      if (secretPendingRef.current) {
+        refetchDeferredRef.current = true;
+        return;
+      }
+      listWebhooks(boardId).then(setSubs).catch(() => undefined);
+    }, REFETCH_COALESCE_MS);
+  }, [boardId]);
+
+  useEffect(() => {
+    if (!remoteChange || remoteChange.seq <= mountSeqRef.current) return;
+    mountSeqRef.current = remoteChange.seq;
+    refetchList();
+    // This user's own change (this tab or another of theirs): no "elsewhere" tag.
+    if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) return;
+    const id = remoteChange.id;
+    setChangedIds((prev) => new Set(prev).add(id));
+    const timers = changedTimersRef.current;
+    const previous = timers.get(id);
+    if (previous !== undefined) clearTimeout(previous);
+    timers.set(id, setTimeout(() => {
+      timers.delete(id);
+      setChangedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, CHANGED_ELSEWHERE_MS));
+    announceIdsRef.current.add(id);
+    if (announceTimerRef.current === null) {
+      announceTimerRef.current = setTimeout(() => {
+        announceTimerRef.current = null;
+        const n = announceIdsRef.current.size;
+        announceIdsRef.current.clear();
+        setRemoteLive(n === 1 ? "A webhook was changed elsewhere." : `${n} webhooks were changed elsewhere.`);
+      }, ANNOUNCE_COALESCE_MS);
+    }
+  }, [remoteChange, currentUserId, refetchList]);
+
+  // Anything sent while this window was in the background, or while the
+  // socket was down, is picked up when it is focused again.
+  useEffect(() => {
+    const onFocus = () => refetchList();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refetchList]);
 
   // Load: status first; the list only when the feature is on.
   useEffect(() => {
@@ -187,6 +316,7 @@ export default function BoardSettingsWebhooksTab({
     // leaving now would drop the response, and the server has already replaced
     // the secret, with nothing to tell anyone the new one was never seen.
     if (secretPendingRef.current) {
+      refusedProceedRef.current = proceed;
       setRefusals((n) => n + 1);
       return true;
     }
@@ -238,14 +368,64 @@ export default function BoardSettingsWebhooksTab({
     }
   };
 
-  const issuingSecret = async <T,>(fn: () => Promise<T>): Promise<T> => {
+  /**
+   * Run a create or rotate: its answer is the only copy of a secret, so every
+   * way out is refused while it runs. After SECRET_PENDING_BOUND_MS the tab
+   * offers "Leave anyway" (#2127). The request is never canceled: the server
+   * may still commit it, so a late answer is still used where it can be.
+   */
+  const issuingSecret = async <T,>(origin: SecretOrigin, fn: () => Promise<T>): Promise<{ value: T; abandoned: boolean }> => {
+    const requestNo = ++pendingTokenRef.current;
     secretPendingRef.current = true;
+    refusedProceedRef.current = null;
+    const bound = setTimeout(() => {
+      if (pendingTokenRef.current === requestNo && secretPendingRef.current) setStuck(origin);
+    }, SECRET_PENDING_BOUND_MS);
     try {
-      return await guarded(fn);
+      const value = await guarded(fn);
+      return { value, abandoned: abandonedRef.current.has(requestNo) };
     } finally {
-      secretPendingRef.current = false;
-      setRefusals(0);
+      clearTimeout(bound);
+      abandonedRef.current.delete(requestNo);
+      // A request left behind must not unlock a newer one when it settles.
+      if (pendingTokenRef.current === requestNo) {
+        secretPendingRef.current = false;
+        refusedProceedRef.current = null;
+        setRefusals(0);
+        setStuck(null);
+      }
+      if (refetchDeferredRef.current && !secretPendingRef.current) {
+        refetchDeferredRef.current = false;
+        refetchList();
+      }
     }
+  };
+
+  const clearLeftPending = () => {
+    setLeftPending(null);
+    writeLeftPending(boardId, null);
+  };
+
+  /** "Leave anyway": unlock the tab, say a secret may have been issued, re-read the server. */
+  const leaveAnyway = () => {
+    const origin = stuck;
+    if (origin === null) return;
+    abandonedRef.current.add(pendingTokenRef.current);
+    secretPendingRef.current = false;
+    confirmRunningRef.current = false;
+    setStuck(null);
+    setRefusals(0);
+    setConfirm(null);
+    const left = { origin, at: Date.now() };
+    setLeftPending(left);
+    writeLeftPending(boardId, left);
+    // So the "until" line and the list show what the server has now; a late
+    // answer re-reads again.
+    listWebhooks(boardId).then(setSubs).catch(() => undefined);
+    const proceed = refusedProceedRef.current;
+    refusedProceedRef.current = null;
+    if (proceed) proceed();
+    else if (origin === "create") openList("add");
   };
 
   const whileConfirmRuns = async (fn: () => Promise<void>) => {
@@ -332,8 +512,9 @@ export default function BoardSettingsWebhooksTab({
         }}
         onSubmit={async (req) => {
           let created;
+          let abandoned;
           try {
-            created = await issuingSecret(() => createWebhook(boardId, req));
+            ({ value: created, abandoned } = await issuingSecret("create", () => createWebhook(boardId, req)));
           } catch (err) {
             // A lost response then a retry would leave a second enabled webhook
             // with a secret nobody saw. A refused create added nothing.
@@ -342,7 +523,14 @@ export default function BoardSettingsWebhooksTab({
           }
           const { url: _url, secret, ...sub } = created;
           void _url;
-          setSubs((prev) => [sub, ...(prev ?? [])]);
+          // A refetch may already hold the row (#2057).
+          setSubs((prev) => [sub, ...(prev ?? []).filter((s) => s.id !== sub.id)]);
+          if (abandoned) {
+            // Left while waiting (#2127): show the secret only where it belongs,
+            // without moving the user, and then the warning is no longer needed.
+            if (viewRef.current.kind === "detail") return;
+            clearLeftPending();
+          }
           setView({ kind: "list" });
           setReveal({ subId: sub.id, host: sub.url_host, secret, origin: "create", acknowledged: false, guardOpen: false });
           // The new row is first in the list.
@@ -353,7 +541,19 @@ export default function BoardSettingsWebhooksTab({
   } else if (view.kind === "detail") {
     const sub = subs.find((s) => s.id === view.id);
     if (!sub) {
-      body = null;
+      // Deleted by another admin while open (#2057, webhook-deleted-elsewhere).
+      body = (
+        <div role="status" className="flex flex-col items-start gap-2 rounded-lg border border-line bg-raised px-3 py-3">
+          <p className="text-sm text-fg">This webhook was deleted elsewhere.</p>
+          <button
+            type="button"
+            onClick={() => openList("list-heading")}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Back to all webhooks
+          </button>
+        </div>
+      );
     } else {
       body = (
         <WebhookDetail
@@ -387,8 +587,9 @@ export default function BoardSettingsWebhooksTab({
           })}
           onRotate={(overlapSeconds) => whileConfirmRuns(async () => {
             let rotated;
+            let abandoned;
             try {
-              rotated = await issuingSecret(() => rotateWebhookSecret(boardId, sub.id, overlapSeconds));
+              ({ value: rotated, abandoned } = await issuingSecret("rotate", () => rotateWebhookSecret(boardId, sub.id, overlapSeconds)));
             } catch (err) {
               // The response may be all that was lost. Show what the server has,
               // so the "until" line is true before anyone retries: a retry retires
@@ -408,6 +609,13 @@ export default function BoardSettingsWebhooksTab({
             }
             const { secret, ...updated } = rotated;
             replaceSub(updated);
+            if (abandoned) {
+              // Left while waiting (#2127): reveal only if the user is still
+              // on this webhook; never pull them back to it.
+              const v = viewRef.current;
+              if (v.kind !== "detail" || v.id !== sub.id) return;
+              clearLeftPending();
+            }
             setConfirm(null);
             // Its own webhook's detail is the one place this reveal renders.
             setView({ kind: "detail", id: sub.id });
@@ -482,6 +690,7 @@ export default function BoardSettingsWebhooksTab({
               subs={subs}
               now={now}
               highlightId={highlightId}
+              changedIds={changedIds}
               onManage={(id) => {
                 // An unacknowledged secret owns the tab: leaving asks first.
                 const go = () => { setConfirm(null); setLive(""); setView({ kind: "detail", id }); };
@@ -501,15 +710,41 @@ export default function BoardSettingsWebhooksTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {refusals > 0 && (
+      {stuck !== null ? (
+        // Past the bound (#2127): the same alert slot, now with a way out.
+        <div key={`stuck-${refusals}`} role="alert" className="scroll-mt-5 flex flex-col items-start gap-2 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          <p ref={refusalRef}>{SECRET_STUCK_COPY[stuck]}</p>
+          <button
+            type="button"
+            onClick={leaveAnyway}
+            className="text-xs text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong bg-surface transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Leave anyway
+          </button>
+        </div>
+      ) : refusals > 0 && (
         <p key={`refusal-${refusals}`} ref={refusalRef} role="alert" className="scroll-mt-5 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
           {SECRET_PENDING_COPY}
         </p>
+      )}
+      {leftPending !== null && (
+        <div role="status" data-testid="webhook-left-pending" className="flex items-start gap-3 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          <p className="flex-1">{SECRET_LEFT_COPY[leftPending.origin]}</p>
+          <button
+            type="button"
+            onClick={clearLeftPending}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
       {status.dispatcher_stale && <DispatcherStaleNotice lastRunLabel={lastRunLabel} />}
       {body}
       {/* The list status slot: created, deleted, turned off, turned on. */}
       <p className="text-xs text-fg-tertiary min-h-4" role="status" aria-live="polite" aria-atomic="true">{live}</p>
+      {/* Changes made elsewhere (#2057), coalesced; kept apart so they never overwrite the slot above. */}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{remoteLive}</p>
     </div>
   );
 }

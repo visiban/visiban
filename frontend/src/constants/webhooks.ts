@@ -274,5 +274,28 @@ export const CREATE_UNCONFIRMED_COPY =
 /** How long "keep old" signs with the replaced secret: 24 hours (the API allows up to seven days). */
 export const ROTATE_OVERLAP_SECONDS = 86400;
 
+/**
+ * How long a create or rotate may run before the tab offers a way out (#2127).
+ * Above the server's slowest honest answer: DNS (3 s) plus the constant-time
+ * refusal floor, or a rotation behind a row lock. Never a client timeout: the
+ * request keeps running, because the server may still commit it.
+ */
+export const SECRET_PENDING_BOUND_MS = 20_000;
+
+/** Offered once the bound passes, beside **Leave anyway**. */
+export const SECRET_STUCK_COPY: Record<"create" | "rotate", string> = {
+  create: "This is taking longer than it should. You can leave, but the webhook may still be created, and its secret can't be shown to you afterward.",
+  rotate: "This is taking longer than it should. You can leave, but the rotation may still go through, and its new secret can't be shown to you afterward.",
+};
+
+/** Shown in the tab after **Leave anyway**, until dismissed (it survives a reload). */
+export const SECRET_LEFT_COPY: Record<"create" | "rotate", string> = {
+  create: "A webhook you didn't wait for may have been created. Its secret can't be shown. If it's in the list, rotate its secret or delete it.",
+  rotate: "A secret rotation you didn't wait for may have gone through. Its new secret can't be shown. If your receiver starts rejecting deliveries, rotate again to get a secret you can copy.",
+};
+
+/** How long a row changed elsewhere keeps its tag (1.3 UI spec Part 9). */
+export const CHANGED_ELSEWHERE_MS = 30_000;
+
 export const WEBHOOKS_DOCS_URL = "https://docs.visiban.com/features/webhooks/";
 export const WEBHOOKS_VERIFY_URL = "https://docs.visiban.com/api/webhooks/#verifying-signatures";
