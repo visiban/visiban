@@ -520,11 +520,11 @@ describe("CardItem — formatted number chips (#1391)", () => {
       />
     );
     // The face shows the compact form (#2387), suffix whole; the title keeps the full value.
-    expect(screen.getByText("$1.2M USD")).toHaveClass("shrink-0", "whitespace-nowrap");
+    expect(screen.getByText("$1.2M USD")).toHaveClass("truncate", "min-w-0");
     expect(screen.getByTitle("Budget: $1,234,567.50 USD")).toBeInTheDocument();
   });
 
-  it("shows a pinned currency field in compact form and never ellipsizes the value (#2387)", () => {
+  it("shows a pinned currency field in compact form and ellipsizes the value only as a last resort (#2387)", () => {
     render(
       <CardItem
         card={makeCard({ custom_field_values: [{ field_definition: 5, value: "33000" }, { field_definition: 6, value: "25" }] })}
@@ -537,8 +537,10 @@ describe("CardItem — formatted number chips (#1391)", () => {
     const values = screen.getAllByTestId("card-field-number").map((el) => el.textContent);
     expect(values).toEqual(["$33k", "25%"]);
     for (const el of screen.getAllByTestId("card-field-number")) {
-      expect(el).toHaveClass("shrink-0");
-      expect(el).not.toHaveClass("truncate");
+      // Default shrink (1) is below the name's shrink-[3], so the name yields first; the
+      // compact form is short enough that the value never needs to give anything up.
+      expect(el).toHaveClass("truncate", "min-w-0");
+      expect(el).not.toHaveClass("shrink-0");
     }
     // The name yields width first; the full grouped value stays in the title.
     expect(screen.getByText("Deal value:")).toHaveClass("truncate", "min-w-0");
@@ -549,6 +551,21 @@ describe("CardItem — formatted number chips (#1391)", () => {
     expect(screen.getAllByTestId("card-field-number-sr").map((el) => el.textContent)).toEqual(["$33,000"]);
     expect(screen.getAllByTestId("card-field-number-sr")[0]).toHaveClass("sr-only");
     expect(screen.getByText("25%")).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("lets a long uncompacted value ellipsize, with the name shrinking first and the full text in the title (#2387)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "999.123456789" }] })}
+        customFieldDefinitions={[makeDefinition({ name: "Rate", field_type: "number", number_prefix: "USD ", number_suffix: " per month", number_decimals: 10 })]}
+      />
+    );
+    const value = screen.getByTestId("card-field-number");
+    expect(value).toHaveClass("truncate", "min-w-0");
+    expect(value).not.toHaveClass("shrink-0");
+    expect(value).not.toHaveClass("whitespace-nowrap", "shrink-[3]");
+    expect(screen.getByText("Rate:")).toHaveClass("truncate", "min-w-0", "shrink-[3]");
+    expect(screen.getByTitle("Rate: USD 999.1234567890 per month")).toBeInTheDocument();
   });
 
   it("still slices an unformatted long number at 16 characters, as before", () => {

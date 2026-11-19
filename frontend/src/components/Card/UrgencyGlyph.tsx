@@ -1,13 +1,12 @@
 /**
- * Urgency glyphs for the card face (#871): a flag for overdue, a stopwatch for
- * due soon. The #2272 status line also uses a flag for due soon (`due-soon-flag`)
- * and a clock for stale. Inline SVG on `currentColor`, never the ⚑/⏱ text characters, which
+ * Urgency glyphs for the card face (#871): a flag for overdue and, on the #2272
+ * status line, for due soon (`due-soon-flag`), and a clock for stale. Inline SVG on `currentColor`, never the ⚑ text character, which
  * render as emoji or fall back to another font on some platforms, ignore the
- * badge's tone token, and read aloud as "black flag" / "stopwatch". Decorative:
+ * badge's tone token, and read aloud as "black flag". Decorative:
  * the adjacent visible text (plus a screen-reader-only prefix where the glyph
  * carries meaning the text lacks) is the accessible name.
  */
-export type UrgencyGlyphKind = "overdue" | "due-soon" | "due-soon-flag" | "stale";
+export type UrgencyGlyphKind = "overdue" | "due-soon-flag" | "stale";
 
 export default function UrgencyGlyph({
   kind,
@@ -29,23 +28,16 @@ export default function UrgencyGlyph({
       data-testid={`urgency-glyph-${kind}`}
     >
       {kind === "stale" ? (
-        // Clock: face plus hands (#2272). Distinct from the stopwatch, which has a crown.
+        // Clock: face plus hands (#2272). Distinct from the flag.
         <>
           <circle cx="8" cy="8" r="6" />
           <path d="M8 4.5V8l2.25 1.5" />
         </>
-      ) : kind === "overdue" || kind === "due-soon-flag" ? (
+      ) : (
         // Flag: pole plus a filled pennant.
         <>
           <path d="M3.5 14V2" />
           <path d="M3.5 2.75h8.5l-2 3 2 3H3.5" fill="currentColor" />
-        </>
-      ) : (
-        // Stopwatch: crown, body and a hand.
-        <>
-          <path d="M6 1.5h4" />
-          <circle cx="8" cy="9" r="5" />
-          <path d="M8 9V6.25" />
         </>
       )}
     </svg>
