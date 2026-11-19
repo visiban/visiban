@@ -4,8 +4,9 @@ import CardItem from '../components/Card/CardItem'
 import AgingCue from '../components/Card/AgingCue'
 import type { Card, CardDensity } from '../types'
 
-// #1843 — non-color age cue (AgingCue stage glyph) wherever the `Stale · Nd`
-// badge is not on the card face, so a stale tint is never color-only.
+// #1843 — non-color age cue (AgingCue stage glyph) wherever the stale status
+// line (`card-status-line`, kind `stale`, #2272) is not on the card face, so a
+// stale tint is never color-only.
 // #1863 — the yellow warning stage gets the same meter with a hollow
 // shortest bar, so it is not color-only either.
 
@@ -56,7 +57,7 @@ const cue = (container: HTMLElement) => container.querySelector('svg[data-aging-
 const solidBars = (svg: Element) => svg.querySelectorAll('rect[fill="currentColor"]:not([opacity])').length
 const hollowBars = (svg: Element) => svg.querySelectorAll('rect[fill="none"][stroke="currentColor"]')
 
-describe('AgingCue on cards without a visible Stale badge (#1843)', () => {
+describe('AgingCue on cards without a visible stale status line (#1843)', () => {
   it.each([
     [15.5, 'stale', 1, 'text-warning-on-tint', 'Idle 15 days, past the stale threshold'],
     [30.5, 'stale2x', 2, 'text-danger-on-tint', 'Idle 30 days, at least 2 times the stale threshold'],
@@ -75,10 +76,10 @@ describe('AgingCue on cards without a visible Stale badge (#1843)', () => {
     expect(cue(container)).toBe(svg)
   })
 
-  it.each<CardDensity>(['comfortable', 'standard'])('compact %s stale card shows the cue (no badge in compact)', (density) => {
+  it.each<CardDensity>(['comfortable', 'standard'])('compact %s stale card shows the cue (no status line in compact)', (density) => {
     renderAged(30.5, {}, { density })
     expect(screen.getByRole('img', { name: /^Idle 30 days, at least 2 times/ })).toBeInTheDocument()
-    expect(screen.queryByText(/^Stale · /)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('card-status-line')).not.toBeInTheDocument()
   })
 
   it('non-compact dense stale card shows the status line, not the cue', () => {
@@ -87,21 +88,22 @@ describe('AgingCue on cards without a visible Stale badge (#1843)', () => {
     expect(cue(container)).toBeNull()
   })
 
-  it('non-compact comfortable card with the Stale badge visible has no cue', () => {
+  it('non-compact comfortable card with the stale status line visible has no cue', () => {
     const { container } = renderAged(30.5, {}, { density: 'comfortable', compact: false })
     expect(screen.getByTestId('card-status-line')).toHaveAttribute('data-status-kind', 'stale')
     expect(cue(container)).toBeNull()
   })
 
-  it('non-compact comfortable card whose Stale badge is preempted by overdue shows the cue', () => {
+  it('non-compact comfortable card whose stale status is preempted by overdue shows the cue', () => {
     renderAged(30.5, { due_date: daysAgo(3).slice(0, 10) }, { density: 'comfortable', compact: false })
-    expect(screen.queryByText(/^Stale · /)).not.toBeInTheDocument()
+    // One status line, and it is the overdue one: the stale status is preempted.
+    expect(screen.getByTestId('card-status-line')).toHaveAttribute('data-status-kind', 'overdue')
     expect(screen.getByRole('img', { name: /at least 2 times/ })).toBeInTheDocument()
   })
 
-  it('client-stale card the server does not yet call stale shows the cue (no badge)', () => {
+  it('client-stale card the server does not yet call stale shows the cue (no status line)', () => {
     renderAged(15.5, { is_stale: false }, { density: 'comfortable', compact: false })
-    expect(screen.queryByText(/^Stale · /)).not.toBeInTheDocument()
+    expect(screen.queryByTestId('card-status-line')).not.toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Idle 15 days, past the stale threshold' })).toBeInTheDocument()
   })
 
@@ -167,7 +169,7 @@ describe('AgingCue on warning-stage cards (#1863)', () => {
     expect(svg.getAttribute('class')).toContain('text-warning-on-tint')
     expect(screen.getByText('Aging cue card').firstElementChild).toBe(svg)
     expect(cue(container)).toBe(svg)
-    // The warning stage never shows the Stale badge.
+    // The warning stage never shows the stale status line.
     expect(screen.queryByText(/^Stale/)).not.toBeInTheDocument()
   })
 

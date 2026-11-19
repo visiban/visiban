@@ -520,11 +520,11 @@ describe("CardItem — formatted number chips (#1391)", () => {
       />
     );
     // The face shows the compact form (#2387), suffix whole; the title keeps the full value.
-    expect(screen.getByText("$1.2M USD")).toHaveClass("truncate", "min-w-0");
+    expect(screen.getByText("$1.2M USD")).toHaveClass("truncate", "shrink-0", "max-w-full");
     expect(screen.getByTitle("Budget: $1,234,567.50 USD")).toBeInTheDocument();
   });
 
-  it("shows a pinned currency field in compact form and ellipsizes the value only as a last resort (#2387)", () => {
+  it("shows a pinned currency field in compact form, the value pinned so only the name shrinks (#2387)", () => {
     render(
       <CardItem
         card={makeCard({ custom_field_values: [{ field_definition: 5, value: "33000" }, { field_definition: 6, value: "25" }] })}
@@ -537,12 +537,14 @@ describe("CardItem — formatted number chips (#1391)", () => {
     const values = screen.getAllByTestId("card-field-number").map((el) => el.textContent);
     expect(values).toEqual(["$33k", "25%"]);
     for (const el of screen.getAllByTestId("card-field-number")) {
-      // Default shrink (1) is below the name's shrink-[3], so the name yields first; the
-      // compact form is short enough that the value never needs to give anything up.
-      expect(el).toHaveClass("truncate", "min-w-0");
-      expect(el).not.toHaveClass("shrink-0");
+      // Flexbox shrinks every shrinkable item at once, so a shrinkable value would lose
+      // width alongside the name ("$3…"). shrink-0 leaves the name as the only item that
+      // shrinks; max-w-full + truncate ellipsize the value only when it alone is wider
+      // than the chip. jsdom has no layout: e2e/card-number-chip-compact.spec.ts measures it.
+      expect(el).toHaveClass("truncate", "shrink-0", "max-w-full");
+      expect(el).not.toHaveClass("min-w-0");
     }
-    // The name yields width first; the full grouped value stays in the title.
+    // The name is the item that yields width; the full grouped value stays in the title.
     expect(screen.getByText("Deal value:")).toHaveClass("truncate", "min-w-0");
     expect(screen.getByTitle("Deal value: $33,000")).toBeInTheDocument();
     // The compact text is hidden from assistive tech, which hears the full value instead;
@@ -553,7 +555,7 @@ describe("CardItem — formatted number chips (#1391)", () => {
     expect(screen.getByText("25%")).not.toHaveAttribute("aria-hidden");
   });
 
-  it("lets a long uncompacted value ellipsize, with the name shrinking first and the full text in the title (#2387)", () => {
+  it("ellipsizes a long uncompacted value only when it alone is wider than the chip, full text in the title (#2387)", () => {
     render(
       <CardItem
         card={makeCard({ custom_field_values: [{ field_definition: 5, value: "999.123456789" }] })}
@@ -561,9 +563,11 @@ describe("CardItem — formatted number chips (#1391)", () => {
       />
     );
     const value = screen.getByTestId("card-field-number");
-    expect(value).toHaveClass("truncate", "min-w-0");
-    expect(value).not.toHaveClass("shrink-0");
-    expect(value).not.toHaveClass("whitespace-nowrap", "shrink-[3]");
+    // Not character-sliced: the value is never shrunk by flex, but max-w-full caps it at
+    // the chip's width, where truncate ellipsizes it (the name has shrunk to nothing).
+    expect(value).toHaveTextContent("USD 999.1234567890 per month");
+    expect(value).toHaveClass("truncate", "shrink-0", "max-w-full");
+    expect(value).not.toHaveClass("min-w-0", "shrink-[3]");
     expect(screen.getByText("Rate:")).toHaveClass("truncate", "min-w-0", "shrink-[3]");
     expect(screen.getByTitle("Rate: USD 999.1234567890 per month")).toBeInTheDocument();
   });

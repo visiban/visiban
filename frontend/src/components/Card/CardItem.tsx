@@ -1116,8 +1116,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   const valid = isValidForType(def, value);
                   const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
                   // #2387: a number reads in compact form on the face ($33k); the
-                  // title keeps the full value ($33,000). The value never yields
-                  // width, so the name truncates first and the number stays whole.
+                  // title keeps the full value ($33,000). Its value span is
+                  // `shrink-0 max-w-full`: flexbox shrinks every shrinkable item at
+                  // once (by shrink factor x base size), so a shrinkable value would
+                  // lose width alongside the name ("$3…"). Pinned, the name is the
+                  // only item that shrinks (down to nothing, ellipsizing as it goes);
+                  // the value ellipsizes only when it alone is wider than the chip.
                   const isNumber = valid && def.field_type === "number";
                   const faceText = isNumber
                     ? formatNumberCompact(value, { prefix: def.number_prefix, suffix: def.number_suffix, decimals: def.number_decimals })
@@ -1199,7 +1203,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         <>
                           <ThresholdMark level={level} direction={def.threshold_direction ?? ""} />
                           <span
-                            className={`truncate min-w-0 ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}
+                            className={`truncate ${isNumber ? "shrink-0 max-w-full" : "min-w-0"} ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}
                             data-testid={isNumber ? "card-field-number" : undefined}
                             // A compacted number ($33k) is spoken in full ($33,000) by
                             // the sr-only twin below; `title` alone never reaches

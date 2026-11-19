@@ -71,7 +71,7 @@ async function expectNoHeightChange(stale: Locator, fresh: Locator) {
   expect(staleBox!.height).toBeCloseTo(lineHeight, 1)
 }
 
-test.describe('card aging cue where no Stale badge is shown', () => {
+test.describe('card aging cue where no stale status line is shown', () => {
   test('compact cards show the stage glyph without growing the title line', async ({ page }) => {
     await openBoard(page, { compact: true, density: 'comfortable' })
     const fresh = titleOf(page, CARD.title)
@@ -83,8 +83,8 @@ test.describe('card aging cue where no Stale badge is shown', () => {
     // CARD_STALE last moved 2026-04-01 against a 7-day threshold: far past 3x.
     await expect(severe.getByRole('img', { name: /^Idle \d+ days, at least 3 times the stale threshold$/ })).toBeVisible()
     await expect(aging.getByRole('img', { name: 'Idle 10 days, past the stale threshold' })).toBeVisible()
-    // Compact has no badge; the glyph is the at-a-glance cue.
-    await expect(page.getByText(/^Stale · \d+d$/)).toHaveCount(0)
+    // Compact has no status line; the glyph is the at-a-glance cue.
+    await expect(page.getByTestId('card-status-line')).toHaveCount(0)
     await expect(fresh.locator('svg[data-aging-cue]')).toHaveCount(0)
 
     await expect(warning.getByRole('img', { name: WARNING_CUE_NAME })).toBeVisible()
@@ -109,13 +109,14 @@ test.describe('card aging cue where no Stale badge is shown', () => {
     await expect(severeCard.getByTestId('card-status-line')).toHaveText(/^Stale \d+d$/)
     await expect(severe.locator('svg[data-aging-cue]')).toHaveCount(0)
     await expect(warning.getByRole('img', { name: WARNING_CUE_NAME })).toBeVisible()
-    await expect(page.getByText(/^Stale · \d+d$/)).toHaveCount(0)
+    const warningCard = page.locator('[data-card-id]').filter({ hasText: CARD_WARNING.title })
+    await expect(warningCard.getByTestId('card-status-line')).toHaveCount(0)
     await expectNoHeightChange(severe, fresh)
     await expectNoHeightChange(warning, fresh)
   })
 
-  // #1863: a warning card never gets the Stale badge, so the glyph shows on
-  // non-compact comfortable and standard cards too, where stale cards show the badge.
+  // #1863: a warning card never gets the stale status line, so the glyph shows on
+  // non-compact comfortable and standard cards too, where stale cards show the status line.
   for (const density of ['comfortable', 'standard'] as const) {
     test(`non-compact ${density} warning cards show the hollow-bar glyph without growing the title line`, async ({ page }) => {
       await openBoard(page, { compact: false, density })

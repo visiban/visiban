@@ -83,7 +83,7 @@ export const AGING_STAGE_CLASSES: Record<AgingStage, { overlayClass: string | nu
  * movement at all (for example one imported from Trello or CSV) — its
  * creation time. This mirrors the server's `is_stale` fallback
  * (`_annotate_is_stale`), so an imported board's never-moved cards get the
- * same ramp, tooltip and `Stale · Nd` badge as moved ones (#1841).
+ * same ramp, tooltip and stale status line as moved ones (#1841, #2272).
  */
 export function agingReference(card: { last_moved_at: string | null; created_at: string }): string | null {
   return card.last_moved_at ?? card.created_at ?? null;
