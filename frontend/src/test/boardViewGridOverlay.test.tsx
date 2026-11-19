@@ -255,11 +255,11 @@ function makeCard(id: number, column: number, swimlane: number): Card {
   }
 }
 
-/** The overlay picker's trigger — labeled "Overlay" until an overlay is chosen. */
+/** The overlay picker's trigger — labeled "None" until an overlay is chosen. */
 function getPicker(): HTMLElement {
   // The overlay picker lives in the View menu (#2269); open it on first use.
   if (!screen.queryByTestId('view-menu-panel')) fireEvent.click(screen.getByRole('button', { name: 'View' }))
-  return screen.queryByRole('button', { name: /^Overlay$/ }) ?? screen.getByRole('button', { name: 'Card count' })
+  return screen.queryByRole('button', { name: /^None$/ }) ?? screen.getByRole('button', { name: 'Card count' })
 }
 
 async function selectCardCount() {
@@ -279,9 +279,9 @@ describe('BoardView — grid overlay slot (#1147)', () => {
     mockBoardContextValue = defaultContext()
   })
 
-  it('renders the overlay picker in the board toolbar, reading "Overlay" at rest', () => {
+  it('renders the overlay picker in the board toolbar, reading "None" at rest', () => {
     render(<BoardView />)
-    expect(getPicker()).toHaveAccessibleName('Overlay')
+    expect(getPicker()).toHaveAccessibleName('None')
   })
 
   it('offers exactly the registered overlays, None first', async () => {
@@ -348,7 +348,7 @@ describe('BoardView — grid overlay slot (#1147)', () => {
     // What a #1146 board preset naming a newer overlay would look like here.
     localStorage.setItem(OVERLAY_KEY, 'dwell-time')
     render(<BoardView />)
-    expect(getPicker()).toHaveAccessibleName('Overlay')
+    expect(getPicker()).toHaveAccessibleName('None')
     expect(screen.queryByRole('group', { name: /overlay scale/ })).not.toBeInTheDocument()
   })
 

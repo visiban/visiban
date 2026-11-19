@@ -125,6 +125,12 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * `aria-current="true"` (#2108): color alone (`text-info`) fails WCAG 1.4.1.
    */
   optionRole?: "menuitem" | "menuitemradio";
+  /**
+   * #2388 — what the trigger reads while nothing is selected, instead of `label`
+   * (the View menu's Overlay shows its value, "None", under its own section label).
+   * Opt-in: every other caller keeps showing `label`.
+   */
+  unselectedLabel?: string;
 }
 
 const MIN_MENU_WIDTH = 140;
@@ -147,6 +153,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   menuHeader,
   menuActions,
   optionRole = "menuitem",
+  unselectedLabel,
 }: SingleSelectDropdownProps<T>) {
   const actions = menuActions ?? [];
   // Actions come first in the roving order, then the options (#1146).
@@ -215,7 +222,7 @@ export default function SingleSelectDropdown<T extends string | number>({
 
   const displayLabel =
     selected === null
-      ? label
+      ? unselectedLabel ?? label
       : options.find((o) => o.value === selected)?.label ?? label;
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent) => {

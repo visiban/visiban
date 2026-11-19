@@ -1280,13 +1280,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showSettings, setShowSettings] = useState(false);
   // Set only by the swimlane "N fields" grid's "Change field order" shortcut (#1458); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
     setShowSettings(false);
     setSettingsInitialTab(undefined);
     setWebhookDeepLink(false);
+  }, []);
+  // #2388 — the View menu's "On the card: ... Change" opens Board settings on Card fields.
+  const openCardFields = useCallback(() => {
+    setSettingsInitialTab("fields");
+    setShowSettings(true);
   }, []);
   const openSwimlaneFieldOrder = useCallback(() => {
     setSettingsInitialTab("swimlane-fields");
@@ -3150,6 +3155,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     portalMenu
                     className="w-full"
                     escapePriority={26}
+                    unselectedLabel="None"
                     options={gridOverlayOptions}
                     selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
                     onChange={handleGridOverlayChange}
@@ -3169,6 +3175,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 onToggleArchived={() => setShowArchived((v) => !v)}
                 showSubColumns={showSubColumns}
                 onShowSubColumnsChange={board.columns.some(isGatedStage) ? setShowSubColumns : undefined}
+                cardFieldNames={board.custom_field_definitions.filter((d) => d.show_on_card).map((d) => d.name)}
+                onChangeCardFields={isAdmin ? openCardFields : undefined}
               />
             </span>
             <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>

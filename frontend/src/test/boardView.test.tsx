@@ -588,7 +588,7 @@ describe('BoardView', () => {
       frame(leaveDone().reopened)
       expect(silentReload).not.toHaveBeenCalled()
       openViewPanel()
-      await userEvent.click(screen.getByRole('button', { name: /^Overlay$/ }))
+      await userEvent.click(screen.getByRole('button', { name: /^None$/ }))
       await userEvent.click(screen.getByRole('menuitem', { name: 'Dwell time' }))
       expect(silentReload).toHaveBeenCalledTimes(1)
     })

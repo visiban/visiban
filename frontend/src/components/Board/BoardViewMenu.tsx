@@ -4,7 +4,6 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
-import { Toggle } from "../Common/Toggle";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useLiveAnnouncer, laneStateMessage, columnStateMessage } from "../../hooks/useLiveAnnouncer";
 import type { CardDensity } from "../../types";
@@ -45,6 +44,13 @@ interface Props {
    */
   showSubColumns?: boolean;
   onShowSubColumnsChange?: (show: boolean) => void;
+  /**
+   * #2388 — names of the custom fields pinned to the card face, for the footer line
+   * "On the card: <fields> Change". Omit `onChangeCardFields` (viewers who cannot
+   * edit the board's fields) and the line shows without the action.
+   */
+  cardFieldNames?: string[];
+  onChangeCardFields?: () => void;
   /**
    * Phones only (#2340): the View button is hidden and the Filter panel's "View options"
    * button opens this panel instead. Each bump of `openRequest` opens it anchored to
@@ -188,6 +194,7 @@ export default function BoardViewMenu(props: Props) {
   }, [openRequest]);
 
   const { density, onDensityChange, cardLayout, onCardLayoutChange } = props;
+  const cardFieldNames = props.cardFieldNames ?? [];
 
   const segment = (label: string, active: boolean, onClick: () => void, first: boolean) => (
     <button
@@ -261,18 +268,36 @@ export default function BoardViewMenu(props: Props) {
       </div>
 
       {props.onShowSubColumnsChange && (
-        // The whole row is the target (44px on phone): the label forwards its click to the switch.
-        <label htmlFor={`${panelId}-subcols-switch`} className="flex items-center justify-between gap-2 cursor-pointer max-sm:min-h-11">
-          <span id={`${panelId}-subcols`} className="text-sm text-fg">Show sub-columns</span>
-          <Toggle
-            id={`${panelId}-subcols-switch`}
+        // A checkbox, as the reference menu draws it (#2388). The whole row is the target
+        // (44px on phone): the label forwards its click to the box.
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-fg max-sm:min-h-11">
+          <input
+            type="checkbox"
             checked={props.showSubColumns !== false}
-            onChange={(on) => props.onShowSubColumnsChange?.(on)}
-            aria-labelledby={`${panelId}-subcols`}
+            onChange={(e) => props.onShowSubColumnsChange?.(e.target.checked)}
             data-testid="view-menu-sub-columns"
+            className="h-4 w-4 rounded border-line-strong accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           />
+          Show sub-columns
         </label>
       )}
+
+      <p className="text-xs text-fg-secondary" data-testid="view-menu-card-fields">
+        On the card:{" "}
+        <span className="text-fg">{cardFieldNames.length > 0 ? cardFieldNames.join(", ") : "No pinned fields"}</span>
+        {props.onChangeCardFields && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={() => { close(); props.onChangeCardFields?.(); }}
+              className="text-info underline hover:no-underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Change
+            </button>
+          </>
+        )}
+      </p>
 
       <div className="border-t border-line pt-2">
         <button

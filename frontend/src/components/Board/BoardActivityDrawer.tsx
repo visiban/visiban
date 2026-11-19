@@ -147,7 +147,7 @@ export default function BoardActivityDrawer({
       {/* Header */}
       <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium text-fg">Activity</div>
+          <div className="text-[17px] font-semibold text-fg">Activity</div>
           {drawerTab === "archived" && <div className="text-xs text-fg-tertiary">Restore archived cards</div>}
         </div>
         <button type="button"

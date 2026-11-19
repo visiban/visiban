@@ -256,3 +256,16 @@ describe('SingleSelectDropdown option groups (#2336)', () => {
     expect(await menuHtml([{ ...plain[0], group: 'Only' }, plain[1], plain[2]])).toBe(before)
   })
 })
+
+describe('SingleSelectDropdown unselectedLabel (#2388)', () => {
+  it('reads the unselected label instead of the label while nothing is selected', () => {
+    render(<SingleSelectDropdown label="Overlay" unselectedLabel="None" options={OPTIONS} selected={null} onChange={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'None' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Overlay' })).not.toBeInTheDocument()
+  })
+
+  it('still reads the selected option once one is chosen', () => {
+    render(<SingleSelectDropdown label="Overlay" unselectedLabel="None" options={OPTIONS} selected="a" onChange={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Alpha' })).toBeInTheDocument()
+  })
+})

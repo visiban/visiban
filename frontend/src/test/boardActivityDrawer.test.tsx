@@ -35,6 +35,11 @@ const defaultProps = {
 const openFilters = () => fireEvent.click(screen.getByRole("button", { name: /^filter activity/i }));
 
 describe("BoardActivityDrawer", () => {
+  it("heading is bold 17px like the reference (#2390)", () => {
+    render(<BoardActivityDrawer {...defaultProps} />);
+    expect(screen.getByText("Activity", { selector: "div" })).toHaveClass("text-[17px]", "font-semibold", "text-fg");
+  });
+
   it("shows empty state when feed is empty", () => {
     render(<BoardActivityDrawer {...defaultProps} />);
     expect(screen.getByText(/no activity yet/i)).toBeInTheDocument();
