@@ -246,9 +246,14 @@ The script will automatically:
    job hard-fails at tag time if it differs from the tag) with the new version. The chart's own
    `version:` is **not** touched — it is the chart packaging version, bumped by hand only when
    the chart's templates/values change (#1194). `helm-publish` refuses to re-publish a chart
-   version that is already in GHCR (#1155), so a stable release whose chart `version:` already
-   shipped fails at publish time: check `helm show chart oci://ghcr.io/visiban/charts/visiban`
-   before tagging a patch release
+   version that is already in GHCR (#1155), so `release.sh` pre-flights it (#2375): before the
+   release branch exists it computes the chart version the tag pipeline will publish (`version:`,
+   plus `-<pre-release>` for a pre-release tag, e.g. `v1.3.0-alpha.1` -> `0.8.0-alpha.1`) and runs
+   `scripts/check-chart-registry.sh --candidate` on it. A taken version stops the cut before any
+   tag or push: merge an MR that bumps `version:` in `helm/visiban/Chart.yaml`, then re-run. An
+   unreadable registry also stops it (fails closed); `RELEASE_SKIP_CHART_VERSION_CHECK=1` bypasses
+   it deliberately. A patch release with no chart change therefore needs a chart `version:` bump
+   MR first
 6. Verify version consistency across those files, `docker-compose.prod.yml`, and the Helm
    chart, and **abort the release if any check fails** — `git reset --hard`, checkout `main`,
    delete the release branch, same cleanup as step 3's abort path. Nothing is committed yet at
@@ -321,9 +326,11 @@ chart, and the **GitHub** Release. It does not publish the versioned docs, becau
   was live before the images were. See `docs/maintainers/known-ci-failures.md` for the
   refusal table, and for how to abandon a release instead (the docs need no rollback unless a
   manual `DOCS_VERSION` deploy ran).
-- **While a refusal is open, hold docs merges to `main` or abandon the release.** The refused
-  tag stays on origin, so the next `docs/**` or `mkdocs.yml` push to `main` passes
-  `--require-tag` and deploys that version's docs ungated (#2398).
+- **A refused tag cannot publish docs from `main`.** The refused tag stays on origin, but
+  `--require-tag` also requires the tag pipeline's `release-main-pipeline-guard` job to be
+  `success` (#2398), so a later `docs/**` or `mkdocs.yml` push to `main` skips that version.
+  A published GitLab Release is not that signal (`release.sh` creates it before the guard
+  runs). A failed guard-status lookup fails the `main` `docs-deploy` job instead of skipping.
 - **A refusal caused by the guard's own job lists needs a new tag.** That covers a renamed
   required job and a new `manual` job missing from the exemptions. The guard reads its lists
   from the tagged commit, so fix them on `main` and cut a **new** tag.

@@ -299,9 +299,7 @@ close that.** The full e2e suite is too slow to run per stack-add, so the
 honest rule is: **e2e is the residual risk Phase A cannot certify** — budget
 Phase B triage time for it rather than reading a red `playwright-e2e` job as
 proof the batch is uncomposable. Note also that `playwright-e2e` in this
-project's `.gitlab-ci.yml` currently runs as `allow_failure: true` during its
-rollout period — a red e2e job may not even be gating the MR pipeline yet;
-check the job's `allow_failure` status before treating it as a stop.
+project's `.gitlab-ci.yml` is blocking (`allow_failure: false`, #2392) — a red e2e job gates the MR pipeline.
 
 Two practical notes on running the checks:
 
@@ -609,9 +607,8 @@ was never actually tested. Two consequences:
 
 **Then, if the pipeline did run jobs, triage the failing job — a known flake is
 retried once, not a stop.** A freshly-pushed branch re-runs the full suite,
-including `playwright-e2e`, which currently runs `allow_failure: true` during
-its rollout period per `.gitlab-ci.yml` — a red e2e job there is advisory, not
-a hard stop, unless the user has since promoted it to required. Pull the
+including `playwright-e2e`, which is blocking (`allow_failure: false`, #2392)
+per `.gitlab-ci.yml` — a red e2e job there is a hard stop unless triage shows a known flake. Pull the
 failed jobs and read the trace:
 
 ```bash
@@ -764,8 +761,8 @@ the Step 2 sweep so the next run catches it before merging rather than after.
   filter and never `head_pipeline`. Cap the wait so CI hangs don't loop
   forever.
 - **Triage a `failed` before stopping.** A freshly-pushed branch re-runs
-  `playwright-e2e`, which is `allow_failure: true` in this project during its
-  rollout — check that before treating an e2e failure as a stop. A real
+  `playwright-e2e`, which is blocking (`allow_failure: false`, #2392) — triage it
+  like any other job before treating an e2e failure as a stop. A real
   test/type/lint/build failure — or one on this MR's own diff — is a hard
   stop. Never blanket-retry to force green.
 - **Drive worktree-held branches with `git -C "$WT"`.**

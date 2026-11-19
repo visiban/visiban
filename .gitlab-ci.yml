@@ -3100,9 +3100,12 @@ added-files-coverage-check-self-test:
 # Microsoft Playwright Docker image (browsers pre-installed, no download step).
 # API calls are intercepted by page.route() so no backend is required.
 #
-# Starts as allow_failure: true to tolerate transient flakiness during the
-# initial rollout period.  Promote to required after three consecutive clean
-# weeks of pipeline history on main.
+# Blocking (allow_failure: false) as of #2392: the redesigned-board
+# toHaveScreenshot baseline (frontend/e2e/board-redesign.spec.ts, Linux
+# snapshots generated in this Playwright image, #2279) ran green on main
+# (pipelines 3089246220 at 02b8a8645 and 3089564588 at 5820139f2) before the
+# flip. A red job here now blocks the MR; release-main-pipeline-guard already
+# counted it as a failure either way.
 #
 # Uses workers: 1 (via playwright.config.ts) to stay within the 2 GB runner
 # memory budget (Chromium ~500 MB + Vite dev server ~400 MB).
@@ -3111,7 +3114,7 @@ playwright-e2e:
   stage: test
   needs: []
   image: mcr.microsoft.com/playwright:v1.59.1-noble
-  allow_failure: true
+  allow_failure: false
   # No unconditional main fallback (#1266) — nothing needs this job, and it's
   # one of the more expensive ones to run needlessly (browser image pull +
   # full e2e suite).
@@ -5444,12 +5447,18 @@ docs-deploy:
       # unconditional across all three VERSION sources (#1270).
       # --require-tag (#1997): a push to main whose APP_VERSION tag does not exist
       # yet (the release merge) deploys nothing; the tag pipeline publishes it.
+      # #2398: also requires the tag pipeline's release-main-pipeline-guard job to
+      # be `success` (read with GITLAB_API_TOKEN, the guard's own variable), so a
+      # refused release's tag cannot publish its docs from main.
       rc=0; VERSION=$(scripts/resolve-docs-version.sh --require-tag) || rc=$?
       if [ "$rc" -eq 3 ]; then
         echo "INFO: the release tag does not exist yet; its versioned docs are published by the tag pipeline, after release-main-pipeline-guard."
         exit 0
+      elif [ "$rc" -eq 5 ]; then
+        echo "INFO: the release tag exists but its release-main-pipeline-guard job is not success (refused, still running, or missing); not deploying its docs from main. The tag pipeline's docs-deploy publishes them once the guard passes (#2398)."
+        exit 0
       elif [ "$rc" -eq 4 ]; then
-        echo "ERROR: could not look up the release tag on origin; failing rather than silently skipping the docs deploy." >&2
+        echo "ERROR: could not look up the release tag or its release-main-pipeline-guard status (is GITLAB_API_TOKEN available on main?); failing rather than silently skipping the docs deploy." >&2
         exit 1
       elif [ "$rc" -ne 0 ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.

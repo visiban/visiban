@@ -62,7 +62,7 @@ Publishing is gated too, with one exception. On a `v*` tag, every publish job `n
 release. That job refuses unless every check in the tagged commit's own `main` pipeline is
 green, including `allow_failure: true` jobs (#1154). That includes the versioned docs:
 `main`'s `docs-deploy` skips a version whose tag does not exist yet, so the tag pipeline's
-`docs-deploy` publishes them after the guard (#1997). One residual window: a refused tag stays on origin,
-so a later `docs/**` push to `main` would deploy it ungated; hold docs merges during a
-refusal or abandon the release (#2398). If it refuses, see
+`docs-deploy` publishes them after the guard (#1997). A refused tag stays on origin, but
+`main` also requires the tag pipeline's `release-main-pipeline-guard` job to be `success`
+before it deploys that version, so a refusal cannot publish docs from `main` (#2398). If it refuses, see
 [Known CI Failures](known-ci-failures.md#release-main-pipeline-guard-refuses-to-publish-a-release-tag).
