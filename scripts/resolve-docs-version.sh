@@ -34,6 +34,23 @@
 # once the guard passes; main keeps deploying docs edits to an ALREADY-tagged
 # version, so docs fixes between releases still go live.
 #
+# --require-tag also requires the tag's `release-main-pipeline-guard` job to have
+# `success` on the TAG pipeline (#2398). A tag on origin only proves the release
+# was pushed, not that the guard passed it: a refused release's tag stays on
+# origin, and a published GitLab Release is no signal either (release.sh creates
+# it before the guard runs). So the next docs push to main would otherwise run
+# `mike deploy <tag> ... latest` for images that were never published. The newest
+# pipeline for ref=<tag> is read with GITLAB_API_TOKEN (read_api, the same
+# variable the guard uses; CI_JOB_TOKEN cannot list pipelines) and its
+# non-retried job of that name must be `success`. Fails closed:
+#   exit 5  guard is not `success` (failed, running, pending, canceled, manual,
+#           job or pipeline missing): skip, the tag pipeline's own docs-deploy
+#           publishes once the guard passes
+#   exit 4  the lookup itself failed (no token, API error, unparsable reply):
+#           fail the job rather than silently skip
+# Test hooks (TAG_LOOKUP_CMD for the tag, GUARD_STATUS_CMD for the guard) are
+# honored ONLY inside --self-test, so an exported stray cannot neuter the gate.
+#
 # Usage:
 #   scripts/resolve-docs-version.sh [--require-tag] [--env-file <path>]
 #   DOCS_VERSION=<tag> scripts/resolve-docs-version.sh
@@ -48,6 +65,10 @@ set -eu
 ENV_FILE=".env.example"
 SELF_TEST=0
 REQUIRE_TAG=0
+# Assigned here, never inherited: test hooks (TAG_LOOKUP_CMD, GUARD_STATUS_CMD)
+# are honored only while self_test has set this to 1.
+_RDV_SELFTEST=0
+GUARD_JOB="release-main-pipeline-guard"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -85,7 +106,7 @@ resolve() {
 # same (exit 2 = absent, any other nonzero = failed lookup).
 tag_published() {
   local rc=0
-  if [ -n "${TAG_LOOKUP_CMD:-}" ]; then
+  if [ "$_RDV_SELFTEST" -eq 1 ] && [ -n "${TAG_LOOKUP_CMD:-}" ]; then
     $TAG_LOOKUP_CMD "refs/tags/$1" >/dev/null 2>&1 || rc=$?
   else
     git ls-remote --exit-code --tags origin "refs/tags/$1" >/dev/null 2>&1 || rc=$?
@@ -93,18 +114,68 @@ tag_published() {
   case "$rc" in 0) return 0 ;; 2) return 1 ;; *) return 2 ;; esac
 }
 
+# guard_status <tag>: prints the status of the tag pipeline's guard job
+# (`success`, `failed`, `running`, ..., or `none` when the pipeline or the job is
+# missing) and returns 0; returns nonzero when the lookup itself failed.
+guard_status() {
+  if [ "$_RDV_SELFTEST" -eq 1 ] && [ -n "${GUARD_STATUS_CMD:-}" ]; then
+    $GUARD_STATUS_CMD "$1"
+    return $?
+  fi
+  [ -n "${GITLAB_API_TOKEN:-}" ] && [ -n "${CI_API_V4_URL:-}" ] && [ -n "${CI_PROJECT_ID:-}" ] || return 1
+  python3 -I - "$1" "$GUARD_JOB" <<'PY'
+import json, os, sys, urllib.parse, urllib.request
+
+tag, job_name = sys.argv[1], sys.argv[2]
+api = os.environ["CI_API_V4_URL"].rstrip("/")
+proj = urllib.parse.quote(os.environ["CI_PROJECT_ID"], safe="")
+token = os.environ["GITLAB_API_TOKEN"]
+
+
+def get(path):
+    req = urllib.request.Request(api + "/projects/" + proj + path, headers={"PRIVATE-TOKEN": token})
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - https GitLab API URL from CI
+        return json.load(resp)
+
+
+try:
+    pipes = get("/pipelines?ref=" + urllib.parse.quote(tag, safe="") + "&order_by=id&sort=desc&per_page=1")
+    if not isinstance(pipes, list):
+        sys.exit(1)
+    if not pipes:
+        print("none")
+        sys.exit(0)
+    # Only the newest pipeline counts; include_retried defaults to false, so a
+    # retried guard job is represented by its latest run.
+    jobs = get("/pipelines/%d/jobs?per_page=100" % int(pipes[0]["id"]))
+    if not isinstance(jobs, list):
+        sys.exit(1)
+    mine = [j for j in jobs if j.get("name") == job_name]
+    print(str(max(mine, key=lambda j: j.get("id", 0)).get("status", "none")) if mine else "none")
+except SystemExit:
+    raise
+except Exception:  # any API/parse failure must read as "lookup failed", never as a status
+    sys.exit(1)
+PY
+}
+
 # gate_on_tag <DOCS_VERSION> <CI_COMMIT_TAG> <version>: returns 3 when the version
-# came from the .env.example fallback and its tag is not published yet, 4 when the
-# lookup failed (fail closed: a failed lookup must not look like "skip, green").
+# came from the .env.example fallback and its tag is not published yet, 5 when the
+# tag exists but its guard job is not `success` (#2398), 4 when either lookup
+# failed (fail closed: a failed lookup must not look like "skip, green").
 gate_on_tag() {
-  local rc=0
+  local rc=0 st
   if [ -n "${1:-}" ] || [ -n "${2:-}" ]; then return 0; fi
   tag_published "$3" || rc=$?
-  case "$rc" in 0) return 0 ;; 1) return 3 ;; *) return 4 ;; esac
+  case "$rc" in 0) : ;; 1) return 3 ;; *) return 4 ;; esac
+  st=$(guard_status "$3") || return 4
+  [ "$st" = "success" ] || return 5
+  return 0
 }
 
 self_test() {
   local tmp out rc
+  _RDV_SELFTEST=1
   tmp=$(mktemp -d)
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
@@ -160,8 +231,36 @@ self_test() {
 
   # --require-tag gate (#1997)
   published="$tmp/published"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ] && exit 0\nexit 2\n' > "$published"; chmod +x "$published"
-  rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.3.0" || rc=$?
-  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: fallback version whose tag exists must deploy (rc=$rc)." >&2; exit 1; }
+  gstub() { printf '#!/bin/sh\n%s\n' "$1" > "$tmp/gs"; chmod +x "$tmp/gs"; }
+  gstub 'echo success'
+  export TAG_LOOKUP_CMD="$published"
+  rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "" "v1.3.0" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: tag exists and guard success must deploy (rc=$rc)." >&2; exit 1; }
+  echo "OK: tag exists and the guard succeeded: deploys (#2398)"
+  for st in failed running pending canceled manual skipped created none; do
+    gstub "echo $st"
+    rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "" "v1.3.0" || rc=$?
+    [ "$rc" -eq 5 ] || { echo "SELF-TEST FAILED: guard status '$st' must skip with 5 (rc=$rc)." >&2; exit 1; }
+  done
+  echo "OK: a refused, unfinished, or missing guard (failed/running/pending/none/...) skips the deploy (#2398)"
+  gstub 'exit 1'
+  rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "" "v1.3.0" || rc=$?
+  [ "$rc" -eq 4 ] || { echo "SELF-TEST FAILED: a failed guard lookup must fail closed with 4 (rc=$rc)." >&2; exit 1; }
+  gstub 'echo'
+  rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "" "v1.3.0" || rc=$?
+  [ "$rc" -eq 5 ] || { echo "SELF-TEST FAILED: an empty guard status must not read as success (rc=$rc)." >&2; exit 1; }
+  echo "OK: an API error fails closed (4); an empty reply is never success"
+  gstub 'echo success'
+  rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "" "v1.4.0" || rc=$?
+  [ "$rc" -eq 3 ] || { echo "SELF-TEST FAILED: no tag must still win over a guard stub (rc=$rc)." >&2; exit 1; }
+  rc=0; GUARD_STATUS_CMD="$tmp/gs" gate_on_tag "" "v1.4.0" "v1.4.0" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: the tag pipeline must not consult the guard lookup (rc=$rc)." >&2; exit 1; }
+  echo "OK: no tag still skips; the tag pipeline itself is never gated here"
+  _RDV_SELFTEST=0
+  rc=0; ( unset GITLAB_API_TOKEN; GUARD_STATUS_CMD="$tmp/gs"; guard_status v1.3.0 >/dev/null ) || rc=$?
+  [ "$rc" -ne 0 ] || { echo "SELF-TEST FAILED: GUARD_STATUS_CMD must be inert outside --self-test (#2398)." >&2; exit 1; }
+  echo "OK: the guard-status test hook is inert outside --self-test"
+  _RDV_SELFTEST=1
   echo "OK: main deploys a version whose tag already exists"
   rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.4.0" || rc=$?
   [ "$rc" -eq 3 ] || { echo "SELF-TEST FAILED: fallback version with no tag must be refused with 3 (rc=$rc)." >&2; exit 1; }

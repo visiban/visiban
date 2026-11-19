@@ -82,18 +82,70 @@ echo "APP_VERSION=" > "$ENV_EMPTY_APP_VERSION"
 run "$ENV_EMPTY_APP_VERSION"
 expect ".env.example with APP_VERSION= (empty value): exits 1, not \"v\"" 1 ""
 
-# --- --require-tag (#1997): main must not publish a version before its tag ---
+# --- --require-tag (#1997, #2398): main must not publish a version before its tag
+# exists AND its tag pipeline's release-main-pipeline-guard passed. The test hooks
+# (TAG_LOOKUP_CMD, GUARD_STATUS_CMD) are honored only inside --self-test, so the
+# CLI cases here use a real local git remote and a local fake GitLab API.
+REMOTE="$TMP/remote.git"; git init -q --bare "$REMOTE"
+WORK="$TMP/work"; git init -q "$WORK"
+git -C "$WORK" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$WORK" tag v1.3.0
+git -C "$WORK" remote add origin "$REMOTE"; git -C "$WORK" push -q origin v1.3.0
+runrt() { RC=0; OUT=$(cd "$WORK" && env -u DOCS_VERSION -u CI_COMMIT_TAG "$@" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?; }
 ENV_REL="$TMP/env-release"; echo "APP_VERSION=v1.4.0" > "$ENV_REL"
-LOOKUP="$TMP/lookup"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ] && exit 0\nexit 2\n' > "$LOOKUP"; chmod +x "$LOOKUP"
-runrt() { RC=0; OUT=$(env -u DOCS_VERSION -u CI_COMMIT_TAG TAG_LOOKUP_CMD="$LOOKUP" "$@" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?; }
 runrt
 expect "main, APP_VERSION tag not on origin: exit 3, nothing on stdout" 3 ""
-FAILLOOK="$TMP/faillook"; printf '#!/bin/sh\nexit 128\n' > "$FAILLOOK"; chmod +x "$FAILLOOK"
-RC=0; OUT=$(env -u DOCS_VERSION -u CI_COMMIT_TAG TAG_LOOKUP_CMD="$FAILLOOK" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?
-expect "main, tag lookup itself fails: exit 4 (fail closed), not 3 (skip)" 4 ""
 ENV_REL="$TMP/env-tagged"; echo "APP_VERSION=v1.3.0" > "$ENV_REL"
 runrt
-expect "main, APP_VERSION tag already on origin: deploys it" 0 "v1.3.0"
+expect "main, tag on origin but no API token: exit 4 (fail closed), nothing on stdout (#2398)" 4 ""
+STUB="$TMP/guard-success"; printf '#!/bin/sh\necho success\n' > "$STUB"; chmod +x "$STUB"
+runrt env GUARD_STATUS_CMD="$STUB" TAG_LOOKUP_CMD="$STUB"
+expect "an exported GUARD_STATUS_CMD/TAG_LOOKUP_CMD stub is ignored outside --self-test (#2398)" 4 ""
+
+# Real HTTP path against a local fake GitLab API (python3 http.server on loopback).
+API_DIR="$TMP/api"; mkdir -p "$API_DIR"
+PORT_FILE="$TMP/port"
+python3 -I - "$API_DIR" "$PORT_FILE" >/dev/null 2>&1 <<'PY' &
+import http.server, os, sys, socketserver
+root, portfile = sys.argv[1], sys.argv[2]
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.headers.get("PRIVATE-TOKEN") != "fake-token-for-test":
+            self.send_response(401); self.end_headers(); return
+        mode = open(os.path.join(root, "mode")).read().strip()
+        path = self.path.split("?")[0]
+        if mode == "error":
+            self.send_response(500); self.end_headers(); return
+        if path.endswith("/pipelines"):
+            body = "[]" if mode == "nopipe" else '[{"id": 77}]'
+        else:
+            body = '[{"id": 1, "name": "release-main-pipeline-guard", "status": "%s"}, {"id": 2, "name": "other", "status": "success"}]' % mode
+        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
+        self.wfile.write(body.encode())
+    def log_message(self, *a): pass
+srv = socketserver.TCPServer(("127.0.0.1", 0), H)
+open(portfile, "w").write(str(srv.server_address[1]))
+srv.serve_forever()
+PY
+SRV=$!
+trap 'kill $SRV 2>/dev/null; rm -rf "$TMP"' EXIT
+for _ in $(seq 1 50); do [[ -s "$PORT_FILE" ]] && break; sleep 0.1; done
+API="http://127.0.0.1:$(cat "$PORT_FILE")/api/v4"
+apimode() { echo "$1" > "$API_DIR/mode"; }
+runapi() { runrt env CI_API_V4_URL="$API" CI_PROJECT_ID=1 GITLAB_API_TOKEN=fake-token-for-test; }
+apimode success; runapi
+expect "tag on origin, guard job success on the tag pipeline: deploys" 0 "v1.3.0"
+apimode failed; runapi
+expect "guard job failed (refused release): exit 5, nothing on stdout (#2398)" 5 ""
+apimode running; runapi
+expect "guard job still running: exit 5" 5 ""
+apimode nopipe; runapi
+expect "no pipeline for the tag: exit 5" 5 ""
+apimode error; runapi
+expect "API error: exit 4 (fail closed)" 4 ""
+apimode success
+runrt env CI_API_V4_URL="$API" CI_PROJECT_ID=1 GITLAB_API_TOKEN=wrong-token
+expect "rejected token: exit 4 (fail closed)" 4 ""
 ENV_REL="$TMP/env-release"
 runrt env CI_COMMIT_TAG=v1.4.0
 expect "tag pipeline deploys its tag with no lookup" 0 "v1.4.0"

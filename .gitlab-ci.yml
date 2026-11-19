@@ -5447,12 +5447,18 @@ docs-deploy:
       # unconditional across all three VERSION sources (#1270).
       # --require-tag (#1997): a push to main whose APP_VERSION tag does not exist
       # yet (the release merge) deploys nothing; the tag pipeline publishes it.
+      # #2398: also requires the tag pipeline's release-main-pipeline-guard job to
+      # be `success` (read with GITLAB_API_TOKEN, the guard's own variable), so a
+      # refused release's tag cannot publish its docs from main.
       rc=0; VERSION=$(scripts/resolve-docs-version.sh --require-tag) || rc=$?
       if [ "$rc" -eq 3 ]; then
         echo "INFO: the release tag does not exist yet; its versioned docs are published by the tag pipeline, after release-main-pipeline-guard."
         exit 0
+      elif [ "$rc" -eq 5 ]; then
+        echo "INFO: the release tag exists but its release-main-pipeline-guard job is not success (refused, still running, or missing); not deploying its docs from main. The tag pipeline's docs-deploy publishes them once the guard passes (#2398)."
+        exit 0
       elif [ "$rc" -eq 4 ]; then
-        echo "ERROR: could not look up the release tag on origin; failing rather than silently skipping the docs deploy." >&2
+        echo "ERROR: could not look up the release tag or its release-main-pipeline-guard status (is GITLAB_API_TOKEN available on main?); failing rather than silently skipping the docs deploy." >&2
         exit 1
       elif [ "$rc" -ne 0 ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.

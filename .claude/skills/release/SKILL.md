@@ -326,9 +326,11 @@ chart, and the **GitHub** Release. It does not publish the versioned docs, becau
   was live before the images were. See `docs/maintainers/known-ci-failures.md` for the
   refusal table, and for how to abandon a release instead (the docs need no rollback unless a
   manual `DOCS_VERSION` deploy ran).
-- **While a refusal is open, hold docs merges to `main` or abandon the release.** The refused
-  tag stays on origin, so the next `docs/**` or `mkdocs.yml` push to `main` passes
-  `--require-tag` and deploys that version's docs ungated (#2398).
+- **A refused tag cannot publish docs from `main`.** The refused tag stays on origin, but
+  `--require-tag` also requires the tag pipeline's `release-main-pipeline-guard` job to be
+  `success` (#2398), so a later `docs/**` or `mkdocs.yml` push to `main` skips that version.
+  A published GitLab Release is not that signal (`release.sh` creates it before the guard
+  runs). A failed guard-status lookup fails the `main` `docs-deploy` job instead of skipping.
 - **A refusal caused by the guard's own job lists needs a new tag.** That covers a renamed
   required job and a new `manual` job missing from the exemptions. The guard reads its lists
   from the tagged commit, so fix them on `main` and cut a **new** tag.
