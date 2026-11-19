@@ -343,6 +343,17 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "one payload. The bound is the deleted group's ancestor chain plus its "
         "subtree, and the boards in it; event rows are persisted before commit."
     ),
+    "backend/boards/services/card_links.py::announce_cards_removal": (
+        "One card.children_changed per surviving parent's board and one "
+        "card.parent_changed per surviving child board, recorded when cards "
+        "that carry cross-board parent/child links are deleted (#1104). Each "
+        "frame goes to a distinct board channel (the peer's own board) and "
+        "carries only that board's ids, so they cannot be collapsed into one "
+        "payload. The child-board frames are already batched per board. Bounded "
+        "by the distinct peer boards of the deleted cards' links (at most 100 "
+        "children per parent); record_board_event() defers each publish with "
+        "on_commit."
+    ),
 }
 
 # Broadcasts or writes whose shape the checker cannot classify and the
