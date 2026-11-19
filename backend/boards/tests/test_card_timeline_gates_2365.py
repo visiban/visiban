@@ -109,6 +109,15 @@ class GateMovedWithAColumnTests(_GateTimelineBase):
         self.assertIsNone(data["from_gates_passed"])
         self.assertIsNone(data["from_gates_open"])
 
+    def test_counts_gate_excludes_movement_linked_rows_when_gate_is_filtered_out(self):
+        # With `gate` absent from event_types the count comes from its own query,
+        # not the page's total, so it must itself skip movement-linked rows.
+        self.move(self.stage, gates_passed=2)
+        body = self.get({"include_counts": "true", "event_types": "field"})
+        self.assertEqual(body["counts"]["gate"], 0)
+        unfiltered = self.get({"include_counts": "true"})
+        self.assertEqual(sum(body["counts"].values()), unfiltered["count"])
+
     def test_leaving_a_stage_early_is_on_the_move_entry(self):
         self.move(self.stage)
         self.move(self.stage, gates_passed=1)
