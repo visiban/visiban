@@ -22,6 +22,10 @@ cursor page, as a one-board user (#1805).
   - card_search             GET  /api/v1/cards/?search=...          (#1805)
   - card_search_multi_board GET  /api/v1/cards/?search=...          (#1810, as demo3, 200 boards)
   - card_timeline           GET  /api/v1/boards/{id}/cards/{id}/timeline/  (0045)
+  - card_timeline_counts    GET  .../timeline/?include_counts=true   (#2195, what the card sheet requests)
+  - board_movements         GET  /api/v1/boards/{id}/movements/      (#2237, first page, budget: #2237)
+  - board_movements_deep    GET  .../movements/?offset=<3/4 deep>    (#2237, budget: #2237)
+  - board_movements_dated   GET  .../movements/?moved_after=<30d ago> (#2237, budget: #2237)
   - card_list               GET  /api/v1/boards/{id}/cards/         (#2239, budget: #2237)
   - cards_archived          GET  /api/v1/boards/{id}/cards/archived/ (#2239, budget: #2237)
   - notifications_list      GET  /api/v1/notifications/
@@ -73,7 +77,7 @@ import re
 import statistics
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -182,6 +186,19 @@ def _self_test():
         failures.append("board_list scenario missing from _endpoints()")
     if eps.get("card_search_multi_board") != eps.get("card_search") or not eps.get("card_search"):
         failures.append("card_search_multi_board must hit the same URL as card_search (#1810)")
+    # #2195: the counts scenario must request include_counts on the same card as the
+    # plain timeline, or it would not measure the extra queries.
+    if eps.get("card_timeline_counts") != eps.get("card_timeline", "") + "?include_counts=true":
+        failures.append("card_timeline_counts must be card_timeline plus ?include_counts=true (#2195)")
+    # #2237: the deep offset is page-aligned, inside the history, and 0 when there is no depth.
+    for total, want in ((30000, 22500), (1001, 750), (50, 0), (None, 0), ("x", 0)):
+        if _movements_deep_offset(total) != want:
+            failures.append(f"_movements_deep_offset({total!r}) = {_movements_deep_offset(total)}, expected {want}")
+    deps = _endpoints("http://x", 1, 2, 22500, "2026-01-01")
+    if not deps["board_movements_deep"].endswith("/movements/?offset=22500"):
+        failures.append("board_movements_deep must carry the derived offset (#2237)")
+    if not deps["board_movements_dated"].endswith("/movements/?moved_after=2026-01-01"):
+        failures.append("board_movements_dated must carry the moved_after date (#2237)")
     # Guard (#1767): every measured scenario must have a committed budget, so a
     # new scenario cannot silently stay measure-only (it could never fail the job).
     # Resolved from this file, not the cwd, so it works wherever the self-test runs.
@@ -278,7 +295,19 @@ def _evaluate_budget(name, p95, budgets):
     return budget_ms, within, msg
 
 
-def _endpoints(base_url, board_id, sample_card_id):
+def _movements_deep_offset(total_count, page_size=50):
+    """A page-aligned offset about three quarters into the board's history (#2237).
+
+    A fixed offset would drift from "deep" as the fixture changes, or run past the
+    end and measure an empty page, so it is derived from the count the first page
+    reports.
+    """
+    if not isinstance(total_count, int) or total_count <= page_size:
+        return 0
+    return (total_count * 3 // 4) // page_size * page_size
+
+
+def _endpoints(base_url, board_id, sample_card_id, movements_deep_offset=0, moved_after=None):
     """The measured scenarios, name -> URL.
 
     ``board_list`` (#1723) is budgeted in the baseline file (#1767). run() treats
@@ -294,6 +323,21 @@ def _endpoints(base_url, board_id, sample_card_id):
         # ~200 boards, so the card SELECT gets the scan-and-sort plan (#1810).
         "card_search_multi_board": f"{base_url}/api/v1/cards/?search=the",
         "card_timeline": f"{base_url}/api/v1/boards/{board_id}/cards/{sample_card_id}/timeline/",
+        # The card sheet requests the timeline with counts on every open and on every
+        # card.version change (#967), so the extra COUNT queries need their own budget.
+        "card_timeline_counts": (
+            f"{base_url}/api/v1/boards/{board_id}/cards/{sample_card_id}/timeline/?include_counts=true"
+        ),
+        # Board History: first page, a deep offset, and a date-filtered page. #1961
+        # removed the window count and turned the date filter into a datetime range;
+        # query counts stay at 2 either way, so only latency can see a regression.
+        "board_movements": f"{base_url}/api/v1/boards/{board_id}/movements/",
+        "board_movements_deep": (
+            f"{base_url}/api/v1/boards/{board_id}/movements/?offset={movements_deep_offset}"
+        ),
+        "board_movements_dated": (
+            f"{base_url}/api/v1/boards/{board_id}/movements/?moved_after={moved_after or '1970-01-01'}"
+        ),
         # Page queries that dropped their Window(Count) total for a plain page
         # plus a bare COUNT when the page is full (#2239).
         "card_list": f"{base_url}/api/v1/boards/{board_id}/cards/",
@@ -470,7 +514,20 @@ def run(args):
     fixture["multi_board_accessible_boards"] = multi_board_count
     print(f"Fixture: {fixture}")
 
-    endpoints = _endpoints(base_url, board_id, sample_card_id)
+    # The movements scenarios need the board's history size (deep offset) and a
+    # date inside it; both are read from the live fixture, not hard-coded (#2237).
+    first_page = session.get(f"{base_url}/api/v1/boards/{board_id}/movements/", timeout=30)
+    first_page.raise_for_status()
+    movements_count = first_page.json().get("count")
+    deep_offset = _movements_deep_offset(movements_count)
+    if deep_offset == 0:
+        raise RuntimeError(
+            f"Board '{args.board_name}' has {movements_count} movements — too few for the "
+            "deep-offset scenario. Re-seed with --scale > 1 (deep movement history)."
+        )
+    fixture["movement_count"] = movements_count
+    moved_after = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+    endpoints = _endpoints(base_url, board_id, sample_card_id, deep_offset, moved_after)
 
     budgets = {}
     if args.budget_file and not args.measure_only:

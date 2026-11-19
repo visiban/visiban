@@ -1,8 +1,8 @@
 {
-  "_readme": "Committed p95 latency budgets for the nightly-load-test CI job (#1082). See docs/development/nightly-load-test.md for the full contract: fixture size, budget-derivation rule, and how to re-derive this file at each release. DO NOT hand-edit budget_p95_ms to a round number — every value here must trace to a measured_p95_ms via the stated formula.",
+  "_readme": "Committed p95 latency budgets for the nightly-load-test CI job (#1082). See docs/development/nightly-load-test.md for the full contract: fixture size, budget-derivation rule, and how to re-derive this file at each release. DO NOT hand-edit budget_p95_ms to a round number \u2014 every value here must trace to a measured_p95_ms via the stated formula.",
   "status": "ci-derived",
-  "status_note": "Re-derived 2026-10-21 (#1808) from job 17348200339, pipeline 2971900609 -- a manual run of the nightly-load-test schedule on main at 58a4299b5 on gitlab-runner-nuc-2-visiban (tag nuc), the first NUC run that includes the #1800 timestamptz backport, the #1805 literal-board-id card filter and the #1810 card_search_multi_board scenario with its 199 extra boards. Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; card_search_multi_board gains its first budget and its pending_budget key is gone. This is a single run: board_full measured 1227.5ms against 1210.5ms in the previous derivation (job 17304593759 on runner-04-NUC), so the #1800 backport did not lower it on this sample and its budget rose from 1695 to 1720ms; the other budgets fell. The two derivations ran on different runners, so the changes are not a clean before/after of the code. History: 2026-10-20 (#1767) from job 17304593759, pipeline 2965970261, on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105 on gitlab-runner-nuc-2-visiban. Re-derive again at the next release per the procedure in docs/development/nightly-load-test.md#re-deriving-the-baseline.",
-  "measured_at": "2026-10-21T12:25:36.259949+00:00",
+  "status_note": "Re-derived 2026-11-19 (#2110, #2237, #2063) from job 18170442650 -- the 2026-11-19 scheduled nightly-load-test run on main at f863f39ff on gitlab-runner-nuc-2-visiban (tag nuc). Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; the ten flow/summary/analytics scenarios (#2110) and card_list/cards_archived (#2237) get their first budgets and their pending_budget keys are gone. card_timeline_counts (#2195) and the three board_movements scenarios (#2237) were added after that run, so they are measured but not gated (pending_budget) until a NUC run that includes them re-derives the whole file again. This is a single run: board_full measured 824.5ms against 1227.5ms in the previous derivation, so its budget fell from 1720 to 1155ms; the two derivations were taken on the same runner class but a different commit and a different date, so the change is not attributed here. Peak replay memory for the flow scenarios (#2110) is not recorded: the script measures latency only. History: 2026-10-21 (#1808) from job 17348200339 on gitlab-runner-nuc-2-visiban; 2026-10-20 (#1767) from job 17304593759 on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105. Re-derive again at the next release per docs/development/nightly-load-test.md#re-deriving-the-baseline.",
+  "measured_at": "2026-11-19T05:15:38.543375+00:00",
   "fixture": {
     "board_name": "Visiban Load Test Board",
     "seed_command": "manage.py seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications",
@@ -20,148 +20,188 @@
     "iterations_per_endpoint": 40,
     "warmup_per_endpoint": 5,
     "percentile_method": "nearest-rank (no interpolation) over the 40 timed samples",
-    "auth": "manage.py provision_fuzz_token --username demo2 (scoped, non-admin PAT; board_list alone authenticates as the board owner demo1 via --owner-token-file — same mechanism backend-schema-fuzz already uses)"
+    "auth": "manage.py provision_fuzz_token --username demo2 (scoped, non-admin PAT; board_list alone authenticates as the board owner demo1 via --owner-token-file \u2014 same mechanism backend-schema-fuzz already uses)"
   },
   "budget_formula": "budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5 -- a 1.4x factor (issue #1082 specifies 1.3-1.5x) rounded up to the nearest 5ms so CI comparisons have a little headroom for measurement noise without the number itself being picked round. Recompute this whole file -- never hand-adjust a single budget_p95_ms -- when re-deriving.",
   "endpoints": {
     "board_list": {
       "method": "GET",
       "path": "/api/v1/boards/",
-      "measured_p95_ms": 38.3,
-      "measured_p99_ms": 40.2,
-      "budget_p95_ms": 55,
+      "measured_p95_ms": 40.5,
+      "measured_p99_ms": 149.2,
+      "budget_p95_ms": 60,
       "note": "Board list as the board OWNER (demo1, via --owner-token-file) so the access query spans the 20-member board; member_count/card_count/archived_card_count are independent correlated subqueries (#1723)."
     },
     "board_full": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/full/",
-      "measured_p95_ms": 1227.5,
-      "measured_p99_ms": 1272.8,
-      "budget_p95_ms": 1720,
+      "measured_p95_ms": 824.5,
+      "measured_p99_ms": 871.6,
+      "budget_p95_ms": 1155,
       "note": "Serializes the entire board (all 2388 cards) in one response, unpaginated -- the most volume-sensitive endpoint in the fixture and the one this budget is least tolerant of relative headroom on, since a regression here is the one TruePPM's #2767 postmortem describes (index-shape regression, identical query count, higher latency). Also the most CPU-bound of the six (per-card DRF field serialization across ~2,388 cards, #1212), so it shows the most run-to-run variance on a shared CI runner -- expect wider swings here than on the lighter endpoints below."
     },
     "card_search": {
       "method": "GET",
       "path": "/api/v1/cards/?search=the",
-      "measured_p95_ms": 73.1,
-      "measured_p99_ms": 268.3,
+      "measured_p95_ms": 73.2,
+      "measured_p99_ms": 193.9,
       "budget_p95_ms": 105,
       "note": "The cross-board card query as a one-board user (demo2): access filter plus one 51-row cursor page. Card search now filters with the ci_contains lookup (ILIKE on PostgreSQL), which the pg_trgm GIN indexes from migration 0030 (card_title_trgm_idx / card_desc_trgm_idx) can serve for selective terms (#1809). This budget was measured before that change and is to be re-derived, and broad/short terms re-measured, in #2063. Derived after the #1805 fix (#1808). 'the' is a deliberately broad, high-cardinality search term -- it matches a large fraction of the corpus, closer to a real user's search-as-you-type behavior than a highly selective term would be."
     },
     "card_search_multi_board": {
       "method": "GET",
       "path": "/api/v1/cards/?search=the",
-      "measured_p95_ms": 85.2,
-      "measured_p99_ms": 88.2,
-      "budget_p95_ms": 120,
+      "measured_p95_ms": 89.1,
+      "measured_p99_ms": 197.9,
+      "budget_p95_ms": 125,
       "note": "The same query as card_search, run as demo3, who can access 200 boards, so the card SELECT filters on a 200-id literal list. PostgreSQL is expected to scan the matching cards and sort instead of walking card_board_updated_idx (#1805 measured 13.5ms vs 0.65ms execution on the one-board fixture; this fixture layout was not EXPLAINed, so the plan is expected, not confirmed). Budget derived from a NUC run in #1808."
     },
     "card_timeline": {
       "method": "GET",
       "path": "/api/v1/boards/{board_id}/cards/{id}/timeline/",
-      "measured_p95_ms": 40.1,
-      "measured_p99_ms": 44.6,
-      "budget_p95_ms": 60,
+      "measured_p95_ms": 34.9,
+      "measured_p99_ms": 36.2,
+      "budget_p95_ms": 50,
       "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045."
+    },
+    "card_timeline_counts": {
+      "method": "GET",
+      "path": "/api/v1/boards/{board_id}/cards/{id}/timeline/?include_counts=true",
+      "budget_p95_ms": null,
+      "pending_budget": "#2195",
+      "note": "The card detail sheet's request (#967): the timeline page plus the per-group counts queries, on every card open and every card.version change. Measured but not gated until a NUC run assigns its budget (#2195)."
     },
     "card_list": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/cards/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2237",
+      "measured_p95_ms": 230.7,
+      "measured_p99_ms": 241.8,
+      "budget_p95_ms": 325,
       "note": "Board card list, default 200-row cap with X-Total-Count/X-Truncated. Page read without a window count; a full page adds one bare COUNT (#2239)."
     },
     "cards_archived": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/cards/archived/",
+      "measured_p95_ms": 63.2,
+      "measured_p99_ms": 171.4,
+      "budget_p95_ms": 90,
+      "note": "First archived-cards page (50 rows). Page read without a window count; a full page adds one bare COUNT on the archived_at index (#2239)."
+    },
+    "board_movements": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/movements/",
       "budget_p95_ms": null,
       "pending_budget": "#2237",
-      "note": "First archived-cards page (50 rows). Page read without a window count; a full page adds one bare COUNT on the archived_at index (#2239)."
+      "note": "Board History first page (50 rows, newest first). Page query on the (board, -moved_at) index plus a bare COUNT, no window count (#1961). Measured but not gated until a NUC run assigns its budget (#2237)."
+    },
+    "board_movements_deep": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/movements/?offset=<3/4 of the history, page-aligned>",
+      "budget_p95_ms": null,
+      "pending_budget": "#2237",
+      "note": "Board History at a deep offset, derived from the first page's count at run time. Measured but not gated until a NUC run assigns its budget (#2237)."
+    },
+    "board_movements_dated": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/movements/?moved_after=<30 days ago>",
+      "budget_p95_ms": null,
+      "pending_budget": "#2237",
+      "note": "Board History with the date filter, a half-open datetime range on moved_at instead of a __date cast (#1961). Measured but not gated until a NUC run assigns its budget (#2237)."
     },
     "notifications_list": {
       "method": "GET",
       "path": "/api/v1/notifications/",
-      "measured_p95_ms": 38.5,
-      "measured_p99_ms": 41.5,
-      "budget_p95_ms": 55,
+      "measured_p95_ms": 31.4,
+      "measured_p99_ms": 32.2,
+      "budget_p95_ms": 45,
       "note": "The frontend polls this every 15-30s (visiban/settings.py's DEFAULT_THROTTLE_RATES comment) -- the highest-QPS authenticated endpoint in the product, even though its own per-request cost is capped at 50 rows by NotificationListView."
     },
     "notifications_unread": {
       "method": "GET",
       "path": "/api/v1/notifications/unread-count/",
-      "measured_p95_ms": 27.6,
-      "measured_p99_ms": 29.4,
-      "budget_p95_ms": 40,
+      "measured_p95_ms": 21.8,
+      "measured_p99_ms": 24.0,
+      "budget_p95_ms": 35,
       "note": "Companion to notifications_list -- polled at the same interval; unlike the list it is uncapped (counts all accessible unread rows)."
     },
     "board_summary": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/summary/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 198.1,
+      "measured_p99_ms": 203.6,
+      "budget_p95_ms": 280,
       "note": "Per-swimlane counts plus a replay of the cards that entered a done column in the last 30 days (#448). Before #448 this was SQL aggregates only."
     },
     "board_analytics": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/analytics/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 886.7,
+      "measured_p99_ms": 958.8,
+      "budget_p95_ms": 1245,
       "note": "Heatmap, stalled cards and blocked time, with a replay of the cards relevant to the default 30-day window plus the frozen avg_days_per_column prefetch (#448)."
     },
     "flow_cycle_time": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/cycle-time/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 298.6,
+      "measured_p99_ms": 305.5,
+      "budget_p95_ms": 420,
       "note": "Replays every movement of the fixture board in Python (one query), then samples completions in the default 90-day range (#448)."
     },
     "flow_throughput": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/throughput/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 311.3,
+      "measured_p99_ms": 320.7,
+      "budget_p95_ms": 440,
       "note": "Same replay as flow_cycle_time, bucketed into whole ISO weeks (#448)."
     },
     "flow_cumulative_flow": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/cumulative-flow/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 320.1,
+      "measured_p99_ms": 327.4,
+      "budget_p95_ms": 450,
       "note": "Same replay; 90 days x columns from a difference array, never a per-day query (#448)."
     },
     "flow_wip_age": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/wip-age/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 361.4,
+      "measured_p99_ms": 464.4,
+      "budget_p95_ms": 510,
       "note": "Same replay plus one query each for block rows and blocking relations (#448)."
     },
     "flow_dwell": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/dwell/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 432.6,
+      "measured_p99_ms": 440.0,
+      "budget_p95_ms": 610,
       "note": "Same replay as cumulative flow, then completed dwell percentiles per column (#2260)."
     },
     "flow_blocked": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/blocked/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 281.9,
+      "measured_p99_ms": 285.0,
+      "budget_p95_ms": 395,
       "note": "Same replay plus block rows and blocking relations (#2260)."
     },
     "flow_attention": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/attention/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 419.6,
+      "measured_p99_ms": 430.2,
+      "budget_p95_ms": 590,
       "note": "Same replay plus blocking relations and the card directory (#2260)."
     },
     "flow_swimlanes": {
       "method": "GET",
       "path": "/api/v1/boards/{id}/metrics/swimlanes/",
-      "budget_p95_ms": null,
-      "pending_budget": "#2110",
+      "measured_p95_ms": 330.3,
+      "measured_p99_ms": 337.4,
+      "budget_p95_ms": 465,
       "note": "Same replay as cycle time plus block rows, bucketed per swimlane (#2266)."
     }
   }

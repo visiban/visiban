@@ -5689,6 +5689,7 @@ nightly-load-test-selftest:
   rules:
     - changes: &nightly-load-test-paths
         - scripts/nightly_load_test.py
+        - scripts/check_email_login_plan.py
         - backend/nightly-load-test-baseline.json
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *nightly-load-test-paths
@@ -5696,6 +5697,7 @@ nightly-load-test-selftest:
     - !reference [.pip-floor, script]
     - pip install --quiet requests==2.33.0
     - python3 scripts/nightly_load_test.py --self-test
+    - python3 scripts/check_email_login_plan.py --self-test
 
 # ─── Nightly load test ─────────────────────────────────────────────────────────
 #
@@ -5795,6 +5797,7 @@ nightly-load-test:
     # proves the percentile/budget-comparison detection logic still fires
     # before trusting this run's verdict.
     - python3 scripts/nightly_load_test.py --self-test
+    - python3 scripts/check_email_login_plan.py --self-test
     - python3 scripts/nightly_load_test.py
         --base-url http://localhost:8000
         --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
@@ -5806,6 +5809,12 @@ nightly-load-test:
         --iterations "${LOAD_TEST_ITERATIONS}"
         --warmup "${LOAD_TEST_WARMUP}"
         --output nightly-load-test-results.json
+    # Email login (#1298): a plan check, not a latency scenario. A login is two
+    # password hashes (hundreds of ms), which hide a 2-3 ms sequential scan at 20k
+    # users, so this tops the users table up to a realistic size (after every
+    # latency scenario, so it cannot move a budget) and fails if the real
+    # resolve_login_user lookup stops using user_email_upper_idx.
+    - python3 scripts/check_email_login_plan.py --users 20000
   after_script:
     - |
       if [ "$CI_JOB_STATUS" = "failed" ] && [ -f nightly-load-test-server.log ]; then
