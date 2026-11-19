@@ -72,7 +72,7 @@ Screenshot: `menus.png`.
 
 - **Filter panel:** a "Find a field" input, then one row per filterable field showing its current value or "Any" (Assignee, Label, Swimlane, Due date, Last moved, Track state, then each custom field). An active row is tinted and bold. Saved filters are listed at the bottom.
 - **Filter chip row:** "Filtered by", one removable chip per active filter, "Clear all", and "Save filter" at the right.
-- **View menu:** Preset (select), Card density (segmented: Comfortable, Standard, Dense, active member marked with `ActiveMark`), Overlay (select), Swimlanes (Collapse all, Expand all), "Show sub-columns" (switch), and a line naming the fields pinned to the card with a "Change" link to Board settings.
+- **View menu:** Preset (select), Card density (segmented: Comfortable, Standard, Dense, active member marked with `ActiveMark`), Overlay (select), Swimlanes (Collapse all, Expand all), "Show sub-columns" (checkbox, as the reference draws it; #2388), and an "On the card: <fields> Change" line naming the fields pinned to the card, where Change opens Board settings on Card fields. The Overlay select shows its value ("None"), not its name.
 
 All three use the existing dropdown primitives and focus containment rules.
 

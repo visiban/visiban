@@ -53,9 +53,9 @@ async function openBoard(page: Page, cards: unknown[] = CARDS) {
 }
 
 async function pickOverlay(page: Page, name: string) {
-  // The trigger reads "Overlay" at rest and takes the active overlay's own name while one is on.
+  // The trigger reads "Overlay: None" at rest and takes the active overlay's own name while one is on.
   await openViewMenu(page)
-  await page.getByRole('button', { name: /^(Overlay|Card count|Dwell time)$/ }).click()
+  await page.getByRole('button', { name: /^Overlay: (None|Card count|Dwell time)$/ }).click()
   // Close the View panel so it does not cover the board.
   await page.getByRole('menuitem', { name }).click()
   await page.keyboard.press('Escape')
@@ -135,7 +135,7 @@ test.describe('grid overlay picker menu and filters', () => {
   test('the picker menu opens at its button, lists the overlays, and closes on Escape', async ({ page }) => {
     await openBoard(page)
     await openViewMenu(page)
-    const button = page.getByRole('button', { name: /^Overlay$/ })
+    const button = page.getByRole('button', { name: /^Overlay: None$/ })
     await button.click()
     const menu = page.getByRole('menu')
     await expect(menu).toBeVisible()

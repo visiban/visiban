@@ -69,7 +69,7 @@ test('changing the overlay marks the preset Modified, and Reset restores it', as
   await presetTrigger(page).click()
   await page.getByRole('menuitemradio', { name: /^Default/ }).click()
 
-  await page.getByTestId('view-menu-panel').getByRole('button', { name: 'Overlay' }).click()
+  await page.getByTestId('view-menu-panel').getByRole('button', { name: /^Overlay: / }).click()
   await page.getByRole('menuitem', { name: 'Card count' }).click()
 
   await openViewMenu(page)

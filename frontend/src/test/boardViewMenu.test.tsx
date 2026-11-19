@@ -367,20 +367,25 @@ describe('BoardViewMenu column announcements (#2338)', () => {
   })
 })
 
-describe('Show sub-columns switch (#2278)', () => {
+describe('Show sub-columns checkbox (#2278, #2388)', () => {
   it('is absent on a board without a gated stage', () => {
     setup()
     fireEvent.click(trigger())
+    expect(screen.queryByRole('checkbox', { name: 'Show sub-columns' })).not.toBeInTheDocument()
+  })
+
+  it('is a checkbox, as the reference menu draws it, not a switch', () => {
+    setup({ onShowSubColumnsChange: vi.fn() })
+    fireEvent.click(trigger())
     expect(screen.queryByRole('switch', { name: 'Show sub-columns' })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Show sub-columns' })).toBeChecked()
   })
 
   it('reports the flipped value; absent means on', () => {
     const onShowSubColumnsChange = vi.fn()
     setup({ onShowSubColumnsChange })
     fireEvent.click(trigger())
-    const sw = screen.getByRole('switch', { name: 'Show sub-columns' })
-    expect(sw).toHaveAttribute('aria-checked', 'true')
-    fireEvent.click(sw)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show sub-columns' }))
     expect(onShowSubColumnsChange).toHaveBeenCalledWith(false)
   })
 
@@ -388,9 +393,34 @@ describe('Show sub-columns switch (#2278)', () => {
     const onShowSubColumnsChange = vi.fn()
     setup({ onShowSubColumnsChange, showSubColumns: false })
     fireEvent.click(trigger())
-    const sw = screen.getByRole('switch', { name: 'Show sub-columns' })
-    expect(sw).toHaveAttribute('aria-checked', 'false')
-    fireEvent.click(sw)
+    const box = screen.getByRole('checkbox', { name: 'Show sub-columns' })
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
     expect(onShowSubColumnsChange).toHaveBeenCalledWith(true)
+  })
+})
+
+describe('On the card footer (#2388)', () => {
+  it('names the pinned fields and Change closes the panel and calls back', () => {
+    const onChangeCardFields = vi.fn()
+    setup({ cardFieldNames: ['Owner', 'Deal size'], onChangeCardFields })
+    fireEvent.click(trigger())
+    expect(screen.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card: Owner, Deal size')
+    fireEvent.click(panel().getByRole('button', { name: 'Change' }))
+    expect(onChangeCardFields).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog', { name: 'View options' })).not.toBeInTheDocument()
+  })
+
+  it('says so when nothing is pinned', () => {
+    setup({ onChangeCardFields: vi.fn() })
+    fireEvent.click(trigger())
+    expect(screen.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card: No pinned fields')
+  })
+
+  it('omits Change for a viewer who cannot edit the fields', () => {
+    setup({ cardFieldNames: ['Owner'] })
+    fireEvent.click(trigger())
+    expect(screen.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card: Owner')
+    expect(panel().queryByRole('button', { name: 'Change' })).not.toBeInTheDocument()
   })
 })

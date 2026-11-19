@@ -588,7 +588,7 @@ describe('BoardView', () => {
       frame(leaveDone().reopened)
       expect(silentReload).not.toHaveBeenCalled()
       openViewPanel()
-      await userEvent.click(screen.getByRole('button', { name: /^Overlay$/ }))
+      await userEvent.click(screen.getByRole('button', { name: /^Overlay: None$/ }))
       await userEvent.click(screen.getByRole('menuitem', { name: 'Dwell time' }))
       expect(silentReload).toHaveBeenCalledTimes(1)
     })
@@ -1463,6 +1463,39 @@ describe('BoardView', () => {
     mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
     render(<BoardView {...defaultProps()} />, { wrapper: flagsWrapper({ demo_mode: true }) })
     expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+  })
+
+  describe('View menu "On the card" footer wiring (#2388)', () => {
+    const pinned = (name: string) => ({
+      id: 1, uid: 'cfuid000001', name, field_type: 'text', choices: [], position: 0,
+      show_on_card: true, is_required: false, help_text: '',
+    }) as never
+
+    it('Change opens Board settings on the Card fields tab for an admin', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(openViewPanel().getByRole('button', { name: 'Change' }))
+      expect(await screen.findByTestId('settings-modal')).toBeInTheDocument()
+      expect(capturedSettingsProps.initialTab).toBe('fields')
+    })
+
+    it('a non-admin member sees the footer text but no Change button', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member' }) })
+      render(<BoardView {...defaultProps()} />)
+      const panel = openViewPanel()
+      expect(panel.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card:')
+      expect(panel.queryByRole('button', { name: 'Change' })).not.toBeInTheDocument()
+    })
+
+    it('lists the names of fields pinned with show_on_card', () => {
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ custom_field_definitions: [pinned('Priority'), { ...(pinned('Hidden') as object), id: 2, show_on_card: false } as never] }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      const footer = openViewPanel().getByTestId('view-menu-card-fields')
+      expect(footer).toHaveTextContent('Priority')
+      expect(footer).not.toHaveTextContent('Hidden')
+    })
   })
 
   describe('Activity drawer and card sheet are mutually exclusive (#2274)', () => {
@@ -2440,7 +2473,7 @@ describe('BoardView', () => {
       // Controls that left the toolbar are not direct buttons any more.
       expect(screen.queryByRole('button', { name: 'Show archived cards' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Export board' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Overlay' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Overlay/ })).not.toBeInTheDocument()
     })
 
     it('Archived is reachable from the View menu and shows an active mark when toggled', async () => {

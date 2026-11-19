@@ -518,7 +518,7 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
 
-**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay**, **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, and **Show archived cards**. Press Escape to close an open picker first, then the panel. Screen readers announce the bulk lane and column items: "Collapsed all N lanes" / "Expanded all N lanes" and "Hid all N columns" / "Showed all N columns" ("1 lane", "1 column" in the singular, and no number when the count is not known).
+**View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay** (the select reads its current value, "None" by default), **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, a **Show sub-columns** checkbox (only on a board with a split stage), an **On the card** line naming the fields pinned to the card face with a **Change** link that opens Board settings on Card fields (board admins only), and **Show archived cards**. Press Escape to close an open picker first, then the panel. Screen readers announce the bulk lane and column items: "Collapsed all N lanes" / "Expanded all N lanes" and "Hid all N columns" / "Showed all N columns" ("1 lane", "1 column" in the singular, and no number when the count is not known).
 
 **Overflow menu (`...`):** contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 
@@ -1090,7 +1090,7 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 - A card that enters a stage starts in its first sub-column, unless you drop it on a later one.
 - A card can leave a stage before its last sub-column. The move is never refused: whichever way you move it (drag, the card menu, the bulk toolbar, the card peek or **Move** in the card's details), you get a warning that screen readers announce ("Left Discovery in Doing, before Ready"), and the card's history notes it ("left 1 sub-column early").
 - **Move to…** in the card menu and the bulk toolbar, and **Move** in the card's details, list every sub-column of a split stage. Picking a plain column, or moving a card some other way without picking a sub-column, places it in the stage's first sub-column.
-- **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The switch only appears on a board that has a split stage.
+- **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The checkbox only appears on a board that has a split stage.
 - At phone width, a split stage adds a row of sub-column buttons under the column picker, each with its card count. An empty sub-column says "Empty".
 - The card peek's **Move** lists every sub-column of a split stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, **Move earlier** and **Move later** step within the card's own sub-column.
 
