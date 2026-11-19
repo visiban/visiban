@@ -1541,7 +1541,11 @@ class CardViewSet(viewsets.ModelViewSet):
             "checklist_item_assigned", "checklist_item_due_changed",
         ],
         "attachment": ["attachment_added", "attachment_deleted"],
-        "system": ["archived", "reactivated"],
+        "system": [
+            "archived", "reactivated",
+            # Since 1.3 (#1104): cross-board parent/child link changes.
+            "parent_linked", "parent_unlinked", "child_linked", "child_unlinked",
+        ],
     }
     # Every group timeline() accepts, as published in the schema (#1975).
     # Derived from the map above so the enum cannot drift from the validation.
