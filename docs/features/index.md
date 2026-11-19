@@ -160,7 +160,7 @@ Visiban surfaces these alerts in the notification bell:
 - **Assignment** — you're notified when someone assigns a card to you
 - **@mentions** — you're notified when someone mentions you in a card description
 - **Comments** — opt in to be notified when someone comments on a card you created or are assigned to
-- **Staleness** — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a `Stale · 41d` badge and trigger a daily digest
+- **Staleness** — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a `Stale 41d` status line and trigger a daily digest
 
 **Aging tint:** aging cards are tinted on a graduated scale, yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See [Card aging tint](card-history.md#card-aging-tint).
 
