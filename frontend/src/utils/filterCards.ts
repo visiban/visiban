@@ -5,6 +5,7 @@ import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
 import { isOverdue } from "./cardUrgency";
 import { isCardBlocked } from "./blockedState";
+import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 
 /**
@@ -29,7 +30,9 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     filters.priorities.length > 0 ||
     filters.dueDate !== null ||
     Object.values(filters.customFields).some(isCustomFieldFilterActive) ||
-    !!filters.blockedOnly
+    !!filters.blockedOnly ||
+    (filters.subColumnIds?.length ?? 0) > 0 ||
+    (filters.trackStates?.length ?? 0) > 0
   );
 }
 
@@ -68,12 +71,37 @@ export function pruneStaleCustomFields(filters: FilterState, definitions: { id: 
   };
 }
 
-/** Both stale-reference prunes (labels #1888, custom fields #1928) for a board. */
+/**
+ * Drop sub-column ids that no longer exist on any of the board's stages (#2367).
+ * Saving a stage's settings replaces its sub-columns, so a saved or remembered
+ * filter can outlive the sub-column it names; it would hide every card and show
+ * no chip (same failure as #1888). A pruned-empty list becomes an absent key so
+ * the filter is not "active". Returns the same object when nothing is stale.
+ */
+export function pruneStaleSubColumnIds(
+  filters: FilterState,
+  columns: { sub_columns?: { id: number }[] }[],
+): FilterState {
+  const ids = filters.subColumnIds;
+  if (!ids || ids.length === 0) return filters;
+  const live = new Set(columns.flatMap((c) => (c.sub_columns ?? []).map((s) => s.id)));
+  if (ids.every((id) => live.has(id))) return filters;
+  const kept = ids.filter((id) => live.has(id));
+  const { subColumnIds: _dropped, ...rest } = filters;
+  return kept.length > 0 ? { ...rest, subColumnIds: kept } : rest;
+}
+
+/** The stale-reference prunes (labels #1888, custom fields #1928, sub-columns #2367) for a board. */
 export function pruneStaleFilters(
   filters: FilterState,
-  board: { labels: { id: number }[]; custom_field_definitions: { id: number }[] },
+  board: {
+    labels: { id: number }[];
+    custom_field_definitions: { id: number }[];
+    columns: { sub_columns?: { id: number }[] }[];
+  },
 ): FilterState {
-  return pruneStaleCustomFields(pruneStaleLabelIds(filters, board.labels), board.custom_field_definitions);
+  const pruned = pruneStaleCustomFields(pruneStaleLabelIds(filters, board.labels), board.custom_field_definitions);
+  return pruneStaleSubColumnIds(pruned, board.columns);
 }
 
 /**
@@ -100,7 +128,10 @@ export function filterCards(
   customFieldDefs?: ReadonlyArray<{ id: number; field_type: string }>,
   // #2313 — ids of done columns, so the Overdue filter skips finished cards like the
   // Show chip and the server do. Omitted means no column is done.
-  doneColumnIds?: ReadonlySet<number>
+  doneColumnIds?: ReadonlySet<number>,
+  // #2367 — stage structure for the sub-column and track-state filters. Omitted
+  // means neither filter can resolve a card, so an active one matches nothing.
+  stageContext?: StageFilterContext
 ): number[] {
   const todayStr = todayOverride ?? getTodayStr();
   const nextWeekStr = getNextWeekStr(todayStr);
@@ -159,6 +190,9 @@ export function filterCards(
           if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
         }
       }
+
+      // #2367 — sub-column and track state, AND-combined like every other dimension.
+      if (!matchesStageFilters(card, filters.subColumnIds, filters.trackStates, stageContext)) return false;
 
       // #371 — custom field filters, AND-combined with everything above like
       // every other dimension. Equality-only for date; number (#2357) also

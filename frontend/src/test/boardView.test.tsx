@@ -231,7 +231,7 @@ vi.mock('../components/Board/BoardSettingsModal', () => ({
 // Capture props passed into FilterBar so tests can assert on `scope` and `onScopeChange`
 // without rendering the real component (kept mocked to avoid touching dropdown/avatar
 // dependencies here — FilterBar has its own dedicated suite).
-let capturedFilterBarProps: { userDateFormat?: string; scope?: 'board' | 'all'; onScopeChange?: (s: 'board' | 'all') => void; filters?: { labelIds: number[]; assigneeIds: number[]; customFields?: Record<number, unknown>; visibleCustomFieldFilterIds?: number[] } } = {}
+let capturedFilterBarProps: { userDateFormat?: string; scope?: 'board' | 'all'; onScopeChange?: (s: 'board' | 'all') => void; filters?: { subColumnIds?: number[]; labelIds: number[]; assigneeIds: number[]; customFields?: Record<number, unknown>; visibleCustomFieldFilterIds?: number[] } } = {}
 vi.mock('../components/Board/FilterBar', () => ({
   default: (props: { userDateFormat?: string; scope?: 'board' | 'all'; onScopeChange?: (s: 'board' | 'all') => void; filters?: { labelIds: number[]; assigneeIds: number[]; customFields?: Record<number, unknown>; visibleCustomFieldFilterIds?: number[] } }) => {
     capturedFilterBarProps = props
@@ -1155,6 +1155,43 @@ describe('BoardView', () => {
       expect(capturedFilterBarProps.filters?.labelIds).toEqual([])
       // derived only: never written back to persisted state
       expect(localStorage.getItem('board:1:filters')).toBeNull()
+    })
+
+    // #2367 — the board's columns must reach the stale sub-column prune; without them every
+    // remembered sub-column id looks stale and the filter silently switches itself off.
+    describe('#2367 — sub-column filter', () => {
+      const subs = [
+        { id: 101, uid: 'sub000000101', position: 0, name: 'Doing' },
+        { id: 102, uid: 'sub000000102', position: 1, name: 'Ready' },
+      ]
+      const withSubs = () => {
+        const b = makeBoard({ cards: [card] })
+        return { ...b, columns: b.columns.map((c) => (c.id === 10 ? { ...c, sub_columns: subs } : c)) } as BoardFull
+      }
+      const seedSubs = (subColumnIds: number[]) =>
+        localStorage.setItem('board:1:filters', JSON.stringify({
+          search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, subColumnIds,
+        }))
+
+      it('hides cards outside a remembered live sub-column', () => {
+        seedSubs([102]) // card has gates_passed unset, so it sits in Doing (101)
+        mockBoardContextValue = defaultContext({ board: withSubs() })
+        capturedFilterBarProps = {}
+        render(<BoardView {...defaultProps()} />)
+        expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
+      })
+
+      it('ignores a removed sub-column id: cards show and FilterBar sees it pruned', () => {
+        seedSubs([999])
+        const before = localStorage.getItem('board:1:filters')
+        mockBoardContextValue = defaultContext({ board: withSubs() })
+        capturedFilterBarProps = {}
+        render(<BoardView {...defaultProps()} />)
+        fireEvent.keyDown(document, { key: 'f' })
+        expect(screen.queryByText('No cards match the active filters')).not.toBeInTheDocument()
+        expect(capturedFilterBarProps.filters?.subColumnIds).toBeUndefined()
+        expect(localStorage.getItem('board:1:filters')).toBe(before)
+      })
     })
 
     it('still filters by a label id that exists on the board', () => {

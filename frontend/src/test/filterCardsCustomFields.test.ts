@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterCards, hasActiveClientFilters, pruneStaleCustomFields, pruneStaleFilters, pruneStaleLabelIds } from "../utils/filterCards";
+import { filterCards, hasActiveClientFilters, pruneStaleCustomFields, pruneStaleFilters, pruneStaleLabelIds, pruneStaleSubColumnIds } from "../utils/filterCards";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { Card } from "../types";
 
@@ -236,9 +236,35 @@ describe("pruneStaleCustomFields (#1928)", () => {
 
   it("pruneStaleFilters applies both label and custom-field pruning", () => {
     const g = { ...f, labelIds: [1, 2] };
-    const out = pruneStaleFilters(g, { labels: [{ id: 1 }], custom_field_definitions: [{ id: 9 }] });
+    const out = pruneStaleFilters(g, { labels: [{ id: 1 }], custom_field_definitions: [{ id: 9 }], columns: [] });
     expect(out.labelIds).toEqual([1]);
     expect(Object.keys(out.customFields)).toEqual(["9"]);
+  });
+});
+
+describe("pruneStaleSubColumnIds (#2367)", () => {
+  const cols = [{ sub_columns: [{ id: 5 }, { id: 6 }] }, {}];
+
+  it("a filter whose only sub-column was removed prunes to undefined and shows the cards again", () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })];
+    const f = { ...EMPTY_FILTER, subColumnIds: [999] };
+    const pruned = pruneStaleFilters(f, { labels: [], custom_field_definitions: [], columns: cols });
+    expect(pruned.subColumnIds).toBeUndefined();
+    expect("subColumnIds" in pruned).toBe(false);
+    expect(hasActiveClientFilters(pruned)).toBe(false);
+    expect(filterCards(cards, pruned)).toEqual([1, 2]);
+  });
+
+  it("keeps live ids and drops only the stale one", () => {
+    const f = { ...EMPTY_FILTER, subColumnIds: [5, 999] };
+    expect(pruneStaleFilters(f, { labels: [], custom_field_definitions: [], columns: cols }).subColumnIds).toEqual([5]);
+  });
+
+  it("does not crash on a board with no stages, and is identity when nothing is stale", () => {
+    const f = { ...EMPTY_FILTER, subColumnIds: [5] };
+    expect(pruneStaleSubColumnIds(EMPTY_FILTER, [{}])).toBe(EMPTY_FILTER);
+    expect(pruneStaleSubColumnIds(f, cols)).toBe(f);
+    expect(pruneStaleSubColumnIds(f, [{}, { sub_columns: undefined }]).subColumnIds).toBeUndefined();
   });
 });
 

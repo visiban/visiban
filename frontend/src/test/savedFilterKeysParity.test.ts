@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { sanitizeLaneFilter, LANE_BUILTIN_FIELDS, LANE_FILTER_MAX_ID, LANE_FILTER_MAX_ITEMS, LANE_FILTER_MAX_RULES, LANE_FILTER_MAX_STRING } from '../utils/laneFilter'
 import { EMPTY_FILTER, type FilterState } from '../components/Board/FilterBar'
+import { TRACK_STATES, STAGE_FILTER_MAX_IDS } from '../utils/stageFilter'
 import { NUMBER_FILTER_OPS } from '../utils/numberFilter'
 import { loadCustomFields } from '../hooks/usePersistedFilters'
 
@@ -24,12 +25,14 @@ const FILTER_STATE_KEYS: Record<keyof FilterState, true> = {
   visibleCustomFieldFilterIds: true,
   blockedOnly: true,
   laneFilter: true,
+  subColumnIds: true,
+  trackStates: true,
 }
 
 describe('FilterState keys parity with backend', () => {
   const fixture = JSON.parse(
     readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8'),
-  ) as { keys: string[]; numberFilterOps: string[]; numberFilterValidEntries: Record<string, unknown>[]; laneFilterKeys: string[]; laneBuiltinFields: string[]; laneFilterLimits: { maxItems: number; maxRules: number; maxString: number; maxId: number } }
+  ) as { keys: string[]; numberFilterOps: string[]; numberFilterValidEntries: Record<string, unknown>[]; laneFilterKeys: string[]; trackStates: string[]; stageFilterMaxIds: number; laneBuiltinFields: string[]; laneFilterLimits: { maxItems: number; maxRules: number; maxString: number; maxId: number } }
 
   it('every FilterState key matches the shared fixture', () => {
     expect(Object.keys(FILTER_STATE_KEYS).sort()).toEqual([...fixture.keys].sort())
@@ -38,6 +41,11 @@ describe('FilterState keys parity with backend', () => {
   it('EMPTY_FILTER carries every required key and nothing outside FilterState', () => {
     for (const k of Object.keys(EMPTY_FILTER)) expect(fixture.keys).toContain(k)
     expect(Object.keys(EMPTY_FILTER)).not.toContain('laneFilter')
+  })
+
+  it('stage filter enum and bound match the shared fixture (#2367)', () => {
+    expect([...TRACK_STATES].sort()).toEqual([...fixture.trackStates].sort())
+    expect(STAGE_FILTER_MAX_IDS).toBe(fixture.stageFilterMaxIds)
   })
 
   it('lane filter limits match the shared fixture (#2205)', () => {

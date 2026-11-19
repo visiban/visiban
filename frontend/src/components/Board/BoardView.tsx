@@ -2189,7 +2189,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Memoized (#1147): this used to be a bare IIFE that allocated a fresh Set on every
   // render whenever a filter was active, which silently defeated any downstream useMemo
   // keyed on it — including the grid overlay's per-cell map.
-  // A label or custom-field (#1928) filter naming one that no longer exists on the board (deleted
+  // A label, custom-field (#1928) or sub-column (#2367) filter naming one that no longer exists on the board (deleted
   // here or by another session; saved/persisted/URL filters can carry one)
   // would match no card and show no chip to dismiss (#1888). Ignore such ids
   // as a derived value only; they are never written back to the URL or
@@ -2197,18 +2197,24 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // previous board's filters, so a write-back would copy them to the new board).
   const boardLabels = board.labels;
   const boardCustomFieldDefs = board.custom_field_definitions;
+  // #2367 — a sub-column filter naming a removed sub-column is pruned like a deleted label.
+  const boardColumns = board.columns;
   // #2205 — the swimlane fields this viewer may rule on; a lane rule on any
   // other field (deleted, or admin-only for a non-admin) is pruned the same way.
   const swimlaneFieldDefs = board.swimlane_custom_field_definitions;
   const laneFields = useMemo(() => laneFilterFields(swimlaneFieldDefs ?? [], isAdmin), [swimlaneFieldDefs, isAdmin]);
   const effectiveFilters = useMemo(() => {
-    const pruned = pruneStaleFilters(filters, { labels: boardLabels, custom_field_definitions: boardCustomFieldDefs });
+    const pruned = pruneStaleFilters(filters, {
+      labels: boardLabels,
+      custom_field_definitions: boardCustomFieldDefs,
+      columns: boardColumns,
+    });
     const laneFilter = pruneLaneFilter(pruned.laneFilter, laneFields);
     if (laneFilter === pruned.laneFilter) return pruned;
     const next = { ...pruned, laneFilter };
     if (!laneFilter) delete next.laneFilter;
     return next;
-  }, [filters, boardLabels, boardCustomFieldDefs, laneFields]);
+  }, [filters, boardLabels, boardCustomFieldDefs, boardColumns, laneFields]);
 
   // #2205 / #2251 — lanes the lane rules reject. The rules decide WHICH lanes show; focus
   // mode decides which one is expanded. The focused lane always shows, even when it fails
@@ -2280,8 +2286,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // Only server search is active — use its result directly as a Set.
     if (!clientFiltersActive && searchMatchIds !== null) return searchMatchIds;
     // filterCards handles the server search intersection via its searchResults param.
-    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions, new Set(board.columns.filter((c) => c.is_done).map((c) => c.id))));
-  }, [effectiveFilters, searchMatchIds, board.cards, board.columns, todayStr, board.custom_field_definitions]);
+    return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr, board.custom_field_definitions, new Set(board.columns.filter((c) => c.is_done).map((c) => c.id)), { columns: board.columns, swimlanes: board.swimlanes, definitions: board.custom_field_definitions }));
+  }, [effectiveFilters, searchMatchIds, board.cards, board.columns, board.swimlanes, todayStr, board.custom_field_definitions]);
 
   const filteredCardIds: Set<number> | null = useMemo(() => {
     if (showChip === "all") return panelFilteredCardIds;

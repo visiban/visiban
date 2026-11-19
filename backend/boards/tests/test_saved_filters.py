@@ -858,3 +858,53 @@ class SavedFilterLaneFilterStateTests(TestCase):
             with self.subTest(key):
                 r = self._assert_400({"items": [_lane_rule(**{key: nul})]})
                 self.assertIn("NUL", r.data["detail"])
+
+
+class SavedFilterStageFilterStateTests(TestCase):
+    """#2367 — subColumnIds / trackStates accepted, bounded and type-checked."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="alice", password="pass")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
+
+    def _post(self, state):
+        return self.client.post(self.url, {"name": "Stages", "state_json": state}, format="json")
+
+    def test_valid_stage_filters_round_trip(self):
+        state = {**EMPTY_FILTER_STATE, "subColumnIds": [3, 4], "trackStates": ["open", "not_applicable"]}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["state_json"]["subColumnIds"], [3, 4])
+        self.assertEqual(r.data["state_json"]["trackStates"], ["open", "not_applicable"])
+
+    def test_filter_saved_without_stage_keys_still_loads(self):
+        self.assertEqual(self._post(EMPTY_FILTER_STATE).status_code, status.HTTP_201_CREATED)
+
+    def test_invalid_stage_filters_rejected(self):
+        cases = {
+            "ids not list": {"subColumnIds": "3"},
+            "ids bool": {"subColumnIds": [True]},
+            "ids string": {"subColumnIds": ["3"]},
+            "ids too many": {"subColumnIds": list(range(51))},
+            "state unknown": {"trackStates": ["satisfied"]},
+            "state not list": {"trackStates": "open"},
+            "state not str": {"trackStates": [1]},
+            "state too many": {"trackStates": ["open", "done", "not_applicable", "open"]},
+        }
+        for label, extra in cases.items():
+            with self.subTest(label):
+                r = self._post({**EMPTY_FILTER_STATE, **extra})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_track_state_enum_and_bound_match_shared_fixture(self):
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = json.loads((Path(__file__).parent / "fixtures" / "filter_state_keys.json").read_text())
+        self.assertEqual(sorted(S._TRACK_STATES), sorted(fixture["trackStates"]))
+        self.assertEqual(S._STAGE_FILTER_MAX_ITEMS, fixture["stageFilterMaxIds"])

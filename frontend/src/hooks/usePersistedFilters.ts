@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import type { CustomFieldFilterValue, FilterState } from "../components/Board/FilterBar";
+import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
 import { isValidNumberFilterValue, normalizeFiltersForSave } from "../utils/numberFilter";
 
@@ -55,8 +56,12 @@ function load(boardId: number, pinnedFieldIds: number[]): FilterState {
         : pinnedFieldIds;
     // #2205 — absent in state persisted before lane filters existed.
     const laneFilter = sanitizeLaneFilter(parsed.laneFilter);
+    const subColumnIds = sanitizeSubColumnIds(parsed.subColumnIds);
+    const trackStates = sanitizeTrackStates(parsed.trackStates);
     return {
       ...(laneFilter ? { laneFilter } : {}),
+      ...(subColumnIds ? { subColumnIds } : {}),
+      ...(trackStates ? { trackStates } : {}),
       search: typeof parsed.search === "string" ? parsed.search : "",
       assigneeIds: Array.isArray(parsed.assigneeIds) ? (parsed.assigneeIds as number[]) : [],
       labelIds: Array.isArray(parsed.labelIds) ? (parsed.labelIds as number[]) : [],

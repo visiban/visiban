@@ -153,3 +153,69 @@ describe('ShareBoardPage — expired/invalid token', () => {
     )
   })
 })
+
+// #2366 — a split stage renders its sub-columns and track names read-only.
+describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
+  const card = (uid: string, gates: number | undefined, position: number, column = 1) => ({
+    ...fakeBoard.cards[0], uid, title: uid, column, position, labels: [], assignee: null, gates_passed: gates,
+  })
+  const split: BoardPublic = {
+    ...fakeBoard,
+    columns: [
+      {
+        ...fakeBoard.columns[0],
+        sub_columns: [
+          { id: 201, uid: 's1', position: 1, name: 'Ready' },
+          { id: 200, uid: 's0', position: 0, name: 'Doing' },
+        ],
+        tracks: [
+          { id: 2, field_id: 8, field_uid: 'f8', name: 'Business', position: 1 },
+          { id: 1, field_id: 7, field_uid: 'f7', name: 'Technical', position: 0 },
+        ],
+      },
+      fakeBoard.columns[1],
+    ],
+    cards: [card('b-ready', 1, 0), card('a-doing-2', 0, 1), card('a-doing-1', 0, 0), card('plain', undefined, 0, 2)],
+  } as BoardPublic
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetPublicBoard.mockResolvedValue(split)
+  })
+
+  it('shows sub-column headers in position order with per-sub-column counts', async () => {
+    renderSharePage()
+    const headers = await screen.findAllByTestId('share-sub-column-header')
+    expect(headers.map((h) => h.textContent)).toEqual(['Doing2, 2 cards', 'Ready1, 1 card'])
+  })
+
+  it('splits the cell by gates_passed, each list in position order', async () => {
+    renderSharePage()
+    const cells = await screen.findAllByTestId('share-sub-column-cell')
+    expect(cells).toHaveLength(2)
+    expect(Array.from(cells[0].querySelectorAll('[data-testid="share-card"]')).map((c) => c.textContent)).toEqual(['a-doing-1', 'a-doing-2'])
+    expect(cells[1]).toHaveTextContent('b-ready')
+  })
+
+  it('lists the stage tracks by name in order, with no state claimed', async () => {
+    renderSharePage()
+    const chips = await screen.findByTestId('share-track-chips')
+    expect(Array.from(chips.querySelectorAll('li')).map((li) => li.textContent)).toEqual(['Technical', 'Business'])
+    expect(chips.querySelector('[data-track-state]')).toBeNull()
+  })
+
+  it('renders a plain column with no sub-column or track chrome', async () => {
+    mockGetPublicBoard.mockResolvedValue(fakeBoard)
+    renderSharePage()
+    await screen.findByText('Fix login bug')
+    expect(screen.queryByTestId('share-sub-columns')).toBeNull()
+    expect(screen.queryByTestId('share-track-chips')).toBeNull()
+    expect(screen.queryByTestId('share-split-cell')).toBeNull()
+  })
+
+  it('is read-only: no buttons, inputs or links in the split stage', async () => {
+    renderSharePage()
+    const list = await screen.findByTestId('share-sub-columns')
+    expect(list.querySelectorAll('button, input, a')).toHaveLength(0)
+  })
+})

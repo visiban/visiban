@@ -8,7 +8,7 @@ Set your filters, open the **Saved** dropdown next to the filter bar, and click 
 
 **Why it matters:** Presets are stored server-side, so they follow you across devices and browsers.
 
-**By the numbers:** a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters (1.3+: including a number field's operator and range, see [Number filter operators](custom-fields.md#number-filter-operators)), and (1.3+) [lane filters](board.md#lane-filters). Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.
+**By the numbers:** a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters (1.3+: including a number field's operator and range, see [Number filter operators](custom-fields.md#number-filter-operators)), (1.3+) [lane filters](board.md#lane-filters), and (1.3+) [sub-column and track-state filters](board.md#filtering-by-sub-column-and-track-state). Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.
 
 ## Saving a filter
 
@@ -54,7 +54,7 @@ Each saved filter carries a `state_version` field identifying the shape of its s
 
 **Yes, but:** that check is separate from the `state_json` key allow-list.
 
-- The server still accepts only the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`, `blockedOnly`, `customFields`, `visibleCustomFieldFilterIds`, `laneFilter`), whatever version is declared.
+- The server still accepts only the v1 key set (`search`, `assigneeIds`, `labelIds`, `priorities`, `dueDate`, `blockedOnly`, `customFields`, `visibleCustomFieldFilterIds`, `laneFilter`, `subColumnIds`, `trackStates`), whatever version is declared.
 - A genuinely new v2-only key is rejected with `400` until the backend's allow-list is updated.
 - On read, older clients fall back to a defensive v1 reader for any shared fields.
 
