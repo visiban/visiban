@@ -219,6 +219,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   );
   const totalMs = dwell.reduce((s, d) => s + d.ms, 0);
   const lane = board.swimlanes.find((s) => s.id === card.swimlane);
+  // A card payload that omits labels (older server, partial socket update) still opens the sheet (#2391).
+  const labels = card.labels ?? [];
   const overdue = isOverdue(card.due_date, !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
   const idleDays = card.last_moved_at
     ? Math.floor((Date.now() - new Date(card.last_moved_at).getTime()) / 86_400_000)
@@ -438,10 +440,10 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
                 the peek sheet lists them beside the due date. */}
             <div className="flex justify-between gap-3">
               <dt className="text-fg-secondary">Labels</dt>
-              <dd className={card.labels.length > 0 ? "min-w-0" : "text-fg-tertiary"}>
-                {card.labels.length > 0 ? (
+              <dd className={labels.length > 0 ? "min-w-0" : "text-fg-tertiary"}>
+                {labels.length > 0 ? (
                   <ul className="flex flex-wrap justify-end gap-1" aria-label="Labels" data-testid="card-peek-sheet-labels">
-                    {card.labels.map((label) => (
+                    {labels.map((label) => (
                       <li
                         key={label.id}
                         className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none max-w-full truncate"

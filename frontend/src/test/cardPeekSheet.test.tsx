@@ -515,3 +515,12 @@ describe('CardPeekSheet — labels row', () => {
     expect(screen.getByText('Labels').nextElementSibling).toHaveTextContent('None')
   })
 })
+
+describe('CardPeekSheet — a card payload without labels (#2391)', () => {
+  it('still opens and says None', () => {
+    const { labels: _omit, ...noLabels } = { ...card, labels: [] } as Card
+    setup({ card: noLabels as Card })
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    expect(screen.getByText('Labels').nextElementSibling).toHaveTextContent('None')
+  })
+})

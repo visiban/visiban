@@ -65,6 +65,9 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
   };
 
   const priorityColor = colorForPriority(card.priority);
+  // A summary payload from an older server or a partial socket update may omit
+  // labels; the peek must still open (#2391).
+  const labels = card.labels ?? [];
 
   // Build checklist items from checklist_total / checklist_done counts.
   // The card summary only carries counts, not the individual item list, so we
@@ -120,9 +123,9 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
           {formatDueDate(card.due_date, userTimezone, userDateFormat).label}
         </p>
       )}
-      {card.labels.length > 0 && (
+      {labels.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1" aria-label="Labels" data-testid="card-peek-labels">
-          {card.labels.map((label) => (
+          {labels.map((label) => (
             <li
               key={label.id}
               className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none max-w-full truncate"

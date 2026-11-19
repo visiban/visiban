@@ -519,9 +519,30 @@ describe("CardItem — formatted number chips (#1391)", () => {
         customFieldDefinitions={[makeDefinition({ name: "Budget", field_type: "number", number_prefix: "$", number_suffix: " USD", number_decimals: 2 })]}
       />
     );
-    // 17 characters: the old 16-character slice would have cut " USD" to " US…".
-    expect(screen.getByText("$1,234,567.50 USD")).toHaveClass("truncate");
+    // The face shows the compact form (#2387), suffix whole; the title keeps the full value.
+    expect(screen.getByText("$1.2M USD")).toHaveClass("shrink-0", "whitespace-nowrap");
     expect(screen.getByTitle("Budget: $1,234,567.50 USD")).toBeInTheDocument();
+  });
+
+  it("shows a pinned currency field in compact form and never ellipsizes the value (#2387)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "33000" }, { field_definition: 6, value: "25" }] })}
+        customFieldDefinitions={[
+          makeDefinition({ id: 5, name: "Deal value", field_type: "number", number_prefix: "$" }),
+          makeDefinition({ id: 6, name: "Probability", field_type: "number", number_suffix: "%", position: 1 }),
+        ]}
+      />
+    );
+    const values = screen.getAllByTestId("card-field-number").map((el) => el.textContent);
+    expect(values).toEqual(["$33k", "25%"]);
+    for (const el of screen.getAllByTestId("card-field-number")) {
+      expect(el).toHaveClass("shrink-0");
+      expect(el).not.toHaveClass("truncate");
+    }
+    // The name yields width first; the full grouped value stays in the title.
+    expect(screen.getByText("Deal value:")).toHaveClass("truncate", "min-w-0");
+    expect(screen.getByTitle("Deal value: $33,000")).toBeInTheDocument();
   });
 
   it("still slices an unformatted long number at 16 characters, as before", () => {
@@ -792,7 +813,8 @@ describe("CardItem — threshold marks (#1122)", () => {
     const mark = chip.querySelector("svg[data-threshold-mark]");
     expect(mark).toHaveAttribute("aria-hidden", "true");
     expect(mark).toHaveAttribute("data-threshold-mark", "alert");
-    expect(screen.getByText("$6,100")).toHaveClass("font-semibold", "text-fg");
+    // Compact on the face (#2387); the title above keeps the full value.
+    expect(screen.getByText("$6.1k")).toHaveClass("font-semibold", "text-fg");
     expect(screen.getByText(", Alert: at or above $6,000")).toHaveClass("sr-only");
     expect(chip.className).not.toMatch(/text-(danger|warning)|bg-(danger|warning)|cursor-pointer/);
   });

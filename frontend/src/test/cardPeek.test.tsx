@@ -502,3 +502,13 @@ describe('CardPeekPopover — due date and labels rows', () => {
     expect(screen.queryByTestId('card-peek-labels')).toBeNull()
   })
 })
+
+describe('CardPeekPopover — a card payload without labels (#2391)', () => {
+  it('still renders, with no labels row', () => {
+    const rect = { top: 100, left: 50, bottom: 160, right: 250, width: 200, height: 60, x: 50, y: 100, toJSON: () => {} } as DOMRect
+    const { labels: _omit, ...noLabels } = makeCard()
+    render(<CardPeekPopover card={noLabels as Card} anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-peek-labels')).toBeNull()
+  })
+})

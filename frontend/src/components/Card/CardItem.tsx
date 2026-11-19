@@ -18,7 +18,7 @@ import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
-import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, thresholdLevel, thresholdPhrase, withCustomFieldValue } from "../../utils/customFieldValue";
+import { chipValueText, explicitChoiceColor, formatCustomFieldValue, formatNumberCompact, isValidForType, parseMultiSelect, thresholdLevel, thresholdPhrase, withCustomFieldValue } from "../../utils/customFieldValue";
 import ThresholdMark from "./ThresholdMark";
 import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 import { updateCard } from "../../api/cards";
@@ -1115,6 +1115,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   const value = entry!.value;
                   const valid = isValidForType(def, value);
                   const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
+                  // #2387: a number reads in compact form on the face ($33k); the
+                  // title keeps the full value ($33,000). The value never yields
+                  // width, so the name truncates first and the number stays whole.
+                  const isNumber = valid && def.field_type === "number";
+                  const faceText = isNumber
+                    ? formatNumberCompact(value, { prefix: def.number_prefix, suffix: def.number_suffix, decimals: def.number_decimals })
+                    : displayText;
                   const multiEntries = valid && def.field_type === "multi_select" ? parseMultiSelect(value) : null;
                   // #1391: explicit choice color → tinted badge (no dot);
                   // otherwise the automatic hash dot, exactly as before.
@@ -1191,8 +1198,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       ) : (
                         <>
                           <ThresholdMark level={level} direction={def.threshold_direction ?? ""} />
-                          <span className={`truncate min-w-0 ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
-                            {chipValueText(def, displayText, 16)}
+                          <span
+                            className={`${isNumber ? "shrink-0 whitespace-nowrap" : "truncate min-w-0"} ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}
+                            data-testid={isNumber ? "card-field-number" : undefined}
+                          >
+                            {chipValueText(def, faceText, 16)}
                           </span>
                         </>
                       )}
