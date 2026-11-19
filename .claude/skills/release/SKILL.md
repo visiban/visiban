@@ -318,9 +318,12 @@ chart, and the **GitHub** Release. It does not publish the versioned docs, becau
 - **On a refusal**, fix the cause (usually by retrying the red job in the `main` pipeline),
   then retry the guard job. GitLab re-runs the skipped publish jobs under the same tag, so
   nothing needs re-tagging. Say plainly in the release summary that the GitLab Release page
-  and the docs were live before the images were. See `docs/maintainers/known-ci-failures.md`
-  for the refusal table, and for how to abandon a release instead, including the `mike` docs
-  rollback.
+  was live before the images were. See `docs/maintainers/known-ci-failures.md` for the
+  refusal table, and for how to abandon a release instead (the docs need no rollback unless a
+  manual `DOCS_VERSION` deploy ran).
+- **While a refusal is open, hold docs merges to `main` or abandon the release.** The refused
+  tag stays on origin, so the next `docs/**` or `mkdocs.yml` push to `main` passes
+  `--require-tag` and deploys that version's docs ungated (#2398).
 - **A refusal caused by the guard's own job lists needs a new tag.** That covers a renamed
   required job and a new `manual` job missing from the exemptions. The guard reads its lists
   from the tagged commit, so fix them on `main` and cut a **new** tag.

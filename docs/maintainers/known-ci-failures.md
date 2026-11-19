@@ -300,7 +300,10 @@ and are **not** undone by a refusal:
   and edits `docs/`, so the release merge's own `main` pipeline runs `docs-deploy`, but that
   run skips a version whose tag is not on origin yet (`resolve-docs-version.sh --require-tag`,
   #1997) and deploys nothing. Only the tag pipeline's `docs-deploy`, which waits for the
-  guard, publishes the versioned docs, so a refusal leaves them unpublished.
+  guard, publishes the versioned docs, so a refusal leaves them unpublished. Caveat: the refused tag stays on origin, so the next
+  `docs/**` or `mkdocs.yml` push to `main` passes `--require-tag` and runs
+  `mike deploy <tag> MINOR latest` and `set-default` ungated. Hold docs merges to `main`
+  during a refusal, or abandon the release (#2398).
 
 What the refusal **did** stop, one tag-pipeline job each:
 
@@ -324,8 +327,9 @@ re-tagging. If the release has to be abandoned instead:
 1. Delete the GitLab Release and the tag. The mirrors carry the deletion.
 2. Reopen the milestone if it was closed.
 3. Nothing to roll back in the docs: the versioned docs are published only by the tag
-   pipeline after the guard (#1997), so a refused release never reached `gh-pages`. If a
-   docs deploy for the tag ran anyway (for example a manual `DOCS_VERSION=<tag>` run on
+   pipeline after the guard (#1997), so a refused release never reached `gh-pages`, unless a
+   docs-touching push to `main` landed after the refusal (the tag is still on origin, so
+   `--require-tag` passes; #2398). If a docs deploy for the tag ran anyway (for example a manual `DOCS_VERSION=<tag>` run on
    `main`), remove it with `mike delete --push <tag>` from a checkout with
    `docs/requirements.txt` installed and push access to `gh-pages`. For a stable tag, also
    point the aliases back at the previous stable version with
