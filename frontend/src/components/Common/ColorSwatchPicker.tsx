@@ -107,7 +107,7 @@ export default function ColorSwatchPicker({
             aria-label={getAriaLabel ? getAriaLabel(c, name) : `Select color ${name}`}
             aria-pressed={selected}
             title={name}
-            className={`${dim} rounded-full border-2 ${SWATCH_FOCUS} ${selected ? SWATCH_SELECTED : "border-transparent"}`}
+            className={`max-sm:min-h-11 max-sm:min-w-11 ${dim} rounded-full border-2 ${SWATCH_FOCUS} ${selected ? SWATCH_SELECTED : "border-transparent"}`}
             style={{ backgroundColor: c }}
           />
         );
@@ -180,7 +180,7 @@ function CustomColorControl({ colors, value, size, dim, onChange, applyLabel, bo
         aria-haspopup="dialog"
         aria-expanded={open}
         title="Custom color"
-        className={`relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute ${TRIGGER_HIT_AREA[size]} ${SWATCH_FOCUS} ${
+        className={`max-sm:min-h-11 max-sm:min-w-11 relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute ${TRIGGER_HIT_AREA[size]} ${SWATCH_FOCUS} ${
           custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED[size]}` : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
         }`}
         style={custom ? { backgroundColor: custom } : undefined}

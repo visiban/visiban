@@ -1934,8 +1934,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             directly. On Chrome/Firefox the opacity-0 input is enough; on Safari,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
-                        <div className="relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
+                        <div className="max-sm:min-h-11 relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
+                          <div className={`max-sm:min-h-11 text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -1950,7 +1950,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               save({ due_date: v }).catch(() => {});
                             }}
                             onClick={() => openNativeDatePicker(dueDateRef.current)}
-                            className="max-sm:min-h-11 absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
                         <button type="button"
@@ -1964,8 +1964,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <div className="relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                      <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-secondary select-none flex items-center justify-between pointer-events-none">
+                    <div className="max-sm:min-h-11 relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
+                      <div className="max-sm:min-h-11 text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-secondary select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
@@ -1981,7 +1981,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           save({ due_date: v }).catch(() => {});
                         }}
                         onClick={() => openNativeDatePicker(dueDateEmptyRef.current)}
-                        className="max-sm:min-h-11 absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
                     </div>
                   )}
@@ -2102,6 +2102,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <button
                       className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/cf focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       onClick={() => setCustomFieldsOpen((o) => !o)}
+                      aria-expanded={customFieldsOpen}
                     >
                       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                         Custom fields
@@ -2467,7 +2468,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               onClick={(e) => e.preventDefault()}
                               title={`Delete. ${DEMO_DELETE_ATTACHMENT_REASON}`}
                               aria-label={`Delete attachment ${a.filename}. ${DEMO_DELETE_ATTACHMENT_REASON}`}
-                              className="max-sm:min-h-11 opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                              className="max-sm:min-h-11 max-sm:min-w-11 opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                             >✕</button>
                           ) : (
                             <button type="button"
@@ -2536,7 +2537,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   onClick={(e) => e.preventDefault()}
                                   title={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
                                   aria-label={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
-                                  className="max-sm:min-h-11 ml-auto opacity-40 cursor-not-allowed p-0.5 rounded text-fg-muted focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                  className="max-sm:min-h-11 max-sm:min-w-11 ml-auto opacity-40 cursor-not-allowed p-0.5 rounded text-fg-muted focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />

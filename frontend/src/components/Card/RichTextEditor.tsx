@@ -147,7 +147,7 @@ function ToolbarButton({
       title={title}
       aria-label={title}
       aria-pressed={active ?? false}
-      className={`relative px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      className={`max-sm:min-h-11 max-sm:min-w-11 relative px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
           : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
@@ -289,7 +289,7 @@ function ColorPicker({
         title="Text color"
         aria-label="Text color"
         aria-expanded={open}
-        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis relative flex items-center gap-1 ${
+        className={`max-sm:min-h-11 max-sm:min-w-11 px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis relative flex items-center gap-1 ${
           active ? "bg-surface-active text-fg" : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
         }`}
       >
@@ -345,7 +345,7 @@ function ColorPicker({
                     title={c.label}
                     aria-label={`Text color ${c.label}`}
                     aria-pressed={selected}
-                    className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                    className={`max-sm:min-h-11 max-sm:min-w-11 w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                       selected
                         ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
                         : "border-line-strong"
@@ -362,7 +362,7 @@ function ColorPicker({
                 aria-label="Text color Custom"
                 aria-haspopup="dialog"
                 aria-pressed={customSelected}
-                className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`max-sm:min-h-11 max-sm:min-w-11 w-5 h-5 rounded-full border-2 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   customSelected
                     ? "border-fg ring-2 ring-fg ring-offset-2 ring-offset-surface"
                     : "border-line-strong"
