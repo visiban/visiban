@@ -5219,6 +5219,9 @@ check-release-images:
 # allow_failure, for the same reason as check-release-images above. The publish
 # side of the same script runs in helm-publish (`--candidate`).
 check-chart-registry:
+  # cosign from `.cosign-pin` (#2373): the live check verifies the resolved
+  # chart's signature, same pinned+checksummed install as helm-publish.
+  extends: .cosign-pin
   stage: deploy
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
@@ -5226,6 +5229,13 @@ check-chart-registry:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
   before_script:
     - apk add --no-cache bash curl
+    - |
+      (
+        set -eu
+        curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+        echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+        chmod +x /usr/local/bin/cosign
+      )
   script:
     - bash scripts/check-chart-registry.sh --self-test
     - bash scripts/check-chart-registry.sh
