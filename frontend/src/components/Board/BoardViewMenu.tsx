@@ -270,34 +270,33 @@ export default function BoardViewMenu(props: Props) {
       {props.onShowSubColumnsChange && (
         // A checkbox, as the reference menu draws it (#2388). The whole row is the target
         // (44px on phone): the label forwards its click to the box.
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-fg max-sm:min-h-11">
+        <label className="flex items-center justify-between gap-2 cursor-pointer text-sm text-fg max-sm:min-h-11">
+          Show sub-columns
           <input
             type="checkbox"
             checked={props.showSubColumns !== false}
             onChange={(e) => props.onShowSubColumnsChange?.(e.target.checked)}
             data-testid="view-menu-sub-columns"
-            className="h-4 w-4 rounded border-line-strong accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="h-4 w-4 rounded accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           />
-          Show sub-columns
         </label>
       )}
 
-      <p className="text-xs text-fg-secondary" data-testid="view-menu-card-fields">
-        On the card:{" "}
-        <span className="text-fg">{cardFieldNames.length > 0 ? cardFieldNames.join(", ") : "No pinned fields"}</span>
+      <div className="flex items-start justify-between gap-2 border-t border-line pt-2">
+        <p className="min-w-0 text-xs text-fg-secondary break-words" data-testid="view-menu-card-fields">
+          On the card:{" "}
+          <span className="text-fg">{cardFieldNames.length > 0 ? cardFieldNames.join(", ") : "No pinned fields"}</span>
+        </p>
         {props.onChangeCardFields && (
-          <>
-            {" "}
-            <button
-              type="button"
-              onClick={() => { close(); props.onChangeCardFields?.(); }}
-              className="text-info underline hover:no-underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Change
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => { close(); props.onChangeCardFields?.(); }}
+            className="shrink-0 inline-flex items-center px-1 text-xs text-info underline hover:no-underline rounded max-sm:min-w-11 max-sm:justify-center focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Change
+          </button>
         )}
-      </p>
+      </div>
 
       <div className="border-t border-line pt-2">
         <button

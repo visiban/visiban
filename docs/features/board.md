@@ -1090,7 +1090,7 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 - A card that enters a stage starts in its first sub-column, unless you drop it on a later one.
 - A card can leave a stage before its last sub-column. The move is never refused: whichever way you move it (drag, the card menu, the bulk toolbar, the card peek or **Move** in the card's details), you get a warning that screen readers announce ("Left Discovery in Doing, before Ready"), and the card's history notes it ("left 1 sub-column early").
 - **Move to…** in the card menu and the bulk toolbar, and **Move** in the card's details, list every sub-column of a split stage. Picking a plain column, or moving a card some other way without picking a sub-column, places it in the stage's first sub-column.
-- **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The switch only appears on a board that has a split stage.
+- **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The checkbox only appears on a board that has a split stage.
 - At phone width, a split stage adds a row of sub-column buttons under the column picker, each with its card count. An empty sub-column says "Empty".
 - The card peek's **Move** lists every sub-column of a split stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, **Move earlier** and **Move later** step within the card's own sub-column.
 

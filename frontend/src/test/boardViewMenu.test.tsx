@@ -405,7 +405,7 @@ describe('On the card footer (#2388)', () => {
     const onChangeCardFields = vi.fn()
     setup({ cardFieldNames: ['Owner', 'Deal size'], onChangeCardFields })
     fireEvent.click(trigger())
-    expect(screen.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card: Owner, Deal size Change')
+    expect(screen.getByTestId('view-menu-card-fields')).toHaveTextContent('On the card: Owner, Deal size')
     fireEvent.click(panel().getByRole('button', { name: 'Change' }))
     expect(onChangeCardFields).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog', { name: 'View options' })).not.toBeInTheDocument()

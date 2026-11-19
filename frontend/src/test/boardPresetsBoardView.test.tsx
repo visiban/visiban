@@ -251,7 +251,7 @@ async function choosePreset(user: ReturnType<typeof userEvent.setup>, name: stri
 
 async function chooseOverlay(user: ReturnType<typeof userEvent.setup>, name: string) {
   openViewMenu()
-  await user.click(screen.getByRole('button', { name: /^None$|^Card count$/ }))
+  await user.click(screen.getByRole('button', { name: /^Overlay: / }))
   await user.click(screen.getByRole('menuitem', { name }))
 }
 

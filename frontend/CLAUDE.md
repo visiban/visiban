@@ -886,6 +886,13 @@ Reference implementation: `NotificationRow` in `SettingsPage.tsx`.
 
 **A row containing two controls is never wrapped in a single `<label>` (#356).** A click on label text forwards to the first labelable descendant, so text belonging to the second control would toggle the first. Give each control its own `<label htmlFor>` around only its own text block, wrap the pair in `role="group" aria-label="{event}"` so each control has context, and give the repeated visible label a unique accessible name that *begins with* that visible text (`aria-label="Also send by email: {event}"`) so label-in-name holds and `getByRole('switch', { name })` stays unambiguous.
 
+## View menu rows (#2388, #2390)
+
+- **Boolean options in the View menu are native checkboxes, label left and box right.** The reference (`docs/development/board-redesign/menus.png`) draws "Show sub-columns" as a checkbox, not a `Toggle`. Use `<label className="flex items-center justify-between gap-2 cursor-pointer text-sm text-fg max-sm:min-h-11">` around the text and `<input type="checkbox" className="h-4 w-4 rounded accent-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis">`; the whole row is the 44px phone target.
+- **`text-[17px] font-semibold text-fg` is the sanctioned lane, panel and drawer heading size.** Tailwind has no 17px step; the swimlane name and the Activity drawer heading use this exact class string. Do not add a token or substitute `text-base`/`text-lg`.
+- **A panel footer's in-text action is `text-info underline hover:no-underline` with the standard focus ring, right-aligned in a `flex justify-between` row**, never inline in a text run (inside a `max-sm:[&_button]:min-h-11` panel an inline button distorts the line height). The View menu's "On the card: <fields> Change" is the model.
+- **A `SingleSelectDropdown` that shows its value under a section label sets `unselectedLabel` for the resting text and also passes `ariaLabel` naming the control** ("Overlay: None"); the visible value alone is not an accessible name.
+
 ## Native checkbox and radio accent
 
 When a native `<input type="checkbox">` or `<input type="radio">` is rendered with its default browser control visible (i.e. *not* the `sr-only` custom-styled radio pattern above), it **must** set `accent-primary` — never a raw palette value like `accent-blue-500` / `accent-blue-600`. The `accent-primary` token tracks the active theme (including dark mode); a hardcoded `accent-blue-*` stays the same hue regardless of theme and reads as an off-brand control. This applies to filter checkboxes (`CheckboxDropdown`), column-option checkboxes (`EditColumnModal`), and any admin toggle that keeps the native control.

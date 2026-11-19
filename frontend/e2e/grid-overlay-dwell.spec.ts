@@ -64,7 +64,7 @@ async function openBoard(page: Page, cards: unknown[] = CARDS) {
 
 async function selectDwell(page: Page) {
   await openViewMenu(page)
-  await page.getByRole('button', { name: /^None$/ }).click()
+  await page.getByRole('button', { name: /^Overlay: None$/ }).click()
   // Close the View panel so it does not cover the board.
   await page.getByRole('menuitem', { name: 'Dwell time' }).click()
   await page.keyboard.press('Escape')

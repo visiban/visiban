@@ -3156,6 +3156,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     className="w-full"
                     escapePriority={26}
                     unselectedLabel="None"
+                    ariaLabel="Overlay"
                     options={gridOverlayOptions}
                     selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
                     onChange={handleGridOverlayChange}
