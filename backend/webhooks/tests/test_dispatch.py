@@ -447,6 +447,31 @@ class FailureTests(DispatcherBase):
         text = msg.subject + msg.body
         for leak in ("hooks.example.com", "s3cr3tpath", "token=abc", "whsec_", "500"):
             self.assertNotIn(leak, text)
+        # The HTML alternative (#2066): the same three facts, one button, the footer.
+        [(html, mimetype)] = msg.alternatives
+        self.assertEqual(mimetype, "text/html")
+        self.assertEqual(html.count("<tr>"), 3)
+        self.assertIn(f">#{self.sub.pk}</td>", html)
+        self.assertIn(">Repeated delivery failures (failures)</td>", html)
+        self.assertEqual(html.count("<a "), 1)
+        self.assertIn('href="http', html)
+        self.assertIn(f"/boards/{self.board.pk}?settings=webhooks", html)
+        self.assertIn("sent even if you turned email notifications off", html)
+        for leak in ("hooks.example.com", "s3cr3tpath", "token=abc", "whsec_", "<img", "<script", "<link", "<style"):
+            self.assertNotIn(leak, html)
+
+    @override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1)
+    def test_notice_html_escapes_the_board_name(self):
+        EmailAddress.objects.create(user=self.admin, email=self.admin.email, verified=True, primary=True)
+        self.board.name = '<script>alert(1)</script> & "Ops"'
+        self.board.save(update_fields=["name"])
+        self.event()
+        self.run_with(500)
+        [(html, _)] = mail.outbox[0].alternatives
+        self.assertNotIn("<script>", html)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;Ops&quot;", html)
+        # The text part stays the complete message, unescaped.
+        self.assertIn('Board:   <script>alert(1)</script> & "Ops"', mail.outbox[0].body)
 
     @override_settings(WEBHOOK_DISABLE_AFTER_FAILURES=1)
     def test_site_admin_owner_who_is_not_a_member_gets_the_notice(self):

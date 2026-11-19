@@ -33,7 +33,7 @@ Checked in this order:
 | A personal access token on a session-only action | `403 {"code": "session_required"}` |
 | A subscription id that belongs to another board | `404` |
 
-Board admins and site admins (`can_access_all_content`) may use every action. **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate` and `test`. They refuse personal access tokens and any other non-session credential. `reenable`, `rotate` and `test` refuse before the subscription is looked up, so a token gets `403`, not `404`, for an unknown id. A `PATCH` looks the subscription up first, because it has to read the body to see whether `url` is present, so a token gets `404` for an unknown id and `403` for a known one. On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
+Board admins and site admins (`can_access_all_content`) may use every action. **Session-only** actions are the ones that choose where data goes or how it is signed: create, a `PATCH` that changes `url`, `reenable`, `rotate`, `end-overlap` and `test`. They refuse personal access tokens and any other non-session credential. `reenable`, `rotate`, `end-overlap` and `test` refuse before the subscription is looked up, so a token gets `403`, not `404`, for an unknown id. A `PATCH` looks the subscription up first, because it has to read the body to see whether `url` is present, so a token gets `404` for an unknown id and `403` for a known one. On the other actions a token needs the `read` scope for `GET` and `write` for `PATCH`, `DELETE` and `disable`.
 
 ## Endpoints
 
@@ -48,6 +48,7 @@ Board admins and site admins (`can_access_all_content`) may use every action. **
 | `POST {id}/disable/` | | Turn off; `disabled_reason` becomes `manual`. Idempotent. No notice is sent. |
 | `POST {id}/reenable/` | yes | Body `{"resume_from": "cursor" \| "latest"}`, default `cursor`. |
 | `POST {id}/rotate/` | yes | New signing secret, returned once. Throttle scope `webhook_config`. |
+| `POST {id}/end-overlap/` | yes | Stop signing with the previous secret now, without a new one. Idempotent. *(since 1.3, #2118)* |
 | `POST {id}/test/` | yes | Send a `webhook.test` event now. Throttle scope `webhook_test` (10/hour per user). |
 
 `PUT` is not supported.
@@ -167,6 +168,16 @@ A value out of range, or of the wrong type, is a `400` field error keyed `overla
 
 Changing a webhook's `url` also ends any open overlap: the new host never held the old secret, and requests signed with it could be replayed at the old receiver.
 
+### `POST {id}/end-overlap/`
+
+*Since 1.3 (#2118).* Ends an open rotation overlap early, **without issuing a new secret**: once your receiver has the new secret, there is no need to wait for `previous_secret_expires_at`. No body. Returns the subscription object (`200`), with `previous_secret_expires_at: null` and no `secret`.
+
+After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has. A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (`configured_by`) does not change, because the destination and the current secret stay as they were.
+
+With no overlap open it changes nothing and still answers `200`, so it is safe to retry. Like `rotate` it is session-only, so a personal access token gets `403 {"code": "session_required"}`.
+
+The alternative before 1.3, a second rotation with `overlap_seconds: 0`, also ends the overlap, but issues a new secret your receiver then has to install.
+
 ### `POST {id}/test/`
 
 ```json
@@ -226,6 +237,8 @@ The body is one row of the [change feed](events.md), exactly as `GET /boards/{id
 ### Response
 
 Answer `2xx` within 10 seconds (`WEBHOOK_TIMEOUT_SECONDS`). Visiban reads only the status line; the response body is discarded and never stored.
+
+A receiver also gets at most `WEBHOOK_HOST_MAX_PER_MINUTE` (120) deliveries a minute and `WEBHOOK_HOST_MAX_CONCURRENCY` (2) at once, counted per destination host across every board's webhooks on the server (since 1.3, #2055). A webhook whose host is at either limit waits for a later dispatcher run; that is not a failure, so it does not back off or count toward being turned off, and its events stay in order. See [Configuration — Webhooks](../administration/configuration.md#webhooks).
 
 Anything else is a failure, including `3xx`: redirects are not followed. After a failure the webhook retries the **same** event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of `WEBHOOK_DISABLE_AFTER_FAILURES` and `WEBHOOK_DISABLE_AFTER_HOURS`) it is turned off with `disabled_reason: "failures"`, and the board's admins get a `webhook_disabled` [notification](notifications.md) and an email.
 
@@ -317,7 +330,7 @@ Rotating with `overlap_seconds` lists both signatures, new first, with no spaces
 X-Visiban-Signature: v1=<signature with the new secret>,v1=<signature with the old secret>
 ```
 
-Your receiver holds **one** secret and needs no second setting: it accepts the request when any listed value matches. So the order of work is: rotate with an overlap, put the new secret in your receiver, and let the window end. Outside a window the header is a single value, byte-for-byte what it has always been.
+Your receiver holds **one** secret and needs no second setting: it accepts the request when any listed value matches. So the order of work is: rotate with an overlap, put the new secret in your receiver, and let the window end, or end it yourself with [`POST {id}/end-overlap/`](#post-idend-overlap) once the receiver has the new secret. Outside a window the header is a single value, byte-for-byte what it has always been.
 
 !!! warning "A verifier that compares the whole header rejects every delivery during an overlap"
     Comparing `X-Visiban-Signature` as one string fails on `v1=a,v1=b`, **whichever secret the receiver holds**. Every snippet and client published before overlaps were added does that, and an un-upgraded receiver fails closed. No stable release carried those verifiers, which is why the format could change at all, but if you built a receiver against a development build or an earlier copy of these snippets, update it (or the client package) to the check above before you use an overlap. A rotation with `overlap_seconds: 0` never sends two values.

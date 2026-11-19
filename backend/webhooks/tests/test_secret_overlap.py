@@ -581,3 +581,91 @@ class SweepCommandTests(OverlapBase):
         self._in_window()
         self._run()
         self._assert_cleared()
+
+
+@ENABLED
+class EndOverlapTests(OverlapBase):
+    """``POST {id}/end-overlap/``: drop the previous secret without a new one (#2118)."""
+
+    def end(self, sub=None):
+        sub = sub or self.sub
+        return self.client.post(_url(self.board.pk, f"{sub.pk}/end-overlap/"))
+
+    def test_after_it_deliveries_carry_one_signature_and_the_secret_is_unchanged(self):
+        r = self.rotate(overlap_seconds=DAY)
+        new_secret = r.data["secret"]
+        self.sub.refresh_from_db()
+        before = (self.sub.secret_encrypted, self.sub.secret_rotated_at, self.sub.configured_by_id, self.sub.configured_at)
+        ended = self.end()
+        self.assertEqual(ended.status_code, 200)
+        self.assertIsNone(ended.data["previous_secret_expires_at"])
+        self.assertNotIn("secret", ended.data)
+        self.sub.refresh_from_db()
+        self.assertEqual((self.sub.previous_secret_encrypted, self.sub.previous_secret_expires_at), ("", None))
+        self.assertEqual(
+            (self.sub.secret_encrypted, self.sub.secret_rotated_at, self.sub.configured_by_id, self.sub.configured_at),
+            before,
+        )
+        self.event()
+        rec, _ = self.deliver()
+        self.assertEqual(_values(rec.calls[0]), [_expected(new_secret, rec.calls[0])])
+
+    def test_with_no_overlap_open_it_is_a_no_op(self):
+        self.sub.refresh_from_db()
+        updated_at = self.sub.updated_at
+        r = self.end()
+        self.assertEqual(r.status_code, 200)
+        self.sub.refresh_from_db()
+        self.assertEqual(self.sub.updated_at, updated_at)
+        self.event()
+        rec, _ = self.deliver()
+        self.assertEqual(_values(rec.calls[0]), [_expected("whsec_old", rec.calls[0])])
+
+    def test_an_expired_unswept_window_is_cleared_too(self):
+        self.rotate(overlap_seconds=DAY)
+        self.expire_window()
+        with patch("webhooks.dispatch.sweep_expired_previous_secrets"):
+            self.assertEqual(self.end().status_code, 200)
+        self.sub.refresh_from_db()
+        self.assertEqual(self.sub.previous_secret_encrypted, "")
+
+    def test_a_run_in_progress_drops_the_old_signature_at_the_next_row_and_keeps_going(self):
+        r = self.rotate(overlap_seconds=DAY)
+        self.event()
+        self.event()
+        calls = []
+
+        def post(url, body, headers, **kwargs):
+            calls.append({"headers": headers, "body": body})
+            if len(calls) == 1:
+                self.assertEqual(self.end().status_code, 200)
+            return 200
+
+        with patch("visiban.egress.guarded_post", post):
+            result = dispatch.run_once()
+        self.assertEqual((result.delivered, result.lost_lease), (2, 0))
+        self.assertEqual(len(_values(calls[0])), 2)
+        self.assertEqual(_values(calls[1]), [_expected(r.data["secret"], calls[1])])
+
+    def test_a_token_is_refused(self):
+        self.rotate(overlap_seconds=DAY)
+        _, raw = PersonalAccessToken.generate(self.admin, "t-2118")
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Token {raw}")
+        r = client.post(_url(self.board.pk, f"{self.sub.pk}/end-overlap/"))
+        self.assertEqual((r.status_code, r.data.get("code")), (403, "session_required"))
+
+    def test_only_a_board_admin_and_only_this_boards_webhook(self):
+        member = _make_user(email="end-member@example.com")
+        _make_membership(self.board, member, "member")
+        client = APIClient()
+        client.force_login(member)
+        self.assertEqual(client.post(_url(self.board.pk, f"{self.sub.pk}/end-overlap/")).status_code, 403)
+        _, other_board = admin_and_board("Other end board")
+        other = make_subscription(other_board, _make_user(email="end-other@example.com"))
+        self.assertEqual(self.client.post(_url(self.board.pk, f"{other.pk}/end-overlap/")).status_code, 404)
+
+    @override_settings(WEBHOOKS_ENABLED=False)
+    def test_feature_off(self):
+        r = self.end()
+        self.assertEqual((r.status_code, r.data["code"]), (403, "webhooks_disabled"))

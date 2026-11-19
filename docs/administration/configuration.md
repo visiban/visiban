@@ -271,6 +271,8 @@ Alert on Valkey's own metrics or on the `Readiness degraded: cache` and `Cache u
 | `WEBHOOK_REFUSAL_FLOOR_SECONDS` | `WEBHOOK_CONNECT_TIMEOUT_SECONDS` | Every "can't send to this address" refusal at save time takes at least this long, so its timing does not reveal which address rule matched. Lowering it trades that for a faster answer. |
 | `WEBHOOK_SETTLE_SECONDS` | `10` | Events younger than this wait for the next run. Since 1.3 the dispatcher never skips an event whose transaction commits late, whatever this value is (#2053); the window only delays delivery. |
 | `WEBHOOK_DISPATCHER_STALE_SECONDS` | `300` | After this long without a dispatcher run, the board's Webhooks tab warns its admins. |
+| `WEBHOOK_HOST_MAX_PER_MINUTE` | `120` | Deliveries to one destination host per minute, across every board's webhooks and every dispatcher (counted in the shared cache; per process without one). A webhook whose host is at the limit waits for a later run; it is not a failure. `0` turns the limit off. *(new in 1.3)* |
+| `WEBHOOK_HOST_MAX_CONCURRENCY` | `2` | Deliveries to one destination host in flight at once, across dispatchers. One dispatcher sends one at a time, so this binds only with several (Helm replicas, a loop beside a cron). `0` turns the limit off. *(new in 1.3)* |
 | `WEBHOOK_LOG_LEVEL` | `INFO` | Level of the `webhooks` logger (dispatcher runs and delivery failures). It logs ids and fixed codes only, never an address or secret. |
 
 Two API throttle scopes bound the endpoints that resolve or contact a destination, per user: `webhook_config` (create, URL change, rotate) at 30/hour and `webhook_test` at 10/hour.

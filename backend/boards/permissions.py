@@ -13,6 +13,7 @@ from .broadcast import (
     EVT_SAVED_FILTER_CREATED,
     EVT_SAVED_FILTER_DELETED,
     EVT_SHARE_LINK_UPDATED,
+    EVT_WEBHOOK_CHANGED,
 )
 from .models import Board, BoardMembership
 
@@ -182,10 +183,11 @@ def per_user_event_visible(viewer_user_id, data):
 # Event types that only board admins may receive at all (#1967). Unlike the
 # per-field gates above, the whole frame is withheld from every other role:
 # its payload is admin-only state (the public share link's on/off and expiry,
-# which ``/full/`` nulls below admin), so there is nothing left to send once
+# which ``/full/`` nulls below admin; webhook settings, which are board-admin
+# only on every transport, #2057), so there is nothing left to send once
 # that state is removed. The board consumer drops the frame for a subscriber
 # below admin, and the change feed excludes the rows for a reader below admin.
-ADMIN_ONLY_EVENTS = frozenset({EVT_SHARE_LINK_UPDATED})
+ADMIN_ONLY_EVENTS = frozenset({EVT_SHARE_LINK_UPDATED, EVT_WEBHOOK_CHANGED})
 
 ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 

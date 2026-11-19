@@ -69,6 +69,7 @@ FROZEN_BOARD_EVENTS = {
     "EVT_SHARE_LINK_UPDATED": "share_link.updated",  # 1.3, #1967 (admin-only)
     "EVT_LENS_CONNECTION_CONFIGURED": "lens_connection.configured",
     "EVT_LENS_CONNECTION_REMOVED": "lens_connection.removed",
+    "EVT_WEBHOOK_CHANGED": "webhook.changed",  # 1.3, #2057 (admin-only, broadcast only)
     "EVT_PING": "ping",
 }
 

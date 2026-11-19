@@ -570,6 +570,29 @@ These two events and their payloads are part of the frozen 1.x WebSocket contrac
 | `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object (its `created_by` is `null` if the configuring user has since been deleted) |
 | `lens_connection.removed` | Lens connection deleted from this board (admin only). Sent only when a connection existed: a `DELETE` with nothing to remove still answers `204` but emits nothing | `{ "board_uid": <string>, "board_id": <int> }`. `board_uid` is sent since 1.3 (#1858) and matches the other terminal events, such as `board.deleted`; key on it. `board_id` is **deprecated** since 1.3 and stays in the payload until a major release (#1055) |
 
+### Webhook events (since 1.3)
+
+Emitted when one of the board's [outbound webhooks](webhooks.md) changes: a
+board admin created, edited, re-pointed, turned off, turned on, rotated,
+ended a secret overlap on or deleted it, or the dispatcher turned it off, saw
+it start failing, or saw it recover. A failing webhook announces its first
+failure only, not every retry. **Admin-only**, like `share_link.updated`: the
+server sends the frame only to sockets whose user is a board `admin` or
+`site_admin`, with the role re-checked on every frame.
+
+The frame is an **invalidation**, not a copy of the webhook: refetch
+[`GET /api/v1/boards/{id}/webhooks/`](webhooks.md) for the row. It never
+carries the URL, the host, the label, a secret or a signature. Unlike every
+other board event it is **not stored in the [change feed](events.md)** and has
+no `event_id`, so a frame missed while disconnected is not replayed: refetch
+the list after a reconnect (the Visiban web app also refetches when its window
+regains focus). A webhook never receives this event: it is not in
+`subscribable_event_types`.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `webhook.changed` | A webhook on this board was changed by a board admin or by the dispatcher (see above) | `{ "id": <int>, "status": "active" \| "failing" \| "disabled" \| "deleted", "reason_code": <string>, "consecutive_failures": <int>, "changed_by": <int or null>, "at": <string> }`. `reason_code` is the webhook's `disabled_reason` (`""` while enabled); `changed_by` is the acting user's id, `null` for the dispatcher; `at` is an ISO-8601 timestamp |
+
 ### Keepalive
 
 | Event | Trigger | `data` shape |
