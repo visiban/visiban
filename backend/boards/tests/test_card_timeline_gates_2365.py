@@ -191,6 +191,17 @@ class GateScopingTests(_GateTimelineBase):
         self.assertEqual(CardGateTransition.objects.filter(card__isnull=True).count(), 1)
         self.assertEqual(self.get({"include_counts": "true"})["counts"]["gate"], 0)
 
+    def test_viewer_role_member_sees_the_gate_entry(self):
+        # Read-only members read the History tab like everyone else.
+        self.gate()
+        viewer = User.objects.create_user(username="viewer2365", password="pass")
+        BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
+        client = APIClient()
+        client.force_authenticate(viewer)
+        resp = client.get(self.url, {"event_types": "gate"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual([e["kind"] for e in resp.json()["results"]], ["gate"])
+
     def test_non_member_gets_404_not_gates(self):
         self.gate()
         outsider = User.objects.create_user(username="outsider2365", password="pass")

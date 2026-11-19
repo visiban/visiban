@@ -107,10 +107,18 @@ export function activityLabel(
 export function gateTransitionLabel(
   g: Pick<CardGateTransition, "kind" | "column_name" | "sub_column_name" | "to_index" | "cause">,
 ): string {
+  const where = gateWhere(g);
+  // A stage-settings remap is a system change, not a person moving the card,
+  // so it never uses a user-action verb (Jordan reads this in retrospectives).
+  if (g.cause === "stage_edited") return `Now in ${where} (stage edited)`;
+  return g.kind === "reopen" ? `Moved back to ${where}` : `Moved to ${where}`;
+}
+
+function gateWhere(
+  g: Pick<CardGateTransition, "column_name" | "sub_column_name" | "to_index">,
+): string {
   const sub = g.sub_column_name || `sub-column ${g.to_index + 1}`;
-  const where = g.column_name ? `${sub} in ${g.column_name}` : sub;
-  const head = g.kind === "reopen" ? `Moved back to ${where}` : `Moved to ${where}`;
-  return g.cause === "stage_edited" ? `${head} (stage edited)` : head;
+  return g.column_name ? `${sub} in ${g.column_name}` : sub;
 }
 
 /**
@@ -126,7 +134,11 @@ export function lastActivitySummary(entry: CardTimelineEntry, userDateFormat = "
     return m.from_column === null ? `${who} created it in ${to}` : `${who} moved to ${to}`;
   }
   if (entry.kind === "gate") {
-    return `${who}: ${gateTransitionLabel(entry.data as unknown as CardGateTransition)}`;
+    const g = entry.data as unknown as CardGateTransition;
+    // A remap has no actor action: use the system wording, without a name.
+    if (g.cause === "stage_edited") return gateTransitionLabel(g);
+    const where = gateWhere(g);
+    return g.kind === "reopen" ? `${who} moved back to ${where}` : `${who} moved to ${where}`;
   }
   return `${who}: ${activityLabel(entry.event_type, entry.data, userDateFormat)}`;
 }

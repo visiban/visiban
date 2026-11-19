@@ -35,13 +35,16 @@ export default function CardPeekHistory({
 }: CardPeekHistoryProps) {
   const [gates, setGates] = useState<CardGateTransition[] | null>(null);
   const [gatesFailed, setGatesFailed] = useState(false);
+  const [gateTotal, setGateTotal] = useState(0);
 
   useEffect(() => {
     let live = true;
     setGatesFailed(false);
+    setGateTotal(0);
     getCardTimeline(boardId, cardId, { event_types: "gate", limit: GATE_PAGE_LIMIT })
       .then((page) => {
         if (!live) return;
+        setGateTotal(page.count ?? 0);
         setGates(
           page.results
             .filter((e) => e.kind === "gate")
@@ -60,13 +63,31 @@ export default function CardPeekHistory({
   if (movements === null || gates === null) {
     return <p className="text-sm text-fg-secondary">Loading history...</p>;
   }
-  if (movementsFailed || gatesFailed) {
+  // The gate rows only enrich the movements, so their failure is soft: the
+  // movements still render, with a note. Only a movements failure (or both)
+  // replaces the list with the full error.
+  if (movementsFailed) {
     return <p className="text-sm text-fg-secondary" role="alert">History could not be loaded.</p>;
   }
+  if (gatesFailed && (movements ?? []).length === 0) {
+    return <p className="text-sm text-fg-secondary" role="alert">History could not be loaded.</p>;
+  }
+  const gateRowCount = (gates ?? []).length;
+  const notes = (
+    <>
+      {gatesFailed && (
+        <p className="mt-2 text-xs text-fg-tertiary" role="status">Sub-column moves could not be loaded.</p>
+      )}
+      {!gatesFailed && gateRowCount > 0 && gateTotal > gateRowCount && (
+        <p className="mt-2 text-xs text-fg-tertiary">Showing the latest {gateRowCount} sub-column moves</p>
+      )}
+    </>
+  );
   if (rows.length === 0) {
     return <p className="text-sm text-fg-tertiary">No history yet.</p>;
   }
   return (
+    <>
     <ul className="space-y-1.5 text-sm" data-testid="card-peek-history">
       {rows.map((r) => (
         <li key={r.key} className="flex justify-between gap-3">
@@ -75,5 +96,7 @@ export default function CardPeekHistory({
         </li>
       ))}
     </ul>
+    {notes}
+    </>
   );
 }

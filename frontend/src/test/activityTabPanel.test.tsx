@@ -156,7 +156,7 @@ describe("ActivityTabPanel", () => {
       render(<ActivityTabPanel boardId={1} cardId={1} />);
       await waitFor(() => screen.getByText("Moved to Review in Build"));
       expect(screen.getByText("Moved back to Doing in Build")).toBeInTheDocument();
-      expect(screen.getByText("Moved back to sub-column 2 in Build (stage edited)")).toBeInTheDocument();
+      expect(screen.getByText("Now in sub-column 2 in Build (stage edited)")).toBeInTheDocument();
       expect(screen.getAllByText(/Jane Doe/)).toHaveLength(3);
       // A sub-column move is not a column move: no time-spent line.
       expect(screen.queryByText(/Spent .* here/)).not.toBeInTheDocument();

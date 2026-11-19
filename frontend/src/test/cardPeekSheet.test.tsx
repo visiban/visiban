@@ -169,7 +169,7 @@ describe('CardPeekSheet', () => {
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('Moved to Review in Qualified')
     expect(rows[1]).toContain('Prospect to Qualified')
-    expect(rows[2]).toContain('Moved back to sub-column 1 in Qualified (stage edited)')
+    expect(rows[2]).toContain('Now in sub-column 1 in Qualified (stage edited)')
     expect(rows[3]).toContain('Created in Prospect')
     expect(getCardTimeline).toHaveBeenCalledWith(1, 9, { event_types: 'gate', limit: 200 })
   })
@@ -184,10 +184,28 @@ describe('CardPeekSheet', () => {
     expect(within(history).getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('reports a failure to load the sub-column moves', async () => {
+  it('keeps the movements and notes it when only the sub-column moves fail', async () => {
     getCardTimeline.mockRejectedValueOnce(new Error('x'))
     setup()
+    const history = await screen.findByTestId('card-peek-history')
+    expect(within(history).getAllByRole('listitem')).toHaveLength(2)
+    expect(await screen.findByText('Sub-column moves could not be loaded.')).toBeInTheDocument()
+    expect(screen.queryByText('History could not be loaded.')).not.toBeInTheDocument()
+  })
+
+  it('shows the full error when both the movements and the sub-column moves fail', async () => {
+    getCardMovements.mockRejectedValueOnce(new Error('x'))
+    getCardTimeline.mockRejectedValueOnce(new Error('y'))
+    setup()
     expect(await screen.findByRole('alert')).toHaveTextContent('History could not be loaded.')
+    expect(screen.queryByTestId('card-peek-history')).not.toBeInTheDocument()
+  })
+
+  it('hints when more sub-column moves exist than were fetched', async () => {
+    getCardTimeline.mockResolvedValueOnce({ ...emptyTimeline, count: 250, results: [gateEntry(7, 10)] })
+    setup()
+    await screen.findByTestId('card-peek-history')
+    expect(screen.getByText('Showing the latest 1 sub-column moves')).toBeInTheDocument()
   })
 
   it('reads Never moved for a card that has never moved', async () => {

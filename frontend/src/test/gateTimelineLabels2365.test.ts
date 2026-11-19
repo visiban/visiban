@@ -15,7 +15,7 @@ describe("gateTransitionLabel (#2365)", () => {
   });
 
   it("marks a stage-settings remap", () => {
-    expect(gateTransitionLabel({ ...gate, kind: "reopen", cause: "stage_edited" })).toBe("Moved back to Review in Build (stage edited)");
+    expect(gateTransitionLabel({ ...gate, kind: "reopen", cause: "stage_edited" })).toBe("Now in Review in Build (stage edited)");
   });
 });
 
@@ -26,7 +26,11 @@ describe("lastActivitySummary for a gate entry (#2365)", () => {
       actor: { id: 1, username: "jdoe", display_name: "Jane Doe", avatar_url: "" },
       data: gate as unknown as Record<string, unknown>,
     } as unknown as CardTimelineEntry;
-    expect(lastActivitySummary(entry)).toBe("Jane Doe: Moved to Review in Build");
-    expect(lastActivitySummary({ ...entry, actor: null })).toBe("Someone: Moved to Review in Build");
+    expect(lastActivitySummary(entry)).toBe("Jane Doe moved to Review in Build");
+    expect(lastActivitySummary({ ...entry, actor: null })).toBe("Someone moved to Review in Build");
+    const reopen = { ...(entry.data as object), kind: "reopen" };
+    expect(lastActivitySummary({ ...entry, data: reopen } as unknown as CardTimelineEntry)).toBe("Jane Doe moved back to Review in Build");
+    const remap = { ...(entry.data as object), cause: "stage_edited" };
+    expect(lastActivitySummary({ ...entry, data: remap } as unknown as CardTimelineEntry)).toBe("Now in Review in Build (stage edited)");
   });
 });
