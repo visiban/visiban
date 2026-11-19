@@ -46,7 +46,7 @@ describe('CardItem — urgency border tint (#977)', () => {
     render(<CardItem card={makeCard({ due_date: OVERDUE, priority: 'medium' })} density="comfortable" />)
     expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
     expect(screen.getByTestId('card-priority-sr')).toHaveTextContent('Priority: medium')
-    expect(face()).toHaveAccessibleName(/Tint card\s*, Priority: medium/)
+    expect(face()).toHaveAccessibleName(/Tint card.*, Priority: medium$/)
   })
 
   it('due soon at comfortable: no border, priority still in the accessible name', () => {

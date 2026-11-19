@@ -6,7 +6,7 @@ import { getSnapshot, publishActivePreset } from '../boardPresets/activePresetSt
 import type { Board } from '../types'
 
 // #871: `useBoardPreset` publishes the active preset in a LAYOUT effect so a Default
-// board never paints the Classic face first. A passive effect runs after paint, so
+// board never paints a frame at the wrong density first. A passive effect runs after paint, so
 // the discriminator is a later sibling's layout effect in the same commit: it sees
 // the published snapshot only if the publish was itself a layout effect.
 function Host() {

@@ -153,3 +153,53 @@ describe('CardItem — calm face (#2272)', () => {
     expect(screen.getByText('A fairly long plain title').closest('p')).toHaveAttribute('title', 'A fairly long plain title')
   })
 })
+
+describe('CardItem — omitted metadata stays in the accessible name (#2279)', () => {
+  it('Dense says labels, checklist, attachments, weight, due date and the reference in words, and nothing visible', () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({
+          due_date: '2099-01-15',
+          external_ref: { provider: 'github', ref: 'acme/api#42', url: 'https://github.com/acme/api/pull/42' } as Card['external_ref'],
+        })}
+        density="dense"
+      />,
+    )
+    const sr = container.querySelector('[data-testid="card-dense-sr"]') as HTMLElement
+    expect(sr).toHaveClass('sr-only')
+    expect(sr.textContent).toContain('Labels: backend, security, q2-goal')
+    expect(sr.textContent).toContain('Checklist 2 of 5')
+    expect(sr.textContent).toContain('3 attachments')
+    expect(sr.textContent).toContain('Weight 5')
+    expect(sr.textContent).toContain('Due ')
+    expect(sr.textContent).toContain('acme/api#42')
+    // The visible face stays one row with none of these drawn.
+    expect(container.querySelectorAll('[data-testid="card-dense-row"]')).toHaveLength(1)
+    expect(screen.queryByText('backend')).toBeNull()
+    expect(screen.queryByText(/✓/)).toBeNull()
+  })
+
+  it('Dense on a bare card adds no sr-only metadata text', () => {
+    const { container } = render(
+      <CardItem card={makeCard({ labels: [], weight: 1, attachment_count: 0, checklist_total: 0, checklist_done: 0 })} density="dense" />,
+    )
+    expect(container.querySelector('[data-testid="card-dense-sr"]')).toBeNull()
+  })
+
+  it('Standard gives the checklist and attachment emoji chips words, and hides the emoji from assistive tech', () => {
+    const { container } = render(<CardItem card={makeCard()} density="standard" />)
+    const checklist = container.querySelector('[title="2/5 checklist items"]') as HTMLElement
+    expect(checklist.querySelector('[aria-hidden="true"]')?.textContent).toBe('✓2/5')
+    expect(checklist.querySelector('.sr-only')?.textContent).toBe('Checklist 2 of 5')
+    const attachments = container.querySelector('[title="3 attachment(s)"]') as HTMLElement
+    expect(attachments.querySelector('[aria-hidden="true"]')?.textContent).toBe('📎3')
+    expect(attachments.querySelector('.sr-only')?.textContent).toBe('3 attachments')
+  })
+
+  it('the priority suffix is the last sr-only text in the card, after the dense metadata words', () => {
+    const { container } = render(<CardItem card={makeCard({ priority: 'high' })} density="dense" />)
+    const dense = container.querySelector('[data-testid="card-dense-sr"]') as HTMLElement
+    const priority = container.querySelector('[data-testid="card-priority-sr"]') as HTMLElement
+    expect(dense.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

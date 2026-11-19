@@ -74,7 +74,7 @@ const CLASSIC: BoardPreset = {
   schemaVersion: BOARD_PRESET_SCHEMA_VERSION,
   id: "classic",
   name: "Classic",
-  description: "The board as it looked before presets: the board's own density, no overlay.",
+  description: "Keeps the board's own density and applies no overlay.",
   bundle: { fields: null, density: null, overlay: NONE_OVERLAY_ID, filter: null, attention: null },
 };
 
@@ -87,7 +87,7 @@ const DEFAULT: BoardPreset = {
   schemaVersion: BOARD_PRESET_SCHEMA_VERSION,
   id: "default",
   name: "Default",
-  description: "Standard density, no overlay.",
+  description: "Sets Standard density and applies no overlay.",
   bundle: { fields: null, density: "standard", overlay: NONE_OVERLAY_ID, filter: null, attention: null },
 };
 
