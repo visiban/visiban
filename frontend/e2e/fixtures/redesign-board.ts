@@ -68,6 +68,8 @@ const labelNames = Array.from(new Set(sample.cards.map((c) => c.label)))
 const labelColors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6']
 const labels = labelNames.map((name, i) => ({ id: 400 + i, name, color: labelColors[i % labelColors.length] }))
 
+const DANA = { id: 2, username: 'dana', display_name: 'Dana Ellis', avatar_url: '' }
+
 const cards = sample.cards.map((c, i) => {
   const col = columns.find((x) => x.name === c.column)!
   const lane = swimlanes.find((x) => x.name === c.swimlane)!
@@ -110,6 +112,8 @@ const cards = sample.cards.map((c, i) => {
     column_entered_at: new Date(movedMs).toISOString(),
     custom_field_values: values,
     gates_passed: Math.max(sub, 0),
+    // Every third card is assigned, so the face shows the avatar the reference draws.
+    assignee: i % 3 === 0 ? DANA : null,
   }
 })
 
@@ -129,3 +133,27 @@ export const REDESIGN_BOARD = {
   card_density: 'comfortable' as const,
   default_preset: 'classic' as const,
 }
+
+/**
+ * Board history for the activity drawer capture: seven moves between the sample's
+ * columns, newest first, so the drawer lists entries like the reference does.
+ */
+export const REDESIGN_MOVEMENTS = cards.slice(0, 7).map((card, i) => {
+  const to = columns[Math.min(i + 1, columns.length - 1)]
+  const from = columns[Math.min(i, columns.length - 1)]
+  const lane = swimlanes.find((l) => l.id === card.swimlane)!
+  return {
+    id: 8000 + i,
+    card_uid: card.uid,
+    card_title: card.title,
+    from_column: from.id, from_column_name: from.name, from_column_uid: from.uid,
+    to_column: to.id, to_column_name: to.name, to_column_uid: to.uid,
+    from_swimlane: lane.id, from_swimlane_name: lane.name, from_swimlane_uid: lane.uid,
+    to_swimlane: lane.id, to_swimlane_name: lane.name, to_swimlane_uid: lane.uid,
+    moved_by: DANA,
+    moved_at: new Date(NOW - (i + 1) * 3 * 3_600_000).toISOString(),
+    notes: '',
+    movement_type: 'move' as const,
+    imported_from_username: null,
+  }
+})
