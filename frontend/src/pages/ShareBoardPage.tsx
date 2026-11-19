@@ -6,6 +6,7 @@ import { colorForPriority } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
 import Spinner from "../components/Common/Spinner";
 import { colorChipStyle } from "../utils/colorContrast";
+import { cardSubColumnIndex, splitCellBySubColumn, stageSubColumns } from "../utils/stages";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,12 +102,53 @@ function StaticSwimlaneSidebar({ swimlane }: { swimlane: PublicSwimlane }) {
 // Static column header
 // ---------------------------------------------------------------------------
 
-function StaticColumnHeader({ column, cardCount }: { column: PublicColumn; cardCount: number }) {
+/**
+ * A split stage (#1102) shows its sub-columns under the name, each with its
+ * own count, and its tracks (#1921) by name. The anonymous payload carries the
+ * track definitions but no per-card track state (that would widen the public
+ * serializer), so the chips here name the tracks a card on this stage carries
+ * and never claim a state. Read-only: nothing here is interactive.
+ */
+function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn; cardCount: number; cards: PublicCard[] }) {
+  const subs = stageSubColumns(column);
+  const tracks = [...(column.tracks ?? [])].sort((a, b) => a.position - b.position);
   return (
-    <div className="bg-surface px-2 py-2 flex items-center gap-1.5 min-w-0">
-      <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-      <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
-      <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
+    <div className="bg-surface min-w-0">
+      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
+        <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
+        <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
+      </div>
+      {subs.length > 0 && (
+        <ul
+          data-testid="share-sub-columns"
+          aria-label={`${column.name} sub-columns`}
+          className="flex border-t border-line-subtle"
+        >
+          {subs.map((sub, i) => {
+            const count = cards.filter((c) => cardSubColumnIndex(c, column) === i).length;
+            return (
+              <li
+                key={sub.id}
+                data-testid="share-sub-column-header"
+                className={`flex-1 min-w-0 px-2 py-1 flex items-center gap-1 text-xs text-fg-tertiary ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
+              >
+                <span className="truncate flex-1" title={sub.name}>{sub.name}</span>
+                <span className="shrink-0">{count}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {tracks.length > 0 && (
+        <ul data-testid="share-track-chips" aria-label={`${column.name} tracks`} className="px-2 pb-2 flex flex-wrap gap-1">
+          {tracks.map((t) => (
+            <li key={t.id} className="inline-flex items-center rounded border border-line-strong px-1.5 py-px text-xs font-semibold leading-4 text-fg-secondary">
+              {t.name}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -126,7 +168,9 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
 
   const colCardCount = (colId: number) => board.cards.filter((c) => c.column === colId).length;
 
+  // A split stage takes one column width per sub-column (#1102), like the board's double-width grid track.
   const colW = 220;
+  const colWidth = (col: PublicColumn) => colW * Math.max(1, stageSubColumns(col).length);
   const labelW = 160;
 
   return (
@@ -134,7 +178,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `${labelW}px repeat(${columns.length}, ${colW}px)`,
+          gridTemplateColumns: `${labelW}px ${columns.map((c) => `${colWidth(c)}px`).join(" ")}`,
           gridTemplateRows: `auto repeat(${swimlanes.length}, auto)`,
         }}
       >
@@ -146,7 +190,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
         {/* Column headers */}
         {columns.map((col) => (
           <div key={col.id} className="border-b border-r border-line-subtle">
-            <StaticColumnHeader column={col} cardCount={colCardCount(col.id)} />
+            <StaticColumnHeader column={col} cardCount={colCardCount(col.id)} cards={board.cards.filter((c) => c.column === col.id)} />
           </div>
         ))}
 
@@ -161,6 +205,28 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
             {/* Cells */}
             {columns.map((col) => {
               const cellCards = cardsAt(col.id, lane.id);
+              if (stageSubColumns(col).length > 0) {
+                // One well, a dashed divider between sub-columns, cards in position order (#1102).
+                return (
+                  <div
+                    key={`cell-${col.id}-${lane.id}`}
+                    data-testid="share-split-cell"
+                    className="bg-canvas border-b border-r border-line-subtle flex min-h-[80px]"
+                  >
+                    {splitCellBySubColumn(cellCards, col).map((list, i) => (
+                      <div
+                        key={i}
+                        data-testid="share-sub-column-cell"
+                        className={`flex-1 min-w-0 p-1.5 flex flex-col gap-1.5 ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
+                      >
+                        {list.map((card) => (
+                          <StaticCardItem key={card.uid} card={card} labels={board.labels} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
               return (
                 <div
                   key={`cell-${col.id}-${lane.id}`}
