@@ -409,8 +409,6 @@ Each is disabled at the first or last place and saves the same way a drag does, 
 
 At this width the header and toolbar use icon buttons. The navigation menu button sits at the start of the app header, in the same row as the board name, **Search**, **Notifications** and your account menu, so there is no separate navigation bar above it. **Filters** and **Activity** show only their icon (screen readers still announce their names). The **Filters** button also opens the View options: tap it, then **View options** in the Filter panel's heading row. Screen readers announce the button as "Filters and view options"; with a keyboard, Shift+Tab from **Find a field** reaches **View options**, and Escape in the View options returns focus to the **Filters** button. The board toolbar is one row (1.3+): the tabs (Board, Summary, History, Analytics) scroll sideways in their own box, with **Filters**, **Activity** and **More board actions** after them. The connection status shows on a phone only when it is not healthy (offline, reconnecting, stale), and tapping it still opens the details. The header and the toolbar together take about 92px at 390px. On phones the header no longer links from a board to its group; the group stays reachable from the navigation drawer and the group page shows its own breadcrumb. Every header and toolbar control, including **Search**, **Notifications**, the navigation menu, the filter bar, **More board actions** and the **Show all cards** and **Exit focus** banner buttons, is at least 44px tall and wide when closed. So is every control inside the panels they open: the Filter panel, the View options, the **More board actions** menu, the account menu, the navigation drawer and the notification rows. So are the filter bar's facet menus, the Activity drawer, the Board Health popover and the command palette (1.3+). The pencil beside the board name is hidden; tap the name to rename the board.
 
-Not built yet on phones: the sub-column switcher for a split column and track chips on cards (#2330).
-
 ### Board panning
 
 Hold **Space** and drag to pan the board in any direction. This helps on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode. Space on a focused card opens the card instead of panning; Space anywhere else pans.
@@ -804,7 +802,7 @@ With no board default (the setting for every board created or upgraded before 1.
 - **Offline:** while the live connection is down, the banner reads "Offline. Reconnecting. Moves are paused until the board is live again." and the connection status in the toolbar reads **Offline**. Moves are paused so a move never lands on a board that other people changed meanwhile: you cannot drag cards, columns or lanes, and **Move to…** (card menu, ⌘K and bulk toolbar) and **Move** (card details and the card peek) are disabled with "Moves are paused while the board is offline" written beside them. Everything else still works. If reconnecting gives up, the banner reads "Offline. Live updates are off and moves are paused. Reload the page to reconnect."
 - **Dragging:** the card you drag tilts and casts a deep shadow (no tilt or lift with reduced motion), and its place in the cell stays dimmed. The cell under it gets a blue dashed edge, and a dashed placeholder after the last card shows where it will land; a cell that would put a column or lane over its limit turns amber instead and names the limit.
 - **Load error:** "The board didn't load." with **Try again**, which fetches the board again without reloading the page.
-- **Keyboard:** every way of moving a card by dragging has a keyboard equivalent, with no new shortcut keys. Focus a card and press <kbd>Menu</kbd> or <kbd>Shift+F10</kbd>, then choose **Move to…**: **Move earlier in this cell** and **Move later in this cell** reorder the card one place among the cards shown in its cell (each appears only when there is a card that way), and the columns below them move it to another column. To change swimlane, open the card and use **Move** in its details. Select several cards with the checkbox on each card and use **Move to…** in the bulk toolbar, which moves them to a column. Sub-columns have no keyboard stops yet: they wait on the sub-column work (#1102, #2278).
+- **Keyboard:** every way of moving a card by dragging has a keyboard equivalent, with no new shortcut keys. Focus a card and press <kbd>Menu</kbd> or <kbd>Shift+F10</kbd>, then choose **Move to…**: **Move earlier in this cell** and **Move later in this cell** reorder the card one place among the cards shown in its cell (each appears only when there is a card that way), and the columns below them move it to another column. To change swimlane, open the card and use **Move** in its details. Select several cards with the checkbox on each card and use **Move to…** in the bulk toolbar, which moves them to a column. In a column split into sub-columns, **Move to…** lists each sub-column ("Discovery: Ready") and adds **Move on to** and **Move back to** steps; see [Sub-columns and tracks](#sub-columns-and-tracks-13).
 - **View only:** people who cannot edit the board (viewers and collaborators) see a line saying they can open cards and filter but not move or edit them.
 
 ## Views
@@ -1082,3 +1080,35 @@ The public board endpoint is rate-limited to **120 requests per hour per IP addr
 | `POST` | `/api/v1/boards/{id}/share/` | Board admin | Generate or regenerate the share token |
 | `DELETE` | `/api/v1/boards/{id}/share/` | Board admin | Revoke the share token |
 | `GET` | `/api/share/{token}/` | None (public) | Read-only board payload; rate-limited |
+
+## Sub-columns and tracks (1.3)
+
+A column can be split into ordered **sub-columns** (#1102), and it can show **tracks**: checks that can finish in any order (#1920). If the order of the checks matters, use sub-columns. If it doesn't, use tracks.
+
+**Sub-columns.** A stage has no sub-columns or 2 to 4 of them. On the board it takes a double-width column, with one drop area per sub-column and a dashed line between them. The column header adds one line per sub-column ("Doing: 5 working"); the last sub-column counts as waiting. One WIP limit covers the whole stage. To move a card between sub-columns, drag it, or open the card menu (Menu key or Shift+F10), choose **Move to…** and pick "Move on to <next>" or "Move back to <previous>".
+
+- A card that enters a stage starts in its first sub-column, unless you drop it on a later one.
+- A card can leave a stage before its last sub-column. The move is never refused: whichever way you move it (drag, the card menu, the bulk toolbar, the card peek or **Move** in the card's details), you get a warning that screen readers announce ("Left Discovery in Doing, before Ready"), and the card's history notes it ("left 1 sub-column early").
+- **Move to…** in the card menu and the bulk toolbar, and **Move** in the card's details, list every sub-column of a split stage. Picking a plain column, or moving a card some other way without picking a sub-column, places it in the stage's first sub-column.
+- **View → Show sub-columns** turns the split view off on your browser. Each split stage then shows at normal width, and each card shows a progress bar for its sub-column. The switch only appears on a board that has a split stage.
+- At phone width, a split stage adds a row of sub-column buttons under the column picker, each with its card count. An empty sub-column says "Empty".
+- The card peek's **Move** lists every sub-column of a split stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, **Move earlier** and **Move later** step within the card's own sub-column.
+
+**Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the card detail panel. Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
+
+**Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings).
+
+- **Sub-columns, in order:** rename, add (up to 4) or remove them. Sub-columns can't be reordered. Removing one moves its cards back to the sub-column before it.
+- **Tracks, any order:** **Add track** creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Removing a track only takes it off this stage; the field and its values stay.
+- **Swimlane exceptions:** mark a track not applicable for every card in a swimlane, for example "APAC: Business is not applicable". The card's own value is kept. On the card, such a track reads "not applicable for this swimlane".
+- Before you save, the tab lists what happens to cards in a sub-column you removed, for example "3 cards will move from Review back to Doing."
+- **Save stage** saves all three groups at once. It saves only the Stage tab and closes the dialog, so save Settings or Policy changes first; the tab warns you when you have some. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
+
+Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column (#1102, #1920).
+
+**Known limits.**
+
+- A move between sub-columns of the same stage is not shown in the card's **History** yet (#2365). A move to another column is.
+- A shared read-only board shows split stages as plain columns (#2366).
+- The Filter panel has no sub-column or track filters yet (#2367).
+- Sub-columns can't be reordered; rename them instead (#2368).

@@ -1229,3 +1229,150 @@ describe("BoardSettingsFieldsTab — type lock from has_values (#2202)", () => {
     expect(screen.queryByText(LOCK_RE)).not.toBeInTheDocument();
   });
 });
+
+describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
+  const track = (overrides: Partial<CustomFieldDefinition> = {}) => makeDefinition({
+    id: 7, name: "Approval", field_type: "dropdown", choices: ["Pending", "Approved", "Waived"],
+    is_dimension: true, choice_resolutions: { Approved: "satisfied", Waived: "not_applicable" },
+    ...overrides,
+  });
+
+  it("an unpinned track is not pinnable and says why", () => {
+    render(<BoardSettingsFieldsTab board={makeBoard([track()])} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Pin Approval|Unpin Approval/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Tracks show as chips, not pinned fields")).toHaveAttribute("id", "track-pin-reason-7");
+    expect(screen.getByText(/0 of 2 pinned/)).toBeInTheDocument();
+  });
+
+  it("a track the server holds pinned counts against the cap and can be unpinned (assert_definition_caps counts it)", async () => {
+    const user = userEvent.setup();
+    const defs = [
+      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+      track({ show_on_card: true }),
+    ];
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...defs[1], show_on_card: false });
+    render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+    expect(screen.getByText(/2 of 2 pinned/)).toBeInTheDocument();
+    expect(screen.queryByText("Tracks show as chips, not pinned fields")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Unpin Approval from card face" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_card: false }));
+    await waitFor(() => expect(screen.getByText(/1 of 2 pinned/)).toBeInTheDocument());
+    expect(screen.getByText("Tracks show as chips, not pinned fields")).toBeInTheDocument();
+  });
+
+  it("a pinned track in the swap list is offered as a replacement when pinning at the cap", async () => {
+    const user = userEvent.setup();
+    const defs = [
+      makeDefinition({ id: 1, name: "Sprint", show_on_card: true }),
+      track({ show_on_card: true }),
+      makeDefinition({ id: 3, name: "Owner" }),
+    ];
+    render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Pin Owner to card face" }));
+    expect(screen.getByText("The card face holds 2 fields.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Approval Replace/ })).toBeInTheDocument();
+  });
+
+  it("a track in the editor has its pin switch disabled with a described reason", async () => {
+    const user = userEvent.setup();
+    render(<BoardSettingsFieldsTab board={makeBoard([track()])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const pin = screen.getByRole("switch", { name: "Pin to card face" });
+    expect(pin).toHaveAttribute("aria-disabled", "true");
+    expect(pin).toHaveAttribute("aria-describedby", "track-pin-reason-edit");
+    expect(document.getElementById("track-pin-reason-edit")).toHaveTextContent("Tracks show as chips, not pinned fields");
+  });
+
+  it("an already-pinned track's editor switch is live so the pin can be cleared", async () => {
+    const user = userEvent.setup();
+    const def = track({ show_on_card: true });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, show_on_card: false });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const pin = screen.getByRole("switch", { name: "Pin to card face" });
+    expect(pin).not.toHaveAttribute("aria-disabled", "true");
+    expect(pin).toBeChecked();
+    await user.click(pin);
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({ show_on_card: false }));
+  });
+
+  it("renaming a choice carries its resolution to the new name and sends the map", async () => {
+    const user = userEvent.setup();
+    const def = track();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue({ ...def, choices: ["Pending", "Signed", "Waived"] });
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const input = screen.getByDisplayValue("Approved");
+    await user.clear(input);
+    await user.type(input, "Signed");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choices: ["Pending", "Signed", "Waived"],
+      choice_resolutions: { Signed: "satisfied", Waived: "not_applicable" },
+    }));
+  });
+
+  it("typing a rename through a sibling's name never deletes the sibling's resolution", async () => {
+    const user = userEvent.setup();
+    const def = track({ choices: ["Review", "Reviewed"], choice_resolutions: { Review: "open", Reviewed: "satisfied" } });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    // "Reviewed" -> "Review" (matches the sibling) -> "Reviewe" -> "Reviewed": the sibling's entry must survive the detour.
+    const input = screen.getByDisplayValue("Reviewed");
+    await user.type(input, "{Backspace}{Backspace}");
+    expect(input).toHaveValue("Review");
+    await user.type(input, "ed");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choice_resolutions: { Review: "open", Reviewed: "satisfied" },
+    }));
+  });
+
+  it("a rename with a trailing space keeps the resolution under the trimmed name", async () => {
+    const user = userEvent.setup();
+    const def = track({ choices: ["Pending", "Done"], choice_resolutions: { Done: "satisfied" } });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    const input = screen.getByDisplayValue("Done");
+    await user.clear(input);
+    await user.type(input, "Complete ");
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choices: ["Pending", "Complete"],
+      choice_resolutions: { Complete: "satisfied" },
+    }));
+  });
+
+  it("removing a choice drops only its resolution, and the editor says so", async () => {
+    const user = userEvent.setup();
+    const def = track();
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Approval"));
+    expect(screen.getByText(/cards that already hold the old name read as open until their value is updated/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove choice Waived" }));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, expect.objectContaining({
+      choice_resolutions: { Approved: "satisfied" },
+    }));
+  });
+
+  it("a plain dropdown never sends choice_resolutions", async () => {
+    const user = userEvent.setup();
+    const def = makeDefinition({ id: 8, name: "Size", field_type: "dropdown", choices: ["S", "M"] });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByTitle("Edit Size"));
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(boardsApi.updateCustomFieldDefinition).mock.calls[0][2]).not.toHaveProperty("choice_resolutions");
+  });
+});

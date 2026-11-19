@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState, type ComponentProps } from 'react'
+import { ToastProvider } from '../contexts/ToastContext'
 import RealBulkActionToolbar from '../components/Board/BulkActionToolbar'
 import type { CardActionContext } from '../utils/cardActions'
 import type { BoardFull, Card } from '../types'
@@ -1171,5 +1172,48 @@ describe('BulkActionToolbar — names the cause of a refused edit (#2173)', () =
     renderMember([mine, mine])
     await user.click(screen.getByRole('button', { name: 'Archive' }))
     expect(screen.getByRole('button', { name: 'Archive' })).toBeDisabled()
+  })
+})
+
+// Leave warning (#1102): the toolbar's Move raises it through the shared notifyLeaveWarning.
+describe('BulkActionToolbar leave warning (#2278)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+  const stageBoard = (): BoardFull => {
+    const b = makeBoard()
+    const subs = [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }]
+    b.columns = [
+      { ...b.columns[0], id: 10, name: 'Review', sub_columns: subs, tracks: [] } as never,
+      { ...b.columns[1], id: 11, name: 'Done' },
+    ]
+    b.cards = b.cards.map((c) => ({ ...c, gates_passed: 0 }) as Card)
+    return b
+  }
+  const run = async (ids: number[], target: string) => {
+    mockMoveCard.mockImplementation(async (_b: number, id: number, body: { column_id: number }) => ({ card: { ...stageBoard().cards.find((c) => c.id === id)!, column: body.column_id } }))
+    render(
+      <ToastProvider>
+        <BulkActionToolbar board={stageBoard()} selectedCardIds={new Set(ids)} onCardsUpdated={vi.fn()} onCardsDeleted={vi.fn()} onCardsArchived={vi.fn()} onClearSelection={vi.fn()} />
+      </ToastProvider>
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Move to...'))
+    await user.click(screen.getByText(target))
+    await waitFor(() => expect(mockMoveCard).toHaveBeenCalledTimes(ids.length))
+  }
+
+  it('names the stage for one card that left it early', async () => {
+    await run([100], 'Done')
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent('Left Review in Doing, before Ready')
+  })
+
+  it('counts several cards that left early', async () => {
+    await run([100, 101], 'Done')
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent('2 cards left a stage before its last sub-column')
+  })
+
+  it('does not warn when the move stays inside the stage', async () => {
+    await run([100, 101], 'Review: Ready')
+    expect(mockMoveCard).toHaveBeenLastCalledWith(1, 101, expect.objectContaining({ column_id: 10, gates_passed: 1 }))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
   })
 })

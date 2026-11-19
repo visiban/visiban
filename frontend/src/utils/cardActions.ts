@@ -17,6 +17,7 @@ import { demoReason, DEMO_CARD_FOOTER_NOTE } from "../constants/demoCopy";
 import { blockedElapsedMs, formatBlockedDuration, isManuallyBlocked } from "./blockedState";
 import { failureReason } from "./moveFailure";
 import { isAssignableMember } from "./assignableMembers";
+import { stageSubColumns } from "./stages";
 
 /** Every card action. `open`, `summary` and `delete` are menu-only (`PALETTE_CARD_ACTIONS` omits them); the palette offers the rest. */
 export type CardActionId =
@@ -341,11 +342,33 @@ export interface CardChoice {
 }
 
 export function moveChoices(columns: Column[]): CardChoice[] {
-  return columns.map((c) => ({ key: `col-${c.id}`, label: c.name, value: c.id, dot: c.color }));
+  // A split stage is offered once per sub-column (a MoveStop, frontend/CLAUDE.md
+  // § Gated stages and tracks); a plain column keeps its numeric id as the value.
+  return columns.flatMap((c): CardChoice[] => {
+    const subs = stageSubColumns(c);
+    if (subs.length === 0) return [{ key: `col-${c.id}`, label: c.name, value: c.id, dot: c.color }];
+    return subs.map((s, i) => ({ key: `col-${c.id}-sub-${i}`, label: `${c.name}: ${s.name}`, value: `stop:${c.id}:${i}`, dot: c.color }));
+  });
+}
+
+/**
+ * The target of a Move choice: a column id, or a `stop:{column}:{index}`
+ * sub-column stop. `gatesPassed` is set only for a chosen sub-column, so a
+ * plain column keeps the server default. Null for anything else.
+ */
+export function parseMoveChoice(value: number | string | null | undefined): { columnId: number; gatesPassed?: number } | null {
+  if (typeof value === "number") return { columnId: value };
+  if (typeof value !== "string") return null;
+  const m = /^stop:(\d+):(\d+)$/.exec(value);
+  if (m) return { columnId: Number(m[1]), gatesPassed: Number(m[2]) };
+  return /^\d+$/.test(value) ? { columnId: Number(value) } : null;
 }
 
 /** Move submenu values for a step within the card's own cell (#2327). */
 export type ReorderStep = "earlier" | "later";
+
+/** Move submenu values for a step across the sub-columns of a gated stage (#2327). */
+export type SubColumnStep = "sub-previous" | "sub-next";
 
 /**
  * Keyboard reorder within a cell (#2327): the card menu's Move to… lists these
@@ -358,6 +381,19 @@ export function reorderChoices(order: { earlier: number | null; later: number | 
   const out: CardChoice[] = [];
   if (order.earlier !== null) out.push({ key: "step-earlier", label: "Move earlier in this cell", value: "earlier" });
   if (order.later !== null) out.push({ key: "step-later", label: "Move later in this cell", value: "later" });
+  return out;
+}
+
+/**
+ * Sub-columns as keyboard stops (#2327, spec § Keyboard): inside a gated
+ * stage, Move to… also offers the neighboring sub-columns by name. The move
+ * goes through the same Move path with `gates_passed`; nothing blocks it.
+ */
+export function subColumnChoices(sub: { previous: string | null; next: string | null } | null | undefined): CardChoice[] {
+  if (!sub) return [];
+  const out: CardChoice[] = [];
+  if (sub.previous !== null) out.push({ key: "step-sub-previous", label: `Move back to ${sub.previous}`, value: "sub-previous" });
+  if (sub.next !== null) out.push({ key: "step-sub-next", label: `Move on to ${sub.next}`, value: "sub-next" });
   return out;
 }
 
@@ -408,7 +444,7 @@ function summarize<T>(done: T[], total: number, verb: string, reasons: Set<strin
  * Moves serially, like the toolbar: concurrent position-reorder transactions
  * on one column deadlock. Each card keeps its swimlane and lands last.
  */
-export async function moveCardsToColumn(boardId: number, cards: Card[], column: Column, ctx?: CardActionContext): Promise<CardActionResult<Card>> {
+export async function moveCardsToColumn(boardId: number, cards: Card[], column: Column, ctx?: CardActionContext, gatesPassed?: number): Promise<CardActionResult<Card>> {
   // A dropdown opened before the socket dropped still calls this: moves are paused, so send nothing (#2325).
   if (ctx?.movesPaused) return summarize<Card>([], cards.length, "moved", new Set([MOVES_PAUSED_REASON.toLowerCase()]));
   const { sendable, clause } = partitionRefused(cards, "move", ctx);
@@ -416,7 +452,11 @@ export async function moveCardsToColumn(boardId: number, cards: Card[], column: 
   const reasons = new Set<string>(clause ? [clause] : []);
   for (const card of sendable) {
     try {
-      const result = await moveCard(boardId, card.id, { column_id: column.id, swimlane_id: card.swimlane, position: 9999 });
+      // `gates_passed` only for a chosen sub-column; omitted is the server default (#1102).
+      const result = await moveCard(boardId, card.id, {
+        column_id: column.id, swimlane_id: card.swimlane, position: 9999,
+        ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
+      });
       done.push(result.card);
     } catch (err) {
       reasons.add(failureReason(err, REFUSAL_CLAUSE.move));

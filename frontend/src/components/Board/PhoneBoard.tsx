@@ -1,11 +1,13 @@
 import LaneFieldGrid from "./LaneFieldGrid";
 import { useState, useId, useRef, useEffect, useCallback } from "react";
+import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { createCard } from "../../api/cards";
 import { limitBlockedMessage } from "./moveBlockedMessages";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import EditColumnModal from "./EditColumnModal";
+import ActiveMark from "../Common/ActiveMark";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
 import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
@@ -186,6 +188,10 @@ export default function PhoneBoard({
   const lastRequest = useRef<number | null>(null);
   // Lanes whose field grid is open (#2329), per lane as on the grid band.
   const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
+  // Phone sub-column switcher (#2278): which sub-column of a split stage is shown.
+  const [subIndex, setSubIndex] = useState(0);
+  // Each column starts on its first sub-column; the index is not carried across columns.
+  useEffect(() => { setSubIndex(0); }, [selectedId]);
   const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
     const next = new Set(prev);
     if (!next.delete(laneId)) next.add(laneId);
@@ -212,6 +218,9 @@ export default function PhoneBoard({
 
   const columnCards = cards.filter((c) => c.column === column.id);
   const count = columnCards.length;
+  const subs = stageSubColumns(column);
+  const activeSub = subs.length > 0 ? Math.min(subIndex, subs.length - 1) : -1;
+  const subCounts = subs.map((sub, i) => ({ sub, n: columnCards.filter((c) => cardSubColumnIndex(c, column) === i).length }));
   const limit = column.wip_limit !== null && column.wip_limit > 0 ? column.wip_limit : null;
   const over = limit !== null && count > limit;
   const totalWeight = columnCards.reduce((sum, c) => sum + c.weight, 0);
@@ -340,6 +349,37 @@ export default function PhoneBoard({
         </div>
       )}
 
+      {subs.length > 0 && (
+        // Segmented control (spec § Phone width): one 44px segment per sub-column, with its count.
+        // aria-pressed buttons in a group, as BoardViewMenu's segments: Tab reaches each one, so no
+        // roving radio keys are needed (frontend/CLAUDE.md § Gated stages and tracks).
+        <>
+          <div role="group" aria-label={`${column.name} sub-columns`} data-testid="phone-sub-column-switcher" className="flex rounded border border-line-strong overflow-hidden">
+            {subCounts.map(({ sub, n }, i) => {
+              const on = i === activeSub;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={`${sub.name}, ${n} ${n === 1 ? "card" : "cards"}`}
+                  onClick={() => setSubIndex(i)}
+                  className={`flex-1 min-h-11 px-2 inline-flex items-center justify-center gap-1 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-strong" : ""} ${
+                    on ? "bg-primary-emphasis/20 text-info font-semibold" : "text-fg-secondary hover:bg-surface-hover"
+                  }`}
+                >
+                  <ActiveMark active={on} />
+                  {sub.name} <span className="tabular-nums">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="phone-sub-column-status">
+            {activeSub >= 0 && subCounts[activeSub] ? `Showing ${subCounts[activeSub].sub.name}, ${subCounts[activeSub].n} ${subCounts[activeSub].n === 1 ? "card" : "cards"}` : ""}
+          </p>
+        </>
+      )}
+
       {(policy || isAdmin) && (
         <div className="flex flex-wrap gap-2" data-testid="phone-column-actions-row">
           {/* The policy is information for every reader (ColumnHeader, #1101), so it is never admin-gated. */}
@@ -380,7 +420,9 @@ export default function PhoneBoard({
       <div role="tabpanel" id={`${uid}-panel`} aria-labelledby={`${uid}-tab-${column.id}`} className="flex flex-col gap-2.5">
         {swimlanes.length === 0 && <p className="text-sm text-fg-secondary">No swimlanes</p>}
         {swimlanes.map((lane, laneIdx) => {
-          const laneCards = columnCards.filter((c) => c.swimlane === lane.id).sort((a, b) => a.position - b.position);
+          const laneCards = columnCards
+            .filter((c) => c.swimlane === lane.id && (activeSub < 0 || cardSubColumnIndex(c, column) === activeSub))
+            .sort((a, b) => a.position - b.position);
           const shown = filteredCardIds ? laneCards.filter((c) => filteredCardIds.has(c.id)) : laneCards;
           const collapsed = collapsedSwimlaneIds.has(lane.id);
           const allLane = cards.filter((c) => c.swimlane === lane.id);
@@ -527,8 +569,8 @@ export default function PhoneBoard({
                 <SortableContext items={shown.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                   {/* 44px card face at phone width (#2277): the face is the tap target that opens the detail panel. */}
                   <div className="flex flex-col gap-1.5 [&_[data-card-id]]:min-h-11">
-                    {/* #2345: while a filter or chip is active an empty lane reads as the artboard's "No matching cards in <column>."; unfiltered it is simply empty. */}
-                    {shown.length === 0 && <p className="text-xs text-fg-tertiary px-1 min-w-0 break-words" data-testid="phone-lane-empty">{filteredCardIds ? `No matching cards in ${column.name}.` : "No cards here"}</p>}
+                    {/* #2345: while a filter or chip is active an empty lane reads as the artboard's "No matching cards in <column>."; unfiltered it is simply empty (#2278: or empty in the active sub-column). */}
+                    {shown.length === 0 && <p className="text-xs text-fg-tertiary px-1 min-w-0 break-words" data-testid="phone-lane-empty">{filteredCardIds ? `No matching cards in ${activeSub >= 0 ? subs[activeSub].name : column.name}.` : activeSub >= 0 ? `Empty in ${subs[activeSub].name}` : "No cards here"}</p>}
                     {shown.map((card) => (
                       <CardItem
                         key={card.id}
@@ -551,6 +593,8 @@ export default function PhoneBoard({
                         onCardUpdated={canEdit ? onCardUpdated : undefined}
                         onOpenMenu={onOpenCardMenu}
                         contextTarget={contextTargetCardId === card.id}
+                        trackStates={getTrackStates(card, column, lane, customFieldDefinitions)}
+                        trackStatesSpelledOut
                       />
                     ))}
                   </div>
@@ -602,6 +646,10 @@ export default function PhoneBoard({
           cardCount={count}
           boardColors={boardColors}
           isIntakeColumn={column.id === intakeColumnId}
+          // Hidden lanes included: Save stage replaces every lane exception it sends (#2278).
+          swimlanes={allSwimlanes}
+          customFieldDefinitions={customFieldDefinitions}
+          cards={columnCards}
           initialTab={editTab === "policy" ? "policy" : undefined}
           onUpdated={(updated) => { onColumnUpdated(updated); setEditTab(null); }}
           onRequestDelete={onRequestDeleteColumn}

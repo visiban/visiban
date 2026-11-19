@@ -160,3 +160,28 @@ describe('ColumnHeader — kebab touch reveal (#2343)', () => {
     expect(cls).toContain('[@media(hover:none)]:opacity-100')
   })
 })
+
+describe('ColumnHeader — split stage (#2278)', () => {
+  const stage = { ...column, sub_columns: [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }] } as Column
+  const card = (id: number, gates_passed: number) => ({ id, column: 10, gates_passed }) as unknown as React.ComponentProps<typeof ColumnHeader>['cards'][number]
+
+  it('prints a count line per sub-column, the last one as waiting', () => {
+    renderHeader({ column: stage, cards: [card(1, 0), card(2, 1), card(3, 1)] })
+    expect(screen.getByText('Doing: 1 working')).toBeInTheDocument()
+    expect(screen.getByText('Ready: 2 waiting')).toBeInTheDocument()
+  })
+
+  it('offers Stage settings… only to a board admin (the stage action is admin-only on the server)', async () => {
+    const user = userEvent.setup()
+    renderHeader({ column: stage })
+    const trigger = document.querySelector<HTMLElement>('[aria-haspopup="menu"], [aria-haspopup="true"]')!
+    await user.click(trigger)
+    expect(await screen.findByText('Stage settings…')).toBeInTheDocument()
+  })
+
+  it('renders no Stage settings… path for a non-admin', () => {
+    renderHeader({ column: stage, isAdmin: false })
+    expect(document.querySelector('[aria-haspopup="menu"], [aria-haspopup="true"]')).toBeNull()
+    expect(screen.queryByText('Stage settings…')).not.toBeInTheDocument()
+  })
+})

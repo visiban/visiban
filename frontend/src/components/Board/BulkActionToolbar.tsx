@@ -3,12 +3,14 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Priority, User } from "../../types";
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
 import {
-  allRefusedMessage, archiveCards, assignCards, assignChoices, cardActionEntries, moveCardsToColumn,
+  allRefusedMessage, archiveCards, assignCards, assignChoices, cardActionEntries, moveCardsToColumn, parseMoveChoice,
   MOVE_ASSIGNED_REASON, OWNER_ONLY_REASON, moveChoices, priorityChoices, setCardsPriority, type CardActionContext, type OwnershipAction,
 } from "../../utils/cardActions";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { usePublishedHeight } from "../../hooks/usePublishedHeight";
+import { useToast } from "../../contexts/useToast";
+import { notifyLeaveWarning } from "../../utils/stages";
 import { DEMO_CARD_FOOTER_NOTE } from "../../constants/demoCopy";
 
 interface Props {
@@ -81,6 +83,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   // refused when the client knows every selected card is (role, maintenance,
   // ownership); one card that may go keeps it enabled (#2173).
   const entries = cardActionEntries(selectedCards, cardActionCtx);
+  const { notify: notifyToast } = useToast();
   const entryFor = (id: "move" | "assign" | "priority" | "archive" | "delete") => entries.find((e) => e.id === id)!;
   const deleteEntry = entryFor("delete");
   const moveEntry = entryFor("move");
@@ -130,16 +133,20 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     setBusy(false);
   };
 
-  const handleMove = async (columnId: number) => {
-    const column = board.columns.find((c) => c.id === columnId);
-    if (!column) return;
+  // A column id, or a sub-column stop of a split stage (MoveStop).
+  const handleMove = async (value: number | string | null) => {
+    const target = parseMoveChoice(value);
+    const column = target ? board.columns.find((c) => c.id === target.columnId) : undefined;
+    if (!target || !column) return;
     setDropdown(null);
     // The dropdown may have been opened before the board went offline (#2325).
     if (!moveEntry.enabled) { refuse("move", "moved", moveEntry.reason); return; }
     setPartialError(null);
     setBusy(true);
-    const r = await moveCardsToColumn(board.id, selectedCards, column, cardActionCtx);
+    const r = await moveCardsToColumn(board.id, selectedCards, column, cardActionCtx, target.gatesPassed);
     if (r.done.length > 0) onCardsUpdated(r.done);
+    // Same leave warning as every other Move surface (#1102): announced, never a block.
+    notifyLeaveWarning(notifyToast, selectedCards.filter((c) => r.done.some((d) => d.id === c.id)), board.columns, column.id);
     finish(r.failureMessage);
   };
 
@@ -284,7 +291,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                   key={col.key}
                   ref={(el) => { moveItemRefs.current[i] = el; }}
                   role="menuitem"
-                  onClick={() => handleMove(col.value as number)}
+                  onClick={() => handleMove(col.value)}
                   onKeyDown={(e) => handleMoveItemKeyDown(e, i)}
                   className={`flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg ${MENU_ITEM_FOCUS_RING}`}
                 >

@@ -169,9 +169,18 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: (opts?: { peek?: boolean }) => void }) => <div onClick={(e) => onClick?.(e.shiftKey ? { peek: true } : undefined)} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
-vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest }: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}</div>,
-}))
+// #2278: the sub-column Move tests hand BoardView's props to the REAL CardDetail.
+const realCardDetail = vi.hoisted(() => ({ on: false })) // hoisted: ../api/cards's factory reads it during import
+vi.mock('../components/Card/CardDetail', async () => {
+  const { default: RealCardDetail } = await vi.importActual<typeof import('../components/Card/CardDetail')>('../components/Card/CardDetail')
+  return {
+    default: (props: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onMoveCard?: (...a: number[]) => Promise<unknown>; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => {
+      const { card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest } = props
+      if (realCardDetail.on) return <RealCardDetail {...(props as unknown as React.ComponentProps<typeof RealCardDetail>)} />
+      return <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 20, 9999, 2) }}>Force Sub-column From Detail</button>}</div>
+    },
+  }
+})
 vi.mock('../components/Board/AddColumnModal', async () => {
   const { default: RealAddColumnModal } = await vi.importActual<typeof import('../components/Board/AddColumnModal')>('../components/Board/AddColumnModal')
   return {
@@ -293,16 +302,29 @@ let mockSearchTruncation: { shown: number; total: number } | null = null
 vi.mock('../hooks/useCardSearch', () => ({
   useCardSearch: () => ({ searchMatchIds: null, isSearching: false, truncation: mockSearchTruncation }),
 }))
-vi.mock('../api/cards', () => ({
-  getCardStatus: vi.fn(),
-  // The peek sheet's history (phone reorder test, #2277).
-  getCardMovements: vi.fn(() => Promise.resolve([])),
-  // Card context menu / palette card actions (#2059).
-  moveCard: vi.fn(),
-  updateCard: vi.fn(),
-  archiveCard: vi.fn(),
-  deleteCard: vi.fn(),
-}))
+// The real CardDetail (#2278 Move popover tests) reads the rest of this module. Only while
+// `realCardDetail.on` is set does every export not mocked below become a call that never settles
+// (so no loader hits the network or sets state); otherwise an unmocked export throws as vitest's
+// module mock always has, so the rest of this file still notices a missing mock.
+vi.mock('../api/cards', async (importOriginal) => {
+  const original = await importOriginal<Record<string, unknown>>()
+  const mocked: Record<string, unknown> = {
+    getCardStatus: vi.fn(),
+    // The peek sheet's history (phone reorder test, #2277).
+    getCardMovements: vi.fn(() => Promise.resolve([])),
+    // Card context menu / palette card actions (#2059).
+    moveCard: vi.fn(),
+    updateCard: vi.fn(),
+    archiveCard: vi.fn(),
+    deleteCard: vi.fn(),
+  }
+  const neverSettles = () => new Promise(() => {})
+  const passthrough = (key: string | symbol) => realCardDetail.on && typeof key === 'string' && !(key in mocked) && typeof original[key] === 'function'
+  return new Proxy(mocked, {
+    has: (target, key) => key in target || passthrough(key),
+    get: (target, key, receiver) => (passthrough(key) ? neverSettles : Reflect.get(target, key, receiver)),
+  })
+})
 
 import { archiveCard, deleteCard, getCardStatus, moveCard, updateCard } from '../api/cards'
 import { getLensConnection } from '../api/gitLens'
@@ -1903,6 +1925,28 @@ describe('BoardView', () => {
       hover(1, 'cell:11:20')
       expect(screen.queryByText(/Entry criteria for/)).not.toBeInTheDocument()
       expect(screen.getByText(/Over column 'Review', swimlane 'Customer A'\. /)).toBeInTheDocument()
+    })
+
+    it('a drop on a sub-column sends gates_passed; leaving a stage with gates open warns, never blocks (#2278)', async () => {
+      const moveCard = vi.fn().mockResolvedValue({ ok: true })
+      const subs = [{ id: 1, uid: 's1', position: 0, name: 'Doing' }, { id: 2, uid: 's2', position: 1, name: 'Ready' }]
+      const board = makeBoard({
+        columns: [
+          { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs },
+          { id: 11, uid: 'coluid000002', name: 'Review', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs },
+        ],
+        cards: [{ ...card(1, 10, 20), gates_passed: 0 }],
+      })
+      mockBoardContextValue = defaultContext({ board, moveCard })
+      render(<ToastProvider><BoardView {...defaultProps()} /></ToastProvider>)
+      // Same sub-column, same cell: nothing to send.
+      await drop(1, 'cell:10:20:0')
+      expect(moveCard).not.toHaveBeenCalled()
+      await drop(1, 'cell:10:20:1')
+      expect(moveCard).toHaveBeenLastCalledWith(1, 10, 20, 0, 1)
+      await drop(1, 'cell:11:20:1')
+      expect(moveCard).toHaveBeenLastCalledWith(1, 11, 20, 0, 1)
+      expect(await screen.findByText('Left To Do in Doing, before Ready')).toBeInTheDocument()
     })
 
     it('advisory mode moves at once', async () => {
@@ -4181,5 +4225,164 @@ describe('BoardView phone layout (#2277)', () => {
     expect(screen.getByTestId('board-grid')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'View' })).not.toHaveClass('max-sm:hidden')
+  })
+})
+
+// Leave warning (#1102) and sub-column steps (#2327, #2278) on every BoardView Move surface.
+describe('BoardView leave warning and sub-column steps (#2278)', () => {
+  const subs = [{ id: 1, uid: 'sub1', position: 0, name: 'Doing' }, { id: 2, uid: 'sub2', position: 1, name: 'Ready' }, { id: 3, uid: 'sub3', position: 2, name: 'Signed off' }]
+  const columns = [
+    { id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+    { id: 11, uid: 'coluid000002', name: 'Review', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null, sub_columns: subs, tracks: [] },
+    { id: 12, uid: 'coluid000003', name: 'Done', position: 2, color: '#6B7280', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
+  ] as unknown as BoardFull['columns']
+  const reviewCard = (id: number, gates_passed: number) => ({
+    id, uid: `carduid${id}`, column: 11, swimlane: 20, title: `Card ${id}`,
+    description: '', priority: 'medium' as const, assignee: null, labels: [], due_date: null, weight: 1, position: id,
+    created_by: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
+    created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', last_moved_at: null, attachment_count: 0,
+    checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1, custom_field_values: [],
+    blocker_count: 0, external_ref: null, is_blocked: false, blocked_at: null, blocked_reason: '', gates_passed,
+  })
+  const WARNING = 'Left Review in Doing, before Signed off'
+  const setupBoard = (moveSpy = vi.fn().mockResolvedValue({ ok: true }), cardList = [reviewCard(1, 0)]) => {
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: cardList as never }), moveCard: moveSpy })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    return moveSpy
+  }
+  const drop = async (overId: string, cardId = 1) => {
+    await act(async () => {
+      capturedOnDragEnd!({
+        active: { id: cardId, data: { current: {} }, rect: { current: { translated: null, initial: null } } },
+        over: { id: overId, data: { current: {} }, rect: { top: 0, left: 0, bottom: 10, right: 10, width: 10, height: 10 } },
+        delta: { x: 0, y: 0 },
+        activatorEvent: new MouseEvent('mousedown'),
+      } as unknown as DragEndEvent)
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchParams = new URLSearchParams()
+    localStorage.clear()
+    vi.mocked(getCardStatus).mockResolvedValue(null)
+  })
+
+  it('drag: dropping on another column warns, a sub-column drop inside the stage does not', async () => {
+    const moveSpy = setupBoard()
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('drag: a sub-column drop on the same stage does not warn', async () => {
+    const moveSpy = setupBoard()
+    await drop('cell:11:20:1')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, expect.any(Number), 1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('drag: leaving from the last sub-column does not warn', async () => {
+    const moveSpy = setupBoard(undefined, [reviewCard(1, 2)])
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('drag: a refused move raises no warning', async () => {
+    const moveSpy = setupBoard(vi.fn().mockResolvedValue({ ok: false, error: new Error('x') }))
+    await drop('cell:12:20')
+    await waitFor(() => expect(moveSpy).toHaveBeenCalled())
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  it('peek Move: moving out of the stage warns, moving to another sub-column does not', async () => {
+    const user = userEvent.setup()
+    const moveSpy = setupBoard()
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:card-action', { detail: { cardIds: [1], action: 'summary' } })) })
+    await screen.findByTestId('card-peek-sheet')
+    await user.click(screen.getByRole('button', { name: 'Move' }))
+    const form = within(await screen.findByTestId('card-peek-move-form'))
+    await user.selectOptions(form.getByLabelText('Column'), 'Review: Ready')
+    await user.click(form.getByRole('button', { name: 'Move card' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Move' }))
+    const form2 = within(await screen.findByTestId('card-peek-move-form'))
+    await user.selectOptions(form2.getByLabelText('Column'), 'Done')
+    await user.click(form2.getByRole('button', { name: 'Move card' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledTimes(2))
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('card menu Move to…: another column warns, a sub-column of the stage does not', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: { ...reviewCard(1, 1) } } as never)
+    setupBoard()
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Review: Ready' }))
+    await waitFor(() => expect(moveCard).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+    vi.mocked(moveCard).mockResolvedValue({ card: { ...reviewCard(1, 0), column: 12 } } as never)
+    fireEvent.click(screen.getByTestId('open-menu-1'))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Move to/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Done' }))
+    await waitFor(() => expect(moveCard).toHaveBeenCalledTimes(2))
+    expect(await screen.findByTestId('gates-open-warning')).toHaveTextContent(WARNING)
+  })
+
+  it('card menu Move on to / Move back to step the sub-column with the right gatesPassed', async () => {
+    const moveSpy = setupBoard(undefined, [reviewCard(1, 1)])
+    const openMoveMenu = async () => {
+      fireEvent.click(screen.getByTestId('open-menu-1'))
+      fireEvent.keyDown(screen.getByRole('menuitem', { name: /Move to/ }), { key: 'ArrowRight' })
+      return screen.findByRole('menu', { name: 'Move within this cell or to a column' })
+    }
+    fireEvent.click(within(await openMoveMenu()).getByRole('menuitem', { name: 'Move on to Signed off' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenLastCalledWith(1, 11, 20, 1, 2))
+    fireEvent.click(within(await openMoveMenu()).getByRole('menuitem', { name: 'Move back to Doing' }))
+    await waitFor(() => expect(moveSpy).toHaveBeenLastCalledWith(1, 11, 20, 1, 0))
+    expect(moveSpy).toHaveBeenCalledTimes(2)
+    expect(await screen.findByText("Card 'Card 1' moved to sub-column 'Doing' in 'Review'")).toBeInTheDocument()
+    expect(screen.queryByTestId('gates-open-warning')).not.toBeInTheDocument()
+  })
+
+  describe('CardDetail Move popover through BoardView (#2278)', () => {
+    beforeEach(() => { realCardDetail.on = true })
+    afterEach(() => { realCardDetail.on = false })
+
+    const openDetailAndPick = async (stop: string, cardList = [reviewCard(1, 0)], currentColumn = 'Review') => {
+      mockSearchParams = new URLSearchParams('card=1')
+      const moveSpy = vi.fn().mockResolvedValue({ ok: true })
+      mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: cardList as never }), moveCard: moveSpy })
+      const { container } = render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+      const user = userEvent.setup()
+      await user.click(await screen.findByRole('button', { name: /Move card to different column or swimlane/ }))
+      const popover = container.ownerDocument.querySelector('[class*="w-64"]')! as HTMLElement
+      const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes(currentColumn))!
+      await user.click(colTrigger)
+      await user.click(screen.getByText(stop))
+      await user.click(within(popover).getByRole('button', { name: 'Move' }))
+      return moveSpy
+    }
+
+    it('a sub-column stop of another stage reaches useBoard.moveCard with gatesPassed', async () => {
+      const moveSpy = await openDetailAndPick('Review: Ready', [{ ...reviewCard(1, 0), column: 10 }], 'To Do')
+      await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 1))
+    })
+
+    it("a sub-column change inside the card's own stage reaches useBoard.moveCard with gatesPassed", async () => {
+      const moveSpy = await openDetailAndPick('Review: Signed off')
+      await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 11, 20, 9999, 2))
+    })
+  })
+
+  it('hands CardDetail an onForceMoveCard that forwards gatesPassed to the context forceMoveCardTo', async () => {
+    mockSearchParams = new URLSearchParams('card=1')
+    const forceMoveCardTo = vi.fn().mockResolvedValue({ ok: true })
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns, cards: [reviewCard(1, 0)] as never }), forceMoveCardTo })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Force Sub-column From Detail' }))
+    expect(forceMoveCardTo).toHaveBeenCalledWith(1, 11, 20, 9999, 2)
   })
 })

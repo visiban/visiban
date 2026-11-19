@@ -4,6 +4,7 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { formatShortcut } from "../../utils/platform";
 import ActiveMark from "../Common/ActiveMark";
+import { Toggle } from "../Common/Toggle";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useLiveAnnouncer, laneStateMessage, columnStateMessage } from "../../hooks/useLiveAnnouncer";
 import type { CardDensity } from "../../types";
@@ -37,6 +38,13 @@ interface Props {
   // Archived cards
   showArchived: boolean;
   onToggleArchived: () => void;
+  /**
+   * "Show sub-columns" (#2278). Rendered only when the board has a gated stage
+   * (omit the handler otherwise): on, a split stage is double width with one
+   * column per sub-column; off, normal width with a progress bar per card.
+   */
+  showSubColumns?: boolean;
+  onShowSubColumnsChange?: (show: boolean) => void;
   /**
    * Phones only (#2340): the View button is hidden and the Filter panel's "View options"
    * button opens this panel instead. Each bump of `openRequest` opens it anchored to
@@ -251,6 +259,20 @@ export default function BoardViewMenu(props: Props) {
           <button type="button" ref={showRef} className={BUTTON_CLASS} disabled={props.allColumnsExpanded} onClick={showColumns}>Show all</button>
         </div>
       </div>
+
+      {props.onShowSubColumnsChange && (
+        // The whole row is the target (44px on phone): the label forwards its click to the switch.
+        <label htmlFor={`${panelId}-subcols-switch`} className="flex items-center justify-between gap-2 cursor-pointer max-sm:min-h-11">
+          <span id={`${panelId}-subcols`} className="text-sm text-fg">Show sub-columns</span>
+          <Toggle
+            id={`${panelId}-subcols-switch`}
+            checked={props.showSubColumns !== false}
+            onChange={(on) => props.onShowSubColumnsChange?.(on)}
+            aria-labelledby={`${panelId}-subcols`}
+            data-testid="view-menu-sub-columns"
+          />
+        </label>
+      )}
 
       <div className="border-t border-line pt-2">
         <button

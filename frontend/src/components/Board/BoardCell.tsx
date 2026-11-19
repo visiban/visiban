@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, memo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, memo } from "react";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -12,6 +12,7 @@ import { trippedLimitLabel, type TrippedLimit } from "../../utils/placementLimit
 import type { CardMenuAnchor } from "../Card/CardContextMenu";
 import { isImeComposing } from "../../utils/imeComposition";
 import { ADD_CARD_EVENT } from "../../utils/addCardEvent";
+import { getTrackStates, splitCellBySubColumn, stageSubColumns, cardSubColumnIndex, type CardTrackState } from "../../utils/stages";
 
 interface Props {
   column: Column;
@@ -59,12 +60,24 @@ interface Props {
   onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
   /** The card the context menu targets alone (outside the selection), for its transient outline. */
   contextTargetCardId?: number | null;
+  /**
+   * View menu "Show sub-columns" (#2278). On (the default), a gated stage's
+   * cell is one well split into one drop target per sub-column; off, it is a
+   * single well and each card shows a segmented gate progress bar (#1102).
+   */
+  showSubColumns?: boolean;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, currentUserId, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, currentUserId, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId, showSubColumns = true }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
-  const { setNodeRef, isOver } = useDroppable({ id });
-  const { active } = useDndContext();
+  const subColumns = stageSubColumns(column);
+  const split = subColumns.length >= 2 && showSubColumns;
+  // A split cell's drop targets are its sub-columns (`cell:{col}:{lane}:{index}`),
+  // so the cell itself registers no droppable: two nested targets under one
+  // pointer would make closestCenter pick either.
+  const { setNodeRef, isOver: isOverSelf } = useDroppable({ id, disabled: split });
+  const { active, over } = useDndContext();
+  const isOver = isOverSelf || (split && String(over?.id ?? "").startsWith(`${id}:`));
   const isDraggingCard = active != null && !String(active.id).startsWith("swim:") && !String(active.id).startsWith("col:");
   // Drop verdict (#1150): the strictest limit this drop would trip, if any.
   // The ring and the label below predict the server's answer; the server
@@ -155,7 +168,57 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // lands; a blocked one takes the warning treatment and names the limit in text.
   const dropOpen = isOver && isDraggingCard && !blockedBy;
   // The placeholder is as tall as the lifted card, so the cell shows the space it needs.
+  const visibleCards = filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards;
+  // Per-card derivations memoized so CardItem's shallow memo keeps holding.
+  const trackStatesById = useMemo(() => {
+    const m = new Map<number, CardTrackState[]>();
+    if ((column.tracks ?? []).length === 0) return m;
+    for (const c of cards) m.set(c.id, getTrackStates(c, column, swimlane, customFieldDefinitions));
+    return m;
+  }, [cards, column, swimlane, customFieldDefinitions]);
+  const gateProgressById = useMemo(() => {
+    const m = new Map<number, { index: number; names: string[] }>();
+    if (subColumns.length < 2 || showSubColumns) return m;
+    const names = subColumns.map((s) => s.name);
+    for (const c of cards) m.set(c.id, { index: cardSubColumnIndex(c, column), names });
+    return m;
+  }, [cards, column, subColumns, showSubColumns]);
+  const bySub = useMemo(() => (split ? splitCellBySubColumn(visibleCards, column) : []), [split, visibleCards, column]);
   const placeholderHeight = Math.max(40, Math.round(active?.rect?.current?.initial?.height ?? 40));
+
+  const renderCard = (card: Card) => (
+      <CardItem
+        key={card.id}
+        card={card}
+        onClick={(opts) => onCardClick(card, opts)}
+        selected={selectedCardIds.has(card.id)}
+        highlighted={highlightedCardId === card.id}
+        current={currentCardId === card.id}
+        // Hover peeks stand down while the card detail sheet is open (#1918).
+        peekSuppressed={currentCardId != null}
+        // No selection checkbox while the card detail sheet is open
+        // (#1914): it would take focus out of the aria-modal sheet and
+        // raise the bulk toolbar behind it. A click there swaps cards.
+        onSelect={canEdit && currentCardId == null ? () => onToggleCardSelection(card.id) : undefined}
+        density={density}
+        userTimezone={userTimezone}
+        currentUserId={currentUserId}
+        userDateFormat={userDateFormat}
+        compact={compact}
+        staleness_threshold_days={staleness_threshold_days}
+        stale_warning_pct={stale_warning_pct}
+        inDoneColumn={column.is_done}
+        customFieldDefinitions={customFieldDefinitions}
+        boardId={boardId}
+        dimmed={expandedCardId !== null && expandedCardId !== card.id}
+        onExpandChange={handleExpandChange}
+        onCardUpdated={canEdit ? onCardUpdated : undefined}
+        onOpenMenu={onOpenCardMenu}
+        contextTarget={contextTargetCardId === card.id}
+        trackStates={trackStatesById.get(card.id)}
+        gateProgress={subColumns.length >= 2 ? gateProgressById.get(card.id) ?? null : null}
+      />
+  );
 
   return (
     <div
@@ -260,37 +323,25 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         {/* `relative` so the card stack paints above the overlay tint layer, which is
             absolutely positioned and would otherwise cover in-flow siblings. */}
         <div className={`relative ${compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-1.5"}`}>
-          {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
-            <CardItem
-              key={card.id}
-              card={card}
-              onClick={(opts) => onCardClick(card, opts)}
-              selected={selectedCardIds.has(card.id)}
-              highlighted={highlightedCardId === card.id}
-              current={currentCardId === card.id}
-              // Hover peeks stand down while the card detail sheet is open (#1918).
-              peekSuppressed={currentCardId != null}
-              // No selection checkbox while the card detail sheet is open
-              // (#1914): it would take focus out of the aria-modal sheet and
-              // raise the bulk toolbar behind it. A click there swaps cards.
-              onSelect={canEdit && currentCardId == null ? () => onToggleCardSelection(card.id) : undefined}
-              density={density}
-              userTimezone={userTimezone}
-              currentUserId={currentUserId}
-              userDateFormat={userDateFormat}
-              compact={compact}
-              staleness_threshold_days={staleness_threshold_days}
-              stale_warning_pct={stale_warning_pct}
-              inDoneColumn={column.is_done}
-              customFieldDefinitions={customFieldDefinitions}
-              boardId={boardId}
-              dimmed={expandedCardId !== null && expandedCardId !== card.id}
-              onExpandChange={handleExpandChange}
-              onCardUpdated={canEdit ? onCardUpdated : undefined}
-              onOpenMenu={onOpenCardMenu}
-              contextTarget={contextTargetCardId === card.id}
-            />
-          ))}
+          {!split && visibleCards.map((card) => renderCard(card))}
+          {split && (
+            // One well, a dashed vertical divider between sub-columns (spec § Cells).
+            <div data-testid="cell-sub-columns" className="grid gap-0" style={{ gridTemplateColumns: `repeat(${subColumns.length}, minmax(0, 1fr))` }}>
+              {subColumns.map((sub, i) => (
+                <SubColumnDrop
+                  key={sub.id}
+                  id={`${id}:${i}`}
+                  label={`${column.name}: ${sub.name}`}
+                  first={i === 0}
+                  dragging={isDraggingCard}
+                >
+                  {(bySub[i] ?? []).map((card) => renderCard(card))}
+                  {/* A quiet marker so an empty sub-column reads as empty, not missing. */}
+                  {(bySub[i]?.length ?? 0) === 0 && cards.length > 0 && <p data-testid="sub-column-empty" className="px-1 py-2 text-xs text-fg-muted">Empty</p>}
+                </SubColumnDrop>
+              ))}
+            </div>
+          )}
           {/* Drop placeholder (#2326): where the card lands. A drop always appends
               (handleDragEnd sends the cell's count), so it sits after the last card. */}
           {dropOpen && cards.length > 0 && (
@@ -381,5 +432,27 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
     </div>
   );
 });
+
+/**
+ * One sub-column of a split cell (#2278): its own drop target, so a drop
+ * here sends `gates_passed` = its index through the one Move path. The
+ * dashed left edge is the spec's divider between sub-columns.
+ */
+function SubColumnDrop({ id, label, first, dragging, children }: { id: string; label: string; first: boolean; dragging: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      role="group"
+      aria-label={label}
+      data-sub-column-drop={id}
+      className={`flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-strong pl-1"} ${
+        dragging && isOver ? "bg-primary/20 outline-dashed outline-1 outline-info" : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default BoardCell;

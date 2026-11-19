@@ -20,6 +20,7 @@ import type { GridOverlayCellState } from "../../gridOverlays/slot";
 import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
+import { splitCellBySubColumn, stageSubColumns } from "../../utils/stages";
 import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
 import LaneFieldGrid from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
@@ -52,6 +53,8 @@ interface Props {
   /** Card context menu (#2059), passed through to each BoardCell. */
   onOpenCardMenu?: (card: Card, anchor: CardMenuAnchor) => void;
   contextTargetCardId?: number | null;
+  /** View menu "Show sub-columns" (#2278), passed to every cell. */
+  showSubColumns?: boolean;
   onCardClick: (card: Card, opts?: { peek?: boolean }) => void;
   onCardAdded: (card: Card) => void;
   onSwimlaneUpdated: (swimlane: Swimlane) => void;
@@ -157,7 +160,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -655,9 +658,16 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             const shown = filteredCardIds ? cellCards.filter((c) => filteredCardIds.has(c.id)) : cellCards;
             const hasMatch = !!filteredCardIds && shown.length > 0;
             const tally = (st: CardBoardStatus) => shown.filter((c) => statusOf(c) === st).length;
+            // A split stage shows one count and square row per sub-column, with
+            // the dashed divider between them (spec § Lanes, Collapsed).
+            const subs = showSubColumns ? stageSubColumns(col) : [];
+            const groups = subs.length > 0 ? splitCellBySubColumn(shown, col) : [shown];
+            const cardsWord = (n: number) => `${n} ${n === 1 ? "card" : "cards"}`;
             const summary = shown.length === 0
               ? `${col.name}: no cards`
-              : `${col.name}: ${shown.length} ${shown.length === 1 ? "card" : "cards"}, ${tally("overdue")} overdue, ${tally("stale")} stale`;
+              : subs.length > 0
+                ? `${col.name}: ${groups.map((g, i) => `${subs[i].name} ${cardsWord(g.length)}`).join(", ")}, ${tally("overdue")} overdue, ${tally("stale")} stale`
+                : `${col.name}: ${cardsWord(shown.length)}, ${tally("overdue")} overdue, ${tally("stale")} stale`;
             return (
               <div key={col.id} className="contents">
                 {sep}
@@ -666,14 +676,19 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                   data-testid={`swimlane-strip-cell-${col.id}`}
                 >
                   <span className="sr-only">{summary}</span>
-                  <span aria-hidden="true" className="text-sm font-semibold text-fg">{shown.length > 0 ? shown.length : "–"}</span>
-                  {shown.length > 0 && (
-                    <span aria-hidden="true" className="flex flex-wrap items-center gap-1">
-                      {shown.map((c) => (
-                        <span key={c.id} data-status={statusOf(c)} className={`w-2.5 h-2.5 rounded-[2px] ${STATUS_SQUARE_CLASS[statusOf(c)]}`} />
-                      ))}
+                  {groups.map((g, i) => (
+                    <span key={i} className="contents" data-testid={subs.length > 0 ? `swimlane-strip-sub-${col.id}-${i}` : undefined}>
+                      {i > 0 && <span aria-hidden="true" data-testid="swimlane-strip-sub-divider" className="self-stretch border-l border-dashed border-line-strong" />}
+                      <span aria-hidden="true" className="text-sm font-semibold text-fg">{g.length > 0 ? g.length : "–"}</span>
+                      {g.length > 0 && (
+                        <span aria-hidden="true" className="flex flex-wrap items-center gap-1">
+                          {g.map((c) => (
+                            <span key={c.id} data-status={statusOf(c)} className={`w-2.5 h-2.5 rounded-[2px] ${STATUS_SQUARE_CLASS[statusOf(c)]}`} />
+                          ))}
+                        </span>
+                      )}
                     </span>
-                  )}
+                  ))}
                 </div>
               </div>
             );
@@ -696,6 +711,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                 onToggleCardSelection={onToggleCardSelection}
                 onOpenCardMenu={onOpenCardMenu}
                 contextTargetCardId={contextTargetCardId}
+                showSubColumns={showSubColumns}
                 onCardClick={onCardClick}
                 onCardAdded={onCardAdded}
                 density={density}

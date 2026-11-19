@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cardSubColumnIndex, currentStopIndex, moveStops, stageSubColumns } from "../../utils/stages";
 import { getCardMovements } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -39,6 +40,8 @@ interface Props {
     columnId: number,
     swimlaneId: number,
     position: number,
+    /** The target sub-column on a gated stage (#2278); omitted on a plain column. */
+    gatesPassed?: number,
   ) => Promise<{ ok?: boolean; error?: unknown } | void>;
   /**
    * Admin override for a soft-limit refusal (useBoard.forceMoveCardTo). The
@@ -46,7 +49,7 @@ interface Props {
    * sheet offers it itself, as CardDetail's Move popover does (#1772). Omitted:
    * no override is shown.
    */
-  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number) => Promise<MoveOutcome>;
+  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
   /**
    * The card's place in its cell (#2277). Given, the sheet offers Move earlier /
    * Move later: the phone has no drag, and on the grid a reorder is one. Each
@@ -76,7 +79,18 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
   const [historyFailed, setHistoryFailed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
-  const [targetColumn, setTargetColumn] = useState(card.column);
+  // Move targets are stops (#2278): a plain column, or one sub-column of a gated stage.
+  const stops = useMemo(() => moveStops(board.columns), [board.columns]);
+  const ownStop = currentStopIndex(card, board.columns, stops);
+  const stopKey = (s: { columnId: number; gatesPassed?: number } | undefined) =>
+    s ? (s.gatesPassed === undefined ? String(s.columnId) : `${s.columnId}:${s.gatesPassed}`) : String(card.column);
+  const ownKey = stopKey(stops[ownStop]);
+  const [targetKey, setTargetKey] = useState(ownKey);
+  const target = stops.find((s) => stopKey(s) === targetKey);
+  const targetColumn = target?.columnId ?? card.column;
+  const targetGates = target?.gatesPassed;
+  // The fifth argument only when there is a sub-column to name, so plain moves keep their shape.
+  const gateArg = targetGates === undefined ? [] as [] : [targetGates] as [number];
   const [targetSwimlane, setTargetSwimlane] = useState(card.swimlane);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
@@ -185,7 +199,19 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     [card.description],
   );
   const strip = useMemo(() => buildStatusStrip(card, board.columns), [card, board.columns]);
-  const tracks = useMemo(() => getCardTrackStates(card), [card]);
+  const tracks = useMemo(
+    () => getCardTrackStates(
+      card,
+      board.columns.find((c) => c.id === card.column),
+      board.swimlanes.find((l) => l.id === card.swimlane),
+      board.custom_field_definitions,
+    ),
+    [card, board.columns, board.swimlanes, board.custom_field_definitions],
+  );
+  // A gated stage (#1102) shows its sub-columns in place of the single current stage.
+  const currentColumn = board.columns.find((c) => c.id === card.column);
+  const peekSubs = stageSubColumns(currentColumn);
+  const peekSubIndex = currentColumn ? cardSubColumnIndex(card, currentColumn) : 0;
   const fields = useMemo(() => buildFieldRows(card, board.custom_field_definitions ?? []), [card, board.custom_field_definitions]);
   const dwell = useMemo(
     () => (movements ? computeTimeInColumns(card, movements, board.columns) : []),
@@ -227,7 +253,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     forcingRef.current = true;
     setMoving(true);
     try {
-      const result = await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999);
+      const result = await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, ...gateArg);
       if (result.ok === false) {
         setMoveError(moveFailureMessage(result.error));
         setMoveRefusal(limitRefusal(result.error));
@@ -247,7 +273,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
   const submitMove = async () => {
     if (movesPaused) return;
-    if (targetColumn === card.column && targetSwimlane === card.swimlane) {
+    // Only a true no-op closes quietly: a different sub-column of the same stage is a move.
+    if (targetKey === ownKey && targetSwimlane === card.swimlane) {
       setMoveOpen(false);
       return;
     }
@@ -256,7 +283,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     setMoveRefusal(null);
     try {
       // 9999 appends to the end of the target cell, as the card sheet's Move does.
-      const result = await onMoveCard(card.id, targetColumn, targetSwimlane, 9999);
+      const result = await onMoveCard(card.id, targetColumn, targetSwimlane, 9999, ...gateArg);
       if (result && result.ok === false) {
         setMoveError(moveFailureMessage(result.error));
         setMoveRefusal(limitRefusal(result.error));
@@ -347,7 +374,25 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <h3 id="peek-status" className="text-sm font-semibold mb-2">Status</h3>
           <div className="flex flex-wrap gap-1.5" data-testid="card-peek-strip">
             {stage(strip.previous?.name, "previous")}
-            {stage(strip.current?.name, "current")}
+            {peekSubs.length === 0 ? stage(strip.current?.name, "current") : (
+              // Same current-step treatment as stage() above, plus a dot so color is not the only cue;
+              // aria-current alone names the current step (no extra "(current)" text).
+              <ol data-testid="card-peek-sub-columns" aria-label={`${strip.current?.name ?? ""} sub-columns`} className="inline-flex flex-wrap gap-1.5">
+                {peekSubs.map((s, i) => {
+                  const on = i === peekSubIndex;
+                  return (
+                    <li
+                      key={s.id}
+                      aria-current={on ? "step" : undefined}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${on ? "font-semibold text-fg border-primary-emphasis bg-primary-emphasis/15" : "text-fg-secondary border-line"}`}
+                    >
+                      {on && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />}
+                      {strip.current?.name}: {s.name}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
             {stage(strip.next?.name, "next")}
           </div>
           {tracks.length > 0 && (
@@ -355,7 +400,10 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               {tracks.map((t) => (
                 <li key={t.id} className="flex justify-between rounded-md border border-line px-3 py-1.5 text-sm">
                   <span>{t.name}</span>
-                  <span className="font-semibold">{t.state === "done" ? "✓ Done" : t.state === "open" ? "Open" : "Not applicable"}</span>
+                  <span className="font-semibold">
+                    {t.state === "done" ? <><span aria-hidden="true">✓ </span>Done</> : t.state === "open" ? "Open" : "Not applicable"}
+                    {t.fromLane && <span className="font-normal text-fg-secondary"> for this swimlane</span>}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -459,8 +507,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <div className="mb-3 space-y-2" data-testid="card-peek-move-form">
             <label className="block text-xs text-fg-secondary">
               Column
-              <select className={selectClass} value={targetColumn} onChange={(e) => { setTargetColumn(Number(e.target.value)); setMoveError(null); setMoveRefusal(null); }}>
-                {board.columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <select className={selectClass} value={targetKey} onChange={(e) => { setTargetKey(e.target.value); setMoveError(null); setMoveRefusal(null); }}>
+                {stops.map((s) => <option key={stopKey(s)} value={stopKey(s)}>{s.label}</option>)}
               </select>
             </label>
             <label className="block text-xs text-fg-secondary">
@@ -498,7 +546,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
               // § Withheld actions: aria-disabled keeps it in the tab order, the reason is in text below.
               aria-disabled={movesPaused || undefined}
               aria-describedby={movesPaused ? "card-peek-moves-paused" : undefined}
-              onClick={movesPaused ? undefined : () => { setTargetColumn(card.column); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
+              onClick={movesPaused ? undefined : () => { setTargetKey(ownKey); setTargetSwimlane(card.swimlane); setMoveError(null); setMoveRefusal(null); setMoveOpen(true); }}
               className="focus:outline-none focus:ring-2 focus:ring-primary-emphasis border border-line-strong text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent rounded-md px-4 py-2 text-sm min-h-[44px] sm:min-h-0"
             >
               Move

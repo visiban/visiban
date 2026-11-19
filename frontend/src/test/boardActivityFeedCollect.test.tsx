@@ -260,7 +260,7 @@ describe('BoardView.collectActivityEvent', () => {
     expect(entries[0].querySelector('[data-testid="detail"]')?.textContent).toBe('To Do → In Progress')
   })
 
-  it('card.moved falls back to "Someone" / "a card" / "" when payload fields are missing', async () => {
+  it('card.moved falls back to "Someone" / "a card" / a non-blank detail when payload fields are missing (#2278)', async () => {
     render(<BoardView />)
     await act(async () => {})
     act(() => {
@@ -271,7 +271,7 @@ describe('BoardView.collectActivityEvent', () => {
     expect(entries).toHaveLength(1)
     expect(entries[0].querySelector('[data-testid="actor"]')?.textContent).toBe('Someone')
     expect(entries[0].querySelector('[data-testid="headline"]')?.textContent).toBe('moved a card')
-    expect(entries[0].querySelector('[data-testid="detail"]')?.textContent).toBe('')
+    expect(entries[0].querySelector('[data-testid="detail"]')?.textContent).toBe('Reordered within its cell')
   })
 
   it('card.created produces a "create" entry with actor and card title', async () => {

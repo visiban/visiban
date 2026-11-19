@@ -1,4 +1,5 @@
-import type { Card } from "../types";
+import type { Card, Column } from "../types";
+import { cardSubColumnIndex, isGatedStage } from "./stages";
 
 /**
  * New order for `ids` with `id` moved one step past its neighbor among `visible`
@@ -36,9 +37,14 @@ export function stepOrder(ids: number[], visible: number[], id: number, dir: -1 
  */
 export function cellOrderOf(
   cards: Card[], card: Card, visible: ReadonlySet<number> | null = null,
+  /** The card's column. On a gated stage the steps stay inside the card's own sub-column (#2278). */
+  column?: Pick<Column, "sub_columns"> | null,
 ): { index: number; count: number; earlier: number | null; later: number | null } {
+  const gated = isGatedStage(column);
+  const sub = gated && column ? cardSubColumnIndex(card, column) : 0;
   const cell = cards
     .filter((c) => c.column === card.column && c.swimlane === card.swimlane && !c.archived_at)
+    .filter((c) => !gated || !column || cardSubColumnIndex(c, column) === sub)
     .filter((c) => c.id === card.id || visible === null || visible.has(c.id))
     .sort((a, b) => a.position - b.position || a.id - b.id);
   const index = cell.findIndex((c) => c.id === card.id);

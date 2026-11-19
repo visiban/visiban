@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
+import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
 import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
@@ -27,8 +27,12 @@ import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
 import ExternalRefGlyph from "./ExternalRefGlyph";
 import { colorChipStyle } from "../../utils/colorContrast";
 import type { CardMenuAnchor } from "./CardContextMenu";
+import TrackChips, { GateProgress } from "./TrackChips";
+import { isDimensionField, type CardTrackState } from "../../utils/stages";
 
 
+
+const EMPTY_DEFS: CustomFieldDefinition[] = [];
 
 interface Props {
   card: Card;
@@ -112,6 +116,12 @@ interface Props {
   /** The context menu is open on this card alone (outside the selection): a
    *  transient `ring-info` outline marks what it will act on (#2059). */
   contextTarget?: boolean;
+  /** Track states for this card on its stage (#1920); omit or [] for none. */
+  trackStates?: CardTrackState[];
+  /** Spell the track state out on each chip ("Technical: done"), phone width. */
+  trackStatesSpelledOut?: boolean;
+  /** Gate progress (#1102) when a split stage renders at normal width. */
+  gateProgress?: { index: number; names: string[] } | null;
 }
 
 /** True when focus arrived by keyboard. Falls back to true where `:focus-visible` is unsupported. */
@@ -204,11 +214,35 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.onExpandChange === next.onExpandChange &&
     prev.onCardUpdated === next.onCardUpdated &&
     prev.onOpenMenu === next.onOpenMenu &&
-    prev.contextTarget === next.contextTarget
+    prev.contextTarget === next.contextTarget &&
+    // Sub-columns and tracks (#2278): a remap or a track value change must
+    // repaint the chips and the progress bar. Compared by content, since the
+    // phone board derives a fresh array per render.
+    prev.card.gates_passed === next.card.gates_passed &&
+    prev.card.version === next.card.version &&
+    prev.trackStatesSpelledOut === next.trackStatesSpelledOut &&
+    sameTrackStates(prev.trackStates, next.trackStates) &&
+    sameGateProgress(prev.gateProgress, next.gateProgress)
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions = [], boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false }: Props) {
+function sameTrackStates(a: CardTrackState[] | undefined, b: CardTrackState[] | undefined): boolean {
+  if (a === b) return true;
+  const x = a ?? [];
+  const y = b ?? [];
+  if (x.length !== y.length) return false;
+  return x.every((t, i) => t.id === y[i].id && t.name === y[i].name && t.state === y[i].state && t.fromLane === y[i].fromLane);
+}
+
+function sameGateProgress(a: Props["gateProgress"], b: Props["gateProgress"]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  return a.index === b.index && a.names.length === b.names.length && a.names.every((n, i) => n === b.names[i]);
+}
+
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions: allFieldDefinitions = EMPTY_DEFS, boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false, trackStates, trackStatesSpelledOut = false, gateProgress = null }: Props) {
+  // Dimension fields (#1921) are tracks, shown as chips; they never pin to the card face.
+  const customFieldDefinitions = useMemo(() => allFieldDefinitions.filter((d) => !isDimensionField(d)), [allFieldDefinitions]);
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -873,6 +907,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {showSubtitle && splitTitle && (
           <p data-testid="card-subtitle" className="mt-0.5 text-xs leading-snug text-fg-secondary line-clamp-2">{splitTitle.rest}</p>
         )}
+
+        {/* #1920 spec § Cards row 2: track chips, only in a column that has tracks; #1102 gate progress when sub-columns are hidden. */}
+        {gateProgress && <GateProgress index={gateProgress.index} names={gateProgress.names} />}
+        {trackStates && trackStates.length > 0 && <TrackChips tracks={trackStates} spelledOut={trackStatesSpelledOut} />}
 
         {/* Description exists — indicator only; full content shown in card detail */}
 

@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -255,13 +255,16 @@ export const createCustomFieldDefinition = (boardId: number, data: {
   threshold_alert?: number | null;
   threshold_warn_days?: number | null;
   threshold_alert_days?: number | null;
+  /** #1921: a dimension dropdown (a track). */
+  is_dimension?: boolean;
+  choice_resolutions?: Record<string, DimensionResolution>;
 }) =>
   client.post<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/`, data).then((r) => r.data);
 
 export const updateCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "threshold_direction" | "threshold_warn" | "threshold_alert" | "threshold_warn_days" | "threshold_alert_days">>
+  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "choice_resolutions" | "threshold_direction" | "threshold_warn" | "threshold_alert" | "threshold_warn_days" | "threshold_alert_days">>
 ) =>
   client.patch<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`, data).then((r) => r.data);
 
@@ -403,3 +406,19 @@ export const getBoardHealthHistory = (id: number) =>
  */
 export const recomputeBoardHealth = (id: number) =>
   client.post<{ board: Board; swimlanes: Swimlane[] }>(`/api/v1/boards/${id}/health-recompute/`).then((r) => r.data);
+
+/** Body of `PUT .../columns/{id}/stage/` (#1102/#1921). Every key optional; omitted = unchanged. */
+export interface StageSettingsBody {
+  /** `[]` (a plain column) or 2 to 4 entries; an entry with `id` keeps (and may rename) that sub-column. */
+  sub_columns?: { id?: number; name: string }[];
+  /** Ordered ids of the board's dimension fields. */
+  tracks?: number[];
+  /** Replaces the lane exceptions for this stage's tracks. */
+  not_applicable?: { swimlane_id: number; field_id: number }[];
+}
+
+/** Board admins only. The response's `remapped` lists cards whose `gates_passed` changed. */
+export const saveColumnStage = (boardId: number, colId: number, data: StageSettingsBody) =>
+  client.put<{ column: Column; remapped: { id: number; gates_passed: number; version: number }[] }>(
+    `/api/v1/boards/${boardId}/columns/${colId}/stage/`, data,
+  ).then((r) => r.data);
