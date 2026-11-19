@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, within, act, fireEvent, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from '../components/Board/BoardSettingsWebhooksTab'
 import { CREATE_UNCONFIRMED_COPY, FORM_GENERIC_COPY, ROTATE_UNCONFIRMED_COPY, SESSION_REQUIRED_COPY } from '../constants/webhooks'
@@ -1313,5 +1313,327 @@ describe('Webhooks tab — ux-review second pass', () => {
     await openDetail(user)
     expect(screen.getByRole('region', { name: 'Sample payload' })).toHaveAttribute('tabindex', '0')
     expect(screen.getByRole('region', { name: 'Verification steps' })).toHaveAttribute('tabindex', '0')
+  })
+})
+
+describe('a create or rotate that never answers (#2127)', () => {
+  const PENDING = /Wait for the new secret/
+  const STUCK_ROTATE = /the rotation may still go through/
+  const LEFT_ROTATE = /A secret rotation you didn't wait for may have gone through/
+  const LEFT_CREATE = /A webhook you didn't wait for may have been created/
+
+  beforeEach(() => { window.sessionStorage.clear() })
+
+  async function hungRotate(props: TabProps = {}) {
+    const user = setup()
+    let guard: WebhookCloseGuard | null = null
+    let finish: (value: unknown) => void = () => {}
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await renderTab({ registerCloseGuard: (g) => { guard = g }, ...props })
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    return { user, guard: () => guard!, finish: (v: unknown) => finish(v) }
+  }
+
+  it('stays locked until the bound, then offers Leave anyway, which takes the last refused way out', async () => {
+    const { user, guard } = await hungRotate()
+    const proceed = vi.fn()
+    act(() => { expect(guard()(proceed)).toBe(true) })
+    expect(await screen.findByText(PENDING)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Leave anyway' })).not.toBeInTheDocument()
+
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const stuck = screen.getByText(STUCK_ROTATE).closest('[role="alert"]')
+    expect(stuck).not.toBeNull()
+    // The way out sits beside the alert, never inside it (#1772), described by it.
+    const leave = screen.getByRole('button', { name: 'Leave anyway' })
+    expect(stuck!.contains(leave)).toBe(false)
+    expect(leave).toHaveAttribute('aria-describedby', stuck!.id)
+    expect(screen.queryByText(PENDING)).not.toBeInTheDocument()
+    // Still locked: the bound only offers a way out, it does not take one.
+    const later = vi.fn()
+    act(() => { expect(guard()(later)).toBe(true) })
+
+    m.list.mockResolvedValue([sub({ previous_secret_expires_at: '2026-11-02T12:00:00Z', secret_rotated_at: minsAgo(0) })])
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    // The way out the user tried last is the one taken.
+    expect(later).toHaveBeenCalledTimes(1)
+    expect(proceed).not.toHaveBeenCalled()
+    // Told a rotation may have landed, and the server was re-read.
+    expect(screen.getByTestId('webhook-left-pending')).toHaveTextContent(LEFT_ROTATE)
+    // Announced through the always-mounted slot, not a region that mounts with its text (#1421).
+    expect(screen.getByTestId('webhook-left-pending')).not.toHaveAttribute('role')
+    expect(screen.getByTestId('webhook-notice-live')).toHaveTextContent(LEFT_ROTATE)
+    await waitFor(() => expect(m.list).toHaveBeenCalledTimes(2))
+    // Unlocked: nothing is refused any more.
+    expect(guard()(vi.fn())).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Rotating…' })).not.toBeInTheDocument()
+  })
+
+  it('rotate: Leave anyway with no refused way out puts focus on the status heading', async () => {
+    const { user } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    const before = screen.getByTestId('webhook-notice-live')
+    expect(before).toHaveTextContent('')
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    await waitFor(() => expect(document.querySelector('[data-webhook-status-heading]')).toHaveFocus())
+    // The same always-mounted node, now holding the sentence.
+    expect(screen.getByTestId('webhook-notice-live')).toBe(before)
+    expect(before).toHaveTextContent(LEFT_ROTATE)
+  })
+
+  it('the bound passing scrolls the banner into view', async () => {
+    const scroll = vi.fn()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scroll
+    try {
+      await hungRotate()
+      expect(scroll).not.toHaveBeenCalled()
+      await act(async () => { vi.advanceTimersByTime(20_000) })
+      expect(scroll).toHaveBeenCalled()
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('an answer while Leave anyway has focus does not drop focus to the page', async () => {
+    const { finish } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    act(() => { screen.getByRole('button', { name: 'Leave anyway' }).focus() })
+    finish({ ...sub(), secret: 'whsec_now' })
+    await screen.findByTestId('webhook-secret-reveal')
+    expect(screen.queryByRole('button', { name: 'Leave anyway' })).not.toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body))
+  })
+
+  it('Dismiss returns focus to the view heading', async () => {
+    const { user } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByTestId('webhook-left-pending')).not.toBeInTheDocument()
+    await waitFor(() => expect(document.querySelector('[data-webhook-status-heading]')).toHaveFocus())
+    expect(screen.getByTestId('webhook-notice-live')).toHaveTextContent('')
+  })
+
+  it('the warning survives leaving the tab and a reload, the list is re-read on return, and Dismiss clears it', async () => {
+    const { user } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    screen.getByTestId('webhook-left-pending')
+    // Remount (Board settings closed and opened again, or a reload).
+    cleanup()
+    m.list.mockClear()
+    await renderTab()
+    expect(m.list).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('webhook-left-pending')).toHaveTextContent(LEFT_ROTATE)
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByTestId('webhook-left-pending')).not.toBeInTheDocument()
+    expect(window.sessionStorage.getItem('visiban.webhooks.leftPending.3')).toBeNull()
+  })
+
+  it('a late answer while still on the webhook shows its secret and drops the warning', async () => {
+    const { user, finish } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    finish({ ...sub(), secret: 'whsec_late' })
+    const reveal = await screen.findByTestId('webhook-secret-reveal')
+    expect(within(reveal).getByRole('textbox')).toHaveValue('whsec_late')
+    expect(screen.queryByTestId('webhook-left-pending')).not.toBeInTheDocument()
+  })
+
+  it('a late answer after the user moved on never pulls them back', async () => {
+    const { user, finish } = await hungRotate()
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    await user.click(screen.getByRole('button', { name: '← All webhooks' }))
+    expect(await screen.findByRole('heading', { name: 'Webhooks' })).toBeInTheDocument()
+    finish({ ...sub(), secret: 'whsec_late' })
+    await act(async () => { await Promise.resolve() })
+    expect(screen.queryByTestId('webhook-secret-reveal')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Webhooks' })).toBeInTheDocument()
+    expect(screen.getByTestId('webhook-left-pending')).toHaveTextContent(LEFT_ROTATE)
+  })
+
+  it('create: Leave anyway goes back to the list and warns a webhook may exist', async () => {
+    const user = setup()
+    let guard: WebhookCloseGuard | null = null
+    m.list.mockResolvedValue([sub()])
+    m.create.mockReturnValue(new Promise(() => {}))
+    await renderTab({ registerCloseGuard: (g) => { guard = g } })
+    await user.click(screen.getByRole('button', { name: 'Add webhook' }))
+    await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+    await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    expect(screen.getByText(/the webhook may still be created/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Leave anyway' }))
+    expect(await screen.findByRole('heading', { name: 'Webhooks' })).toBeInTheDocument()
+    expect(screen.getByTestId('webhook-left-pending')).toHaveTextContent(LEFT_CREATE)
+    expect(guard!(vi.fn())).toBe(false)
+  })
+
+  it('a request that answers before the bound never offers Leave anyway', async () => {
+    const { finish } = await hungRotate()
+    finish({ ...sub(), secret: 'whsec_quick' })
+    await screen.findByTestId('webhook-secret-reveal')
+    await act(async () => { vi.advanceTimersByTime(20_000) })
+    expect(screen.queryByRole('button', { name: 'Leave anyway' })).not.toBeInTheDocument()
+  })
+})
+
+describe('live updates across admin sessions (#2057)', () => {
+  const change = (seq: number, over: Partial<{ id: number; status: 'active' | 'failing' | 'disabled' | 'deleted'; changed_by: number | null }> = {}) => ({
+    id: 1, status: 'disabled' as const, reason_code: 'manual', consecutive_failures: 0, changed_by: 8, at: minsAgo(0), seq, ...over,
+  })
+
+  it('a frame refetches the list in place, tags the row for 30 s and announces it politely', async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} />)
+    await screen.findByText('Webhooks')
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'manual' })])
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    await waitFor(() => expect(m.list).toHaveBeenCalledTimes(2))
+    expect(await screen.findByTestId('webhook-changed-1')).toHaveTextContent('Changed just now')
+    await act(async () => { vi.advanceTimersByTime(2000) })
+    expect(screen.getByText('A webhook was changed elsewhere.')).toBeInTheDocument()
+    await act(async () => { vi.advanceTimersByTime(30_000) })
+    expect(screen.queryByTestId('webhook-changed-1')).not.toBeInTheDocument()
+  })
+
+  it('frames close together share one list read and one announcement', async () => {
+    m.list.mockResolvedValue([sub(), sub({ id: 2, url_display: 'b.example.com/…/x', url_host: 'b.example.com' })])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} />)
+    await screen.findByText('Webhooks')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(1)} />)
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(2, { id: 2, changed_by: null })} />)
+    await act(async () => { vi.advanceTimersByTime(2500) })
+    expect(m.list).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('2 webhooks were changed elsewhere.')).toBeInTheDocument()
+  })
+
+  it("this user's own change refetches without the elsewhere tag", async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={8} />)
+    await screen.findByText('Webhooks')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={8} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(2500) })
+    expect(m.list).toHaveBeenCalledTimes(2)
+    expect(screen.queryByTestId('webhook-changed-1')).not.toBeInTheDocument()
+  })
+
+  it('a frame from before the tab opened is already in its first load', async () => {
+    m.list.mockResolvedValue([sub()])
+    render(<BoardSettingsWebhooksTab boardId={3} remoteChange={change(4)} />)
+    await screen.findByText('Webhooks')
+    await act(async () => { vi.advanceTimersByTime(2500) })
+    expect(m.list).toHaveBeenCalledTimes(1)
+  })
+
+  it('window focus refetches', async () => {
+    m.list.mockResolvedValue([sub()])
+    await renderTab()
+    act(() => { window.dispatchEvent(new Event('focus')) })
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(m.list).toHaveBeenCalledTimes(2)
+  })
+
+  it('the open webhook deleted elsewhere: a banner that takes focus, announced, with only Back to all webhooks', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    const slot = screen.getByTestId('webhook-notice-live')
+    m.list.mockResolvedValue([])
+    rerender(<BoardSettingsWebhooksTab boardId={3} remoteChange={change(1, { status: 'deleted' })} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    const sentence = await screen.findByText('This webhook was deleted elsewhere.', { selector: 'p[tabindex="-1"]' })
+    // The banner replacing the vanished detail takes focus.
+    await waitFor(() => expect(sentence).toHaveFocus())
+    // Announced through the slot that was already mounted, not a region mounting with its text.
+    expect(sentence.closest('[role="status"]')).toBeNull()
+    expect(screen.getByTestId('webhook-notice-live')).toBe(slot)
+    expect(slot).toHaveTextContent('This webhook was deleted elsewhere.')
+    const banner = sentence.parentElement as HTMLElement
+    expect(within(banner).getAllByRole('button').map((b) => b.textContent)).toEqual(['Back to all webhooks'])
+    await user.click(screen.getByRole('button', { name: 'Back to all webhooks' }))
+    expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus()
+    // Cleared on the way out, so the next deletion is announced again.
+    expect(slot).toHaveTextContent('')
+  })
+
+  it('a deletion elsewhere does not take focus from outside the tab', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    try {
+      const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} />)
+      await screen.findByText('Webhooks')
+      await openDetail(user)
+      act(() => { outside.focus() })
+      m.list.mockResolvedValue([])
+      rerender(<BoardSettingsWebhooksTab boardId={3} remoteChange={change(1, { status: 'deleted' })} />)
+      await act(async () => { vi.advanceTimersByTime(400) })
+      await screen.findByText('This webhook was deleted elsewhere.', { selector: 'p[tabindex="-1"]' })
+      expect(outside).toHaveFocus()
+    } finally {
+      outside.remove()
+    }
+  })
+
+  it('a socket reconnect refetches the list; one from before the tab opened does not', async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} />)
+    await screen.findByText('Webhooks')
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(m.list).toHaveBeenCalledTimes(1)
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'manual' })])
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={3} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(m.list).toHaveBeenCalledTimes(2)
+    // A quiet re-read: no "changed elsewhere" tag or announcement.
+    expect(screen.queryByTestId('webhook-changed-1')).not.toBeInTheDocument()
+  })
+
+  it('the announcer clears between batches, so the same count is read again', async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} />)
+    await screen.findByText('Webhooks')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(2500) })
+    const region = screen.getByText('A webhook was changed elsewhere.')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(2)} />)
+    expect(region).toHaveTextContent('')
+    await act(async () => { vi.advanceTimersByTime(2500) })
+    expect(region).toHaveTextContent('A webhook was changed elsewhere.')
+  })
+
+  it('the changed tag sits on the metadata line, not beside the address', async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} />)
+    await screen.findByText('Webhooks')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    const tag = await screen.findByTestId('webhook-changed-1')
+    expect(tag.closest('p')).toHaveTextContent('#1')
+  })
+
+  it('an open confirm and an unstored secret are not disturbed by a refetch', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    m.rotate.mockResolvedValue({ ...sub(), secret: 'whsec_keep' })
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    await user.click(screen.getByRole('button', { name: 'Rotate secret…' }))
+    await user.click(screen.getByRole('button', { name: KEEP_OLD }))
+    await screen.findByTestId('webhook-secret-reveal')
+    rerender(<BoardSettingsWebhooksTab boardId={3} remoteChange={change(1, { status: 'active' })} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(within(screen.getByTestId('webhook-secret-reveal')).getByRole('textbox')).toHaveValue('whsec_keep')
   })
 })

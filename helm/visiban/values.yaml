@@ -64,6 +64,13 @@ backend:
     # IPs or private CIDRs that webhooks may target (in-cluster n8n, a LAN
     # host). Empty = public destinations only. With --set, escape commas (a\,b).
     webhookAllowedPrivateTargets: ""
+    # WEBHOOK_HOST_MAX_PER_MINUTE / WEBHOOK_HOST_MAX_CONCURRENCY (#2055):
+    # deliveries per minute and in flight at once to one destination host. The
+    # budget is per host and shared by every board on the instance, so raise it
+    # for a hosted receiver many boards use (Slack, a SaaS automation service).
+    # 0 turns that limit off. Defaults match the backend's.
+    webhookHostMaxPerMinute: 120
+    webhookHostMaxConcurrency: 2
     # Comma-separated list of CIDRs / single IPs that may reach /admin/.
     # Empty (default) restricts /admin/ to loopback only — use kubectl
     # port-forward to access. Example: "10.0.0.0/8,192.168.1.42".

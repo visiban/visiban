@@ -221,6 +221,8 @@ class EmailDeliveryPerEventTests(TestCase):
         self.assertIn("/settings", message.body)
         self.assertEqual(message.extra_headers["Auto-Submitted"], "auto-generated")
         self.assertIn("/settings>", message.extra_headers["List-Unsubscribe"])
+        # Plain text only: the HTML part is the webhook-disabled notice's alone (#2066).
+        self.assertEqual(getattr(message, "alternatives", []), [])
 
     def test_comment_mention_sends_email(self):
         with self.captureOnCommitCallbacks(execute=True):

@@ -119,6 +119,15 @@ EVT_SHARE_LINK_UPDATED = "share_link.updated"
 EVT_LENS_CONNECTION_CONFIGURED = "lens_connection.configured"
 EVT_LENS_CONNECTION_REMOVED = "lens_connection.removed"
 
+# Webhook settings changed (#2057). ADMIN-ONLY EVENT, like share_link.updated:
+# the board consumer forwards it to admin / site_admin sockets only
+# (boards.permissions.ADMIN_ONLY_EVENTS). An invalidation for an open Webhooks
+# settings tab, which refetches the list over REST. Payload
+# ``{id, status, reason_code, consecutive_failures, changed_by, at}``: never the
+# URL, host, label, secret or a signature. Broadcast only, never written to the
+# change feed (see webhooks/live.py for why).
+EVT_WEBHOOK_CHANGED = "webhook.changed"
+
 # Consumer keepalive — sent by BoardConsumer._ping_loop, never through
 # broadcast_board_event(), but it is on the wire and clients must ignore it, so
 # the contract covers it.
@@ -166,6 +175,7 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_SHARE_LINK_UPDATED,
     EVT_LENS_CONNECTION_CONFIGURED,
     EVT_LENS_CONNECTION_REMOVED,
+    EVT_WEBHOOK_CHANGED,
     EVT_PING,
 })
 

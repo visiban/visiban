@@ -94,7 +94,7 @@ BOARD = ChannelSpec(
         "_persist_board_event",
         "_broadcast_after_commit",
     }),
-    source_roots=("backend/boards", "backend/git_lens", "backend/groups"),
+    source_roots=("backend/boards", "backend/git_lens", "backend/groups", "backend/webhooks"),
     consumers=("backend/boards/consumers.py",),
     doc="docs/api/websockets.md",
     doc_side="before",

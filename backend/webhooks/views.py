@@ -10,7 +10,7 @@ Access, in the order it is checked:
    on every action except ``status/``.
 5. An interactive session (owner decision D4) for the actions that choose
    where data goes or who it is signed for: create, a PATCH that changes
-   ``url``, ``reenable``, ``rotate`` and ``test``. A Personal Access Token gets
+   ``url``, ``reenable``, ``rotate``, ``end-overlap`` and ``test``. A Personal Access Token gets
    403 ``session_required`` there. The remaining actions (list, retrieve,
    rename, re-filter events, disable, delete) keep the destination and the
    signing key as they are, and accept a PAT. Re-filtering events can widen
@@ -22,11 +22,12 @@ Access, in the order it is checked:
 Subscriptions are looked up by id *within* the board resolved in step 2, so an
 id from another board is a 404 (IDOR).
 
-No WebSocket event is emitted for webhook configuration (``NO_BROADCAST_BY_DESIGN``
-in scripts/check-broadcast-deferral.py): the settings are admin-only state with
-a URL and a secret in them, and the only reader is the admin's own settings
-tab. The audit trail is the ``configured_by`` / ``*_at`` columns plus one
-structured log line per change (``dispatch.log_config_event``), ids only.
+Every write publishes the admin-only ``webhook.changed`` board event after
+commit (#2057, ``webhooks.live``): an invalidation with ids and codes only,
+never the URL or a secret, so another admin's open Webhooks tab refetches. It is
+not written to the change feed. The audit trail is the ``configured_by`` /
+``*_at`` columns plus one structured log line per change
+(``dispatch.log_config_event``), ids only.
 """
 
 from datetime import timedelta
@@ -57,7 +58,7 @@ from visiban.exceptions import CodedValidationError
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
 from visiban.request_shape import require_json_object
 
-from . import dispatch
+from . import dispatch, live
 from .models import SUBSCRIBABLE_EVENT_TYPES, WebhookSubscription, generate_secret
 from .serializers import (
     LIMIT_REACHED,
@@ -284,6 +285,7 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
             sub.set_url(attrs["url"], ser.context["url_host"])
             sub.set_secret(secret)
             sub.save()
+            live.publish_changed(sub.pk, board.pk, changed_by_id=user.pk)
         dispatch.log_config_event("create", sub, actor_id=user.pk)
         data = dict(WebhookCreatedSerializer(sub).data)
         data["url"] = attrs["url"]
@@ -347,6 +349,7 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         # failure state, lease, disable). A full-row save from this request's
         # earlier read would roll those back.
         sub.save(update_fields=fields)
+        live.publish_changed(sub.pk, board.pk, changed_by_id=request.user.pk)
         dispatch.log_config_event("url_change" if changes_url else "update", sub, actor_id=request.user.pk)
         return Response(self._data(sub))
 
@@ -355,7 +358,9 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         board = self._enabled_board(board_pk)
         sub = self._subscription(board, pk)
         dispatch.log_config_event("delete", sub, actor_id=request.user.pk)
+        sub_id = sub.pk
         sub.delete()
+        live.publish_changed(sub_id, board.pk, changed_by_id=request.user.pk, deleted=True)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ── actions ──────────────────────────────────────────────────────────────
@@ -450,6 +455,7 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                 "failing_since", "next_attempt_at", "last_error_code", "configured_by",
                 "configured_at", "updated_at",
             ])
+            live.publish_changed(sub.pk, board.pk, changed_by_id=request.user.pk)
         dispatch.log_config_event("reenable", sub, actor_id=request.user.pk, reason=resume_from)
         sub = self._subscription(board, sub.pk)
         return Response(self._data(sub))
@@ -506,6 +512,7 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
                 "secret_encrypted", "previous_secret_encrypted", "previous_secret_expires_at",
                 "secret_rotated_at", "configured_by", "configured_at", "updated_at",
             ])
+            live.publish_changed(sub.pk, board.pk, changed_by_id=request.user.pk)
         dispatch.log_config_event(
             "rotate", sub, actor_id=request.user.pk, reason=f"overlap={overlap if keep_previous else 0}"
         )
@@ -513,6 +520,48 @@ class WebhookSubscriptionViewSet(viewsets.ViewSet):
         data = dict(WebhookRotatedSerializer(sub).data)
         data["secret"] = secret
         return _no_store(Response(data))
+
+    @extend_schema(
+        summary="End a secret rotation overlap early",
+        description=(
+            "Requires an interactive session. Stops signing with the previous "
+            "secret now, without issuing a new one: deliveries carry one "
+            "signature, from the current secret, which is unchanged and is not "
+            "returned. Idempotent: with no overlap open it changes nothing and "
+            "returns 200. The owner (`configured_by`) is unchanged."
+        ),
+        request=None,
+        responses={200: WebhookSubscriptionSerializer, **_READ_ERRORS},
+    )
+    @action(detail=True, methods=["post"], url_path="end-overlap")
+    def end_overlap(self, request, board_pk=None, pk=None):
+        """Clear the previous secret (#2118).
+
+        Session-only like ``rotate``: both decide which secrets sign this
+        webhook's deliveries. Unlike ``rotate`` it does not re-stamp
+        ``configured_by``: it only narrows what is signed, and the destination
+        and the current key are as the owner left them. It also leaves
+        ``secret_rotated_at`` alone, so a dispatcher run in progress is not
+        stopped; it drops the second signature from its next row
+        (``dispatch._configured_state``).
+        """
+        board = self._enabled_board(board_pk)
+        self._require_session()
+        sub = self._subscription(board, pk)
+        with transaction.atomic():
+            try:
+                sub = WebhookSubscription.objects.select_for_update().get(pk=sub.pk)
+            except WebhookSubscription.DoesNotExist:
+                raise NotFound() from None
+            open_overlap = sub.previous_secret_active_until is not None
+            if sub.previous_secret_encrypted or sub.previous_secret_expires_at is not None:
+                sub.clear_previous_secret()
+                sub.save(update_fields=["previous_secret_encrypted", "previous_secret_expires_at", "updated_at"])
+                live.publish_changed(sub.pk, board.pk, changed_by_id=request.user.pk)
+        dispatch.log_config_event(
+            "end_overlap", sub, actor_id=request.user.pk, reason="ended" if open_overlap else "none_open"
+        )
+        return Response(self._data(self._subscription(board, sub.pk)))
 
     @extend_schema(
         summary="Send a test event to a webhook",

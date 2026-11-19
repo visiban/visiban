@@ -77,6 +77,10 @@ Open the webhook with **Manage**, choose **Rotate secret…**, then one of:
 
 Either way the new secret is shown once, so until it arrives you can't close Board settings, switch tabs or go back to the list. Rotating again during the 24 hours keeps only the secret you just replaced, so update your receiver right after. Changing the webhook's address ends the overlap too.
 
+Once your receiver has the new secret you don't have to wait out the 24 hours: the API's [`end-overlap`](../api/webhooks.md#post-idend-overlap) action stops signing with the old secret straight away, without issuing another new one (since 1.3).
+
+If the server takes more than 20 seconds to answer a create or a rotation, Visiban offers **Leave anyway**. Leaving then is safe for the board, but the change may still go through on the server, and its secret can't be shown to you. The Webhooks tab says so when you come back, and reloads the webhooks from the server so what it shows (including **Old secret still signed until…**) is current. Rotate again to get a secret you can copy. Visiban never gives up on the request by itself, because a request it stopped waiting for could still land.
+
 If a rotation reports that it couldn't be confirmed, it may have gone through with its response lost, and that secret can't be shown. If that happened with **Keep old secret for 24 hours**, the webhook shows **Old secret still signed until…**, as long as Visiban could re-read it after the error; reload the page if you are unsure. Rotate again to get a secret you can copy, then update your receiver right away, because a second rotation stops signing with the secret your receiver holds.
 
 !!! warning "If the secret leaked, revoke it and replace it on your receiver"
@@ -92,6 +96,8 @@ A webhook keeps delivering only while the person who last set it up (created it,
 
 When a webhook is turned off automatically, every admin of the board, and the person who last set the webhook up if they still administer the board (a site admin who isn't a member, for example), gets an in-app notification and an email. The email is sent whatever your email notification settings are, but only to a verified address. The notice says exactly three things: the board, the webhook's number, and the reason code with its plain-language label. It never contains the address, the host, or anything the receiver sent back. **Open board settings** in the notification goes straight to the Webhooks tab.
 
+The email has a plain-text part and, since 1.3, a simple HTML part with the same three facts in a table, one **Open Board settings** button, and a footer saying why it was sent despite your email settings. It has no images or remote content. This is the only notification email with an HTML part: the others stay plain text, because their text includes card titles and names that an HTML email would have to escape perfectly every time (#2066).
+
 Turning a webhook off yourself sends no notice.
 
 ### Turn on again
@@ -103,6 +109,10 @@ Turning a webhook back on is always confirmed, and the confirmation says what wi
 - After **its creator lost access**: you take it over (see above).
 
 A webhook turned off because its stored address or secret can no longer be read (usually after the server's secret key changed) cannot be turned back on. Delete it and create a new one.
+
+### When another admin changes a webhook
+
+Since 1.3, an open Webhooks tab follows changes made elsewhere, by another board admin or by the dispatcher (a webhook starting to fail, recovering, or being turned off), without a reload. A changed row is marked **Changed just now**. If the webhook you have open was deleted elsewhere, the tab says so and offers **Back to all webhooks**. An open create form, confirmation or secret you have not stored yet is never replaced by an update. Updates are not stored, so anything sent while the board's live connection was down would be missed: the tab reloads the list when that connection reconnects, and also when the browser window regains focus. The **Changed just now** mark lasts 30 seconds and does not say who made the change. Only board admins receive these updates, and they never carry the address or a secret ([`webhook.changed`](../api/websockets.md#webhook-events-since-13)).
 
 ## For operators
 
@@ -195,6 +205,8 @@ If your pod, service or node ranges are not in the default deny list, replace `d
 ### Limits and tuning
 
 All settings, with their defaults, are in [Configuration — Webhooks](../administration/configuration.md#webhooks): timeouts, retry and turn-off thresholds, and caps of 10 webhooks per board, 25 per user and 1000 per server.
+
+Since 1.3 the dispatcher also limits what one receiver gets, however many boards point webhooks at it: at most `WEBHOOK_HOST_MAX_PER_MINUTE` (120) deliveries a minute and `WEBHOOK_HOST_MAX_CONCURRENCY` (2) in flight at once, per destination host (#2055). A webhook whose host is at a limit waits for a later run; it is not a failure, so it neither backs off nor moves toward being turned off. The counters live in the shared cache (Valkey), so they add up across dispatcher replicas; without a shared cache, or while Valkey is down, each dispatcher process enforces the limits on its own, and the per-minute count holds across runs of that process. Hosts are compared by name (ignoring case and a trailing dot), so two names for one address are counted separately. The budget belongs to the receiver and is shared by every board on the instance: if one board's webhooks use all of a host's deliveries for a minute, other boards' webhooks to that host wait too, until that host's minute has room again. Waiting webhooks take turns. Each run starts with the webhooks that have waited longest, and a webhook that the limit stopped before it sent anything keeps its place in that order, so it goes ahead of the webhooks that did send. A turn is not an equal share: one webhook's turn can use a whole minute's budget (up to `WEBHOOK_MAX_EVENTS_PER_RUN` events), and the next waiting webhook goes next. This matters most for a shared hosted receiver such as Slack or a SaaS automation service, where every board's webhooks to it share one budget. Raise `WEBHOOK_HOST_MAX_PER_MINUTE` for a receiver many boards share (see [Configuration](../administration/configuration.md); on Helm, `backend.settings.webhookHostMaxPerMinute`). The run log reports how many webhooks waited, never which host. Test events are not counted. Set either to `0` to turn that limit off.
 
 ### Secret key rotation
 

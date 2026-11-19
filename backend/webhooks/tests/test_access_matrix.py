@@ -38,6 +38,7 @@ def _routes(sub_id):
         ("post", f"{sub_id}/disable/", {}),
         ("post", f"{sub_id}/reenable/", {}),
         ("post", f"{sub_id}/rotate/", {}),
+        ("post", f"{sub_id}/end-overlap/", {}),
         ("post", f"{sub_id}/test/", {}),
     ]
 

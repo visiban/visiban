@@ -681,7 +681,7 @@ _PATH_PARAM_OVERRIDES = {
     # ADMINISTERS (see _seed_webhook_fixture), so the read routes and the
     # token-allowed writes (name/event_types PATCH, disable, DELETE) answer real
     # responses. The routes a PAT cannot reach (create, url PATCH, reenable,
-    # rotate, test: 403 session_required) are mapped too so they hit that 403 on a
+    # rotate, end-overlap, test: 403 session_required) are mapped too so they hit that 403 on a
     # real subscription rather than a 404 on a fuzzed id.
     "/api/v1/boards/{board_pk}/webhooks/": {"board_pk": "webhook_board_pk"},
     "/api/v1/boards/{board_pk}/webhooks/status/": {"board_pk": "webhook_board_pk"},
@@ -689,6 +689,7 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{board_pk}/webhooks/{id}/disable/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
     "/api/v1/boards/{board_pk}/webhooks/{id}/reenable/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
     "/api/v1/boards/{board_pk}/webhooks/{id}/rotate/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
+    "/api/v1/boards/{board_pk}/webhooks/{id}/end-overlap/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
     "/api/v1/boards/{board_pk}/webhooks/{id}/test/": {"board_pk": "webhook_board_pk", "id": "webhook_id"},
     "/api/v1/boards/{id}/export/": {"id": "board_pk"},
     "/api/v1/boards/{id}/export-history/": {"id": "board_pk"},

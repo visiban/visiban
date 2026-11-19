@@ -89,6 +89,16 @@
               "description": "WEBHOOK_ALLOWED_PRIVATE_TARGETS (#863). Comma-separated exact hostnames, private IPs or private CIDRs webhooks may target. Empty (default) means public destinations only.",
               "type": "string"
             },
+            "webhookHostMaxPerMinute": {
+              "description": "WEBHOOK_HOST_MAX_PER_MINUTE (#2055). Webhook deliveries per minute to one destination host, shared by every board on the instance. 0 turns the limit off. Default 120.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "webhookHostMaxConcurrency": {
+              "description": "WEBHOOK_HOST_MAX_CONCURRENCY (#2055). Webhook deliveries in flight at once to one destination host, across dispatchers. 0 turns the limit off. Default 2.",
+              "type": "integer",
+              "minimum": 0
+            },
             "adminAllowedIPs": { "type": "string" },
             "silencedSystemChecks": {
               "description": "SILENCED_SYSTEM_CHECKS. Comma-separated Django system-check IDs the operator accepts, e.g. accounts.W002 (#1698).",

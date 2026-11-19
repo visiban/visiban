@@ -678,6 +678,12 @@ WEBHOOK_SETTLE_SECONDS = env.int("WEBHOOK_SETTLE_SECONDS", default=10)
 # (the DNS deadline), which makes every refusal take the same time.
 WEBHOOK_REFUSAL_FLOOR_SECONDS = env.float("WEBHOOK_REFUSAL_FLOOR_SECONDS", default=None)
 WEBHOOK_DISPATCHER_STALE_SECONDS = env.int("WEBHOOK_DISPATCHER_STALE_SECONDS", default=300)
+# Per destination host, across every board's webhooks (#2055): deliveries per
+# minute and requests in flight at once, summed over every dispatcher through
+# the shared cache (per process without one). 0 turns that limit off. A host
+# at its limit waits for a later run; it is not a failed delivery.
+WEBHOOK_HOST_MAX_PER_MINUTE = env.int("WEBHOOK_HOST_MAX_PER_MINUTE", default=120)
+WEBHOOK_HOST_MAX_CONCURRENCY = env.int("WEBHOOK_HOST_MAX_CONCURRENCY", default=2)
 
 # In-app notifications (#1158) — how long a row in `notifications` is kept,
 # read or unread. Enforced by `manage.py prune_notifications`, which only runs

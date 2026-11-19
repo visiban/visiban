@@ -81,7 +81,7 @@ from boards.services.feed import (
 from visiban import crypto, egress
 from visiban.authorization import authorize_account
 
-from . import notices, signing
+from . import host_limits, live, notices, signing
 from .models import SUBSCRIBABLE_EVENT_TYPES, WebhookDispatcherState, WebhookSubscription
 
 logger = logging.getLogger(__name__)
@@ -375,6 +375,8 @@ def disable(subscription_id: int, reason: str, *, lease_token=None, notify=True,
         sub = WebhookSubscription.objects.select_related("board", "configured_by").get(pk=subscription_id)
         if notify:
             notices.notify_disabled(sub, reason)
+        # After commit, ids and the reason code only (#2057).
+        live.publish_changed(sub.pk, sub.board_id, changed_by_id=actor_id)
     log_config_event("disable", sub, actor_id=actor_id, reason=reason)
     return True
 
@@ -407,6 +409,10 @@ class RunResult:
     #: Boards whose feed horizon was held back by an open write this run
     #: (#2053): their subscriptions moved no cursor. Logged once per run.
     held_back_boards: set = field(default_factory=set)
+    #: Subscriptions that stopped this run because their destination host was
+    #: at its rate or concurrency limit (#2055). Not failures: no backoff.
+    host_limited: int = 0
+    limiter: host_limits.HostLimiter = field(default_factory=host_limits.HostLimiter)
 
 
 def _heartbeat(**fields):
@@ -440,6 +446,11 @@ def sweep_expired_previous_secrets(*, now=None, board_id=None) -> int:
     reconfiguration (``_still_configured_as_read``). A rotation committing at the
     same moment is safe: the row is re-checked against this filter after its
     lock, and a fresh window no longer matches.
+
+    Publishes no ``webhook.changed`` (#2057), deliberately: an expired window
+    already reads as closed (``previous_secret_expires_at`` is past, and the API
+    returns null for it), so an open tab shows nothing new, and the frame carries
+    no overlap field anyway.
 
     Two callers (#2119): every dispatcher run (all boards), and every webhook
     API request by a board admin (*board_id*, that board's rows only), so an
@@ -486,6 +497,13 @@ def run_once(*, budget_seconds=None, clock=time.monotonic) -> RunResult:
             "webhook run held back by an open write: boards=%s board_ids=%s",
             len(held),
             held[:_HELD_BACK_LOG_IDS],
+        )
+    if result.host_limited:
+        # Counts only: the host is a destination, and logs never name one.
+        logger.info(
+            "webhook run held back by per-host limits: subscriptions=%s hosts=%s",
+            result.host_limited,
+            len(result.limiter.limited_hosts),
         )
     _heartbeat(last_run_finished_at=timezone.now())
     return result
@@ -608,6 +626,8 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
 
     cursor = sub.cursor
     pending = cursor  # cursor value not yet written (skipped rows)
+    recovered = False
+    delivered_here = False
     for payload in payloads:
         event_id = int(payload["id"])
         if not sub.wants(payload["event"]):
@@ -615,12 +635,17 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             continue
         if clock() >= deadline:
             break
-        if not _still_configured_as_read(sub, token):
+        state = _configured_state(sub, token)
+        if state is None:
             # Disabled, re-pointed, rotated or taken over since this run read
             # the row: stop, so no further row goes out with the old URL or
             # secret. The next run starts from the new state.
             result.lost_lease += 1
             break
+        if not state.previous_secret_set:
+            # The overlap was ended early (``end-overlap``, #2118) or swept:
+            # not a reconfiguration, so the run carries on, with one signature.
+            previous_secret = None
         # The wall clock per row: the overlap can end during a run, and that is
         # not a reconfiguration, so the run carries on with the current secret.
         body, headers = build_request(
@@ -630,14 +655,39 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             secret,
             previous_secret=previous_secret if sub.previous_secret_active_until else None,
         )
+        # Per destination host, across every board (#2055). A host at its limit
+        # stops this subscription for the run without a failure; the cursor
+        # stays before this row, so order holds and the next run resumes here.
+        slot = result.limiter.acquire(sub.url_host)
+        if slot is None:
+            result.host_limited += 1
+            if not delivered_here:
+                # It got no turn, so it keeps its place in the run order: the
+                # stamp written above would put it behind every subscription
+                # that did deliver, and on a busy host the one that went first
+                # would go first again every run. Restored, it goes ahead of
+                # them next run, so subscriptions sharing a host take turns.
+                # One that delivered before the limit had its turn and keeps
+                # the new stamp.
+                WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(
+                    last_scanned_at=sub.last_scanned_at
+                )
+            break
         attempt_at = timezone.now()
-        status, code = post(url, body, headers)
+        try:
+            status, code = post(url, body, headers)
+        finally:
+            slot.release()
         if code is None:
             if not _advance(sub_id, token, cursor, event_id, success_at=attempt_at, status=status):
                 result.lost_lease += 1
                 return
+            # Failing → active, announced once after the loop (#2057). A later
+            # failure this run announces itself from _record_failure.
+            recovered = recovered or bool(sub.consecutive_failures)
             cursor = pending = event_id
             result.delivered += 1
+            delivered_here = True
             continue
         result.failed += 1
         if pending != cursor and _advance(sub_id, token, cursor, pending):
@@ -657,19 +707,45 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             tail = BoardEvent.objects.filter(board_id=board.pk).filter(window).aggregate(m=Max("id"))["m"]
             if tail and tail > pending:
                 pending = tail
+    if recovered:
+        live.publish_changed(sub.pk, sub.board_id)
     if pending != cursor and not _advance(sub_id, token, cursor, pending):
         result.lost_lease += 1
 
 
+@dataclass(frozen=True)
+class _ConfiguredState:
+    #: False once the previous secret was cleared since the run read the row.
+    previous_secret_set: bool
+
+
+def _configured_state(sub, token) -> _ConfiguredState | None:
+    """The row's live overlap state while it still has the lease and the configuration this run read.
+
+    None means disabled, re-pointed, rotated or taken over: stop. One query per
+    row, as before; it also reports whether the previous secret is still
+    stored, so ending an overlap early (#2118) takes effect at the next row
+    without stopping the run.
+    """
+    row = (
+        WebhookSubscription.objects.filter(
+            pk=sub.pk,
+            lease_token=token,
+            enabled=True,
+            configured_at=sub.configured_at,
+            secret_rotated_at=sub.secret_rotated_at,
+        )
+        .values_list("previous_secret_encrypted", flat=True)
+        .first()
+    )
+    if row is None:
+        return None
+    return _ConfiguredState(previous_secret_set=bool(row))
+
+
 def _still_configured_as_read(sub, token) -> bool:
     """True while the row still has the lease and the configuration this run read."""
-    return WebhookSubscription.objects.filter(
-        pk=sub.pk,
-        lease_token=token,
-        enabled=True,
-        configured_at=sub.configured_at,
-        secret_rotated_at=sub.secret_rotated_at,
-    ).exists()
+    return _configured_state(sub, token) is not None
 
 
 def _advance(sub_id, token, old_cursor, new_cursor, *, success_at=None, status=None) -> bool:
@@ -723,6 +799,10 @@ def _record_failure(sub_id, token, code, status, attempt_at, result: RunResult):
     if failures >= limit or attempt_at - failing_since >= timedelta(hours=hours):
         if disable(sub_id, Reason.FAILURES, lease_token=token):
             result.disabled += 1
+    elif failures == 1:
+        # Active → failing: once, not on every retry (#2057). A tab open
+        # during later retries refetches on focus.
+        live.publish_changed(sub_id, sub.board_id)
 
 
 def dispatcher_status(*, now=None):

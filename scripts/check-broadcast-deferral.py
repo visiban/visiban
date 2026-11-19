@@ -148,6 +148,9 @@ DEFERRING_EMIT_FUNCS = frozenset({
     # call into its callee, so a loop over one of these would otherwise go unseen.
     "record_share_state_board_updated",
     "record_share_link_updated",
+    # webhooks/live.py (#2057): broadcast-only admin-only invalidation,
+    # registered with transaction.on_commit inside the helper.
+    "publish_changed",
 })
 
 ALL_EMIT_FUNCS = RAW_EMIT_FUNCS | DEFERRING_EMIT_FUNCS
@@ -188,14 +191,6 @@ ORM_NAMES = frozenset({
 
 # Write actions on a board/group-scoped view that deliberately broadcast
 # nothing. The reason must say why no other connected client needs to know.
-_WEBHOOK_CONFIG_REASON = (
-        "Webhook configuration (#863, D11) broadcasts nothing by design. It is "
-        "admin-only state whose rows hold an encrypted URL and signing secret, "
-        "and a board-channel frame fans out to every member regardless of role. "
-        "Its only reader is the admin's own settings tab, which refetches after "
-        "each change. The audit trail is configured_by / *_at plus one ids-only "
-        "log line per change (webhooks.dispatch.log_config_event)."
-    )
 
 NO_BROADCAST_BY_DESIGN: dict[str, str] = {
     "backend/groups/views.py::GroupViewSet::@action invite_links [post]": (
@@ -207,11 +202,6 @@ NO_BROADCAST_BY_DESIGN: dict[str, str] = {
         "and nothing else (see docs/api/websockets.md). The asymmetry is the "
         "leak boundary, not an oversight."
     ),
-    "backend/webhooks/views.py::WebhookSubscriptionViewSet::create": _WEBHOOK_CONFIG_REASON,
-    "backend/webhooks/views.py::WebhookSubscriptionViewSet::update": _WEBHOOK_CONFIG_REASON,
-    "backend/webhooks/views.py::WebhookSubscriptionViewSet::destroy": _WEBHOOK_CONFIG_REASON,
-    "backend/webhooks/views.py::WebhookSubscriptionViewSet::@action reenable [post]": _WEBHOOK_CONFIG_REASON,
-    "backend/webhooks/views.py::WebhookSubscriptionViewSet::@action rotate [post]": _WEBHOOK_CONFIG_REASON,
 }
 
 # Fan-outs that legitimately call an emit function inside a loop, because the

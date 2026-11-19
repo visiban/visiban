@@ -7,6 +7,8 @@ interface Props {
   subs: WebhookSubscription[];
   now: number;
   highlightId: number | null;
+  /** Rows changed elsewhere in the last 30 s (#2057): tagged "Changed just now". */
+  changedIds?: ReadonlySet<number>;
   onManage: (id: number) => void;
   /** Manage-button registration, for focus return and the deep link. */
   manageRef: (id: number) => (el: HTMLButtonElement | null) => void;
@@ -26,7 +28,7 @@ function dateLabel(iso: string | null): string {
 }
 
 /** The list view's rows (1.3 UI spec Part 8 § webhooks-list). */
-export default function WebhookList({ subs, now, highlightId, onManage, manageRef }: Props) {
+export default function WebhookList({ subs, now, highlightId, changedIds, onManage, manageRef }: Props) {
   return (
     <ul aria-labelledby="webhooks-heading" className="flex flex-col divide-y divide-line border border-line rounded-lg">
       {subs.map((sub) => {
@@ -47,6 +49,10 @@ export default function WebhookList({ subs, now, highlightId, onManage, manageRe
               </div>
               <p className="text-xs text-fg-tertiary">
                 {eventsSummary(sub.event_types)} · Created by {creator} · <span className="font-mono">#{sub.id}</span>
+                {/* On the metadata line, not beside the URL, which truncates (#2057). */}
+                {changedIds?.has(sub.id) && (
+                  <> · <span data-testid={`webhook-changed-${sub.id}`} className="font-medium text-fg">Changed just now</span></>
+                )}
               </p>
               {err && <p className="text-xs font-mono text-fg-secondary truncate" title={err}>Last error: {err}</p>}
               {!sub.enabled && <p className="text-xs text-fg-secondary">{reason ? reason.headline : `Turned off by a board admin${dateLabel(sub.disabled_at)}`}</p>}

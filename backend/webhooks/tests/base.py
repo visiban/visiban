@@ -26,6 +26,10 @@ ENABLED = override_settings(
     # The constant-time refusal floor is pinned by its own test; elsewhere it
     # would only make the suite slow.
     WEBHOOK_REFUSAL_FLOOR_SECONDS=0,
+    # The per-host limits (#2055) count in the cache, which outlives a test,
+    # and every fixture points at one host. test_host_limits.py turns them on.
+    WEBHOOK_HOST_MAX_PER_MINUTE=0,
+    WEBHOOK_HOST_MAX_CONCURRENCY=0,
 )
 
 

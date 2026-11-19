@@ -39,7 +39,8 @@ import time
 from contextlib import contextmanager
 
 from django.conf import settings
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMessage, EmailMultiAlternatives, get_connection
+from django.utils.html import format_html, format_html_join
 
 from visiban.mail import classify_smtp_error
 from .models import Notification
@@ -167,35 +168,91 @@ def _build_webhook_disabled_body(notification, context):
     Board name, subscription id and reason code with its plain label, from the
     ``context`` the notice was created with. Never the URL, the host or
     anything the receiver sent back, and the footer says why the user's email
-    opt-out did not apply. Plain text like every other notice: the HTML-email
-    escaping risk described in ``_build_body`` applies here too.
+    opt-out did not apply. Sent with an HTML alternative since #2066
+    (:func:`_build_webhook_disabled_html`); this text part stays the complete
+    message.
     """
-    from webhooks.notices import reason_label
-
-    context = context or {}
-    board_name = _flatten(notification.board.name) if notification.board is not None else ""
-    reason = str(context.get("reason") or "")
+    board_name, subscription_id, reason, label = _webhook_disabled_facts(notification, context)
     lines = [
         f"A webhook on the board {board_name} was turned off automatically.",
         "",
         f"Board:   {board_name}",
-        f"Webhook: #{context.get('subscription_id', '')}",
-        f"Reason:  {reason_label(reason)} ({reason})",
+        f"Webhook: #{subscription_id}",
+        f"Reason:  {label} ({reason})",
         "",
         "A board admin can review it and turn it back on in Board settings → Webhooks:",
         card_link(notification),
         "",
         "--",
-        "You are getting this because you are an admin of this board. It is a "
-        "security and operations notice, so it is sent even if you turned email "
-        "notifications off. It never includes the webhook's address or what the "
-        "receiver sent back.",
+        WEBHOOK_DISABLED_FOOTER,
     ]
     return "\n".join(lines)
 
 
+WEBHOOK_DISABLED_FOOTER = (
+    "You are getting this because you are an admin of this board. It is a "
+    "security and operations notice, so it is sent even if you turned email "
+    "notifications off. It never includes the webhook's address or what the "
+    "receiver sent back."
+)
+
+
+def _webhook_disabled_facts(notification, context):
+    """``(board name, subscription id, reason code, reason label)``, shared by both parts."""
+    from webhooks.notices import reason_label
+
+    context = context or {}
+    board_name = _flatten(notification.board.name) if notification.board is not None else ""
+    reason = str(context.get("reason") or "")
+    return board_name, str(context.get("subscription_id", "")), reason, reason_label(reason)
+
+
+def _build_webhook_disabled_html(notification, context):
+    """The HTML alternative for the disable notice (#2066, 1.3 UI spec Part 8).
+
+    Decision (#2066): notification email in general stays plain text, for the
+    reason ``_build_body`` gives. This one notice gets an HTML part because the
+    spec draws it as one and its content is fixed: the only user-supplied
+    value is the board name. Plain and unthemed (no CSS file, no images, no
+    remote content), as drawn: a three-row table, one button to Board
+    settings and the footer. Every interpolated value goes through
+    ``format_html``, which escapes each argument, so a board named
+    ``<script>`` renders as text; ``_build_webhook_disabled_body`` stays the
+    complete message for clients that show text only.
+    """
+    board_name, subscription_id, reason, label = _webhook_disabled_facts(notification, context)
+    cell = "padding:4px 12px 4px 0;text-align:left;vertical-align:top"
+    rows = format_html_join(
+        "",
+        '<tr><th scope="row" style="' + cell + ';font-weight:600">{}</th><td style="' + cell + '">{}</td></tr>',
+        (
+            ("Board", board_name),
+            ("Webhook", f"#{subscription_id}"),
+            ("Reason", f"{label} ({reason})"),
+        ),
+    )
+    return format_html(
+        "<!doctype html>"
+        '<html lang="en"><head><meta charset="utf-8"><title>{title}</title></head>'
+        '<body style="font-family:sans-serif;font-size:14px;line-height:1.5;color:#1f2328">'
+        "<p>A webhook on the board {board} was turned off automatically.</p>"
+        '<table role="presentation" style="border-collapse:collapse;margin:0 0 16px 0">{rows}</table>'
+        '<p><a href="{link}" style="display:inline-block;padding:8px 14px;border-radius:4px;'
+        'background:#1f6feb;color:#ffffff;text-decoration:none;font-weight:600">'
+        "Open Board settings</a></p>"
+        '<hr style="border:none;border-top:1px solid #d0d7de;margin:24px 0 12px 0">'
+        '<p style="font-size:12px;color:#57606a">{footer}</p>'
+        "</body></html>",
+        title="A webhook was turned off",
+        board=board_name,
+        rows=rows,
+        link=card_link(notification),
+        footer=WEBHOOK_DISABLED_FOOTER,
+    )
+
+
 def _build_body(notification):
-    """Plain text only — no HTML alternative.
+    """Plain text only — no HTML alternative (the webhook-disabled notice is the one exception, #2066).
 
     ``verb`` is assembled from system-controlled templates but interpolates
     user-supplied card titles and usernames. In a text/plain part that is inert;
@@ -366,30 +423,33 @@ def deliver_notification_emails(notifications, context=None):
     messages = []
     for notification in targets:
         board = notification.board
+        html = None
         if notification.action_type == Notification.ActionType.WEBHOOK_DISABLED:
             subject = f"A webhook on {board.name if board is not None else 'a board'} was turned off"
             body = _build_webhook_disabled_body(notification, context)
+            html = _build_webhook_disabled_html(notification, context)
         else:
             prefix = f"[{board.name}] " if board is not None else ""
             subject = f"{prefix}{notification.verb}"
             body = _build_body(notification)
-        messages.append(
-            EmailMessage(
-                subject=_flatten_subject(subject),
-                body=body,
-                to=[notification.recipient.email],
-                headers={
-                    # RFC 8058 wants a one-click POST target; Visiban has no
-                    # unauthenticated unsubscribe endpoint and inventing one
-                    # would be a new public surface. A link to the settings page
-                    # is the honest version and is enough to keep a brand-new
-                    # sending pattern out of spam folders.
-                    "List-Unsubscribe": unsubscribe,
-                    # Stops vacation auto-responders from replying to a robot.
-                    "Auto-Submitted": "auto-generated",
-                },
-            )
+        message = (EmailMultiAlternatives if html is not None else EmailMessage)(
+            subject=_flatten_subject(subject),
+            body=body,
+            to=[notification.recipient.email],
+            headers={
+                # RFC 8058 wants a one-click POST target; Visiban has no
+                # unauthenticated unsubscribe endpoint and inventing one
+                # would be a new public surface. A link to the settings page
+                # is the honest version and is enough to keep a brand-new
+                # sending pattern out of spam folders.
+                "List-Unsubscribe": unsubscribe,
+                # Stops vacation auto-responders from replying to a robot.
+                "Auto-Submitted": "auto-generated",
+            },
         )
+        if html is not None:
+            message.attach_alternative(html, "text/html")
+        messages.append(message)
 
     ids = [n.pk for n in targets]
 
