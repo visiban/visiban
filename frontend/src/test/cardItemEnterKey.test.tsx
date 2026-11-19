@@ -94,7 +94,7 @@ describe('CardItem keyboard open (#2273)', () => {
   })
 
   it('dense density reserves the space on the row, not the title (#2358)', () => {
-    // The dense row belongs to the redesigned (non-Classic) face, which the preset store selects.
+    // Publish the Default preset as BoardView does; the dense row is the only dense face (#2279).
     act(() => publishActivePreset({ boardId: 7, activePresetId: 'default', modified: false }))
     const { container, getByTestId } = render(<CardItem card={makeCard()} boardId={7} onClick={() => {}} density="dense" />)
     expect(getByTestId('card-dense-row').className).toContain('[@media(pointer:fine)]:pr-12')

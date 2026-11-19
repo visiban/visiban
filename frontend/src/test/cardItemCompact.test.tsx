@@ -25,9 +25,6 @@ vi.mock('../utils/date', () => ({
   // Used by checklistToday (#445) to compare checklist due dates against today.
   todayInTimezone: (_tz: string) => '2026-01-10',
   formatDueDate: (_date: string, _tz: string, _fmt: string) => ({ label: 'Jan 15', overdue: false }),
-  // Return null when date is null (matches real implementation behaviour); otherwise return
-  // a fixed label so tests can assert its presence/absence without depending on wall-clock time.
-  formatRelativeMovedAt: (date: string | null, _fmt: string) => date === null ? null : 'moved 3 days ago',
 }))
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -277,8 +274,8 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('metadata row is not rendered when card has no metadata in either mode', () => {
     // Default card: no labels, no description, no due date, priority=low (excluded),
-    // weight=1 (excluded), no assignee, not stale, last_moved_at=null (formatRelativeMovedAt
-    // returns null when date is null, so movedLabel is null) — hasMetadata evaluates to false.
+    // weight=1 (excluded), no assignee, not stale, last_moved_at=null
+    // — hasMetadata evaluates to false.
     const card = makeCard()
     const { container } = render(<CardItem density="dense" card={card} compact />)
     // The metadata row carries a distinctive mt-1.5 class; [class*="mt-1.5"] avoids

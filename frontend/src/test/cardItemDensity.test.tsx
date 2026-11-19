@@ -42,10 +42,9 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   }
 }
 
-// #871 gate: the redesigned urgency face renders only under a non-Classic preset, which
-// the app tells CardItem through the store `useBoardPreset` publishes. These tests cover
-// the redesigned face, so they publish the Default preset exactly as BoardView would;
-// the Classic / no-preset face is covered in its own describe below.
+// The card face does not depend on the preset: `classic` resolves to the redesigned board
+// and there is no Classic-only face (#2279). These tests still publish the Default preset
+// exactly as BoardView would, so the store path the app uses stays exercised.
 function publishPreset(activePresetId: 'classic' | 'default' | null, boardId = 7) {
   act(() => publishActivePreset({ boardId, activePresetId, modified: false }))
 }
