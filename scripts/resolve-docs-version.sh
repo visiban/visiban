@@ -79,20 +79,28 @@ resolve() {
   echo "$v"
 }
 
-# tag_published <v-prefixed version>: 0 when the tag exists on origin.
+# tag_published <v-prefixed version>: 0 = tag on origin, 1 = origin answered and
+# the tag is not there, 2 = the lookup itself failed (network, token). `git
+# ls-remote --exit-code` exits 2 for "no matching ref"; the stub contract is the
+# same (exit 2 = absent, any other nonzero = failed lookup).
 tag_published() {
+  local rc=0
   if [ -n "${TAG_LOOKUP_CMD:-}" ]; then
-    $TAG_LOOKUP_CMD "refs/tags/$1" >/dev/null 2>&1
+    $TAG_LOOKUP_CMD "refs/tags/$1" >/dev/null 2>&1 || rc=$?
   else
-    git ls-remote --exit-code --tags origin "refs/tags/$1" >/dev/null 2>&1
+    git ls-remote --exit-code --tags origin "refs/tags/$1" >/dev/null 2>&1 || rc=$?
   fi
+  case "$rc" in 0) return 0 ;; 2) return 1 ;; *) return 2 ;; esac
 }
 
 # gate_on_tag <DOCS_VERSION> <CI_COMMIT_TAG> <version>: returns 3 when the version
-# came from the .env.example fallback and its tag is not published yet.
+# came from the .env.example fallback and its tag is not published yet, 4 when the
+# lookup failed (fail closed: a failed lookup must not look like "skip, green").
 gate_on_tag() {
+  local rc=0
   if [ -n "${1:-}" ] || [ -n "${2:-}" ]; then return 0; fi
-  tag_published "$3" || return 3
+  tag_published "$3" || rc=$?
+  case "$rc" in 0) return 0 ;; 1) return 3 ;; *) return 4 ;; esac
 }
 
 self_test() {
@@ -151,13 +159,17 @@ self_test() {
   echo "OK: no resolvable source returns 1 (caller treats as 'nothing to deploy')"
 
   # --require-tag gate (#1997)
-  published="$tmp/published"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ]\n' > "$published"; chmod +x "$published"
+  published="$tmp/published"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ] && exit 0\nexit 2\n' > "$published"; chmod +x "$published"
   rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.3.0" || rc=$?
   [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: fallback version whose tag exists must deploy (rc=$rc)." >&2; exit 1; }
   echo "OK: main deploys a version whose tag already exists"
   rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.4.0" || rc=$?
   [ "$rc" -eq 3 ] || { echo "SELF-TEST FAILED: fallback version with no tag must be refused with 3 (rc=$rc)." >&2; exit 1; }
   echo "OK: main does not deploy a version whose tag does not exist yet (#1997)"
+  failing="$tmp/failing"; printf '#!/bin/sh\nexit 128\n' > "$failing"; chmod +x "$failing"
+  rc=0; TAG_LOOKUP_CMD="$failing" gate_on_tag "" "" "v1.4.0" || rc=$?
+  [ "$rc" -eq 4 ] || { echo "SELF-TEST FAILED: a failed lookup must fail closed with 4, not look like an absent tag (rc=$rc)." >&2; exit 1; }
+  echo "OK: a failed tag lookup fails closed instead of skipping"
   rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "v1.4.0" "v1.4.0" || rc=$?
   [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: the tag pipeline must always deploy (rc=$rc)." >&2; exit 1; }
   echo "OK: the tag pipeline deploys without a lookup"

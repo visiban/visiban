@@ -5448,6 +5448,9 @@ docs-deploy:
       if [ "$rc" -eq 3 ]; then
         echo "INFO: the release tag does not exist yet; its versioned docs are published by the tag pipeline, after release-main-pipeline-guard."
         exit 0
+      elif [ "$rc" -eq 4 ]; then
+        echo "ERROR: could not look up the release tag on origin; failing rather than silently skipping the docs deploy." >&2
+        exit 1
       elif [ "$rc" -ne 0 ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
         echo "INFO: no version to deploy. Re-run with DOCS_VERSION=<tag> to publish docs."
