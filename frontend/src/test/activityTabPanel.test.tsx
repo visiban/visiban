@@ -25,7 +25,7 @@ function makeTimelinePage(
 
 function makeEntry(overrides: Partial<{
   id: number;
-  kind: "move" | "activity";
+  kind: "move" | "activity" | "gate";
   ts: string;
   actor: { id: number; username: string; display_name: string; avatar_url: string } | null;
   event_type: string;
@@ -134,13 +134,59 @@ describe("ActivityTabPanel", () => {
     });
   });
 
+  describe("sub-column moves (#2365)", () => {
+    const gateEntry = (id: number, over: Record<string, unknown> = {}) => makeEntry({
+      id,
+      kind: "gate",
+      event_type: "gate_passed",
+      data: {
+        id, card_uid: "c", card_title: "C", column: 11, column_name: "Build", column_uid: "b",
+        sub_column_name: "Review", sub_column_uid: "r", kind: "pass", from_index: 0, to_index: 1,
+        reason: "", cause: "move", movement: null, actor: "jdoe", created_at: new Date().toISOString(),
+        imported_from_username: null, ...over,
+      },
+    });
+
+    it("renders a pass, a reopen and a stage remap, with the actor", async () => {
+      mockGetTimeline.mockResolvedValue(makeTimelinePage([
+        gateEntry(1),
+        gateEntry(2, { kind: "reopen", sub_column_name: "Doing", to_index: 0 }),
+        gateEntry(3, { kind: "reopen", sub_column_name: "", to_index: 1, cause: "stage_edited" }),
+      ]));
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("Moved to Review in Build"));
+      expect(screen.getByText("Moved back to Doing in Build")).toBeInTheDocument();
+      expect(screen.getByText("Now in sub-column 2 in Build (stage edited)")).toBeInTheDocument();
+      expect(screen.getAllByText(/Jane Doe/)).toHaveLength(3);
+      // A sub-column move is not a column move: no time-spent line.
+      expect(screen.queryByText(/Spent .* here/)).not.toBeInTheDocument();
+    });
+
+    it("a move into a stage shows the gate position it recorded", async () => {
+      mockGetTimeline.mockResolvedValue(makeTimelinePage([
+        makeMoveEntry({ id: 1, data: { ...makeMoveEntry().data, to_gates_passed: 2, from_gates_open: null } }),
+      ]));
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      expect(await screen.findByTestId("history-gate-note")).toHaveTextContent("entered at sub-column 3");
+    });
+
+    it("turning Sub-column moves off requests every other group", async () => {
+      mockGetTimeline.mockResolvedValue(makeTimelinePage([gateEntry(1)]));
+      render(<ActivityTabPanel boardId={1} cardId={1} />);
+      await waitFor(() => screen.getByText("Moved to Review in Build"));
+      await userEvent.setup().click(within(screen.getByRole("group", { name: "Show" })).getByRole("button", { name: /Sub-column moves/ }));
+      await waitFor(() => expect(mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1][2])
+        .toMatchObject({ event_types: "move,comment,field,checklist,attachment,system" }));
+    });
+  });
+
   describe("type filter toggles (#967)", () => {
-    const COUNTS = { move: 4, comment: 3, field: 2, checklist: 1, attachment: 0, system: 0 };
+    const COUNTS = { move: 4, gate: 5, comment: 3, field: 2, checklist: 1, attachment: 0, system: 0 };
     const group = () => screen.getByRole("group", { name: "Show" });
     const toggle = (name: RegExp) => within(group()).getByRole("button", { name });
     const lastParams = () => mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1][2];
 
-    it("shows six aria-pressed toggles, all on, and fetches unfiltered with counts", async () => {
+    it("shows seven aria-pressed toggles, all on, and fetches unfiltered with counts", async () => {
       mockGetTimeline.mockResolvedValue({ ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS });
       render(<ActivityTabPanel boardId={1} cardId={1} />);
       await waitFor(() => screen.getByText("To Do → In Progress"));
@@ -149,7 +195,7 @@ describe("ActivityTabPanel", () => {
       expect(params).toMatchObject({ include_counts: true });
       const buttons = within(group()).getAllByRole("button");
       expect(buttons.map((b) => b.textContent)).toEqual([
-        "Column moves4", "Comments3", "Field changes2", "Checklist1", "Attachments0", "System events0",
+        "Column moves4", "Sub-column moves5", "Comments3", "Field changes2", "Checklist1", "Attachments0", "System events0",
       ]);
       buttons.forEach((b) => expect(b).toHaveAttribute("aria-pressed", "true"));
       expect(toggle(/Column moves/)).toHaveAccessibleName("Column moves, 4");
@@ -171,7 +217,7 @@ describe("ActivityTabPanel", () => {
       await waitFor(() => screen.getByText("To Do → In Progress"));
       await userEvent.setup().click(toggle(/Comments/));
       await waitFor(() =>
-        expect(lastParams()).toMatchObject({ event_types: "move,field,checklist,attachment,system", include_counts: true }));
+        expect(lastParams()).toMatchObject({ event_types: "move,gate,field,checklist,attachment,system", include_counts: true }));
       expect(toggle(/Comments/)).toHaveAttribute("aria-pressed", "false");
       expect(toggle(/Comments/).textContent).toBe("Comments3");
       // Turning it back on restores the unfiltered request, in group order.
@@ -184,7 +230,7 @@ describe("ActivityTabPanel", () => {
       render(<ActivityTabPanel boardId={1} cardId={1} />);
       await waitFor(() => group());
       const user = userEvent.setup();
-      for (const name of [/Comments/, /Field changes/, /Checklist/, /Attachments/, /System events/]) {
+      for (const name of [/Sub-column moves/, /Comments/, /Field changes/, /Checklist/, /Attachments/, /System events/]) {
         await user.click(toggle(name));
       }
       await waitFor(() => expect(lastParams()).toMatchObject({ event_types: "move" }));
@@ -215,7 +261,7 @@ describe("ActivityTabPanel", () => {
   });
 
   describe("stale responses are dropped (#967)", () => {
-    const COUNTS = { move: 1, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 };
+    const COUNTS = { move: 1, gate: 0, comment: 1, field: 0, checklist: 0, attachment: 0, system: 0 };
     const deferred = <T,>() => {
       let resolve!: (v: T) => void;
       const promise = new Promise<T>((r) => { resolve = r; });
@@ -265,7 +311,7 @@ describe("ActivityTabPanel", () => {
   });
 
   describe("first page from CardDetail (#967)", () => {
-    const COUNTS = { move: 1, comment: 0, field: 0, checklist: 0, attachment: 0, system: 0 };
+    const COUNTS = { move: 1, gate: 0, comment: 0, field: 0, checklist: 0, attachment: 0, system: 0 };
 
     it("uses initialPage instead of fetching, and adopts a refetched one", async () => {
       const page = { ...makeTimelinePage([makeMoveEntry({ id: 1 })]), counts: COUNTS };

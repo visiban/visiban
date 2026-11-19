@@ -314,7 +314,7 @@ Empty cells show a dashed border to indicate they are valid drop targets even wh
 - **Status**: the previous stage, the current stage (marked, with a border and bold text, not color alone) and the next stage;
 - **Fields**: every custom field on the board, with **Not set** for an empty one, plus the assignee, due date and when the card last moved (**Never moved** for a card that has not), and, when the board has custom fields, a note such as **2 of 8 pinned to the card**;
 - **Time in each column**: one segmented bar and a list of days per column, with the current column in bold. A column the card visited twice is added up;
-- **History**: the card's moves, newest first, each with a relative time (**39 d ago**) and the exact date and time on hover;
+- **History**: the card's moves, including moves between the sub-columns of a stage (*since 1.3*, #2365), newest first, each with a relative time (**39 d ago**) and the exact date and time on hover;
 - **Open card** (opens the full [detail panel](#card-detail-panel)) and **Move** (a column and swimlane picker; shown to people who can edit the card).
 
 The open card is marked on the board with the same ring as the detail panel. Click another card (or Shift+click it) to swap the peek to it; click an empty part of the board, press **Escape** or select **Close** to close it, and focus returns to the card. Only one of the peek sheet, the detail panel and the [Activity drawer](#activity-drawer) is open at a time: opening one closes the others. While the detail panel is open, clicking another card switches the panel, and Shift+click does too (it does not open the peek). Opening a card from a link, the command palette or a relation opens the detail panel directly.

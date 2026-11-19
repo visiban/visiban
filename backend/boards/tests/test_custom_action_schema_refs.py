@@ -48,7 +48,7 @@ class CustomActionSchemaRefTests(SimpleTestCase):
         counts = self.schema["components"]["schemas"]["CardTimelineCounts"]
         self.assertEqual(
             set(counts["properties"]),
-            {"move", "comment", "field", "checklist", "attachment", "system"},
+            {"move", "gate", "comment", "field", "checklist", "attachment", "system"},
         )
 
     def test_board_movements_returns_the_documented_page_shape(self):

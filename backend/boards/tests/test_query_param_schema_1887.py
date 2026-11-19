@@ -170,7 +170,7 @@ class QueryParameterSchemaTests(TestCase):
     def test_timeline_event_type_enum_matches_validation(self):
         self.assertEqual(
             set(CardViewSet._TIMELINE_EVENT_GROUPS),
-            set(CardViewSet._TIMELINE_ACTIVITY_GROUPS) | {"move"},
+            set(CardViewSet._TIMELINE_ACTIVITY_GROUPS) | {"move", "gate"},
         )
 
     def test_archived_cards_declares_offset_only(self):

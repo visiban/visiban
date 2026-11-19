@@ -233,7 +233,7 @@ describe('CardDetail', () => {
 
   describe('tabs (#967)', () => {
     const timeline = () => getCardTimeline as ReturnType<typeof vi.fn>
-    const COUNTS = { move: 2, comment: 1, field: 1, checklist: 0, attachment: 0, system: 0 }
+    const COUNTS = { move: 2, gate: 0, comment: 1, field: 1, checklist: 0, attachment: 0, system: 0 }
     const movedEntry = {
       id: 7, kind: 'move', ts: new Date(Date.now() - 2 * 3600_000).toISOString(),
       actor: { id: 2, username: 'jordan', display_name: 'Jordan', avatar_url: '' },

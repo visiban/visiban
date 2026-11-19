@@ -1045,7 +1045,12 @@ export interface CardActivity {
 
 export interface CardTimelineEntry {
   id: number;
-  kind: "move" | "activity";
+  /**
+   * `gate` since 1.3 (#2365): a gate of a split stage passed or reopened
+   * without a movement (a move between sub-columns, a stage-settings remap);
+   * `data` is then a `CardGateTransition`. Skip a kind you do not know.
+   */
+  kind: "move" | "activity" | "gate";
   ts: string;
   actor: BoardUser | null;
   event_type: string;

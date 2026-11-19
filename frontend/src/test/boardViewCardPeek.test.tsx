@@ -95,6 +95,8 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
 vi.mock('../api/cards', async (orig) => ({
   ...(await orig<typeof import('../api/cards')>()),
   getCardMovements: vi.fn().mockResolvedValue([]),
+  // The peek history's sub-column moves (#2365).
+  getCardTimeline: vi.fn().mockResolvedValue({ count: 0, next: null, previous: null, results: [] }),
 }))
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card }: { card: { title: string } }) => <div>{card.title}</div>,

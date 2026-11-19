@@ -5,9 +5,8 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
 import type { BoardFull, Card, CardMovement } from "../../types";
-import { formatDateStr, formatDateTime, formatRelativeTime } from "../../utils/date";
+import { formatDateStr, formatRelativeTime } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
-import { relativeTime } from "../../utils/relativeTime";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
 import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
 import type { MoveOutcome } from "../../hooks/useBoard";
@@ -15,10 +14,10 @@ import {
   buildFieldRows,
   buildStatusStrip,
   computeTimeInColumns,
-  describeMovement,
   getCardTrackStates,
   pinnedNote,
 } from "../../utils/cardPeek";
+import CardPeekHistory from "./CardPeekHistory";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import Avatar from "../Common/Avatar";
 
@@ -218,10 +217,6 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     [card, movements, board.columns],
   );
   const totalMs = dwell.reduce((s, d) => s + d.ms, 0);
-  const history = useMemo(
-    () => (movements ?? []).slice().sort((a, b) => new Date(b.moved_at).getTime() - new Date(a.moved_at).getTime()),
-    [movements],
-  );
   const lane = board.swimlanes.find((s) => s.id === card.swimlane);
   const overdue = isOverdue(card.due_date, !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
   const idleDays = card.last_moved_at
@@ -483,22 +478,15 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
 
         <section aria-labelledby="peek-history">
           <h3 id="peek-history" className="text-sm font-semibold mb-2">History</h3>
-          {movements === null ? (
-            <p className="text-sm text-fg-secondary">Loading history...</p>
-          ) : historyFailed ? (
-            <p className="text-sm text-fg-secondary" role="alert">History could not be loaded.</p>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-fg-tertiary">No history yet.</p>
-          ) : (
-            <ul className="space-y-1.5 text-sm" data-testid="card-peek-history">
-              {history.map((m) => (
-                <li key={m.id} className="flex justify-between gap-3">
-                  <span className="text-fg min-w-0 break-words">{describeMovement(m)}</span>
-                  <span className="text-fg-secondary shrink-0" title={formatDateTime(m.moved_at, userDateFormat)}>{relativeTime(Date.parse(m.moved_at), Date.now())}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Movements plus in-stage sub-column moves (#2365). */}
+          <CardPeekHistory
+            boardId={board.id}
+            cardId={card.id}
+            refreshKey={`${card.version}:${card.column}`}
+            movements={movements}
+            movementsFailed={historyFailed}
+            userDateFormat={userDateFormat}
+          />
         </section>
       </div>
 

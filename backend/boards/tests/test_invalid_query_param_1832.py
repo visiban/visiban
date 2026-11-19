@@ -124,7 +124,7 @@ class InvalidQueryParamBodiesTests(TestCase):
             "timeline", {"event_types": "move,bogus"},
             _coded(
                 "Invalid event_types: bogus. "
-                "Valid groups: attachment, checklist, comment, field, move, system."
+                "Valid groups: attachment, checklist, comment, field, gate, move, system."
             ),
         )
         self.assert_200("timeline", {"event_types": "move"})

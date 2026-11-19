@@ -62,7 +62,7 @@
       "measured_p95_ms": 34.9,
       "measured_p99_ms": 36.2,
       "budget_p95_ms": 50,
-      "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045."
+      "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045. NOTE (#2365): the timeline now also returns gate entries, but the fixture seeds no gate rows, so the p95 here does not yet measure gate work; re-derive this budget with gate rows seeded."
     },
     "card_timeline_counts": {
       "method": "GET",

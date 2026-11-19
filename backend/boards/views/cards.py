@@ -41,7 +41,7 @@ from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
-    CardChecklist, CardComment, CardMovement, CardParentLink, CardRelation, Label,
+    CardChecklist, CardComment, CardGateTransition, CardMovement, CardParentLink, CardRelation, Label,
     Notification,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
@@ -1549,10 +1549,21 @@ class CardViewSet(viewsets.ModelViewSet):
     }
     # Every group timeline() accepts, as published in the schema (#1975).
     # Derived from the map above so the enum cannot drift from the validation.
-    _TIMELINE_EVENT_GROUPS = ["move", *_TIMELINE_ACTIVITY_GROUPS]
+    # "gate" (#2365) is CardGateTransition rows, like "move" a source of its own.
+    _TIMELINE_EVENT_GROUPS = ["move", "gate", *_TIMELINE_ACTIVITY_GROUPS]
 
     @extend_schema(
         summary="Unified, paginated timeline of card movements and field-change activities",
+        description=(
+            "Entries are `kind: move` (a column or lane move), `kind: activity` (a "
+            "field change, comment, checklist, attachment or system event) and, since "
+            "1.3, `kind: gate` (a gate of a split stage passed or reopened without a "
+            "movement: a move between sub-columns inside a stage, a stage-settings "
+            "remap, or an imported row). A gate crossed as part of a column or lane "
+            "move is not a separate entry; that move entry's `from_gates_passed`, "
+            "`from_gates_open` and `to_gates_passed` describe it. Clients that do not "
+            "know a `kind` should skip the entry."
+        ),
         # All three are parsed by hand in timeline() below (#1975).
         parameters=[
             OpenApiParameter(
@@ -1585,7 +1596,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 required=False,
                 description=(
                     "Since 1.3. `true` adds `counts`: the card's total per filter group, "
-                    "ignoring `event_types`. Omit it to skip the two aggregate queries."
+                    "ignoring `event_types`. Omit it to skip the aggregate queries."
                 ),
             ),
         ],
@@ -1620,8 +1631,8 @@ class CardViewSet(viewsets.ModelViewSet):
         """Return a unified, paginated timeline of card movements and field-change activities.
 
         Query params:
-          event_types  Comma-separated filter groups: move, comment, field, checklist,
-                       attachment, system. Omit to include all events.
+          event_types  Comma-separated filter groups: move, gate, comment, field,
+                       checklist, attachment, system. Omit to include all events.
           limit        Page size (default 50, max 200).
           offset       Page offset (default 0).
           include_counts  "true" adds ``counts`` (per-group totals, #967).
@@ -1631,6 +1642,18 @@ class CardViewSet(viewsets.ModelViewSet):
 
         Entries are sorted newest-first. Movements and activities are merged at the
         Python level because QuerySet.union() does not preserve per-model fields.
+
+        Gate entries (#2365, ``kind: "gate"``) are a new entry kind, included when
+        ``event_types`` is omitted because that has always meant "every event
+        type", and not opt-in behind a new parameter: a 1.x client that names its
+        groups gets exactly the response it got before, and one that omits them
+        gets an entry ``kind`` it can skip (the envelope is unchanged and ``kind``
+        was never a closed enum). Only gate rows with no ``movement`` are entries:
+        a gate crossed by a column or lane move is that move's
+        ``from_gates_passed``/``to_gates_passed``, and listing it twice would
+        make History show one move as several. The rows are read through the
+        card fetched under this board, the same object-level check the movements
+        and activities use, so a card on a board the reader cannot open still 404s.
         """
         board = self._board()
         card = get_object_or_404(Card, pk=pk, board=board)
@@ -1650,7 +1673,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # Validate: unknown group names are a client error, not a silent empty page.
         # "move" is handled separately from the activity group map; add it explicitly
         # so validation accepts it.
-        valid_groups = set(self._TIMELINE_ACTIVITY_GROUPS.keys()) | {"move"}
+        valid_groups = set(self._TIMELINE_ACTIVITY_GROUPS.keys()) | {"move", "gate"}
         invalid = [g for g in requested_groups if g not in valid_groups]
         # ``{detail}`` since 1.1; ``code`` is added (#1832) so it matches every
         # other bad query parameter. Additive, so 1.1 clients reading
@@ -1663,6 +1686,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
 
         include_moves = not requested_groups or "move" in requested_groups
+        include_gates = not requested_groups or "gate" in requested_groups
 
         # Collect activity event_type values for the requested groups
         activity_event_types: list[str] = []
@@ -1710,7 +1734,18 @@ class CardViewSet(viewsets.ModelViewSet):
             activity_count = 0
             capped_activities = []
 
-        total_count = move_count + activity_count
+        if include_gates:
+            gates_qs = (
+                CardGateTransition.objects.filter(card=card, movement__isnull=True)
+                .select_related("actor")
+                .order_by("-created_at", "-id")
+            )
+            capped_gates, gate_count = fetch_page_and_total(gates_qs, 0, fetch_cap)
+        else:
+            gate_count = 0
+            capped_gates = []
+
+        total_count = move_count + activity_count + gate_count
 
         for m in capped_movements:
             actor_obj = m.moved_by
@@ -1734,7 +1769,27 @@ class CardViewSet(viewsets.ModelViewSet):
                     "moved_at": m.moved_at.isoformat(),
                     "movement_type": m.movement_type,
                     "notes": m.notes,
+                    # Additive (#2365): the gate position the move recorded
+                    # (#1102), null when neither column is a split stage.
+                    "from_gates_passed": m.from_gates_passed,
+                    "from_gates_open": m.from_gates_open,
+                    "to_gates_passed": m.to_gates_passed,
                 },
+            })
+
+        # Gate entries (#2365): ``data`` is the CardGateTransition REST shape
+        # (security invariant Rule 10), serialized in one pass over rows whose
+        # actor was select_related, so the page adds no per-row query.
+        gate_data = CardGateTransitionSerializer(capped_gates, many=True).data if capped_gates else []
+        for g, g_data in zip(capped_gates, gate_data):
+            raw_entries.append({
+                "id": g.id,
+                "kind": "gate",
+                "ts": g.created_at,
+                "actor": g.actor,
+                "event_type": "gate_passed" if g.kind == CardGateTransition.Kind.PASS else "gate_reopened",
+                "imported_from_username": g.imported_from_username,
+                "data": g_data,
             })
 
         # Block durations for the unblocked entries (#1149): an `unblocked`
@@ -1817,17 +1872,23 @@ class CardViewSet(viewsets.ModelViewSet):
             "results": serializer.data,
         }
         if request.query_params.get("include_counts", "").lower() == "true":
-            body["counts"] = self._timeline_group_counts(card, move_count if include_moves else None)
+            body["counts"] = self._timeline_group_counts(
+                card,
+                move_count if include_moves else None,
+                gate_count if include_gates else None,
+            )
         return Response(body)
 
-    def _timeline_group_counts(self, card, move_count):
+    def _timeline_group_counts(self, card, move_count, gate_count=None):
         """Per-group totals for the card sheet's History filter (#967).
 
         Independent of ``event_types`` on purpose: a toggled-off group still
         shows its count, and the History tab label is the sum. Activities
         whose type is in no group are left out, as the timeline leaves them
-        out, so the sum equals the unfiltered ``count``. ``move_count`` is
-        reused when the page already computed it (moves were included).
+        out, so the sum equals the unfiltered ``count``. ``move_count`` and
+        ``gate_count`` are reused when the page already computed them (that
+        group was included); ``gate`` counts the same movement-less rows the
+        page lists (#2365).
         """
         group_of = {
             event_type: group
@@ -1838,6 +1899,10 @@ class CardViewSet(viewsets.ModelViewSet):
         counts["move"] = (
             move_count if move_count is not None
             else CardMovement.objects.filter(card=card).count()
+        )
+        counts["gate"] = (
+            gate_count if gate_count is not None
+            else CardGateTransition.objects.filter(card=card, movement__isnull=True).count()
         )
         rows = (
             CardActivity.objects.filter(card=card, event_type__in=group_of)

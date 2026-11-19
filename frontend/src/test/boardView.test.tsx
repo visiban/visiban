@@ -312,6 +312,8 @@ vi.mock('../api/cards', async (importOriginal) => {
     getCardStatus: vi.fn(),
     // The peek sheet's history (phone reorder test, #2277).
     getCardMovements: vi.fn(() => Promise.resolve([])),
+    // ...and its sub-column moves (#2365).
+    getCardTimeline: vi.fn(() => Promise.resolve({ count: 0, next: null, previous: null, results: [] })),
     // Card context menu / palette card actions (#2059).
     moveCard: vi.fn(),
     updateCard: vi.fn(),

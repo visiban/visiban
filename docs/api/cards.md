@@ -672,7 +672,7 @@ Activity log (field changes, comments, attachments, checklist events, and since 
 ## Timeline
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/timeline/`
-Unified, paginated timeline that merges card movements and field-change activities into a single chronological feed, sorted newest-first. **Minimum role: any board member (viewer and above).**
+Unified, paginated timeline that merges card movements, field-change activities and (since 1.3) gate transitions into a single chronological feed, sorted newest-first. **Minimum role: any board member (viewer and above).**
 
 Use it for one list combining moves, comments, field edits, checklist events, attachments, and system events, instead of fetching `movements/` and `activities/` separately and merging client-side.
 
@@ -682,14 +682,15 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 |---|---|---|---|
 | `limit` | integer | `50` | Page size. Capped at `200`; a negative value is treated as `0` and a non-integer value as the default. `count` is the real total even when the page is empty (`limit=0`). |
 | `offset` | integer | `0` | Zero-based page offset. A negative value is treated as `0`; a value above `2^62` returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. |
-| `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
-| `include_counts` | boolean | `false` | *Added in 1.3* (#967). `true` adds a [`counts`](#timeline-counts) object to the response. Any other value, or omitting it, leaves `counts` out and skips its two aggregate queries. |
+| `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `gate` (*added in 1.3*, #2365), `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
+| `include_counts` | boolean | `false` | *Added in 1.3* (#967). `true` adds a [`counts`](#timeline-counts) object to the response. Any other value, or omitting it, leaves `counts` out and skips its aggregate queries (up to three; a group the page already counted is reused). |
 
 `event_types` group mapping:
 
 | Group | Included `event_type` values |
 |---|---|
 | `move` | All `CardMovement` records |
+| `gate` | *Added in 1.3* (#2365). `CardGateTransition` records with no `movement`: `gate_passed` and `gate_reopened`. See [Gate entries](#timeline-gate-entries) |
 | `comment` | `comment_added` |
 | `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) and `custom_field_changed` (#1921) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
@@ -697,6 +698,13 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | `system` | `archived`, `reactivated`, and since 1.3 `parent_linked`, `parent_unlinked`, `child_linked`, `child_unlinked` (#1104) |
 
 An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1.3*, #1149): how long the block it closed lasted, or `null` when no closed block matches (an imported entry whose block history was not imported).
+
+<a id="timeline-gate-entries"></a>
+**Gate entries** (*added in 1.3*, #2365). A card moving between the sub-columns of a split stage (see [Gated stages and gate transitions](#gated-stages-and-gate-transitions-13-1102)) writes a `CardGateTransition` row per gate crossed, and no movement. Those rows are `kind: "gate"` entries, with `event_type` `gate_passed` or `gate_reopened`, and `data` in the same shape as the move response's `gate_transitions` items (`id`, `card_uid`, `card_title`, `column`, `column_name`, `column_uid`, `sub_column_name`, `sub_column_uid`, `kind`, `from_index`, `to_index`, `reason`, `cause`, `movement`, `actor` as a username, `created_at`, `imported_from_username`). `sub_column_name` is the sub-column the card reached. `cause` is `move` for a move between sub-columns, `stage_edited` when a stage-settings change moved the card (its sub-column was removed), or `import`.
+
+A gate crossed as part of a column or lane move is **not** a separate entry: that move's entry carries it in `data.from_gates_passed`, `data.from_gates_open` and `data.to_gates_passed` (also added in 1.3; `null` when neither column is a split stage). So one move never shows as several entries.
+
+Gate entries are included when `event_types` is omitted, because omitting it means every event type. A client that names its groups (any list without `gate`) gets the same entries and `count` as before 1.3. A client that omits `event_types` and does not know `kind: "gate"` should skip those entries; the entry envelope is unchanged.
 
 **Response**
 
@@ -729,7 +737,42 @@ An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1
         "to_swimlane_name": "Acme Corp",
         "moved_at": "2026-04-10T14:22:00Z",
         "movement_type": "move",
-        "notes": ""
+        "notes": "",
+        "from_gates_passed": null,
+        "from_gates_open": null,
+        "to_gates_passed": null
+      }
+    },
+    {
+      "id": 58,
+      "kind": "gate",
+      "ts": "2026-04-09T16:40:00Z",
+      "actor": {
+        "id": 7,
+        "username": "alice",
+        "display_name": "Alice Smith",
+        "avatar_url": null
+      },
+      "event_type": "gate_passed",
+      "imported_from_username": null,
+      "data": {
+        "id": 58,
+        "card_uid": "k3j9x2m1q8w4",
+        "card_title": "Checkout redesign",
+        "column": 2,
+        "column_name": "In Progress",
+        "column_uid": "c7n2p5r8t1v4",
+        "sub_column_name": "Review",
+        "sub_column_uid": "s4d8f2h6j9l3",
+        "kind": "pass",
+        "from_index": 0,
+        "to_index": 1,
+        "reason": "",
+        "cause": "move",
+        "movement": null,
+        "actor": "alice",
+        "created_at": "2026-04-09T16:40:00Z",
+        "imported_from_username": null
       }
     },
     {
@@ -762,23 +805,23 @@ An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1
   "next": null,
   "previous": null,
   "results": [],
-  "counts": { "move": 4, "comment": 3, "field": 2, "checklist": 2, "attachment": 1, "system": 0 }
+  "counts": { "move": 4, "gate": 0, "comment": 3, "field": 2, "checklist": 2, "attachment": 1, "system": 0 }
 }
 ```
 
-One integer per `event_types` group, always all six keys. The totals ignore `event_types`, so a filtered request still reports every group (the card sheet's History filter shows a count on each type, including the ones switched off). Their sum equals the unfiltered `count`. Clients must treat `counts` as optional: a request without `include_counts=true`, or a server older than 1.3, omits it.
+One integer per `event_types` group, always every key (`gate` was added in 1.3 by #2365; a client should not assume a fixed key set). The totals ignore `event_types`, so a filtered request still reports every group (the card sheet's History filter shows a count on each type, including the ones switched off). Their sum equals the unfiltered `count`. Clients must treat `counts` as optional: a request without `include_counts=true`, or a server older than 1.3, omits it.
 
 **`CardTimelineEntry` fields**
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | integer | Primary key of the underlying `CardMovement` or `CardActivity` record |
-| `kind` | string | `"move"` for movement records; `"activity"` for field-change or system activity records |
-| `ts` | string | ISO 8601 timestamp — `moved_at` for movements, `created_at` for activities |
+| `id` | integer | Primary key of the underlying `CardMovement`, `CardActivity` or `CardGateTransition` record (unique within a `kind`, not across kinds) |
+| `kind` | string | `"move"` for movement records; `"activity"` for field-change or system activity records; since 1.3, `"gate"` for gate transitions with no movement (#2365). Skip a `kind` you do not know |
+| `ts` | string | ISO 8601 timestamp — `moved_at` for movements, `created_at` for activities and gate transitions |
 | `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
 | `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
 | `imported_from_username` | string / null | *Since 1.2.* The underlying record's `imported_from_username` — `null` unless it came from a board import with history |
-| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3). |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, notes and, since 1.3, the gate position (`from_gates_passed`, `from_gates_open`, `to_gates_passed`). `gate` entries carry the gate transition's REST shape (see [Gate entries](#timeline-gate-entries)). `activity` entries include `event_type`, `from_value`, and `to_value`; since 1.3, `checklist_item_assigned`, `checklist_item_due_changed` and `custom_field_changed` entries also carry `item_text` (the activity's `item_text`: the field's name on `custom_field_changed`, #1921; `null` on entries recorded before 1.3). |
 
 **Errors**
 
