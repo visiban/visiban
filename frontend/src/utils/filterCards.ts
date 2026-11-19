@@ -97,11 +97,11 @@ export function pruneStaleFilters(
   board: {
     labels: { id: number }[];
     custom_field_definitions: { id: number }[];
-    columns?: { sub_columns?: { id: number }[] }[];
+    columns: { sub_columns?: { id: number }[] }[];
   },
 ): FilterState {
   const pruned = pruneStaleCustomFields(pruneStaleLabelIds(filters, board.labels), board.custom_field_definitions);
-  return pruneStaleSubColumnIds(pruned, board.columns ?? []);
+  return pruneStaleSubColumnIds(pruned, board.columns);
 }
 
 /**

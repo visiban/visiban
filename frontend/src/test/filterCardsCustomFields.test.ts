@@ -236,7 +236,7 @@ describe("pruneStaleCustomFields (#1928)", () => {
 
   it("pruneStaleFilters applies both label and custom-field pruning", () => {
     const g = { ...f, labelIds: [1, 2] };
-    const out = pruneStaleFilters(g, { labels: [{ id: 1 }], custom_field_definitions: [{ id: 9 }] });
+    const out = pruneStaleFilters(g, { labels: [{ id: 1 }], custom_field_definitions: [{ id: 9 }], columns: [] });
     expect(out.labelIds).toEqual([1]);
     expect(Object.keys(out.customFields)).toEqual(["9"]);
   });
