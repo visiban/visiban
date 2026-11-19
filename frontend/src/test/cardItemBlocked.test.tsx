@@ -76,13 +76,12 @@ describe('CardItem — blocked indicator (#1149)', () => {
     expect(screen.queryByTestId('card-blocked-indicator')).not.toBeInTheDocument()
   })
 
-  it('takes the danger border only for a manual block', () => {
+  it('a block adds no colored border on the calm face (blocked is text, not a border)', () => {
     const { container, rerender } = render(<CardItem card={makeCard(manual)} density="standard" />)
     const bordered = () => container.querySelector<HTMLElement>('[style*="border-color"]')
-    expect(bordered()?.style.borderColor).toBe('rgb(var(--danger-emphasis))')
+    expect(bordered()).toBeNull()
     rerender(<CardItem card={makeCard({ blocker_count: 1, is_blocked: true })} density="standard" />)
-    // Relation-only keeps the priority border (#449 unchanged): low = blue-500.
-    expect(bordered()?.style.borderColor).toBe('rgb(59, 130, 246)')
+    expect(bordered()).toBeNull()
   })
 
   it('the aging tooltip of a stale, manually blocked card says it is blocked', () => {

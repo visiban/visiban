@@ -42,10 +42,9 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   }
 }
 
-// #871 gate: the redesigned urgency face renders only under a non-Classic preset, which
-// the app tells CardItem through the store `useBoardPreset` publishes. These tests cover
-// the redesigned face, so they publish the Default preset exactly as BoardView would;
-// the Classic / no-preset face is covered in its own describe below.
+// The card face does not depend on the preset: `classic` resolves to the redesigned board
+// and there is no Classic-only face (#2279). These tests still publish the Default preset
+// exactly as BoardView would, so the store path the app uses stays exercised.
 function publishPreset(activePresetId: 'classic' | 'default' | null, boardId = 7) {
   act(() => publishActivePreset({ boardId, activePresetId, modified: false }))
 }
@@ -381,62 +380,5 @@ describe('CardItem — card_density (#961)', () => {
       expect(screen.queryByText('security')).not.toBeInTheDocument()
       expect(screen.getByText('+2')).toBeInTheDocument()
     })
-  })
-})
-
-// #871 gate (#1146): Classic keeps the pre-#871 face byte for byte, and so does a board
-// with no preset (Classic equals it) and a card rendered outside any board view.
-describe('CardItem — Classic keeps the pre-#871 urgency face (#871 gate)', () => {
-  afterEach(() => act(() => publishActivePreset(null)))
-
-  const cases: Array<[string, () => void]> = [
-    ['Classic preset', () => publishPreset('classic')],
-    ['no preset active', () => publishPreset(null)],
-    ['no board view (nothing published)', () => {}],
-    ['a non-Classic preset on another board', () => publishPreset('default', 99)],
-  ]
-
-  it.each(cases)('%s: the overdue badge is "⚑ <date>" in text-danger, with no SVG', (_name, setup) => {
-    setup()
-    render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" boardId={7} />)
-    const badge = screen.getByTitle(`Due ${FIVE_DAYS_AGO}`)
-    expect(badge.className).toBe('text-xs font-semibold shrink-0 text-danger')
-    expect(badge.textContent).toMatch(/^⚑ Due \S/)
-    expect(badge.children).toHaveLength(0)
-  })
-
-  it.each(cases)('%s: the due-soon badge is "⏱ <date>" in plain text-warning, with no SVG', (_name, setup) => {
-    setup()
-    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" boardId={7} />)
-    const badge = screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
-    expect(badge.className).toBe('text-xs font-semibold shrink-0 text-warning')
-    expect(badge.textContent).toMatch(/^⏱ Due /)
-    expect(badge.children).toHaveLength(0)
-  })
-
-  it.each(cases)('%s: the dense due pill keeps its hue-only tone and plain label', (_name, setup) => {
-    setup()
-    const { unmount } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" boardId={7} />)
-    const overdue = screen.getByTitle(`Due ${FIVE_DAYS_AGO}`)
-    expect(overdue.className).toBe('text-xs font-medium shrink-0 text-danger')
-    expect(overdue.children).toHaveLength(0)
-    expect(overdue.textContent).toMatch(/^Due /)
-    unmount()
-    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="dense" boardId={7} />)
-    const soon = screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
-    expect(soon.className).toBe('text-xs font-medium shrink-0 text-fg-tertiary')
-    expect(soon.children).toHaveLength(0)
-  })
-
-  it('switches to the redesigned face when the Default preset becomes active on its board, and back', () => {
-    publishPreset('classic')
-    render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" boardId={7} />)
-    const badge = () => screen.getByTitle(`Due ${TWO_DAYS_FROM_NOW}`)
-    expect(badge().querySelector('svg')).toBeNull()
-    publishPreset('default')
-    expect(badge().className).toContain('text-fg-secondary')
-    expect(badge().querySelector('svg[data-testid="urgency-glyph-due-soon-flag"]')).not.toBeNull()
-    publishPreset('classic')
-    expect(badge().textContent).toMatch(/^⏱ /)
   })
 })

@@ -197,8 +197,8 @@ describe('BoardCell — grid overlay layer (#1147)', () => {
     })
 
     it('fades the tab, without removing its reading, while a keyboard user is inside a card', () => {
-      // CardItem's z-0 traps its checkbox ring under the tab, and Classic pins CardItem's
-      // classes, so the overlay gets out of the way. The browser behavior is in the e2e.
+      // CardItem's z-0 traps its checkbox ring under the tab, so the overlay gets out of
+      // the way. The browser behavior is in the e2e.
       const { cell, label } = dwellFor(4)
       render(<BoardCell {...props({ cards: [makeCard(1)], overlayCell: cell, overlayLabel: label })} />)
       const classes = screen.getByRole('img', { name: /Dwell time/ }).className.split(/\s+/)

@@ -48,7 +48,7 @@ changing the date records "Checklist item "Write tests" due: old → new" in His
 Checklist filter. The row names the item as it was worded at the time, so it stays
 readable after the item is renamed or removed. A name longer than 40 characters is
 shortened with "…" so the old and new values stay in view; hover the row for the full text. Rows recorded before that was added
-read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon outside the Classic preset)
+read "Checklist item assignee: old → new", without the item name. On the card face, the `✓ 3/7` count gains one suffix: `· ⚑ 1` (a flag icon)
 (in red) when unchecked items are past due in your timezone, otherwise `· mine 2`
 when unchecked items are assigned to you. Overdue checklist items do not change
 the card's own status line or border. **Hide completed** in the checklist
@@ -162,9 +162,9 @@ Color is never the only signal:
 
 - Card text fades slightly as the card ages.
 - The darkest step adds an outline inside the card's border, so the border color stays visible (red on an overdue card, neutral otherwise).
-- At Comfortable and Standard density, a stale card's badge states its idle days, for example `Stale · 41d`.
-- Wherever that badge is not shown, a small bar meter appears at the start of an aging card's title. This covers the Compact card layout at every density, Dense density, and cards whose badge shows an overdue or due-soon date instead. One solid bar means 1× the threshold, two mean 2×, and three mean 3× or more, so the steps differ by shape as well as color. Screen readers announce the meter with the idle days, for example "Idle 41 days, at least 2 times the stale threshold". The meter sits inside the title line, so it never makes a card taller, though a long title is shortened a little sooner.
-- The yellow warning step never shows the badge, so its meter appears on every warning card, in every layout and density. It has no solid bar: the shortest bar is drawn as an outline, the step before one solid bar. Screen readers announce it as, for example, "Idle 9 days, approaching the stale threshold".
+- A stale card's status line states its idle days, for example `Stale 41d`. At Dense density it shortens to `41d`, and a screen reader hears "Stale 41d".
+- Wherever the stale status is not shown, a small bar meter appears at the start of an aging card's title. This covers the Compact card layout at every density and cards whose status line shows an overdue or due-soon date instead. The meter is hidden whenever the status line says Stale, so the step is never shown twice. One solid bar means 1× the threshold, two mean 2×, and three mean 3× or more, so the steps differ by shape as well as color. Screen readers announce the meter with the idle days, for example "Idle 41 days, at least 2 times the stale threshold". The meter sits inside the title line, so it never makes a card taller, though a long title is shortened a little sooner.
+- The yellow warning step never shows the stale status, so its meter appears on every warning card, in every layout and density. It has no solid bar: the shortest bar is drawn as an outline, the step before one solid bar. Screen readers announce it as, for example, "Idle 9 days, approaching the stale threshold".
 - Hovering a tinted card shows the idle days and the threshold. A stale card also shows how many multiples of the threshold it has reached and any cards blocking it, for example `Stale · 41d · 2.9× the 14d threshold · blocked by 2 cards`.
 
 The **warning point** is the board's `stale_warning_pct`: the percentage of the threshold a card has used before the yellow tint appears. With a 14-day threshold and 75%, the yellow tint starts at 10.5 days. `0` turns the yellow step off, and `100` makes it coincide with the threshold. Both values are set in **Board Settings → Card aging settings**, and the [analytics heatmap](analytics.md#color-coding) uses the same warning point.

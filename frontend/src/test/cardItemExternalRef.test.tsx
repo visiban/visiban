@@ -48,7 +48,7 @@ describe('CardItem — MR/PR badge (#352)', () => {
     expect(link).toHaveAttribute('title', 'GitHub acme/web#12 — github.com (opens in new tab)')
   })
 
-  it.each(['standard', 'dense'] as const)('shows the ref text at %s density', (density) => {
+  it.each(['standard'] as const)('shows the ref text at %s density (the calm dense row is title/status/one field only)', (density) => {
     render(<CardItem card={makeCard()} density={density} />)
     expect(screen.getByText('acme/web#12')).toBeInTheDocument()
   })

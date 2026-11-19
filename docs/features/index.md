@@ -41,7 +41,7 @@ Keyboard shortcuts make common actions instant: `f` toggles the filter bar, `/` 
 
 **Grid overlays** shade each cell by card count or by how long its cards have been in their column, without hiding or resizing anything, so you can spot hot spots and stuck work at a glance.
 
-**Board presets** (1.3+) switch card density and the grid overlay together in one step. **Classic** keeps the board exactly as it looked before presets, and admins can set a default preset per board.
+**Board presets** (1.3+) switch card density and the grid overlay together in one step. **Classic** keeps the board's own density with no overlay, and admins can set a default preset per board.
 
 **Column policies** (1.3+) write down each column's entry criteria and definition of done, shown from the column header, while you drag, and in card detail.
 
@@ -160,7 +160,7 @@ Visiban surfaces these alerts in the notification bell:
 - **Assignment** — you're notified when someone assigns a card to you
 - **@mentions** — you're notified when someone mentions you in a card description
 - **Comments** — opt in to be notified when someone comments on a card you created or are assigned to
-- **Staleness** — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a `Stale · 41d` badge and trigger a daily digest
+- **Staleness** — cards that haven't moved in N days (configurable per board) are tinted on a graduated scale, get a `Stale 41d` status line and trigger a daily digest
 
 **Aging tint:** aging cards are tinted on a graduated scale, yellow as they approach the threshold, then orange, red and deep red at 1×, 2× and 3× the threshold. A card idle 150 days no longer looks the same as one idle 15 days. See [Card aging tint](card-history.md#card-aging-tint).
 

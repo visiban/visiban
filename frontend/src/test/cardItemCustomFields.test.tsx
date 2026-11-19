@@ -67,7 +67,7 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.queryByTitle(/Sprint/)).not.toBeInTheDocument();
   });
 
-  it("renders a ghost chip for an unset pinned field at dense density", () => {
+  it("renders a ghost chip for an unset pinned field at dense density, on the one-row face (#2193, #2279)", () => {
     render(
       <CardItem
         card={makeCard({ custom_field_values: [] })}
@@ -76,6 +76,53 @@ describe("CardItem — pinned custom field chips (#371)", () => {
       />
     );
     expect(screen.getByTitle("Sprint: not set")).toBeInTheDocument();
+    expect(screen.getByTestId("card-dense-row")).toContainElement(screen.getByTitle("Sprint: not set"));
+  });
+
+  it("at dense, an unset pinned dropdown is a quick-edit ghost that opens from the card face (#2193)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition({ id: 6, name: "Stage", field_type: "dropdown", choices: ["Alpha", "Beta"] })]}
+        density="dense"
+        boardId={1}
+        onCardUpdated={vi.fn()}
+        canEdit
+      />
+    );
+    const ghost = screen.getByRole("button", { name: "Stage: not set. Press Enter to edit." });
+    fireEvent.click(ghost);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("at dense, an unset pinned checkbox ghost sets the value to Yes in one click (#2193)", async () => {
+    const updated = makeCard({ custom_field_values: [{ field_definition: 7, value: "true" }] });
+    vi.mocked(cardsApi.updateCard).mockResolvedValue(updated);
+    const onCardUpdated = vi.fn();
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition({ id: 7, name: "Approved", field_type: "checkbox" })]}
+        density="dense"
+        boardId={1}
+        onCardUpdated={onCardUpdated}
+        canEdit
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approved: not set. Press Enter to set it to Yes." }));
+    await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(updated));
+  });
+
+  it("dense keeps one pinned chip: the first set field wins over a ghost for an earlier unset one", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 6, value: "9" }] })}
+        customFieldDefinitions={[makeDefinition({ id: 5, name: "Sprint", position: 0 }), makeDefinition({ id: 6, name: "Points", position: 1 })]}
+        density="dense"
+      />
+    );
+    expect(screen.getByTitle("Points: 9")).toBeInTheDocument();
+    expect(screen.queryByTitle("Sprint: not set")).not.toBeInTheDocument();
   });
 
   it.each(["text", "number", "date"] as const)("keeps an empty pinned %s field hidden with quick edit on, at comfortable and standard", (field_type) => {
@@ -616,7 +663,7 @@ describe("CardItem — chip clipping, not overlap, when the card face is narrow 
     expect(chip.className).not.toMatch(/\bshrink-0\b/);
   });
 
-  it("gives the ghost/unset chip at dense density the same overflow-hidden, no-shrink-0 outer treatment and a min-w-0 name span", () => {
+  it("gives the dense ghost chip the same overflow-hidden, no-shrink-0 outer treatment and a min-w-0 name span", () => {
     render(
       <CardItem
         card={makeCard({ custom_field_values: [] })}
@@ -644,7 +691,7 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     vi.mocked(Avatar).mockImplementation((() => null) as unknown as typeof Avatar);
   });
 
-  it("renders the avatar bottom-right, absolutely positioned, as a sibling of the metadata row rather than inside it", () => {
+  it("renders the avatar after the metadata row in the same flex wrapper (#2272)", () => {
     const { container } = render(
       <CardItem
         card={makeCard({
@@ -665,17 +712,26 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(screen.getByTitle("Stage: Beta")).toBeInTheDocument();
 
     const avatarStub = screen.getByTestId("avatar-stub");
+    const row = container.querySelector('[data-testid="card-metadata-row"]')!;
+    expect(row).not.toBeNull();
+    // A sibling of the row inside the shared wrapper, in flow rather than positioned.
+    expect(row.contains(avatarStub)).toBe(false);
+    expect(avatarStub.parentElement).toBe(row.parentElement);
+    expect(avatarStub.className).not.toMatch(/\babsolute\b/);
+  });
+
+  it("the compact layout keeps the avatar bottom-right, absolutely positioned (#1411)", () => {
+    render(
+      <CardItem
+        card={makeCard({ assignee: { id: 9, username: "jordan", display_name: "Jordan", avatar_url: "" } })}
+        customFieldDefinitions={[]}
+        compact
+      />
+    );
+    const avatarStub = screen.getByTestId("avatar-stub");
     expect(avatarStub.className).toMatch(/\babsolute\b/);
     expect(avatarStub.className).toMatch(/\bbottom-1\.5\b/);
     expect(avatarStub.className).toMatch(/\bright-1\.5\b/);
-
-    // The row (identified by its data-testid)
-    // must not contain the avatar — it is now a sibling of the row,
-    // positioned against the content wrapper instead.
-    const row = container.querySelector('[data-testid="card-metadata-row"]')!;
-    expect(row).not.toBeNull();
-    expect(row.querySelector('[data-testid="avatar-stub"]')).toBeNull();
-    expect(avatarStub.parentElement).not.toBe(row);
   });
 
   it("still renders an (empty) metadata row when the card has only an assignee, with min-h-5 + pr-7 reserving the avatar's footprint (#1411 ux-review blocker)", () => {
@@ -698,8 +754,8 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
     const row = container.querySelector('[data-testid="card-metadata-row"]');
     expect(row).not.toBeNull();
-    expect(row).toHaveClass("min-h-5");
-    expect(row).toHaveClass("pr-7");
+    // The avatar sits at the end of the row, so the row reserves no footprint for it.
+    expect(row).not.toHaveClass("pr-7");
   });
 
   it("does not reserve avatar space (min-h-5 / pr-7) on the metadata row when the card has no assignee (#1411)", () => {

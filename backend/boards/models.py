@@ -318,9 +318,9 @@ class Board(models.Model):
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board
-    # stores only an id. null = no board default, which renders exactly as a
-    # board did before presets existed. A ``BoardPreset`` table for authored
-    # presets (#2047) would be additive next to this column, which is why the
+    # stores only an id. null = no board default: the board's own density, no
+    # overlay (the same as ``classic``, which names no separate look). A
+    # ``BoardPreset`` table for authored presets (#2047) would be additive next to this column, which is why the
     # 1.3 architect review chose an id here over a table now.
     default_preset = models.CharField(
         max_length=32, null=True, blank=True, default=None, choices=BoardPresetId.choices,

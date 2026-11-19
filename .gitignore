@@ -49,6 +49,10 @@ nginx/active.conf.template
 frontend/playwright-report/
 frontend/test-results/
 frontend/.playwright/
+# Local screenshot runs on macOS or Windows write platform images next to the committed Linux
+# baselines; those must never be committed (frontend/CLAUDE.md § Board presets).
+frontend/e2e/**/*-darwin.png
+frontend/e2e/**/*-win32.png
 
 # Coverage
 backend/.coverage

@@ -42,10 +42,9 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   }
 }
 
-// #871 gate: the redesigned urgency face renders only under a non-Classic preset, which
-// the app tells CardItem through the store `useBoardPreset` publishes. These tests cover
-// the redesigned face, so they publish the Default preset exactly as BoardView would;
-// the Classic / no-preset face is covered in its own describe below.
+// The card face does not depend on the preset: `classic` resolves to the redesigned board
+// and there is no Classic-only face (#2279). These tests still publish the Default preset
+// exactly as BoardView would, so the store path the app uses stays exercised.
 function publishPreset(activePresetId: 'classic' | 'default' | null, boardId = 7) {
   act(() => publishActivePreset({ boardId, activePresetId, modified: false }))
 }
@@ -142,14 +141,6 @@ describe('CardItem — calm face (#2272)', () => {
     expect(container.querySelector('[data-testid="card-status-line"]')).toBeNull()
   })
 
-  it('keeps the Classic border and title untouched', () => {
-    publishPreset('classic')
-    const { container } = render(<CardItem card={makeCard({ title: 'A -- B', priority: 'high' })} density="comfortable" />)
-    expect(root(container).style.borderColor).not.toBe('')
-    expect(screen.getByText('A -- B')).toBeInTheDocument()
-    expect(screen.queryByTestId('card-subtitle')).toBeNull()
-  })
-
   it('keeps an overdue compact card from resting on border color alone', () => {
     const { container } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" compact />)
     expect(container.querySelector('svg[data-testid="urgency-glyph-overdue"]')).not.toBeNull()
@@ -159,5 +150,71 @@ describe('CardItem — calm face (#2272)', () => {
   it('gives a one-line Standard title a tooltip with the full text', () => {
     render(<CardItem card={makeCard({ title: 'A fairly long plain title' })} density="standard" />)
     expect(screen.getByText('A fairly long plain title').closest('p')).toHaveAttribute('title', 'A fairly long plain title')
+  })
+})
+
+describe('CardItem — omitted metadata stays in the accessible name (#2279)', () => {
+  it('Dense says labels, checklist, attachments, weight, due date and the reference in words, and nothing visible', () => {
+    const { container } = render(
+      <CardItem
+        card={makeCard({
+          due_date: '2099-01-15',
+          external_ref: { provider: 'github', ref: 'acme/api#42', url: 'https://github.com/acme/api/pull/42' } as Card['external_ref'],
+        })}
+        density="dense"
+      />,
+    )
+    const sr = container.querySelector('[data-testid="card-dense-sr"]') as HTMLElement
+    expect(sr).toHaveClass('sr-only')
+    expect(sr.textContent).toContain('Labels: backend, security, q2-goal')
+    expect(sr.textContent).toContain('Checklist 2 of 5')
+    expect(sr.textContent).toContain('3 attachments')
+    expect(sr.textContent).toContain('Weight 5')
+    expect(sr.textContent).toContain('Due ')
+    expect(sr.textContent).toContain('acme/api#42')
+    // The visible face stays one row with none of these drawn.
+    expect(container.querySelectorAll('[data-testid="card-dense-row"]')).toHaveLength(1)
+    expect(screen.queryByText('backend')).toBeNull()
+    expect(screen.queryByText(/✓/)).toBeNull()
+  })
+
+  it('Dense keeps the due date in words on a stale card: only an overdue or due-soon status carries it', () => {
+    const stale = render(
+      <CardItem
+        card={makeCard({ is_stale: true, due_date: '2099-01-15', last_moved_at: new Date(Date.now() - 39 * 86_400_000).toISOString() })}
+        density="dense"
+      />,
+    )
+    expect(stale.container.querySelector('[data-testid="card-status-line"]')?.getAttribute('data-status-kind')).toBe('stale')
+    expect(stale.container.querySelector('[data-testid="card-dense-sr"]')?.textContent).toContain('Due ')
+    stale.unmount()
+    // The Dense status text is only "Overdue" (no date), so the date is spoken for an overdue card too.
+    const overdue = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
+    expect(overdue.container.querySelector('[data-testid="card-status-line"]')?.getAttribute('data-status-kind')).toBe('overdue')
+    expect(overdue.container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? '').toContain('Due ')
+  })
+
+  it('Dense on a bare card adds no sr-only metadata text', () => {
+    const { container } = render(
+      <CardItem card={makeCard({ labels: [], weight: 1, attachment_count: 0, checklist_total: 0, checklist_done: 0 })} density="dense" />,
+    )
+    expect(container.querySelector('[data-testid="card-dense-sr"]')).toBeNull()
+  })
+
+  it('Standard gives the checklist and attachment emoji chips words, and hides the emoji from assistive tech', () => {
+    const { container } = render(<CardItem card={makeCard()} density="standard" />)
+    const checklist = container.querySelector('[title="2/5 checklist items"]') as HTMLElement
+    expect(checklist.querySelector('[aria-hidden="true"]')?.textContent).toBe('✓2/5')
+    expect(checklist.querySelector('.sr-only')?.textContent).toBe('Checklist 2 of 5')
+    const attachments = container.querySelector('[title="3 attachment(s)"]') as HTMLElement
+    expect(attachments.querySelector('[aria-hidden="true"]')?.textContent).toBe('📎3')
+    expect(attachments.querySelector('.sr-only')?.textContent).toBe('3 attachments')
+  })
+
+  it('the priority suffix is the last sr-only text in the card, after the dense metadata words', () => {
+    const { container } = render(<CardItem card={makeCard({ priority: 'high' })} density="dense" />)
+    const dense = container.querySelector('[data-testid="card-dense-sr"]') as HTMLElement
+    const priority = container.querySelector('[data-testid="card-priority-sr"]') as HTMLElement
+    expect(dense.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

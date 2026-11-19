@@ -2,8 +2,8 @@ import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth } from './helpers'
 import { BOARD_FULL, CARD, CARD_STALE } from './fixtures/board'
 
-// #1843 — where a stale card has no `Stale · Nd` badge (every compact card,
-// dense density), its title starts with the AgingCue stage glyph instead. It
+// #1843 — where a stale card has no `Stale Nd` status line (every compact card), its
+// title starts with the AgingCue stage glyph instead. It
 // must not change the card's height (the issue's constraint), so the title's
 // line box is measured, not just the glyph's presence.
 // #1863 — the yellow warning stage never shows the badge, so it gets the same
@@ -102,8 +102,12 @@ test.describe('card aging cue where no Stale badge is shown', () => {
     const warning = titleOf(page, CARD_WARNING.title)
     await expect(severe).toBeVisible({ timeout: 10_000 })
 
-    // Dense never renders the urgency badge, so the glyph carries the stage.
-    await expect(severe.getByRole('img', { name: /at least 3 times the stale threshold$/ })).toBeVisible()
+    // The one-row dense face carries a stale card's stage in its short status ("41d", with
+    // "Stale " as screen-reader text) in place of the title glyph, so the cue is not doubled
+    // (#2272, #2279). The warning stage has no status, so it keeps the title glyph.
+    const severeCard = page.locator('[data-card-id]').filter({ hasText: CARD_STALE.title })
+    await expect(severeCard.getByTestId('card-status-line')).toHaveText(/^Stale \d+d$/)
+    await expect(severe.locator('svg[data-aging-cue]')).toHaveCount(0)
     await expect(warning.getByRole('img', { name: WARNING_CUE_NAME })).toBeVisible()
     await expect(page.getByText(/^Stale · \d+d$/)).toHaveCount(0)
     await expectNoHeightChange(severe, fresh)

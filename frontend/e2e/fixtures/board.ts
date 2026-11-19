@@ -145,7 +145,7 @@ export const CARD_STALE = {
   last_moved_at: '2026-04-01T00:00:00Z',
 }
 
-// A card whose dense-density metadata row (three labels, checklist, weight,
+// A card whose standard-density metadata row (two labels, checklist, weight,
 // attachments, due date) is wider than a 220px cell, so it clips at rest and
 // wraps on hover. Used by e2e/card-hover-expand.spec.ts.
 export const CARD_BUSY = {
@@ -251,6 +251,17 @@ export const BOARD_DENSE = {
   card_density: 'dense' as const,
   labels: [...CARD_BUSY.labels],
   cards: [CARD, CARD_BUSY],
+}
+
+// Standard density twin of BOARD_DENSE for the hover-expansion spec: the dense face is one
+// row with no metadata row to clip or expand (#2272, #2279), so the expansion lives at
+// standard and comfortable.
+export const BOARD_STANDARD = {
+  ...BOARD_DENSE,
+  id: 4,
+  uid: 'board00004s',
+  name: 'Standard Board',
+  card_density: 'standard' as const,
 }
 
 export const SITE_CONFIG = {

@@ -54,7 +54,7 @@ function renderInCell(geometry: Geometry, external?: boolean) {
   const utils = render(
     <div data-board-cell style={{ padding: 8 }}>
       <div data-testid="other-card">Other card</div>
-      <CardItem card={makeCard(external ? { external_ref: { provider: 'github', ref: '#12', url: 'https://github.com/x/y/pull/12' } } : {})} density="dense" />
+      <CardItem card={makeCard(external ? { external_ref: { provider: 'github', ref: '#12', url: 'https://github.com/x/y/pull/12' } } : {})} density="standard" />
     </div>,
   )
   const cell = utils.container.querySelector('[data-board-cell]') as HTMLElement
@@ -244,7 +244,7 @@ describe('card hover expansion stays an overlay inside its cell', () => {
     const onExpandChange = vi.fn()
     const { container } = render(
       <div data-board-cell>
-        <CardItem card={makeCard()} density="dense" onExpandChange={onExpandChange} />
+        <CardItem card={makeCard()} density="standard" onExpandChange={onExpandChange} />
       </div>,
     )
     const card = container.querySelector('[data-card-id]') as HTMLElement
@@ -257,12 +257,12 @@ describe('card hover expansion stays an overlay inside its cell', () => {
   })
 
   it('a dimmed card is blurred and faded to near-invisible, on the wrapper the cell lays out', () => {
-    const { container, rerender } = render(<CardItem card={makeCard()} density="dense" dimmed />)
+    const { container, rerender } = render(<CardItem card={makeCard()} density="standard" dimmed />)
     const wrapper = (container.querySelector('[data-card-id]') as HTMLElement).parentElement as HTMLElement
     expect(wrapper).toHaveAttribute('data-dimmed', 'true')
     expect(wrapper).toHaveClass('opacity-[0.08]')
     expect(wrapper).toHaveClass('blur-[2px]')
-    rerender(<CardItem card={makeCard()} density="dense" dimmed={false} />)
+    rerender(<CardItem card={makeCard()} density="standard" dimmed={false} />)
     expect(wrapper).not.toHaveAttribute('data-dimmed')
     expect(wrapper).not.toHaveClass('opacity-[0.08]')
     expect(wrapper).not.toHaveClass('blur-[2px]')
@@ -271,7 +271,7 @@ describe('card hover expansion stays an overlay inside its cell', () => {
   it('the drag-overlay copy never expands', () => {
     const { container } = render(
       <div data-board-cell>
-        <CardItem card={makeCard()} density="dense" overlay />
+        <CardItem card={makeCard()} density="standard" overlay />
       </div>,
     )
     const card = container.querySelector('.group') as HTMLElement

@@ -541,29 +541,6 @@ describe('untinted card face text (#1862)', () => {
     expect(onBg(darkBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(8.6)
     expect(onBg(lightBlock, 'warning-on-tint')).toBeGreaterThanOrEqual(7.3)
   })
-
-  // #871 / #1146 gate (2026-11-13): the Classic preset keeps the pre-#871 card face class for class,
-  // so its untinted due-soon badge is still plain `text-warning`. Until #2029 that was a tracked
-  // a11y exception (orange-600, 3.56:1 on white); #2029 retuned the light token to orange-700, so
-  // the badge now clears AA (5.18:1 surface, 4.95:1 sunken) and is no longer an exception. The
-  // branch stays because it is a Classic face decision, not a contrast one; drop it when Classic
-  // retires. It is reachable only through `urgencyBadgeToneClass(…, 'none', classicFace = true)`,
-  // never a class literal in a card-face file (the test above proves that).
-  it('Classic keeps plain warning on the untinted due-soon badge only, and it clears AA (#2029)', () => {
-    expect(urgencyBadgeToneClass('warning', 'none', true)).toBe('text-warning')
-    expect(onBg(lightBlock, 'warning')).toBeGreaterThanOrEqual(4.5)
-    expect(onBg(lightBlock, 'warning', 'surface-sunken')).toBeCloseTo(4.95, 2)
-    expect(onBg(darkBlock, 'warning')).toBeGreaterThanOrEqual(4.5)
-    for (const tone of ['danger', 'warning', 'info'] as const) {
-      for (const stage of ['warning', 'stale', 'stale2x', 'stale3x'] as const) {
-        expect(urgencyBadgeToneClass(tone, stage, true), `${tone} on ${stage}`).toBe(urgencyBadgeToneClass(tone, stage))
-      }
-      if (tone !== 'warning') expect(urgencyBadgeToneClass(tone, 'none', true)).toBe(urgencyBadgeToneClass(tone, 'none'))
-    }
-    // CardItem reaches the Classic tone only through the gate, never by a literal.
-    const cardItem = readFileSync('src/components/Card/CardItem.tsx', 'utf8')
-    expect(cardItem).toMatch(/urgencyBadgeToneClass\(urgency\.tone, aging\.stage, classicFace\)/)
-  })
 })
 
 // #1857: leftovers missed by the #1550 / #1237 / #831 sweeps. Source-level guards so they stay fixed.

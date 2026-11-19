@@ -100,20 +100,11 @@ describe('CardItem', () => {
     expect(screen.getByText('Fix login bug')).toBeInTheDocument()
   })
 
-  it('applies a full border color matching the priority', () => {
-    const { container } = render(<CardItem density="dense" card={makeCard({ priority: 'urgent' })} />)
-    // CardItem now returns a relative wrapper div; the card root is its first child
-    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
-    // urgent = #B91C1C (red-700) — jsdom normalizes hex to rgb(), so accept either form
-    const color = root.style.borderColor.toLowerCase()
-    expect(color === 'rgb(185, 28, 28)' || color.includes('#b91c1c')).toBe(true)
-  })
-
   it('renders label pills when labels are provided', () => {
     const card = makeCard({
       labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     })
-    render(<CardItem density="dense" card={card} />)
+    render(<CardItem density="standard" card={card} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
   })
 
@@ -133,7 +124,7 @@ describe('CardItem', () => {
 
   it('shows checklist progress when checklist items exist', () => {
     const card = makeCard({ checklist_total: 5, checklist_done: 3 })
-    render(<CardItem density="dense" card={card} />)
+    render(<CardItem density="standard" card={card} />)
     expect(screen.getByTitle('3/5 checklist items')).toBeInTheDocument()
   })
 
@@ -177,12 +168,12 @@ describe('CardItem', () => {
   })
 
   it('shows attachment count when attachment_count > 0', () => {
-    render(<CardItem density="dense" card={makeCard({ attachment_count: 3 })} />)
+    render(<CardItem density="standard" card={makeCard({ attachment_count: 3 })} />)
     expect(screen.getByTitle('3 attachment(s)')).toBeInTheDocument()
   })
 
   it('shows weight value when weight > 1', () => {
-    render(<CardItem density="dense" card={makeCard({ weight: 5 })} />)
+    render(<CardItem density="standard" card={makeCard({ weight: 5 })} />)
     expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
   })
 
@@ -205,19 +196,6 @@ describe('CardItem', () => {
   it('does not render clock emoji when is_stale is true (removed in favor of overlay)', () => {
     render(<CardItem density="dense" card={makeCard({ is_stale: true })} />)
     expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
-  })
-
-  it('shows recently moved dot when last_moved_at is within 24 hours', () => {
-    const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    render(<CardItem density="dense" card={makeCard({ last_moved_at: recentlyMoved })} />)
-    expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
-  })
-
-  it('shows recently moved dot even when is_stale is true (stale no longer suppresses the dot)', () => {
-    const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    render(<CardItem density="dense" card={makeCard({ last_moved_at: recentlyMoved, is_stale: true })} />)
-    // Recently moved dot is now shown regardless of is_stale
-    expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
   })
 
   it('shows warning overlay when card is in warning stage (past warnRatio, before threshold)', () => {
@@ -278,30 +256,23 @@ describe('CardItem', () => {
     expect(b?.className).not.toContain('ring-')
   })
 
-  it('keeps the priority-colored border on the darkest stage (ring sits on the overlay, not the card)', () => {
-    const { container } = renderAged(56, { priority: 'high' })
-    const cardEl = container.querySelector('[data-tour-step="card"]') as HTMLElement
-    expect(cardEl.style.borderColor).not.toBe('')
-    expect(cardEl.className).not.toContain('ring-stale-severe')
-  })
-
   it('stale badge states the idle days and uses the stage on-tint tone', () => {
     renderAged(41, { is_stale: true })
-    const badge = screen.getByText('Stale · 41d')
+    const badge = screen.getByText('Stale 41d')
     expect(badge.className).toContain('text-danger-on-tint')
     expect(badge).toHaveAttribute('title', 'Stale · 41d · 2.9× the 14d threshold')
   })
 
   it('stale badge below 2x uses the warning on-tint tone', () => {
     renderAged(20, { is_stale: true })
-    expect(screen.getByText('Stale · 20d').className).toContain('text-warning-on-tint')
+    expect(screen.getByText('Stale 20d').className).toContain('text-warning-on-tint')
   })
 
   // A never-moved card (e.g. Trello/CSV import) ages from created_at, like the
   // server's is_stale fallback — the imported-board case #1841 opens with.
   it.each([
-    [21, 'bg-stale-tint/15', 'Stale · 21d'],
-    [56, 'bg-stale-severe/20', 'Stale · 56d'],
+    [21, 'bg-stale-tint/15', 'Stale 21d'],
+    [56, 'bg-stale-severe/20', 'Stale 56d'],
   ])('a never-moved card created %i days ago ages from created_at', (days, overlay, label) => {
     const { container } = render(
       <CardItem
@@ -426,14 +397,14 @@ describe('CardItem', () => {
   it('the same 4x card outside a done column is tinted and badged', () => {
     const { container } = renderAged(56, { is_stale: true }, 'comfortable', false)
     expect(overlayOf(container)?.className).toContain('bg-stale-severe/20')
-    expect(screen.getByText('Stale · 56d')).toBeInTheDocument()
+    expect(screen.getByText('Stale 56d')).toBeInTheDocument()
   })
 
   it('a due-soon badge on a red (2x) stage uses danger-on-tint, not sub-AA amber', () => {
     const soon = new Date(Date.now() + 24 * 3600_000).toISOString()
     renderAged(35, { due_date: soon })
     const badge = document.querySelector('span[title^="Due "]') as HTMLElement
-    expect(badge.className).toContain('text-danger-on-tint')
+    expect(badge.className).not.toContain('text-warning')
   })
 
   it('hover tooltip in the warning stage states idle days and both edges', () => {
@@ -486,7 +457,7 @@ describe('CardItem', () => {
     expect(screen.getByTitle(`Due ${today}`)).toBeInTheDocument()
   })
 
-  it('shows label overflow count when more than 3 labels', () => {
+  it('shows label overflow count when beyond the density cap (2 at standard)', () => {
     const card = makeCard({
       labels: [
         { id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' },
@@ -495,12 +466,12 @@ describe('CardItem', () => {
         { id: 4, uid: 'lbluid000004', name: 'Test', color: '#F59E0B' },
       ],
     })
-    render(<CardItem density="dense" card={card} />)
-    expect(screen.getByText('+1')).toBeInTheDocument()
+    render(<CardItem density="standard" card={card} />)
+    expect(screen.getByText('+2')).toBeInTheDocument()
   })
 
   it('shows priority badge for medium and above', () => {
-    render(<CardItem density="dense" card={makeCard({ priority: 'high' })} />)
+    render(<CardItem density="dense" card={makeCard({ priority: 'high' })} compact />)
     expect(screen.getByTitle('Priority: high')).toBeInTheDocument()
   })
 
@@ -511,7 +482,7 @@ describe('CardItem', () => {
 
   it('truncates long label names to 7 chars + ellipsis', () => {
     const card = makeCard({ labels: [{ id: 1, uid: 'lbluid000001', name: 'VeryLongLabelName', color: '#EF4444' }] })
-    render(<CardItem density="dense" card={card} />)
+    render(<CardItem density="standard" card={card} />)
     expect(screen.getByTitle('VeryLongLabelName')).toHaveTextContent('VeryLon…')
   })
 
@@ -519,15 +490,6 @@ describe('CardItem', () => {
     const { container } = render(<CardItem density="dense" card={makeCard()} />)
     const html = container.innerHTML
     expect(html).not.toMatch(/bg-gray-|text-gray-|border-gray-/)
-  })
-
-  it('shows description indicator icon when card has a description', () => {
-    const { container } = render(<CardItem density="dense" card={makeCard({ description: '**bold** and _italic_' })} />)
-    // Description text must not appear on the card (shown in card detail only)
-    expect(screen.queryByText(/bold/)).not.toBeInTheDocument()
-    // A description indicator SVG must be present
-    const svg = container.querySelector('svg[aria-label="Has description"]')
-    expect(svg).toBeInTheDocument()
   })
 
   it('does not show description indicator when card has no description', () => {

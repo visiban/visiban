@@ -253,30 +253,6 @@ export function formatDateTime(isoStr: string, dateFormat = "MM/DD/YYYY", timeFo
   return `${datePart} ${hours}:${mins} ${period}`;
 }
 
-/** Returns a short relative label for when a card was last moved (e.g. "moved today", "moved 3 days ago").
- *  Returns null for null/undefined input, '' for invalid date strings.
- *  < 24 h → "moved today"; 24–48 h → "moved yesterday"; 2–13 d → "moved N days ago";
- *  ≥ 14 d → "moved MM/DD" (month and day only, respecting dateFormat).
- *
- *  Note: CardItem gates on `!isRecent` (ms < 86_400_000) before calling this function,
- *  so the "moved today" branch is unreachable from that call site. The branch is kept
- *  so callers that do NOT apply the isRecent gate receive a complete, self-contained result. */
-export function formatRelativeMovedAt(isoString: string | null | undefined, dateFormat = "MM/DD/YYYY"): string | null {
-  if (isoString == null) return null;
-  if (isoString === "") return "";
-  const d = new Date(isoString);
-  if (isNaN(d.getTime())) return "";
-  const ms = Date.now() - d.getTime();
-  const days = Math.floor(ms / 86_400_000);
-  if (ms < 86_400_000) return "moved today";
-  if (days < 2) return "moved yesterday";
-  if (days < 14) return `moved ${days} days ago`;
-  // ≥ 14 days: show month/day only (no year — year is obvious, saves space on card face)
-  const [, m, day] = d.toISOString().slice(0, 10).split("-");
-  if (dateFormat === "DD/MM/YYYY") return `moved ${day}/${m}`;
-  return `moved ${m}/${day}`;
-}
-
 /**
  * Returns a short human-readable relative timestamp for an ISO datetime string.
  *

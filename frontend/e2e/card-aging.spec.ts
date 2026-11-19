@@ -36,8 +36,8 @@ test.describe('card aging indicator', () => {
     const staleCard = page.getByText(CARD_STALE.title).first().locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]')
     await expect(staleCard.locator('div.bg-stale-severe\\/20.ring-inset').first()).toBeVisible()
 
-    // The badge states the idle days, not just "Stale".
-    await expect(staleCard.getByText(/^Stale · \d+d$/)).toBeVisible()
+    // The status line states the idle days, not just "Stale" (#2272).
+    await expect(staleCard.getByTestId('card-status-line')).toHaveText(/^Stale \d+d$/)
 
     // Regression guard: the fresh card has no aging overlay at all.
     const freshCard = page.getByText(CARD.title).first().locator('xpath=ancestor::div[contains(@class, "rounded-md")][1]')
