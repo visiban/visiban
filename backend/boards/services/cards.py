@@ -1717,6 +1717,11 @@ def delete_boards_locked(boards):
             entry_columns=Column.objects.filter(board_id__in=board_pks),
             boards=locked,
         )
+        # The link rows CASCADE with the cards: tell each surviving peer
+        # first, as every other card-deleting path does.
+        from .card_links import announce_cards_removal
+
+        announce_cards_removal(Card.objects.filter(board_id__in=board_pks))
         return locked.delete()
 
 

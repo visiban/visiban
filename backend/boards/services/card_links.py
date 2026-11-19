@@ -327,8 +327,12 @@ def announce_cards_removal(cards, *, actor=None):
     The link rows CASCADE away with the cards, so this must run first, inside
     the delete's transaction: every path that deletes cards calls it next to
     ``blocked_peers_of`` (the card delete, the Django-admin card, column,
-    swimlane and board deletes, and the REST column, swimlane and board
-    destroys). Each SURVIVING peer records the unlink in its own history, and
+    swimlane and board deletes, the REST column, swimlane and board
+    destroys, and ``delete_boards_locked`` for the seed commands' ``--wipe``).
+    The only card deletes that skip it are the ``benchmark`` command's and the
+    fuzz hooks' cleanup of their own throwaway cards. The Django-admin user
+    delete needs no call: it is refused while the user owns a board, so its
+    ``Board.owner`` cascade never reaches a card. Each SURVIVING peer records the unlink in its own history, and
     only the peer's board gets a ping: a deleted child pings its parent's board
     (``card.children_changed``), a deleted parent pings each child's board
     (``card.parent_changed``). This is what gives a deleted child board's

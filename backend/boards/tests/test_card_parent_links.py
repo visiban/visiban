@@ -326,6 +326,15 @@ class ContainerDeleteLinkTests(_LinkFixture, TestCase):
             )
         self._assert_child_told()
 
+    def test_seed_wipe_board_delete_tells_the_parent(self):
+        # delete_boards_locked is the seed commands' --wipe path.
+        from boards.services.cards import delete_boards_locked
+
+        with self.captureOnCommitCallbacks(execute=True):
+            delete_boards_locked(Board.objects.filter(pk=self.cboard.pk))
+        self.assertFalse(Card.objects.filter(pk=self.child.pk).exists())
+        self._assert_parent_told()
+
 
 class ChildrenReadTests(_LinkFixture, TestCase):
     def setUp(self):

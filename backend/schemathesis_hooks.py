@@ -482,6 +482,8 @@ def _load_disposable_context(ids):
     try:
         member = User.objects.get(pk=ids["member_user_id"])
         shared = Card.objects.get(pk=ids["card_id"])
+        # No announce_cards_removal: fuzz-run cleanup of disposable cards on
+        # the seeded fuzz board, whose history nobody reads.
         Card.objects.filter(board_id=ids["board_pk"], title=_DISPOSABLE_TITLE).delete()
         shared.attachments.filter(filename__startswith="fuzz-disposable-").delete()
         shared.comments.filter(body=_DISPOSABLE_TITLE).delete()
