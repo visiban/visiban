@@ -4,6 +4,7 @@ import type { FilterState } from "../components/Board/FilterBar";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
+import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
 import { normalizeFiltersForSave } from "../utils/numberFilter";
 
 export { normalizeFiltersForSave };
@@ -87,6 +88,9 @@ export function useSavedFilters(boardId: number) {
     const laneFilter = sanitizeLaneFilter(s["laneFilter"]);
     // v1 reader — tolerant of missing/wrong-typed fields so state saved before
     // a filter shape change still loads without throwing.
+    // #2367 — absent in a filter saved before sub-column and track filters existed.
+    const subColumnIds = sanitizeSubColumnIds(s["subColumnIds"]);
+    const trackStates = sanitizeTrackStates(s["trackStates"]);
     return {
       search: typeof s["search"] === "string" ? s["search"] : EMPTY_FILTER.search,
       assigneeIds: Array.isArray(s["assigneeIds"])
@@ -117,6 +121,8 @@ export function useSavedFilters(boardId: number) {
       // #1149 — absent in a filter saved before the toggle existed.
       blockedOnly: s["blockedOnly"] === true,
       ...(laneFilter ? { laneFilter } : {}),
+      ...(subColumnIds ? { subColumnIds } : {}),
+      ...(trackStates ? { trackStates } : {}),
     };
   }, []);
 

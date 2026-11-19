@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type RefObject } from "react";
+import type { TrackState } from "../../utils/stages";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -74,6 +75,17 @@ export interface FilterState {
    */
   blockedOnly?: boolean;
   /**
+   * #2367 — show only cards in these sub-columns (ids from `column.sub_columns`).
+   * Optional and absent from EMPTY_FILTER, so every filter persisted or saved
+   * before it existed still loads, and Clear all drops it.
+   */
+  subColumnIds?: number[];
+  /**
+   * #2367 — show only cards with at least one track in one of these states on
+   * their own stage. Optional and absent from EMPTY_FILTER, like `subColumnIds`.
+   */
+  trackStates?: TrackState[];
+  /**
    * #2205 — rules that hide swimlanes by their own custom field values.
    * Optional and absent from EMPTY_FILTER, so every filter persisted or saved
    * before lane filters existed still loads, and Clear all drops it. Card
@@ -104,6 +116,8 @@ export function countActiveFilters(f: FilterState): number {
     f.dueDate !== null,
     Object.values(f.customFields).some(isCustomFieldFilterActive),
     !!f.blockedOnly,
+    (f.subColumnIds?.length ?? 0) > 0,
+    (f.trackStates?.length ?? 0) > 0,
     // #2205 — all lane rules count as one dimension; the per-rule count is on the Lanes trigger.
     isLaneFilterActive(f.laneFilter),
   ].filter(Boolean).length;

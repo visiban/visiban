@@ -9,8 +9,12 @@
     "laneFilter",
     "priorities",
     "search",
+    "subColumnIds",
+    "trackStates",
     "visibleCustomFieldFilterIds"
   ],
+  "trackStates": ["done", "not_applicable", "open"],
+  "stageFilterMaxIds": 50,
   "laneFilterKeys": ["hideUnmatched", "items"],
   "laneBuiltinFields": ["contact_email", "name"],
   "numberFilterOps": ["between", "empty", "eq", "not_empty"],

@@ -147,6 +147,20 @@ describe('useSavedFilters', () => {
   })
 
   describe('hydrateFilter', () => {
+    it('reads sub-column and track-state filters, and omits them when absent or malformed (#2367)', async () => {
+      vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
+      const { result } = renderHook(() => useSavedFilters(1))
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      const withStage = makeFilter(1, 'Stages')
+      withStage.state_json = { subColumnIds: [3, 'x', 4], trackStates: ['open', 'bogus'] }
+      expect(result.current.hydrateFilter(withStage)).toMatchObject({ subColumnIds: [3, 4], trackStates: ['open'] })
+      const bad = makeFilter(2, 'Bad')
+      bad.state_json = { subColumnIds: 'nope', trackStates: 5 }
+      const fs = result.current.hydrateFilter(bad)
+      expect(fs).not.toHaveProperty('subColumnIds')
+      expect(fs).not.toHaveProperty('trackStates')
+    })
+
     it('converts a SavedFilter back to a valid FilterState', async () => {
       vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
       const { result } = renderHook(() => useSavedFilters(1))

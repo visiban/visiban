@@ -11,7 +11,8 @@ import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilter
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
-import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
+import { stageSubColumns } from "../../utils/stages";
+import { DUE_DATE_OPTIONS, TRACK_STATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
@@ -52,7 +53,7 @@ interface Props {
 const PANEL_WIDTH = 360;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "lanes" | `cf:${number}`;
+type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
 interface Row {
   id: RowId;
   label: string;
@@ -182,6 +183,12 @@ export default function FilterPanel({
     for (const c of board.cards) if (c.assignee && !m.has(c.assignee.id)) m.set(c.assignee.id, c.assignee);
     return [...m.values()];
   }, [board.members, board.cards]);
+  const subColumnOptions = useMemo(
+    () => board.columns.flatMap((c) => stageSubColumns(c).map((s) => ({ id: s.id, label: `${c.name}: ${s.name}` }))),
+    [board.columns],
+  );
+  const hasSubColumns = subColumnOptions.length > 0;
+  const hasTracks = board.columns.some((c) => (c.tracks?.length ?? 0) > 0);
   const blockedCount = useMemo(() => board.cards.filter(isCardBlocked).length, [board.cards]);
   const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const laneFields = useMemo(
@@ -222,6 +229,15 @@ export default function FilterPanel({
   });
   rows.push({ id: "dueDate", label: "Due date", value: DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate)?.label ?? null });
   rows.push({ id: "blocked", label: "Blocked", value: filters.blockedOnly ? "Blocked only" : null });
+  // #2367 — sub-column and Track state rows exist only when the board has a split stage / tracks.
+  if (hasSubColumns) {
+    const picked = filters.subColumnIds ?? [];
+    rows.push({ id: "subColumn", label: "Sub-column", value: picked.length ? subColumnOptions.filter((o) => picked.includes(o.id)).map((o) => o.label).join(", ") || `${picked.length} selected` : null });
+  }
+  if (hasTracks) {
+    const picked = filters.trackStates ?? [];
+    rows.push({ id: "trackState", label: "Track state", value: picked.length ? TRACK_STATE_OPTIONS.filter((o) => picked.includes(o.value)).map((o) => o.label).join(", ") : null });
+  }
   // #2336 — the same gate as the filter bar's Lanes trigger.
   if (laneFilterAvailable(laneFields.filter((f) => !isLaneBuiltinField(f.id)).length, board.swimlanes.length, filters.laneFilter)) {
     const n = summarizeLaneFilter(filters.laneFilter, laneFields, (_f, raw) => raw).completeCount;
@@ -374,6 +390,24 @@ export default function FilterPanel({
                 {o.label}
               </label>
             ))}
+          </div>
+        );
+      case "subColumn":
+        return (
+          <div role="group" aria-label="Sub-column">
+            {subColumnOptions.map((o) => checkbox(`sub-${o.id}`, o.label, (filters.subColumnIds ?? []).includes(o.id), () => {
+              const next = toggleIn(filters.subColumnIds ?? [], o.id);
+              onChange({ ...filters, subColumnIds: next.length > 0 ? next : undefined });
+            }))}
+          </div>
+        );
+      case "trackState":
+        return (
+          <div role="group" aria-label="Track state">
+            {TRACK_STATE_OPTIONS.map((o) => checkbox(`track-${o.value}`, o.label, (filters.trackStates ?? []).includes(o.value), () => {
+              const next = toggleIn(filters.trackStates ?? [], o.value);
+              onChange({ ...filters, trackStates: next.length > 0 ? next : undefined });
+            }))}
           </div>
         );
       case "blocked":

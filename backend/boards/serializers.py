@@ -5108,7 +5108,14 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _STATE_V1_KEYS = {
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
         "customFields", "visibleCustomFieldFilterIds", "laneFilter",
+        "subColumnIds", "trackStates",
     }
+    # subColumnIds / trackStates (#2367) are additive and optional: show only
+    # cards in those sub-columns / with a track in one of those states. A
+    # filter saved without them still loads. The state enum is mirrored in
+    # frontend/src/utils/stageFilter.ts (pinned by filter_state_keys.json).
+    _STAGE_FILTER_MAX_ITEMS = 50
+    _TRACK_STATES = {"done", "open", "not_applicable"}
     # Bounds keep a user-controlled JSON blob small; checked before any
     # per-item work so an oversized payload fails fast.
     _CF_MAX_ENTRIES = 50
@@ -5147,7 +5154,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates}."
         ),
     )
 
@@ -5201,6 +5208,26 @@ class SavedFilterSerializer(serializers.ModelSerializer):
                 )
         if "blockedOnly" in value and not isinstance(value["blockedOnly"], bool):
             raise serializers.ValidationError("state_json.blockedOnly must be true or false.")
+        if "subColumnIds" in value:
+            ids = value["subColumnIds"]
+            if (
+                not isinstance(ids, list)
+                or len(ids) > self._STAGE_FILTER_MAX_ITEMS
+                or not all(isinstance(x, int) and not isinstance(x, bool) for x in ids)
+            ):
+                raise serializers.ValidationError(
+                    f"state_json.subColumnIds must be a list of at most {self._STAGE_FILTER_MAX_ITEMS} integers."
+                )
+        if "trackStates" in value:
+            states = value["trackStates"]
+            if (
+                not isinstance(states, list)
+                or len(states) > len(self._TRACK_STATES)
+                or not all(isinstance(s, str) and s in self._TRACK_STATES for s in states)
+            ):
+                raise serializers.ValidationError(
+                    f"state_json.trackStates must be a list with values from {sorted(self._TRACK_STATES)}."
+                )
         if "customFields" in value:
             self._validate_custom_fields(value["customFields"])
         if "laneFilter" in value:

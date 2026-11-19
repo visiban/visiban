@@ -5,6 +5,7 @@ import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
 import { parseMultiSelect } from "./customFieldValue";
 import { isOverdue } from "./cardUrgency";
 import { isCardBlocked } from "./blockedState";
+import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 
 /**
@@ -29,7 +30,9 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     filters.priorities.length > 0 ||
     filters.dueDate !== null ||
     Object.values(filters.customFields).some(isCustomFieldFilterActive) ||
-    !!filters.blockedOnly
+    !!filters.blockedOnly ||
+    (filters.subColumnIds?.length ?? 0) > 0 ||
+    (filters.trackStates?.length ?? 0) > 0
   );
 }
 
@@ -100,7 +103,10 @@ export function filterCards(
   customFieldDefs?: ReadonlyArray<{ id: number; field_type: string }>,
   // #2313 — ids of done columns, so the Overdue filter skips finished cards like the
   // Show chip and the server do. Omitted means no column is done.
-  doneColumnIds?: ReadonlySet<number>
+  doneColumnIds?: ReadonlySet<number>,
+  // #2367 — stage structure for the sub-column and track-state filters. Omitted
+  // means neither filter can resolve a card, so an active one matches nothing.
+  stageContext?: StageFilterContext
 ): number[] {
   const todayStr = todayOverride ?? getTodayStr();
   const nextWeekStr = getNextWeekStr(todayStr);
@@ -159,6 +165,9 @@ export function filterCards(
           if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
         }
       }
+
+      // #2367 — sub-column and track state, AND-combined like every other dimension.
+      if (!matchesStageFilters(card, filters.subColumnIds, filters.trackStates, stageContext)) return false;
 
       // #371 — custom field filters, AND-combined with everything above like
       // every other dimension. Equality-only for date; number (#2357) also

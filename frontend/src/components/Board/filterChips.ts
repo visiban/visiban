@@ -5,7 +5,8 @@ import { userDisplayName } from "../../types";
 import { formatCustomFieldValue } from "../../utils/customFieldValue";
 import type { LaneValueFormatter } from "../../utils/laneFilter";
 import { numberFilterDisplay } from "../../utils/numberFilter";
-import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
+import { stageSubColumns } from "../../utils/stages";
+import { DUE_DATE_OPTIONS, TRACK_STATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import type { FilterState } from "./FilterBar";
 
 export interface FilterChipItem {
@@ -117,6 +118,35 @@ export function buildFilterChips(
       key: "blocked-only",
       label: "Blocked only",
       onDismiss: () => onChange({ ...filters, blockedOnly: false }),
+    });
+  }
+
+  // #2367 — one chip per picked sub-column ("Review: Doing") and per track state.
+  // An id that no longer resolves (a removed sub-column) has no chip, like a removed label.
+  for (const id of filters.subColumnIds ?? []) {
+    for (const col of board.columns) {
+      const sub = stageSubColumns(col).find((s) => s.id === id);
+      if (!sub) continue;
+      chips.push({
+        key: `sub:${id}`,
+        label: `${col.name}: ${sub.name}`,
+        onDismiss: () => {
+          const rest = (filters.subColumnIds ?? []).filter((x) => x !== id);
+          onChange({ ...filters, subColumnIds: rest.length > 0 ? rest : undefined });
+        },
+      });
+    }
+  }
+  for (const state of filters.trackStates ?? []) {
+    const option = TRACK_STATE_OPTIONS.find((o) => o.value === state);
+    if (!option) continue;
+    chips.push({
+      key: `track:${state}`,
+      label: `Track ${option.label.toLowerCase()}`,
+      onDismiss: () => {
+        const rest = (filters.trackStates ?? []).filter((x) => x !== state);
+        onChange({ ...filters, trackStates: rest.length > 0 ? rest : undefined });
+      },
     });
   }
 

@@ -4,6 +4,7 @@
 import type { CustomFieldDefinition, Priority } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import type { CustomFieldFilterValue, FilterState } from "./FilterBar";
+import type { TrackState } from "../../utils/stages";
 import { isNumberFilterActive } from "../../utils/numberFilter";
 
 export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
@@ -30,6 +31,13 @@ export function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomF
       return { kind: "text", query: "" };
   }
 }
+
+/** #2367 — track-state filter choices; UI copy says "done" where the API enum says `satisfied`. */
+export const TRACK_STATE_OPTIONS: { value: TrackState; label: string }[] = [
+  { value: "done", label: "Done" },
+  { value: "open", label: "Open" },
+  { value: "not_applicable", label: "Not applicable" },
+];
 
 export const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "low", label: "Low", color: PRIORITY_COLORS.low },

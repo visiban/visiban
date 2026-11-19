@@ -16,6 +16,18 @@ function makeLocalStorageMock() {
 }
 
 describe('usePersistedFilters', () => {
+  it('round-trips sub-column and track-state filters through localStorage (#2367)', () => {
+    const store = makeLocalStorageMock()
+    Object.defineProperty(globalThis, 'localStorage', { value: store, writable: true, configurable: true })
+    store.setItem('board:9:filters', JSON.stringify({ subColumnIds: [5, 'x'], trackStates: ['done', 'bogus'] }))
+    const { result } = renderHook(() => usePersistedFilters(9))
+    expect(result.current.filters).toMatchObject({ subColumnIds: [5], trackStates: ['done'] })
+    store.setItem('board:9:filters', JSON.stringify({ subColumnIds: 'no', trackStates: [] }))
+    const again = renderHook(() => usePersistedFilters(9))
+    expect(again.result.current.filters).not.toHaveProperty('subColumnIds')
+    expect(again.result.current.filters).not.toHaveProperty('trackStates')
+  })
+
   const mockStorage = makeLocalStorageMock()
 
   beforeEach(() => {

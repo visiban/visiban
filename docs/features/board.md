@@ -1061,6 +1061,8 @@ The public view renders the full board grid (columns, swimlane rows, and cards) 
 - Weight
 - Assignee name
 
+A column split into sub-columns (1.3+, #2366) shows each sub-column's name and card count under the column name, and its cards sit in their own sub-column of the cell, side by side with a dashed divider. The stage's tracks are listed by name under the header. The public view shows track names only, never a card's track state, so a visitor sees which tracks the stage has but not which are done.
+
 Drag-and-drop, card click-to-open, and all editing actions are disabled in the public view.
 
 ### Revoking a share link
@@ -1109,6 +1111,15 @@ Not in this release: a rule that every track must be done before a card reaches 
 **Known limits.**
 
 - A move between sub-columns of the same stage is not shown in the card's **History** yet (#2365). A move to another column is.
-- A shared read-only board shows split stages as plain columns (#2366).
-- The Filter panel has no sub-column or track filters yet (#2367).
 - Sub-columns can't be reordered; rename them instead (#2368).
+
+### Filtering by sub-column and track state
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+When the board has a split stage, the **Filter** panel gains a **Sub-column** row listing every sub-column as "Stage: Sub-column". When any stage has tracks, it also gains a **Track state** row with **Done**, **Open** and **Not applicable**. Pick one or more in either row; each pick adds a chip you can dismiss, like any other filter.
+
+- **Sub-column** shows only cards currently in a picked sub-column. Cards on a plain stage are hidden while it is active.
+- **Track state** shows a card when at least one of its tracks on its own stage is in a picked state. A lane's not-applicable exception counts as **Not applicable**.
+- Both combine with every other filter, are remembered per board, and are saved with [saved filters](saved-filters.md).
+
