@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -4547,7 +4547,12 @@ problem).</p>
    authenticates to <code>${DOCKERHUB_MIRROR}</code> (which resolves to
    <code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code> by default — see below) automatically using the
    predefined <code>CI_DEPENDENCY_PROXY_*</code> variables GitLab injects into every job; there is nothing
-   to add to a runner's <code>config.toml</code> for this.</li>
+   to add to a runner's <code>config.toml</code> for this.
+   This only holds if the runner host has no <code>gitlab.com</code> entry of its own in the runner user's
+   <code>~/.docker/config.json</code> (or a <code>DOCKER_AUTH_CONFIG</code> in <code>config.toml</code>): those take precedence
+   over the job credentials, and a stale one fails every pull with <code>HTTP Basic: Access denied</code> —
+   see <a href="../known-ci-failures/#image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner">Known CI Failures</a>
+   (#2406).</li>
 <li><strong>A job that pulls images itself, rather than via <code>image:</code>/<code>services:</code>, must log in
    explicitly.</strong> kaniko's <code>/kaniko/.docker/config.json</code> and the helm-drill <code>docker:dind</code>
    daemon (<code>.helm-drill-base</code> before_script:

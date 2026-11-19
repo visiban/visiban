@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -4131,6 +4131,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image pull HTTP Basic: Access denied from the Dependency Proxy on one runner
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#helm-publish-cosign-sign-fails-with-unauthorized-authentication-required" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4466,8 +4477,10 @@ IP.</p>
 now resolves through <code>${DOCKERHUB_MIRROR}/&lt;image&gt;</code>, which defaults to the GitLab Dependency
 Proxy prefix
 (<code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>) and which the runner authenticates to
-automatically. The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default <code>docker.io/library</code>,
-unchanged for local/contributor builds) that CI's kaniko jobs point at the same mirror. The
+automatically, provided the runner host has no stale <code>gitlab.com</code> Docker credentials of its own
+(see the Access denied section below). The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default
+<code>docker.io/library</code>, unchanged for local/contributor builds) that CI's kaniko jobs point at the
+same mirror. The
 <code>.helm-drill-base</code> before_script logs the dind daemon itself in to
 <code>$CI_DEPENDENCY_PROXY_SERVER</code> (skipped when that's empty — see below), and
 <code>scripts/helm-install-drill.sh</code> / <code>scripts/helm-netpol-drill.sh</code> pull <code>kindest/node</code> and the
@@ -4497,13 +4510,49 @@ Because these run on a real Docker daemon (shell executor) rather than kaniko, t
 own <code>docker login "$CI_DEPENDENCY_PROXY_SERVER"</code> in <code>before_script</code> (guarded on that variable
 being non-empty) and a matching <code>docker logout</code> in <code>after_script</code> — see
 <a href="../ci-runners/#dependency-proxy">CI Runners</a> for the full detail.</p>
+<h2 id="image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner">Image pull <code>HTTP Basic: Access denied</code> from the Dependency Proxy on one runner<a class="headerlink" href="#image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> jobs fail with <code>failure_reason: runner_system_failure</code> in <code>prepare_executor</code>,
+before any script runs, and the log shows the runner using host credentials rather than the
+job's:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Authenticating with credentials from /root/.docker/config.json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Pulling docker image gitlab.com:443/visiban/dependency_proxy/containers/node:22-alpine ...
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>WARNING: Failed to pull image ... HTTP Basic: Access denied
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>ERROR: Job failed: failed to pull image ...
+</code></pre></div>
+<p>Observed 2026-11-19 on <code>gitlab-runner-nuc-2-visiban</code> (runner id 56787877): about 35 jobs failed
+and reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.</p>
+<p><strong>Confirm it is one runner:</strong> the identical job passes when it lands on a different runner, and
+the failures cluster on one <code>runner.description</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/:id/jobs?scope[]=failed&amp;per_page=60"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.[] | select(.failure_reason=="runner_system_failure") | .runner.description'</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span><span class="p">|</span><span class="w"> </span>uniq<span class="w"> </span>-c
+</code></pre></div>
+<p><strong>Root cause:</strong> the runner host's <code>/root/.docker/config.json</code> holds a stale <code>gitlab.com:443</code>
+(or <code>gitlab.com</code>) auth entry. GitLab Runner prefers credentials found there over the job-scoped
+<code>CI_DEPENDENCY_PROXY_*</code> credentials, so every Dependency Proxy pull uses the dead credential.
+This cannot be fixed in <code>.gitlab-ci.yml</code>, and a runner that shares a tag with healthy runners
+cannot be routed around.</p>
+<p><strong>Fix:</strong></p>
+<ol>
+<li>Pause the runner so jobs stop landing on it:
+   <code>glab api --method PUT runners/&lt;id&gt; -f paused=true</code>.</li>
+<li>On the host, inspect which registries have entries by listing the <code>auths</code> keys only
+   (<code>jq '.auths | keys' /root/.docker/config.json</code>). Never print the values; they are
+   credentials. Remove the stale <code>gitlab.com:443</code>/<code>gitlab.com</code> entry, or delete the file if
+   nothing else uses it.</li>
+<li>Unpause (<code>-f paused=false</code>) and confirm a <code>node:22-alpine</code> job such as <code>frontend-test</code>
+   passes on that runner.</li>
+</ol>
+<p>Retrying without the host fix only works when the job happens to land on a different runner; it
+re-fails every time the broken runner picks it up. See
+<a href="../ci-runners/#dependency-proxy">CI Runners</a> point 2 for the runner-side precondition.</p>
 <h2 id="helm-publish-cosign-sign-fails-with-unauthorized-authentication-required"><code>helm-publish</code>: <code>cosign sign</code> fails with <code>UNAUTHORIZED: authentication required</code><a class="headerlink" href="#helm-publish-cosign-sign-fails-with-unauthorized-authentication-required" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> <code>helm-publish</code> job fails after <code>helm push</code> has already succeeded — the chart is
 visible in the registry, but the job still fails at the <code>cosign sign</code> step:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Pushed: ghcr.io/visiban/charts/visiban:0.6.0
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Digest: sha256:...
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Error: signing [ghcr.io/visiban/charts/visiban@sha256:...]: accessing image: GET
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>https://ghcr.io/token?...: UNAUTHORIZED: authentication required
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Pushed: ghcr.io/visiban/charts/visiban:0.6.0
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Digest: sha256:...
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Error: signing [ghcr.io/visiban/charts/visiban@sha256:...]: accessing image: GET
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>https://ghcr.io/token?...: UNAUTHORIZED: authentication required
 </code></pre></div>
 <p><strong>Root cause:</strong> the job runs <code>helm registry login ghcr.io</code> before <code>helm push</code>, but never logs
 cosign in separately. <code>helm registry login</code> only populates Helm's own registry config; cosign
