@@ -2338,7 +2338,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     />
                     <button
                       onClick={() => { setBulkText(""); setChecklistError(null); setShowBulkAdd(true); }}
-                      className="max-sm:min-h-11 text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      className="max-sm:min-h-11 max-sm:min-w-11 text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     >
                       Bulk
                     </button>
