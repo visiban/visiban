@@ -730,7 +730,7 @@ export default function RichTextEditor({
 
         {/* Hover border signals editability */}
         <div
-          className={`rounded-lg px-3 py-2 border transition ${minHeight} ${
+          className={`rounded-lg px-3 py-2 ${readOnly ? "" : "max-sm:pr-11"} border transition ${minHeight} ${
             readOnly
               ? "border-transparent"
               : "border-transparent group-hover:border-line-emphasis"

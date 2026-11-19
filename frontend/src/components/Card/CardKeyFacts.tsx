@@ -140,7 +140,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [], maxLine
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((e) => !e)}
-            className="inline-flex items-center min-h-6 border border-line rounded px-1.5 py-0.5 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="inline-flex items-center min-h-6 max-sm:min-h-11 max-sm:min-w-11 border border-line rounded px-1.5 py-0.5 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {expanded ? "Show fewer" : (
               <>
