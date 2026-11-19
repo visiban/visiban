@@ -5689,6 +5689,7 @@ nightly-load-test-selftest:
   rules:
     - changes: &nightly-load-test-paths
         - scripts/nightly_load_test.py
+        - scripts/check_email_login_plan.py
         - backend/nightly-load-test-baseline.json
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *nightly-load-test-paths
@@ -5696,6 +5697,7 @@ nightly-load-test-selftest:
     - !reference [.pip-floor, script]
     - pip install --quiet requests==2.33.0
     - python3 scripts/nightly_load_test.py --self-test
+    - python3 scripts/check_email_login_plan.py --self-test
 
 # ─── Nightly load test ─────────────────────────────────────────────────────────
 #
@@ -5795,17 +5797,32 @@ nightly-load-test:
     # proves the percentile/budget-comparison detection logic still fires
     # before trusting this run's verdict.
     - python3 scripts/nightly_load_test.py --self-test
-    - python3 scripts/nightly_load_test.py
-        --base-url http://localhost:8000
-        --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
-        --owner-token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}"
-        --multi-board-token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}"
-        --min-multi-boards "$((LOAD_TEST_EXTRA_BOARDS + 1))"
-        --board-name "Visiban Load Test Board"
-        --budget-file backend/nightly-load-test-baseline.json
-        --iterations "${LOAD_TEST_ITERATIONS}"
-        --warmup "${LOAD_TEST_WARMUP}"
+    - python3 scripts/check_email_login_plan.py --self-test
+    - |
+      set +e
+      python3 scripts/nightly_load_test.py \
+        --base-url http://localhost:8000 \
+        --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" \
+        --owner-token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}" \
+        --multi-board-token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}" \
+        --min-multi-boards "$((LOAD_TEST_EXTRA_BOARDS + 1))" \
+        --board-name "Visiban Load Test Board" \
+        --budget-file backend/nightly-load-test-baseline.json \
+        --iterations "${LOAD_TEST_ITERATIONS}" \
+        --warmup "${LOAD_TEST_WARMUP}" \
         --output nightly-load-test-results.json
+      latency_rc=$?
+      # Email login (#1298): a plan check, not a latency scenario. A login is two
+      # password hashes (hundreds of ms), which hide a 2-3 ms sequential scan at 20k
+      # users, so this tops the users table up to a realistic size (after every
+      # latency scenario, so it cannot move a budget) and fails if the real
+      # resolve_login_user lookup stops using user_email_upper_idx. It runs even when
+      # a latency budget failed, so one red run reports both.
+      python3 scripts/check_email_login_plan.py --users 20000
+      plan_rc=$?
+      [ "$latency_rc" -ne 0 ] && echo "FAILED: latency step (exit ${latency_rc})"
+      [ "$plan_rc" -ne 0 ] && echo "FAILED: email login plan check (exit ${plan_rc})"
+      [ "$latency_rc" -eq 0 ] && [ "$plan_rc" -eq 0 ]
   after_script:
     - |
       if [ "$CI_JOB_STATUS" = "failed" ] && [ -f nightly-load-test-server.log ]; then
