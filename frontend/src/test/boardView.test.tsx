@@ -2550,6 +2550,57 @@ describe('BoardView', () => {
       expect(historyBtn.textContent).not.toContain('Beta')
     })
 
+    // #2395: every view's toolbar wraps its tabs in the same scrolling strip, so on a phone the
+    // active tab is scrolled into view and the right edge fades in Summary, History and Analytics too.
+    it.each([
+      ['board', 'Board'],
+      ['summary', 'Summary'],
+      ['history', 'History'],
+      ['analytics', /^Analytics/],
+    ] as const)('the %s view renders its tabs inside the view tab strip', (view, tab) => {
+      mockSearchParams = new URLSearchParams(`view=${view}`)
+      render(<BoardView {...defaultProps()} />)
+      const strip = screen.getByTestId('view-tab-strip')
+      expect(within(strip).getByRole('button', { name: tab })).toHaveAttribute('aria-current', 'page')
+    })
+
+    // #2395: a tab that mounts late or changes width resizes the strip's content with no scroll or
+    // window resize, so the fade re-measures from a ResizeObserver on the strip and its content.
+    it('the view tab strip re-measures its fade from a ResizeObserver', () => {
+      // Other components mount observers too: keep each callback with the elements it watches.
+      const callbacks = new Map<Element, () => void>()
+      const observed: Element[] = []
+      const disconnect = vi.fn()
+      vi.stubGlobal('ResizeObserver', class {
+        cb: () => void
+        constructor(cb: () => void) { this.cb = cb }
+        observe(el: Element) { observed.push(el); callbacks.set(el, this.cb) }
+        unobserve() {}
+        disconnect = disconnect
+      })
+      try {
+        const { unmount } = render(<BoardView {...defaultProps()} />)
+        const strip = screen.getByTestId('view-tab-strip')
+        const fire = () => act(() => callbacks.get(strip)!())
+        expect(strip).not.toHaveAttribute('data-fade')
+        expect(observed).toContain(strip)
+        expect(observed).toContain(strip.firstElementChild)
+        // A full-width child never resizes when a tab mounts late, so it must size to its tabs.
+        expect(strip.firstElementChild).toHaveClass('w-max')
+        Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 400 })
+        Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 200 })
+        fire()
+        expect(strip).toHaveAttribute('data-fade', 'true')
+        Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 200 })
+        fire()
+        expect(strip).not.toHaveAttribute('data-fade')
+        unmount()
+        expect(disconnect).toHaveBeenCalled()
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
     // #2236: one opaque chip in every tab state, so the badge never takes its contrast from
     // the tab underneath (the old active bg-warning/30 on bg-primary was 1.17:1 in light mode).
     it.each([
@@ -3127,6 +3178,8 @@ describe('BoardView', () => {
       render(<BoardView currentUser={lensUser} />)
       expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
       expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+      // #2395: the Lens toolbar uses the same tab strip as every other view.
+      expect(within(screen.getByTestId('view-tab-strip')).getByRole('button', { name: 'Lens' })).toHaveAttribute('aria-current', 'page')
     })
 
     it('lands on Board when the flag is off (lens fetch skipped)', () => {

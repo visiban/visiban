@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
 
 
 // Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
@@ -338,9 +338,43 @@ test.describe('board phone layout', () => {
     expect(m.right).toBeLessThanOrEqual(filter!.x + 0.5)
     // Switching to the last tab scrolls it into view.
     await page.getByRole('button', { name: 'Analytics' }).click()
-    const analytics = await page.getByRole('button', { name: 'Analytics' }).boundingBox()
-    const box = await strip.boundingBox()
-    expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+    // Each view mounts its own strip, so the click remounts it: wait for the new strip's Analytics tab to be the
+    // active one (aria-current="page") before measuring, since boundingBox() does not auto-wait.
+    const analyticsTab = page.getByTestId('view-tab-strip').getByRole('button', { name: 'Analytics' })
+    await expect(analyticsTab).toHaveAttribute('aria-current', 'page')
+    await expect(strip).toBeVisible()
+    // The scroll-into-view may settle over more than one frame.
+    await expect(async () => {
+      const analytics = await analyticsTab.boundingBox()
+      const box = await strip.boundingBox()
+      expect(analytics).not.toBeNull()
+      expect(box).not.toBeNull()
+      expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+    }).toPass({ timeout: 5_000 })
+  })
+
+  test('the tab strip fade is on at 390px once the Lens tab mounts late, with no scroll (#2395)', async ({ page }) => {
+    const lensUser = { ...USER, git_lens_enabled: true }
+    await page.route(`**/api/v1/git-lens/connections/${BOARD_FULL.id}/`, async (route) => {
+      await new Promise((r) => setTimeout(r, 1500))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 1, provider: 'gitlab', repo_slug: 'a/b', column_dim: 'status', swimlane_dim: 'milestone', created_by: { id: 1, username: 'u', display_name: 'U', avatar_url: '' }, created_at: '', updated_at: '' }) })
+    })
+    // Lens is on for this user; its tab appears once the connection lookup resolves, after first paint.
+    for (const path of ['auth/user', 'auth/me']) {
+      await page.route(`**/api/v1/${path}/`, async (route) => {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(lensUser) })
+      })
+    }
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: 'Lens', exact: true })).toBeAttached({ timeout: 15_000 })
+    const strip = page.getByTestId('view-tab-strip')
+    // The strip's first child grows with its tabs, so the observer sees the late tab.
+    await expect(strip).toHaveAttribute('data-fade', 'true')
+    const m = await strip.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, left: el.scrollLeft, child: (el.firstElementChild as HTMLElement).offsetWidth }))
+    expect(m.left).toBe(0)
+    expect(m.sw).toBeGreaterThan(m.cw)
+    expect(m.child).toBeGreaterThan(m.cw)
   })
 
   test('the Exit focus and Show all cards banner buttons are at least 44px (#2333)', async ({ page }) => {

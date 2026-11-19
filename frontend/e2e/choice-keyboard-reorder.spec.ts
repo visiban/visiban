@@ -34,6 +34,15 @@ async function openFieldEditor(page: Page, tab: string, fieldName: string) {
   await expect(page.getByRole('button', { name: 'Drag to reorder choice Red' })).toBeVisible()
 }
 
+// dnd-kit's KeyboardSensor adds its keydown listener in a setTimeout(0) queued at
+// pick-up, and Chrome runs a queued input event ahead of a pending timer, so a key
+// sent the moment the pick-up announcement appears can arrive before the listener
+// (#2396). While the drag flag is set, the escape stack swallows that Escape, so the
+// drag never cancels. A timer queued now fires after dnd-kit's, so awaiting it proves
+// the listener is attached without a sleep.
+const keyboardSensorAttached = (page: Page) =>
+  page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 0)))
+
 const handleNames = (page: Page) =>
   page.getByRole('button', { name: /^Drag to reorder choice / }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
 
@@ -100,6 +109,7 @@ test.describe('custom-field choice keyboard reorder (#2190)', () => {
     await handle.focus()
     await page.keyboard.press('Space')
     await expect(page.getByText('Choice Red moved to position 1 of 3.')).toBeAttached()
+    await keyboardSensorAttached(page)
     await page.keyboard.press('Escape')
     await expect(page.getByText(/Reorder canceled\. Choice Red returned to position 1 of 3\./)).toBeAttached()
     await expect(page.getByRole('button', { name: 'Save field' })).toBeVisible()

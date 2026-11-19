@@ -164,6 +164,9 @@ type BoardViewName = "board" | "summary" | "history" | "analytics" | "lens";
  * The toolbar's tab strip. On a phone it is narrower than its tabs (#2348), so the active tab is scrolled
  * into view when the view changes and a right-edge fade shows that more tabs sit past the edge. The fade is a
  * mask (no color token needed) and only applies below 640px while the strip is scrolled short of its end.
+ * Every view's toolbar (Board, Summary, History, Analytics, Lens) renders its tabs through this strip
+ * (#2395): each view mounts its own toolbar, so a strip only in the board view never saw the active tab
+ * change, and the other views clipped a fifth (Lens) tab with no fade.
  */
 export function ViewTabStrip({ view, children }: { view: string; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -182,7 +185,20 @@ export function ViewTabStrip({ view, children }: { view: string; children: React
   }, [view, measure]);
   useEffect(() => {
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // A tab that mounts late (Lens waits on a connection and a flag) or changes width resizes the
+    // content without a scroll or window resize, so watch the strip and its content box (#2395).
+    // jsdom has no ResizeObserver; the listeners alone are the fallback.
+    let ro: ResizeObserver | undefined;
+    const el = ref.current;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+      if (el.firstElementChild) ro.observe(el.firstElementChild);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
   }, [measure]);
   return (
     <div
@@ -252,7 +268,7 @@ export function ViewToggle({
     </Tooltip>
   );
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex w-max items-center gap-1">
       {btn("Board", "board", "b", undefined, showLens && deemphasizeBoard)}
       {showLens && btn("Lens", "lens", "l")}
       {btn("Summary", "summary", "s")}
@@ -2885,9 +2901,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             the row never scrolls sideways. */}
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
           <div data-testid="board-toolbar" className="flex flex-wrap items-center gap-x-2 gap-y-1 flex-1 min-w-0 max-sm:contents">
-            <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
+            <ViewTabStrip view={view}>
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-            </div>
+            </ViewTabStrip>
             <div className="flex-1 max-sm:hidden" />
             {/* Inside its own Lens boundary: before the toolbar was split out of
                 LensView, all lens chrome sat inside the boundary below. Without
@@ -2925,9 +2941,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
+          <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-          </div>
+          </ViewTabStrip>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Summary">
@@ -2941,9 +2957,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
+          <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-          </div>
+          </ViewTabStrip>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Movement history">
@@ -2957,9 +2973,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="relative flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="min-h-10 shrink-0 bg-surface border-b border-line flex flex-wrap items-center gap-x-2 px-3">
-          <div className="min-w-0 max-w-full overflow-x-auto max-sm:w-full">
+          <ViewTabStrip view={view}>
             <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
-          </div>
+          </ViewTabStrip>
         </nav>
         {cardActionNotice}
         <SectionErrorBoundary section="Analytics">
