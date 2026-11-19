@@ -975,9 +975,10 @@ describe('sub-column and track chip contrast (#2278)', () => {
     expect(ratio(rgbOf(block, 'fg-secondary'), rgbOf(block, 'surface-hover'))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it.each([['dark', darkBlock, 1.4], ['light', lightBlock, 1.09]] as const)('%s theme: not-applicable chip fill reads against the card face', (_t, block, floor) => {
-    // The chip is identified by icon and words as well, so the fill is not the sole carrier. The floor sits just under
-    // today's ratio (1.41 dark, 1.096 light) so a token change that flattens the fill into the card face turns this red.
+  it.each([['dark', darkBlock, 1.3], ['light', lightBlock, 1.05]] as const)('%s theme: not-applicable chip fill reads against the card face', (_t, block, floor) => {
+    // The chip is identified by icon and words as well, so the fill is not the sole carrier. The floors (1.3 dark, 1.05
+    // light) only guard against the fill collapsing into the card face; they are not a design target. Today's ratios are
+    // 1.413 dark and 1.0955 light, so an unrelated small tweak to surface or surface-hover must not turn this red.
     expect(ratio(rgbOf(block, 'surface-hover'), rgbOf(block, 'surface'))).toBeGreaterThanOrEqual(floor)
   })
 
