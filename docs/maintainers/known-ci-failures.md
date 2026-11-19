@@ -150,8 +150,10 @@ IP.
 now resolves through `${DOCKERHUB_MIRROR}/<image>`, which defaults to the GitLab Dependency
 Proxy prefix
 (`${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`) and which the runner authenticates to
-automatically. The Dockerfiles take a `BASE_REGISTRY` build arg (default `docker.io/library`,
-unchanged for local/contributor builds) that CI's kaniko jobs point at the same mirror. The
+automatically, provided the runner host has no stale `gitlab.com` Docker credentials of its own
+(see the Access denied section below). The Dockerfiles take a `BASE_REGISTRY` build arg (default
+`docker.io/library`, unchanged for local/contributor builds) that CI's kaniko jobs point at the
+same mirror. The
 `.helm-drill-base` before_script logs the dind daemon itself in to
 `$CI_DEPENDENCY_PROXY_SERVER` (skipped when that's empty — see below), and
 `scripts/helm-install-drill.sh` / `scripts/helm-netpol-drill.sh` pull `kindest/node` and the
