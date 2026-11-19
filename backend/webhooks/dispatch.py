@@ -627,6 +627,7 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
     cursor = sub.cursor
     pending = cursor  # cursor value not yet written (skipped rows)
     recovered = False
+    delivered_here = False
     for payload in payloads:
         event_id = int(payload["id"])
         if not sub.wants(payload["event"]):
@@ -651,6 +652,17 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
         slot = result.limiter.acquire(sub.url_host)
         if slot is None:
             result.host_limited += 1
+            if not delivered_here:
+                # It got no turn, so it keeps its place in the run order: the
+                # stamp written above would put it behind every subscription
+                # that did deliver, and on a busy host the one that went first
+                # would go first again every run. Restored, it goes ahead of
+                # them next run, so subscriptions sharing a host take turns.
+                # One that delivered before the limit had its turn and keeps
+                # the new stamp.
+                WebhookSubscription.objects.filter(pk=sub_id, lease_token=token).update(
+                    last_scanned_at=sub.last_scanned_at
+                )
             break
         # The wall clock per row: the overlap can end during a run, and that is
         # not a reconfiguration, so the run carries on with the current secret.
@@ -675,6 +687,7 @@ def _deliver(sub_id: int, token, deadline: float, clock, result: RunResult):
             recovered = recovered or bool(sub.consecutive_failures)
             cursor = pending = event_id
             result.delivered += 1
+            delivered_here = True
             continue
         result.failed += 1
         if pending != cursor and _advance(sub_id, token, cursor, pending):

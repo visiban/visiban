@@ -70,6 +70,47 @@ class RateLimitTests(HostLimitBase):
         # Order held: the fourth row went out after the first three.
         self.assertGreater(rec3.calls[0]["row"]["id"], max(c["row"]["id"] for c in rec.calls))
 
+    def test_subscriptions_sharing_a_busy_host_take_turns(self):
+        # A holds three windows' worth, B one. Before the fix A went first in
+        # every window (its stamp always predated B's, which was re-stamped
+        # though it sent nothing), so B never advanced.
+        self.event_on(self.board, 9)
+        b_events = self.event_on(self.board2, 3)
+        b_start = self.sub2.cursor
+        b_progress = []
+        for window in range(3):
+            with patch("webhooks.host_limits.time.time", return_value=7_000_000.0 + 60 * window):
+                rec, result = self.run_all()
+            self.assertEqual(len(rec.calls), 3)
+            self.assertEqual(result.failed, 0)
+            b_progress.append(self.sub2.cursor)
+        self.assertGreater(b_progress[-1], b_start)
+        # B's turn came in the second window, and it caught up in it.
+        self.assertEqual(b_progress[0], b_start)
+        self.assertEqual(b_progress[1], b_events[-1].pk)
+        self.assertEqual(self.sub.consecutive_failures + self.sub2.consecutive_failures, 0)
+
+    def test_a_subscription_that_delivered_before_the_limit_keeps_its_new_stamp(self):
+        self.event_on(self.board, 5)
+        before = self.sub.last_scanned_at
+        with patch("webhooks.host_limits.time.time", return_value=7_100_000.0):
+            self.run_all()
+        self.assertNotEqual(self.sub.last_scanned_at, before)
+        self.assertIsNotNone(self.sub.last_scanned_at)
+
+    def test_a_subscription_stopped_before_any_delivery_keeps_its_previous_stamp(self):
+        self.event_on(self.board, 3)
+        self.event_on(self.board2, 3)
+        with patch("webhooks.host_limits.time.time", return_value=7_200_000.0):
+            self.run_all()
+        # The first in order used the minute; the other sent nothing and keeps
+        # its place (never scanned), so it goes first next run.
+        stamped = [s for s in (self.sub, self.sub2) if s.last_scanned_at is not None]
+        waiting = [s for s in (self.sub, self.sub2) if s.last_scanned_at is None]
+        self.assertEqual(len(stamped), 1)
+        self.assertEqual(len(waiting), 1)
+        self.assertEqual(dispatch._due_ids(dispatch.timezone.now())[0], waiting[0].pk)
+
     def test_hosts_are_counted_separately(self):
         WebhookSubscription.objects.filter(pk=self.sub2.pk).delete()
         other = self.sub2 = make_subscription(self.board2, self.admin, url=OTHER_URL)

@@ -41,18 +41,23 @@ Shared fate, by design
 ----------------------
 The budget is per receiver, not per board: it protects the receiver, which
 sees one stream whoever sent it. So a board whose webhooks use a host's whole
-budget delays other boards' webhooks to that host too, by a run or so, never
-by a failure: a waiting subscription is first in line on the next run (least
-recently scanned), and each subscription is still bounded by the per-board,
-per-user and server caps and ``WEBHOOK_MAX_EVENTS_PER_RUN``. Operators who
+budget delays other boards' webhooks to that host too, never by a failure.
+Runs take subscriptions least recently scanned first, and a delivery stamps the
+subscription to the back of that order. A subscription the limit stopped before
+it delivered anything keeps its previous stamp (``dispatch._deliver``), so it
+moves up one place each time a subscription ahead of it takes a turn: the
+subscriptions sharing a busy host take turns, and each waits for at most one
+turn from each subscription ahead of it in that order. A turn is not an equal
+share: one subscription's turn can use the whole minute, bounded by the
+per-board, per-user and server caps and ``WEBHOOK_MAX_EVENTS_PER_RUN``. Operators who
 need more headroom for a shared receiver raise ``WEBHOOK_HOST_MAX_PER_MINUTE``. The host is
 hashed in the cache key so the key never carries the destination in plain text
 (Valkey ``MONITOR``, a key dump).
 
 A host that is at its limit is not a failed delivery: the subscription stops for
 this run with its cursor where it is, no failure is counted and no backoff is
-set, so it is first in line (least recently scanned) on a later run. Order
-holds because nothing after the row that waited is sent before it.
+set. If it sent nothing this run it keeps its place in the run order (see
+above). Order holds because nothing after the row that waited is sent before it.
 """
 
 from __future__ import annotations
