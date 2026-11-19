@@ -469,3 +469,36 @@ describe('CardPeekPopover — threshold words (#1122)', () => {
     expect(screen.getByTestId('card-peek-custom-fields')).toHaveTextContent('Spend: 12 (Warning: at or above 10)')
   })
 })
+
+// #2391 / #2399 (owner decision): the hover peek carries the due date and the labels
+// the calm face leaves off (an on-track date at Comfortable, labels at Dense).
+describe('CardPeekPopover — due date and labels rows', () => {
+  const rect = { top: 100, left: 50, bottom: 160, right: 250, width: 200, height: 60, x: 50, y: 100, toJSON: () => {} } as DOMRect
+  const peek = (card: Card) =>
+    render(<CardPeekPopover card={card} anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
+
+  it('shows the due date in words with the ISO date in its title', () => {
+    peek(makeCard({ due_date: '2026-01-15' }))
+    const due = screen.getByTestId('card-peek-due')
+    expect(due).toHaveTextContent('Jan 15')
+    expect(due).toHaveAttribute('title', 'Due 2026-01-15')
+  })
+
+  it('lists every label as a named chip, in order', () => {
+    peek(makeCard({ labels: [
+      { id: 1, uid: 'l1', name: 'Renewal', color: '#10B981' },
+      { id: 2, uid: 'l2', name: 'a-very-long-label-name', color: '#8B5CF6' },
+    ] }))
+    const list = screen.getByRole('list', { name: 'Labels' })
+    const items = within(list).getAllByRole('listitem')
+    expect(items.map((i) => i.textContent)).toEqual(['Renewal', 'a-very-long-label-name'])
+    expect(items[1]).toHaveAttribute('title', 'a-very-long-label-name')
+    expect(items[0]).toHaveClass('cf-choice-badge')
+  })
+
+  it('omits both rows when the card has no due date and no labels', () => {
+    peek(makeCard())
+    expect(screen.queryByTestId('card-peek-due')).toBeNull()
+    expect(screen.queryByTestId('card-peek-labels')).toBeNull()
+  })
+})
