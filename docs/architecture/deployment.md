@@ -223,6 +223,8 @@ helm install visiban helm/visiban \
 | `backend.settings.gitLensEnabled` | `false` | Renders `GIT_LENS_ENABLED=true`, enabling the [Issue Board Lens](../features/issue-board-lens.md) (adds the `git_lens` tables; added in 1.3) |
 | `backend.settings.webhooksEnabled` | `false` | Renders `WEBHOOKS_ENABLED=true`, enabling [outbound webhooks](../features/webhooks.md). Also enable `webhooks.dispatcher.enabled`, or nothing is delivered. Refused together with `demo.enabled` (added in 1.3) |
 | `backend.settings.webhookAllowedPrivateTargets` | `""` | `WEBHOOK_ALLOWED_PRIVATE_TARGETS`: comma-separated private hostnames, IPs or CIDRs webhooks may target (added in 1.3) |
+| `backend.settings.webhookHostMaxPerMinute` | `120` | `WEBHOOK_HOST_MAX_PER_MINUTE`: webhook deliveries per minute to one destination host, shared by every board on the instance; raise it for a hosted receiver many boards use. `0` turns the limit off (added in 1.3; see [Limits and tuning](../features/webhooks.md#limits-and-tuning)) |
+| `backend.settings.webhookHostMaxConcurrency` | `2` | `WEBHOOK_HOST_MAX_CONCURRENCY`: webhook deliveries in flight at once to one destination host, across dispatchers. `0` turns the limit off (added in 1.3) |
 | `webhooks.dispatcher.enabled` | `false` | Runs the single-replica dispatcher Deployment, `manage.py dispatch_webhooks --loop` (added in 1.3) |
 | `webhooks.dispatcher.interval` | `15` | Seconds between dispatcher runs |
 | `webhooks.dispatcher.resources` | see `values.yaml` | CPU and memory requests and limits for the dispatcher pod |

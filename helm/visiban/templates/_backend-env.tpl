@@ -253,6 +253,19 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   value: {{ $ctx.Values.backend.settings.webhookAllowedPrivateTargets | quote }}
 {{- end }}
 {{- /*
+  Per-destination-host webhook limits (#2055). Rendered whenever set, 0
+  included (0 turns a limit off); a key missing under --reuse-values renders
+  nothing and the backend keeps its own default, which matches values.yaml.
+*/}}
+{{- if not (kindIs "invalid" $ctx.Values.backend.settings.webhookHostMaxPerMinute) }}
+- name: WEBHOOK_HOST_MAX_PER_MINUTE
+  value: {{ $ctx.Values.backend.settings.webhookHostMaxPerMinute | int | toString | quote }}
+{{- end }}
+{{- if not (kindIs "invalid" $ctx.Values.backend.settings.webhookHostMaxConcurrency) }}
+- name: WEBHOOK_HOST_MAX_CONCURRENCY
+  value: {{ $ctx.Values.backend.settings.webhookHostMaxConcurrency | int | toString | quote }}
+{{- end }}
+{{- /*
   NUM_PROXIES (#1180, #1951). An explicit operator value always wins. When it
   is unset, the chart's Ingress is enabled and the frontend Service is
   ClusterIP (so traffic only reaches it through the ingress), the hop count is two: this
