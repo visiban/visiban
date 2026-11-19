@@ -2,8 +2,8 @@ import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth } from './helpers'
 import { BOARD_FULL, CARD, CARD_STALE } from './fixtures/board'
 
-// #1843 — where a stale card has no `Stale · Nd` badge (every compact card,
-// dense density), its title starts with the AgingCue stage glyph instead. It
+// #1843 — where a stale card has no `Stale Nd` status line (every compact card), its
+// title starts with the AgingCue stage glyph instead. It
 // must not change the card's height (the issue's constraint), so the title's
 // line box is measured, not just the glyph's presence.
 // #1863 — the yellow warning stage never shows the badge, so it gets the same

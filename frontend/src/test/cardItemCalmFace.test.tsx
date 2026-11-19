@@ -178,6 +178,21 @@ describe('CardItem — omitted metadata stays in the accessible name (#2279)', (
     expect(screen.queryByText(/✓/)).toBeNull()
   })
 
+  it('Dense keeps the due date in words on a stale card: only an overdue or due-soon status carries it', () => {
+    const stale = render(
+      <CardItem
+        card={makeCard({ is_stale: true, due_date: '2099-01-15', last_moved_at: new Date(Date.now() - 39 * 86_400_000).toISOString() })}
+        density="dense"
+      />,
+    )
+    expect(stale.container.querySelector('[data-testid="card-status-line"]')?.getAttribute('data-status-kind')).toBe('stale')
+    expect(stale.container.querySelector('[data-testid="card-dense-sr"]')?.textContent).toContain('Due ')
+    stale.unmount()
+    // An overdue status already says the date, so the words do not repeat it.
+    const overdue = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
+    expect(overdue.container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? '').not.toContain('Due ')
+  })
+
   it('Dense on a bare card adds no sr-only metadata text', () => {
     const { container } = render(
       <CardItem card={makeCard({ labels: [], weight: 1, attachment_count: 0, checklist_total: 0, checklist_done: 0 })} density="dense" />,

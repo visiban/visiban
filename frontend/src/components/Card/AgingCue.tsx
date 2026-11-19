@@ -3,14 +3,15 @@ import { staleBadgeToneClass, type AgingStage } from "../../utils/agingTint";
 /**
  * Non-color stage cue for an aging-tinted card (#1843, #1863, WCAG 1.4.1).
  *
- * The `Stale · Nd` badge only renders on non-compact cards at comfortable or
- * standard density, and only when no higher-priority urgency (overdue,
- * due-soon) preempts it. Everywhere else — every compact card, dense cards,
- * preempted badges — the aging tint was the only at-a-glance signal, so the
+ * A non-compact card says "Stale Nd" in its status line (every density: the
+ * short `Nd` at dense), unless an overdue or due-soon status takes that line.
+ * Everywhere else — every compact card, and a card whose status line is
+ * overdue or due-soon — the aging tint was the only at-a-glance signal, so the
  * stages differed by hue alone. The yellow `warning` stage never gets the
- * badge at all, so before #1863 it was told apart from a fresh card by hue and
- * opacity only. CardItem renders this glyph exactly when the card has an aging
- * tint and the badge is not visible.
+ * stale status at all, so before #1863 it was told apart from a fresh card by
+ * hue and opacity only. CardItem renders this glyph exactly when the card has
+ * an aging tint and the stale status line is not on the card; it is hidden
+ * whenever that status is stale, at every density.
  *
  * Shape, not text: a compact card is ~77px of content wide (two-column grid
  * in a 220px cell), so `41d` would eat half the title. Three ascending bars

@@ -465,12 +465,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const checklistSuffix = card.checklist_total > 0
     ? checklistFaceSuffix(card, checklistToday(userTimezone), currentUserId)
     : null;
-  // A manually blocked card takes the danger border (§ Cards: "High /
-  // blocked: border-danger-emphasis", #1149); a relation-only block keeps the
-  // priority border it has always had, so #449's card face is unchanged.
   // #2272, #2279: the face is calm: only an overdue card carries a colored
-  // border, and priority/blocked move into text (accessible name, the blocked
-  // indicator). The Classic preset id resolves to this face; there is no other.
+  // border. Priority and blocked (manual or by a relation) move into text (the
+  // accessible name, the blocked indicator) and draw no border of their own.
+  // The Classic preset id resolves to this face; there is no other.
   // #2272: the calm Dense tier is ONE row: title, short status, first pinned field (and the
   // assignee at the end). Everything else Dense used to carry moves to the hover peek.
   const denseRow = !compact && density === "dense";
@@ -501,19 +499,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     : "";
   const blockedLabel = isCardBlocked(card) ? blockedIndicatorLabel(card) : "";
 
-  // Worst-offender urgency badge (#961). Drives a single high-signal cue at
-  // comfortable / standard density instead of stacking due-date + recently-
-  // moved-dot + last-moved-text. Dense intentionally keeps the pre-1.1
-  // multi-cue layout — the urgency badge is a *replacement* for those cues at
-  // lower densities, not an addition on top of them.
+  // Worst-offender urgency (#961), computed for comfortable / standard only.
+  // Dense is the one-row calm face (#2272): it has no urgency badge, and its
+  // status and due date come from the status line and the sr-only text below.
+  // With a status line the badge only ever shows the calm "Just moved" cue.
   const urgency = density === "dense"
     ? null
     : classifyCardUrgency(
         { due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
       );
-  // Suppress the dedicated due-date pill at lower densities when the urgency
-  // badge is already carrying that information (overdue / due-soon). At dense
-  // the urgency badge is null so this is always false.
   // The status line (#2272) is the one place the status shows,
   // at every density: a text line under the metadata at Comfortable, inline in
   // the row at Standard, a short form at Dense. The compact layout keeps the
@@ -545,7 +539,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     if (card.checklist_total > 0) parts.push(`Checklist ${card.checklist_done} of ${card.checklist_total}`);
     if (card.attachment_count > 0) parts.push(`${card.attachment_count} attachment${card.attachment_count === 1 ? "" : "s"}`);
     if (card.weight > 1) parts.push(`Weight ${card.weight}`);
-    if (dueInfo && !status) parts.push(`Due ${dueInfo.label}`);
+    if (dueInfo && !(status?.kind === "overdue" || status?.kind === "due-soon")) parts.push(`Due ${dueInfo.label}`);
     if (externalRef) parts.push(`${PROVIDER_LABELS[externalRef.provider] ?? externalRef.provider} ${externalRef.ref}`);
     return parts.length > 0 ? `, ${parts.join(". ")}` : "";
   })();

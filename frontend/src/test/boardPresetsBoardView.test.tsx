@@ -273,7 +273,7 @@ describe('BoardView — board presets (#1146)', () => {
   describe('the classic id resolves to the redesigned board (#2279)', () => {
     // There is no Classic rendering: the id stays accepted in links and Board.default_preset,
     // and the board it names is the same grid a board with no preset renders. The per-density
-    // visual baseline is the Playwright screenshot spec (e2e/board-redesign-baseline.spec.ts).
+    // visual baseline is the Playwright screenshot spec (e2e/board-redesign.spec.ts).
     for (const card_density of ['comfortable', 'standard', 'dense'] as const) {
       it(`a ?preset=classic link on a ${card_density} board renders the same grid as no preset`, () => {
         const { unmount } = renderBoard(makeBoard({ card_density }))
