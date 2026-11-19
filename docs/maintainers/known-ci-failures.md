@@ -185,6 +185,52 @@ own `docker login "$CI_DEPENDENCY_PROXY_SERVER"` in `before_script` (guarded on 
 being non-empty) and a matching `docker logout` in `after_script` — see
 [CI Runners](ci-runners.md#dependency-proxy) for the full detail.
 
+## Image pull `HTTP Basic: Access denied` from the Dependency Proxy on one runner
+
+**Signature:** jobs fail with `failure_reason: runner_system_failure` in `prepare_executor`,
+before any script runs, and the log shows the runner using host credentials rather than the
+job's:
+
+```
+Authenticating with credentials from /root/.docker/config.json
+Pulling docker image gitlab.com:443/visiban/dependency_proxy/containers/node:22-alpine ...
+WARNING: Failed to pull image ... HTTP Basic: Access denied
+ERROR: Job failed: failed to pull image ...
+```
+
+Observed 2026-11-19 on `gitlab-runner-nuc-2-visiban` (runner id 56787877): about 35 jobs failed
+and reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.
+
+**Confirm it is one runner:** the identical job passes when it lands on a different runner, and
+the failures cluster on one `runner.description`:
+
+```bash
+glab api "projects/:id/jobs?scope[]=failed&per_page=60" \
+  | jq -r '.[] | select(.failure_reason=="runner_system_failure") | .runner.description' \
+  | sort | uniq -c
+```
+
+**Root cause:** the runner host's `/root/.docker/config.json` holds a stale `gitlab.com:443`
+(or `gitlab.com`) auth entry. GitLab Runner prefers credentials found there over the job-scoped
+`CI_DEPENDENCY_PROXY_*` credentials, so every Dependency Proxy pull uses the dead credential.
+This cannot be fixed in `.gitlab-ci.yml`, and a runner that shares a tag with healthy runners
+cannot be routed around.
+
+**Fix:**
+
+1. Pause the runner so jobs stop landing on it:
+   `glab api --method PUT runners/<id> -f paused=true`.
+2. On the host, inspect which registries have entries by listing the `auths` keys only
+   (`jq '.auths | keys' /root/.docker/config.json`). Never print the values; they are
+   credentials. Remove the stale `gitlab.com:443`/`gitlab.com` entry, or delete the file if
+   nothing else uses it.
+3. Unpause (`-f paused=false`) and confirm a `node:22-alpine` job such as `frontend-test`
+   passes on that runner.
+
+Retrying without the host fix only works when the job happens to land on a different runner; it
+re-fails every time the broken runner picks it up. See
+[CI Runners](ci-runners.md#dependency-proxy) point 2 for the runner-side precondition.
+
 ## `helm-publish`: `cosign sign` fails with `UNAUTHORIZED: authentication required`
 
 **Signature:** `helm-publish` job fails after `helm push` has already succeeded — the chart is
