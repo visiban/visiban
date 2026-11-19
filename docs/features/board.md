@@ -268,7 +268,7 @@ Columns, swimlanes, new card labels and a [group's shared labels](groups.md#grou
 
 ## Cards
 
-Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the end of the label row (at the bottom-right under Classic). Under the **Classic** [preset](#board-presets), cards keep their earlier colored priority border and urgency badge.
+Cards are calm so the urgent ones stand out. The bold title is the text before ` -- ` (a company name, for example) and the text after it is a subtitle at Comfortable density. Only an **overdue** card has a colored (red) border; every other card keeps a neutral border, and priority is read from the card's accessible name and the peek. The status line is the one place a card's status shows: **Overdue Nov 12** (red text, flag icon), **Stale 39d** (amber text, clock icon) or **Due in 3 days** (secondary text, flag icon). Every status carries words and an icon as well as color. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense; see [Card density](#card-density) below). The assignee avatar sits at the end of the label row. Every [preset](#board-presets), including **Classic**, shows this same card face; a preset changes only the density.
 
 ### Card density
 
@@ -280,14 +280,14 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 |---|---|---|
 | **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One status line (Overdue · Due soon · Stale) under the details, one primary label + `+N` overflow pill, checklist progress, assignee avatar |
 | **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the status line), weight pill (when `>1`), attachment count |
-| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, due date, weight and the rest move to the hover peek (Classic keeps the pre-1.1 layout) |
+| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | A single row: the title, a short status (*Overdue*, *Due soon* or *39d*) and the first pinned field with a value, with the assignee avatar at the end. Labels, checklist, attachments, weight, the reference link and the full due date are not drawn. A screen reader hears each of them in the card's name; the hover peek shows checklist progress, weight, attachments and the reference link, and opening the card shows the labels and the due date. Priority, the description icon, the moved-N-days text and the recently-moved dot are not drawn at Dense either |
 
 <a id="overdue"></a>**Overdue:** a card is overdue when it has a due date, that date is before today, and the card is still open: a card in a done column or an archived card is never overdue, and has no *Due soon* status either. "Today" is the date in the instance time zone (`INSTANCE_TIMEZONE`, UTC unless your administrator sets it; see [Instance time zone](../administration/configuration.md#instance-time-zone)), so a card due today is *Due soon* until midnight in that zone, then *Overdue*. The card's Overdue status line and border, the Show chips, the lane counts, the **Overdue** filter and [auto health status](health-status.md) use this rule (*changed in 1.3*, #2313: before, the card face called a card overdue from midnight UTC at the start of its due day, and kept the cue on cards in a done column). Three things still follow your personal time zone, pending #871: the due date's own label (*Due today*, *Due tomorrow*), the due pill's overdue color and glyph, and the **Due today** and **Due this week** filters, so around midnight a card can match neither **Overdue** nor **Due today**. The card list's `?overdue=` API filter applies only the date part, as it always has, so combine it with the column and archive filters for the full rule. The due-soon notification skips cards in a done column too (*changed in 1.3*).
 
 !!! note "Proposed, pending owner confirmation"
     These #2313 choices are implementer proposals, not settled decisions: a done or archived card is never overdue; a card due today reads *Due soon* until midnight in the instance zone; the instance zone is served to anonymous clients on site-config.
 
-**Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge. Under **Classic** or no preset the earlier urgency badge with ⚑ / ⏱ text symbols is kept.
+**Status line:** it picks the most urgent of Overdue, then Due soon (within 72 h), then Stale (server-flagged from the board's staleness threshold). At Comfortable it sits on its own row under the card's details; at Standard it shares the row with labels and fields; at Dense it shortens to *Overdue*, *Due soon* or the idle days (*39d*). A card that is on track has no status line. A "Just moved" (within 24 h) cue still appears as a small badge.
 
 ### Show chips
 
@@ -353,7 +353,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 |---|---|
 | Title | Required |
 | Description | Rich text with a toolbar (bold, italic, code, lists, heading, blockquote); stored as markdown. See [Card Descriptions](card-descriptions.md). |
-| Priority | `low` / `medium` / `high` / `urgent`; read from the card's accessible name and the peek (only overdue cards have a colored border; Dense shows an explicit badge) |
+| Priority | `low` / `medium` / `high` / `urgent`; read from the card's accessible name and the peek (only overdue cards have a colored border; no density draws a priority badge on the card) |
 | Assignee | Any board member |
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
 | Due date | Optional date; past dates are disabled in the picker; shown on the card in the status line (for example *Overdue Nov 12* or *Due in 3 days*) with a flag icon; only an overdue card has a colored (red) border |
@@ -529,7 +529,7 @@ The **Card layout** control in the toolbar's **View** menu switches between two 
 | Mode | Description |
 |---|---|
 | **Expanded** (default) | Full card face with title, label pills, assignee avatar, checklist progress, and a status line (only an overdue card has a colored border) |
-| **Compact** | Narrower cards showing title and priority indicator only — useful on dense boards with many cards per cell. An aging card's title starts with a small bar meter that shows its aging step, since compact cards have no `Stale · Nd` badge (see [Card aging tint](card-history.md#card-aging-tint)) |
+| **Compact** | Narrower cards showing the title, the assignee avatar and a blocked marker only; an overdue card adds a flag. On a board set to Dense density a priority badge and the recently-moved dot also appear. Useful on boards with many cards per cell. An aging card's title starts with a small bar meter that shows its aging step, since compact cards have no `Stale · Nd` badge (see [Card aging tint](card-history.md#card-aging-tint)) |
 
 The preference is stored per user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The control's `aria-pressed` state reflects the compact layout for screen reader users.
 
@@ -754,8 +754,8 @@ Two presets ship with Visiban:
 
 | Preset | What it sets |
 |---|---|
-| **Classic** | The board's own [card density](#card-density) and no overlay. There is no separate Classic look: the redesigned board is the board in 1.3, and Classic is the preset id that keeps a board's own density and no overlay. A board with no preset looks the same as Classic. |
-| **Default** | Standard density, no overlay, and the flag and stopwatch [urgency icons](#card-density). |
+| **Classic** | The board's own [card density](#card-density) and no overlay. There is no separate Classic look: the redesigned board is the board in 1.3, so the only visible difference between the two presets is density (Classic keeps the board's own, Default uses Standard). A board with no preset looks the same as Classic. |
+| **Default** | Standard density and no overlay. |
 
 Presets are built in; you cannot create or edit your own yet.
 
