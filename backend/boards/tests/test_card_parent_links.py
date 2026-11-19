@@ -12,7 +12,9 @@ from unittest.mock import patch
 
 from django.contrib import admin as django_admin
 from django.db import connection, connections, transaction
-from django.test import RequestFactory, TestCase, TransactionTestCase
+from django.contrib.messages import get_messages
+from django.test import Client, RequestFactory, TestCase, TransactionTestCase, override_settings
+from django.urls import reverse
 from rest_framework.test import APIClient
 
 from boards.admin import BoardAdmin, CardAdmin, _FlagFlipRefused
@@ -21,6 +23,7 @@ from boards.services import card_links
 from boards.services.feed import feed_queryset, serialize_feed_rows
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane, _make_user
 from boards.tests.lock_wait import assert_blocked_on_lock
+from boards.tests.test_admin_board_concurrent_edits import page_data
 
 Role = BoardMembership.Role
 HOLD_TIMEOUT = 10
@@ -439,6 +442,76 @@ class FlagFlipRefusalTests(_LinkFixture, TestCase):
         self.assertTrue(CardActivity.objects.filter(card=self.parent, event_type="child_unlinked").exists())
 
 
+    def test_django_admin_move_of_a_parent_unlinks_its_children(self):
+        other_board = _make_board(self.owner, name="Elsewhere", cards_can_have_children=True)
+        col, lane = _make_column(other_board), _make_swimlane(other_board)
+        request = RequestFactory().post("/")
+        request.user = self.owner
+        parent = Card.objects.get(pk=self.parent.pk)
+        parent.board, parent.column, parent.swimlane = other_board, col, lane
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            CardAdmin(Card, django_admin.site).save_model(request, parent, None, True)
+        self.assertFalse(CardParentLink.objects.exists())
+        self.assertTrue(Card.objects.filter(pk=self.child.pk, board=self.cboard).exists())
+        # Both cards record it, with no value naming the other card.
+        for card_id, event_type in ((self.child.pk, "parent_unlinked"), (self.parent.pk, "child_unlinked")):
+            row = CardActivity.objects.get(card_id=card_id, event_type=event_type)
+            self.assertEqual((row.from_value, row.to_value), ("", ""))
+        # The parent-side ping goes to the board the parent LEFT; the child's
+        # board gets its parent_changed.
+        self.assertEqual(
+            list(BoardEvent.objects.filter(board_id=self.pboard.pk).values_list("event", "data")),
+            [("card.children_changed", {"parent_id": self.parent.pk})],
+        )
+        self.assertEqual(
+            list(BoardEvent.objects.filter(board_id=self.cboard.pk).values_list("event", "data")),
+            [("card.parent_changed", {"card_ids": [self.child.pk]})],
+        )
+        self.assertFalse(
+            BoardEvent.objects.filter(
+                board_id=other_board.pk, event__in=["card.children_changed", "card.parent_changed"],
+            ).exists()
+        )
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class FlagFlipAdminFormTests(_LinkFixture, TestCase):
+    """The Django-admin change form turns a refused flip into a message."""
+
+    def setUp(self):
+        self._setup_boards()
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        root = _make_user("cpl_root")
+        root.is_staff = root.is_superuser = True
+        root.save()
+        self.web = Client()
+        self.web.force_login(root)
+        # The same pre-existing form quirk the other board admin tests work around.
+        Board.objects.filter(pk=self.pboard.pk).update(allowed_priorities=["low"])
+
+    def test_change_form_refuses_the_flip_with_a_message(self):
+        url = reverse("admin:boards_board_change", args=[self.pboard.pk])
+        page = self.web.get(url)
+        self.assertEqual(page.status_code, 200)
+        res = self.web.post(url, page_data(page, cards_can_have_children=False, name="Renamed"))
+        self.assertEqual(res.status_code, 302)
+        self.assertEqual(res["Location"], url)
+        [message] = list(get_messages(res.wsgi_request))
+        self.assertIn("card link(s) depend on it", str(message))
+        self.assertEqual(message.level_tag, "error")
+        board = Board.objects.get(pk=self.pboard.pk)
+        # The save rolled back whole: neither the flag nor the other field changed.
+        self.assertTrue(board.cards_can_have_children)
+        self.assertEqual(board.name, "Portfolio")
+        self.assertTrue(CardParentLink.objects.exists())
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.pboard.pk).exists())
+
+
 class LinkEventScopingTests(_LinkFixture, TestCase):
     """Link events are ids-only pings and the parent board never gets child events.
 
@@ -567,3 +640,47 @@ class ConcurrentLinkTests(_LinkFixture, TransactionTestCase):
         res = self._race("second", lambda: self._link(self._client(self.member), child=other_child))
         self.assertEqual(res.json()["code"], "children_on_other_board")
         self.assertEqual(CardParentLink.objects.count(), 1)
+
+    def test_link_waits_on_the_card_lock_of_an_unlink_holding_no_board_lock(self):
+        """The card-lock half of ``_lock_endpoints``.
+
+        An unlink takes no board locks, so only the parent card's row lock
+        makes this link wait. Without it the link reads the unlinked child's
+        row before the unlink commits and refuses with children_on_other_board;
+        with it, it reads after the commit and succeeds.
+        """
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        other_board, other_child = _board_with_card(
+            self.owner, parent_tier=False, name="Onboarding", title="O",
+        )
+        BoardMembership.objects.create(board=other_board, user=self.member, role=Role.MEMBER)
+        paused, release, results = threading.Event(), threading.Event(), {}
+        real = card_links._announce
+
+        def held(*args, **kwargs):
+            if threading.current_thread().name == "unlinker" and not paused.is_set():
+                paused.set()
+                release.wait(HOLD_TIMEOUT)
+            return real(*args, **kwargs)
+
+        with patch.object(card_links, "_announce", side_effect=held):
+            unlinker = self._thread("unlinker", lambda: self._client(self.member).delete(
+                f"/api/v1/boards/{self.cboard.pk}/cards/{self.child.pk}/parent/"
+            ), results)
+            self.assertTrue(paused.wait(HOLD_TIMEOUT), "unlink never reached its hold")
+            linker = self._thread(
+                "linker", lambda: self._link(self._client(self.member), child=other_child), results,
+            )
+            assert_blocked_on_lock(self, linker, "the link did not wait for the unlink's card lock")
+            release.set()
+            unlinker.join(HOLD_TIMEOUT)
+            linker.join(HOLD_TIMEOUT)
+        for name in ("unlinker", "linker"):
+            if isinstance(results.get(name), Exception):
+                self.fail(f"{name} raised {results[name]!r}")
+        self.assertEqual(results["unlinker"].status_code, 204)
+        self.assertEqual(results["linker"].status_code, 201, results["linker"].content)
+        self.assertEqual(
+            list(CardParentLink.objects.values_list("parent_id", "child_id")),
+            [(self.parent.pk, other_child.pk)],
+        )
