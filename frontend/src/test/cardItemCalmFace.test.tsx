@@ -142,14 +142,6 @@ describe('CardItem — calm face (#2272)', () => {
     expect(container.querySelector('[data-testid="card-status-line"]')).toBeNull()
   })
 
-  it('keeps the Classic border and title untouched', () => {
-    publishPreset('classic')
-    const { container } = render(<CardItem card={makeCard({ title: 'A -- B', priority: 'high' })} density="comfortable" />)
-    expect(root(container).style.borderColor).not.toBe('')
-    expect(screen.getByText('A -- B')).toBeInTheDocument()
-    expect(screen.queryByTestId('card-subtitle')).toBeNull()
-  })
-
   it('keeps an overdue compact card from resting on border color alone', () => {
     const { container } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" compact />)
     expect(container.querySelector('svg[data-testid="urgency-glyph-overdue"]')).not.toBeNull()

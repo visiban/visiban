@@ -49,9 +49,9 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(face()).toHaveAccessibleName(/Tint card\s*, Priority: medium/)
   })
 
-  it('due soon at comfortable: warning border', () => {
+  it('due soon at comfortable: no border, priority still in the accessible name', () => {
     render(<CardItem card={makeCard({ due_date: SOON })} density="comfortable" />)
-    expect(face().style.borderColor).toBe('rgb(var(--warning-emphasis))')
+    expect(face().style.borderColor).toBe('')
     expect(screen.getByTestId('card-priority-sr')).toHaveTextContent('Priority: high')
   })
 
@@ -66,22 +66,20 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(screen.queryByTestId('card-priority-sr')).toBeNull()
   })
 
-  it('stale alone keeps the priority border and adds no suffix', () => {
+  it('stale alone adds no border', () => {
     render(<CardItem card={makeCard({ is_stale: true, priority: 'high' })} density="comfortable" />)
-    expect(face().style.borderColor).not.toContain('--')
-    expect(screen.queryByTestId('card-priority-sr')).toBeNull()
+    expect(face().style.borderColor).toBe('')
   })
 
-  it.each(['standard', 'dense'] as const)('%s density is unchanged for an overdue card', (density) => {
+  it.each(['standard', 'dense'] as const)('%s density carries the danger border and states priority in text for an overdue card', (density) => {
     render(<CardItem card={makeCard({ due_date: OVERDUE })} density={density} />)
-    expect(face().style.borderColor).not.toContain('--')
-    expect(screen.queryByTestId('card-priority-sr')).toBeNull()
+    expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
+    expect(screen.getByTestId('card-priority-sr')).toHaveTextContent('Priority: high')
   })
 
-  it('compact layout is not tinted', () => {
+  it('compact layout keeps the overdue danger border', () => {
     render(<CardItem card={makeCard({ due_date: OVERDUE })} density="comfortable" compact />)
-    expect(face().style.borderColor).not.toContain('--')
-    expect(screen.queryByTestId('card-priority-sr')).toBeNull()
+    expect(face().style.borderColor).toBe('rgb(var(--danger-emphasis))')
   })
 
   it('current card keeps its primary ring while the priority suffix is still emitted', () => {

@@ -67,17 +67,6 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.queryByTitle(/Sprint/)).not.toBeInTheDocument();
   });
 
-  it("renders a ghost chip for an unset pinned field at dense density", () => {
-    render(
-      <CardItem
-        card={makeCard({ custom_field_values: [] })}
-        customFieldDefinitions={[makeDefinition()]}
-        density="dense"
-      />
-    );
-    expect(screen.getByTitle("Sprint: not set")).toBeInTheDocument();
-  });
-
   it.each(["text", "number", "date"] as const)("keeps an empty pinned %s field hidden with quick edit on, at comfortable and standard", (field_type) => {
     for (const density of ["comfortable", "standard"] as const) {
       const { unmount } = render(
@@ -616,20 +605,6 @@ describe("CardItem — chip clipping, not overlap, when the card face is narrow 
     expect(chip.className).not.toMatch(/\bshrink-0\b/);
   });
 
-  it("gives the ghost/unset chip at dense density the same overflow-hidden, no-shrink-0 outer treatment and a min-w-0 name span", () => {
-    render(
-      <CardItem
-        card={makeCard({ custom_field_values: [] })}
-        customFieldDefinitions={[makeDefinition()]}
-        density="dense"
-      />
-    );
-    const chip = screen.getByTitle("Sprint: not set");
-    expect(chip).toHaveClass("overflow-hidden");
-    expect(chip.className).not.toMatch(/\bshrink-0\b/);
-    const nameSpan = screen.getByText("Sprint");
-    expect(nameSpan).toHaveClass("truncate", "min-w-0");
-  });
 });
 
 describe("CardItem — avatar positioned against the content wrapper, not the metadata row (#1411)", () => {
@@ -644,7 +619,7 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     vi.mocked(Avatar).mockImplementation((() => null) as unknown as typeof Avatar);
   });
 
-  it("renders the avatar bottom-right, absolutely positioned, as a sibling of the metadata row rather than inside it", () => {
+  it("renders the avatar after the metadata row in the same flex wrapper (#2272)", () => {
     const { container } = render(
       <CardItem
         card={makeCard({
@@ -665,17 +640,26 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(screen.getByTitle("Stage: Beta")).toBeInTheDocument();
 
     const avatarStub = screen.getByTestId("avatar-stub");
+    const row = container.querySelector('[data-testid="card-metadata-row"]')!;
+    expect(row).not.toBeNull();
+    // A sibling of the row inside the shared wrapper, in flow rather than positioned.
+    expect(row.contains(avatarStub)).toBe(false);
+    expect(avatarStub.parentElement).toBe(row.parentElement);
+    expect(avatarStub.className).not.toMatch(/\babsolute\b/);
+  });
+
+  it("the compact layout keeps the avatar bottom-right, absolutely positioned (#1411)", () => {
+    render(
+      <CardItem
+        card={makeCard({ assignee: { id: 9, username: "jordan", display_name: "Jordan", avatar_url: "" } })}
+        customFieldDefinitions={[]}
+        compact
+      />
+    );
+    const avatarStub = screen.getByTestId("avatar-stub");
     expect(avatarStub.className).toMatch(/\babsolute\b/);
     expect(avatarStub.className).toMatch(/\bbottom-1\.5\b/);
     expect(avatarStub.className).toMatch(/\bright-1\.5\b/);
-
-    // The row (identified by its data-testid)
-    // must not contain the avatar — it is now a sibling of the row,
-    // positioned against the content wrapper instead.
-    const row = container.querySelector('[data-testid="card-metadata-row"]')!;
-    expect(row).not.toBeNull();
-    expect(row.querySelector('[data-testid="avatar-stub"]')).toBeNull();
-    expect(avatarStub.parentElement).not.toBe(row);
   });
 
   it("still renders an (empty) metadata row when the card has only an assignee, with min-h-5 + pr-7 reserving the avatar's footprint (#1411 ux-review blocker)", () => {
@@ -698,8 +682,8 @@ describe("CardItem — avatar positioned against the content wrapper, not the me
     expect(screen.getByTestId("avatar-stub")).toBeInTheDocument();
     const row = container.querySelector('[data-testid="card-metadata-row"]');
     expect(row).not.toBeNull();
-    expect(row).toHaveClass("min-h-5");
-    expect(row).toHaveClass("pr-7");
+    // The avatar sits at the end of the row, so the row reserves no footprint for it.
+    expect(row).not.toHaveClass("pr-7");
   });
 
   it("does not reserve avatar space (min-h-5 / pr-7) on the metadata row when the card has no assignee (#1411)", () => {

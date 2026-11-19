@@ -81,14 +81,15 @@ describe('AgingCue on cards without a visible Stale badge (#1843)', () => {
     expect(screen.queryByText(/^Stale · /)).not.toBeInTheDocument()
   })
 
-  it('non-compact dense stale card shows the cue (dense has no badge)', () => {
-    renderAged(45.5, {}, { compact: false })
-    expect(screen.getByRole('img', { name: /at least 3 times/ })).toBeInTheDocument()
+  it('non-compact dense stale card shows the status line, not the cue', () => {
+    const { container } = renderAged(45.5, {}, { compact: false })
+    expect(screen.getByTestId('card-status-line')).toHaveAttribute('data-status-kind', 'stale')
+    expect(cue(container)).toBeNull()
   })
 
   it('non-compact comfortable card with the Stale badge visible has no cue', () => {
     const { container } = renderAged(30.5, {}, { density: 'comfortable', compact: false })
-    expect(screen.getByText('Stale · 30d')).toBeInTheDocument()
+    expect(screen.getByTestId('card-status-line')).toHaveAttribute('data-status-kind', 'stale')
     expect(cue(container)).toBeNull()
   })
 

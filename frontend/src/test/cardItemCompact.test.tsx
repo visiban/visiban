@@ -71,7 +71,7 @@ describe('CardItem — compact vs expanded rendering', () => {
   })
 
   it('title uses line-clamp-2 in expanded mode', () => {
-    const { container } = render(<CardItem density="dense" card={makeCard()} compact={false} />)
+    const { container } = render(<CardItem density="comfortable" card={makeCard()} compact={false} />)
     const titleEl = container.querySelector('p.line-clamp-2')
     expect(titleEl).toBeInTheDocument()
     expect(titleEl).toHaveTextContent('Test Card Title')
@@ -131,7 +131,7 @@ describe('CardItem — compact vs expanded rendering', () => {
     const card = makeCard({
       labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     })
-    render(<CardItem density="dense" card={card} compact={false} />)
+    render(<CardItem density="standard" card={card} compact={false} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
   })
 
@@ -142,12 +142,6 @@ describe('CardItem — compact vs expanded rendering', () => {
     expect(container.querySelector('svg[aria-label="Has description"]')).not.toBeInTheDocument()
   })
 
-  it('description icon is shown in expanded mode when description is present', () => {
-    const card = makeCard({ description: 'Some description text' })
-    const { container } = render(<CardItem density="dense" card={card} compact={false} />)
-    expect(container.querySelector('svg[aria-label="Has description"]')).toBeInTheDocument()
-  })
-
   it('checklist indicator is hidden in compact mode', () => {
     const card = makeCard({ checklist_total: 3, checklist_done: 1 })
     render(<CardItem density="dense" card={card} compact />)
@@ -156,7 +150,7 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('checklist indicator is shown in expanded mode', () => {
     const card = makeCard({ checklist_total: 3, checklist_done: 1 })
-    render(<CardItem density="dense" card={card} compact={false} />)
+    render(<CardItem density="standard" card={card} compact={false} />)
     expect(screen.getByText('✓1/3')).toBeInTheDocument()
   })
 
@@ -168,7 +162,7 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('attachment count is shown in expanded mode', () => {
     const card = makeCard({ attachment_count: 2 })
-    render(<CardItem density="dense" card={card} compact={false} />)
+    render(<CardItem density="standard" card={card} compact={false} />)
     expect(screen.getByText('📎2')).toBeInTheDocument()
   })
 
@@ -180,7 +174,7 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('due date is shown in expanded mode', () => {
     const card = makeCard({ due_date: '2026-01-15' })
-    render(<CardItem density="dense" card={card} compact={false} />)
+    render(<CardItem density="standard" card={card} compact={false} />)
     expect(screen.getByText('Jan 15')).toBeInTheDocument()
   })
 
@@ -192,13 +186,6 @@ describe('CardItem — compact vs expanded rendering', () => {
     expect(screen.queryByText('moved 3 days ago')).not.toBeInTheDocument()
   })
 
-  it('moved text label is shown in expanded mode for cards moved ≥24h ago', () => {
-    const movedAt = new Date(Date.now() - 3 * 86_400_000).toISOString()
-    const card = makeCard({ last_moved_at: movedAt })
-    render(<CardItem density="dense" card={card} compact={false} />)
-    expect(screen.getByText('moved 3 days ago')).toBeInTheDocument()
-  })
-
   it('weight indicator is hidden in compact mode', () => {
     const card = makeCard({ weight: 5 })
     render(<CardItem density="dense" card={card} compact />)
@@ -207,7 +194,7 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('weight indicator is shown in expanded mode when weight > 1', () => {
     const card = makeCard({ weight: 5 })
-    render(<CardItem density="dense" card={card} compact={false} />)
+    render(<CardItem density="standard" card={card} compact={false} />)
     expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
   })
 
@@ -252,22 +239,9 @@ describe('CardItem — compact vs expanded rendering', () => {
     expect(container.querySelector('[title="Recently moved"]')).toBeInTheDocument()
   })
 
-  it('recently moved dot is shown in expanded mode', () => {
-    const recentlyMovedAt = new Date(Date.now() - 60_000).toISOString()
-    const card = makeCard({ last_moved_at: recentlyMovedAt, is_stale: false })
-    const { container } = render(<CardItem density="dense" card={card} compact={false} />)
-    expect(container.querySelector('[title="Recently moved"]')).toBeInTheDocument()
-  })
-
   it('priority badge for medium priority is shown in compact mode', () => {
     const card = makeCard({ priority: 'medium' })
     render(<CardItem density="dense" card={card} compact />)
-    expect(screen.getByTitle('Priority: medium')).toBeInTheDocument()
-  })
-
-  it('priority badge for medium priority is shown in expanded mode', () => {
-    const card = makeCard({ priority: 'medium' })
-    render(<CardItem density="dense" card={card} compact={false} />)
     expect(screen.getByTitle('Priority: medium')).toBeInTheDocument()
   })
 
@@ -358,13 +332,13 @@ describe('CardItem — open in the card detail sheet (#1914)', () => {
     expect(face.className).toContain('border-primary-emphasis')
     expect(face.className).toContain('ring-primary-emphasis')
     expect(face.className).toContain('ring-offset-2')
-    // The priority color would override the class; it steps aside while current.
+    // No priority-colored border exists on the calm face, so none to step aside.
     expect(face.style.borderColor).toBe('')
 
     rerender(<CardItem card={makeCard({ priority: 'urgent' })} />)
     expect(face).not.toHaveAttribute('aria-current')
     expect(face.className).not.toContain('border-2')
-    expect(face.style.borderColor).not.toBe('')
+    expect(face.style.borderColor).toBe('')
   })
 })
 
