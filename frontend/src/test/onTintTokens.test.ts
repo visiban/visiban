@@ -964,7 +964,7 @@ describe('failed offline banner: danger-on-tint on bg-danger-bg/30 (#2342)', () 
 // #2278: contrast of the sub-column / track-chip pairs (frontend/CLAUDE.md § Gated stages and tracks).
 // Chips sit on the card face (`surface`); the empty marker sits on `surface` or `surface-sunken`.
 describe('sub-column and track chip contrast (#2278)', () => {
-  // KNOWN GAP reported for the owner: --border-strong on surface is 1.93:1 dark and 2.56:1 light, under 3:1.
+  // SUPPRESSED-UNTIL(#2381): --border-strong on surface is 1.93:1 dark and 2.56:1 light, under 3:1; #2381 tracks the token fix.
   // The open chip also carries an icon and its words, so the border is not the only cue. `it.fails` keeps CI
   // green and turns red the day the token passes, so this gets promoted to a plain `it`.
   it.fails.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: open chip border is a 3:1 non-text boundary', (_t, block) => {
@@ -975,9 +975,10 @@ describe('sub-column and track chip contrast (#2278)', () => {
     expect(ratio(rgbOf(block, 'fg-secondary'), rgbOf(block, 'surface-hover'))).toBeGreaterThanOrEqual(4.5)
   })
 
-  it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: not-applicable chip fill reads against the card face', (_t, block) => {
-    // The chip is identified by icon and words as well, so the fill is not the sole carrier; record the ratio.
-    expect(ratio(rgbOf(block, 'surface-hover'), rgbOf(block, 'surface'))).toBeGreaterThanOrEqual(1)
+  it.each([['dark', darkBlock, 1.4], ['light', lightBlock, 1.09]] as const)('%s theme: not-applicable chip fill reads against the card face', (_t, block, floor) => {
+    // The chip is identified by icon and words as well, so the fill is not the sole carrier. The floor sits just under
+    // today's ratio (1.41 dark, 1.096 light) so a token change that flattens the fill into the card face turns this red.
+    expect(ratio(rgbOf(block, 'surface-hover'), rgbOf(block, 'surface'))).toBeGreaterThanOrEqual(floor)
   })
 
   it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: the empty sub-column marker (fg-muted) holds 4.5:1 on surface and surface-sunken', (_t, block) => {
