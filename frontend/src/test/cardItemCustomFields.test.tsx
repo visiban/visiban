@@ -67,6 +67,64 @@ describe("CardItem — pinned custom field chips (#371)", () => {
     expect(screen.queryByTitle(/Sprint/)).not.toBeInTheDocument();
   });
 
+  it("renders a ghost chip for an unset pinned field at dense density, on the one-row face (#2193, #2279)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition()]}
+        density="dense"
+      />
+    );
+    expect(screen.getByTitle("Sprint: not set")).toBeInTheDocument();
+    expect(screen.getByTestId("card-dense-row")).toContainElement(screen.getByTitle("Sprint: not set"));
+  });
+
+  it("at dense, an unset pinned dropdown is a quick-edit ghost that opens from the card face (#2193)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition({ id: 6, name: "Stage", field_type: "dropdown", choices: ["Alpha", "Beta"] })]}
+        density="dense"
+        boardId={1}
+        onCardUpdated={vi.fn()}
+        canEdit
+      />
+    );
+    const ghost = screen.getByRole("button", { name: "Stage: not set. Press Enter to edit." });
+    fireEvent.click(ghost);
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("at dense, an unset pinned checkbox ghost sets the value to Yes in one click (#2193)", async () => {
+    const updated = makeCard({ custom_field_values: [{ field_definition: 7, value: "true" }] });
+    vi.mocked(cardsApi.updateCard).mockResolvedValue(updated);
+    const onCardUpdated = vi.fn();
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition({ id: 7, name: "Approved", field_type: "checkbox" })]}
+        density="dense"
+        boardId={1}
+        onCardUpdated={onCardUpdated}
+        canEdit
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approved: not set. Press Enter to set it to Yes." }));
+    await waitFor(() => expect(onCardUpdated).toHaveBeenCalledWith(updated));
+  });
+
+  it("dense keeps one pinned chip: the first set field wins over a ghost for an earlier unset one", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 6, value: "9" }] })}
+        customFieldDefinitions={[makeDefinition({ id: 5, name: "Sprint", position: 0 }), makeDefinition({ id: 6, name: "Points", position: 1 })]}
+        density="dense"
+      />
+    );
+    expect(screen.getByTitle("Points: 9")).toBeInTheDocument();
+    expect(screen.queryByTitle("Sprint: not set")).not.toBeInTheDocument();
+  });
+
   it.each(["text", "number", "date"] as const)("keeps an empty pinned %s field hidden with quick edit on, at comfortable and standard", (field_type) => {
     for (const density of ["comfortable", "standard"] as const) {
       const { unmount } = render(
@@ -605,6 +663,20 @@ describe("CardItem — chip clipping, not overlap, when the card face is narrow 
     expect(chip.className).not.toMatch(/\bshrink-0\b/);
   });
 
+  it("gives the dense ghost chip the same overflow-hidden, no-shrink-0 outer treatment and a min-w-0 name span", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [] })}
+        customFieldDefinitions={[makeDefinition()]}
+        density="dense"
+      />
+    );
+    const chip = screen.getByTitle("Sprint: not set");
+    expect(chip).toHaveClass("overflow-hidden");
+    expect(chip.className).not.toMatch(/\bshrink-0\b/);
+    const nameSpan = screen.getByText("Sprint");
+    expect(nameSpan).toHaveClass("truncate", "min-w-0");
+  });
 });
 
 describe("CardItem — avatar positioned against the content wrapper, not the metadata row (#1411)", () => {

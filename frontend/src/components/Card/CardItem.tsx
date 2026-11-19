@@ -480,12 +480,15 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const denseRow = !compact && density === "dense";
   // A fragment outside the dense row, so every other face keeps its DOM byte for byte.
   const RowWrap: React.ElementType = denseRow ? "div" : Fragment;
-  const denseFieldId = denseRow
-    ? customFieldDefinitions
-        .filter((d) => d.show_on_card)
-        .sort((a, b) => a.position - b.position)
-        .find((d) => card.custom_field_values.some((v) => v.field_definition === d.id && v.value !== ""))?.id ?? null
-    : null;
+  // The one pinned field the Dense row carries: the first (by position) that has a
+  // value, else the first pinned field as a dashed ghost (#2193), so an unset
+  // dropdown or checkbox can still be set from the card face without a second row.
+  const denseFieldId = (() => {
+    if (!denseRow) return null;
+    const pinned = customFieldDefinitions.filter((d) => d.show_on_card).sort((a, b) => a.position - b.position);
+    const withValue = pinned.find((d) => card.custom_field_values.some((v) => v.field_definition === d.id && v.value !== ""));
+    return (withValue ?? pinned[0])?.id ?? null;
+  })();
   // The face puts the assignee avatar at the end of the label row; the
   // compact layout keeps the absolutely-positioned bottom-right avatar (#1411).
   const avatarInRow = !compact && !!card.assignee;
