@@ -2300,7 +2300,9 @@ Three optional, **display-only** settings on a `"number"` definition, on card an
   allowed.`), or `null` (`This field may not be null.`).
 - **Rendering (the web UI's rule, recommended for other clients):** a value that does not
   parse as a finite number is shown raw. With `number_decimals` `null`, the number is
-  shown **as typed** (`"+5"` → `$+5`, `"1e3"` → `$1e3`, no grouping). With it set, round
+  shown with its digits **as typed**, plus thousands grouping for a plain decimal
+  (`"33000"` → `$33,000`; *changed in 1.3*, #2387); a signed or exponent form stays as
+  typed (`"+5"` → `$+5`, `"1e3"` → `$1e3`). With it set, round
   to that many places with thousands grouping (`1e3` → `1,000`); values beyond 2^53 lose
   precision in the **display only** — the stored value is untouched. Then add the prefix
   and suffix verbatim, with a minus sign **before** the prefix (`-$5.00`).

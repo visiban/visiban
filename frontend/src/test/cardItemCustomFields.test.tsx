@@ -543,6 +543,12 @@ describe("CardItem — formatted number chips (#1391)", () => {
     // The name yields width first; the full grouped value stays in the title.
     expect(screen.getByText("Deal value:")).toHaveClass("truncate", "min-w-0");
     expect(screen.getByTitle("Deal value: $33,000")).toBeInTheDocument();
+    // The compact text is hidden from assistive tech, which hears the full value instead;
+    // an uncompacted value ("25%") has no sr-only twin.
+    expect(screen.getByText("$33k")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getAllByTestId("card-field-number-sr").map((el) => el.textContent)).toEqual(["$33,000"]);
+    expect(screen.getAllByTestId("card-field-number-sr")[0]).toHaveClass("sr-only");
+    expect(screen.getByText("25%")).not.toHaveAttribute("aria-hidden");
   });
 
   it("still slices an unformatted long number at 16 characters, as before", () => {

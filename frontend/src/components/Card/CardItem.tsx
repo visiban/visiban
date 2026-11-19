@@ -1201,9 +1201,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                           <span
                             className={`${isNumber ? "shrink-0 whitespace-nowrap" : "truncate min-w-0"} ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}
                             data-testid={isNumber ? "card-field-number" : undefined}
+                            // A compacted number ($33k) is spoken in full ($33,000) by
+                            // the sr-only twin below; `title` alone never reaches
+                            // keyboard, touch or most screen readers (#2387).
+                            aria-hidden={faceText !== displayText ? true : undefined}
                           >
                             {chipValueText(def, faceText, 16)}
                           </span>
+                          {faceText !== displayText && <span className="sr-only" data-testid="card-field-number-sr">{displayText}</span>}
                         </>
                       )}
                       {phrase && <span className="sr-only">, {phrase}</span>}

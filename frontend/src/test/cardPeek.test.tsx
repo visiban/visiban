@@ -477,11 +477,11 @@ describe('CardPeekPopover — due date and labels rows', () => {
   const peek = (card: Card) =>
     render(<CardPeekPopover card={card} anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
 
-  it('shows the due date in words with the ISO date in its title', () => {
+  it('shows the due date in words, with no raw ISO title', () => {
     peek(makeCard({ due_date: '2026-01-15' }))
     const due = screen.getByTestId('card-peek-due')
     expect(due).toHaveTextContent('Jan 15')
-    expect(due).toHaveAttribute('title', 'Due 2026-01-15')
+    expect(due).not.toHaveAttribute('title')
   })
 
   it('lists every label as a named chip, in order', () => {

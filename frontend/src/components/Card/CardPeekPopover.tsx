@@ -119,7 +119,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
           peek is where a hover reader sees them. Words only, no urgency tone:
           the face's status line owns overdue and due soon. */}
       {card.due_date && (
-        <p className="mt-2 text-xs text-fg-secondary" data-testid="card-peek-due" title={`Due ${card.due_date}`}>
+        <p className="mt-2 text-xs text-fg-secondary" data-testid="card-peek-due">
           {formatDueDate(card.due_date, userTimezone, userDateFormat).label}
         </p>
       )}
