@@ -12,7 +12,10 @@ This module is the ONE place that writes a link and the ONE place that
 computes a parent's children for a viewer (threat model, Rule 10). REST calls
 it today; MCP, export and the #2212 extension slot must call
 :func:`children_for_viewer` rather than querying ``CardParentLink`` on their
-own, so a second transport can never show more than REST does.
+own, so a second transport can never show more than REST does. In v1 links
+are absent from MCP and export; the parity test that pins that, a throttle on
+link writes and a perf-bench case for the children read are not built yet
+(tracked in #2383).
 
 **Why every read is per viewer:** a link crosses an authorization boundary.
 Whoever can open the parent board is not necessarily able to open the child
@@ -296,6 +299,10 @@ def unlink_all(card, *, actor=None, old_board_id=None):
     For paths that move a card to another board (the Django admin): a moved
     child would split its parent's one child board, and a moved parent could
     land on a child tier. Called inside the caller's transaction.
+
+    The caller already holds ``card``'s row lock, so :func:`remove_link`
+    locks the peer after it: a named lock-order residual (#2383), see
+    ``CardAdmin.save_model`` and ``docs/development/security-invariants.md``.
     """
     links = CardParentLink.objects.select_related("parent", "child").filter(
         Q(child_id=card.pk) | Q(parent_id=card.pk)

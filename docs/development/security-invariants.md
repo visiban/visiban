@@ -371,6 +371,7 @@ depend on whether a board id exists.
 | Board detail | `boards/views/boards.py` `BoardViewSet.get_queryset` | Queryset scoped to accessible boards (`get_accessible_boards_queryset`; a board is in it exactly when `get_board_role` returns a role), so `retrieve`, update, destroy and `star` answer `404` |
 | Media | `boards/views/media.py` `ServeMediaView` | `404` for a non-member |
 | MCP | `mcp_server/tools.py` | `404`-equivalent not-found result for inaccessible boards |
+| Cross-board card links (#1104) | `boards/services/card_links.py` `resolve_card_for_user`; `boards/views/cards.py` `CardViewSet.child_detail` | A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same `NotFound`, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same `404` for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. Tests: `boards/tests/test_card_parent_links.py` `test_missing_and_inaccessible_parent_ids_answer_identically`, `test_parent_side_unlink_without_child_board_role_is_the_missing_id_404` |
 
 ## Rule 8: Per-recipient event fields are gated on every broadcast and replay surface
 
@@ -428,13 +429,29 @@ each surface that delivers them:
   other detail of the other board is read over REST, through
   `boards/services/card_links.py` `children_for_viewer`, which resolves the
   reader's role on the child board on every request and returns a count only
-  when it resolves to none. Accepted residual (#1104, owner sign-off
+  when it resolves to none. Accepted residual (#2383; owner sign-off
   2026-11-17, epic #2206 decision H, expires 2027-05-31): the *timing* of these
   pings reaches every subscriber, change-feed reader and webhook of the
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed and a
   child-board reader learns when a card's parent link changed. To be
-  re-decided (gated per recipient, or closed) by that date;
+  re-decided (gated per recipient, or closed) by that date. Three of the
+  threat model's controls for these links are not built yet and are tracked in
+  the same issue, #2383: a throttle on link writes, a perf-bench case for the
+  children read, and the MCP/export parity test (Rule 10);
+- card-link lock order (recorded here beside the link-event residual, since
+  both concern the same writes). The link writes take "both boards, then both
+  cards, in pk order" (`boards/services/card_links.py` `_lock_endpoints`). Two
+  paths take the peer card's lock after their own card's instead: a
+  Django-admin move of a card to another board holds the moved card's row and
+  then `remove_link` (through `unlink_all`) locks the peer card
+  (`boards/admin.py` `CardAdmin.save_model`); and a card or container delete
+  holds the deleted cards' rows and then `announce_cards_removal` inserts the
+  peer's history row, which takes a key-share lock on the peer card. Accepted
+  residual (#2383, expires 2027-05-31): against a concurrent link write that
+  takes the opposite order, PostgreSQL aborts one of the two transactions with
+  a deadlock error; nothing commits half-done and nothing is disclosed. To be
+  re-decided (reordered, or closed) by that date;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.
@@ -561,6 +578,8 @@ fails closed.
 | MCP (access) | `mcp_server/tools.py` `_resolve_board`, `list_boards` | `_resolve_board` takes the role from `get_board_role`, and a missing board and an inaccessible board are answered alike (Rule 7). `list_boards` starts from `boards/views/_helpers.py` `get_accessible_boards_queryset`, the queryset `BoardViewSet.get_queryset` uses; the role comes from the shared `get_board_roles`, and a board with no resolved role is omitted. `mcp_server/tests/test_mcp.py` covers the listing |
 | MCP (output) | `mcp_server/tools.py` `board_snapshot`, `_serialize_user`, `_swimlanes_payload`, `_serialize_card` | Explicit allow-list shapes, not `BoardFullSerializer`; web-session-only fields (share token, share-link expiry and `share_link_active`, capabilities, members, current role) are absent (`test_mcp.py` `test_web_only_fields_are_never_exposed`); users carry only the REST user fields and no email; admin-only swimlane fields are included for admin roles only |
 | Change feed and board export | `boards/serializers.py` `BoardEventSerializer.to_representation`; `boards/views/import_export.py` `BoardImportExportMixin.export` | Rule 8 rows: per-reader field gating with the reader's role |
+| Cross-board card links: children read (#1104) | `boards/services/card_links.py` `children_for_viewer` | The one children read: REST `GET .../cards/{id}/children/` calls it, and any other transport (MCP, export, the #2212 extension slot) must call it rather than query `CardParentLink`. It resolves the reader's role on the child board with `get_board_roles` on every call and returns a count only when there is none. Tests: `boards/tests/test_card_parent_links.py` `ChildrenReadTests` |
+| Cross-board card links on MCP and export (#1104) | `mcp_server/tools.py` `_serialize_card`; `boards/views/import_export.py` | Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). The parity test that pins this to REST is not built yet, tracked in #2383 |
 | Outbound webhooks | `webhooks/dispatch.py` `_deliver`, `send_test` | A delivery is one change-feed row as `GET /boards/{id}/events/` returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863) |
 
 Coverage: `mcp_server/tests/test_mcp.py` (`UserFieldParityTests`, which pins

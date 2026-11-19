@@ -450,6 +450,15 @@ class CardAdmin(admin.ModelAdmin):
                 # (#1104): a moved child would split its parent's one child
                 # board, and a moved parent may land on a child tier. Both
                 # cards record the unlink, and both boards get the ping.
+                #
+                # Lock order (named residual, #2383): this holds the moved
+                # card's row, and ``remove_link`` then locks the peer card, so
+                # it is card-then-peer rather than the link writes' "both
+                # boards, then both cards, in pk order". Accepted: against an
+                # opposite-order link write PostgreSQL aborts one transaction
+                # with a deadlock error and neither commits a partial state.
+                # Re-locking in pk order here would mean releasing the moved
+                # card's lock mid-save. See docs/development/security-invariants.md.
                 if stored is not None and stored.board_id != obj.board_id:
                     from .services.card_links import unlink_all
 
