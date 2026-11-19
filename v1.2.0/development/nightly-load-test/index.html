@@ -3266,6 +3266,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#email-login-a-plan-check-not-a-latency-scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email login: a plan check, not a latency scenario
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#movements-history-plans-2237" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Movements history plans — #2237
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#card-search-plans-2063" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card search plans — #2063
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pooled-connections" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4456,7 +4489,7 @@
 <tr>
 <td>Board list</td>
 <td><code>GET /api/v1/boards/</code></td>
-<td>Run as the board owner (<code>demo1</code>) so the access query spans the 20-member board. Per-board member and card counts are independent correlated subqueries and the access filter no longer joins memberships (#1723). Budget 55ms (<a href="https://gitlab.com/visiban/visiban/-/issues/1767">#1767</a>)</td>
+<td>Run as the board owner (<code>demo1</code>) so the access query spans the 20-member board. Per-board member and card counts are independent correlated subqueries and the access filter no longer joins memberships (#1723). Budget 60ms (<a href="https://gitlab.com/visiban/visiban/-/issues/1767">#1767</a>)</td>
 </tr>
 <tr>
 <td>Board fetch</td>
@@ -4466,17 +4499,27 @@
 <tr>
 <td>Card search</td>
 <td><code>GET /api/v1/cards/?search=...</code></td>
-<td>The cross-board card query: access filter, a 51-row cursor page and a row-by-row substring filter. The substring filter uses the <code>ci_contains</code> lookup (<code>boards/lookups.py</code>), which renders <code>col ILIKE ...</code> on PostgreSQL so the <code>pg_trgm</code> GIN indexes from migration <code>0030_card_trigram_search_indexes</code> can serve it (<a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>); before that fix <code>icontains</code> rendered <code>UPPER(col) LIKE</code>, which they could not. On PostgreSQL 17 with 60k cards over 20 boards, the real query (<code>board_id IN (...)</code>, <code>ORDER BY updated_at DESC, id DESC</code>, <code>LIMIT 51</code>) plans a BitmapOr over both trigram indexes for a selective term (one run, laptop). Broad terms (e.g. <code>the</code>) and 1-2 character terms still seq-scan and may be slower than before: <code>ILIKE</code> folds case per row, while <code>icontains</code> evaluated <code>UPPER</code> on the constant once. Board search-as-you-type (<code>useCardSearch.ts</code>) has no minimum term length, so short terms always take that path. The <code>card_search</code> budget was measured before this change; re-deriving it and re-measuring broad and short terms is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/2063">#2063</a>. The <code>card_search</code> scenario runs as a one-board user, so it measures only the single-board plan; <code>card_search_multi_board</code> runs the same request as <code>demo3</code>, who can access 200 boards (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>; see <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">#1805</a>)</td>
+<td>The cross-board card query: access filter, a 51-row cursor page and a row-by-row substring filter. The substring filter uses the <code>ci_contains</code> lookup (<code>boards/lookups.py</code>), which renders <code>col ILIKE ...</code> on PostgreSQL so the <code>pg_trgm</code> GIN indexes from migration <code>0030_card_trigram_search_indexes</code> can serve it (<a href="https://gitlab.com/visiban/visiban/-/issues/1809">#1809</a>); before that fix <code>icontains</code> rendered <code>UPPER(col) LIKE</code>, which they could not. On PostgreSQL 17 with 60k cards over 20 boards, the real query (<code>board_id IN (...)</code>, <code>ORDER BY updated_at DESC, id DESC</code>, <code>LIMIT 51</code>) plans a BitmapOr over both trigram indexes for a selective term (one run, laptop). The budget was re-derived from a NUC run and the broad and short terms re-measured in <a href="https://gitlab.com/visiban/visiban/-/issues/2063">#2063</a>; see <a href="#card-search-plans-2063">Card search plans</a>. The <code>card_search</code> scenario runs as a one-board user, so it measures only the single-board plan; <code>card_search_multi_board</code> runs the same request as <code>demo3</code>, who can access 200 boards (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>; see <a href="#the-october-2026-card_search-and-notifications_unread-drift-1805">#1805</a>)</td>
 </tr>
 <tr>
 <td>Card search, many boards</td>
 <td><code>GET /api/v1/cards/?search=...</code> as <code>demo3</code></td>
-<td>The same query as above for a user with 200 accessible boards, which is expected to get PostgreSQL's scan-and-sort plan instead of the index walk (not confirmed on this fixture: no <code>EXPLAIN</code> was run). Budget 120ms, derived in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a></td>
+<td>The same query as above for a user with 200 accessible boards, which is expected to get PostgreSQL's scan-and-sort plan instead of the index walk (not confirmed on this fixture: no <code>EXPLAIN</code> was run). Budget 125ms, derived in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a></td>
 </tr>
 <tr>
 <td>Card timeline</td>
 <td><code>GET /api/v1/boards/{board_id}/cards/{id}/timeline/</code></td>
 <td>Exercises the composite indexes added in migration <code>0045_add_activity_comment_composite_indexes</code></td>
+</tr>
+<tr>
+<td>Card timeline with counts</td>
+<td><code>GET /api/v1/boards/{board_id}/cards/{id}/timeline/?include_counts=true</code> (<code>card_timeline_counts</code>)</td>
+<td>What the card detail sheet requests on every card open and every <code>card.version</code> change (<a href="https://gitlab.com/visiban/visiban/-/issues/967">#967</a>): the same page plus the per-group count queries. Measured but not gated until a NUC run assigns its budget (<a href="https://gitlab.com/visiban/visiban/-/issues/2195">#2195</a>)</td>
+</tr>
+<tr>
+<td>Board movements history</td>
+<td><code>GET /api/v1/boards/{id}/movements/</code> (<code>board_movements</code>, <code>board_movements_deep</code>, <code>board_movements_dated</code>)</td>
+<td>Board History: the first page, an offset three quarters into the history (derived from the first page's <code>count</code> at run time, so it stays deep when the fixture changes) and a page with <code>moved_after</code> set 30 days back. #1961 removed the window count and turned the date filter into a half-open datetime range; the query count stays 2 either way, so only latency can see it. Plans are in <a href="#movements-history-plans-2237">Movements history plans</a>. Measured but not gated until a NUC run assigns their budgets (<a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>)</td>
 </tr>
 <tr>
 <td>Notifications list</td>
@@ -4491,12 +4534,12 @@
 <tr>
 <td>Summary and Analytics</td>
 <td><code>GET /api/v1/boards/{id}/summary/</code>, <code>GET /api/v1/boards/{id}/analytics/</code></td>
-<td>Both replay movement history in Python since <a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>, for the cards relevant to their window: a query-count guard cannot see that cost. Measured but not gated until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigns their budgets</td>
+<td>Both replay movement history in Python since <a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>, for the cards relevant to their window: a query-count guard cannot see that cost. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
 </tr>
 <tr>
 <td>Flow metrics</td>
 <td><code>GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/</code></td>
-<td>Each replays the whole board's movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>), so cost grows with the board's movements, not with the requested range. Measured but not gated until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigns their budgets</td>
+<td>Each replays the whole board's movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>), so cost grows with the board's movements, not with the requested range. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
 </tr>
 </tbody>
 </table>
@@ -4539,7 +4582,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>--owner-token-file</code> and <code>--multi-board-token-file</code> have no default, and the script refuses to run without them. <code>board_list</code>'s 55ms budget was derived as the owner, whose access query spans all 20 memberships, so measuring it as <code>demo2</code> would compare a cheaper path against that budget and hide a regression. Measured as <code>demo2</code>, <code>card_search_multi_board</code> would time the one-board plan again and report a number that says nothing about the many-board plan.</p>
+<p><code>--owner-token-file</code> and <code>--multi-board-token-file</code> have no default, and the script refuses to run without them. <code>board_list</code>'s 60ms budget was derived as the owner, whose access query spans all 20 memberships, so measuring it as <code>demo2</code> would compare a cheaper path against that budget and hide a regression. Measured as <code>demo2</code>, <code>card_search_multi_board</code> would time the one-board plan again and report a number that says nothing about the many-board plan.</p>
 <p><strong>How it measures.</strong></p>
 <ul>
 <li>Per endpoint: 5 warmup requests (discarded), then 40 timed requests.</li>
@@ -4559,9 +4602,102 @@
 <p>It isn't a silent default. The self-test fails a scenario whose budget is null without a valid <code>#NNNN</code> reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.</p>
 <ul>
 <li>When the issue assigns the budget, replace <code>budget_p95_ms</code> and delete <code>pending_budget</code> in the same whole-file re-derivation.</li>
-<li>Pending now: <code>board_summary</code>, <code>board_analytics</code>, <code>flow_cycle_time</code>, <code>flow_throughput</code>, <code>flow_cumulative_flow</code>, <code>flow_wip_age</code>, <code>flow_dwell</code>, <code>flow_blocked</code>, <code>flow_attention</code> and <code>flow_swimlanes</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a> added the first six, #2260 the next three, #2266 the last), until <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a>; <code>card_list</code> and <code>cards_archived</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/2239">#2239</a> added the scenarios), until <a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>.</li>
+<li>Pending now: <code>card_timeline_counts</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2195">#2195</a>, and <code>board_movements</code>, <code>board_movements_deep</code> and <code>board_movements_dated</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>. All four were added after the last NUC run, so the next NUC run on <code>main</code> produces their numbers; re-derive the whole file from it.</li>
+<li>The flow, summary and analytics scenarios (<a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a>) and <code>card_list</code> and <code>cards_archived</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>) got their budgets from NUC job 18170442650 (the 2026-11-19 scheduled run on <code>main</code>). That derivation records p95 latency only: peak replay memory for the flow scenarios, also asked for in #2110, is not measured by this script.</li>
 <li>The first scenario to use this was <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario), which got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
 <li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
+</ul>
+<h2 id="email-login-a-plan-check-not-a-latency-scenario">Email login: a plan check, not a latency scenario<a class="headerlink" href="#email-login-a-plan-check-not-a-latency-scenario" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1298).</p>
+</blockquote>
+<p><code>user_email_upper_idx</code> (#1222) serves the <code>email__iexact</code> lookup that <code>resolve_login_user</code> runs on every email login. #1222's own test uses a 1-row table with <code>enable_seqscan = off</code>, which proves the index is usable, not that the planner picks it at a real size. A latency scenario can't cover it: a successful login is two password hashes (hundreds of ms), which hide the 2-3 ms a sequential scan costs at 20k users.</p>
+<p>So the <code>nightly-load-test</code> job ends with <code>scripts/check_email_login_plan.py --users 20000</code>. It tops the users table up to 20,000 rows and runs <code>ANALYZE</code> (after every latency scenario, so the extra users cannot move a budget), runs the real <code>resolve_login_user</code> with an email whose case differs from the stored one, captures the SQL it issues, and <code>EXPLAIN</code>s that statement with default planner settings. It fails unless the plan names <code>user_email_upper_idx</code> and has no sequential scan on <code>users</code>. A lookup rewritten to <code>LOWER</code> or <code>icontains</code> is what gets planned, because the SQL is captured, not copied. <code>--self-test</code> (run in <code>nightly-load-test-selftest</code> and before the real run) proves the verdict fires on a seq-scan plan and passes an index plan.</p>
+<p>Verified locally on PostgreSQL 17.11 with 20,000 users: with the index the plan is <code>Index Scan using user_email_upper_idx</code> (<code>resolve_login_user</code> p50 0.74ms, p95 1.41ms over 100 calls); with the index dropped it is <code>Seq Scan on users</code> (p50 4.27ms, p95 5.32ms) and the script exits 1.</p>
+<h2 id="movements-history-plans-2237">Movements history plans — #2237<a class="headerlink" href="#movements-history-plans-2237" title="Permanent link">&para;</a></h2>
+<p>Local run, PostgreSQL 17.11, the nightly fixture (<code>seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications</code>): 24,919 movements on the load-test board, dated 2026-08-25 to 2026-11-16, 7,265 of them in the last 30 days. <code>EXPLAIN (ANALYZE, BUFFERS)</code> on the statements the endpoint issues. The index <code>movement_board_moved_idx</code> is <code>(board_id, moved_at DESC)</code>, which is the <code>(board, -moved_at)</code> index #1961 refers to.</p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th>Page query</th>
+<th>Bare <code>COUNT</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First page</td>
+<td><code>Index Scan using movement_board_moved_idx</code>, <code>Index Cond: (board_id = 1)</code>, stops at 50 rows: 0.55ms execution, 380 buffer hits</td>
+<td><code>Seq Scan</code> on <code>card_movements</code>, <code>Filter: board_id = 1</code>, 24,919 rows: 2.5ms</td>
+</tr>
+<tr>
+<td>Deep offset (18,650)</td>
+<td>Same index scan, but it walks 18,700 index entries and joins each to the card and the other tables, then discards 18,650: 30.7ms execution, 26,088 buffer hits</td>
+<td>Same seq scan: 2.7ms</td>
+</tr>
+<tr>
+<td><code>moved_after</code> 30 days back</td>
+<td>Same index scan with <code>Index Cond: ((board_id = 1) AND (moved_at &gt;= '2026-10-20 00:00:00+00'))</code>, stops at 50 rows: 0.42ms</td>
+<td><code>Bitmap Heap Scan</code> through <code>card_movements_moved_at_ad79ac03</code> (<code>moved_at &gt;= ...</code>), 7,885 rows: 1.5ms</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>The index serves the datetime-range filter.</strong> The range sits in the <code>Index Cond</code> together with <code>board_id</code>, which is what the old <code>moved_at__date__gte</code> cast could not do (#1961).</li>
+<li><strong>Offset cost is linear in the offset.</strong> Deep pages cost 55 times the first page (30.7ms against 0.55ms) because the joins run before the offset is discarded. A page 18,650 rows in is unusual for a person, but a client that pages through everything pays it for every page.</li>
+<li><strong>The bare <code>COUNT</code> is a full scan of the board's movements.</strong> With one board in the table the planner is right to seq scan (every row matches); on a table of many boards it would use the index. It grows with the board's history, not with the filter, except when a date range is set.</li>
+<li><strong>The probe for rows with no <code>board</code></strong> (<code>board IS NULL AND card IS NOT NULL</code>, kept for rolling upgrades) is an index scan on the same index and takes 0.02ms.</li>
+<li>The row ordering is <code>moved_at</code> alone, with no tie-breaker. The seed writes many movements at the same instant, so pages can overlap or skip rows at ties; that is a product question, not a latency one, and isn't measured here (<a href="https://gitlab.com/visiban/visiban/-/issues/2400">#2400</a>).</li>
+</ul>
+<p>These are laptop numbers. They show the plans, not budgets: the budgets come from a NUC run.</p>
+<h2 id="card-search-plans-2063">Card search plans — #2063<a class="headerlink" href="#card-search-plans-2063" title="Permanent link">&para;</a></h2>
+<p>Local run, PostgreSQL 17.11, the nightly fixture (3,987 cards on 200 boards, not the 60k rows #2063 quotes). The statement is the endpoint's own (<code>board_id IN (...)</code>, <code>ORDER BY updated_at DESC, id DESC</code>, <code>LIMIT 51</code>), captured from the view.</p>
+<table>
+<thead>
+<tr>
+<th>Viewer and term</th>
+<th>Plan</th>
+<th>Execution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>demo2</code> (one board), <code>the</code> or <code>a</code></td>
+<td><code>Index Scan using card_board_updated_idx</code>, <code>Index Cond: (board_id = 1)</code>, <code>Filter: ... ~~* '%the%'</code>; stops after 52 rows, then an <code>Incremental Sort</code></td>
+<td>0.9ms</td>
+</tr>
+<tr>
+<td><code>demo2</code>, <code>zq</code> (no match)</td>
+<td><code>Index Scan using cards_board_id_e67672f3</code>, filter on both <code>ILIKE</code>s, <code>Rows Removed by Filter: 2395</code></td>
+<td>5.0ms</td>
+</tr>
+<tr>
+<td><code>demo2</code>, <code>Q3 roadmap</code> (selective, no match)</td>
+<td><code>BitmapOr</code> of <code>card_title_trgm_idx</code> and <code>card_desc_trgm_idx</code>, then <code>Bitmap Heap Scan</code></td>
+<td>0.18ms</td>
+</tr>
+<tr>
+<td><code>demo3</code> (200 boards), <code>the</code> or <code>a</code></td>
+<td><code>Seq Scan on cards</code> (3,980 rows, <code>board_id = ANY (...)</code>), top-N heapsort</td>
+<td>scans every row</td>
+</tr>
+<tr>
+<td><code>demo3</code>, <code>zq</code></td>
+<td><code>Seq Scan on cards</code>, 3,987 rows removed</td>
+<td>scans every row</td>
+</tr>
+<tr>
+<td><code>demo3</code>, <code>Q3 roadmap</code></td>
+<td><code>BitmapOr</code> of both trigram indexes</td>
+<td>index lookup only</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>A broad term is not slower for the one-board viewer.</strong> The index walk in <code>updated_at</code> order finds 51 matches in 52 rows. The only slow case there is a term that matches nothing and isn't selective enough for the trigram indexes (<code>zq</code>, two characters, 5ms).</li>
+<li><strong>The many-board viewer scans the table for any broad term.</strong> This is the scan-and-sort plan #1805 expected for that viewer, and the <code>card_search_multi_board</code> scenario times it. This run did not compare it with a pre-#1809 build.</li>
+<li><strong><code>ILIKE</code> against <code>UPPER(col) LIKE UPPER('%term%')</code>, per row.</strong> Forcing a sequential scan (<code>enable_indexscan</code> and <code>enable_bitmapscan</code> off) over all 3,987 cards for <code>the</code>: median execution 7.3ms for <code>ILIKE</code>, 6.7ms for the old form, 7 runs each, about 8% more per row. That does not reproduce the 184ms against 112ms #2063 saw on 60k rows (64% more). The fixture here is 15 times smaller, so a per-row cost that shows only at scale, or at 60k's cache behavior, is not ruled out by this run. The 60k-row broad-term question is still open in <a href="https://gitlab.com/visiban/visiban/-/issues/2063">#2063</a>.</li>
+<li><strong>The <code>card_search</code> budget is unchanged at 105ms.</strong> It was re-derived from NUC job 18170442650 (measured p95 73.2ms against 73.1ms before), so <code>ILIKE</code> and the trigram indexes did not move the one-board number.</li>
 </ul>
 <h2 id="pooled-connections">Pooled connections<a class="headerlink" href="#pooled-connections" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -4633,7 +4769,7 @@ scheduled pipeline run. See <a href="../ci-gates/">CI gate self-tests</a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Budgets are only valid on NUC runners</p>
 <p>Budgets are absolute milliseconds, so they only hold on the hardware they were measured
-on. The current baseline (job 17304593759, #1767) ran on <code>runner-04-NUC</code>; the one before it (job 16796708105, #1233) ran on <code>gitlab-runner-nuc-2-visiban</code>, and the job is
+on. The current baseline (job 18170442650, main @ f863f39ff, 2026-11-19) ran on <code>gitlab-runner-nuc-2-visiban</code>; earlier ones ran on <code>runner-04-NUC</code> (job 17304593759, #1767) and <code>gitlab-runner-nuc-2-visiban</code> (job 16796708105, #1233), and the job is
 pinned with <code>tags: [nuc]</code> (see <a href="../../maintainers/ci-runners/">CI Runners</a>). Before the
 pin, the 2026-10-08 scheduled run landed on <code>gitlab-runner-dell-01-visiban</code> and failed
 <code>card_timeline</code>, <code>notifications_list</code> and <code>notifications_unread</code> by 1.3-1.8x with no
@@ -4699,6 +4835,18 @@ derivation's (1210.5ms), so the #1800 backport doesn't show as a lowering on it.
 one run, and the two derivations ran on different runners (<code>runner-04-NUC</code> before), so
 it isn't a clean before/after of the code. <code>card_search_multi_board</code> p95 was 85.2ms against 73.1ms for the one-board
 <code>card_search</code>; no <code>EXPLAIN</code> was run on this fixture, so the plan is still unconfirmed.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Whole file re-derived on 2026-11-19 — #2195, #2237, #1298, #2110, #2063</p>
+<p>The whole file was re-derived on 2026-11-19 from job 18170442650 (the scheduled run on
+<code>main</code> at <code>f863f39ff</code>, on <code>gitlab-runner-nuc-2-visiban</code>, tag <code>nuc</code>). The flow, summary and
+analytics scenarios (#2110) and <code>card_list</code>/<code>cards_archived</code> (#2237) got their first
+budgets. <code>board_full</code> measured 824.5ms against 1227.5ms in the previous derivation, so its
+budget fell from 1720 to 1155ms; <code>card_search_multi_board</code> measured 89.1ms and went from 120
+to 125ms. The two derivations differ in commit and date, so the change is not attributed.
+<code>card_timeline_counts</code> (#2195) and the three <code>board_movements</code> scenarios (#2237) postdate the
+run and stay ungated (<code>pending_budget</code>) until the next re-derivation. The email login plan
+check (#1298) is not a latency scenario and has no budget.</p>
 </div>
 <h2 id="the-october-2026-board_full-drift-1800">The October 2026 <code>board_full</code> drift — #1800<a class="headerlink" href="#the-october-2026-board_full-drift-1800" title="Permanent link">&para;</a></h2>
 <p><strong>Verdict: a real regression, partly attributed and mitigated in code.</strong> The evidence is the local experiment below, not the CI history. Two parts:</p>
@@ -4784,7 +4932,7 @@ it isn't a clean before/after of the code. <code>card_search_multi_board</code> 
 <li><strong>Delete the module once the <code>Django</code> pin reaches 6.1.</strong></li>
 </ul>
 <p>The backport removes roughly a third to a half of the driver step, not all of it. The remainder is attributed in <a href="#the-remaining-driver-step-1807">the next section</a>. Expect <code>board_full</code> to settle above its level without psycopg 3, not back at it.</p>
-<p>The committed budget (1695ms) was derived from a run before this fix. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms and the budget is now 1720ms, higher than before, so the backport doesn't show as a lowering on that single sample. Never hand-edit it.</p>
+<p>The committed budget (1695ms) was derived from a run before this fix. <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a> re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms and the budget was then 1720ms, higher than before, so the backport doesn't show as a lowering on that single sample. The 2026-11-19 re-derivation (job 18170442650) measured 824.5ms and set it to 1155ms. Never hand-edit it.</p>
 <h3 id="the-remaining-driver-step-1807">The remaining driver step — #1807<a class="headerlink" href="#the-remaining-driver-step-1807" title="Permanent link">&para;</a></h3>
 <p><strong>Verdict: the remaining step comes from psycopg 3, from Django's timestamptz loader and from the garbage collector's response to psycopg 3. Nothing further was fixed in Visiban code. One in-app option is untried and tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1813">#1813</a>.</strong></p>
 <p>With the backport in place, psycopg 3 still made the local <code>board_full</code> mean about 45ms slower (7%): the median of the four per-round differences against psycopg2. The medians of the per-round means in the table at the end of this section give a larger 52ms (668ms against 720ms), because a median of differences isn't the difference of two medians. Every step and part here is a paired per-round median; every absolute time is a median of per-round means.</p>
@@ -5071,7 +5219,7 @@ it isn't a clean before/after of the code. <code>card_search_multi_board</code> 
 <p><strong>What the <code>card_search</code> scenario now measures, and what it doesn't.</strong></p>
 <ul>
 <li><strong>It measures only the single-board plan.</strong> The scenario runs as <code>demo2</code>, who can access one board, so after the fix it times the single-board index walk on <code>card_board_updated_idx</code>. The plan most multi-board users get (scan and sort, 13.5ms execution at 200 ids in the table above) isn't measured by this scenario. A budget derived from it can't see a regression on that path.</li>
-<li><strong><code>card_search_multi_board</code> measures the many-board plan.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added it: the same request as <code>card_search</code>, run as <code>demo3</code>, who owns 199 small extra boards (<code>--extra-boards 199</code>) and is a member of the load-test board, so the card SELECT filters on a 200-id literal list. Its budget is 120ms (<a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>, from NUC job 17348200339, measured p95 85.2ms). Don't hand-edit it.</li>
+<li><strong><code>card_search_multi_board</code> measures the many-board plan.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added it: the same request as <code>card_search</code>, run as <code>demo3</code>, who owns 199 small extra boards (<code>--extra-boards 199</code>) and is a member of the load-test board, so the card SELECT filters on a 200-id literal list. Its budget is 125ms (re-derived 2026-11-19 from NUC job 18170442650, measured p95 89.1ms; first set to 120ms in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>). Don't hand-edit it.</li>
 <li><strong>It never exercised the trigram indexes.</strong> Django's <code>icontains</code> renders as <code>UPPER(col) LIKE UPPER('%term%')</code>. The <code>card_title_trgm_idx</code> and <code>card_desc_trgm_idx</code> indexes from migration 0030 are on the bare columns, so PostgreSQL can't use them for that expression:</li>
 <li>Before the fix the plan is a sequential scan on <code>cards</code>.</li>
 <li>After the fix it's the index walk above.</li>
