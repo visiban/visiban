@@ -36,7 +36,8 @@ type Submenu = "move" | "assign" | "priority";
 const SUBMENU_IDS = new Set<CardActionId>(["move", "assign", "priority"]);
 
 // A card face's own scroll never moves the menu's trigger (#2397). At coarse pointer
-// the 44px ⋯ button overflows the face, so focusing it scrolls the face a pixel or two;
+// the 44px ⋯ button overflows the face (a follow-up, #2402, stops the overhang), so focusing
+// it scrolls the face a pixel or two;
 // when focus moves into the menu the button hides and the face scrolls back, which
 // would otherwise read as an outside scroll and close the menu the moment it opened.
 // Stable at module scope, so the placement hook does not re-subscribe every render.

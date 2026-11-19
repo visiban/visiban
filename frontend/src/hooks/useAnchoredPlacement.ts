@@ -226,6 +226,8 @@ interface Options {
    * have moved the trigger. The card menu passes card faces (#2397): a face clips its
    * 44px ⋯ button, so focusing the button scrolls the face a pixel or two and the
    * face scrolls back when focus moves into the menu and the button hides again.
+   * It ignores any scroll targeted at a matching element, so the anchor can be a few px
+   * stale if such an element genuinely scrolls.
    */
   ignoreScrollFrom?: (target: Element) => boolean;
   /** The anchor is a text input (#2163): see `PlacementInput.inputAnchored`. Use `useInputAnchoredPlacement`, which returns the cap. */

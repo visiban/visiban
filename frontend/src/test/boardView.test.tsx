@@ -2564,6 +2564,41 @@ describe('BoardView', () => {
       expect(within(strip).getByRole('button', { name: tab })).toHaveAttribute('aria-current', 'page')
     })
 
+    // #2395: a tab that mounts late or changes width resizes the strip's content with no scroll or
+    // window resize, so the fade re-measures from a ResizeObserver on the strip and its content.
+    it('the view tab strip re-measures its fade from a ResizeObserver', () => {
+      // Other components mount observers too: keep each callback with the elements it watches.
+      const callbacks = new Map<Element, () => void>()
+      const observed: Element[] = []
+      const disconnect = vi.fn()
+      vi.stubGlobal('ResizeObserver', class {
+        cb: () => void
+        constructor(cb: () => void) { this.cb = cb }
+        observe(el: Element) { observed.push(el); callbacks.set(el, this.cb) }
+        unobserve() {}
+        disconnect = disconnect
+      })
+      try {
+        const { unmount } = render(<BoardView {...defaultProps()} />)
+        const strip = screen.getByTestId('view-tab-strip')
+        const fire = () => act(() => callbacks.get(strip)!())
+        expect(strip).not.toHaveAttribute('data-fade')
+        expect(observed).toContain(strip)
+        expect(observed).toContain(strip.firstElementChild)
+        Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 400 })
+        Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 200 })
+        fire()
+        expect(strip).toHaveAttribute('data-fade', 'true')
+        Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 200 })
+        fire()
+        expect(strip).not.toHaveAttribute('data-fade')
+        unmount()
+        expect(disconnect).toHaveBeenCalled()
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+
     // #2236: one opaque chip in every tab state, so the badge never takes its contrast from
     // the tab underneath (the old active bg-warning/30 on bg-primary was 1.17:1 in light mode).
     it.each([

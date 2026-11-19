@@ -185,7 +185,20 @@ export function ViewTabStrip({ view, children }: { view: string; children: React
   }, [view, measure]);
   useEffect(() => {
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // A tab that mounts late (Lens waits on a connection and a flag) or changes width resizes the
+    // content without a scroll or window resize, so watch the strip and its content box (#2395).
+    // jsdom has no ResizeObserver; the listeners alone are the fallback.
+    let ro: ResizeObserver | undefined;
+    const el = ref.current;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+      if (el.firstElementChild) ro.observe(el.firstElementChild);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
   }, [measure]);
   return (
     <div
