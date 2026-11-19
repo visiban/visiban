@@ -2275,6 +2275,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       )}
                       {checklist.filter((item) => !(hideCompleted && item.is_checked)).map((item) => (
                         <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-surface-hover">
+                          {/* The <label> is the 44px touch target for the 14px checkbox at max-sm (#2377); it shrink-wraps the box on desktop. */}
+                          <label className="inline-flex items-center justify-center max-sm:min-h-11 max-sm:min-w-11 shrink-0">
                           <input
                             type="checkbox"
                             checked={item.is_checked}
@@ -2297,6 +2299,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             }
                             className={`w-3.5 h-3.5 rounded accent-primary shrink-0 ${canComment && canModifyChecklistItem(item) ? "cursor-pointer" : "cursor-default"}`}
                           />
+                          </label>
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-muted group-hover:text-fg-secondary" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
@@ -2368,7 +2371,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e) && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
-                        className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
+                        className="max-sm:min-h-11 w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
                       {checklistError && (
                         <p role="alert" className="text-xs text-danger -mt-2">{checklistError}</p>

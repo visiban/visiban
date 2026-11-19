@@ -246,7 +246,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
-        className={className}
+        className={`max-sm:min-h-11 ${className ?? ""}`}
         // ARIA 1.2 combobox: focus stays here while arrow keys move the active option (#2137).
         role="combobox"
         aria-label={ariaLabel ?? placeholder}
@@ -273,7 +273,7 @@ export default function MentionTextarea({ value, onChange, onSubmit, members, pl
               role="option"
               aria-selected={i === selectedIndex}
               onMouseDown={(e) => { e.preventDefault(); insertMention(u.username); }}
-              className={`w-full text-left px-3 py-2 text-sm group flex flex-col cursor-pointer hover:bg-surface-hover transition ${
+              className={`w-full max-sm:min-h-11 text-left px-3 py-2 text-sm group flex flex-col cursor-pointer hover:bg-surface-hover transition ${
                 i === selectedIndex ? "bg-surface-hover" : ""
               }`}
             >
