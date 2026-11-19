@@ -4594,13 +4594,14 @@ and are <strong>not</strong> undone by a refusal:</p>
   issues.</li>
 <li><code>release.sh</code> printed <code>Release &lt;tag&gt; is live</code>. That message only means it finished. It does
   not wait for the tag pipeline.</li>
-<li><strong>The versioned docs are already live.</strong> <code>release.sh</code> sets <code>APP_VERSION=&lt;tag&gt;</code> in
-  <code>.env.example</code> and edits <code>docs/</code>, so the release merge's own <code>main</code> pipeline runs
-  <code>docs-deploy</code>. That job resolves the version from <code>.env.example</code> and runs <code>mike deploy</code> for
-  it: <code>&lt;tag&gt; v&lt;MAJOR.MINOR&gt; latest</code> (for example <code>v1.1</code>) plus <code>set-default</code> for a stable tag, or <code>&lt;tag&gt; next</code> for a
-  pre-release. All of this happens before the tag exists. On <code>main</code> the guard exits at once,
-  so it does not gate that job, and the tag pipeline's own <code>docs-deploy</code> only redeploys the
-  same version.</li>
+<li><strong>The versioned docs are not live.</strong> <code>release.sh</code> sets <code>APP_VERSION=&lt;tag&gt;</code> in <code>.env.example</code>
+  and edits <code>docs/</code>, so the release merge's own <code>main</code> pipeline runs <code>docs-deploy</code>, but that
+  run skips a version whose tag is not on origin yet (<code>resolve-docs-version.sh --require-tag</code>,
+  #1997) and deploys nothing. Only the tag pipeline's <code>docs-deploy</code>, which waits for the
+  guard, publishes the versioned docs, so a refusal leaves them unpublished. Caveat: the refused tag stays on origin, so the next
+  <code>docs/**</code> or <code>mkdocs.yml</code> push to <code>main</code> passes <code>--require-tag</code> and runs
+  <code>mike deploy &lt;tag&gt; MINOR latest</code> and <code>set-default</code> ungated. Hold docs merges to <code>main</code>
+  during a refusal, or abandon the release (#2398).</li>
 </ul>
 <p>What the refusal <strong>did</strong> stop, one tag-pipeline job each:</p>
 <table>
@@ -4637,11 +4638,11 @@ and are <strong>not</strong> undone by a refusal:</p>
 </tr>
 <tr>
 <td><code>docs-deploy</code></td>
-<td>nothing new: it redeploys the docs version <code>main</code> already published</td>
+<td>the versioned docs: <code>&lt;tag&gt; v&lt;MAJOR.MINOR&gt; latest</code> plus <code>set-default</code> for a stable tag, or <code>&lt;tag&gt; next</code> for a pre-release</td>
 </tr>
 </tbody>
 </table>
-<p>So the GitLab Release page and the docs name a version whose images cannot be pulled yet.
+<p>So the GitLab Release page names a version whose images cannot be pulled yet.
 Treat the refusal as an open incident, not a quiet failure.</p>
 <p><strong>What to do:</strong> fix the cause from the table below, then retry the guard job in the same tag
 pipeline. GitLab re-runs the publish jobs it skipped, under the same tag, and nothing needs
@@ -4649,19 +4650,19 @@ re-tagging. If the release has to be abandoned instead:</p>
 <ol>
 <li>Delete the GitLab Release and the tag. The mirrors carry the deletion.</li>
 <li>Reopen the milestone if it was closed.</li>
-<li>Roll back the docs that <code>main</code> already deployed. From a checkout with
-   <code>docs/requirements.txt</code> installed and push access to <code>gh-pages</code>, run
-   <code>mike delete --push &lt;tag&gt;</code>, which also drops the aliases that version held.</li>
-<li>For a stable tag, point the aliases back at the previous stable version:
-     <code>mike alias --push --update-aliases &lt;previous-tag&gt; latest v&lt;previous MAJOR.MINOR&gt;</code>, then
-     <code>mike set-default --push v&lt;previous MAJOR.MINOR&gt;</code>. Docs versions and aliases are always
-     <code>v</code>-prefixed (for example <code>v1.1.0</code> and <code>v1.1</code>); an unprefixed alias creates a stray
-     duplicate entry (#1270).</li>
-<li>For a pre-release, re-point <code>next</code> the same way, or leave it unset if there is no
-     earlier pre-release.</li>
+<li>Nothing to roll back in the docs: the versioned docs are published only by the tag
+   pipeline after the guard (#1997), so a refused release never reached <code>gh-pages</code>, unless a
+   docs-touching push to <code>main</code> landed after the refusal (the tag is still on origin, so
+   <code>--require-tag</code> passes; #2398). If a docs deploy for the tag ran anyway (for example a manual <code>DOCS_VERSION=&lt;tag&gt;</code> run on
+   <code>main</code>), remove it with <code>mike delete --push &lt;tag&gt;</code> from a checkout with
+   <code>docs/requirements.txt</code> installed and push access to <code>gh-pages</code>. For a stable tag, also
+   point the aliases back at the previous stable version with
+   <code>mike alias --push --update-aliases &lt;previous-tag&gt; latest v&lt;previous MAJOR.MINOR&gt;</code>, then
+   <code>mike set-default --push v&lt;previous MAJOR.MINOR&gt;</code>. Docs versions and aliases are always
+   <code>v</code>-prefixed (for example <code>v1.1.0</code> and <code>v1.1</code>); an unprefixed alias creates a stray
+   duplicate entry (#1270).</li>
+<li>Cut a new version once <code>main</code> is green.</li>
 </ol>
-<p>The <code>pages</code> job republishes docs.visiban.com from <code>gh-pages</code>.
-4. Cut a new version once <code>main</code> is green.</p>
 <p><strong>What the guard checks:</strong> it finds the newest <code>main</code> pipeline at the tagged commit (source
 <code>push</code> or <code>web</code>; nightly <code>schedule</code> pipelines at the same commit are ignored, they run a
 different job set) and reads its jobs, not its top-level status. Every job must be
