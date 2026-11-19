@@ -718,7 +718,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onClick={enterEdit}
-            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 max-sm:min-w-11 absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Edit description"
             aria-label="Edit description"
             tabIndex={0}
@@ -885,7 +885,7 @@ export default function RichTextEditor({
             // Keyboard activation fires click with detail 0; a mouse click already
             // acted on mousedown, so detail > 0 must not run it a second time.
             onClick={(e) => { if (e.detail === 0) handleCancel(); }}
-            className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
@@ -893,7 +893,7 @@ export default function RichTextEditor({
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
             onClick={(e) => { if (e.detail === 0) handleSave(); }}
-            className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Save
           </button>

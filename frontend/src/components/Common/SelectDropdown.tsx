@@ -200,7 +200,7 @@ export default function SelectDropdown<T extends string>({
         aria-activedescendant={activeDescendant}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={handleTriggerKeyDown}
-        className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken
+        className={`${triggerPadding} max-sm:min-h-11 bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken
           ${open
             ? "border-primary-soft text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
@@ -267,7 +267,7 @@ export default function SelectDropdown<T extends string>({
                       handleSelect(opt.value);
                     }
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-sm transition cursor-pointer hover:bg-surface-hover
+                  className={`w-full text-left px-3 py-1.5 max-sm:min-h-11 text-sm transition cursor-pointer hover:bg-surface-hover
                     ${i === activeIndex ? "bg-surface-hover" : ""}
                     ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
                 >

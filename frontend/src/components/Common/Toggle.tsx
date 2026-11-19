@@ -48,15 +48,24 @@ export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-la
         if (inertToActivation) return;
         onChange(!checked);
       }}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 ${
+      // Desktop: the button is the 36x20 track. At max-sm the button grows to a 44x44 transparent hit
+      // area (#2378, frontend/CLAUDE.md § Phone touch targets) and the inner span draws the same
+      // 36x20 track, so the switch looks identical and only its tap target changes.
+      className={`group/toggle relative inline-flex h-5 w-9 max-sm:h-11 max-sm:w-11 shrink-0 items-center justify-center rounded-full focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${
         ariaDisabled ? "cursor-not-allowed opacity-40" : ""
-      } ${checked ? "bg-primary" : "bg-surface-active"}`}
+      }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 rounded-full bg-fg shadow transition-transform ${
-          checked ? "translate-x-[18px]" : "translate-x-[3px]"
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors group-focus/toggle:ring-2 group-focus/toggle:ring-primary-emphasis group-focus/toggle:ring-offset-1 ${
+          checked ? "bg-primary" : "bg-surface-active"
         }`}
-      />
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 rounded-full bg-fg shadow transition-transform ${
+            checked ? "translate-x-[18px]" : "translate-x-[3px]"
+          }`}
+        />
+      </span>
     </button>
   );
 }

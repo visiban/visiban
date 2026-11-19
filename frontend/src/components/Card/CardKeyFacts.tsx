@@ -115,7 +115,7 @@ export default function CardKeyFacts({ facts, onJump, inertTargets = [], maxLine
             <span className={`truncate ${fact.threshold ? "font-semibold text-fg" : ""}`}>{fact.text}</span>
           </>
         );
-        const chip = `inline-flex items-center gap-1 max-w-[14rem] min-h-6 border border-line rounded px-1.5 py-0.5 text-xs ${toneClass}`;
+        const chip = `inline-flex items-center gap-1 max-w-[14rem] min-h-6 max-sm:min-h-11 max-sm:min-w-11 border border-line rounded px-1.5 py-0.5 text-xs ${toneClass}`;
         return (
           <li key={fact.key} data-fact-index={i} data-fact-key={fact.key} hidden={hidden}>
             {inert ? (

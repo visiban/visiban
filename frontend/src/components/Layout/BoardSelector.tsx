@@ -127,7 +127,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                   <button type="button"
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); setDeleteError(null); }}
                     disabled={deletingIds.size > 0}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:cursor-not-allowed disabled:opacity-40"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:cursor-not-allowed disabled:opacity-40"
                     title={deletingIds.size > 0 ? "A delete is already in progress" : "Delete board"}
                     aria-label={`Delete ${b.name}`}
                   >

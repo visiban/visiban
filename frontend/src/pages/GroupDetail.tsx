@@ -1199,7 +1199,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       type="button"
                       tabIndex={-1}
                       onClick={handleRenameStart}
-                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       title="Rename group"
                       aria-label="Rename group"
                     >
@@ -1247,7 +1247,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     type="button"
                     tabIndex={-1}
                     onClick={handleDescriptionStart}
-                    className="absolute top-1 right-1 opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                    className="absolute top-1 right-1 opacity-0 group-hover/description:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     title="Edit description"
                     aria-label="Edit description"
                   >
@@ -1441,7 +1441,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
                       aria-label={`Move ${b.name} to another group`}
-                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />

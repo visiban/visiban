@@ -700,3 +700,51 @@ test.describe('phone reorder from the card detail panel (#2359)', () => {
     expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
   })
 })
+
+// #2378: the shared settings Toggle has a 44px hit area at max-sm (the track stays 36x20).
+test.describe('phone settings toggles (#2378)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every switch on the board settings Rules tab is at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Rules' }).dispatchEvent('click')
+    await expect(dialog.getByRole('switch').first()).toBeVisible()
+    const sizes = await dialog.getByRole('switch').evaluateAll((els) => els.map((el) => {
+      const r = el.getBoundingClientRect()
+      return `${el.getAttribute('aria-labelledby') ? (document.getElementById(el.getAttribute('aria-labelledby')!)?.textContent ?? '') : ''} ${Math.round(r.width)}x${Math.round(r.height)}`
+    }))
+    expect(sizes.length).toBeGreaterThan(0)
+    expect(sizes.filter((s) => { const [w, h] = s.split(' ').pop()!.split('x').map(Number); return Math.min(w, h) < 44 })).toEqual([])
+  })
+})
+
+// #2377: the card detail panel is a primary phone surface (a card tap opens it, #2358).
+test.describe('phone card detail panel (#2377)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every control in the card detail panel is at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    await expect(panel).toBeVisible()
+    // Expand every collapsed section so its controls are measured too.
+    for (const name of [/^Relations/, /^Checklist/, /^Attachments/]) {
+      const t = page.getByRole('button', { name }).first()
+      if (await t.count() && (await t.getAttribute('aria-expanded')) === 'false') await t.tap()
+    }
+    expect(await smallControls(page, ['[aria-labelledby="card-detail-title"]'])).toEqual([])
+    // The assignee menu is portaled out of the panel, so measure its options too.
+    await panel.getByRole('combobox').first().tap()
+    const rows = await page.getByRole('option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBeGreaterThan(0)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+  })
+})

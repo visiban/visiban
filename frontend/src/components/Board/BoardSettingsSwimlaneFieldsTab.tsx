@@ -581,7 +581,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, children }: Fi
           type="button"
           {...attributes}
           {...listeners}
-          className="w-4 text-fg-tertiary hover:text-fg cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100 transition shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="w-4 text-fg-tertiary hover:text-fg cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           aria-label={`Drag to reorder ${def.name}`}
         >
           <span aria-hidden="true">⋮⋮</span>
@@ -596,7 +596,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, children }: Fi
             <AdminOnlyFieldGlyph />
           </span>
         )}
-        <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
+        <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition shrink-0">
           <button type="button" onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
           <button type="button" onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>
         </span>
