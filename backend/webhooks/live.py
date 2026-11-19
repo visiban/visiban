@@ -35,7 +35,8 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils import timezone
 
-from boards.broadcast import EVT_WEBHOOK_CHANGED, broadcast_board_event
+from boards import broadcast as board_broadcast
+from boards.broadcast import EVT_WEBHOOK_CHANGED
 
 from .models import WebhookSubscription
 
@@ -84,7 +85,9 @@ def publish_changed(sub_id: int, board_id: int, *, changed_by_id=None, deleted=F
     payload = changed_payload(sub, sub_id, changed_by_id=changed_by_id)
 
     # Default arguments snapshot the values: no ORM object rides into the callback.
+    # Looked up on the module at call time, as record_board_event does, so a
+    # test patching boards.broadcast.broadcast_board_event intercepts this too.
     def _send(bid=board_id, pl=payload):
-        broadcast_board_event(bid, EVT_WEBHOOK_CHANGED, pl)
+        board_broadcast.broadcast_board_event(bid, EVT_WEBHOOK_CHANGED, pl)
 
     transaction.on_commit(_send)

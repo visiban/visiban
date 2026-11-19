@@ -32,8 +32,20 @@ concurrency limit is then 1 per process (the dispatcher is sequential). On a
 per process too. Either way the limit holds per dispatcher; it is summed across
 dispatchers only with a shared cache.
 
-The key is the stored ``url_host``: the hostname as the admin typed it, lower
-cased. Two names that resolve to one address are two hosts here. The host is
+The key is the stored ``url_host``, lower cased and without a trailing dot
+(``example.com.`` is ``example.com``). Two different names that resolve to one
+address are two hosts here: grouping by address would need a DNS answer per
+delivery before the limit could even be checked.
+
+Shared fate, by design
+----------------------
+The budget is per receiver, not per board: it protects the receiver, which
+sees one stream whoever sent it. So a board whose webhooks use a host's whole
+budget delays other boards' webhooks to that host too, by a run or so, never
+by a failure: a waiting subscription is first in line on the next run (least
+recently scanned), and each subscription is still bounded by the per-board,
+per-user and server caps and ``WEBHOOK_MAX_EVENTS_PER_RUN``. Operators who
+need more headroom for a shared receiver raise ``WEBHOOK_HOST_MAX_PER_MINUTE``. The host is
 hashed in the cache key so the key never carries the destination in plain text
 (Valkey ``MONITOR``, a key dump).
 
@@ -75,7 +87,8 @@ def concurrency_limit() -> int:
 
 def host_key(host: str) -> str:
     """A cache-safe, non-revealing key for *host* (case-insensitive)."""
-    return hashlib.sha256((host or "").strip().lower().encode("utf-8")).hexdigest()[:32]
+    normalized = (host or "").strip().rstrip(".").lower()
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:32]
 
 
 def _slot_ttl() -> int:
@@ -99,7 +112,9 @@ class HostSlot:
         self._key = None
         try:
             # Only our own slot: if it expired and another dispatcher took it,
-            # deleting it would let a third one in over the limit.
+            # deleting it would let a third one in over the limit. Not atomic
+            # (get, then delete): a slot that expires in between can let one
+            # request over the limit once, which the TTL bounds anyway.
             if cache.get(key) == token:
                 cache.delete(key)
         except Exception as exc:  # noqa: BLE001 - the key expires on its own
@@ -112,6 +127,10 @@ class HostLimiter:
     def __init__(self, *, clock=None):
         self._clock = clock if clock is not None else time.time
         self._local: dict[tuple[str, int], int] = {}
+        #: Set on the first cache error: the rest of the run uses the local
+        #: counters without waiting on the cache again. A black-holed Valkey
+        #: would otherwise cost a socket timeout per row.
+        self._cache_down = False
         #: Host keys refused this run, for the once-per-run log line.
         self.limited_hosts: set[str] = set()
 
@@ -138,6 +157,8 @@ class HostLimiter:
             return True
         bucket = int(self._clock() // WINDOW_SECONDS)
         cache_key = f"{_KEY_PREFIX}:rate:{key}:{bucket}"
+        if self._cache_down:
+            return self._take_local_rate(key, bucket, limit)
         try:
             # add() is a no-op when the key exists; incr() is atomic on Valkey.
             # Two windows' worth of TTL: the key is dead once its minute ends.
@@ -149,16 +170,27 @@ class HostLimiter:
                 cache.set(cache_key, 1, timeout=WINDOW_SECONDS * 2)
                 count = 1
         except Exception as exc:  # noqa: BLE001 - see "Fail-soft" above
-            logger.warning("webhook host rate limit using local counter: error=%s", type(exc).__name__)
-            count = self._local.get((key, bucket), 0) + 1
-            self._local[(key, bucket)] = count
+            self._mark_cache_down(exc)
+            return self._take_local_rate(key, bucket, limit)
         return count <= limit
+
+    def _take_local_rate(self, key: str, bucket: int, limit: int) -> bool:
+        count = self._local.get((key, bucket), 0) + 1
+        self._local[(key, bucket)] = count
+        return count <= limit
+
+    def _mark_cache_down(self, exc: BaseException):
+        if not self._cache_down:
+            self._cache_down = True
+            logger.warning("webhook host limits using local counters for this run: error=%s", type(exc).__name__)
 
     # ── concurrency ──────────────────────────────────────────────────────────
 
     def _take_slot(self, key: str) -> HostSlot | None:
         limit = concurrency_limit()
         if not limit:
+            return HostSlot()
+        if self._cache_down:
             return HostSlot()
         token = secrets.token_hex(8)
         ttl = _slot_ttl()
@@ -168,6 +200,6 @@ class HostLimiter:
                 if cache.add(slot_key, token, timeout=ttl):
                     return HostSlot(slot_key, token)
         except Exception as exc:  # noqa: BLE001 - sequential: one in flight per process
-            logger.warning("webhook host concurrency limit unavailable: error=%s", type(exc).__name__)
+            self._mark_cache_down(exc)
             return HostSlot()
         return None

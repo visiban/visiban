@@ -447,6 +447,11 @@ def sweep_expired_previous_secrets(*, now=None, board_id=None) -> int:
     same moment is safe: the row is re-checked against this filter after its
     lock, and a fresh window no longer matches.
 
+    Publishes no ``webhook.changed`` (#2057), deliberately: an expired window
+    already reads as closed (``previous_secret_expires_at`` is past, and the API
+    returns null for it), so an open tab shows nothing new, and the frame carries
+    no overlap field anyway.
+
     Two callers (#2119): every dispatcher run (all boards), and every webhook
     API request by a board admin (*board_id*, that board's rows only), so an
     expired secret is also cleared on an install whose dispatcher is stopped.

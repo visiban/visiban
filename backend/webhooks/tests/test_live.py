@@ -52,7 +52,7 @@ class ApiPublishesTests(TestCase):
         self.frames = Frames()
 
     def call(self, method, suffix, body=None):
-        with patch("webhooks.live.broadcast_board_event", self.frames), self.captureOnCommitCallbacks(execute=True):
+        with patch("boards.broadcast.broadcast_board_event", self.frames), self.captureOnCommitCallbacks(execute=True):
             with resolving():
                 return getattr(self.client, method)(_url(self.board.pk, suffix), body, format="json")
 
@@ -123,7 +123,7 @@ class DeferralTests(TestCase):
         admin, board = admin_and_board()
         sub = make_subscription(board, admin)
         frames = Frames()
-        with patch("webhooks.live.broadcast_board_event", frames), self.captureOnCommitCallbacks(execute=True):
+        with patch("boards.broadcast.broadcast_board_event", frames), self.captureOnCommitCallbacks(execute=True):
             try:
                 with transaction.atomic():
                     live.publish_changed(sub.pk, board.pk, changed_by_id=admin.pk)
@@ -140,7 +140,7 @@ class DeferralTests(TestCase):
 class DispatcherPublishesTests(DispatcherBase):
     def run_frames(self, *outcomes):
         frames = Frames()
-        with patch("webhooks.live.broadcast_board_event", frames):
+        with patch("boards.broadcast.broadcast_board_event", frames):
             self.run_with(*outcomes)
         return [f[2] for f in frames.frames]
 

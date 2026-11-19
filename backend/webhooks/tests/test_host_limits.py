@@ -81,8 +81,9 @@ class RateLimitTests(HostLimitBase):
         other.refresh_from_db()
         self.assertGreater(other.cursor, 0)
 
-    def test_host_names_compare_case_insensitively(self):
+    def test_host_names_compare_case_insensitively_and_without_a_trailing_dot(self):
         self.assertEqual(host_limits.host_key("Hooks.Example.com"), host_limits.host_key("hooks.example.com"))
+        self.assertEqual(host_limits.host_key("hooks.example.com."), host_limits.host_key("hooks.example.com"))
         self.assertNotIn("example", host_limits.host_key("hooks.example.com"))
 
     def test_the_run_log_counts_and_never_names_the_host(self):
@@ -100,6 +101,15 @@ class RateLimitTests(HostLimitBase):
             rec, result = self.run_all()
         self.assertEqual(len(rec.calls), 3)
         self.assertEqual(result.host_limited, 1)
+
+    def test_after_one_cache_error_the_run_stops_asking_the_cache(self):
+        self.event_on(self.board, 5)
+        with patch("webhooks.host_limits.cache.incr", side_effect=ConnectionError("down")) as incr:
+            with self.assertLogs("webhooks", level=logging.WARNING) as logs:
+                rec, _ = self.run_all()
+        self.assertEqual(len(rec.calls), 3)
+        self.assertEqual(incr.call_count, 1)
+        self.assertEqual(sum("local counters" in m for m in logs.output), 1)
 
     def test_test_sends_are_not_counted(self):
         for _ in range(4):
