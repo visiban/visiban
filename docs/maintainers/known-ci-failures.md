@@ -352,7 +352,7 @@ and are **not** undone by a refusal:
   on origin, but `--require-tag` also requires the tag pipeline's `release-main-pipeline-guard`
   job to be `success`, so a later `docs/**` or `mkdocs.yml` push to `main` skips that version
   (#2398). It fails closed: a failed or unreadable status lookup fails the `main` `docs-deploy`
-  job rather than deploying.
+  job rather than deploying. A docs edit pushed to `main` while the guard is still pending is skipped, and the tag pipeline then deploys from the tag commit, so re-run `docs-deploy` on `main` after the tag pipeline finishes.
 
 What the refusal **did** stop, one tag-pipeline job each:
 
