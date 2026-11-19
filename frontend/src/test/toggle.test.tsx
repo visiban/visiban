@@ -196,4 +196,12 @@ describe('ToggleField keyboard and label activation (#1376)', () => {
     await userEvent.setup().click(screen.getByText('Single use'))
     expect(onChange).not.toHaveBeenCalled()
   })
+
+  it('has a 44px hit area at max-sm with the 36x20 track unchanged (#2378)', () => {
+    render(<Toggle checked={false} onChange={() => {}} aria-label="Hit area" />)
+    const button = screen.getByRole('switch', { name: 'Hit area' })
+    expect(button).toHaveClass('h-5', 'w-9', 'max-sm:h-11', 'max-sm:w-11')
+    // The visible track is the inner span, so the phone hit area does not enlarge the drawn switch.
+    expect(button.firstElementChild).toHaveClass('h-5', 'w-9')
+  })
 })

@@ -115,7 +115,7 @@ export default function RelationCardPicker({
         {DIRECTIONS.map((d) => (
           <label
             key={d}
-            className={`border rounded px-2 py-1 text-xs cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
+            className={`max-sm:min-h-11 max-sm:min-w-11 max-sm:inline-flex max-sm:items-center max-sm:justify-center border rounded px-2 py-1 text-xs cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
               direction === d
                 ? "border-primary-emphasis bg-primary-emphasis/10 text-fg"
                 : "border-line-strong hover:bg-surface-hover/40 text-fg-secondary"
@@ -157,7 +157,7 @@ export default function RelationCardPicker({
             : undefined
         }
         disabled={submitting}
-        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+        className="max-sm:min-h-11 w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted disabled:opacity-40 disabled:cursor-not-allowed"
       />
 
       {query.trim().length === 1 && (
@@ -206,7 +206,7 @@ export default function RelationCardPicker({
                   e.preventDefault();
                   commit(c);
                 }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`max-sm:min-h-11 w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
                   i === activeIndex
                     ? "bg-surface-hover text-fg"
                     : "text-fg-secondary hover:bg-surface-hover"
@@ -227,7 +227,7 @@ export default function RelationCardPicker({
       <button
         type="button"
         onClick={onCancel}
-        className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition self-start focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition self-start focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         Cancel
       </button>

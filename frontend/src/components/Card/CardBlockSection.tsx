@@ -206,7 +206,7 @@ export default function CardBlockSection({
         aria-required={formMode === "block"}
         aria-invalid={slotIsError}
         aria-describedby={helperId}
-        className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+        className="max-sm:min-h-11 w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
       />
       {/* Reserved helper/error slot (§ Inline status messages). A live
           region: on a failed submit focus may already be in the field, so
@@ -219,7 +219,7 @@ export default function CardBlockSection({
           type="button"
           onClick={() => onFormModeChange(null)}
           disabled={busy}
-          className="px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="max-sm:min-h-11 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>
@@ -227,7 +227,7 @@ export default function CardBlockSection({
           type="button"
           onClick={() => { void submit(); }}
           aria-disabled={busy}
-          className="px-3 py-1.5 text-sm rounded font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary transition aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="max-sm:min-h-11 px-3 py-1.5 text-sm rounded font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary transition aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {formMode === "block"
             ? (busy ? "Blocking…" : "Block card")
@@ -272,7 +272,7 @@ export default function CardBlockSection({
                 ref={unblockTriggerRef}
                 type="button"
                 onClick={() => onFormModeChange("unblock")}
-                className="px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="max-sm:min-h-11 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Unblock
               </button>

@@ -123,7 +123,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     debounceTimer.current = setTimeout(() => onCommit(next), debounceMs);
   };
 
-  const inputClasses = `bg-surface border border-line rounded text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
+  const inputClasses = `max-sm:min-h-11 bg-surface border border-line rounded text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
     size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
   }`;
 
@@ -166,7 +166,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     // classes' focus:border-transparent + primary ring would otherwise hide it
     // exactly while the user is fixing the value.
     const urlInputClasses = [
-      "bg-surface border rounded text-fg-secondary focus:outline-none focus:ring-2 w-full placeholder-fg-muted",
+      "max-sm:min-h-11 bg-surface border rounded text-fg-secondary focus:outline-none focus:ring-2 w-full placeholder-fg-muted",
       shownError ? "border-danger focus:ring-danger-emphasis" : "border-line focus:ring-primary-emphasis focus:border-transparent",
       size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm",
     ].join(" ");
@@ -367,7 +367,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           {local && !disabled && (
             <button type="button"
               onClick={() => onCommit("")}
-              className="text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+              className="max-sm:min-h-11 max-sm:min-w-11 text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
               title="Clear date"
               aria-label="Clear date"
             >

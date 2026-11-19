@@ -1642,7 +1642,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
               onBlur={handleTitleBlur}
-              className="text-base font-semibold text-fg w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-primary-soft focus:bg-primary-emphasis/20 bg-transparent transition"
+              className="max-sm:min-h-11 text-base font-semibold text-fg w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-primary-soft focus:bg-primary-emphasis/20 bg-transparent transition"
             />
             {/* Breadcrumb row — swimlane and column names close the panel so the user
                 lands back on the board at that location. The move icon sits immediately
@@ -1650,7 +1650,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div className="flex items-center gap-0.5 mt-1 px-1 min-w-0">
               <button
                 onClick={onClose}
-                className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
+                className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
                 title={swimlane?.name}
               >
                 {swimlane?.name}
@@ -1658,7 +1658,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <span className="text-xs text-fg-faint mx-1 shrink-0" aria-hidden="true">›</span>
               <button
                 onClick={onClose}
-                className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
+                className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
                 title={column?.name}
               >
                 {column?.name}
@@ -1718,7 +1718,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               type="button"
               onClick={() => { setTab("details"); setBlockFormMode((m) => (m === "block" ? null : "block")); }}
               aria-expanded={blockFormMode === "block"}
-              className="px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="max-sm:min-h-11 px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Block…
             </button>
@@ -1791,7 +1791,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 tabIndex={tab === t ? 0 : -1}
                 onClick={() => selectTab(t)}
                 onKeyDown={handleTabKeyDown}
-                className={`${fullscreen ? "px-3" : "px-5"} py-2.5 font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded-t ${
+                className={`${fullscreen ? "px-3" : "px-5"} py-2.5 max-sm:min-h-11 font-medium transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis rounded-t ${
                   tab === t ? "border-b-2 border-info text-info" : "text-fg-muted hover:text-fg-secondary"
                 }`}
               >
@@ -1934,8 +1934,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             directly. On Chrome/Firefox the opacity-0 input is enough; on Safari,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
-                        <div className="relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
+                        <div className="max-sm:min-h-11 relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
+                          <div className={`max-sm:min-h-11 text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -1955,7 +1955,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </div>
                         <button type="button"
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
-                          className="text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                          className="max-sm:min-h-11 max-sm:min-w-11 text-fg-muted hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           title="Clear due date"
                           aria-label="Clear due date"
                         >
@@ -1964,8 +1964,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       </div>
                     );
                   })() : (
-                    <div className="relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                      <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-secondary select-none flex items-center justify-between pointer-events-none">
+                    <div className="max-sm:min-h-11 relative cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
+                      <div className="max-sm:min-h-11 text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-secondary select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
@@ -1996,7 +1996,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <button
                       key={opt.value}
                       onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }).catch(() => {}); }}
-                      className={`text-xs px-3 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                      className={`max-sm:min-h-11 text-xs px-3 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         localCard.priority === opt.value
                           ? "text-on-primary border-transparent shadow-sm"
                           : "text-fg-tertiary border-line-strong hover:border-line-emphasis bg-transparent"
@@ -2022,7 +2022,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         aria-pressed={active}
                         // Active is a check mark plus a heavier weight and inset ring, not
                         // a color change alone (#2094): the tint is the same either way.
-                        className={`cf-choice-badge inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        className={`max-sm:min-h-11 cf-choice-badge inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           active ? "font-semibold shadow-[inset_0_0_0_1px_currentColor]" : ""
                         }`}
                         style={colorChipStyle(label.color)}
@@ -2045,7 +2045,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleCreateLabel(); }}
                           aria-label="New label name"
                           placeholder="Label name"
-                          className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
+                          className="max-sm:min-h-11 text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />
                         <ColorSwatchPicker
                           colors={PALETTE_COLORS}
@@ -2066,7 +2066,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           type="button"
                           aria-label="Cancel new label"
                           onClick={() => { focusNewLabelTriggerRef.current = true; setAddingLabel(false); setLabelError(null); }}
-                          className="text-xs text-fg-muted hover:text-fg-secondary hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-fg-muted hover:text-fg-secondary hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >✕</button>
                       </div>
                       <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 mt-0.5">
@@ -2077,7 +2077,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <button
                       ref={newLabelTriggerRef}
                       onClick={() => setAddingLabel(true)}
-                      className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded-full px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="max-sm:min-h-11 text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded-full px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       + New label
                     </button>
@@ -2100,8 +2100,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <div className="border-t border-line" />
                   <div>
                     <button
-                      className="flex items-center justify-between w-full mb-2 group/cf focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/cf focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       onClick={() => setCustomFieldsOpen((o) => !o)}
+                      aria-expanded={customFieldsOpen}
                     >
                       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                         Custom fields
@@ -2151,7 +2152,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Decrease weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="max-sm:min-h-11 max-sm:min-w-11 w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >−</button>
                   <span className="text-sm font-semibold text-fg w-6 text-center">{localCard.weight}</span>
                   <button type="button"
@@ -2163,7 +2164,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       weightSaveTimer.current = setTimeout(() => { weightSaveTimer.current = null; void weightRunSave(saveWeight(w)); }, 600);
                     }}
                     aria-label="Increase weight"
-                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="max-sm:min-h-11 max-sm:min-w-11 w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover hover:text-fg-secondary transition text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >+</button>
                 </div>
                 <AutosaveIndicator
@@ -2223,7 +2224,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <div>
                 <button
                   type="button"
-                  className="flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/cl rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   aria-expanded={checklistOpen}
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
@@ -2263,7 +2264,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         type="button"
                         aria-pressed={hideCompleted}
                         onClick={() => setHideCompleted((h) => !h)}
-                        className="inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="max-sm:min-h-11 inline-flex items-center gap-1 text-xs text-fg-tertiary hover:text-fg whitespace-nowrap rounded px-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         <ActiveMark active={hideCompleted} />
                         Hide completed
@@ -2275,6 +2276,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       )}
                       {checklist.filter((item) => !(hideCompleted && item.is_checked)).map((item) => (
                         <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-surface-hover">
+                          {/* The <label> is the 44px touch target for the 14px checkbox at max-sm (#2377); it shrink-wraps the box on desktop. */}
+                          <label className="inline-flex items-center justify-center max-sm:min-h-11 max-sm:min-w-11 shrink-0">
                           <input
                             type="checkbox"
                             checked={item.is_checked}
@@ -2297,6 +2300,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             }
                             className={`w-3.5 h-3.5 rounded accent-primary shrink-0 ${canComment && canModifyChecklistItem(item) ? "cursor-pointer" : "cursor-default"}`}
                           />
+                          </label>
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-muted group-hover:text-fg-secondary" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
@@ -2310,7 +2314,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           {(canEdit || role === "collaborator") && canModifyChecklistItem(item) && (
                             <button type="button"
                               onClick={() => handleDeleteChecklistItem(item.id)}
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                              className="max-sm:min-h-11 max-sm:min-w-11 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Remove item"
                               aria-label="Remove item"
                             >
@@ -2330,11 +2334,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       // void: handleAddChecklistItem now catches its own rejection and surfaces it via checklistError.
                       onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleAddChecklistItem(); }}
                       placeholder="Add item (Enter)…"
-                      className="flex-1 text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary placeholder-fg-muted"
+                      className="max-sm:min-h-11 flex-1 text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary placeholder-fg-muted"
                     />
                     <button
                       onClick={() => { setBulkText(""); setChecklistError(null); setShowBulkAdd(true); }}
-                      className="text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      className="max-sm:min-h-11 max-sm:min-w-11 text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     >
                       Bulk
                     </button>
@@ -2368,14 +2372,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e) && (e.metaKey || e.ctrlKey)) void handleBulkAdd(); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
-                        className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
+                        className="max-sm:min-h-11 w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
                       {checklistError && (
                         <p role="alert" className="text-xs text-danger -mt-2">{checklistError}</p>
                       )}
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
-                        <button onClick={() => void handleBulkAdd()} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
+                        <button onClick={() => { setShowBulkAdd(false); setChecklistError(null); }} className="max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
+                        <button onClick={() => void handleBulkAdd()} className="max-sm:min-h-11 text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
                       </div>
                     </div>
                   </div>
@@ -2388,7 +2392,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <button type="button"
-                    className="flex items-center gap-1.5 group/att rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="max-sm:min-h-11 flex items-center gap-1.5 group/att rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
                     <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
@@ -2408,7 +2412,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           aria-disabled="true"
                           aria-describedby="card-upload-blocked-reason"
                           onClick={(e) => e.preventDefault()}
-                          className="text-xs text-fg-faint font-medium cursor-not-allowed rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className="max-sm:min-h-11 text-xs text-fg-faint font-medium cursor-not-allowed rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           + Upload
                         </button>
@@ -2417,7 +2421,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <button type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="text-xs text-info hover:text-info font-medium disabled:opacity-40 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            className="max-sm:min-h-11 text-xs text-info hover:text-info font-medium disabled:opacity-40 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                           >
                             {uploading ? "Uploading…" : "+ Upload"}
                           </button>
@@ -2464,12 +2468,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               onClick={(e) => e.preventDefault()}
                               title={`Delete. ${DEMO_DELETE_ATTACHMENT_REASON}`}
                               aria-label={`Delete attachment ${a.filename}. ${DEMO_DELETE_ATTACHMENT_REASON}`}
-                              className="opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                              className="max-sm:min-h-11 max-sm:min-w-11 opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                             >✕</button>
                           ) : (
                             <button type="button"
                               onClick={() => handleDeleteAttachment(a.id)}
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                              className="max-sm:min-h-11 max-sm:min-w-11 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Delete"
                               aria-label={`Delete attachment ${a.filename}`}
                             >✕</button>
@@ -2488,7 +2492,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   type="button"
                   onClick={goToLatestHistory}
                   data-testid="card-last-activity"
-                  className="self-start max-w-full py-1 text-left text-xs text-fg-tertiary hover:text-fg underline decoration-dotted underline-offset-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="max-sm:min-h-11 self-start max-w-full py-1 text-left text-xs text-fg-tertiary hover:text-fg underline decoration-dotted underline-offset-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Last activity: {lastActivitySummary(lastHistoryEntry, userDateFormat)} ·{" "}
                   <time dateTime={lastHistoryEntry.ts} title={formatDateTimeUser(lastHistoryEntry.ts, currentUser)}>
@@ -2533,7 +2537,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   onClick={(e) => e.preventDefault()}
                                   title={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
                                   aria-label={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
-                                  className="ml-auto opacity-40 cursor-not-allowed p-0.5 rounded text-fg-muted focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                  className="max-sm:min-h-11 max-sm:min-w-11 ml-auto opacity-40 cursor-not-allowed p-0.5 rounded text-fg-muted focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -2547,7 +2551,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                     type="button"
                                     onClick={() => handleDeleteComment(c.id)}
                                     disabled={deletingCommentId !== null}
-                                    className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                    className="max-sm:min-h-11 text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                   >
                                     Confirm
                                   </button>
@@ -2555,7 +2559,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                     type="button"
                                     onClick={cancelCommentDelete}
                                     disabled={deletingCommentId !== null}
-                                    className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                                    className="max-sm:min-h-11 text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                                   >
                                     Cancel
                                   </button>
@@ -2569,7 +2573,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                   ref={deleteCommentTriggerRef(c.id)}
                                   title="Delete comment"
                                   onClick={() => { setCommentDeleteError(null); setConfirmDeleteCommentId(c.id); }}
-                                  className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-fg-muted hover:text-danger hover:bg-surface-active focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                  className="max-sm:min-h-11 max-sm:min-w-11 ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-150 p-0.5 rounded text-fg-muted hover:text-danger hover:bg-surface-active focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                                   aria-label="Delete comment"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -2619,7 +2623,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onClick={handleComment}
                         aria-disabled={demoMode ? true : undefined}
                         aria-describedby={demoMode ? "card-comment-demo-reason" : undefined}
-                        className={`text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        className={`max-sm:min-h-11 text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"
                         }`}
                       >
@@ -2668,7 +2672,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 onClick={handleArchive}
                 aria-disabled={loading || undefined}
                 title={loading ? "Available once the card has loaded" : undefined}
-                className={`text-xs text-fg-muted transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded ${loading ? "opacity-40 cursor-not-allowed" : "hover:text-warning"}`}
+                className={`max-sm:min-h-11 text-xs text-fg-muted transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded ${loading ? "opacity-40 cursor-not-allowed" : "hover:text-warning"}`}
               >
                 Archive card
               </button>
@@ -2676,7 +2680,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             {canDelete && (
               <button
                 onClick={handleDelete}
-                className="text-xs text-fg-muted hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                className="max-sm:min-h-11 text-xs text-fg-muted hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
               >
                 Delete card
               </button>
@@ -2734,7 +2738,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   onClick={handleForceMove}
                   aria-disabled={moveForcing}
                   aria-describedby={moveErrorId}
-                  className="text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+                  className="max-sm:min-h-11 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
                 >{moveForcing ? "Moving anyway…" : "Move anyway (admin override)"}</button>
               )}
             </div>
@@ -2742,13 +2746,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <button
                 onClick={() => closeMovePopover()}
                 disabled={moveForcing}
-                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40"
+                className="max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40"
               >Cancel</button>
               <button
                 ref={moveSubmitRef}
                 onClick={handleMoveSubmit}
                 disabled={moveForcing || moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || moveIsNoop}
-                className="text-sm font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="max-sm:min-h-11 text-sm font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >{moveSubmitting ? "Moving…" : "Move"}</button>
             </div>
           </div>

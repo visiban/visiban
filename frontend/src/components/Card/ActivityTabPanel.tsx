@@ -310,7 +310,7 @@ export default function ActivityTabPanel({
                 aria-describedby={lastOn ? `history-filter-reason-${cardId}` : undefined}
                 title={lastOn ? LAST_ON_REASON : undefined}
                 onClick={() => toggleType(o.value)}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`max-sm:min-h-11 max-sm:min-w-11 inline-flex items-center gap-1 px-2 py-1 rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   on ? "bg-surface-hover border-line-strong text-fg font-medium" : "border-line text-fg-tertiary hover:text-fg"
                 } ${lastOn ? "cursor-not-allowed" : ""}`}
               >
@@ -365,7 +365,7 @@ export default function ActivityTabPanel({
           <button
             type="button"
             onClick={() => setSelectedTypes(ALL_GROUPS)}
-            className="py-1 text-xs text-info hover:underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            className="max-sm:min-h-11 py-1 text-xs text-info hover:underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Show all types
           </button>
@@ -517,7 +517,7 @@ export default function ActivityTabPanel({
             type="button"
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {loadingMore && (
               <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />

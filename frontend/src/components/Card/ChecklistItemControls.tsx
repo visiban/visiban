@@ -41,7 +41,7 @@ export function formatChecklistDue(iso: string, long = false): string {
 // trailing controls"). Tone is passed separately so an element never carries
 // two competing text-* utilities.
 const CONTROL_BASE =
-  "shrink-0 inline-flex items-center justify-center gap-1 rounded px-1 h-6 min-w-6 text-xs transition " +
+  "shrink-0 inline-flex items-center justify-center gap-1 rounded px-1 h-6 min-w-6 max-sm:h-11 max-sm:min-w-11 text-xs transition " +
   "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
 const NEUTRAL_TONE = "text-fg-tertiary group-hover:text-fg-secondary hover:text-fg hover:bg-surface-hover";
 const DANGER_TONE = "text-danger hover:bg-surface-hover";
@@ -185,7 +185,7 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
                     type="button"
                     aria-pressed={selected}
                     autoFocus={selected}
-                    className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+                    className="w-full max-sm:min-h-11 flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
                     onClick={() => choose(opt.id)}
                   >
                     <SelectedCheck selected={selected} testId="checklist-assignee-check" slotClassName="w-3 shrink-0 inline-flex" />
@@ -203,7 +203,7 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
           autoFocus
           aria-label={dueLabel}
           defaultValue={item.due_date ?? ""}
-          className="shrink-0 text-xs bg-surface border border-line rounded px-1 h-6 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="shrink-0 text-xs bg-surface border border-line rounded px-1 h-6 max-sm:h-11 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

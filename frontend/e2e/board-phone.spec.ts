@@ -9,7 +9,7 @@ async function smallControls(page: Page, roots: string[]): Promise<string[]> {
   return page.evaluate((rs) => {
     const out: string[] = []
     for (const sel of rs) {
-      document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input`).forEach((el) => {
+      document.querySelectorAll(`${sel} button, ${sel} a, ${sel} [role="tab"], ${sel} input, ${sel} textarea, ${sel} select, ${sel} [role="combobox"]`).forEach((el) => {
         if (el.closest('[data-card-id]')) return
         // A native checkbox or radio stays 16px by design; its <label> row is the touch target, so measure that (#2341).
         const isCheck = el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')
@@ -18,7 +18,7 @@ async function smallControls(page: Page, roots: string[]): Promise<string[]> {
         if (Math.min(r.width, r.height) < 43.5) out.push(`${el.tagName} ${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`)
       })
     }
-    return out
+    return Array.from(new Set(out))
   }, roots)
 }
 
@@ -688,6 +688,7 @@ test.describe('phone reorder from the card detail panel (#2359)', () => {
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
     await page.getByRole('button', { name: /Custom fields/ }).tap()
     const trigger = page.getByRole('button', { name: 'Tags: No value' })
+    if (!(await trigger.count())) await page.getByRole('button', { name: /Custom fields/ }).tap()
     await trigger.scrollIntoViewIfNeeded()
     await trigger.tap()
     const search = page.getByRole('combobox', { name: /Filter Tags choices/ })
@@ -697,6 +698,123 @@ test.describe('phone reorder from the card detail panel (#2359)', () => {
     expect(rows.length).toBe(3)
     expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
     expect(Math.round((await search.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+    expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+  })
+})
+
+// #2378: the shared settings Toggle has a 44px hit area at max-sm (the track stays 36x20).
+test.describe('phone settings toggles (#2378)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every switch on the board settings Rules tab is at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Rules' }).dispatchEvent('click')
+    await expect(dialog.getByRole('switch').first()).toBeVisible()
+    const sizes = await dialog.getByRole('switch').evaluateAll((els) => els.map((el) => {
+      const r = el.getBoundingClientRect()
+      return `${el.getAttribute('aria-labelledby') ? (document.getElementById(el.getAttribute('aria-labelledby')!)?.textContent ?? '') : ''} ${Math.round(r.width)}x${Math.round(r.height)}`
+    }))
+    expect(sizes.length).toBeGreaterThan(0)
+    expect(sizes.filter((s) => { const [w, h] = s.split(' ').pop()!.split('x').map(Number); return Math.min(w, h) < 44 })).toEqual([])
+  })
+})
+
+// #2377: the card detail panel is a primary phone surface (a card tap opens it, #2358).
+test.describe('phone card detail panel (#2377)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every control in the card detail panel is at least 44px', async ({ page }) => {
+    const user = BOARD_FULL.members[0].user
+    const def = (id: number, name: string, field_type: string, choices: string[] = []) => ({
+      id, uid: `sfuid00000${id}`, name, field_type, choices, position: id,
+      show_on_row: false, is_admin_only: false, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      created_at: '2026-01-01T00:00:00Z',
+    })
+    const card = { ...CARD, custom_field_values: [{ field_definition: 2, value: 'https://example.com' }] }
+    await routeAuth(page)
+    await routeBoard(page, {
+      ...BOARD_FULL, cards: [card],
+      custom_field_definitions: [def(1, 'Tags', 'multi_select', ['Alpha', 'Beta']), def(2, 'Link', 'url'), def(3, 'Notes', 'text'), def(4, 'Qty', 'number')],
+    } as unknown as typeof BOARD_FULL)
+    const json = (body: unknown) => (route: import('@playwright/test').Route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+    const base = `**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}`
+    const ts = '2026-01-02T00:00:00Z'
+    await page.route(`${base}/checklist/`, json([
+      { id: 1, text: 'First item', is_checked: false, position: 1, created_by: user, assignee: null, due_date: null },
+      { id: 2, text: 'Second item', is_checked: true, position: 2, created_by: user, assignee: user, due_date: '2026-03-01' },
+    ]))
+    await page.route(`${base}/comments/`, json([{ id: 1, author: user, body: 'A comment', created_at: ts, updated_at: ts, imported_from_username: null }]))
+    await page.route(`${base}/timeline/**`, json({ count: 1, next: null, previous: null, results: [{ id: 1, kind: 'activity', ts, actor: user, event_type: 'card_created', data: {}, imported_from_username: null }] }))
+    for (const leaf of ['attachments', 'relations', 'activity', 'blocks']) await page.route(`${base}/${leaf}/`, json([]))
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    await expect(panel).toBeVisible()
+    const sweep = () => smallControls(page, ['[aria-labelledby="card-detail-title"]'])
+    // Expand every collapsed section so its controls are measured too.
+    for (const name of [/^Relations/, /^Checklist/, /^Attachments/, /Custom fields/]) {
+      const t = page.getByRole('button', { name }).first()
+      if (await t.count() && (await t.getAttribute('aria-expanded')) !== 'true') await t.tap()
+    }
+    await expect(page.getByText('First item')).toBeVisible()
+    expect(await sweep()).toEqual([])
+    // The block form (Details tab), then the Comments and History tabs.
+    await panel.getByRole('button', { name: 'Block…' }).tap()
+    await expect(panel.getByRole('textbox', { name: /reason/i }).first()).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await panel.getByRole('button', { name: 'Block…' }).tap()
+    await panel.getByRole('tab', { name: /^Comments/ }).tap()
+    await expect(page.getByText('A comment')).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await panel.getByRole('tab', { name: /^History/ }).tap()
+    await expect(panel.getByRole('tabpanel')).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await panel.getByRole('tab', { name: /^Details/ }).tap()
+    // Custom fields is open (its toggle reports it), and its value controls were swept above.
+    await expect(page.getByRole('button', { name: /Custom fields/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(panel.getByRole('button', { name: 'Link: https://example.com' }).or(panel.getByText('Open link ↗')).first()).toBeVisible()
+    // Opened states: the description editor (toolbar and Text color swatches), the relation form, and the new-label form.
+    await panel.getByRole('button', { name: 'Edit description' }).tap()
+    await expect(panel.getByRole('button', { name: 'Text color', exact: true })).toBeVisible()
+    await panel.getByRole('button', { name: 'Text color', exact: true }).tap()
+    await expect(panel.getByRole('button', { name: /^Text color (Custom|Red)/ }).first()).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await panel.getByRole('button', { name: 'Cancel' }).first().tap()
+    await panel.getByRole('button', { name: '+ Add relation' }).first().tap()
+    await expect(panel.getByRole('radiogroup', { name: 'Relation type' })).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await panel.getByRole('radiogroup', { name: 'Relation type' }).locator('xpath=following-sibling::button[last()]').tap()
+    await panel.getByRole('button', { name: '+ Link a pull or merge request' }).tap()
+    expect(await sweep()).toEqual([])
+    await page.keyboard.press('Escape')
+    await panel.getByRole('button', { name: '+ New label' }).tap()
+    await expect(panel.getByLabel('New label name')).toBeVisible()
+    expect(await sweep()).toEqual([])
+    await page.keyboard.press('Escape')
+    // The assignee menu is portaled out of the panel, so measure its options too.
+    await panel.getByRole('combobox').first().tap()
+    const rows = await page.getByRole('option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(rows.length).toBeGreaterThan(0)
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(44)
+    await page.keyboard.press('Escape')
+    // A custom-field value menu (#2350 pattern): the multi-select listbox, its search and Done.
+    const trigger = page.getByRole('button', { name: 'Tags: No value' })
+    if (!(await trigger.count())) await page.getByRole('button', { name: /Custom fields/ }).tap()
+    await trigger.scrollIntoViewIfNeeded()
+    await trigger.tap()
+    const listbox = page.getByRole('listbox')
+    await expect(listbox).toBeVisible()
+    const optionRows = await listbox.getByRole('option').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)))
+    expect(optionRows.length).toBe(2)
+    expect(Math.min(...optionRows)).toBeGreaterThanOrEqual(44)
     expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
   })
 })

@@ -96,7 +96,7 @@ export default function InlineBoardName({ name, canEdit, onSave }: Props) {
             type="button"
             tabIndex={-1}
             onClick={start}
-            className="max-sm:hidden opacity-0 group-hover/rename:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded text-fg-muted hover:text-fg-secondary transition-opacity text-xs"
+            className="max-sm:hidden opacity-0 group-hover/rename:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded text-fg-muted hover:text-fg-secondary transition-opacity text-xs"
             title="Rename board"
             aria-label="Rename board"
           >

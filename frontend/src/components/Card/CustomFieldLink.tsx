@@ -71,7 +71,7 @@ export default function CustomFieldLink({ value, variant, maxHostChars, stopProp
         rel="noopener noreferrer"
         aria-label="Open link in new tab"
         title={href}
-        className={`text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${className}`}
+        className={`max-sm:inline-flex max-sm:items-center max-sm:min-h-11 text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${className}`}
         {...stopHandlers}
       >
         Open link ↗

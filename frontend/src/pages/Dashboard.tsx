@@ -207,7 +207,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         </div>
         {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
       </button>
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition">
         <button type="button"
           onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
           className="text-fg-muted hover:text-info p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"

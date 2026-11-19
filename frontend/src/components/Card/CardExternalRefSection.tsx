@@ -170,7 +170,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
   if (!canEdit && !current) return null;
 
   const inputClass =
-    "w-full bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
+    "w-full max-sm:min-h-11 bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent";
 
   return (
     <>
@@ -205,7 +205,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                 return (
                   <label
                     key={p}
-                    className={`rounded px-2 py-1 text-xs border cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
+                    className={`rounded px-2 py-1 max-sm:min-h-11 max-sm:inline-flex max-sm:items-center text-xs border cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                       saving ? "opacity-40 cursor-not-allowed " : ""
                     }${
                       selected
@@ -251,14 +251,14 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                 type="button"
                 onClick={cancelEdit}
                 disabled={saving}
-                className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                className="max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
+                className="max-sm:min-h-11 text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving ? "Saving…" : "Save link"}
               </button>
@@ -296,7 +296,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                     onClick={() => openEditor("edit")}
                     disabled={removing}
                     aria-label="Edit pull or merge request link"
-                    className="text-xs text-fg-muted hover:text-fg-secondary px-1.5 py-0.5 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="max-sm:min-h-11 text-xs text-fg-muted hover:text-fg-secondary px-1.5 py-0.5 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Edit
                   </button>
@@ -305,7 +305,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
                     onClick={handleRemove}
                     disabled={removing}
                     aria-label="Remove pull or merge request link"
-                    className="text-xs text-danger hover:underline font-medium px-1.5 py-0.5 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="max-sm:min-h-11 text-xs text-danger hover:underline font-medium px-1.5 py-0.5 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Remove
                   </button>
@@ -322,7 +322,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
             aria-disabled="true"
             aria-describedby="ext-ref-demo-reason"
             onClick={(e) => e.preventDefault()}
-            className="text-xs text-fg-muted border border-dashed border-line-strong rounded px-2.5 py-1 opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 text-xs text-fg-muted border border-dashed border-line-strong rounded px-2.5 py-1 opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             + Link a pull or merge request
           </button>
@@ -331,7 +331,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, demoReaso
             ref={addButtonRef}
             type="button"
             onClick={() => openEditor("add")}
-            className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             + Link a pull or merge request
           </button>

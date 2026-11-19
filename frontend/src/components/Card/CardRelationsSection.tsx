@@ -205,7 +205,7 @@ export default function CardRelationsSection({
     <>
       <div>
         <button
-          className="flex items-center justify-between w-full mb-2 group/rel focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+          className="max-sm:min-h-11 flex items-center justify-between w-full mb-2 group/rel focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
@@ -245,7 +245,7 @@ export default function CardRelationsSection({
                   Failed to load relations.
                   <button
                     onClick={load}
-                    className="text-xs text-info hover:underline font-medium ml-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                    className="max-sm:min-h-11 max-sm:min-w-11 text-xs text-info hover:underline font-medium ml-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                   >
                     Retry
                   </button>
@@ -305,7 +305,7 @@ export default function CardRelationsSection({
                   aria-disabled="true"
                   aria-describedby="card-relation-demo-reason"
                   onClick={(e) => e.preventDefault()}
-                  className="text-xs text-fg-muted border border-dashed border-line-strong rounded px-2.5 py-1 opacity-40 cursor-not-allowed self-start focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="max-sm:min-h-11 text-xs text-fg-muted border border-dashed border-line-strong rounded px-2.5 py-1 opacity-40 cursor-not-allowed self-start focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   + Add relation
                 </button>
@@ -331,7 +331,7 @@ export default function CardRelationsSection({
               <button
                 ref={addButtonRef}
                 onClick={() => setAddOpen(true)}
-                className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis self-start"
+                className="max-sm:min-h-11 text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis self-start"
               >
                 + Add relation
               </button>
@@ -365,7 +365,7 @@ function RelationRow({
   const remove = canEdit ? (
     <button type="button"
       onClick={onRemove}
-      className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+      className="max-sm:min-h-11 max-sm:min-w-11 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
       title="Remove relation"
       aria-label={`Remove relation to ${rel.card.title}`}
     >
@@ -401,7 +401,7 @@ function RelationRow({
             new CustomEvent("visiban:open-card", { detail: { cardId: rel.card.id } }),
           )
         }
-        className="text-sm text-fg-secondary hover:text-fg flex-1 min-w-0 truncate text-left transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+        className="max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg flex-1 min-w-0 truncate text-left transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         title={rel.card.title}
       >
         {rel.card.title}

@@ -281,7 +281,7 @@ export default function SavedFiltersDropdown({
                     <button type="button"
                       onClick={(e) => { e.stopPropagation(); onDelete(f.id); }}
                       aria-label={`Delete saved filter "${f.name}"`}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M3 3l10 10M13 3L3 13" />
