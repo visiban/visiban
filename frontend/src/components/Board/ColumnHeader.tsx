@@ -447,7 +447,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
           boardId={boardId}
           column={column}
           cardCount={cardCount}
-          initialTab={editTab === "policy" ? "policy" : undefined}
+          initialTab={editTab}
           boardColors={boardColors}
           isIntakeColumn={isIntakeColumn}
           swimlanes={swimlanes}
