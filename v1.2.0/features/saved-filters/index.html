@@ -4315,7 +4315,7 @@
 </blockquote>
 <p>Set your filters, open the <strong>Saved</strong> dropdown next to the filter bar, and click <strong>Save current filters</strong>. Click a preset name later to restore it. (1.3+) The <strong>Filter</strong> panel also lists your saved filters at the bottom; clicking one loads it. When a filter is active, the panel also shows a <strong>Filtered by</strong> row with <strong>Save filter</strong>: it asks for a name and saves the current filters exactly like <strong>Save current filters</strong> in the filter bar. Deleting stays in the filter bar.</p>
 <p><strong>Why it matters:</strong> Presets are stored server-side, so they follow you across devices and browsers.</p>
-<p><strong>By the numbers:</strong> a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters (1.3+: including a number field's operator and range, see <a href="../custom-fields/#number-filter-operators">Number filter operators</a>), and (1.3+) <a href="../board/#lane-filters">lane filters</a>. Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.</p>
+<p><strong>By the numbers:</strong> a preset captures search text, assignee, labels, priority, due-date selection, custom-field filters (1.3+: including a number field's operator and range, see <a href="../custom-fields/#number-filter-operators">Number filter operators</a>), (1.3+) <a href="../board/#lane-filters">lane filters</a>, and (1.3+) <a href="../board/#filtering-by-sub-column-and-track-state">sub-column and track-state filters</a>. Presets are private to you, and every board role, including Viewer, can create, load, and delete their own.</p>
 <h2 id="saving-a-filter">Saving a filter<a class="headerlink" href="#saving-a-filter" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open the board and set your filters with the filter bar (press <code>f</code>, or click <strong>Filters</strong> and choose <strong>Show filter bar</strong> in the panel footer).</li>
@@ -4368,7 +4368,7 @@
 <p><strong>By the numbers:</strong> only version <code>1</code> exists today. The server accepts any <code>state_version</code> number ≥ 1, including one higher than it recognizes, so a mixed-version deploy where a newer frontend tags its write <code>state_version: 2</code> isn't rejected on the version number alone.</p>
 <p><strong>Yes, but:</strong> that check is separate from the <code>state_json</code> key allow-list.</p>
 <ul>
-<li>The server still accepts only the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>, <code>blockedOnly</code>, <code>customFields</code>, <code>visibleCustomFieldFilterIds</code>, <code>laneFilter</code>), whatever version is declared.</li>
+<li>The server still accepts only the v1 key set (<code>search</code>, <code>assigneeIds</code>, <code>labelIds</code>, <code>priorities</code>, <code>dueDate</code>, <code>blockedOnly</code>, <code>customFields</code>, <code>visibleCustomFieldFilterIds</code>, <code>laneFilter</code>, <code>subColumnIds</code>, <code>trackStates</code>), whatever version is declared.</li>
 <li>A genuinely new v2-only key is rejected with <code>400</code> until the backend's allow-list is updated.</li>
 <li>On read, older clients fall back to a defensive v1 reader for any shared fields.</li>
 </ul>
