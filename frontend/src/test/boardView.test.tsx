@@ -2585,6 +2585,8 @@ describe('BoardView', () => {
         expect(strip).not.toHaveAttribute('data-fade')
         expect(observed).toContain(strip)
         expect(observed).toContain(strip.firstElementChild)
+        // A full-width child never resizes when a tab mounts late, so it must size to its tabs.
+        expect(strip.firstElementChild).toHaveClass('w-max')
         Object.defineProperty(strip, 'scrollWidth', { configurable: true, value: 400 })
         Object.defineProperty(strip, 'clientWidth', { configurable: true, value: 200 })
         fire()

@@ -268,7 +268,7 @@ export function ViewToggle({
     </Tooltip>
   );
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex w-max items-center gap-1">
       {btn("Board", "board", "b", undefined, showLens && deemphasizeBoard)}
       {showLens && btn("Lens", "lens", "l")}
       {btn("Summary", "summary", "s")}
