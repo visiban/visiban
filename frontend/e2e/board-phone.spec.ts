@@ -338,9 +338,19 @@ test.describe('board phone layout', () => {
     expect(m.right).toBeLessThanOrEqual(filter!.x + 0.5)
     // Switching to the last tab scrolls it into view.
     await page.getByRole('button', { name: 'Analytics' }).click()
-    const analytics = await page.getByRole('button', { name: 'Analytics' }).boundingBox()
-    const box = await strip.boundingBox()
-    expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+    // Each view mounts its own strip, so the click remounts it: wait for the new strip's Analytics tab to be the
+    // active one (aria-current="page") before measuring, since boundingBox() does not auto-wait.
+    const analyticsTab = page.getByTestId('view-tab-strip').getByRole('button', { name: 'Analytics' })
+    await expect(analyticsTab).toHaveAttribute('aria-current', 'page')
+    await expect(strip).toBeVisible()
+    // The scroll-into-view may settle over more than one frame.
+    await expect(async () => {
+      const analytics = await analyticsTab.boundingBox()
+      const box = await strip.boundingBox()
+      expect(analytics).not.toBeNull()
+      expect(box).not.toBeNull()
+      expect(analytics!.x + analytics!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
+    }).toPass({ timeout: 5_000 })
   })
 
   test('the tab strip fade is on at 390px once the Lens tab mounts late, with no scroll (#2395)', async ({ page }) => {
