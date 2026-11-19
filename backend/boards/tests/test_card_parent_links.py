@@ -341,6 +341,22 @@ class ChildrenReadTests(_LinkFixture, TestCase):
         self.assertEqual(body["results"][0]["title"], "Task SECRET-C")
         self.assertEqual(body["results"][0]["column_name"], self.col_c.name)
 
+    def test_child_on_a_second_board_is_neither_listed_nor_counted(self):
+        # The write path keeps a parent's children on one board, but nothing
+        # in the schema does: a row inserted directly must not ride the first
+        # board's role check into the response.
+        _other_board, stray = _board_with_card(
+            self.owner, parent_tier=False, name="Elsewhere", title="Stray SECRET-X",
+        )
+        CardParentLink.objects.create(parent=self.parent, child=stray)
+        u = self._user("cpl_second", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        res = self._client(u).get(self.url)
+        body = res.json()
+        self.assertEqual(body["count"], 1)
+        self.assertEqual([r["id"] for r in body["results"]], [self.child.pk])
+        self.assertNotIn(b"Stray SECRET-X", res.content)
+        self.assertNotIn(stray.pk, [r["id"] for r in body["results"]])
+
     def test_viewer_without_child_access_gets_a_count_only(self):
         u = self._user("cpl_ponly", parent_role=Role.VIEWER)
         res = self._client(u).get(self.url)

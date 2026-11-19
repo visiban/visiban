@@ -395,12 +395,15 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
     request (Rules 2 and 3).
     """
     links = CardParentLink.objects.filter(parent_id=parent.pk)
-    count = links.count()
+    # The board authorized below is the only board read from. One child board
+    # per parent is a write-side rule with no database constraint, so the
+    # count and the rows are both scoped to that board: a child on any other
+    # board is never listed or counted under a role check it did not get.
+    child_board_id = links.order_by("pk").values_list("child__board_id", flat=True).first()
+    if child_board_id is None:
+        return {"count": 0, "visible": True, "offset": offset, "limit": limit, "results": []}
+    count = links.filter(child__board_id=child_board_id).count()
     out = {"count": count, "visible": False, "offset": offset, "limit": limit, "results": []}
-    if count == 0:
-        out["visible"] = True
-        return out
-    child_board_id = links.values_list("child__board_id", flat=True).first()
     child_board = (
         Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=child_board_id).first()
     )
@@ -408,7 +411,7 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
         return out
     out["visible"] = True
     cards = (
-        Card.objects.filter(parent_link__parent_id=parent.pk)
+        Card.objects.filter(parent_link__parent_id=parent.pk, board_id=child_board_id)
         .select_related("column", "swimlane")
         .order_by("pk")[offset:offset + limit]
     )
