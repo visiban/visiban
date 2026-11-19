@@ -179,6 +179,17 @@ describe('ColumnHeader — split stage (#2278)', () => {
     expect(await screen.findByText('Stage settings…')).toBeInTheDocument()
   })
 
+  it('opens the Stage tab, not Settings, from the Stage settings… item (#2278)', async () => {
+    const user = userEvent.setup()
+    const lanes = [{ id: 3, name: 'APAC', not_applicable_field_ids: [] }] as unknown as React.ComponentProps<typeof ColumnHeader>['swimlanes']
+    const defs = [{ id: 41, name: 'Technical', is_dimension: true }] as unknown as React.ComponentProps<typeof ColumnHeader>['customFieldDefinitions']
+    renderHeader({ column: stage, swimlanes: lanes, customFieldDefinitions: defs })
+    const trigger = document.querySelector<HTMLElement>('[aria-haspopup="menu"], [aria-haspopup="true"]')!
+    await user.click(trigger)
+    await user.click(await screen.findByText('Stage settings…'))
+    expect(await screen.findByTestId('stage-settings-panel')).toBeInTheDocument()
+  })
+
   it('renders no Stage settings… path for a non-admin', () => {
     renderHeader({ column: stage, isAdmin: false })
     expect(document.querySelector('[aria-haspopup="menu"], [aria-haspopup="true"]')).toBeNull()

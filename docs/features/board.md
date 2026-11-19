@@ -824,6 +824,8 @@ See [Analytics](analytics.md) for details on the Summary and Analytics views.
 
 The **History** tab in the board toolbar shows a chronological log of all card movements across the entire board, newest first, paginated at 50 records per page.
 
+When a move left a stage with sub-columns open, or entered a stage past its first sub-column, the row adds a note after the destination, for example "· left 2 sub-columns early, entered at sub-column 2". The card's **History** tab shows the same note.
+
 #### Filters
 
 All filters are URL-synced and persist across page reloads.
