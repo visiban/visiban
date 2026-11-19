@@ -792,7 +792,7 @@ Which preset applies, highest first:
 3. The board's default preset
 4. The board's own density setting, with no overlay
 
-With no board default (the setting for every board created or upgraded before 1.3) and no link, the board looks exactly as it did before presets existed. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
+With no board default (the setting for every board created or upgraded before 1.3) and no link, the board uses its own card density with no overlay, the same as choosing **Classic**. Choosing the board default yourself clears your personal density and overlay choices for that board, so you follow the board default again if an admin changes it later, in an open tab as after a reload. A preset you chose that is not the board default stays yours when the board default changes. Each board keeps its own preset: moving to another board never carries one over.
 
 ## Board states
 

@@ -3938,8 +3938,9 @@ def _board_health_start(board):
 
 # Shared by BoardSerializer (writable) and BoardFullSerializer (read-only).
 DEFAULT_PRESET_HELP = (
-    "Id of the board preset members see by default (#1146): `classic` (the board "
-    "exactly as it rendered before presets) or `default`, or null for no board "
+    "Id of the board preset members see by default (#1146): `classic` (the board's "
+    "own density and no overlay; it names no separate look, the redesigned board "
+    "is the only board) or `default`, or null for no board "
     "default. A member's own preset choice and a `?preset=` link take precedence. "
     "Presets are defined by the client in 1.3; this field stores only the id."
 )
