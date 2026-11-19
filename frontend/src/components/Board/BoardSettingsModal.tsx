@@ -65,6 +65,8 @@ interface Props {
   focusFirstStoppedWebhook?: boolean;
   /** #2057 — the latest `webhook.changed` frame; the Webhooks tab refetches on each. */
   webhookChange?: (WebhookChangedPayload & { seq: number }) | null;
+  /** #2057 — bumped on each board-socket reconnect; the Webhooks tab re-reads its list on each. */
+  webhookReconnectSignal?: number;
   /** #863 — false for an SSO-only account: a webhook take-over then needs a recent provider sign-in, not a password. */
   currentUserHasPassword?: boolean;
   onBoardDeleted?: () => void;
@@ -216,7 +218,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
@@ -1970,6 +1972,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               registerCloseGuard={registerWebhookCloseGuard}
               onRequestClose={onClose}
               remoteChange={webhookChange}
+              reconnectSignal={webhookReconnectSignal}
               currentUserId={currentUserId}
             />
           )}

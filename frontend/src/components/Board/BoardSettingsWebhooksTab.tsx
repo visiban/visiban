@@ -42,6 +42,8 @@ export const WEBHOOK_ESCAPE = {
 
 /** Said when a way out of the tab is refused because a one-time secret is on its way. */
 const SECRET_PENDING_COPY = "Wait for the new secret. It can only be shown once, so you can't leave until it arrives.";
+/** Said (through the notice slot) and shown when the open webhook was deleted elsewhere (#2057). */
+const DELETED_ELSEWHERE_COPY = "This webhook was deleted elsewhere.";
 
 const CLOCK_TICK_MS = 30_000;
 const HIGHLIGHT_MS = 1500;
@@ -99,6 +101,11 @@ interface Props {
   remoteChange?: (WebhookChangedPayload & { seq: number }) | null;
   /** Frames this user caused still refetch, but are not tagged as changed elsewhere. */
   currentUserId?: number | null;
+  /**
+   * #2057 — bumped by BoardView on each board-socket reconnect: frames sent
+   * while the socket was down are lost, so each new value re-reads the list.
+   */
+  reconnectSignal?: number;
 }
 
 type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: number };
@@ -121,6 +128,7 @@ export default function BoardSettingsWebhooksTab({
   onRequestClose,
   remoteChange = null,
   currentUserId = null,
+  reconnectSignal = 0,
 }: Props) {
   const [status, setStatus] = useState<WebhookStatus | null>(null);
   const [featureOff, setFeatureOff] = useState(false);
@@ -144,8 +152,15 @@ export default function BoardSettingsWebhooksTab({
   // #2057 — rows another admin or the dispatcher changed in the last 30 s.
   const [changedIds, setChangedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [remoteLive, setRemoteLive] = useState("");
+  // A "may have taken effect" notice or a banner that replaces a vanished
+  // subject is announced here, always mounted: a status region that mounts
+  // with its text is not reliably read (#1421, #1435).
+  const [noticeLive, setNoticeLive] = useState("");
 
+  const rootRef = useRef<HTMLDivElement>(null);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const goneRef = useRef<HTMLParagraphElement>(null);
+  const leaveButtonRef = useRef<HTMLButtonElement>(null);
   const refusalRef = useRef<HTMLParagraphElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const revealRef = useRef<WebhookSecretRevealHandle>(null);
@@ -173,6 +188,8 @@ export default function BoardSettingsWebhooksTab({
   const announceIdsRef = useRef(new Set<number>());
   // A frame that arrived before this tab mounted is already in the first load.
   const mountSeqRef = useRef(remoteChange?.seq ?? 0);
+  // Likewise a reconnect from before this tab mounted.
+  const mountReconnectRef = useRef(reconnectSignal);
   // The guard protects the reveal only while it is on screen: a create reveal
   // above the list, a rotate reveal in its own webhook's detail. Any path that
   // takes it off screen disarms the guard (frontend/CLAUDE.md, close guards).
@@ -234,6 +251,9 @@ export default function BoardSettingsWebhooksTab({
     }, CHANGED_ELSEWHERE_MS));
     announceIdsRef.current.add(id);
     if (announceTimerRef.current === null) {
+      // Cleared at the start of each batch, so a batch with the same count as
+      // the last one is still a change to the region and is announced.
+      setRemoteLive("");
       announceTimerRef.current = setTimeout(() => {
         announceTimerRef.current = null;
         const n = announceIdsRef.current.size;
@@ -242,6 +262,13 @@ export default function BoardSettingsWebhooksTab({
       }, ANNOUNCE_COALESCE_MS);
     }
   }, [remoteChange, currentUserId, refetchList]);
+
+  // Frames sent while the socket was down never arrive: re-read on reconnect.
+  useEffect(() => {
+    if (reconnectSignal <= mountReconnectRef.current) return;
+    mountReconnectRef.current = reconnectSignal;
+    refetchList();
+  }, [reconnectSignal, refetchList]);
 
   // Anything sent while this window was in the background, or while the
   // socket was down, is picked up when it is focused again.
@@ -276,9 +303,26 @@ export default function BoardSettingsWebhooksTab({
   }, [boardId, reloadKey]);
 
   // The tab may be scrolled well past its top by the time something is refused.
+  // `stuck` too: the bound passing swaps the banner for one with a way out.
   useEffect(() => {
-    if (refusals > 0) refusalRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [refusals]);
+    if (refusals > 0 || stuck !== null) refusalRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [refusals, stuck]);
+
+  // The open webhook vanished (deleted elsewhere, #2057): its detail, with any
+  // confirm or reveal in it, is gone, so the banner that replaces it takes
+  // focus. Only focus that was in this tab or already lost moves; the user
+  // may be working elsewhere in Board settings.
+  const detailGone = view.kind === "detail" && subs !== null && !subs.some((s) => s.id === view.id);
+  useEffect(() => {
+    if (!detailGone) {
+      // Cleared on the way out, so the next deletion is a change and is read.
+      setNoticeLive((prev) => (prev === DELETED_ELSEWHERE_COPY ? "" : prev));
+      return;
+    }
+    setNoticeLive(DELETED_ELSEWHERE_COPY);
+    const active = document.activeElement;
+    if (active === null || active === document.body || rootRef.current?.contains(active)) goneRef.current?.focus();
+  }, [detailGone]);
 
   // Focus targets resolve after the render that mounts them.
   useEffect(() => {
@@ -288,6 +332,15 @@ export default function BoardSettingsWebhooksTab({
     if (target === "list-heading") listHeadingRef.current?.focus();
     else if (target === "add") (addButtonRef.current ?? listHeadingRef.current)?.focus();
     else if (target === "detail-heading") document.querySelector<HTMLElement>("[data-webhook-status-heading]")?.focus();
+    else if (target === "landmark" || target === "landmark-if-lost") {
+      // The heading of whatever view is showing. "-if-lost" only when focus
+      // fell to the page, so it never takes focus from a control that claimed it.
+      const active = document.activeElement;
+      if (target === "landmark-if-lost" && active !== null && active !== document.body) return;
+      (rootRef.current?.querySelector<HTMLElement>("[data-webhook-status-heading]")
+        ?? listHeadingRef.current
+        ?? rootRef.current?.querySelector<HTMLElement>("h3[tabindex='-1']"))?.focus();
+    }
     else if (target.startsWith("manage:")) manageRefs.current.get(Number(target.slice(7)))?.focus();
   }, [pendingFocus]);
 
@@ -389,6 +442,11 @@ export default function BoardSettingsWebhooksTab({
       abandonedRef.current.delete(requestNo);
       // A request left behind must not unlock a newer one when it settles.
       if (pendingTokenRef.current === requestNo) {
+        // "Leave anyway" unmounts now: if it had focus, a heading takes it,
+        // unless what the answer mounts (a reveal) claims focus first.
+        if (leaveButtonRef.current !== null && document.activeElement === leaveButtonRef.current) {
+          setPendingFocus("landmark-if-lost");
+        }
         secretPendingRef.current = false;
         refusedProceedRef.current = null;
         setRefusals(0);
@@ -404,6 +462,14 @@ export default function BoardSettingsWebhooksTab({
   const clearLeftPending = () => {
     setLeftPending(null);
     writeLeftPending(boardId, null);
+    // So a later "Leave anyway" with the same sentence is read again.
+    setNoticeLive((prev) => (prev === DELETED_ELSEWHERE_COPY ? prev : ""));
+  };
+
+  /** Dismiss on the left-pending notice: the notice unmounts, so focus goes to the view's heading. */
+  const dismissLeftPending = () => {
+    clearLeftPending();
+    setPendingFocus("landmark");
   };
 
   /** "Leave anyway": unlock the tab, say a secret may have been issued, re-read the server. */
@@ -419,6 +485,7 @@ export default function BoardSettingsWebhooksTab({
     const left = { origin, at: Date.now() };
     setLeftPending(left);
     writeLeftPending(boardId, left);
+    setNoticeLive(SECRET_LEFT_COPY[origin]);
     // So the "until" line and the list show what the server has now; a late
     // answer re-reads again.
     listWebhooks(boardId).then(setSubs).catch(() => undefined);
@@ -426,6 +493,9 @@ export default function BoardSettingsWebhooksTab({
     refusedProceedRef.current = null;
     if (proceed) proceed();
     else if (origin === "create") openList("add");
+    // The button unmounts with the banner; the rotate confirm closed above,
+    // so focus goes to the webhook's status heading.
+    else setPendingFocus("detail-heading");
   };
 
   const whileConfirmRuns = async (fn: () => Promise<void>) => {
@@ -543,8 +613,10 @@ export default function BoardSettingsWebhooksTab({
     if (!sub) {
       // Deleted by another admin while open (#2057, webhook-deleted-elsewhere).
       body = (
-        <div role="status" className="flex flex-col items-start gap-2 rounded-lg border border-line bg-raised px-3 py-3">
-          <p className="text-sm text-fg">This webhook was deleted elsewhere.</p>
+        // Announced through the always-mounted notice slot; the sentence takes
+        // focus when the webhook vanishes (the effect on detailGone).
+        <div className="flex flex-col items-start gap-2 rounded-lg border border-line bg-raised px-3 py-3">
+          <p ref={goneRef} tabIndex={-1} className="text-sm text-fg focus:outline-none">{DELETED_ELSEWHERE_COPY}</p>
           <button
             type="button"
             onClick={() => openList("list-heading")}
@@ -709,15 +781,19 @@ export default function BoardSettingsWebhooksTab({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex flex-col gap-3">
       {stuck !== null ? (
-        // Past the bound (#2127): the same alert slot, now with a way out.
-        <div key={`stuck-${refusals}`} role="alert" className="scroll-mt-5 flex flex-col items-start gap-2 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
-          <p ref={refusalRef}>{SECRET_STUCK_COPY[stuck]}</p>
+        // Past the bound (#2127): the same alert slot, now with a way out. The
+        // alert is the message only, keyed so each refusal is announced again;
+        // the button sits beside it (#1772) and is not remounted by a refusal.
+        <div className="scroll-mt-5 flex flex-col items-start gap-2 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          <p key={`stuck-${refusals}`} id="webhook-secret-stuck" ref={refusalRef} role="alert">{SECRET_STUCK_COPY[stuck]}</p>
           <button
+            ref={leaveButtonRef}
             type="button"
             onClick={leaveAnyway}
-            className="text-xs text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong bg-surface transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            aria-describedby="webhook-secret-stuck"
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong bg-surface transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Leave anyway
           </button>
@@ -728,12 +804,13 @@ export default function BoardSettingsWebhooksTab({
         </p>
       )}
       {leftPending !== null && (
-        <div role="status" data-testid="webhook-left-pending" className="flex items-start gap-3 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+        // Announced through the always-mounted notice slot below (#1421).
+        <div data-testid="webhook-left-pending" className="flex items-start gap-3 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
           <p className="flex-1">{SECRET_LEFT_COPY[leftPending.origin]}</p>
           <button
             type="button"
-            onClick={clearLeftPending}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+            onClick={dismissLeftPending}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
           >
             Dismiss
           </button>
@@ -745,6 +822,8 @@ export default function BoardSettingsWebhooksTab({
       <p className="text-xs text-fg-tertiary min-h-4" role="status" aria-live="polite" aria-atomic="true">{live}</p>
       {/* Changes made elsewhere (#2057), coalesced; kept apart so they never overwrite the slot above. */}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{remoteLive}</p>
+      {/* "May have taken effect" and "deleted elsewhere" (#2127, #2057): the visible banners carry no live role. */}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="webhook-notice-live">{noticeLive}</p>
     </div>
   );
 }

@@ -112,7 +112,7 @@ A webhook turned off because its stored address or secret can no longer be read 
 
 ### When another admin changes a webhook
 
-Since 1.3, an open Webhooks tab follows changes made elsewhere, by another board admin or by the dispatcher (a webhook starting to fail, recovering, or being turned off), without a reload. A changed row is marked **Changed just now**. If the webhook you have open was deleted elsewhere, the tab says so and offers **Back to all webhooks**. An open create form, confirmation or secret you have not stored yet is never replaced by an update. The tab also reloads the list when the browser window regains focus, which covers anything sent while the connection was down. Only board admins receive these updates, and they never carry the address or a secret ([`webhook.changed`](../api/websockets.md#webhook-events-since-13)).
+Since 1.3, an open Webhooks tab follows changes made elsewhere, by another board admin or by the dispatcher (a webhook starting to fail, recovering, or being turned off), without a reload. A changed row is marked **Changed just now**. If the webhook you have open was deleted elsewhere, the tab says so and offers **Back to all webhooks**. An open create form, confirmation or secret you have not stored yet is never replaced by an update. Updates are not stored, so anything sent while the board's live connection was down would be missed: the tab reloads the list when that connection reconnects, and also when the browser window regains focus. The **Changed just now** mark lasts 30 seconds and does not say who made the change. Only board admins receive these updates, and they never carry the address or a secret ([`webhook.changed`](../api/websockets.md#webhook-events-since-13)).
 
 ## For operators
 

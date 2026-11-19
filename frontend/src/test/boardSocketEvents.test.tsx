@@ -20,17 +20,19 @@ import type { BoardContextType } from '../contexts/BoardContext'
 
 const { getOnEvent } = vi.hoisted(() => {
   let _onEvent: ((e: BoardEvent) => void) | null = null
+  let _onReconnected: (() => void) | undefined
   return {
     getOnEvent: {
-      capture: (cb: (e: BoardEvent) => void) => { _onEvent = cb },
+      capture: (cb: (e: BoardEvent) => void, onReconnected?: () => void) => { _onEvent = cb; _onReconnected = onReconnected },
       dispatch: (e: BoardEvent) => _onEvent?.(e),
+      reconnect: () => _onReconnected?.(),
     },
   }
 })
 
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: (_boardId: number, onEvent: (e: BoardEvent) => void) => {
-    getOnEvent.capture(onEvent)
+  useBoardSocket: (_boardId: number, onEvent: (e: BoardEvent) => void, options?: { onReconnected?: () => void }) => {
+    getOnEvent.capture(onEvent, options?.onReconnected)
     return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }
   },
 }))
@@ -86,7 +88,7 @@ const settingsDeleteHooks: { deleting?: () => void; failed?: () => void } = {}
 vi.mock('../components/Board/AddColumnModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: ({ inviteReloadSignal, shareLinkIssuedAt, webhookChange, onBoardDeleting, onBoardDeleteFailed }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null; webhookChange?: { id: number; seq: number } | null; onBoardDeleting?: () => void; onBoardDeleteFailed?: () => void }) => (
+  default: ({ inviteReloadSignal, shareLinkIssuedAt, webhookChange, webhookReconnectSignal, onBoardDeleting, onBoardDeleteFailed }: { inviteReloadSignal?: number; shareLinkIssuedAt?: string | null; webhookChange?: { id: number; seq: number } | null; webhookReconnectSignal?: number; onBoardDeleting?: () => void; onBoardDeleteFailed?: () => void }) => (
     <div
       data-testid="settings-modal"
       data-on-deleting={String(!!onBoardDeleting)}
@@ -94,6 +96,7 @@ vi.mock('../components/Board/BoardSettingsModal', () => ({
       data-invite-signal={inviteReloadSignal ?? 0}
       data-share-issued-at={shareLinkIssuedAt ?? ''}
       data-webhook-change={webhookChange ? `${webhookChange.id}:${webhookChange.seq}` : ''}
+      data-webhook-reconnect={String(webhookReconnectSignal ?? '')}
     />
   ),
 }))
@@ -967,6 +970,17 @@ describe('BoardView — board invites (#1444)', () => {
     expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-change', '4:2')
     // Never merged into board state.
     expect(ctx.mergeBoardState).not.toHaveBeenCalled()
+  })
+
+  it('a socket reconnect bumps the webhook reconnect signal, so an open Webhooks tab re-reads (#2057)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    await openSettings()
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-reconnect', '0')
+    act(() => { getOnEvent.reconnect() })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-reconnect', '1')
+    act(() => { getOnEvent.reconnect() })
+    expect(screen.getByTestId('settings-modal')).toHaveAttribute('data-webhook-reconnect', '2')
   })
 
   it('member.added carrying an invite bumps the signal; a plain member.added does not', async () => {

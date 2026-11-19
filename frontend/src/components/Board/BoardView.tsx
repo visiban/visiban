@@ -513,6 +513,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // #2057 — the latest admin-only webhook.changed frame, for an open Webhooks
   // tab. `seq` makes two identical frames two changes.
   const [webhookChange, setWebhookChange] = useState<(WebhookChangedPayload & { seq: number }) | null>(null);
+  // #2057 — bumped on each socket reconnect so an open Webhooks tab re-reads
+  // its list: webhook.changed is broadcast-only, and frames sent while the
+  // socket was down are not in the /full/ resync.
+  const [socketReconnectSeq, setSocketReconnectSeq] = useState(0);
 
   // #1444 — arriving from a board invite (JoinPage / the OAuth return in
   // App.tsx) carries what happened in navigation state.
@@ -1050,7 +1054,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const fetchedAt = lastFullFetchAtRef.current?.() ?? null;
     if (fetchedAt === null || Date.now() - fetchedAt > FIRST_OPEN_RESYNC_MS) reconnectResync();
   }, [reconnectResync]);
-  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected: reconnectResync, onFirstConnected, onServerClose });
+  const onReconnected = useCallback(() => {
+    reconnectResync();
+    setSocketReconnectSeq((n) => n + 1);
+  }, [reconnectResync]);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler, { onReconnected, onFirstConnected, onServerClose });
   // Access loss reaches the client as a 4001/4003 close (status "failed") or,
   // for a direct member removal, a server-sent 1000 (onServerClose above).
   // Re-read the board over REST so a revoked or deleted board swaps in the
@@ -3881,6 +3889,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           initialTab={settingsInitialTab}
           focusFirstStoppedWebhook={webhookDeepLink}
           webhookChange={webhookChange}
+          webhookReconnectSignal={socketReconnectSeq}
           currentUserHasPassword={currentUser?.has_usable_password !== false}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}

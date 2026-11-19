@@ -46,12 +46,13 @@ export default function WebhookList({ subs, now, highlightId, changedIds, onMana
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="font-mono text-sm text-fg truncate" title={sub.url_display}>{sub.url_display}</span>
                 <WebhookStatusPill sub={sub} />
-                {changedIds?.has(sub.id) && (
-                  <span data-testid={`webhook-changed-${sub.id}`} className="text-xs text-fg-tertiary shrink-0">Changed just now</span>
-                )}
               </div>
               <p className="text-xs text-fg-tertiary">
                 {eventsSummary(sub.event_types)} · Created by {creator} · <span className="font-mono">#{sub.id}</span>
+                {/* On the metadata line, not beside the URL, which truncates (#2057). */}
+                {changedIds?.has(sub.id) && (
+                  <> · <span data-testid={`webhook-changed-${sub.id}`} className="font-medium text-fg">Changed just now</span></>
+                )}
               </p>
               {err && <p className="text-xs font-mono text-fg-secondary truncate" title={err}>Last error: {err}</p>}
               {!sub.enabled && <p className="text-xs text-fg-secondary">{reason ? reason.headline : `Turned off by a board admin${dateLabel(sub.disabled_at)}`}</p>}
