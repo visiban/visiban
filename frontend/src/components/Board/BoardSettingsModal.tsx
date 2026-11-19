@@ -2202,7 +2202,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   >
                     <legend className="sr-only">Card density</legend>
                     {([
-                      { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
+                      { value: "comfortable", label: "Comfortable", description: "A status line (Overdue, Due soon or Stale) in place of badges, one primary label, assignee. Future due dates are in the card details, not on the card. Best for new boards." },
                       { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
                       { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
                     ] as const).map(({ value, label, description }) => {
@@ -2296,7 +2296,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       >
                         <legend className="sr-only">Your personal density override</legend>
                         {([
-                          { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
+                          { value: "comfortable", label: "Comfortable", description: "A status line (Overdue, Due soon or Stale) in place of badges, one primary label, assignee. Future due dates are in the card details, not on the card. Best for new boards." },
                           { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
                           { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
                         ] as const).map(({ value, label, description }) => {

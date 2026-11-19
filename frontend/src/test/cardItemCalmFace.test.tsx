@@ -188,9 +188,10 @@ describe('CardItem — omitted metadata stays in the accessible name (#2279)', (
     expect(stale.container.querySelector('[data-testid="card-status-line"]')?.getAttribute('data-status-kind')).toBe('stale')
     expect(stale.container.querySelector('[data-testid="card-dense-sr"]')?.textContent).toContain('Due ')
     stale.unmount()
-    // An overdue status already says the date, so the words do not repeat it.
+    // The Dense status text is only "Overdue" (no date), so the date is spoken for an overdue card too.
     const overdue = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="dense" />)
-    expect(overdue.container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? '').not.toContain('Due ')
+    expect(overdue.container.querySelector('[data-testid="card-status-line"]')?.getAttribute('data-status-kind')).toBe('overdue')
+    expect(overdue.container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? '').toContain('Due ')
   })
 
   it('Dense on a bare card adds no sr-only metadata text', () => {

@@ -673,7 +673,7 @@ Source of truth: `docs/development/board-redesign.md` § Cards and `components.p
   | Checklist progress | Dense | `sr-only` text; hover peek progress bar |
   | Attachments, weight | Comfortable, Dense | `sr-only` text (Dense); the hover peek metrics line `Weight 5 · 3 attachments` |
   | Reference link (MR/PR) | Dense (glyph only at Comfortable) | `sr-only` text (Dense); the hover peek metrics line; the face's `<a>` at Comfortable and Standard |
-  | Due date | Dense when not overdue or due soon; Comfortable when not overdue or due soon | the status line when overdue or due soon (short at Dense); at Dense otherwise `sr-only` text (`Due <date>`, which a stale status does not replace); at Comfortable nothing on the face: the peek sheet's Due date row and the card detail (the hover peek has none) |
+  | Due date | Dense always (the short status says only "Overdue" or "Due soon"); Comfortable when not overdue or due soon | the status line when overdue or due soon (full date at Comfortable and Standard, short at Dense); at Dense also `sr-only` text (`Due <date>`) for every status kind; at Comfortable nothing on the face: the peek sheet's Due date row and the card detail (the hover peek has none) |
   | Priority | every non-compact density | the card's accessible name (`, Priority: high`, the last text in the card, `data-testid="card-priority-sr"`); the hover peek |
   | Moved-N-days text, recently-moved dot | Dense | the hover peek footer (last activity) |
   Words are `sr-only` text in the card's own DOM (not `aria-label` on the root, which would replace the title), and the emoji-led chips carry words too: `✓2/5` is `aria-hidden` with `Checklist 2 of 5` beside it, `📎3` with `3 attachments`.

@@ -529,9 +529,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const urgencyBadge = status ? null : urgency;
   const dueAlreadyInUrgency = urgency?.kind === "overdue" || urgency?.kind === "due-soon" || status?.kind === "overdue" || status?.kind === "due-soon";
   // The one-row Dense face draws none of these, so each is carried as words for
-  // assistive technology (visible: the hover peek / peek panel). The status line
-  // already carries an overdue or due-soon date, so the date is added only when
-  // it is not.
+  // assistive technology (visible: the hover peek / peek panel).
   const denseSrText = (() => {
     if (!denseRow) return "";
     const parts: string[] = [];
@@ -539,7 +537,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     if (card.checklist_total > 0) parts.push(`Checklist ${card.checklist_done} of ${card.checklist_total}`);
     if (card.attachment_count > 0) parts.push(`${card.attachment_count} attachment${card.attachment_count === 1 ? "" : "s"}`);
     if (card.weight > 1) parts.push(`Weight ${card.weight}`);
-    if (dueInfo && !(status?.kind === "overdue" || status?.kind === "due-soon")) parts.push(`Due ${dueInfo.label}`);
+    // The Dense status text is only "Overdue" or "Due soon" (no date), so the date
+    // is always spoken here whatever the status kind is.
+    if (dueInfo) parts.push(`Due ${dueInfo.label}`);
     if (externalRef) parts.push(`${PROVIDER_LABELS[externalRef.provider] ?? externalRef.provider} ${externalRef.ref}`);
     return parts.length > 0 ? `, ${parts.join(". ")}` : "";
   })();
