@@ -148,7 +148,9 @@ check_chart_version_free() {
   local chart="helm/visiban/Chart.yaml"
   # Test-only overrides: honored solely under --self-test (_RELEASE_SELFTEST is
   # assigned below, never inherited), so a stray exported variable cannot neuter
-  # the gate.
+  # the gate. The child script has its own override env vars (CHART_TAGS skips the
+  # registry read entirely), so the call below scrubs every one of them: an
+  # operator's exported CHART_TAGS must not turn this pre-flight into a no-op.
   if [[ "$_RELEASE_SELFTEST" == 1 ]]; then
     script="${CHART_REGISTRY_SCRIPT:-$script}"
     chart="${CHART_YAML:-$chart}"
@@ -161,7 +163,11 @@ check_chart_version_free() {
     echo "Error: could not read the chart version from ${chart}; refusing to cut ${tag} without knowing what helm-publish will push." >&2
     return 1
   fi
-  out="$(CI_COMMIT_TAG="$tag" bash "$script" --candidate "$cand" 2>&1)" || rc=$?
+  out="$(env -u CHART_TAGS -u GHCR_HOST -u CHART_REPO -u CHART_IMAGE_PROBE \
+    -u CHART_APPVERSION_OF -u CHART_MANIFEST_STATUS_OF -u CHART_DIGEST_OF \
+    -u CHART_COSIGN -u CHART_DEFAULT_IMAGES -u IMAGE_REGISTRY \
+    -u CHART_SIGN_IDENTITY_REGEXP -u CHART_SIGN_ISSUER \
+    CI_COMMIT_TAG="$tag" bash "$script" --candidate "$cand" 2>&1)" || rc=$?
   if [[ $rc -eq 0 ]]; then
     echo "Chart version pre-flight: OK (helm-publish would push chart ${cand}; it is not in the registry)."
     return 0
@@ -932,12 +938,24 @@ dependencies:
   else
     echo "SELF-TEST FAILED: the guard must receive the suffixed pre-release chart version and CI_COMMIT_TAG" >&2; rc=1
   fi
-  # An exported override must be ignored outside the self-test (the real script then
-  # reads the repo's Chart.yaml and, offline or taken, must not be the stub's pass).
-  # CHART_TAGS is derived from the real Chart.yaml so a future chart version bump cannot flip this case.
+  # The child script's own overrides (CHART_TAGS et al.) must be scrubbed: a stub
+  # that asserts CHART_TAGS is unset passes only because of the `env -u`.
+  printf '%s\n' '#!/usr/bin/env bash' '[[ -z "${CHART_TAGS+set}" && -z "${GHCR_HOST+set}" && -z "${CHART_IMAGE_PROBE+set}" ]]' > "$tmp/cr-noenv.sh"
+  if CHART_TAGS=x GHCR_HOST=x CHART_IMAGE_PROBE=x CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-noenv.sh" check_chart_version_free v1.3.1 >/dev/null 2>&1; then
+    echo "SELF-TEST OK: check_chart_version_free scrubs the registry script's override env vars"
+  else
+    echo "SELF-TEST FAILED: check_chart_version_free must scrub CHART_TAGS and the other registry-script overrides" >&2; rc=1
+  fi
+  # Outside the self-test the stub script must NOT run. The stub leaves a marker;
+  # the real script runs instead, with curl stubbed to fail fast so no network is
+  # touched. If the override gate were removed the marker would appear.
+  mkdir -p "$tmp/bin"
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 22' > "$tmp/bin/curl"; chmod +x "$tmp/bin/curl"
+  printf '%s\n' '#!/usr/bin/env bash' ": > \"$tmp/stub-ran\"" 'exit 0' > "$tmp/cr-marker.sh"
   repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-  real_chart_ver="$(chart_version_for_tag v1.3.1 "$repo_root/helm/visiban/Chart.yaml")"
-  if (cd "$repo_root" && _RELEASE_SELFTEST=0 CHART_YAML="$tmp/missing.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-ok.sh" CHART_TAGS="$real_chart_ver" check_chart_version_free v1.3.1) >/dev/null 2>&1; then
+  rm -f "$tmp/stub-ran"
+  (cd "$repo_root" && PATH="$tmp/bin:$PATH" _RELEASE_SELFTEST=0 CHART_YAML="$tmp/chart-ok.yaml" CHART_REGISTRY_SCRIPT="$tmp/cr-marker.sh" check_chart_version_free v1.3.1) >/dev/null 2>&1 || true
+  if [[ -e "$tmp/stub-ran" ]]; then
     echo "SELF-TEST FAILED: CHART_REGISTRY_SCRIPT/CHART_YAML must be ignored outside --self-test" >&2; rc=1
   else
     echo "SELF-TEST OK: CHART_REGISTRY_SCRIPT/CHART_YAML are ignored outside --self-test"

@@ -29,8 +29,8 @@ and reads that pipeline's jobs, not its top-level status:
   never resolves cleanly (the `/mass_merge` post-merge hang), and it reads
   `success` when an `allow_failure: true` job failed.
 * So every job in the pipeline must be `success` unless it is listed in
-  EXEMPT_JOBS below. A failed `allow_failure: true` job (`playwright-e2e`,
-  `backend-lint`, the SAST analyzers, `oidc-smoke`) refuses the release.
+  EXEMPT_JOBS below. A failed `allow_failure: true` job (`backend-lint`,
+  the SAST analyzers, `oidc-smoke`) refuses the release.
   Deny-by-default is deliberate: an allowlist of required jobs goes stale by
   omission, so a new gate added later would be silently ungated on a release,
   which is the bug class #1154 was filed about.
@@ -812,7 +812,7 @@ def _self_test() -> int:
                 jobs += [job(f"backend-test {i}/8", jid=100 + i) for i in range(1, 9)]
             else:
                 jobs.append(job(name))
-        jobs += [job("playwright-e2e", allow_failure=True), job("docs-deploy", "manual", allow_failure=True)]
+        jobs += [job("oidc-smoke", allow_failure=True), job("docs-deploy", "manual", allow_failure=True)]
         jobs += [job("seed-demo-data", "manual", allow_failure=True), job(GUARD_JOB)]
         return jobs
 
@@ -894,8 +894,8 @@ def _self_test() -> int:
           rc == 1 and "frontend-test: failed" in log, log)
 
     # 2. allow_failure job failed
-    rc, log, _ = run(Fake(push, {900: replace(green_jobs(), "playwright-e2e", status="failed")}))
-    check("failed allow_failure job (playwright-e2e) -> refused", rc == 1 and "playwright-e2e: failed" in log, log)
+    rc, log, _ = run(Fake(push, {900: replace(green_jobs(), "oidc-smoke", status="failed")}))
+    check("failed allow_failure job (oidc-smoke) -> refused", rc == 1 and "oidc-smoke: failed" in log, log)
 
     # 3. ALWAYS_REQUIRED job missing
     jobs = [j for j in green_jobs() if j["name"] != "suppressions-check"]
@@ -903,7 +903,7 @@ def _self_test() -> int:
     check("always-required job missing from main pipeline -> refused", rc == 1 and "suppressions-check: not in" in log, log)
 
     # 4. change-conditional job absent is fine
-    jobs = [j for j in green_jobs() if j["name"] != "playwright-e2e"]
+    jobs = [j for j in green_jobs() if j["name"] != "oidc-smoke"]
     rc, log, _ = run(Fake(push, {900: jobs}))
     check("change-conditional job legitimately absent -> allowed", rc == 0, log)
 

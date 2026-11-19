@@ -393,7 +393,7 @@ different job set) and reads its jobs, not its top-level status. Every job must 
 `success` unless `scripts/wait-for-main-pipeline.py` lists it in `EXEMPT_JOBS` (cache
 warmers, the `main` image pushes, `docs-deploy`, and the manual on-demand tools). A failed
 `allow_failure: true` job counts as a failure here: a release does not ship over a red
-`playwright-e2e`, `backend-lint`, `oidc-smoke` or SAST analyzer. The one tolerated failure is
+`backend-lint`, `oidc-smoke` or SAST analyzer. The one tolerated failure is
 `dep-scan-osv` exiting 2 (its MEDIUM/LOW warn tier). The jobs in `ALWAYS_REQUIRED` run on
 every `main` pipeline, so a missing one refuses too. A change-conditional job (most lint and
 drill jobs, #1266) may be absent when the merge did not touch its paths.
