@@ -4647,10 +4647,11 @@ and are <strong>not</strong> undone by a refusal:</p>
   and edits <code>docs/</code>, so the release merge's own <code>main</code> pipeline runs <code>docs-deploy</code>, but that
   run skips a version whose tag is not on origin yet (<code>resolve-docs-version.sh --require-tag</code>,
   #1997) and deploys nothing. Only the tag pipeline's <code>docs-deploy</code>, which waits for the
-  guard, publishes the versioned docs, so a refusal leaves them unpublished. Caveat: the refused tag stays on origin, so the next
-  <code>docs/**</code> or <code>mkdocs.yml</code> push to <code>main</code> passes <code>--require-tag</code> and runs
-  <code>mike deploy &lt;tag&gt; MINOR latest</code> and <code>set-default</code> ungated. Hold docs merges to <code>main</code>
-  during a refusal, or abandon the release (#2398).</li>
+  guard, publishes the versioned docs, so a refusal leaves them unpublished. The refused tag stays
+  on origin, but <code>--require-tag</code> also requires the tag pipeline's <code>release-main-pipeline-guard</code>
+  job to be <code>success</code>, so a later <code>docs/**</code> or <code>mkdocs.yml</code> push to <code>main</code> skips that version
+  (#2398). It fails closed: a failed or unreadable status lookup fails the <code>main</code> <code>docs-deploy</code>
+  job rather than deploying. A docs edit pushed to <code>main</code> while the guard is still pending is skipped, and the tag pipeline then deploys from the tag commit, so re-run <code>docs-deploy</code> on <code>main</code> after the tag pipeline finishes.</li>
 </ul>
 <p>What the refusal <strong>did</strong> stop, one tag-pipeline job each:</p>
 <table>
@@ -4701,8 +4702,8 @@ re-tagging. If the release has to be abandoned instead:</p>
 <li>Reopen the milestone if it was closed.</li>
 <li>Nothing to roll back in the docs: the versioned docs are published only by the tag
    pipeline after the guard (#1997), so a refused release never reached <code>gh-pages</code>, unless a
-   docs-touching push to <code>main</code> landed after the refusal (the tag is still on origin, so
-   <code>--require-tag</code> passes; #2398). If a docs deploy for the tag ran anyway (for example a manual <code>DOCS_VERSION=&lt;tag&gt;</code> run on
+   manual deploy ran (a docs push to <code>main</code> after the refusal skips the version, because the
+   tag's guard job is not <code>success</code>; #2398). If a docs deploy for the tag ran anyway (for example a manual <code>DOCS_VERSION=&lt;tag&gt;</code> run on
    <code>main</code>), remove it with <code>mike delete --push &lt;tag&gt;</code> from a checkout with
    <code>docs/requirements.txt</code> installed and push access to <code>gh-pages</code>. For a stable tag, also
    point the aliases back at the previous stable version with
@@ -4718,7 +4719,7 @@ different job set) and reads its jobs, not its top-level status. Every job must 
 <code>success</code> unless <code>scripts/wait-for-main-pipeline.py</code> lists it in <code>EXEMPT_JOBS</code> (cache
 warmers, the <code>main</code> image pushes, <code>docs-deploy</code>, and the manual on-demand tools). A failed
 <code>allow_failure: true</code> job counts as a failure here: a release does not ship over a red
-<code>playwright-e2e</code>, <code>backend-lint</code>, <code>oidc-smoke</code> or SAST analyzer. The one tolerated failure is
+<code>backend-lint</code>, <code>oidc-smoke</code> or SAST analyzer. The one tolerated failure is
 <code>dep-scan-osv</code> exiting 2 (its MEDIUM/LOW warn tier). The jobs in <code>ALWAYS_REQUIRED</code> run on
 every <code>main</code> pipeline, so a missing one refuses too. A change-conditional job (most lint and
 drill jobs, #1266) may be absent when the merge did not touch its paths.</p>

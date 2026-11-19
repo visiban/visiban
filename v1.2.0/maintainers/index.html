@@ -4280,9 +4280,9 @@ re-verify these by hand; run the release and read what the gate says.</p>
 release. That job refuses unless every check in the tagged commit's own <code>main</code> pipeline is
 green, including <code>allow_failure: true</code> jobs (#1154). That includes the versioned docs:
 <code>main</code>'s <code>docs-deploy</code> skips a version whose tag does not exist yet, so the tag pipeline's
-<code>docs-deploy</code> publishes them after the guard (#1997). One residual window: a refused tag stays on origin,
-so a later <code>docs/**</code> push to <code>main</code> would deploy it ungated; hold docs merges during a
-refusal or abandon the release (#2398). If it refuses, see
+<code>docs-deploy</code> publishes them after the guard (#1997). A refused tag stays on origin, but
+<code>main</code> also requires the tag pipeline's <code>release-main-pipeline-guard</code> job to be <code>success</code>
+before it deploys that version, so a refusal cannot publish docs from <code>main</code> (#2398). If it refuses, see
 <a href="known-ci-failures/#release-main-pipeline-guard-refuses-to-publish-a-release-tag">Known CI Failures</a>.</p>
 
 

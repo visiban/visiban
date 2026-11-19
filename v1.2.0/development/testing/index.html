@@ -4847,7 +4847,7 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <li>Don't raise the retry to 2 either. A second retry wouldn't have saved any of these, and it would hide the next one.</li>
 </ul>
 </li>
-<li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It's <code>allow_failure: true</code> during rollout; promotion to blocking is tracked separately.</li>
+<li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It is blocking (<code>allow_failure: false</code>, #2392) now that the redesigned-board screenshot baseline has run green on <code>main</code>; a red e2e job fails the MR pipeline.</li>
 <li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
