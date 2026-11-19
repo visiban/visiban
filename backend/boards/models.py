@@ -1313,6 +1313,14 @@ class CardActivity(models.Model):
         # every transport. ``item_text`` is the field's name at write time;
         # from/to are the stored values ("" = no value).
         CUSTOM_FIELD_CHANGED = "custom_field_changed", "Custom field changed"
+        # #1104: a cross-board parent/child link was made or removed. Recorded
+        # on both cards with from/to left blank: the other card may be on a
+        # board the reader of this card's history cannot open, so not even its
+        # id is stored.
+        PARENT_LINKED = "parent_linked", "Parent linked"
+        PARENT_UNLINKED = "parent_unlinked", "Parent unlinked"
+        CHILD_LINKED = "child_linked", "Child linked"
+        CHILD_UNLINKED = "child_unlinked", "Child unlinked"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
@@ -2548,6 +2556,66 @@ def validate_external_ref_url(value):
         raise ValidationError("Enter a valid URL.")
     if "@" in parts.netloc:
         raise ValidationError("URLs containing credentials are not allowed.")
+
+
+class CardParentLink(models.Model):
+    """A cross-board parent/child link between two cards (#1104, epic #2206).
+
+    **Why a separate model and not a ``CardRelation`` type:** ``CardRelation``
+    is same-board only on purpose (see its docstring), and every reader of it
+    relies on that to render the other end's title. This link crosses boards,
+    so keeping it in its own table keeps the same-board guarantee true for
+    every existing relation reader, and makes every cross-board read path a
+    new, explicit one that has to resolve the viewer's role on the other board
+    (``boards.services.card_links``).
+
+    **Shape:** a tree of exactly two tiers. Each child has at most one parent
+    (the ``OneToOneField`` below), a parent's children all live on one board,
+    and a parent is never itself a child. The tiers are a property of the
+    boards (``Board.cards_can_have_children``, #2208); the write path checks
+    them, and the per-card "a child is not a parent" rule, under row locks on
+    both boards and both cards (``card_links.create_link``). None of the
+    cross-row rules can be a database constraint: a ``CheckConstraint`` cannot
+    span a join.
+
+    **Why the board ids are not stored on the row:** they are derived through
+    ``parent__board_id`` / ``child__board_id``. A stored copy would have to be
+    kept in step with every path that can move a card between boards, and a
+    stale copy would be read as an authorization input. Every path that moves
+    a card to another board removes its links instead (``unlink_all``).
+
+    Links are not exported or imported in v1 (threat model, Rule 5), and
+    deleting either card removes the link with it (``CASCADE``).
+    """
+
+    parent = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="child_links"
+    )
+    child = models.OneToOneField(
+        Card, on_delete=models.CASCADE, related_name="parent_link"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_card_parent_links",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_parent_links"
+        # The parent FK index serves the children list and the per-parent
+        # count; the OneToOne's unique index serves "this card's parent".
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(parent=models.F("child")),
+                name="cardparentlink_no_self_link",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_id} -> {self.child_id}"
 
 
 class CardExternalRef(models.Model):

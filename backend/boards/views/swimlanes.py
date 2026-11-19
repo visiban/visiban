@@ -25,6 +25,7 @@ from ..serializers import (
     SwimlaneSerializer, SwimlaneAdminSerializer, _swimlane_custom_field_prefetch,
     _PARKED_SWIMLANE_CUSTOM_FIELD_VALUES,
 )
+from ..services.card_links import announce_cards_removal
 from ..services.custom_fields import apply_swimlane_custom_field_values
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
@@ -359,6 +360,9 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # Surviving cards the swimlane's cards blocked (#1634; see
             # columns.py): collected before the delete removes the relations.
             peers = blocked_peers_of(Card.objects.filter(swimlane_id=instance.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(swimlane_id=instance.pk), actor=self.request.user)
             instance.delete()
             _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_DELETED, {"swimlane_uid": swimlane_uid}, actor_id=self.request.user.id)
             # The deleted lane no longer counts toward an auto board's roll-up (#2245).

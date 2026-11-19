@@ -125,6 +125,8 @@ class Command(BaseCommand):
             for name, path, budget in _HISTORY_ENDPOINTS:
                 results.append(self._bench_history_endpoint(user, board, name, path, budget))
         finally:
+            # No announce_cards_removal: the board and its cards are this
+            # command's own throwaway fixture, never linked to another card.
             board.delete()
             if not User.objects.filter(pk=user.pk).first() or user.username.startswith("bench_"):
                 user.delete()

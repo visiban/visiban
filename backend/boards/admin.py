@@ -1,10 +1,10 @@
 from types import SimpleNamespace
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 
 from rest_framework.exceptions import NotFound
 
@@ -27,6 +27,7 @@ from .services.cards import (
     enforce_column_limits, lock_board_for_card_write, lock_card_cell_entry,
     lock_card_for_write, lock_card_row, lock_cards_for_cascade, require_swimlane_exists,
 )
+from .services.card_links import announce_cards_removal
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
     LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
@@ -445,6 +446,23 @@ class CardAdmin(admin.ModelAdmin):
                 CardMovement.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
                     board_id=obj.board_id,
                 )
+                # A card moved to another board leaves its parent/child links
+                # (#1104): a moved child would split its parent's one child
+                # board, and a moved parent may land on a child tier. Both
+                # cards record the unlink, and both boards get the ping.
+                #
+                # Lock order (named residual, #2383): this holds the moved
+                # card's row, and ``remove_link`` then locks the peer card, so
+                # it is card-then-peer rather than the link writes' "both
+                # boards, then both cards, in pk order". Accepted: against an
+                # opposite-order link write PostgreSQL aborts one transaction
+                # with a deadlock error and neither commits a partial state.
+                # Re-locking in pk order here would mean releasing the moved
+                # card's lock mid-save. See docs/development/security-invariants.md.
+                if stored is not None and stored.board_id != obj.board_id:
+                    from .services.card_links import unlink_all
+
+                    unlink_all(obj, actor=request.user, old_board_id=stored.board_id)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it
@@ -516,6 +534,9 @@ class CardAdmin(admin.ModelAdmin):
             # The cards this one blocks lose a blocker (#1634), as on the
             # REST delete (#449). Read before the delete removes the relations.
             peers = blocked_peers_of(Card.objects.filter(pk=obj.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(pk=obj.pk), actor=request.user)
             super().delete_model(request, obj)
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor_id=request.user.pk
@@ -532,6 +553,9 @@ class CardAdmin(admin.ModelAdmin):
             # Surviving cards the deleted ones blocked (#1634); a peer deleted
             # in the same bulk action gets its card.deleted, not a card.updated.
             peers = blocked_peers_of(Card.objects.filter(pk__in=queryset.values("pk")))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(pk__in=queryset.values("pk")), actor=request.user)
             super().delete_queryset(request, queryset)
             for board_id, card_uid in deleted:
                 _broadcast.record_board_event(
@@ -594,6 +618,9 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             # Surviving cards this column's cards blocked (#1634), as on the
             # REST delete; read before the delete removes the relations.
             peers = blocked_peers_of(Card.objects.filter(column_id=obj.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(column_id=obj.pk), actor=request.user)
             super().delete_model(request, obj)
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=request.user.pk
@@ -612,6 +639,9 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             # One read across every selected column, so a card blocked by a
             # card in another selected column is excluded too (#1634).
             peers = blocked_peers_of(Card.objects.filter(column__in=queryset.values("pk")))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(column__in=queryset.values("pk")), actor=request.user)
             super().delete_queryset(request, queryset)
             for board_id, column_uid in deleted:
                 _broadcast.record_board_event(
@@ -772,6 +802,9 @@ class _BoardEventAdminMixin:
                 # Surviving cards the cascaded cards blocked (#1634); read
                 # before the delete removes the relations.
                 peers = blocked_peers_of(cards)
+                # Parent/child links CASCADE too (#1104): record the unlink on each
+                # surviving peer and ping its board, while the link rows still exist.
+                announce_cards_removal(cards, actor=request.user)
             super().delete_model(request, obj)
             self._after_delete({board_id})
             self._emit(board_id, self.event_deleted, payload, request)
@@ -789,6 +822,9 @@ class _BoardEventAdminMixin:
                 self._lock_cascade(queryset)
                 # One read across the whole selection (#1634; see ColumnAdmin).
                 peers = blocked_peers_of(cards)
+                # Parent/child links CASCADE too (#1104): record the unlink on each
+                # surviving peer and ping its board, while the link rows still exist.
+                announce_cards_removal(cards, actor=request.user)
             # Capture identifiers before delete — post-delete each instance's pk is cleared.
             deleted = [(self._board_id(o), self._delete_payload(o)) for o in queryset]
             super().delete_queryset(request, queryset)
@@ -1023,6 +1059,10 @@ class BoardAdminForm(RowVersionFormMixin, forms.ModelForm):
         fields = "__all__"
 
 
+class _FlagFlipRefused(Exception):
+    """A ``cards_can_have_children`` flip that live card links refuse (#1104)."""
+
+
 @admin.register(Board)
 class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Board that broadcasts mutations to both the board channel and
@@ -1063,10 +1103,21 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
         "The page now shows the current state of the board; make your changes again."
     )
 
-    # cards_can_have_children is editable here via fields="__all__", but this
-    # write path deliberately does not call check_flag_flip yet: no link model
-    # exists (links_blocking_flag_flip returns 0). The card-link MR (#1104) must
-    # call it here so staff cannot flip the flag under live links.
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """Turn a flag flip refused under the board lock into a message (#1104).
+
+        The refusal is raised inside ``changeform_view``'s transaction, so the
+        save rolls back whole, then the staff user is sent back to the form.
+        """
+        try:
+            return super().changeform_view(request, object_id, form_url, extra_context)
+        except _FlagFlipRefused as exc:
+            self.message_user(request, str(exc), messages.ERROR)
+            return HttpResponseRedirect(request.get_full_path())
+
+    # cards_can_have_children is editable here via fields="__all__". The flip
+    # is checked against live card links (#1104) under the board row lock that
+    # create_link also takes, so a staff flip and a link create serialize.
     def save_model(self, request, obj, form, change):
         old_group_id = None
         stored = None
@@ -1118,6 +1169,20 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                     "staleness_threshold_days",
                 ).first()
             )
+        if change:
+            locked_flag = (
+                Board.objects.filter(pk=obj.pk)
+                .values_list("cards_can_have_children", flat=True).first()
+            )
+            if locked_flag is not None and locked_flag != obj.cards_can_have_children:
+                from .services.card_links import links_blocking_flag_flip
+
+                blocking = links_blocking_flag_flip(obj, obj.cards_can_have_children)
+                if blocking:
+                    raise _FlagFlipRefused(
+                        f"Cannot change \"cards can have children\" while {blocking} "
+                        "card link(s) depend on it. Remove those links first."
+                    )
         super().save_model(request, obj, form, change)
         if old_auto_settings is not None:
             # The REST PATCH's path (#2245): turning auto off clears every
@@ -1200,6 +1265,9 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             # reachable through this admin's cross-board card move; see
             # BoardViewSet.destroy. Each goes to its own board's channel.
             peers = blocked_peers_of(Card.objects.filter(board_id=obj.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(board_id=obj.pk), actor=request.user)
             super().delete_model(request, obj)
             _record_board_and_group_event(
                 board_id, group_id, _broadcast.EVT_BOARD_DELETED, {"board_uid": board_uid},
@@ -1242,6 +1310,9 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             # One read across every selected board, so a peer on another
             # selected board (deleted too) gets no frame (#1634).
             peers = blocked_peers_of(Card.objects.filter(board__in=queryset.values("pk")))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(board__in=queryset.values("pk")), actor=request.user)
             super().delete_queryset(request, queryset)
             for board_id, board_uid, group_id in deleted:
                 _record_board_and_group_event(

@@ -397,3 +397,34 @@ class CardTimelineCustomFieldChangedTests(TestCase):
         data = self.client.get(self.url, {"include_counts": "true"}).json()
         self.assertEqual(data["counts"]["field"], 1)
         self.assertEqual(sum(data["counts"].values()), data["count"])
+
+
+class CardTimelineLinkEventTests(TestCase):
+    """Parent/child link rows (#1104) are ``system``-group timeline entries."""
+
+    LINK_TYPES = ["child_linked", "child_unlinked", "parent_linked", "parent_unlinked"]
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u1104tl", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.card = _make_card(self.board, self.col, self.swim, self.user)
+        for event_type in self.LINK_TYPES:
+            CardActivity.objects.create(
+                card=self.card, event_type=event_type, from_value="", to_value="", actor=self.user,
+            )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/timeline/"
+
+    def _types(self, **params):
+        results = self.client.get(self.url, params).json()["results"]
+        return sorted(e["event_type"] for e in results)
+
+    def test_shows_under_system_filter(self):
+        self.assertEqual(self._types(event_types="system"), self.LINK_TYPES)
+        self.assertEqual(self._types(event_types="field,comment"), [])
+
+    def test_is_counted_in_system_group(self):
+        data = self.client.get(self.url, {"include_counts": "true"}).json()
+        self.assertEqual(data["counts"]["system"], 4)
+        self.assertEqual(sum(data["counts"].values()), data["count"])

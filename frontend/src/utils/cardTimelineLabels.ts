@@ -78,6 +78,17 @@ export function activityLabel(
     // Any custom field value change (#1921); item_text names the field.
     case "custom_field_changed":
       return `${d.item_text ? cappedName(d.item_text) : "Custom field"}: ${d.from_value || "(none)"} → ${d.to_value || "(none)"}`;
+    // Cross-board links (#1104). The row names nothing about the other card,
+    // not even its id (from_value and to_value are blank), because it may be on
+    // a board this reader cannot open. The label ignores both values anyway.
+    case "parent_linked":
+      return "Parent linked";
+    case "parent_unlinked":
+      return "Parent unlinked";
+    case "child_linked":
+      return "Child linked";
+    case "child_unlinked":
+      return "Child unlinked";
     case "archived":
       return "Card archived";
     case "reactivated":

@@ -50,7 +50,7 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch,
 )
-from ..services.card_links import check_flag_flip
+from ..services.card_links import announce_cards_removal, check_flag_flip
 from ..services.feed import (
     cursor_row_visible,
     feed_horizon,
@@ -511,8 +511,9 @@ class BoardViewSet(
             # after validation is a 400 here, not an IntegrityError at commit.
             serializer.recheck_rollup_field_under_lock(board)
             # Two-tier card links (#2208): refuse a flip that would invalidate
-            # existing links, decided against the locked row. A hook for the
-            # card-link MR (#1104); nothing to refuse until a link model exists.
+            # existing card links (#1104), decided against the locked row.
+            # card_links.create_link takes this same board lock, so a flip and
+            # a link create serialize.
             if "cards_can_have_children" in serializer.validated_data:
                 check_flag_flip(board, serializer.validated_data["cards_can_have_children"])
             # The group the board is in before this write, read from the
@@ -731,6 +732,9 @@ class BoardViewSet(
             # a *surviving* board can be blocked by one of these (#1634). Its
             # card.updated goes to its own board, never to this one.
             peers = blocked_peers_of(Card.objects.filter(board_id=board.pk))
+            # Parent/child links CASCADE too (#1104): record the unlink on each
+            # surviving peer and ping its board, while the link rows still exist.
+            announce_cards_removal(Card.objects.filter(board_id=board.pk), actor=request.user)
             board.delete()
             # board_uid is the stable identifier for terminal events (#979).
             # Deletion events for cards, columns, swimlanes and labels carry only

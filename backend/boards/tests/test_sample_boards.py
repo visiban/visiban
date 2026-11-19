@@ -46,6 +46,11 @@ CARRIED_EVENT_TYPES = {
     e.value for e in CardActivity.EventType
 } - {
     CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED,
+    # Link events (#1104) record a cross-board parent/child link. A sample is
+    # one board, so a link entry would name a card on a board that is not in
+    # the file.
+    CardActivity.EventType.PARENT_LINKED, CardActivity.EventType.PARENT_UNLINKED,
+    CardActivity.EventType.CHILD_LINKED, CardActivity.EventType.CHILD_UNLINKED,
 }
 
 # (title regex, columns the card may legitimately sit in) per template.
