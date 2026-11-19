@@ -54,12 +54,14 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
   // The peek panel's history and time-in-column read the card's own movements.
   await page.route(`**/api/v1/boards/${REDESIGN_BOARD.id}/cards/*/movements/`, (route) => {
     const id = Number(route.request().url().match(/cards\/(\d+)\/movements/)?.[1])
-    const uid = REDESIGN_BOARD.cards.find((c) => c.id === id)?.uid
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(REDESIGN_MOVEMENTS.filter((m) => m.card_uid === uid)),
-    })
+    const card = REDESIGN_BOARD.cards.find((c) => c.id === id)
+    // The card's last move is the one that put it in its column, so the history agrees with the
+    // "No movement for N days" banner and the time in each column instead of reading "3 h ago".
+    const history = REDESIGN_MOVEMENTS.filter((m) => m.card_uid === card?.uid).map((m) => ({
+      ...m,
+      moved_at: card?.column_entered_at ?? m.moved_at,
+    }))
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(history) })
   })
   await page.goto(`/boards/${REDESIGN_BOARD.id}${search}`)
   await expect(page.locator('[data-card-id]').first()).toBeVisible({ timeout: 15_000 })
