@@ -205,7 +205,7 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
 
 !!! warning "Budgets are only valid on NUC runners"
     Budgets are absolute milliseconds, so they only hold on the hardware they were measured
-    on. The current baseline (job 17304593759, #1767) ran on `runner-04-NUC`; the one before it (job 16796708105, #1233) ran on `gitlab-runner-nuc-2-visiban`, and the job is
+    on. The current baseline (job 18170442650, main @ f863f39ff, 2026-11-19) ran on `gitlab-runner-nuc-2-visiban`; earlier ones ran on `runner-04-NUC` (job 17304593759, #1767) and `gitlab-runner-nuc-2-visiban` (job 16796708105, #1233), and the job is
     pinned with `tags: [nuc]` (see [CI Runners](../maintainers/ci-runners.md)). Before the
     pin, the 2026-10-08 scheduled run landed on `gitlab-runner-dell-01-visiban` and failed
     `card_timeline`, `notifications_list` and `notifications_unread` by 1.3-1.8x with no
@@ -268,6 +268,17 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
     one run, and the two derivations ran on different runners (`runner-04-NUC` before), so
     it isn't a clean before/after of the code. `card_search_multi_board` p95 was 85.2ms against 73.1ms for the one-board
     `card_search`; no `EXPLAIN` was run on this fixture, so the plan is still unconfirmed.
+
+!!! note "Whole file re-derived on 2026-11-19 — #2195, #2237, #1298, #2110, #2063"
+    The whole file was re-derived on 2026-11-19 from job 18170442650 (the scheduled run on
+    `main` at `f863f39ff`, on `gitlab-runner-nuc-2-visiban`, tag `nuc`). The flow, summary and
+    analytics scenarios (#2110) and `card_list`/`cards_archived` (#2237) got their first
+    budgets. `board_full` measured 824.5ms against 1227.5ms in the previous derivation, so its
+    budget fell from 1720 to 1155ms; `card_search_multi_board` measured 89.1ms and went from 120
+    to 125ms. The two derivations differ in commit and date, so the change is not attributed.
+    `card_timeline_counts` (#2195) and the three `board_movements` scenarios (#2237) postdate the
+    run and stay ungated (`pending_budget`) until the next re-derivation. The email login plan
+    check (#1298) is not a latency scenario and has no budget.
 
 ## The October 2026 `board_full` drift — #1800
 
@@ -347,7 +358,7 @@ The cause was measured locally on a scale-20 fixture against PostgreSQL 17, not 
 
 The backport removes roughly a third to a half of the driver step, not all of it. The remainder is attributed in [the next section](#the-remaining-driver-step-1807). Expect `board_full` to settle above its level without psycopg 3, not back at it.
 
-The committed budget (1695ms) was derived from a run before this fix. [#1808](https://gitlab.com/visiban/visiban/-/issues/1808) re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms and the budget is now 1720ms, higher than before, so the backport doesn't show as a lowering on that single sample. Never hand-edit it.
+The committed budget (1695ms) was derived from a run before this fix. [#1808](https://gitlab.com/visiban/visiban/-/issues/1808) re-derived it from a NUC run that includes the fix (job 17348200339): measured p95 was 1227.5ms and the budget was then 1720ms, higher than before, so the backport doesn't show as a lowering on that single sample. The 2026-11-19 re-derivation (job 18170442650) measured 824.5ms and set it to 1155ms. Never hand-edit it.
 
 ### The remaining driver step — #1807
 
@@ -498,7 +509,7 @@ The other three endpoints were unchanged within noise in all three arms. The res
 **What the `card_search` scenario now measures, and what it doesn't.**
 
 - **It measures only the single-board plan.** The scenario runs as `demo2`, who can access one board, so after the fix it times the single-board index walk on `card_board_updated_idx`. The plan most multi-board users get (scan and sort, 13.5ms execution at 200 ids in the table above) isn't measured by this scenario. A budget derived from it can't see a regression on that path.
-- **`card_search_multi_board` measures the many-board plan.** [#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added it: the same request as `card_search`, run as `demo3`, who owns 199 small extra boards (`--extra-boards 199`) and is a member of the load-test board, so the card SELECT filters on a 200-id literal list. Its budget is 120ms ([#1808](https://gitlab.com/visiban/visiban/-/issues/1808), from NUC job 17348200339, measured p95 85.2ms). Don't hand-edit it.
+- **`card_search_multi_board` measures the many-board plan.** [#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added it: the same request as `card_search`, run as `demo3`, who owns 199 small extra boards (`--extra-boards 199`) and is a member of the load-test board, so the card SELECT filters on a 200-id literal list. Its budget is 125ms (re-derived 2026-11-19 from NUC job 18170442650, measured p95 89.1ms; first set to 120ms in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808)). Don't hand-edit it.
 - **It never exercised the trigram indexes.** Django's `icontains` renders as `UPPER(col) LIKE UPPER('%term%')`. The `card_title_trgm_idx` and `card_desc_trgm_idx` indexes from migration 0030 are on the bare columns, so PostgreSQL can't use them for that expression:
   - Before the fix the plan is a sequential scan on `cards`.
   - After the fix it's the index walk above.

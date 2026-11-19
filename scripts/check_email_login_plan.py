@@ -53,26 +53,34 @@ def _self_test():
     failures = []
     good = (
         "Limit  (cost=0.29..8.31 rows=1)\n"
-        "  ->  Index Scan using user_email_upper_idx on accounts_user  (cost=0.29..8.31)\n"
+        "  ->  Index Scan using user_email_upper_idx on users  (cost=0.29..8.31)\n"
         "        Index Cond: (upper((email)::text) = 'X'::text)\n"
     )
     bitmap = (
-        "Bitmap Heap Scan on accounts_user\n"
+        "Bitmap Heap Scan on users\n"
         "  ->  Bitmap Index Scan on user_email_upper_idx\n"
     )
     seq = (
         "Limit  (cost=0.00..600.00 rows=1)\n"
-        "  ->  Seq Scan on accounts_user  (cost=0.00..600.00)\n"
+        "  ->  Seq Scan on users  (cost=0.00..600.00)\n"
         "        Filter: (upper((email)::text) = 'X'::text)\n"
     )
-    other_index = "Index Scan using accounts_user_email_key on accounts_user\n"
-    if _plan_verdict(good, "accounts_user"):
+    # Names the index (so the first clause passes) AND seq-scans users: only the
+    # seq-scan clause can flag this one.
+    index_and_seq = (
+        "Index Scan using user_email_upper_idx on users\n"
+        "  ->  Seq Scan on users  (cost=0.00..600.00)\n"
+    )
+    other_index = "Index Scan using users_email_key on users\n"
+    if _plan_verdict(good, "users"):
         failures.append("KNOWN-GOOD index scan was flagged")
-    if _plan_verdict(bitmap, "accounts_user"):
+    if _plan_verdict(bitmap, "users"):
         failures.append("KNOWN-GOOD bitmap index scan was flagged")
-    if not _plan_verdict(seq, "accounts_user"):
+    if not _plan_verdict(seq, "users"):
         failures.append("KNOWN-BAD seq scan was not flagged")
-    if not _plan_verdict(other_index, "accounts_user"):
+    if not _plan_verdict(index_and_seq, "users"):
+        failures.append("KNOWN-BAD plan naming the index plus a seq scan was not flagged")
+    if not _plan_verdict(other_index, "users"):
         failures.append("KNOWN-BAD plan using a different index was not flagged")
     if failures:
         for msg in failures:
