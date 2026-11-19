@@ -5417,9 +5417,10 @@ docs-deploy:
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # #1154: the tag-pipeline run waits for the guard. On main the guard exits at
-  # once, so the main run is NOT gated, and the release merge's main pipeline
-  # (APP_VERSION=<tag> in .env.example, docs/ edited) deploys the new version's
-  # docs before the tag exists. Gating that run is a separate, deferred change.
+  # once, so the main run is not gated; #1997: instead, main skips any version
+  # whose tag is not on origin yet (`resolve-docs-version.sh --require-tag`). The
+  # release merge sets APP_VERSION=<tag> before the tag exists, so its versioned
+  # docs are now published only by the tag pipeline, after the guard.
   needs: [release-main-pipeline-guard]
   variables:
     DOCS_VERSION: ""
@@ -5441,7 +5442,13 @@ docs-deploy:
       # it's unit-testable (scripts/tests/resolve-docs-version.test.sh) —
       # see scripts/resolve-docs-version.sh for why normalization must be
       # unconditional across all three VERSION sources (#1270).
-      if ! VERSION=$(scripts/resolve-docs-version.sh); then
+      # --require-tag (#1997): a push to main whose APP_VERSION tag does not exist
+      # yet (the release merge) deploys nothing; the tag pipeline publishes it.
+      rc=0; VERSION=$(scripts/resolve-docs-version.sh --require-tag) || rc=$?
+      if [ "$rc" -eq 3 ]; then
+        echo "INFO: the release tag does not exist yet; its versioned docs are published by the tag pipeline, after release-main-pipeline-guard."
+        exit 0
+      elif [ "$rc" -ne 0 ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
         echo "INFO: no version to deploy. Re-run with DOCS_VERSION=<tag> to publish docs."
         exit 0

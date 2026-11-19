@@ -24,8 +24,18 @@
 # caller should treat this as "nothing to deploy," not a failure — see
 # .gitlab-ci.yml).
 #
+# --require-tag (#1997): when the version came ONLY from the .env.example
+# fallback (neither DOCS_VERSION nor CI_COMMIT_TAG set, i.e. a push to main),
+# require that the git tag exists on origin (`git ls-remote`, overridable with
+# TAG_LOOKUP_CMD for tests). Otherwise exit 3 with nothing on stdout. Why: the
+# release merge sets APP_VERSION=<tag> before the tag exists, so without this
+# main's docs-deploy published the release's versioned docs ahead of the tag and
+# outside the release-main-pipeline-guard (#1154). The tag pipeline deploys them
+# once the guard passes; main keeps deploying docs edits to an ALREADY-tagged
+# version, so docs fixes between releases still go live.
+#
 # Usage:
-#   scripts/resolve-docs-version.sh [--env-file <path>]
+#   scripts/resolve-docs-version.sh [--require-tag] [--env-file <path>]
 #   DOCS_VERSION=<tag> scripts/resolve-docs-version.sh
 #   CI_COMMIT_TAG=<tag> scripts/resolve-docs-version.sh
 #   scripts/resolve-docs-version.sh --self-test
@@ -37,11 +47,13 @@ set -eu
 
 ENV_FILE=".env.example"
 SELF_TEST=0
+REQUIRE_TAG=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --env-file) ENV_FILE="$2"; shift 2 ;;
     --self-test) SELF_TEST=1; shift ;;
+    --require-tag) REQUIRE_TAG=1; shift ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
@@ -65,6 +77,22 @@ resolve() {
     *) v="v${v}" ;;
   esac
   echo "$v"
+}
+
+# tag_published <v-prefixed version>: 0 when the tag exists on origin.
+tag_published() {
+  if [ -n "${TAG_LOOKUP_CMD:-}" ]; then
+    $TAG_LOOKUP_CMD "refs/tags/$1" >/dev/null 2>&1
+  else
+    git ls-remote --exit-code --tags origin "refs/tags/$1" >/dev/null 2>&1
+  fi
+}
+
+# gate_on_tag <DOCS_VERSION> <CI_COMMIT_TAG> <version>: returns 3 when the version
+# came from the .env.example fallback and its tag is not published yet.
+gate_on_tag() {
+  if [ -n "${1:-}" ] || [ -n "${2:-}" ]; then return 0; fi
+  tag_published "$3" || return 3
 }
 
 self_test() {
@@ -122,6 +150,21 @@ self_test() {
   fi
   echo "OK: no resolvable source returns 1 (caller treats as 'nothing to deploy')"
 
+  # --require-tag gate (#1997)
+  published="$tmp/published"; printf '#!/bin/sh\n[ "$1" = "refs/tags/v1.3.0" ]\n' > "$published"; chmod +x "$published"
+  rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.3.0" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: fallback version whose tag exists must deploy (rc=$rc)." >&2; exit 1; }
+  echo "OK: main deploys a version whose tag already exists"
+  rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "" "v1.4.0" || rc=$?
+  [ "$rc" -eq 3 ] || { echo "SELF-TEST FAILED: fallback version with no tag must be refused with 3 (rc=$rc)." >&2; exit 1; }
+  echo "OK: main does not deploy a version whose tag does not exist yet (#1997)"
+  rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "" "v1.4.0" "v1.4.0" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: the tag pipeline must always deploy (rc=$rc)." >&2; exit 1; }
+  echo "OK: the tag pipeline deploys without a lookup"
+  rc=0; TAG_LOOKUP_CMD="$published" gate_on_tag "1.4.0" "" "v1.4.0" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "SELF-TEST FAILED: an explicit DOCS_VERSION recovery run must deploy (rc=$rc)." >&2; exit 1; }
+  echo "OK: manual DOCS_VERSION recovery deploys without a lookup"
+
   echo "=== resolve-docs-version.sh --self-test: PASSED ==="
 }
 
@@ -130,6 +173,14 @@ if [ "$SELF_TEST" -eq 1 ]; then
   exit 0
 fi
 
-if ! resolve "${DOCS_VERSION:-}" "${CI_COMMIT_TAG:-}" "$ENV_FILE"; then
+if ! v=$(resolve "${DOCS_VERSION:-}" "${CI_COMMIT_TAG:-}" "$ENV_FILE"); then
   exit 1
 fi
+if [ "$REQUIRE_TAG" -eq 1 ]; then
+  rc=0; gate_on_tag "${DOCS_VERSION:-}" "${CI_COMMIT_TAG:-}" "$v" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "resolve-docs-version: tag $v is not published yet; not deploying its docs from main (#1997)." >&2
+    exit "$rc"
+  fi
+fi
+echo "$v"
