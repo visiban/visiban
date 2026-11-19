@@ -2497,6 +2497,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#webhook-events-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Webhook events (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#keepalive" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5465,6 +5476,38 @@ sees it appear or disappear without a reload.</p>
 <td><code>lens_connection.removed</code></td>
 <td>Lens connection deleted from this board (admin only). Sent only when a connection existed: a <code>DELETE</code> with nothing to remove still answers <code>204</code> but emits nothing</td>
 <td><code>{ "board_uid": &lt;string&gt;, "board_id": &lt;int&gt; }</code>. <code>board_uid</code> is sent since 1.3 (#1858) and matches the other terminal events, such as <code>board.deleted</code>; key on it. <code>board_id</code> is <strong>deprecated</strong> since 1.3 and stays in the payload until a major release (#1055)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="webhook-events-since-13">Webhook events (since 1.3)<a class="headerlink" href="#webhook-events-since-13" title="Permanent link">&para;</a></h3>
+<p>Emitted when one of the board's <a href="../webhooks/">outbound webhooks</a> changes: a
+board admin created, edited, re-pointed, turned off, turned on, rotated,
+ended a secret overlap on or deleted it, or the dispatcher turned it off, saw
+it start failing, or saw it recover. A failing webhook announces its first
+failure only, not every retry. <strong>Admin-only</strong>, like <code>share_link.updated</code>: the
+server sends the frame only to sockets whose user is a board <code>admin</code> or
+<code>site_admin</code>, with the role re-checked on every frame.</p>
+<p>The frame is an <strong>invalidation</strong>, not a copy of the webhook: refetch
+<a href="../webhooks/"><code>GET /api/v1/boards/{id}/webhooks/</code></a> for the row. It never
+carries the URL, the host, the label, a secret or a signature. Unlike every
+other board event it is <strong>not stored in the <a href="../events/">change feed</a></strong> and has
+no <code>event_id</code>, so a frame missed while disconnected is not replayed: refetch
+the list after a reconnect (the Visiban web app also refetches when its window
+regains focus). A webhook never receives this event: it is not in
+<code>subscribable_event_types</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhook.changed</code></td>
+<td>A webhook on this board was changed by a board admin or by the dispatcher (see above)</td>
+<td><code>{ "id": &lt;int&gt;, "status": "active" \| "failing" \| "disabled" \| "deleted", "reason_code": &lt;string&gt;, "consecutive_failures": &lt;int&gt;, "changed_by": &lt;int or null&gt;, "at": &lt;string&gt; }</code>. <code>reason_code</code> is the webhook's <code>disabled_reason</code> (<code>""</code> while enabled); <code>changed_by</code> is the acting user's id, <code>null</code> for the dispatcher; <code>at</code> is an ISO-8601 timestamp</td>
 </tr>
 </tbody>
 </table>

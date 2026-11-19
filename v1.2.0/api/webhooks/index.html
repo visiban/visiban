@@ -2370,6 +2370,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-idend-overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST {id}/end-overlap/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#post-idtest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4495,7 +4506,7 @@
 </tr>
 </tbody>
 </table>
-<p>Board admins and site admins (<code>can_access_all_content</code>) may use every action. <strong>Session-only</strong> actions are the ones that choose where data goes or how it is signed: create, a <code>PATCH</code> that changes <code>url</code>, <code>reenable</code>, <code>rotate</code> and <code>test</code>. They refuse personal access tokens and any other non-session credential. <code>reenable</code>, <code>rotate</code> and <code>test</code> refuse before the subscription is looked up, so a token gets <code>403</code>, not <code>404</code>, for an unknown id. A <code>PATCH</code> looks the subscription up first, because it has to read the body to see whether <code>url</code> is present, so a token gets <code>404</code> for an unknown id and <code>403</code> for a known one. On the other actions a token needs the <code>read</code> scope for <code>GET</code> and <code>write</code> for <code>PATCH</code>, <code>DELETE</code> and <code>disable</code>.</p>
+<p>Board admins and site admins (<code>can_access_all_content</code>) may use every action. <strong>Session-only</strong> actions are the ones that choose where data goes or how it is signed: create, a <code>PATCH</code> that changes <code>url</code>, <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code>. They refuse personal access tokens and any other non-session credential. <code>reenable</code>, <code>rotate</code>, <code>end-overlap</code> and <code>test</code> refuse before the subscription is looked up, so a token gets <code>403</code>, not <code>404</code>, for an unknown id. A <code>PATCH</code> looks the subscription up first, because it has to read the body to see whether <code>url</code> is present, so a token gets <code>404</code> for an unknown id and <code>403</code> for a known one. On the other actions a token needs the <code>read</code> scope for <code>GET</code> and <code>write</code> for <code>PATCH</code>, <code>DELETE</code> and <code>disable</code>.</p>
 <h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4550,6 +4561,11 @@
 <td><code>POST {id}/rotate/</code></td>
 <td>yes</td>
 <td>New signing secret, returned once. Throttle scope <code>webhook_config</code>.</td>
+</tr>
+<tr>
+<td><code>POST {id}/end-overlap/</code></td>
+<td>yes</td>
+<td>Stop signing with the previous secret now, without a new one. Idempotent. <em>(since 1.3, #2118)</em></td>
 </tr>
 <tr>
 <td><code>POST {id}/test/</code></td>
@@ -4723,6 +4739,11 @@
 </div>
 <p>A value out of range, or of the wrong type, is a <code>400</code> field error keyed <code>overlap_seconds</code>.</p>
 <p>Changing a webhook's <code>url</code> also ends any open overlap: the new host never held the old secret, and requests signed with it could be replayed at the old receiver.</p>
+<h3 id="post-idend-overlap"><code>POST {id}/end-overlap/</code><a class="headerlink" href="#post-idend-overlap" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3 (#2118).</em> Ends an open rotation overlap early, <strong>without issuing a new secret</strong>: once your receiver has the new secret, there is no need to wait for <code>previous_secret_expires_at</code>. No body. Returns the subscription object (<code>200</code>), with <code>previous_secret_expires_at: null</code> and no <code>secret</code>.</p>
+<p>After it, every delivery carries one signature, from the current secret, which is unchanged: your receiver keeps the secret it has. A dispatcher run already in progress keeps going and drops the second signature from its next delivery; one already in flight may still carry both. The stored previous secret is deleted at once. The owner (<code>configured_by</code>) does not change, because the destination and the current secret stay as they were.</p>
+<p>With no overlap open it changes nothing and still answers <code>200</code>, so it is safe to retry. Like <code>rotate</code> it is session-only, so a personal access token gets <code>403 {"code": "session_required"}</code>.</p>
+<p>Without it, a second rotation with <code>overlap_seconds: 0</code> also ends the overlap, but issues a new secret your receiver then has to install.</p>
 <h3 id="post-idtest"><code>POST {id}/test/</code><a class="headerlink" href="#post-idtest" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"status_code"</span><span class="p">:</span><span class="w"> </span><span class="mi">204</span><span class="p">,</span><span class="w"> </span><span class="nt">"latency_ms"</span><span class="p">:</span><span class="w"> </span><span class="mi">340</span><span class="p">}</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p">{</span><span class="nt">"ok"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http_error"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status_code"</span><span class="p">:</span><span class="w"> </span><span class="mi">500</span><span class="p">,</span><span class="w"> </span><span class="nt">"latency_ms"</span><span class="p">:</span><span class="w"> </span><span class="mi">85</span><span class="p">}</span>
@@ -4808,6 +4829,7 @@
 </table>
 <h3 id="response">Response<a class="headerlink" href="#response" title="Permanent link">&para;</a></h3>
 <p>Answer <code>2xx</code> within 10 seconds (<code>WEBHOOK_TIMEOUT_SECONDS</code>). Visiban reads only the status line; the response body is discarded and never stored.</p>
+<p>A receiver also gets at most <code>WEBHOOK_HOST_MAX_PER_MINUTE</code> (120) deliveries a minute and <code>WEBHOOK_HOST_MAX_CONCURRENCY</code> (2) at once, counted per destination host across every board's webhooks on the server (since 1.3, #2055). A webhook whose host is at either limit waits for a later dispatcher run; that is not a failure, so it does not back off or count toward being turned off, and its events stay in order. See <a href="../../administration/configuration/#webhooks">Configuration — Webhooks</a>.</p>
 <p>Anything else is a failure, including <code>3xx</code>: redirects are not followed. After a failure the webhook retries the <strong>same</strong> event after 30 seconds, doubling up to an hour (each delay gets up to 10% added jitter), and later events wait behind it. After 20 consecutive failures or 24 hours of failing (the defaults of <code>WEBHOOK_DISABLE_AFTER_FAILURES</code> and <code>WEBHOOK_DISABLE_AFTER_HOURS</code>) it is turned off with <code>disabled_reason: "failures"</code>, and the board's admins get a <code>webhook_disabled</code> <a href="../notifications/">notification</a> and an email.</p>
 <h3 id="ordering">Ordering<a class="headerlink" href="#ordering" title="Permanent link">&para;</a></h3>
 <p>Events for one webhook are delivered in increasing <code>X-Visiban-Event-Id</code> order, and none is skipped. Ids are assigned when an event is written, not when it commits, so a lower id can commit after a higher one. The dispatcher never reads past an event that is still committing on the board, however long its transaction stays open, so the webhook's cursor never passes it (since 1.3, #2053; before that, a transaction held open longer than the settle window could land behind the cursor). It also waits <code>WEBHOOK_SETTLE_SECONDS</code> (10) before it sends an event, which only delays delivery.</p>
@@ -4889,7 +4911,7 @@
 <p>Rotating with <code>overlap_seconds</code> lists both signatures, new first, with no spaces, over the same timestamp and body:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="err">X-Visiban-Signature: v1=&lt;signature with the new secret&gt;,v1=&lt;signature with the old secret&gt;</span>
 </code></pre></div>
-<p>Your receiver holds <strong>one</strong> secret and needs no second setting: it accepts the request when any listed value matches. So the order of work is: rotate with an overlap, put the new secret in your receiver, and let the window end. Outside a window the header is a single value, byte-for-byte what it has always been.</p>
+<p>Your receiver holds <strong>one</strong> secret and needs no second setting: it accepts the request when any listed value matches. So the order of work is: rotate with an overlap, put the new secret in your receiver, and let the window end, or end it yourself with <a href="#post-idend-overlap"><code>POST {id}/end-overlap/</code></a> once the receiver has the new secret. Outside a window the header is a single value, byte-for-byte what it has always been.</p>
 <div class="admonition warning">
 <p class="admonition-title">A verifier that compares the whole header rejects every delivery during an overlap</p>
 <p>Comparing <code>X-Visiban-Signature</code> as one string fails on <code>v1=a,v1=b</code>, <strong>whichever secret the receiver holds</strong>. Every snippet and client published before overlaps were added does that, and an un-upgraded receiver fails closed. No stable release carried those verifiers, which is why the format could change at all, but if you built a receiver against a development build or an earlier copy of these snippets, update it (or the client package) to the check above before you use an overlap. A rotation with <code>overlap_seconds: 0</code> never sends two values.</p>

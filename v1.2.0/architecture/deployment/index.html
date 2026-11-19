@@ -4718,6 +4718,16 @@
 <td><code>WEBHOOK_ALLOWED_PRIVATE_TARGETS</code>: comma-separated private hostnames, IPs or CIDRs webhooks may target (added in 1.3)</td>
 </tr>
 <tr>
+<td><code>backend.settings.webhookHostMaxPerMinute</code></td>
+<td><code>120</code></td>
+<td><code>WEBHOOK_HOST_MAX_PER_MINUTE</code>: webhook deliveries per minute to one destination host, shared by every board on the instance; raise it for a hosted receiver many boards use. <code>0</code> turns the limit off (added in 1.3; see <a href="../../features/webhooks/#limits-and-tuning">Limits and tuning</a>)</td>
+</tr>
+<tr>
+<td><code>backend.settings.webhookHostMaxConcurrency</code></td>
+<td><code>2</code></td>
+<td><code>WEBHOOK_HOST_MAX_CONCURRENCY</code>: webhook deliveries in flight at once to one destination host, across dispatchers. <code>0</code> turns the limit off (added in 1.3)</td>
+</tr>
+<tr>
 <td><code>webhooks.dispatcher.enabled</code></td>
 <td><code>false</code></td>
 <td>Runs the single-replica dispatcher Deployment, <code>manage.py dispatch_webhooks --loop</code> (added in 1.3)</td>

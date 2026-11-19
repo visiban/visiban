@@ -4944,7 +4944,7 @@
 <p>Three features are dormant until an operator opts in. Set these in your <code>.env</code> file, then run <code>docker compose up -d</code> to recreate the backend with them (<code>docker compose restart</code> does not re-read <code>.env</code>).</p>
 <ul>
 <li><strong>Migration:</strong> turning <code>GIT_LENS_ENABLED</code> on adds the <code>git_lens</code> app and its tables, so a migration must run. In the production stack the <code>backend-init</code> service does that on <code>up -d</code>.</li>
-<li><strong>Helm:</strong> the chart exposes the enable flags <code>backend.settings.mcpServerEnabled</code>, <code>backend.settings.gitLensEnabled</code> and <code>backend.settings.webhooksEnabled</code> (all default <code>false</code>), plus <code>backend.settings.webhookAllowedPrivateTargets</code> and <code>webhooks.dispatcher.*</code> for webhooks (see <a href="../../architecture/deployment/">Kubernetes deployment</a>). The other variables in the table below (<code>GIT_LENS_OUTBOUND_LOG_LEVEL</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>) and the webhook tuning variables are Compose/env-only; the chart has no values for them.</li>
+<li><strong>Helm:</strong> the chart exposes the enable flags <code>backend.settings.mcpServerEnabled</code>, <code>backend.settings.gitLensEnabled</code> and <code>backend.settings.webhooksEnabled</code> (all default <code>false</code>), plus <code>backend.settings.webhookAllowedPrivateTargets</code>, <code>backend.settings.webhookHostMaxPerMinute</code>, <code>backend.settings.webhookHostMaxConcurrency</code> and <code>webhooks.dispatcher.*</code> for webhooks (see <a href="../../architecture/deployment/">Kubernetes deployment</a>). The other variables in the table below (<code>GIT_LENS_OUTBOUND_LOG_LEVEL</code>, <code>MCP_ALLOWED_HOSTS</code>, <code>MCP_THROTTLE_*_RATE</code>) and the webhook tuning variables are Compose/env-only; the chart has no values for them.</li>
 <li><strong>Names are stable:</strong> a rename keeps the old name as a deprecated alias for at least one minor release.</li>
 </ul>
 <table>
@@ -5201,6 +5201,16 @@
 <td><code>WEBHOOK_DISPATCHER_STALE_SECONDS</code></td>
 <td><code>300</code></td>
 <td>After this long without a dispatcher run, the board's Webhooks tab warns its admins.</td>
+</tr>
+<tr>
+<td><code>WEBHOOK_HOST_MAX_PER_MINUTE</code></td>
+<td><code>120</code></td>
+<td>Deliveries to one destination host per minute, across every board's webhooks and every dispatcher (counted in the shared cache; per process without one). The budget is per destination host and shared by every board on the instance, so a hosted receiver that many boards use (Slack, a SaaS automation service) gets 120 a minute in total, not 120 per board; raise this value for such a receiver. A webhook whose host is at the limit waits for a later run, taking turns with the other webhooks waiting on that host; it is not a failure. <code>0</code> turns the limit off. Helm: <code>backend.settings.webhookHostMaxPerMinute</code>. <em>(new in 1.3)</em></td>
+</tr>
+<tr>
+<td><code>WEBHOOK_HOST_MAX_CONCURRENCY</code></td>
+<td><code>2</code></td>
+<td>Deliveries to one destination host in flight at once, across dispatchers. One dispatcher sends one at a time, so this binds only with several (Helm replicas, a loop beside a cron). <code>0</code> turns the limit off. Helm: <code>backend.settings.webhookHostMaxConcurrency</code>. <em>(new in 1.3)</em></td>
 </tr>
 <tr>
 <td><code>WEBHOOK_LOG_LEVEL</code></td>
