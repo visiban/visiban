@@ -180,6 +180,11 @@ Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml`
    `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}` by default — see below) automatically using the
    predefined `CI_DEPENDENCY_PROXY_*` variables GitLab injects into every job; there is nothing
    to add to a runner's `config.toml` for this.
+   This only holds if the runner host has no `gitlab.com` entry of its own in the runner user's
+   `~/.docker/config.json` (or a `DOCKER_AUTH_CONFIG` in `config.toml`): those take precedence
+   over the job credentials, and a stale one fails every pull with `HTTP Basic: Access denied` —
+   see [Known CI Failures](known-ci-failures.md#image-pull-http-basic-access-denied-from-the-dependency-proxy-on-one-runner)
+   (#2406).
 3. **A job that pulls images itself, rather than via `image:`/`services:`, must log in
    explicitly.** kaniko's `/kaniko/.docker/config.json` and the helm-drill `docker:dind`
    daemon (`.helm-drill-base` before_script:
