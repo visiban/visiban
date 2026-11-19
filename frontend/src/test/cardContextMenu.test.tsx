@@ -274,6 +274,22 @@ describe('CardContextMenu', () => {
     expect(onClose).toHaveBeenCalledWith('outside')
   })
 
+  it('a card face scrolling itself does not close it; any other outside scroll does (#2397)', () => {
+    const { onClose } = renderMenu()
+    // The ⋯ button overflows the face at coarse pointer: focusing it scrolls the face,
+    // and the face scrolls back once focus moves into the menu.
+    const face = document.createElement('div')
+    face.setAttribute('data-card-id', '7')
+    const lane = document.createElement('div')
+    lane.appendChild(face)
+    document.body.appendChild(lane)
+    fireEvent.scroll(face)
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.scroll(lane)
+    expect(onClose).toHaveBeenCalledWith('outside')
+    lane.remove()
+  })
+
   describe('submenu pointer grace and aria-controls (#2106)', () => {
     afterEach(() => { vi.useRealTimers() })
 

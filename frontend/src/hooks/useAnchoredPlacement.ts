@@ -221,6 +221,13 @@ interface Options {
    * as its own list, is ignored (#1455 rule (c)).
    */
   onOutsideScroll?: () => void;
+  /**
+   * A scroll whose target this returns true for is not "outside" either: it cannot
+   * have moved the trigger. The card menu passes card faces (#2397): a face clips its
+   * 44px ⋯ button, so focusing the button scrolls the face a pixel or two and the
+   * face scrolls back when focus moves into the menu and the button hides again.
+   */
+  ignoreScrollFrom?: (target: Element) => boolean;
   /** The anchor is a text input (#2163): see `PlacementInput.inputAnchored`. Use `useInputAnchoredPlacement`, which returns the cap. */
   inputAnchored?: boolean;
 }
@@ -274,7 +281,7 @@ export function useAnchoredPlacementFit(
 
 function usePlacement(
   panelRef: RefObject<HTMLElement | null>,
-  { anchor, mode = "below", deps = [], onResize, onOutsideScroll, inputAnchored = false }: Options,
+  { anchor, mode = "below", deps = [], onResize, onOutsideScroll, ignoreScrollFrom, inputAnchored = false }: Options,
 ): { top: number | null; maxHeight: number | undefined } {
   const [placed, setPlaced] = useState<{ top: number; maxHeight: number | undefined } | null>(null);
   // Bumped on a visualViewport resize/scroll (#2138) so the layout effect below re-places the panel.
@@ -332,11 +339,12 @@ function usePlacement(
     if (!onOutsideScroll || anchorTop === undefined) return;
     const onScroll = (e: Event) => {
       if (e.target instanceof Node && panelRef.current?.contains(e.target)) return;
+      if (ignoreScrollFrom && e.target instanceof Element && ignoreScrollFrom(e.target)) return;
       onOutsideScroll();
     };
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
-  }, [onOutsideScroll, anchorTop, panelRef]);
+  }, [onOutsideScroll, ignoreScrollFrom, anchorTop, panelRef]);
 
   return { top: placed?.top ?? null, maxHeight: placed?.maxHeight };
 }

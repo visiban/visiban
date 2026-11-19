@@ -35,6 +35,13 @@ export type CardMenuCloseReason = "escape" | "tab" | "outside" | "action";
 type Submenu = "move" | "assign" | "priority";
 const SUBMENU_IDS = new Set<CardActionId>(["move", "assign", "priority"]);
 
+// A card face's own scroll never moves the menu's trigger (#2397). At coarse pointer
+// the 44px ⋯ button overflows the face, so focusing it scrolls the face a pixel or two;
+// when focus moves into the menu the button hides and the face scrolls back, which
+// would otherwise read as an outside scroll and close the menu the moment it opened.
+// Stable at module scope, so the placement hook does not re-subscribe every render.
+const isCardFace = (target: Element) => target.matches("[data-card-id]");
+
 interface Props {
   anchor: CardMenuAnchor;
   /** Accessible name, e.g. `Card actions: Fix payout rounding` or `Actions for 3 cards`. */
@@ -88,7 +95,7 @@ export default function CardContextMenu({ anchor, label, header, entries, column
     .filter((e): e is CardActionEntry => !!e);
 
   const dismiss = useCallback(() => onClose("outside"), [onClose]);
-  const top = useAnchoredPlacement(panelRef, { anchor, onResize: dismiss, onOutsideScroll: dismiss });
+  const top = useAnchoredPlacement(panelRef, { anchor, onResize: dismiss, onOutsideScroll: dismiss, ignoreScrollFrom: isCardFace });
   const subTop = useAnchoredPlacement(subRef, {
     anchor: submenu ? { top: submenu.anchor.top, bottom: submenu.anchor.bottom } : null,
     mode: "side",
