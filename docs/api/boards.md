@@ -2645,6 +2645,23 @@ Since 1.2, a request body that is not a JSON object returns `400 Bad Request`, a
 
 ---
 
+## Parent boards (since 1.3)
+
+### `GET /api/v1/boards/{id}/parent-boards/`
+
+Since 1.3; follows the 1.0+ compatibility rules from 1.3 GA (it may change before
+GA). The boards whose cards this board's cards can take as a parent (#1104):
+boards whose cards can have children and on which you are `member` or `admin`,
+ordered by name, uncapped. `member` or higher on this board (`403` below it,
+`404` without access). On a board whose cards can have children: `{"results": []}`.
+
+```json
+{"results": [{"id": 12, "name": "Portfolio"}]}
+```
+
+Cards on `GET .../full/` carry a `parent` key; see
+[Cards: `parent` on a card](cards.md#parent-on-a-card).
+
 ## Public share endpoint
 
 ### `GET /api/share/{token}/`
