@@ -192,7 +192,7 @@ class ListSwimlanesTests(CrudToolsTestCase):
             "computed_health_status", "health_computed_at",
         )
 
-        for auto in (True,):
+        for auto in (True, False):
             Board.objects.filter(pk=self.board.pk).update(health_auto_enabled=auto)
             client = APIClient()
             client.force_authenticate(self.user)

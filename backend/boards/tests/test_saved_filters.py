@@ -519,6 +519,19 @@ class SavedFilterCustomFieldStateTests(TestCase):
         self.assertEqual(set(builtins), S._LANE_BUILTIN_FIELDS)
         self.assertEqual(len(builtins), len(S._LANE_BUILTIN_FIELDS))
 
+    def test_lane_filter_ops_match_shared_fixture(self):
+        """#2247 — the frontend LANE_FILTER_OPS is pinned to _LANE_OPS through
+        the same fixture (Vitest parity test)."""
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        ops = json.loads(fixture.read_text())["laneFilterOps"]
+        self.assertEqual(set(ops), S._LANE_OPS)
+        self.assertEqual(len(ops), len(S._LANE_OPS))
+
     def test_health_status_values_match_shared_fixture(self):
         """The frontend HEALTH_STATUS_VALUES is pinned to HealthStatus.values
         through the same fixture (Vitest parity test)."""

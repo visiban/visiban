@@ -95,7 +95,7 @@ export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 
 // An op this client does not know (a newer client's, say) drops the whole
 // rule in parseRule, so it can never filter with semantics it cannot apply.
-const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard", "is_set", "is_empty"];
+export const LANE_FILTER_OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard", "is_set", "is_empty"];
 
 /** A field a lane rule can target: a custom field definition or a built-in. */
 export interface FieldLike {
@@ -135,9 +135,9 @@ export interface LaneBuiltinSpec {
 /**
  * Built-in fields, in picker order. Contact email is admin-only exactly like
  * an `is_admin_only` custom field: the value is never sent to other roles.
- * Health (#2247) reads the lane's effective status (the pin, else the
- * computed one, #2245): the status the lane header shows, so the filter and
- * the pill never disagree. A lane with no status has no value and matches
+ * Health (#2247) reads the lane's pin, else its effective (computed) status
+ * (#2245), in the same order as laneHealthFields: the status the lane header
+ * shows, so the filter and the pill never disagree. A lane with no status has no value and matches
  * "is empty".
  */
 export const LANE_BUILTIN_FIELDS: readonly LaneBuiltinSpec[] = [
@@ -156,7 +156,7 @@ export const LANE_BUILTIN_FIELDS: readonly LaneBuiltinSpec[] = [
     is_admin_only: false,
     choices: HEALTH_STATUS_VALUES,
     choiceLabel: (v) => (HEALTH_STATUS_LABELS as Record<string, string>)[v] ?? v,
-    read: (l) => l.effective_health_status ?? l.health_status ?? undefined,
+    read: (l) => l.health_status ?? l.effective_health_status ?? undefined,
   },
 ];
 
@@ -244,11 +244,16 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     if (typeof r !== "object" || r === null || ruleBudget <= 0) return null;
     const o = r as Record<string, unknown>;
     if (o.kind !== undefined && o.kind !== "rule") return null;
-    const op = typeof o.op === "string" && (OPS as readonly string[]).includes(o.op) ? (o.op as FieldRuleOp) : null;
+    const op = typeof o.op === "string" && (LANE_FILTER_OPS as readonly string[]).includes(o.op) ? (o.op as FieldRuleOp) : null;
     if (!op) return null;
     const field =
       o.field === null || o.field === undefined ? null : validId(o.field) || isLaneBuiltinField(o.field) ? o.field : undefined;
     if (field === undefined) return null;
+    // The server rejects a presence op on any field but an enum built-in, and
+    // an enum built-in value outside its choices; drop those, never send them.
+    const choices = isLaneBuiltinField(field) ? LANE_BUILTIN_FIELDS.find((b) => b.key === field)?.choices : undefined;
+    if (isPresenceOp(op) && !choices) return null;
+    if (choices && !isPresenceOp(op) && typeof o.value === "string" && o.value !== "" && !choices.includes(o.value)) return null;
     ruleBudget--;
     const rule: LaneRule = { kind: "rule", id: takeId(o.id), join: o.join === "or" ? "or" : "and", field, op };
     const value = str(o.value);

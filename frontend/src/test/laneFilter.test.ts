@@ -621,6 +621,31 @@ describe('laneFilter — health built-in (#2247)', () => {
     expect(hidden('is_empty')).toEqual([1, 2, 3, 5])
   })
 
+  it('reads the pin first, as the header pill does, when pin and effective differ', () => {
+    const split = [
+      { id: 1, name: 'A', custom_field_values: [], health_status: 'off_track', effective_health_status: 'on_track' },
+    ] as never
+    const run = (value: string) =>
+      [...laneIdsHiddenByFilter(split, { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is', value }] } as never, fields)]
+    expect(run('off_track')).toEqual([])
+    expect(run('on_track')).toEqual([1])
+  })
+
+  it('sanitize drops a presence op off an enum built-in and a health value outside the enum', () => {
+    const out = sanitizeLaneFilter({
+      items: [
+        { kind: 'rule', id: 1, field: 'name', op: 'is_set' },
+        { kind: 'rule', id: 2, field: 6, op: 'is_empty' },
+        { kind: 'rule', id: 3, field: null, op: 'is_set' },
+        { kind: 'rule', id: 4, field: 'health_status', op: 'is', value: 'bogus' },
+        { kind: 'rule', id: 5, field: 'health_status', op: 'is', value: 'at_risk' },
+        { kind: 'rule', id: 6, field: 'health_status', op: 'is' },
+        { kind: 'rule', id: 7, field: 'health_status', op: 'is_set' },
+      ],
+    })
+    expect(out?.items.map((i) => (i as { id: number }).id)).toEqual([5, 6, 7])
+  })
+
   it('falls back to the pin when the lane payload carries no effective status', () => {
     const old = [{ id: 9, name: 'Old', custom_field_values: [], health_status: 'off_track' }] as never
     const f = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is', value: 'off_track' }] } as never

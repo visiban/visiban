@@ -818,7 +818,8 @@ def _swimlanes_payload(board, role):
             # SwimlaneSerializer serves it to every member over REST.
             "health_status": s.health_status,
             # #2245, as SwimlaneSerializer: the pin, else the computed value
-            # while the board's auto health is on, else null.
+            # (not gated on the board's auto health: every write path clears
+            # the computed column when auto goes off), else null.
             "effective_health_status": effective,
             "health_status_origin": origin,
             "computed_health_status": s.computed_health_status,

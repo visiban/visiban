@@ -284,7 +284,11 @@ The health fields are read-only and sent to every role, exactly as the REST boar
     "swimlane_count": 3,
     "card_count": 42,
     "created_at": "2026-09-14T05:13:39.725480+00:00",
-    "updated_at": "2026-09-14T05:13:39.725490+00:00"
+    "updated_at": "2026-09-14T05:13:39.725490+00:00",
+    "health_status": "at_risk",
+    "effective_health_status": "at_risk",
+    "health_status_source": null,
+    "health_status_origin": "manual"
   }
 ]
 ```
@@ -580,10 +584,10 @@ A read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards
 | `cards_total` | integer | Number of active cards on the board, ignoring the 200-card cap. Added in 1.2 (#1762). |
 | `cards_truncated` | boolean | `true` when `cards` holds fewer than `cards_total` rows; fetch the rest with `list_cards` (`limit`/`offset`). Added in 1.2 (#1762). |
 | `labels` | array | `{id, uid, name, color}` objects, one per label defined on the board (`uid` since 1.3). A card's `labels` stay an array of names, which are unique per board; map them to a `uid` through this list. |
-| `health_status` | string or null | The board's own manual health status. Read-only. Same as in `list_boards`. *Added in 1.3 (#2247).* |
-| `effective_health_status` | string or null | The status shown: the board's pin, else its computed status, else the nearest group's, else `null`. *Added in 1.3 (#2247).* |
-| `health_status_source` | object or null | `{id, name, changed_at}` of the group supplying an inherited status, else `null`. *Added in 1.3 (#2247).* |
-| `health_status_origin` | string or null | `manual`, `computed`, `inherited` or `null`. *Added in 1.3 (#2247).* |
+| `health_status` | string or null | The board's own manual health status. Read-only. Same as in `list_boards`. *Added in 1.3 (#2249).* |
+| `effective_health_status` | string or null | The status shown: the board's pin, else its computed status, else the nearest group's, else `null`. *Added in 1.3 (#2249).* |
+| `health_status_source` | object or null | `{id, name, changed_at}` of the group supplying an inherited status, else `null`. *Added in 1.3 (#2249).* |
+| `health_status_origin` | string or null | `manual`, `computed`, `inherited` or `null`. *Added in 1.3 (#2249).* |
 
 !!! note
     `board://{board_id}` deliberately omits every web-session-only field the REST board detail response carries — `share_token` (deprecated on REST since 1.2), `share_token_expires_at`, `share_link_active`, `capabilities`, `is_starred`, `members`, `current_user_role`. These have no meaning for an AI agent reading board context, and a share token in particular is a bearer credential that must never appear in agent-facing output.
