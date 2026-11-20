@@ -385,6 +385,9 @@ Read the notes for every version between your current release and the target bef
 !!! note "Attachment uploads have per-card quotas, their own rate limit, and a stricter content check"
     Since 1.3 a card holds at most 100 attachments and 1 GiB of them, and each user may upload at most 120 attachments an hour (#2007). An upload over a quota gets `400` `attachment_quota_exceeded`; one over the rate gets `429`. Nothing already stored is deleted, and a card already over a quota keeps its files. A binary upload must also carry the signature of the type it declares (a PDF sent as `image/png` is now refused), and plain-text and CSV uploads are checked for HTML markup over the whole file rather than the first 4 KB. To keep the 1.2 behavior for the quotas, set `ATTACHMENT_MAX_PER_CARD=0` and `ATTACHMENT_MAX_BYTES_PER_CARD=0`; to raise the rate, set `ATTACHMENT_THROTTLE_UPLOAD_RATE` (Helm: `backend.settings.attachmentMaxPerCard`, `attachmentMaxBytesPerCard`, `attachmentUploadRate`). See [Attachment limits](configuration.md#attachment-limits).
 
+!!! note "Card link writes have their own rate limit"
+    Since 1.3 each user may make at most 300 card parent/child link writes an hour (linking, and unlinking from either end, together; #2383). One over the rate gets `429` with a `Retry-After` header. Reading a card's children is not counted. Raise it with `CARD_LINK_THROTTLE_WRITE_RATE` (Helm: `backend.settings.cardLinkWriteRate`). See [Card link write limit](configuration.md#card-link-write-limit).
+
 !!! note "Board owners are protected, and non-admin updates answer `403` before `400`"
     Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191, #2225):
 

@@ -146,6 +146,10 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: ATTACHMENT_THROTTLE_UPLOAD_RATE
   value: {{ . | quote }}
 {{- end }}
+{{- with $ctx.Values.backend.settings.cardLinkWriteRate }}
+- name: CARD_LINK_THROTTLE_WRITE_RATE
+  value: {{ . | quote }}
+{{- end }}
 {{- /* "smtp", or empty backend with a host (1.1 values files) -- see visiban.emailSmtpPassword (#2016). */}}
 {{- if include "visiban.emailSmtpPassword" $ctx }}
 - name: EMAIL_HOST_PASSWORD

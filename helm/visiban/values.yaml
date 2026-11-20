@@ -98,6 +98,9 @@ backend:
     attachmentMaxPerCard: 100
     attachmentMaxBytesPerCard: 1073741824
     attachmentUploadRate: ""
+    # CARD_LINK_THROTTLE_WRITE_RATE (#2383): per-user card link writes,
+    # <n>/<second|minute|hour|day>. Empty = the backend default, 300/hour.
+    cardLinkWriteRate: ""
     # Opt-in PostgreSQL connection pool (DATABASE_POOL, #1958). Off by default:
     # each request then opens its own connection. The pool is per backend
     # process, so keep maxSize x processes per pod x backendReplicaCount below

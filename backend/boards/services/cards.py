@@ -2568,6 +2568,13 @@ def delete_card(*, actor, board, card, role=None, render=None, render_many=None)
         # collector could DELETE the children, the child insert commit, and
         # this transaction then fail its own deferred FK check at COMMIT.
         # A card already deleted by a concurrent request answers 404.
+        # Its parent/child link peers first, in pk order with the card itself
+        # (#2383): announce_card_removal below takes a key-share lock on each
+        # peer, and a link write holds both cards in pk order, so taking this
+        # card first and its peer second could deadlock against one.
+        from .card_links import lock_card_and_link_peers
+
+        lock_card_and_link_peers(card_id)
         locked = lock_card_row(card_id)
         # Re-checked under the lock: a concurrent archive that committed after
         # the caller's read must still get the "archived cards are rejected"

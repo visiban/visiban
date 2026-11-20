@@ -348,6 +348,23 @@ the instance by uploading in a loop.
 
 ---
 
+## Card link write limit
+
+*(new in 1.3)* Linking a card to a parent on another board, and removing that
+link from either end, share a per-user rate limit (#2383). Each link write
+records history on two cards and notifies two boards, so the general per-user
+API limit alone let one account churn links thousands of times an hour.
+
+| Variable | Description | Default |
+|---|---|---|
+| `CARD_LINK_THROTTLE_WRITE_RATE` | Card link writes per user (link, child-side unlink, parent-side unlink together), as `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Counted on top of the general per-user API limit; reading a card's children is not counted. Empty = the default. Applies in development (`DEBUG`) too, where the default is otherwise `9999/hour`. Helm: `backend.settings.cardLinkWriteRate`. | `300/hour` |
+
+A write over the limit gets `429` with a `Retry-After` header and changes
+nothing. 300 an hour fills a parent to its 100-child cap three times over, so
+the default only refuses scripted churn.
+
+---
+
 ## Email (SMTP)
 
 Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).

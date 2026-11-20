@@ -27,7 +27,7 @@ from .services.cards import (
     enforce_column_limits, lock_board_for_card_write, lock_card_cell_entry,
     lock_card_for_write, lock_card_row, lock_cards_for_cascade, require_swimlane_exists,
 )
-from .services.card_links import announce_cards_removal
+from .services.card_links import announce_cards_removal, lock_card_and_link_peers
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
     LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
@@ -226,6 +226,10 @@ class CardAdminForm(forms.ModelForm):
             # was loaded unlocked and may be stale, and the columns to lock
             # (and whether the card enters a cell at all) must be decided on
             # the state this transaction will actually overwrite (#1588).
+            # Its parent/child link peers go first, in pk order with the card
+            # (#2383): a move to another board unlinks them in save_model, and
+            # a link write holds both cards in pk order.
+            lock_card_and_link_peers(original.pk)
             current = lock_card_row(original.pk)
             if current is None:
                 raise ValidationError("This card was deleted while you were editing it.")
@@ -451,14 +455,11 @@ class CardAdmin(admin.ModelAdmin):
                 # board, and a moved parent may land on a child tier. Both
                 # cards record the unlink, and both boards get the ping.
                 #
-                # Lock order (named residual, #2383): this holds the moved
-                # card's row, and ``remove_link`` then locks the peer card, so
-                # it is card-then-peer rather than the link writes' "both
-                # boards, then both cards, in pk order". Accepted: against an
-                # opposite-order link write PostgreSQL aborts one transaction
-                # with a deadlock error and neither commits a partial state.
-                # Re-locking in pk order here would mean releasing the moved
-                # card's lock mid-save. See docs/development/security-invariants.md.
+                # Lock order (#2383): the moved card and its link peers were
+                # locked together in pk order before the card's own lock
+                # (``lock_card_and_link_peers`` in CardAdminForm.clean and
+                # _lock_cell_entry), the order the link writes take, so the
+                # peer locks ``remove_link`` takes here are already held.
                 if stored is not None and stored.board_id != obj.board_id:
                     from .services.card_links import unlink_all
 
@@ -517,6 +518,8 @@ class CardAdmin(admin.ModelAdmin):
         if not change:
             lock_card_cell_entry(card_id=None, column_ids={obj.column_id})
             return None
+        # Link peers with the card, in pk order (#2383); see CardAdminForm.clean.
+        lock_card_and_link_peers(obj.pk)
         stored = lock_card_row(obj.pk)
         if stored is not None and (stored.column_id, stored.swimlane_id) != (
             obj.column_id, obj.swimlane_id,
@@ -530,6 +533,9 @@ class CardAdmin(admin.ModelAdmin):
         # Lock the card before the collector reads its child rows, in one
         # transaction held across the delete (#1603; see lock_cards_for_cascade).
         with transaction.atomic():
+            # Link peers with the card, in pk order (#2383): announce_cards_removal
+            # below takes a key-share lock on each peer. See delete_card.
+            lock_card_and_link_peers(obj.pk)
             lock_cards_for_cascade(Card.objects.filter(pk=obj.pk))
             # The cards this one blocks lose a blocker (#1634), as on the
             # REST delete (#449). Read before the delete removes the relations.
