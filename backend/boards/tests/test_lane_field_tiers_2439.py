@@ -171,6 +171,32 @@ class ValidationAndMaterializationTests(_Base):
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual(self._tiers(), ["details", "band", "band"])
 
+    def test_a_non_member_gets_404_on_the_tier_writes(self):
+        d = _defn(self.board, "Region", 0, "hidden")
+        outsider = _make_user("tier_outsider")
+        c = APIClient()
+        c.force_authenticate(outsider)
+        self.assertEqual(c.patch(f"{self.url}{d.id}/", {"band_visibility": "band"}, format="json").status_code, 404)
+        self.assertEqual(c.patch(self.board_url, {"lane_details_cap": 4}, format="json").status_code, 404)
+
+    def test_patching_null_on_a_materialized_board_leaves_a_details_or_hidden_row(self):
+        a = _defn(self.board, "A", 0, "band")
+        b = _defn(self.board, "B", 1, "band")
+        _defn(self.board, "C", 2, "details")
+        r = self._patch(b, band_visibility=None)
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertIsNone(r.data["band_visibility"])
+        self.assertEqual(self._tiers(), ["band", None, "details"])
+        full = self.client.get(f"{self.board_url}full/").data
+        self.assertEqual(full["swimlane_custom_field_definitions"][1]["band_visibility"], None)
+        self.assertIsNotNone(a)
+        # The resolver never promotes a NULL row to the band.
+        resolved = tiers.resolve_tiers(
+            list(SwimlaneCustomFieldDefinition.objects.filter(board=self.board).order_by("position")),
+            self.board.lane_details_cap,
+        )
+        self.assertEqual(resolved[b.id], "details")
+
     def test_a_tier_patch_broadcasts_on_commit(self):
         d = _defn(self.board, "A", 0, "band")
         with self.captureOnCommitCallbacks(execute=True):

@@ -265,7 +265,7 @@ In the [Filter panel](board.md#filter-panel), a number field's row has an **is**
 
 Board admins can also define typed fields on **swimlanes** (rows) instead of cards, in a separate per-board schema. Use one for something that belongs to the row as a whole: an owner, a region, a renewal date. Swimlane fields use the same seven types as card fields — Text, Number, Date, Dropdown, Checkbox, URL, and Multi-select. A multi-select swimlane field shows up to three of its picks on the band, wrapping onto further lines.
 
-**By the numbers:** up to **15 swimlane fields**. The swimlane band shows the first two values by field order and puts every field in an **N fields** grid behind a button; see [Swimlane fields in the lane band](#swimlane-fields-in-the-lane-band).
+**By the numbers:** up to **15 swimlane fields**. On a legacy board (every field's `band_visibility` is null; see [Band visibility](../api/boards.md#band-visibility-since-13)) the swimlane band shows the first two values by field order and puts every field in an **N fields** grid behind a button; see [Swimlane fields in the lane band](#swimlane-fields-in-the-lane-band).
 
 Dropdown, number, date, text, and URL swimlane fields can also hide lanes from the board: see [Lane filters](board.md#lane-filters) (1.3+). Text and URL fields offer **contains**, **does not contain**, and **matches wildcard** (`*` any text, `?` one character, matches any part of the value): see [Text operators and wildcards](board.md#text-operators-and-wildcards). Admin-only fields are offered there to board admins only.
 
