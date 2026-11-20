@@ -457,19 +457,22 @@ each surface that delivers them:
   board, which unlinks it (`CardAdminForm.clean` and
   `CardAdmin._lock_cell_entry`). Tests:
   `boards/tests/test_card_link_hardening_2383.py` `LinkPeerLockOrderTests`
-  (PostgreSQL only), which fail with the helper removed. Remaining accepted
-  residual (#2409, expires 2027-05-31): a container delete (REST column,
-  swimlane and board destroys, the Django-admin column, swimlane, board and
-  bulk card deletes, and the seed `--wipe`) still holds its own cards first
-  (`services/cards.py` `lock_cards_for_cascade`, whose savepoint retry
-  compares the locked set with the container's cards, so peers cannot simply
-  join that statement), and then `announce_cards_removal` inserts each
-  peer's history row, which takes a key-share lock on the peer card; and on
-  the single-card paths a link committed between the unlocked peer read and
-  the lock is not covered. Against a concurrent link write taking the
-  opposite order, PostgreSQL aborts one of the two transactions with a
-  deadlock error; nothing commits half-done and nothing is disclosed. To be
-  re-decided (reordered, or closed) by that date;
+  (PostgreSQL only), which fail with the helper removed. Since #2409 every
+  container delete (REST column, swimlane and board destroys, the
+  Django-admin column, swimlane, board, user and bulk card deletes, and the
+  seed `--wipe` through `delete_boards_locked`) takes its cards **and their
+  link peers** in the one pk-ordered card statement of
+  `services/cards.py` `lock_cards_for_cascade`, before
+  `announce_cards_removal` inserts each peer's history row. Both lock takers
+  read the peer set unlocked (`card_links.link_peer_pks`) and re-read it
+  under the lock; a link committed in between is a mismatch, rolled back to
+  a savepoint and retried, and a set that keeps changing ends in a `409`
+  (`container_changed`, or `links_changed` from the single-card helper) with
+  nothing written. The single-card helper now locks the card itself even
+  with no links, so no link can name it before the caller's own lock. Tests:
+  `boards/tests/test_container_delete_link_peer_lock_2409.py` (PostgreSQL
+  only), which fail with the change reverted. The #2409 lock-order residual
+  is closed;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
   current shareable definitions.

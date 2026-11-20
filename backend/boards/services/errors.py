@@ -276,6 +276,24 @@ class ContainerChanged(CardServiceError):
         return {"code": "container_changed", "detail": self.detail}
 
 
+class LinksChanged(ContainerChanged):
+    """A card's parent/child links kept changing while it was locked (#2409).
+
+    ``card_links.lock_card_and_link_peers`` reads the card's link peers,
+    locks the card and those peers, then re-reads the peers under the lock and
+    retries when a link committed in between; this is raised only when every
+    bounded attempt lost that race. A subclass of ``ContainerChanged`` so each
+    adapter that already answers that one (the REST card-error handler, the
+    Django-admin delete views) answers this as a clean ``409`` too. Nothing
+    has been written.
+    """
+
+    detail = "This card's links changed while it was being saved. Please try again."
+
+    def body(self) -> dict:
+        return {"code": "links_changed", "detail": self.detail}
+
+
 # ---------------------------------------------------------------------------
 # Limit enforcement
 # ---------------------------------------------------------------------------

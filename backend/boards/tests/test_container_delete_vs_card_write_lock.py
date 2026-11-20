@@ -285,8 +285,11 @@ class ContainerDeleteVsCardWriteLockTests(TransactionTestCase):
             card_services.lock_cards_for_cascade(
                 Card.objects.filter(column=self.column)
             )
-        self.assertEqual(len(ctx.captured_queries), 1)
-        sql = ctx.captured_queries[0]["sql"]
+        # Exactly one locking statement; the rest are the unlocked link-peer
+        # reads and the re-read of #2409 (and the retry savepoint).
+        locking = [q["sql"] for q in ctx.captured_queries if " FOR " in q["sql"]]
+        self.assertEqual(len(locking), 1, ctx.captured_queries)
+        sql = locking[0]
         self.assertIn("ORDER BY", sql)
         # OF "cards": a joined filter must not lock board rows (#1602).
         self.assertRegex(sql.rstrip(), r'FOR UPDATE OF "cards"$')
