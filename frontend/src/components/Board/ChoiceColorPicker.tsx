@@ -336,5 +336,6 @@ function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onP
   );
 }
 
+// min-h-11 on a coarse pointer: these sit 2px apart, so a touch target needs the height (#2096 ux-review).
 const TEXT_BUTTON =
-  "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+  "[@media(pointer:coarse)]:min-h-11 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis";

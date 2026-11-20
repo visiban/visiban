@@ -2423,7 +2423,9 @@ An optional, **display-only** color per choice on a `"dropdown"` or `"multi_sele
   import into 1.3 unchanged. An export that carries a hex choice color, imported into a
   server older than 1.3, is refused with a `400` for the **whole import** (that server
   validates `choice_colors` as palette keys only); remove the hex entries, or upgrade the
-  target server first.
+  target server first. During a rolling upgrade to 1.3, a pre-1.3 server process that
+  handles a write to a definition holding a hex color drops that entry (it re-filters the
+  stored map against palette keys); re-pick the color once the upgrade completes.
 - **Events.** `custom_field.created` / `custom_field.updated` and
   `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
   definition, so `choice_colors` arrives with them (an additive field).
