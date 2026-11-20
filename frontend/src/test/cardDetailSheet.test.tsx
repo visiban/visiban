@@ -365,9 +365,9 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     mountBoard()
     render(<CardDetail {...defaultProps()} />)
     const block = screen.getByTestId('card-detail-title-block')
-    expect(block.className).toContain('max-sm:order-last')
-    expect(block.className).toContain('max-sm:basis-full')
-    expect((block.parentElement as HTMLElement).className).toContain('max-sm:flex-wrap')
+    expect(block.className).toContain('basis-full')
+    expect(block.className).not.toContain('order-last')
+    expect((block.parentElement as HTMLElement).className).toContain('flex-wrap')
     // Full names stay in the DOM (accessible name, tooltip); only the paint truncates.
     const crumbs = within(block).getAllByRole('button').filter((b) => b.className.includes('truncate'))
     expect(crumbs.length).toBe(2)
@@ -377,7 +377,29 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     }
     // The first of Block… and Close takes the auto margin, so the pair stays at the right edge.
     const block2 = screen.queryByRole('button', { name: 'Block…' })
-    expect((block2 ?? screen.getByRole('button', { name: 'Close' })).className).toContain('max-sm:ml-auto')
+    expect((block2 ?? screen.getByRole('button', { name: 'Close' })).className).toContain('ml-auto')
+  })
+
+  // #2410 (WCAG 2.4.3): DOM order is the tab order and, with no order-* class, the paint order.
+  const domOrder = (names: string[]) => {
+    const els = names.map((n) => (n === 'Title' ? screen.getByTestId('card-detail-title-block') : screen.getByRole('button', { name: n })))
+    const pos = els.map((el) => Array.from(dialog().querySelectorAll('*')).indexOf(el))
+    return pos
+  }
+  const ascending = (xs: number[]) => xs.every((x, i) => i === 0 || x > xs[i - 1])
+
+  it('puts Back, Block, Close, then the title block in DOM order on a phone (#2410)', () => {
+    setViewport(640)
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(ascending(domOrder(['Back to board', 'Block…', 'Close', 'Title']))).toBe(true)
+    expect(dialog().querySelector('[class*="order-last"]')).toBeNull()
+  })
+
+  it('keeps the title block before Block and Close in DOM order on desktop (#2410)', () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    expect(ascending(domOrder(['Title', 'Block…', 'Close']))).toBe(true)
   })
 
   it('has no Board back control outside full-screen', () => {
