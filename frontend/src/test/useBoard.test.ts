@@ -2336,6 +2336,18 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     })
   }
 
+  it('a snapshot racing a newer frame fills the kept copy parent only when the copy has none', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    const snapParent = { hidden: true as const }
+    const fetch = startFetch(result)
+    // The frame is newer and carries no `parent`; card 2 keeps an explicit one.
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    act(() => { result.current.updateCard(card(2, 2, { parent: null })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: snapParent }), card(2, 1, { parent: snapParent })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: snapParent })
+    expect(byId(result.current.board, 2)).toMatchObject({ version: 2, parent: null })
+  })
+
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {
     const { result } = await renderBoard([card(1, 2)])
     const fetch = startFetch(result)

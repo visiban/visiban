@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getParentBoards, unlinkCardParent } from "../../api/cards";
+import { getCardParent, getParentBoards, unlinkCardParent } from "../../api/cards";
 import type { BoardFull, Card, CardParent, ParentBoardOption } from "../../types";
 import LockGlyph from "./LockGlyph";
 import ParentCardPicker from "./ParentCardPicker";
@@ -63,8 +63,18 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   // A store refresh (the re-read after a write, or another session's change)
   // supersedes the local override.
   const storeParent = card.parent;
-  const parent: CardParent | null =
-    override && override.base === storeParent ? override.value : (storeParent ?? null);
+  // Only some card surfaces carry `parent`; `undefined` means never read, not
+  // "no parent", so it is read once here and nothing renders until it lands
+  // (a false "Not linked" would offer to link a card that already has one).
+  const [readParent, setReadParent] = useState<CardParent | null | undefined>(undefined);
+  useEffect(() => {
+    if (storeParent !== undefined || board.cards_can_have_children) return;
+    let live = true;
+    getCardParent(board.id, card.id).then((p) => { if (live) setReadParent(p); }).catch(() => {});
+    return () => { live = false; };
+  }, [storeParent, board.id, board.cards_can_have_children, card.id]);
+  const parent: CardParent | null | undefined =
+    override && override.base === storeParent ? override.value : (storeParent === undefined ? readParent : storeParent);
 
   useEffect(() => {
     if (!focusAfterUnlink.current || parent !== null) return;
@@ -72,7 +82,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
     (linkButtonRef.current ?? headingRef.current ?? focusFallback.current)?.focus();
   }, [parent]);
 
-  if (!childBoard) return null;
+  if (!childBoard || parent === undefined) return null;
   const offerLink = parent === null && canWrite && parentBoards.length > 0;
   if (parent === null && !offerLink) return null;
 

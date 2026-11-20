@@ -1053,6 +1053,21 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     spy.mockRestore()
   })
 
+  it('card.unarchived re-reads the restored card parent, which the frame never carries', async () => {
+    const parent = { hidden: true as const }
+    const spy = vi.spyOn(cardsApi, 'getCardParent').mockResolvedValue(parent)
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const restored = { id: 5, uid: 'crd005', title: 'Restored card', column: 10, swimlane: 20 }
+    await act(async () => { getOnEvent.dispatch({ event: 'card.unarchived', data: restored as unknown as Record<string, unknown> }) })
+    expect(ctx.unarchiveCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5 }))
+    expect(spy).toHaveBeenCalledWith(expect.anything(), 5)
+    expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, parent]]))
+    spy.mockRestore()
+  })
+
   it('answers the card detail refetch event, and skips a failed read', async () => {
     const spy = vi.spyOn(cardsApi, 'getCardParent').mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(null)
     const ctx = makeContext()

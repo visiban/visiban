@@ -43,7 +43,9 @@ function searchable(q: string): boolean {
  * empty list for all three, and nothing here hints at what it withheld.
  *
  * Phone (below 640px): a full-screen sheet with "‹ Card" and Close; the list
- * scrolls inside the sheet so Cancel and Link stay pinned above the keyboard.
+ * scrolls inside the sheet, which is sized from `visualViewport` (full height
+ * where it is unavailable) so the keyboard never covers the list and Cancel and
+ * Link stay pinned above it.
  */
 export default function ParentCardPicker({ boardId, cardId, parentBoards, onLinked, onClose }: Props) {
   const ids = useId();
@@ -62,6 +64,21 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The phone sheet is as tall as what the user can see: the on-screen
+  // keyboard shrinks `visualViewport` but not the layout viewport, so a
+  // `h-full` sheet would run under it with Cancel and Link. Unset (no
+  // visualViewport) the sheet falls back to the full height.
+  const [visibleHeight, setVisibleHeight] = useState<number | null>(() =>
+    typeof window !== "undefined" && window.visualViewport ? window.visualViewport.height : null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => setVisibleHeight(vv.height);
+    sync();
+    vv.addEventListener("resize", sync);
+    return () => vv.removeEventListener("resize", sync);
+  }, []);
 
   useFocusTrap(dialogRef, true);
   useEscapeStack(() => {
@@ -173,7 +190,7 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
   const linkDisabled = !selected || submitting || candidateDisabledReason(selected) !== null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center max-sm:items-start">
       <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={() => { if (!submittingRef.current) onClose(); }} />
       <div
         ref={dialogRef}
@@ -182,7 +199,8 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
         aria-label={HEADING}
         tabIndex={-1}
         data-testid="parent-card-picker"
-        className="relative bg-surface border border-line rounded-lg shadow-xl w-[28rem] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col outline-none max-sm:w-full max-sm:max-w-none max-sm:h-full max-sm:max-h-none max-sm:rounded-none max-sm:border-0"
+        style={visibleHeight ? ({ "--parent-picker-vh": `${visibleHeight}px` } as React.CSSProperties) : undefined}
+        className="relative bg-surface border border-line rounded-lg shadow-xl w-[28rem] max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)] flex flex-col outline-none max-sm:w-full max-sm:max-w-none max-sm:h-[var(--parent-picker-vh,100%)] max-sm:max-h-none max-sm:rounded-none max-sm:border-0"
       >
         <div className="flex items-center gap-2 px-5 pt-4 pb-3 max-sm:px-2 max-sm:pt-2">
           <button

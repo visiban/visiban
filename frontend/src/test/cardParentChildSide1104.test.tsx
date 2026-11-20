@@ -20,6 +20,7 @@ vi.mock("@dnd-kit/core", () => ({
 
 vi.mock("../api/cards", () => ({
   updateCard: vi.fn(),
+  getCardParent: vi.fn(),
   getParentBoards: vi.fn(),
   getParentCandidates: vi.fn(),
   linkCardParent: vi.fn(),
@@ -59,6 +60,7 @@ function candidate(overrides: Partial<ParentCandidate> = {}): ParentCandidate {
 const boards = [{ id: 12, name: "Pipeline" }];
 
 beforeEach(() => {
+  vi.mocked(cardsApi.getCardParent).mockReset().mockResolvedValue(null);
   vi.mocked(cardsApi.getParentBoards).mockReset().mockResolvedValue(boards);
   vi.mocked(cardsApi.getParentCandidates).mockReset().mockResolvedValue([]);
   vi.mocked(cardsApi.linkCardParent).mockReset().mockResolvedValue({ parent_id: 41, child_id: 51 });
@@ -202,11 +204,68 @@ describe("CardParentSection (#1104)", () => {
   });
 });
 
+describe("CardParentSection unread parent and focus fallback (#1104)", () => {
+  it("renders nothing for a card whose parent was never read, until the read resolves", async () => {
+    let resolveRead!: (p: CardParentVisible | null) => void;
+    vi.mocked(cardsApi.getCardParent).mockReturnValue(new Promise((res) => { resolveRead = res; }));
+    render(<CardParentSection board={childBoard} card={makeCard()} canEdit />);
+    await act(async () => {});
+    expect(cardsApi.getCardParent).toHaveBeenCalledWith(7, 51);
+    expect(screen.queryByRole("button", { name: "Link a parent" })).toBeNull();
+    expect(screen.queryByText("Not linked")).toBeNull();
+    await act(async () => { resolveRead(visibleParent); });
+    expect(await screen.findByTestId("card-parent-section")).toHaveTextContent("Initech: security review");
+    expect(screen.queryByRole("button", { name: "Link a parent" })).toBeNull();
+  });
+
+  it("offers Link a parent once the read says there is none", async () => {
+    render(<CardParentSection board={childBoard} card={makeCard()} canEdit />);
+    expect(await screen.findByRole("button", { name: "Link a parent" })).toBeInTheDocument();
+  });
+
+  it("moves focus to the card panel when an unlink unmounts the whole section", async () => {
+    vi.mocked(cardsApi.getParentBoards).mockResolvedValue([]);
+    render(
+      <div role="dialog" aria-label="Card" tabIndex={-1} data-testid="panel">
+        <CardParentSection board={childBoard} card={makeCard({ parent: visibleParent })} canEdit />
+      </div>,
+    );
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Unlink parent Initech: security review" }));
+    await waitFor(() => expect(screen.queryByTestId("card-parent-section")).toBeNull());
+    expect(screen.getByTestId("panel")).toHaveFocus();
+  });
+});
+
 describe("ParentCardPicker (#1104)", () => {
   function renderPicker(onLinked = vi.fn(), onClose = vi.fn()) {
     render(<ParentCardPicker boardId={7} cardId={51} parentBoards={boards} onLinked={onLinked} onClose={onClose} />);
     return { onLinked, onClose, input: screen.getByRole("combobox", { name: "Card" }) };
   }
+
+  it("sizes the phone sheet from visualViewport and follows its resize, falling back without it", () => {
+    const listeners = new Set<() => void>();
+    const vv = {
+      height: 500,
+      addEventListener: vi.fn((_: string, fn: () => void) => { listeners.add(fn); }),
+      removeEventListener: vi.fn((_: string, fn: () => void) => { listeners.delete(fn); }),
+    };
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: vv });
+    try {
+      const { unmount } = render(<ParentCardPicker boardId={7} cardId={51} parentBoards={boards} onLinked={vi.fn()} onClose={vi.fn()} />);
+      const dialog = screen.getByTestId("parent-card-picker");
+      expect(dialog).toHaveClass("max-sm:h-[var(--parent-picker-vh,100%)]");
+      expect(dialog.style.getPropertyValue("--parent-picker-vh")).toBe("500px");
+      act(() => { vv.height = 300; listeners.forEach((fn) => fn()); });
+      expect(dialog.style.getPropertyValue("--parent-picker-vh")).toBe("300px");
+      unmount();
+      expect(listeners.size).toBe(0);
+    } finally {
+      Object.defineProperty(window, "visualViewport", { configurable: true, value: undefined });
+    }
+    renderPicker();
+    expect(screen.getByTestId("parent-card-picker").style.getPropertyValue("--parent-picker-vh")).toBe("");
+  });
 
   it("is a dialog named by its heading, starts empty and focused, with the helper tied to the field and list", () => {
     const { input } = renderPicker();
@@ -334,7 +393,7 @@ describe("ParentCardPicker (#1104)", () => {
     expect(await screen.findByRole("option", { name: /Initech/ })).toHaveClass("min-h-14");
     expect(screen.getByRole("button", { name: "Back to card" })).toHaveClass("min-h-11");
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("min-h-11");
-    expect(screen.getByRole("dialog")).toHaveClass("max-sm:h-full");
+    expect(screen.getByRole("dialog")).toHaveClass("max-sm:h-[var(--parent-picker-vh,100%)]");
   });
 });
 
@@ -376,6 +435,12 @@ describe("Card face parent line (#1104)", () => {
     expect(screen.queryByTestId("card-parent-line")).toBeNull();
     rerender(<CardItem card={makeCard({ parent: visibleParent })} compact />);
     expect(screen.queryByTestId("card-parent-line")).toBeNull();
+  });
+
+  it("reserves the controls' width on the parent line at coarse pointers, like the title", () => {
+    render(<CardItem card={makeCard({ parent: visibleParent })} onClick={vi.fn()} onOpenMenu={vi.fn()} />);
+    const line = screen.getByTestId("card-parent-line");
+    expect(line).toHaveClass("[@media(pointer:fine)]:pr-14", "[@media(pointer:coarse)]:group-focus-within:pr-28");
   });
 
   it("re-renders when only the parent changes", () => {

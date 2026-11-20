@@ -541,7 +541,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // reads (#1289) — so they are distinct handlers.
   const onCardDeleted = removeCard;
   const onCardArchived = archiveCard;
-  const onCardUnarchived = unarchiveCard;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   // While the instance is in maintenance mode (#783) every write this user
   // could attempt would come back 503, so fold it into the existing per-board
@@ -784,6 +783,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       applyCardParents(parents);
     });
   }, [applyCardParents, silentReload]);
+  // An unarchived card is appended with no `parent` (frames and write
+  // responses never carry it) and applyCardParents skips ids not yet on the
+  // board, so read it once the append is queued (#1104).
+  const onCardUnarchived = useCallback((card: Card) => {
+    unarchiveCard(card);
+    refetchCardParents([card.id]);
+  }, [unarchiveCard, refetchCardParents]);
   useEffect(() => {
     const onRefetch = (e: Event) => {
       const ids = (e as CustomEvent<{ cardIds?: number[] }>).detail?.cardIds;
