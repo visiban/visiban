@@ -17,6 +17,7 @@
   "stageFilterMaxIds": 50,
   "laneFilterKeys": ["hideUnmatched", "items"],
   "laneBuiltinFields": ["contact_email", "health_status", "name"],
+  "healthStatusValues": ["at_risk", "off_track", "on_track"],
   "numberFilterOps": ["between", "empty", "eq", "not_empty"],
   "numberFilterValidEntries": [
     {"kind": "number", "equals": "5"},

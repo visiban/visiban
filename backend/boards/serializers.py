@@ -5431,7 +5431,12 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             if op in self._LANE_PRESENCE_OPS:
                 if "value" in rule:
                     raise err(f"state_json.laneFilter {op} rule takes no value.")
-            elif not (isinstance(rule.get("value"), str) and rule["value"] in enum_values):
+            elif "value" in rule and rule["value"] != "" and not (
+                isinstance(rule["value"], str) and rule["value"] in enum_values
+            ):
+                # An absent or "" value is a half-built rule (the popover
+                # creates one before a value is picked); text built-ins and
+                # custom dropdowns save those too, and the client ignores it.
                 raise err(f"state_json.laneFilter rule on {field} needs a value of {sorted(enum_values)}.")
         elif builtin and (op == "between" or "min" in rule or "max" in rule):
             # Text built-ins: no range operator or bounds.

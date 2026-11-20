@@ -519,6 +519,19 @@ class SavedFilterCustomFieldStateTests(TestCase):
         self.assertEqual(set(builtins), S._LANE_BUILTIN_FIELDS)
         self.assertEqual(len(builtins), len(S._LANE_BUILTIN_FIELDS))
 
+    def test_health_status_values_match_shared_fixture(self):
+        """The frontend HEALTH_STATUS_VALUES is pinned to HealthStatus.values
+        through the same fixture (Vitest parity test)."""
+        import json
+        from pathlib import Path
+
+        from groups.models import HealthStatus
+
+        fixture = Path(__file__).parent / "fixtures" / "filter_state_keys.json"
+        values = json.loads(fixture.read_text())["healthStatusValues"]
+        self.assertEqual(set(values), set(HealthStatus.values))
+        self.assertEqual(len(values), len(HealthStatus.values))
+
     def test_lane_filter_keys_match_shared_fixture(self):
         """#2214 — the laneFilter object accepts exactly the fixture's keys
         (the Vitest parity test pins sanitizeLaneFilter to the same list)."""
@@ -830,12 +843,28 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(r.data["state_json"], state)
 
+    def test_health_status_half_built_rules_accepted(self):
+        """The popover creates an is-rule with no value yet, and clearing the
+        dropdown leaves "" — Save filter must not 400 on either."""
+        health = {"field": "health_status"}
+        for op in ("is", "is_not"):
+            for label, rule in {
+                "no value": {k: v for k, v in _lane_rule(op=op, **health).items() if k != "value"},
+                "empty value": _lane_rule(op=op, value="", **health),
+            }.items():
+                with self.subTest(f"{op}: {label}"):
+                    r = self.client.post(
+                        self.url,
+                        {"name": f"{op}-{label}", "state_json": {**EMPTY_FILTER_STATE, "laneFilter": {"items": [rule]}}},
+                        format="json",
+                    )
+                    self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+
     def test_health_status_rules_reject_unknown_values_and_shapes(self):
         health = {"field": "health_status"}
         cases = {
             "unknown value": _lane_rule(op="is", value="purple", **health),
             "unknown value is_not": _lane_rule(op="is_not", value="ON_TRACK", **health),
-            "no value": {k: v for k, v in _lane_rule(op="is", **health).items() if k != "value"},
             "value not str": _lane_rule(op="is", value=["at_risk"], **health),
             "text op": _lane_rule(op="contains", value="risk", **health),
             "between": _lane_rule(op="between", **health),

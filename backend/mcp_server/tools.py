@@ -82,17 +82,9 @@ def _rest_datetime(value):
     return None if value is None else _DRFDateTimeField().to_representation(value)
 
 
-def _serialize_board(board, role, health_map=None):
-    """Shape one board for the MCP wire format.
-
-    ``id`` is the integer pk, matching how the REST API addresses boards, so a
-    future write tool (#512) can reuse the identifier a caller already holds.
-
-    The three health fields (#2249) are read-only and sent to every role, as
-    ``BoardSerializer`` serves them to every member over REST. ``health_map``
-    is the batch ancestor map ``list_boards`` builds once; when absent the
-    resolver builds one for this board alone.
-    """
+def _board_health_payload(board, health_map=None):
+    """The four read-only board health keys (#2249), shared by ``list_boards``
+    and the ``board://`` snapshot so both match the REST board serializer."""
     # A computed value only counts while auto health is on, as in
     # ``HealthStatusFieldsMixin._computed`` (#2245).
     computed = board.computed_health_status if board.health_auto_enabled else None
@@ -105,16 +97,6 @@ def _serialize_board(board, role, health_map=None):
         board.health_status, start[1], health_map, computed,
     )
     return {
-        "id": board.id,
-        "uid": board.uid,
-        "name": board.name,
-        "description": board.description,
-        "role": role,
-        "column_count": board._column_count,
-        "swimlane_count": board._swimlane_count,
-        "card_count": board._card_count,
-        "created_at": board.created_at.isoformat(),
-        "updated_at": board.updated_at.isoformat(),
         "health_status": board.health_status,
         "effective_health_status": effective,
         "health_status_source": (
@@ -125,6 +107,32 @@ def _serialize_board(board, role, health_map=None):
             }
         ),
         "health_status_origin": origin,
+    }
+
+
+def _serialize_board(board, role, health_map=None):
+    """Shape one board for the MCP wire format.
+
+    ``id`` is the integer pk, matching how the REST API addresses boards, so a
+    future write tool (#512) can reuse the identifier a caller already holds.
+
+    The three health fields (#2249) are read-only and sent to every role, as
+    ``BoardSerializer`` serves them to every member over REST. ``health_map``
+    is the batch ancestor map ``list_boards`` builds once; when absent the
+    resolver builds one for this board alone.
+    """
+    return {
+        "id": board.id,
+        "uid": board.uid,
+        "name": board.name,
+        "description": board.description,
+        "role": role,
+        "column_count": board._column_count,
+        "swimlane_count": board._swimlane_count,
+        "card_count": board._card_count,
+        "created_at": board.created_at.isoformat(),
+        "updated_at": board.updated_at.isoformat(),
+        **_board_health_payload(board, health_map),
     }
 
 
@@ -1282,6 +1290,7 @@ def board_snapshot(*, board_id):
         "cards_total": cards_total,
         "cards_truncated": len(cards) < cards_total,
         "labels": [_serialize_label(label) for label in board.labels.all()],
+        **_board_health_payload(board),
     }
 
 
