@@ -5602,7 +5602,7 @@ arrives by any other route, any non-API write.</p>
 <tr>
 <td>WebSocket (group)</td>
 <td><code>groups/consumers.py</code> <code>_user_can_access_group_id</code>, <code>GroupConsumer._board_visible</code></td>
-<td>Access is <code>user_has_group_access</code>, which ignores a membership outside the enum; <code>board.created</code> and <code>board.updated</code> frames are forwarded only when <code>get_board_role</code> resolves a role on that board for the subscriber, so an explicit board row outside the enum withholds them as on the board channel (#1829); the consumer accepts no role from a frame</td>
+<td>Access is <code>user_has_group_access</code>, which ignores a membership outside the enum; <code>board.created</code> and <code>board.updated</code> frames are forwarded only when <code>get_board_roles</code> resolves a role on that board for the subscriber (the verdict is resolved over a batch of up to 200 of the group's boards, and the cache is still cleared at the access re-check), so an explicit board row outside the enum withholds them as on the board channel (#1829); the consumer accepts no role from a frame</td>
 </tr>
 <tr>
 <td>MCP</td>
@@ -5655,7 +5655,7 @@ fails closed.</p>
 <tr>
 <td>WebSocket (group)</td>
 <td><code>groups/consumers.py</code> <code>_user_can_access_group_id</code>, <code>GroupConsumer._board_visible</code></td>
-<td>Calls <code>groups/models.py</code> <code>user_has_group_access</code>, the predicate REST <code>_require_group_member</code> uses, at connect and at every periodic re-check. A <code>board.created</code> or <code>board.updated</code> frame, which carries a full board, is forwarded only to a subscriber on whom <code>get_board_role</code> resolves a role for that board, the predicate of REST board detail and <code>BoardConsumer</code> (#1829); the verdict is cached per board for the access re-check window. <code>board.deleted</code> (identifiers only: <code>board_uid</code>, and <code>board_id</code> on a move-out) is accepted as ungated, since access can't be resolved for a deleted board and a client needs it to drop a listed row</td>
+<td>Calls <code>groups/models.py</code> <code>user_has_group_access</code>, the predicate REST <code>_require_group_member</code> uses, at connect and at every periodic re-check. A <code>board.created</code> or <code>board.updated</code> frame, which carries a full board, is forwarded only to a subscriber on whom <code>get_board_roles</code> resolves a role for that board, the same ladder as <code>get_board_role</code>, the predicate of REST board detail and <code>BoardConsumer</code> (#1829); the verdict is resolved over a batch of up to 200 of the group's boards and cached per board, and the cache is still cleared at the access re-check. <code>board.deleted</code> (identifiers only: <code>board_uid</code>, and <code>board_id</code> on a move-out) is accepted as ungated, since access can't be resolved for a deleted board and a client needs it to drop a listed row</td>
 </tr>
 <tr>
 <td>WebSocket (board)</td>
