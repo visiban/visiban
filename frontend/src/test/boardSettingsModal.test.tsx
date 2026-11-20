@@ -3966,6 +3966,12 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
     expect(screen.getByText(fakeBoard.name)).toBeInTheDocument()
   })
 
+  it('falls back to Members when a deep link names a section the viewer cannot see', () => {
+    mount({ isAdmin: false, initialTab: 'webhooks' })
+    expect(screen.getByRole('tab', { name: /^Members/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'board-settings-tab-members')
+  })
+
   describe('phone', () => {
     afterEach(() => { phone.on = false })
 

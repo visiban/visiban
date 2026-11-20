@@ -236,7 +236,16 @@ function RoleTooltip() {
 export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
   const isPhone = useIsPhoneViewport();
-  const [tab, setTab] = useState<Tab>(resolveInitialSection(initialTab) ?? "members");
+  const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "swimlane-fields", "export"]);
+  if (isAdmin) availableSections.add("sharing");
+  if (isAdmin && !demoMode) availableSections.add("webhooks");
+  if (isAdmin && gitLensEnabled) availableSections.add("lens");
+  if (isAdmin && onBoardDeleted) availableSections.add("danger");
+  // A deep link to a section this viewer cannot see falls back to Members rather than a blank panel.
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = resolveInitialSection(initialTab) ?? "members";
+    return availableSections.has(t) ? t : "members";
+  });
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
   // settings closes or switches tabs before the admin acknowledges it. The tab
   // registers a guard; Close, the backdrop and every tab button ask it first.
@@ -1069,11 +1078,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // Sections are hidden exactly as the old tabs were: Sharing and Webhooks for admins
   // (Webhooks never in demo mode, #863), Issue lens for admins when the instance flag is on,
   // Danger zone for admins who can reach the delete flow.
-  const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "swimlane-fields", "export"]);
-  if (isAdmin) availableSections.add("sharing");
-  if (isAdmin && !demoMode) availableSections.add("webhooks");
-  if (isAdmin && gitLensEnabled) availableSections.add("lens");
-  if (isAdmin && onBoardDeleted) availableSections.add("danger");
   const sectionLabel = (t: Tab): string =>
     t === "members" ? `Members (${members.length})`
     : t === "fields" ? `Card fields (${board.custom_field_definitions?.length ?? 0})`
@@ -1092,7 +1096,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     tabs[nextIdx]?.focus();
   };
 
+  // The viewer's role or the instance flags can change while the modal is open.
+  useEffect(() => {
+    if (!availableSections.has(tab)) setTab("members");
+  });
   const [findQuery, setFindQuery] = useState("");
+  const [jumpNotice, setJumpNotice] = useState("");
   const [findIndex, setFindIndex] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const [pendingJump, setPendingJump] = useState<SettingEntry | null>(null);
@@ -1107,7 +1116,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const jumpToSetting = (entry: SettingEntry) => {
     setFindQuery("");
     setFindIndex(0);
-    selectTab(entry.section, () => setPendingJump(entry));
+    selectTab(entry.section, () => { setPendingJump(entry); setJumpNotice(`Jumped to ${entry.label}`); });
   };
   useEffect(() => {
     if (!pendingJump || pendingJump.section !== tab) return;
@@ -1128,12 +1137,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         }
       }
       setPendingJump(null);
+      setJumpNotice("");
     }, 50);
     return () => window.clearTimeout(timer);
   }, [pendingJump, tab]);
 
+  const liveFindText = findQuery.trim() !== "" && findResults.length > 0 ? `${findResults.length} settings found` : findQuery.trim() === "" ? jumpNotice : "";
   const findSetting = (
-    <div className="relative">
+    <div
+      className="relative"
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFindQuery(""); }}
+    >
+      {(liveFindText !== "") && <p role="status" className="sr-only">{liveFindText}</p>}
       <input
         type="search"
         aria-label="Find a setting"
@@ -1219,8 +1234,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       ref={tab === t ? activeTabRef : undefined}
                       onClick={() => selectTab(t)}
                       className={`text-left px-2 py-1.5 text-sm font-medium rounded border-l-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                        tab === t ? "border-primary-emphasis bg-primary-emphasis/15 text-fg" : "border-transparent text-fg-tertiary hover:text-fg hover:bg-surface-hover"
-                      } ${t === "danger" ? "text-danger" : ""}`}
+                        tab === t ? "border-primary-emphasis bg-primary-emphasis/15 text-fg" : `border-transparent hover:bg-surface-hover ${t === "danger" ? "text-danger" : "text-fg-tertiary hover:text-fg"}`
+                      }`}
                     >
                       {sectionLabel(t)}
                     </button>
@@ -1255,7 +1270,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         )}
 
         {/* Content */}
-        <div ref={panelRef} role="tabpanel" id="board-settings-panel" aria-labelledby={`board-settings-tab-${tab}`} tabIndex={0} className="overflow-y-auto flex-1 px-6 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
+        <div ref={panelRef} role="tabpanel" id="board-settings-panel" aria-labelledby={`board-settings-tab-${tab}`} tabIndex={0} className="overflow-y-auto flex-1 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-primary-emphasis max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
           {/* Hosted demo (#1179): ONE shared notice for the whole modal. Every
               admin control below sits in a DemoInert region that points its
               aria-describedby here, rather than repeating the reason per
