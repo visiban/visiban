@@ -223,10 +223,14 @@ describe('ColumnHeader — multi-lane add-card keyboard (S1082)', () => {
     expect(onAddCard).toHaveBeenCalledWith(2)
   })
 
-  it('clicking the trigger does not start a rename', async () => {
+  it('double-clicking the trigger does not open the stage settings the header double-click opens', async () => {
     const user = userEvent.setup()
     renderHeader({ onAddCard: vi.fn(), addCardLanes: lanes })
-    await user.click(screen.getByTestId('column-add-card'))
-    expect(screen.queryByRole('textbox')).toBeNull()
+    const trigger = screen.getByTestId('column-add-card')
+    await user.dblClick(trigger)
+    expect(screen.queryByRole('dialog', { name: /Edit Column/i })).toBeNull()
+    // Control: a double-click on the header itself opens settings in this same setup.
+    await user.dblClick(trigger.closest('div[class*="group/col"]')!)
+    expect(await screen.findByRole('dialog', { name: /Edit Column/i })).toBeInTheDocument()
   })
 })
