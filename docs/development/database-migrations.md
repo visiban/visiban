@@ -753,8 +753,9 @@ installs have already run them; these are documented instead.
   no such equivalent and has shipped, so it is documented here rather than edited. For a
   future FK on a large table, use the [`NOT VALID` then `VALIDATE`
   recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
-  `NULL` — `boards/0118`–`0121` (`card_activities.board`, #1799) does. No checker enforces this today: `check_migration_concurrency` does not inspect
-  foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
+  `NULL` — `boards/0118`–`0121` (`card_activities.board`, #1799) does. No checker enforces
+  this today: `check_migration_concurrency` does not inspect foreign-key validation (see
+  above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
   considered (#1894) and declined for now: a lint cannot tell a large table from a small
   one, so it would either flag every FK on a small table or miss the ones that matter.
 - **NOT NULL columns first shipped with a Python-only `default=`.** `accounts/0027`,
