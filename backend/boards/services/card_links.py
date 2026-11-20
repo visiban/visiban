@@ -76,21 +76,114 @@ def links_blocking_flag_flip(board, new_value: bool) -> int:
     return CardParentLink.objects.filter(parent__board_id=board.pk).count()
 
 
+def boards_defaulting_to(board):
+    """The other boards whose ``default_child_board`` is ``board`` (#2208 part 2).
+
+    While any exist, ``board`` must stay a child tier: turning its flag ON
+    would leave those boards' Add child pointing at a parent tier. Callers that
+    must be exact hold ``board``'s row lock, which the default write also takes
+    on its target (``BoardViewSet.perform_update``), so a flip and a default
+    write serialize.
+    """
+    return Board.objects.filter(default_child_board_id=board.pk).exclude(pk=board.pk)
+
+
+def flag_flip_refusal(board, new_value: bool):
+    """The message refusing a flip of ``board``'s flag to ``new_value``, or ``None``.
+
+    One rule for the REST PATCH and the Django admin. A no-op (``None``) when
+    the value is unchanged. Turning the flag off on a board whose cards have
+    children stays refused (the turn-off confirm is a later step of #2208).
+    """
+    if new_value == board.cards_can_have_children:
+        return None
+    blocking = links_blocking_flag_flip(board, new_value)
+    if blocking:
+        return (
+            f"Cannot change this setting while {blocking} card link(s) depend on it. "
+            "Remove those links first."
+        )
+    if new_value and boards_defaulting_to(board).exists():
+        return (
+            "This board is the default child board of another board. Clear that "
+            "default first."
+        )
+    return None
+
+
 def check_flag_flip(board, new_value: bool) -> None:
     """Raise a 400 when changing the flag to ``new_value`` would break existing links.
 
-    A no-op when the value is unchanged.
+    Also refused (#2208 part 2): turning it ON while this board is another
+    board's ``default_child_board``. A no-op when the value is unchanged.
     """
-    if new_value == board.cards_can_have_children:
-        return
-    blocking = links_blocking_flag_flip(board, new_value)
-    if blocking:
-        raise ValidationError({
-            "cards_can_have_children": [
-                f"Cannot change this setting while {blocking} card link(s) depend on it. "
-                "Remove those links first."
-            ]
-        })
+    message = flag_flip_refusal(board, new_value)
+    if message:
+        raise ValidationError({"cards_can_have_children": [message]})
+
+
+# ─── Default child board (#2208 part 2) ──────────────────────────────────────
+
+
+def first_column_and_lane(board):
+    """``(column, swimlane)`` where Add child puts a new child on ``board``.
+
+    The first column by position and the first lane by position, as the board
+    renders them. Either is ``None`` when the board has none.
+    """
+    from ..models import Column, Swimlane
+
+    column = Column.objects.filter(board_id=board.pk).order_by("position", "pk").first()
+    lane = Swimlane.objects.filter(board_id=board.pk).order_by("position", "pk").first()
+    return column, lane
+
+
+def board_qualifies_as_child(board) -> bool:
+    """True when ``board`` can be a default child board / Add child target.
+
+    It must be a child tier (two tiers, never three) and its first column
+    must allow card creation, since that is where Add child puts the card. A
+    missing board fails closed (#1075). Judged at use, never cached: a later
+    column edit makes a stored default stop qualifying without clearing it.
+    """
+    if board is None or board.cards_can_have_children:
+        return False
+    column, lane = first_column_and_lane(board)
+    return column is not None and lane is not None and column.allow_card_creation
+
+
+def default_child_blockers_for_viewer(board, user):
+    """What stands in the way of turning ``board``'s flag ON, for the Rules page.
+
+    ``{"child_cards": N, "parent_cards": M, "default_of": [...]}``:
+    ``child_cards`` are this board's cards that are children of other cards
+    (blocks ON), ``parent_cards`` this board's cards that have children (blocks
+    OFF, the shipped refusal), and ``default_of`` the boards whose default
+    child board this is (blocks ON). Each ``default_of`` entry is
+    ``{"id", "name", "can_change"}`` when ``user`` can open that board, else
+    ``{"hidden": True}``: no name or id for a board the viewer cannot open
+    (Rule 8). The caller has already checked ADMIN on ``board``.
+    """
+    child_cards = CardParentLink.objects.filter(child__board_id=board.pk).count()
+    parent_cards = (
+        CardParentLink.objects.filter(parent__board_id=board.pk)
+        .values("parent_id").distinct().count()
+    )
+    sources = list(
+        boards_defaulting_to(board).select_related(GROUP_ANCESTOR_SELECT_RELATED).order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, sources) if sources else {}
+    default_of = []
+    for b in sources:
+        role = roles.get(b.pk)
+        if role is None:
+            default_of.append({"hidden": True})
+        else:
+            default_of.append({
+                "hidden": False, "id": b.pk, "name": b.name,
+                "can_change": role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+            })
+    return {"child_cards": child_cards, "parent_cards": parent_cards, "default_of": default_of}
 
 
 # ─── Lookup ──────────────────────────────────────────────────────────────────
@@ -127,6 +220,22 @@ def resolve_card_for_user(user, card_id):
 
 
 # ─── Write path ──────────────────────────────────────────────────────────────
+
+
+def lock_board_rows(board_pks):
+    """Lock ``board_pks`` ``FOR NO KEY UPDATE`` in pk order (no-op on SQLite).
+
+    The board half of :func:`_lock_endpoints`, for writes that hold boards but
+    no card: the default-child-board PATCH and :func:`create_child`.
+    """
+    if not connection.features.has_select_for_update:
+        return
+    list(
+        Board.objects.select_for_update(no_key=True)
+        .filter(pk__in=sorted(set(board_pks)))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
 
 def _lock_endpoints(parent_pk, child_pk, board_pks=()):

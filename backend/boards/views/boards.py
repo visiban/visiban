@@ -500,7 +500,17 @@ class BoardViewSet(
             # Board row first (#1602): a board delete holds it from the start
             # of its cascade, and a PATCH queued behind one must answer 404,
             # not let save() fall back to an INSERT that resurrects the board.
+            # A default child board write (#2208 part 2) locks the target too,
+            # both boards in pk order: the target's own flag flip takes its
+            # row (check_flag_flip counts the boards defaulting to it), and
+            # card_links.create_link / create_child lock both boards in pk
+            # order, so any other order could deadlock against them.
+            target_default = serializer.validated_data.get("default_child_board")
+            if target_default is not None and target_default.pk < board.pk:
+                card_links.lock_board_rows([target_default.pk])
             lock_board_row_or_404(board, no_key=True)
+            if target_default is not None and target_default.pk > board.pk:
+                card_links.lock_board_rows([target_default.pk])
             # save() writes every column, and ``board`` is the snapshot read
             # before the lock. Reload the row under the lock so the PATCH
             # applies only the fields the request sent; fields another
@@ -521,6 +531,9 @@ class BoardViewSet(
             # a link create serialize.
             if "cards_can_have_children" in serializer.validated_data:
                 check_flag_flip(board, serializer.validated_data["cards_can_have_children"])
+            # The default child board (#2208 part 2), judged on the locked
+            # rows; turning the flag off clears it in this same write.
+            serializer.recheck_default_child_board_under_lock(board)
             # The group the board is in before this write, read from the
             # locked, refreshed row (as move_group does): a PATCH/PUT that
             # changes ``group`` is a group move to group subscribers (#1684).
@@ -554,6 +567,27 @@ class BoardViewSet(
                 from ..services.share_links import revoke_lapsed_share_links
                 revoke_lapsed_share_links(board_ids=[board_id])
             self._persist_and_broadcast_board_updated(board_id, old_group_id)
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description=(
+            "`{child_cards, parent_cards, default_of}`: cards here that are children "
+            "of other cards, cards here that have children, and the boards whose "
+            "default child board this is (`{hidden: true}` for a board the caller "
+            "cannot open, else `{hidden: false, id, name, can_change}`)."
+        ))},
+        description=(
+            "What stands in the way of turning `cards_can_have_children` on or off "
+            "(#2208, since 1.3). Turning it on is refused while `child_cards` > 0 or "
+            "`default_of` is not empty; turning it off is refused while "
+            "`parent_cards` > 0. Minimum role: board admin."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="children-setting-blockers")
+    def children_setting_blockers(self, request, pk=None):
+        """The reasons the Rules switch is blocked, for a board admin (#2208)."""
+        board = self.get_object()
+        self._require_board_settings_admin(board)
+        return Response(card_links.default_child_blockers_for_viewer(board, request.user))
 
     def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
         """Persist ``board.updated`` and schedule its fanout on commit; return the payload.

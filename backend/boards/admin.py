@@ -1218,6 +1218,19 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                         f"Cannot change \"cards can have children\" while {blocking} "
                         "card link(s) depend on it. Remove those links first."
                     )
+                # #2208 part 2: the REST rule (card_links.flag_flip_refusal).
+                if obj.cards_can_have_children:
+                    from .services.card_links import boards_defaulting_to
+
+                    if boards_defaulting_to(obj).exists():
+                        raise _FlagFlipRefused(
+                            "Cannot turn on \"cards can have children\" while this "
+                            "board is another board's default child board."
+                        )
+            # A board that can no longer have children has no default child
+            # board (#2208), as on the REST PATCH.
+            if not obj.cards_can_have_children and obj.default_child_board_id is not None:
+                obj.default_child_board = None
         super().save_model(request, obj, form, change)
         if old_auto_settings is not None:
             # The REST PATCH's path (#2245): turning auto off clears every

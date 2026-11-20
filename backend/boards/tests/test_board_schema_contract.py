@@ -422,6 +422,8 @@ class BoardFullMembersSchemaTests(TestCase):
             "commitment_column_uid",
             # Additive (#2208): two-tier card links.
             "cards_can_have_children",
+            # Additive (#2208 part 2): where Add child starts, id only.
+            "default_child_board",
         ])
         self.assertIsInstance(body["allowed_priorities"], list)
         self.assertEqual(body["current_user_role"], "admin")
