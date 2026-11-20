@@ -26,6 +26,7 @@ from django.conf import settings
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from rest_framework.test import APIClient
 
 from boards.models import Board, CardParentLink
 from boards.tests.test_card_parent_links import _LinkFixture
@@ -105,6 +106,34 @@ class ExportLinkParityTests(_LinkedBoards, TestCase):
             [(self.parent.pk, self.child.pk)],
         )
         self.assertFalse(CardParentLink.objects.filter(child__board=new_board).exists())
+
+
+class ShareLinkParityTests(_LinkedBoards, TestCase):
+    """The public share view stays link-free while ``/full/`` carries ``parent``."""
+
+    def setUp(self):
+        self._setup_linked()
+        self.client = self._client(self.owner)
+
+    def test_public_share_cards_carry_no_parent_but_full_does(self):
+        res = self.client.post(f"/api/v1/boards/{self.cboard.pk}/share/")
+        self.assertEqual(res.status_code, 200, res.content)
+        token = res.data["share_token"]
+        # The authenticated read carries the parent, so the public assertion
+        # below cannot pass only because the fixture has no link to show.
+        full = self.client.get(f"/api/v1/boards/{self.cboard.pk}/full/").json()
+        linked = [c for c in full["cards"] if c["id"] == self.child.pk]
+        self.assertEqual(len(linked), 1)
+        self.assertIn("parent", linked[0])
+        with CaptureQueriesContext(connection) as ctx:
+            public = APIClient().get(f"/api/share/{token}/")
+        self.assertEqual(public.status_code, 200, public.content)
+        body = public.json()
+        self.assertTrue(body["cards"])
+        for card in body["cards"]:
+            self.assertNotIn("parent", card)
+        self._assert_no_link_keys(body["cards"], "public share cards")
+        self.assertEqual(_link_queries(ctx), [], "the public share view read the link table")
 
 
 @skipUnless(settings.MCP_SERVER_ENABLED, "MCP server disabled; set MCP_SERVER_ENABLED=true to run these.")

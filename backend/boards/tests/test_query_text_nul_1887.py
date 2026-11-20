@@ -70,6 +70,12 @@ class NulQueryParamEndpointTests(TestCase):
             ("/api/v1/admin/users/", "/api/v1/admin/users/", "search", cls.admin),
             ("/api/v1/boards/{id}/movements/", f"/api/v1/boards/{b}/movements/", "exclude_type", cls.user),
             ("/api/v1/users/", "/api/v1/users/", "search", cls.user),
+            (
+                "/api/v1/boards/{board_pk}/cards/{id}/parent-candidates/",
+                f"/api/v1/boards/{b}/cards/{cls.card.id}/parent-candidates/",
+                "search",
+                cls.user,
+            ),
         ]
 
     def _get(self, url, params, user):

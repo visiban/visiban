@@ -1100,6 +1100,7 @@ class BoardViewSet(
         ).data)
 
     @extend_schema(
+        operation_id="api_v1_boards_parent_boards_list",
         responses={
             200: inline_serializer(
                 name="ParentBoardOptionList",

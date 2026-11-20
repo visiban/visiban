@@ -2906,6 +2906,7 @@ class CardViewSet(viewsets.ModelViewSet):
         ))
 
     @extend_schema(
+        operation_id="api_v1_boards_cards_parent_candidates_list",
         parameters=[
             OpenApiParameter(
                 "board", OpenApiTypes.INT, required=True,
@@ -2924,7 +2925,14 @@ class CardViewSet(viewsets.ModelViewSet):
                 name="ParentCandidateList",
                 fields={"results": ParentCandidateSerializer(many=True)},
             ),
-            400: OpenApiResponse(description="`board` missing or not an integer, or `search` too long."),
+            400: OpenApiResponse(
+                description=(
+                    "`board` missing or not an integer, `search` too long, or `search` "
+                    "containing a NUL (0x00) character "
+                    '(`{"detail": ..., "code": "invalid_query_param"}` for the NUL case).'
+                ),
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
             404: OpenApiResponse(description=(
                 "No access to this board or card, or `board` is not a parent board "
                 "the caller may link to (one body for every case)."
@@ -2949,10 +2957,10 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
         if role not in card_links.LINK_WRITE_ROLES:
             raise PermissionDenied(_PERM_DENIED)
+        search = query_text(request, "search").strip()
         raw_board = request.query_params.get("board", "")
         if not raw_board.isascii() or not raw_board.isdigit() or len(raw_board) > 18:
             raise serializers.ValidationError({"board": ["A valid integer is required."]})
-        search = query_text(request, "search").strip()
         if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
             raise serializers.ValidationError({
                 "search": [f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."],

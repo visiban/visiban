@@ -60,6 +60,9 @@ _BENCH_HOST = "testserver"
 # middleware, not two separate judgments: when they disagreed (cards 12 vs 14,
 # full 20 vs 19) a regression could pass one guard and fail the other.
 CARD_LIST_BUDGET = 14  # 9 measured here on Postgres (#1341)
+# The benchmark seeds no card parent links (#2424 tracks adding them and
+# re-deriving this budget), so it describes the no-link case; the with-links
+# case costs 2 more queries and is pinned by CardParentQueryCountTests.
 FULL_BUDGET = 20  # 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup
 SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
 
