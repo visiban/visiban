@@ -1722,6 +1722,7 @@ describe('live updates across admin sessions (#2057)', () => {
     await act(async () => { vi.advanceTimersByTime(400) })
     // One turned off, one removed, one added.
     expect(await screen.findByTestId('webhooks-away')).toHaveTextContent('3 webhooks changed while you were away')
+    await act(async () => { vi.advanceTimersByTime(100) })
     expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('3 webhooks changed while you were away')
     await user.click(within(screen.getByTestId('webhooks-away')).getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByTestId('webhooks-away')).not.toBeInTheDocument()
@@ -1751,12 +1752,15 @@ describe('live updates across admin sessions (#2057)', () => {
     m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'manual' })])
     rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(1)} />)
     const banner = await screen.findByTestId('webhook-changed-detail')
+    await act(async () => { vi.advanceTimersByTime(100) })
     expect(banner).toHaveTextContent('This webhook was changed elsewhere by Maya. It is now turned off.')
     // No live role of its own: it is announced through the always-mounted slot.
     expect(banner).not.toHaveAttribute('role')
     expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('It is now turned off.')
     await user.click(within(banner).getByRole('button', { name: 'Dismiss' }))
     expect(screen.queryByTestId('webhook-changed-detail')).not.toBeInTheDocument()
+    // The dismissed button unmounted: focus moves to the view's heading, not <body>.
+    expect(document.activeElement).not.toBe(document.body)
     expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('')
   })
 

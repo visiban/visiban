@@ -228,6 +228,7 @@ export default function BoardSettingsWebhooksTab({
   const [detailChange, setDetailChange] = useState<{ id: number; text: string } | null>(null);
   // Announces the paused / away / detail-changed banners: always mounted (#1421).
   const [stateLive, setStateLive] = useState("");
+  const stateLiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [remoteLive, setRemoteLive] = useState("");
   // A "may have taken effect" notice or a banner that replaces a vanished
   // subject is announced here, always mounted: a status region that mounts
@@ -294,12 +295,24 @@ export default function BoardSettingsWebhooksTab({
     if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
     if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
     if (announceTimerRef.current !== null) clearTimeout(announceTimerRef.current);
+    if (stateLiveTimerRef.current !== null) clearTimeout(stateLiveTimerRef.current);
     changedTimersRef.current.forEach((t) => clearTimeout(t));
   }, []);
 
   // ── Live updates (#2057, 1.3 UI spec Part 9) ─────────────────────────────────
   // A refetch only replaces the list: an open create form, confirm or secret
   // reveal is separate state and is never disturbed by one.
+  // Clear, then write on the next tick, so an identical sentence is a change
+  // to the region and is read again (the announcer rule, #2057).
+  const announceState = useCallback((text: string) => {
+    if (stateLiveTimerRef.current !== null) clearTimeout(stateLiveTimerRef.current);
+    setStateLive("");
+    stateLiveTimerRef.current = setTimeout(() => {
+      stateLiveTimerRef.current = null;
+      setStateLive(text);
+    }, 50);
+  }, []);
+
   const refetchList = useCallback(() => {
     if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
     refetchTimerRef.current = setTimeout(() => {
@@ -316,14 +329,14 @@ export default function BoardSettingsWebhooksTab({
           const n = countChanged(subsRef.current, next);
           if (n > 0) {
             setAwayCount(n);
-            setStateLive(awayCopy(n));
+            announceState(awayCopy(n));
           }
         }
         setSubs(next);
         setUpdatedAt(Date.now());
       }).catch(() => undefined);
     }, REFETCH_COALESCE_MS);
-  }, [boardId]);
+  }, [boardId, announceState]);
 
   useEffect(() => {
     if (!remoteChange || remoteChange.seq <= mountSeqRef.current) return;
@@ -337,7 +350,7 @@ export default function BoardSettingsWebhooksTab({
     if (viewRef.current.kind === "detail" && viewRef.current.id === id && remoteChange.status !== "deleted") {
       const text = detailChangeCopy(remoteChange.status, by);
       setDetailChange({ id, text });
-      setStateLive(text);
+      announceState(text);
     }
     const timers = changedTimersRef.current;
     const previous = timers.get(id);
@@ -366,7 +379,7 @@ export default function BoardSettingsWebhooksTab({
         );
       }, ANNOUNCE_COALESCE_MS);
     }
-  }, [remoteChange, currentUserId, refetchList]);
+  }, [remoteChange, currentUserId, refetchList, announceState]);
 
   useEffect(() => {
     if (subs !== null) setUpdatedAt(Date.now());
@@ -680,10 +693,13 @@ export default function BoardSettingsWebhooksTab({
   const dismissAway = () => {
     setAwayCount(0);
     setStateLive((prev) => (prev === awayCopy(awayCount) ? "" : prev));
+    // The focused button unmounts: a heading takes focus.
+    setPendingFocus("landmark");
   };
   const dismissDetailChange = () => {
     setStateLive((prev) => (prev === detailChange?.text ? "" : prev));
     setDetailChange(null);
+    setPendingFocus("landmark");
   };
   const updatedMinutes = Math.floor(Math.max(0, now - updatedAt) / 60_000);
 
