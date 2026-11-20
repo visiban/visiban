@@ -183,7 +183,7 @@ Both registries now treat `:latest` the same way (#1409):
 |---|---|---|
 | `:latest` (GHCR and GitLab) | **Stable** release tags only (`backend-manifest` / `frontend-manifest`) — a pre-release tag (`-alpha`/`-beta`/`-rc`) never touches it | linux/amd64 + linux/arm64, until the next stable release |
 | `:main` (GitLab only) | Every `main`-branch merge (`backend-docker-push` / `frontend-docker-push`, via kaniko) | amd64 only |
-| `:<short-sha>` (GitLab only) | Every `main`-branch merge — for rollback | amd64 only |
+| `:<short-sha>` (GitLab only) | Every `main`-branch merge whose pipeline was not superseded by a newer merge (#2421) — for rollback | amd64 only |
 
 The native arm64 legs (`*-docker-push-arm64`), `arm64-runner-preflight`, and the manifest jobs all have release-tag-only `rules:`, so a `main` merge cannot produce a multi-arch image. Before #1409 the GitLab `:latest` was overwritten with that amd64-only build on every merge, so it was an unvetted `main` build between releases and disagreed with GHCR. Main builds now go to `:main`, leaving `:latest` on the newest stable release.
 

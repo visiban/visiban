@@ -33,7 +33,7 @@ docker compose up --build
 
 ## Production Docker images
 
-CI publishes pre-built images to the GitLab container registry. `:latest` is the newest **stable** release: only a stable release-tag pipeline writes it, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`. Every merge to `main` pushes an amd64-only `:main` and short-SHA tag instead:
+CI publishes pre-built images to the GitLab container registry. `:latest` is the newest **stable** release: only a stable release-tag pipeline writes it, as a multi-arch (linux/amd64 + linux/arm64) manifest list. A pre-release tag (`-alpha`/`-beta`/`-rc`) publishes its own exact version tag and never touches `:latest`. Every merge to `main` pushes an amd64-only `:main` and short-SHA tag instead (a merge whose `main` pipeline a newer merge superseded gets no short-SHA tag; the newer one moves `:main` forward):
 
 | Image | Stable release (multi-arch) | Latest `main` build (amd64 only) |
 |---|---|---|

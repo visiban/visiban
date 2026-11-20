@@ -1560,7 +1560,13 @@ for _ in $(seq 1 90); do  # up to 15 minutes
     | python3 -c "import json,sys; d=json.load(sys.stdin); print((d[0]['status'] if d else ''))" 2>/dev/null || true)
   case "$MAIN_PIPELINE_STATUS" in
     success) break ;;
-    failed|canceled)
+    canceled)
+      # A newer merge to main auto-cancels a running main pipeline's
+      # interruptible jobs (#2421). The tag still needs THIS commit green.
+      echo "Error: main's pipeline at ${MERGE_SHA:0:8} was canceled, usually because a newer merge to main superseded it (#2421). Retry that pipeline's canceled jobs, then re-run once it is green. See docs/maintainers/known-ci-failures.md#superseded-pipelines-end-canceled" >&2
+      exit 1
+      ;;
+    failed)
       echo "Error: main's pipeline at ${MERGE_SHA:0:8} ${MAIN_PIPELINE_STATUS}. Do not tag a commit whose own pipeline failed — fix forward and re-run." >&2
       exit 1
       ;;

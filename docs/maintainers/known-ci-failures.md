@@ -412,6 +412,7 @@ drill jobs, #1266) may be absent when the merge did not touch its paths.
 | Refusal | Cause | Fix |
 |---|---|---|
 | `main pipeline N at <sha> is not green:` then a list of jobs | Those jobs failed, were canceled or skipped, or are still `manual` | Retry the failed job in that `main` pipeline (or fix forward and cut a new tag). Once it is green, retry `release-main-pipeline-guard` in the tag pipeline. GitLab re-runs the publish jobs it had skipped. |
+| `main pipeline N at <sha> is not green:` and the jobs read `canceled` | A newer merge to `main` landed while that pipeline ran and auto-canceled its interruptible jobs (#2421; see [Superseded pipelines end `canceled`](#superseded-pipelines-end-canceled)). The guard still judges the tagged commit, never a newer one | Select **Retry** on that `main` pipeline, which re-runs its canceled jobs at the tagged commit. Once it is green, retry `release-main-pipeline-guard` in the tag pipeline. |
 | `<job>: not in the main pipeline, but it runs on every main pipeline` | An `ALWAYS_REQUIRED` job was renamed or removed, or its `rules:` were narrowed in a way `--check-ci-file` could not detect | Fix the list in `scripts/wait-for-main-pipeline.py` on a branch, and **cut a new tag** once it merges. The guard reads its lists from the tagged commit, so retrying it on the old tag can never pass. The same applies to a refusal over a new `manual` job missing from `EXEMPT_JOBS`. On an MR, `--check-ci-file` catches both drifts: a renamed `ALWAYS_REQUIRED` job, or one whose main rule gained `changes:` or `when: manual`, and a job that can be `manual` on main without being exempt. |
 | `no main pipeline for <sha> after Ns` | The tag points at a commit that never had a `main` pipeline, usually a tag on a feature branch or an unmerged commit | Tag the merge commit on `main`. `scripts/release.sh` does this for you. |
 | `still waiting after Ns` | `main`'s pipeline did not finish within `MAIN_PIPELINE_GUARD_TIMEOUT_SECONDS` (default 2700) | Let `main` finish, then retry the guard job. |
@@ -428,6 +429,35 @@ the code), add it to `EXEMPT_JOBS` with its reason on a branch, so the change is
 `scripts/release.sh` still checks the merge commit's pipeline before it tags. That check runs
 on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
 covers tags pushed by hand.
+
+## Superseded pipelines end `canceled`
+
+**Signature:** an MR or `main` pipeline shows `canceled`, with most lint/test/security jobs
+`canceled` and nobody having pressed Cancel. A newer pipeline on the same ref exists.
+
+**Cause:** this is intended (#2419, #2421). `default: interruptible: true` plus
+`workflow: auto_cancel: on_new_commit: interruptible` in `.gitlab-ci.yml` means a newer
+commit on the same ref cancels the older pipeline's read-only jobs. On an MR that is a new
+push to the branch. On `main` it is the next merge. Main is linear, so the newest `main`
+pipeline tests a superset of the canceled one. The trade-off: during a merge burst a failure is
+reported against the newest commit, not the merge that introduced it.
+
+Jobs with an external side effect are `interruptible: false` and are never canceled once they
+start: image, manifest and attestation pushes, `helm-publish`, `github-release`,
+`docs-deploy`, `pages`, `cleanup-merged-branches`, `seed-demo-data`, `kaizen-yield-watch`,
+`sonar:scan`, plus `release-main-pipeline-guard` (seconds on `main`; it is `docs-deploy`'s
+only need), the kind/Compose drills, and the scheduled-only long jobs (`backend-mutation`,
+`backend-mutation-report`, `nightly-load-test`, `backend-schema-fuzz-deep`).
+`scripts/tests/ci-interruptible.test.sh` enforces the list. A non-interruptible job whose
+`needs:` were canceled is skipped. For the `main` image pushes, that means a superseded
+commit gets no `:<short-sha>` image, and the newer pipeline moves `:main` forward. Tag
+pipelines are unique refs and are never superseded. A scheduled pipeline never cancels
+another pipeline (`workflow:rules` sets `on_new_commit: none` for it).
+
+**What to do:** nothing for an MR. For `main`, read the **newest** `main` push pipeline's
+required jobs, not "every `main` pipeline is green". `/mass_merge`'s post-merge gate does that.
+For a release, the guard judges the tagged commit's own pipeline, so retry the canceled jobs
+there (see the `release-main-pipeline-guard` table above).
 
 ## Tool download `504 Gateway Time-out` (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)
 

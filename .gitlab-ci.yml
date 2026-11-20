@@ -144,13 +144,36 @@ secret-detection-gate:
 # Tag pipelines run for version tags so docs-deploy can fire on release.
 
 workflow:
-  # Only cancel a running pipeline when a newer commit arrives if every job
-  # in that pipeline is marked interruptible: true. Jobs default to
-  # interruptible: false (see `default:` below) so main-branch pipelines
-  # are never auto-canceled by a subsequent merge commit.
+  # When a newer commit lands on the same ref, GitLab cancels only the jobs
+  # marked `interruptible: true` in the older pipeline; non-interruptible jobs
+  # keep running (and a non-interruptible job that has not started still runs
+  # if its `needs:` finish). Jobs default to interruptible (see `default:`
+  # below), so:
+  #   * MR pipelines (#2419): a new push to the branch cancels the superseded
+  #     pipeline's lint/test/security/build-verification jobs.
+  #   * main (#2421): a newer merge commit cancels the older main pipeline's
+  #     still-running read-only jobs. Main is linear, so the newest pipeline
+  #     tests a superset. Trade-off accepted by the owner: during a merge
+  #     burst a failure is attributed to the newest commit, not the one that
+  #     introduced it. A superseded main pipeline ends `canceled`; anything
+  #     reading main status must follow the newest main push pipeline (see
+  #     the /mass_merge post-merge gate and
+  #     docs/maintainers/known-ci-failures.md).
+  #   * Every job with an external side effect (registry/chart/docs/release
+  #     publishes, branch deletion, issue filing, demo seeding, SonarCloud
+  #     upload) sets `interruptible: false`, so it is never canceled mid-push.
+  #     Its `needs:` may still be canceled, which skips it in the superseded
+  #     pipeline; the newer pipeline publishes instead (e.g. `:main`).
+  #   * Tag pipelines are unique refs, so nothing supersedes them.
+  #   * Scheduled pipelines also run on main. Their long scheduled-only jobs
+  #     (mutation, nightly load test, deep fuzz, sonar) are non-interruptible,
+  #     and a scheduled pipeline never cancels anything itself (rule below).
   auto_cancel:
     on_new_commit: interruptible
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      auto_cancel:
+        on_new_commit: none
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # all feature work
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'        # main, post-merge
     - if: '$CI_COMMIT_TAG'                                 # release tags
@@ -208,8 +231,14 @@ variables:
 # Auto-retry on runner infrastructure failures (pod watcher sync, stuck
 # cleanup, image pull transients). Only retries on runner_system_failure
 # and stuck_or_timeout_failure — never on script failures.
+#
+# interruptible: true (#2419, #2421) lets `workflow:auto_cancel` above cancel
+# a superseded pipeline's read-only jobs. A job with an external side effect
+# MUST override it with `interruptible: false`;
+# scripts/tests/ci-interruptible.test.sh fails when a publishing job loses
+# that override or a job that pushes is added without it.
 default:
-  interruptible: false
+  interruptible: true
   retry:
     max: 2
     when:
@@ -1702,6 +1731,7 @@ clients-contract:
 # job already exhausts its 600s cap at --max-examples 10, so --max-time is the
 # binding limit here too; raise it before raising --max-examples.
 backend-schema-fuzz-deep:
+  interruptible: false  # scheduled-only deep fuzz; a merge must not cancel it (#2421)
   extends: backend-schema-fuzz
   allow_failure: true
   timeout: 55m
@@ -1910,6 +1940,7 @@ backend-schema-fuzz-git-lens:
 # bump it deliberately and re-baseline. `backend-mutation-report` merges the
 # shard stats files into the one `mutmut-cicd-stats.json` artifact (30 days).
 backend-mutation:
+  interruptible: false  # scheduled-only, up to 150 min; a merge must not cancel it (#2421)
   extends: .pip-cache
   stage: test
   needs: []
@@ -1967,6 +1998,7 @@ backend-mutation:
 # never a green. Blocking (#1384): a red report on the weekly schedule is either a
 # real score under the floor (exit 1) or a run that was not measured (exit 2).
 backend-mutation-report:
+  interruptible: false  # scheduled-only; reports on backend-mutation (#2421)
   stage: test
   needs:
     - job: backend-mutation
@@ -2850,6 +2882,7 @@ script-tests:
     - bash scripts/tests/post-edit-checks.test.sh
     - bash scripts/tests/resolve-docs-version.test.sh
     - bash scripts/tests/wt-doctor-drift.test.sh
+    - bash scripts/tests/ci-interruptible.test.sh
   allow_failure: false
 
 # wt-forge-timeout.test.sh needs glibc/Debian userland (perl alarm and process-group
@@ -3443,6 +3476,7 @@ suppressions-check:
 # a whole extra full pipeline just for this report.
 # See docs/development/kaizen-yield-watch.md.
 kaizen-yield-watch:
+  interruptible: false  # files GitLab issues (#2419)
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
@@ -4031,6 +4065,7 @@ gitleaks-commits:
 # producer (e.g. an allow_failure coverage job) still lets the rest of the
 # import proceed instead of aborting the whole scan.
 sonar:scan:
+  interruptible: false  # uploads an analysis to SonarCloud; scheduled-only (#2419)
   stage: security
   image: ${DOCKERHUB_MIRROR}/sonarsource/sonar-scanner-cli:12.2.0.4256_8.1.0@sha256:a3f4215076706c95a17a68c19322ee916e40a3acd081a8c1a1e839e0194afa57
   needs:
@@ -4193,6 +4228,7 @@ frontend-docker-build:
 # docs/maintainers/tokens-and-rotation.md. Diagnosing a refusal:
 # docs/maintainers/known-ci-failures.md.
 release-main-pipeline-guard:
+  interruptible: false  # seconds on main; keeps docs-deploy's only need from being canceled (#2421)
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
@@ -4283,6 +4319,7 @@ release-main-pipeline-guard-selftest:
 # :latest/:MAJOR.MINOR alias at all.
 
 .kaniko-push-common:
+  interruptible: false  # registry push (GitLab registry, GHCR) — never cancel mid-push (#2419)
   stage: deploy
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
@@ -4500,6 +4537,7 @@ arm64-runner-preflight:
 # DOCKERHUB_MIRROR rollout) — the arm64 Dockerfile builds pull their base
 # images through the same proxy the amd64 kaniko legs use.
 .arm64-docker-push-base:
+  interruptible: false  # registry push — never cancel mid-push (#2419)
   stage: deploy
   tags: [arm64]
   resource_group: arm64-docker-build
@@ -4641,6 +4679,7 @@ frontend-docker-push-arm64:
 # linux-amd64 binary is located defensively rather than assumed at a
 # hardcoded path.
 .manifest-tool-common:
+  interruptible: false  # writes multi-arch manifests to the registries (#2419)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
@@ -4805,6 +4844,7 @@ frontend-manifest:
     COSIGN_SHA256: "c3b4f5410e608af03a5eb0aaac84a4313d8da131248e08ff1759ac70c79d1644"
 
 .image-attest-common:
+  interruptible: false  # attaches cosign signatures/attestations in the registry (#2419)
   extends: .cosign-pin
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
@@ -5028,6 +5068,7 @@ latest-tag-stability-check:
 # exists to prevent.
 
 helm-publish:
+  interruptible: false  # pushes the chart to the OCI registry (#2419)
   extends: .cosign-pin
   stage: deploy
   image:
@@ -5349,6 +5390,7 @@ check-release-attestations:
 # GH_TOKEN CI variable (repo-scoped PAT) is passed through automatically.
 
 github-release:
+  interruptible: false  # creates the GitHub release (#2419)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: [release-main-pipeline-guard, backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
@@ -5417,6 +5459,7 @@ github-release:
 # Added: 2026-03-13
 
 docs-deploy:
+  interruptible: false  # publishes the docs site (#2419)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # #1154: the tag-pipeline run waits for the guard. On main the guard exits at
@@ -5540,6 +5583,7 @@ docs-deploy:
 # to main and cron to "0 3 * * 1" (Mondays at 03:00 UTC).
 
 cleanup-merged-branches:
+  interruptible: false  # deletes remote branches (#2419)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
@@ -5588,6 +5632,7 @@ cleanup-merged-branches:
 # trigger this job. Without this, any developer with push access can wipe the demo board.
 
 seed-demo-data:
+  interruptible: false  # writes to the demo environment (#2419)
   stage: deploy
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
@@ -5729,6 +5774,7 @@ nightly-load-test-selftest:
 # Can also be run manually at any time (advisory — allow_failure: true) via
 # "Run pipeline" or the pipeline's manual job button.
 nightly-load-test:
+  interruptible: false  # scheduled-only latency baseline; a merge must not cancel it (#2421)
   extends: .pip-cache
   stage: test
   needs: []
@@ -5904,6 +5950,7 @@ schedule-config-check:
 # Copies the branch content to public/ for GitLab Pages to serve.
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
 pages:
+  interruptible: false  # GitLab Pages deploy (#2419)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
