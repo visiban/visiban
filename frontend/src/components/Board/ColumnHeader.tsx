@@ -5,7 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import EditColumnModal, { type EditColumnTab } from "./EditColumnModal";
-import { subColumnCountLines } from "../../utils/stages";
+import { subColumnCounts } from "../../utils/stages";
 import ColumnPolicyPopover from "./ColumnPolicyPopover";
 import { columnPolicy, policyCountSummary } from "../../utils/columnPolicy";
 import { updateColumn } from "../../api/boards";
@@ -423,10 +423,22 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               Weight {totalWeight}/{column.weight_limit}
             </span>
           )}
-          {/* Split stage (#2278): one line per sub-column, "Doing: 5 working"; the last counts as waiting. */}
-          {subColumnCountLines(column, cards).map((line) => (
-            <span key={line} data-testid="column-sub-count" className="block text-fg-tertiary">{line}</span>
-          ))}
+          {/* Split stage (#2278, #2386): the reference's labeled columns with a divider, a bold name and a right-aligned count. The last counts as waiting. Each cell keeps the "Doing: 5 working" sentence for assistive tech and the visual pieces are aria-hidden. */}
+          {(() => {
+            const cells = subColumnCounts(column, cards);
+            if (cells.length === 0) return null;
+            return (
+              <div data-testid="column-sub-counts" className="mt-1 flex divide-x divide-line text-fg-tertiary">
+                {cells.map((cell, i) => (
+                  <div key={`${i}-${cell.name}`} data-testid="column-sub-count" className="flex min-w-0 flex-1 items-baseline justify-between gap-2 px-2 first:pl-0 last:pr-0">
+                    <span className="sr-only">{`${cell.name}: ${cell.count} ${cell.state}`}</span>
+                    <span aria-hidden="true" title={cell.name} className="min-w-0 truncate font-semibold text-fg-secondary">{cell.name}</span>
+                    <span aria-hidden="true" className="shrink-0 text-right"><span className="font-semibold text-fg-secondary">{cell.count}</span> {cell.state}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

@@ -22,6 +22,14 @@ async function smallControls(page: Page, roots: string[]): Promise<string[]> {
   }, roots)
 }
 
+// Menu options (role=option) below the 44px floor; smallControls does not cover them.
+async function optionsBelowFloor(page: Page): Promise<string[]> {
+  return page.evaluate(() => Array.from(document.querySelectorAll('[role="option"], [role="menuitem"]'))
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 0 && r.height > 0 && Math.min(r.width, r.height) < 43.5)
+    .map(({ el, r }) => `${(el.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`))
+}
+
 // Pairs of header and toolbar controls whose boxes overlap (a control may not cover another).
 async function overlappingControls(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -382,6 +390,7 @@ test.describe('board phone layout', () => {
     await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByTestId('phone-board')).toBeVisible()
+    await page.getByRole('button', { name: /^Lane actions for / }).first().click()
     await page.getByRole('button', { name: /^Focus on / }).first().click()
     const exit = page.getByText('Focused on:').locator('..').getByRole('button', { name: 'Exit focus' })
     await expect(exit).toBeVisible()
@@ -455,11 +464,13 @@ test.describe('board phone layout', () => {
     await expect(page.locator('[data-card-id="77"]')).toBeVisible()
     expect(body).toMatchObject({ column: 1, swimlane: 1, title: 'Phone card' })
 
+    await page.getByRole('button', { name: /^Lane actions for / }).click()
     await page.getByRole('button', { name: /^Edit swimlane/ }).click()
     await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()
   })
 
   test('Edit column opens the column modal; Add column and Add swimlane are reachable', async ({ page }) => {
+    await page.getByTestId('phone-column-actions-toggle').click()
     await page.getByTestId('phone-column-actions').click()
     await expect(page.getByRole('dialog').first()).toBeVisible()
     await page.keyboard.press('Escape')
@@ -488,6 +499,7 @@ test.describe('board phone layout', () => {
       order = JSON.parse(route.request().postData() ?? '{}').order
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ ...COLUMN_DONE, position: 0 }, { ...COLUMN_TODO, position: 1 }]) })
     })
+    await page.getByTestId('phone-column-actions-toggle').click()
     const later = page.getByRole('button', { name: 'Move column To Do later' })
     await expect(page.getByRole('button', { name: 'Move column To Do earlier' })).toBeDisabled()
     await later.click()
@@ -816,5 +828,154 @@ test.describe('phone card detail panel (#2377)', () => {
     expect(optionRows.length).toBe(2)
     expect(Math.min(...optionRows)).toBeGreaterThanOrEqual(44)
     expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+  })
+})
+
+// #2384: an admin's controls rest behind Column actions / Lane actions so cards are on screen.
+test.describe('phone admin controls at rest (#2384)', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('cards show at rest for an admin, and every admin action is reachable by keyboard at 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await expect(card).toBeVisible()
+    // The first card sits within the first screen, not pushed below rows of admin buttons.
+    expect((await card.boundingBox())!.y).toBeLessThan(420)
+    for (const name of [/^Edit column/, /^Edit swimlane/, /^Move column/, /^Move swimlane/, /^Field order/, /^Focus on /]) {
+      await expect(page.getByRole('button', { name })).toHaveCount(0)
+    }
+    expect(await smallControls(page, ['[data-testid="phone-board"]'])).toEqual([])
+    // Keyboard: focus the toggle, press Enter, and the actions appear, each 44px.
+    const colToggle = page.getByTestId('phone-column-actions-toggle')
+    await colToggle.focus()
+    await page.keyboard.press('Enter')
+    await expect(colToggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByRole('button', { name: /^Edit column/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Move column/ }).first()).toBeVisible()
+    const laneToggle = page.getByRole('button', { name: /^Lane actions for / }).first()
+    await laneToggle.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: /^Edit swimlane/ }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Focus on / }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Move swimlane/ }).first()).toBeVisible()
+    expect(await smallControls(page, ['[data-testid="phone-board"]'])).toEqual([])
+  })
+})
+
+// #2401: the card detail header on a phone, with long lane and column names.
+test.describe('phone card detail header (#2401)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('long lane and column names truncate without overflow and every header control is 44px', async ({ page }) => {
+    const longLane = 'Platform Reliability and Incident Response Engineering'
+    const longCol = 'Awaiting Customer Acceptance Sign-off Review'
+    await routeAuth(page)
+    await routeBoard(page, {
+      ...BOARD_FULL,
+      swimlanes: [{ ...SWIMLANE, name: longLane }],
+      columns: [{ ...COLUMN_TODO, name: longCol }, COLUMN_DONE],
+    } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    await expect(panel).toBeVisible()
+    const header = page.getByTestId('card-detail-title-block').locator('xpath=..')
+    const hb = (await header.boundingBox())!
+    const m = await header.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }))
+    expect(m.sw).toBeLessThanOrEqual(m.cw)
+    for (const name of ['Back to board', 'Block…', 'Close', 'Move card to different column or swimlane']) {
+      const b = (await panel.getByRole('button', { name }).boundingBox())!
+      expect(Math.min(b.width, b.height), name).toBeGreaterThanOrEqual(43.5)
+      expect(b.x, name).toBeGreaterThanOrEqual(hb.x)
+      expect(b.x + b.width, name).toBeLessThanOrEqual(hb.x + hb.width + 0.5)
+    }
+    for (const full of [longLane, longCol]) {
+      const crumb = panel.getByRole('button', { name: full, exact: true })
+      await expect(crumb).toHaveAttribute('title', full)
+      const b = (await crumb.boundingBox())!
+      expect(b.height).toBeGreaterThanOrEqual(43.5)
+      expect(b.x + b.width).toBeLessThanOrEqual(hb.x + hb.width)
+    }
+  })
+})
+
+// #2404: every control in Board settings, on every tab, is 44px at 390px (no carve-outs).
+test.describe('phone board settings modal (#2404)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every control on every tab is at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    const tabs = ['Members', 'Display', 'Rules', 'Card fields', 'Swimlane fields', 'Sharing', 'Webhooks', 'Data']
+    for (const t of tabs) {
+      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
+      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
+      expect(await smallControls(page, ['[role="dialog"]']), `tab ${t}`).toEqual([])
+      // Reachable sub-states: an open SelectDropdown menu (its options are measured too).
+      const trigger = dialog.locator('[aria-haspopup="listbox"]:not([disabled])').first()
+      if (await trigger.count()) {
+        await trigger.dispatchEvent('click')
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+        expect(await smallControls(page, ['[role="dialog"]', '[role="listbox"]']), `tab ${t} open menu`).toEqual([])
+        expect(await optionsBelowFloor(page), `tab ${t} menu options`).toEqual([])
+        await trigger.dispatchEvent('click')
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      }
+    }
+  })
+
+  test('add, invite, webhook and confirm sub-states are at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    // A second, non-owner member so the remove-board-role confirm is reachable.
+    const other = { ...BOARD_FULL.members[0].user, id: 2, username: 'other', email: 'other@example.com', display_name: 'Other Member' }
+    await routeBoard(page, { ...BOARD_FULL, members: [...BOARD_FULL.members, { id: 2, user: other, role: 'member', is_moderator: false, joined_at: '2026-01-02T00:00:00Z' }] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    const openTab = async (t: string) => {
+      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
+      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
+    }
+
+    // Members: the Add member form (typing opens the search and the staged-invite controls) and the remove confirm.
+    await openTab('Members')
+    const search = dialog.getByPlaceholder(/search/i).first()
+    await search.fill('a')
+    expect(await smallControls(page, ['[role="dialog"]']), 'Add member typed').toEqual([])
+    await search.fill('')
+    const remove = dialog.getByRole('button', { name: /^Remove (direct )?board role for/ }).first()
+    await expect(remove, 'a removable member row is reachable').toBeVisible()
+    await remove.dispatchEvent('click')
+    await expect(dialog.getByText(/from this board\?|Remove this board role\?/).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'member remove confirm').toEqual([])
+
+    // Rules: the hard WIP confirm.
+    await openTab('Rules')
+    const hard = dialog.getByRole('switch', { name: 'Hard mode (no admin override)' })
+    await expect(hard, 'hard WIP toggle is reachable').toBeVisible()
+    if ((await hard.getAttribute('aria-checked')) !== 'true') await hard.dispatchEvent('click')
+    await expect(dialog.getByRole('button', { name: 'Confirm' }).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'hard WIP confirm').toEqual([])
+
+    // Webhooks: the create form.
+    // An empty list is enough to reach the create form; routed after routeBoard so it wins.
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/webhooks/`, (route) => route.fulfill({ json: [] }))
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/webhooks/status/`, (route) => route.fulfill({
+      json: { enabled: true, dispatcher_last_run_at: null, dispatcher_stale: false, subscribable_event_types: ['card.created', 'card.moved'], disable_after_failures: 10, test_timeout_seconds: 5 },
+    }))
+    await openTab('Webhooks')
+    await dialog.getByRole('button', { name: 'Add webhook' }).first().dispatchEvent('click')
+    await expect(dialog.getByRole('button', { name: /^Back|^Cancel/ }).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'create webhook form').toEqual([])
   })
 })

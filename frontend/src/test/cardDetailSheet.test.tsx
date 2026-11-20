@@ -358,6 +358,28 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
   })
 
+  // Class-string check only: Tailwind classes are inert in jsdom, so this pins the wiring, not the layout.
+  // The real layout check is the Playwright test 'phone card detail header (#2401)' in e2e/board-phone.spec.ts.
+  it('gives the title and breadcrumb their own full-width line on a phone, with the names keeping their 44px floor (#2401)', () => {
+    setViewport(640)
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    const block = screen.getByTestId('card-detail-title-block')
+    expect(block.className).toContain('max-sm:order-last')
+    expect(block.className).toContain('max-sm:basis-full')
+    expect((block.parentElement as HTMLElement).className).toContain('max-sm:flex-wrap')
+    // Full names stay in the DOM (accessible name, tooltip); only the paint truncates.
+    const crumbs = within(block).getAllByRole('button').filter((b) => b.className.includes('truncate'))
+    expect(crumbs.length).toBe(2)
+    for (const c of crumbs) {
+      expect(c.className).toContain('max-sm:min-h-11')
+      expect(c).toHaveAttribute('title')
+    }
+    // The first of Block… and Close takes the auto margin, so the pair stays at the right edge.
+    const block2 = screen.queryByRole('button', { name: 'Block…' })
+    expect((block2 ?? screen.getByRole('button', { name: 'Close' })).className).toContain('max-sm:ml-auto')
+  })
+
   it('has no Board back control outside full-screen', () => {
     mountBoard()
     render(<CardDetail {...defaultProps()} />)

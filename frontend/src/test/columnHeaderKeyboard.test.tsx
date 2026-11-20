@@ -171,6 +171,24 @@ describe('ColumnHeader — split stage (#2278)', () => {
     expect(screen.getByText('Ready: 2 waiting')).toBeInTheDocument()
   })
 
+  it('lays the counts out as divided columns with a bold name and a right-aligned count (#2386)', () => {
+    renderHeader({ column: stage, cards: [card(1, 0), card(2, 1), card(3, 1)] })
+    const cells = screen.getAllByTestId('column-sub-count')
+    expect(cells).toHaveLength(2)
+    expect(screen.getByTestId('column-sub-counts').className).toContain('divide-x')
+    const first = cells[0].querySelectorAll('[aria-hidden="true"]')
+    expect(first[0]).toHaveTextContent('Doing')
+    expect(first[0].className).toContain('font-semibold')
+    expect(first[1]).toHaveTextContent('1 working')
+    expect(first[1].className).toContain('text-right')
+    expect(cells[1]).toHaveTextContent('Ready: 2 waiting')
+  })
+
+  it('renders no sub-column summary on an unsplit column (#2386)', () => {
+    renderHeader({ column, cards: [card(1, 0)] })
+    expect(screen.queryByTestId('column-sub-counts')).not.toBeInTheDocument()
+  })
+
   it('offers Stage settings… only to a board admin (the stage action is admin-only on the server)', async () => {
     const user = userEvent.setup()
     renderHeader({ column: stage })

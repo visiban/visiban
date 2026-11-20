@@ -1620,7 +1620,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             anchored only (a docked or full-screen panel is flush and square). */}
         <div className={`flex h-full flex-col overflow-hidden ${anchored ? "rounded-[7px]" : ""}`}>
         {/* Header */}
-        <div className="flex items-start gap-3 px-5 py-4 border-b border-line">
+        {/* Phone (#2401): the header wraps. Back to board, Block… and Close share the first line, and
+            the title and breadcrumb take the full second line (`order-last`), so a long lane or column
+            name truncates with room beside Move instead of fighting three 44px controls. The visual
+            order differs from the DOM order only on phones: Back, title, Block, Close in the tab order. Known WCAG 2.4.3
+            deviation awaiting an owner decision, tracked in #2410 (see frontend/CLAUDE.md, Phone header layout). */}
+        <div className="flex items-start gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center">
           {fullscreen && (
             // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
             // It closes the sheet like Close and Escape do.
@@ -1634,7 +1639,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               <span aria-hidden="true">‹</span> Board
             </button>
           )}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 max-sm:order-last max-sm:basis-full" data-testid="card-detail-title-block">
             <input
               id="card-detail-title"
               ref={titleInputRef}
@@ -1718,7 +1723,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               type="button"
               onClick={() => { setTab("details"); setBlockFormMode((m) => (m === "block" ? null : "block")); }}
               aria-expanded={blockFormMode === "block"}
-              className="max-sm:min-h-11 px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="max-sm:min-h-11 max-sm:ml-auto px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Block…
             </button>
@@ -1759,7 +1764,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <button type="button"
             ref={closeButtonRef}
             onClick={onClose}
-            className={`${fullscreen ? "w-11 h-11 -my-2 -mr-2" : "w-7 h-7"} flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+            className={`${fullscreen ? "w-11 h-11 -my-2 -mr-2" : "w-7 h-7"} ${canBlock && !manuallyBlocked ? "" : "max-sm:ml-auto"} flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
             title="Close"
             aria-label="Close"
           >×</button>

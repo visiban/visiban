@@ -4262,8 +4262,10 @@ describe('BoardView phone layout (#2277)', () => {
     const ctx = defaultContext({ board: makeBoard({ swimlanes: [base.swimlanes[0], lane2], cards: [c1, c2] }) })
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Column actions for To Do' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move column To Do later' }))
     expect(ctx.reorderColumns).toHaveBeenCalledWith([11, 10])
+    fireEvent.click(screen.getByRole('button', { name: 'Lane actions for Customer A' }))
     fireEvent.click(screen.getByRole('button', { name: 'Move swimlane Customer A later' }))
     expect(ctx.reorderSwimlanes).toHaveBeenCalledWith([21, 20])
     fireEvent.click(screen.getByText('Phone B'), { shiftKey: true })

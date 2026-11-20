@@ -33,6 +33,8 @@ async function openEditModal(page: Page) {
     await page.keyboard.press('Enter')
     await page.getByRole('menuitem', { name: 'Edit swimlane…' }).click()
   } else {
+    // Phone admin controls rest closed (#2384): open the lane's disclosure before Edit exists.
+    await page.getByRole('button', { name: /^Lane actions for / }).first().click()
     await page.getByRole('button', { name: /^Edit swimlane/ }).click()
   }
   await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()

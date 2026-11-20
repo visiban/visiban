@@ -44,6 +44,13 @@ const lane = (id: number, name: string) => ({ id, name, color: '#3B82F6', positi
 const card = (id: number, column: number, swimlane: number, extra: Partial<Card> = {}) =>
   ({ id, title: `Card ${id}`, column, swimlane, position: id, labels: [], custom_field_values: [], weight: 1, priority: 'medium', due_date: null, is_stale: false, last_moved_at: null, column_entered_at: null, created_at: new Date().toISOString(), ...extra }) as unknown as Card
 
+/** #2384: admin controls rest behind "Column actions" / "Lane actions"; open every closed one. */
+async function openActions(user: ReturnType<typeof userEvent.setup>) {
+  for (const t of screen.queryAllByRole('button', { name: /^(Column|Lane) actions for / })) {
+    if (t.getAttribute('aria-expanded') === 'false') await user.click(t)
+  }
+}
+
 function setup(props: Partial<React.ComponentProps<typeof PhoneBoard>> = {}) {
   const onToggleSwimlane = vi.fn()
   render(
@@ -218,6 +225,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     const user = userEvent.setup()
     const cb = edit()
     setup(cb)
+    await openActions(user)
     await user.click(screen.getByRole('button', { name: 'Edit swimlane North' }))
     await user.click(screen.getByText('save-lane'))
     expect(cb.onSwimlaneUpdated).toHaveBeenCalled()
@@ -233,6 +241,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     const user = userEvent.setup()
     const onEditFieldOrder = vi.fn()
     setup({ ...edit(), onEditFieldOrder })
+    await openActions(user)
     await user.click(screen.getAllByTestId('phone-lane-field-order')[0])
     expect(onEditFieldOrder).toHaveBeenCalledTimes(1)
   })
@@ -246,6 +255,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     const user = userEvent.setup()
     const cb = edit()
     setup(cb)
+    await openActions(user)
     await user.click(screen.getByTestId('phone-column-actions'))
     await user.click(screen.getByText('save-col'))
     expect(cb.onColumnUpdated).toHaveBeenCalled()
@@ -262,6 +272,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     const { rerender } = { rerender: null }
     void rerender
     setup(cb)
+    await openActions(user)
     await user.click(screen.getByRole('button', { name: '+ Add column' }))
     await user.click(screen.getByRole('button', { name: '+ Add swimlane' }))
     await user.click(screen.getByRole('button', { name: 'Focus on North' }))
@@ -274,6 +285,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     const user = userEvent.setup()
     const cb = edit()
     setup({ ...cb, focusedSwimlaneId: 1 })
+    await openActions(user)
     await user.click(screen.getByRole('button', { name: 'Exit focus' }))
     expect(cb.onExitFocus).toHaveBeenCalled()
   })
@@ -293,6 +305,19 @@ describe('PhoneBoard editing controls (#2277)', () => {
 })
 
 describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
+  const edit = () => ({
+    isAdmin: true,
+    onCardAdded: vi.fn(),
+    onColumnUpdated: vi.fn(),
+    onRequestDeleteColumn: vi.fn(),
+    onSwimlaneUpdated: vi.fn(),
+    onSwimlaneDeleted: vi.fn(),
+    onAddColumn: vi.fn(),
+    onAddSwimlane: vi.fn(),
+    onFocusLane: vi.fn(),
+    onExitFocus: vi.fn(),
+  })
+
   const policy = { entry: [{ id: 'e1', text: 'Has owner', confirm: false }], done: [] }
   const lanes = [
     lane(1, 'North'),
@@ -384,11 +409,15 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
     const onColumnsReordered = vi.fn()
     const all = [col(1, 'Prospect'), col(2, 'Hidden'), col(3, 'Qualified'), col(4, 'Won')]
     setup({ isAdmin: true, onColumnsReordered, allColumns: all, columns: [all[0], all[2], all[3]] })
+    await openActions(user)
     expect(screen.getByTestId('phone-column-earlier')).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move column Prospect later' }))
     expect(onColumnsReordered).toHaveBeenLastCalledWith([2, 3, 1, 4])
     expect(screen.getByRole('tab', { name: /Prospect/ })).toHaveAttribute('aria-selected', 'true')
     await user.click(screen.getByRole('tab', { name: /Won/ }))
+    // Switching columns closes the menu (it is per column), so reopen it.
+    expect(screen.queryByTestId('phone-column-later')).not.toBeInTheDocument()
+    await openActions(user)
     expect(screen.getByTestId('phone-column-later')).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move column Won earlier' }))
     expect(onColumnsReordered).toHaveBeenLastCalledWith([1, 2, 4, 3])
@@ -398,10 +427,54 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
     const user = userEvent.setup()
     const onSwimlanesReordered = vi.fn()
     setup({ isAdmin: true, onSwimlanesReordered, allSwimlanes: [lane(1, 'North'), lane(2, 'APAC'), lane(3, 'Gone')] })
+    await openActions(user)
     expect(screen.getByRole('button', { name: 'Move swimlane North earlier' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Move swimlane APAC later' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Move swimlane APAC earlier' }))
     expect(onSwimlanesReordered).toHaveBeenCalledWith([2, 1, 3])
+  })
+
+  it('keeps admin controls behind Column actions and Lane actions at rest, and the toggles expose state (#2384)', async () => {
+    const user = userEvent.setup()
+    setup({ ...edit(), onEditFieldOrder: vi.fn(), onColumnsReordered: vi.fn(), onSwimlanesReordered: vi.fn() })
+    for (const id of ['phone-column-actions', 'phone-column-earlier', 'phone-lane-field-order', 'phone-lane-earlier']) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: /Edit swimlane/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Focus on / })).not.toBeInTheDocument()
+    // Add card stays at rest: it is the editor's main action, not an admin control.
+    expect(screen.getAllByRole('button', { name: /Add card/ }).length).toBeGreaterThan(0)
+    const colToggle = screen.getByRole('button', { name: 'Column actions for Prospect' })
+    expect(colToggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(colToggle)
+    expect(colToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('phone-column-actions')).toBeInTheDocument()
+    await user.click(colToggle)
+    expect(screen.queryByTestId('phone-column-actions')).not.toBeInTheDocument()
+    const laneToggle = screen.getByRole('button', { name: 'Lane actions for North' })
+    await user.click(laneToggle)
+    expect(laneToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Edit swimlane North' })).toBeInTheDocument()
+    // Only North's menu opened.
+    expect(screen.queryByRole('button', { name: 'Edit swimlane APAC' })).not.toBeInTheDocument()
+    await user.click(laneToggle)
+    expect(screen.queryByRole('button', { name: 'Edit swimlane North' })).not.toBeInTheDocument()
+  })
+
+  it('gives a non-admin Lane actions only for Focus, and none when Focus is unavailable (#2384)', async () => {
+    const user = userEvent.setup()
+    setup({ ...edit(), isAdmin: false, onSwimlanesReordered: vi.fn(), onEditFieldOrder: vi.fn() })
+    expect(screen.queryByRole('button', { name: /^Column actions/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Lane actions for North' }))
+    expect(screen.getByRole('button', { name: 'Focus on North' })).toBeInTheDocument()
+    // The reorder pair and Field order are admin gates, even when the callbacks are wired.
+    expect(screen.queryByTestId('phone-lane-earlier')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-lane-later')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-lane-field-order')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit swimlane/ })).not.toBeInTheDocument()
+    cleanup()
+    setup({ ...edit(), isAdmin: false, onFocusLane: undefined })
+    expect(screen.queryByRole('button', { name: /^Lane actions/ })).not.toBeInTheDocument()
   })
 
   it('offers no reorder to a non-admin', () => {

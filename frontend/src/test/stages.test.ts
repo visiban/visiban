@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   cardSubColumnIndex, currentStopIndex, gatesOpen, getTrackStates, isDimensionField, isGatedStage, leftWithGatesOpenWarning,
-  movementGateNote, moveStops, splitCellBySubColumn, stageSubColumns, subColumnCountLines, subColumnNeighbors, trackStateLabel,
+  movementGateNote, moveStops, splitCellBySubColumn, stageSubColumns, subColumnCounts, subColumnNeighbors, trackStateLabel,
 } from '../utils/stages'
 import { applyStageRemap } from '../hooks/useBoard'
 import { subColumnChoices } from '../utils/cardActions'
@@ -70,10 +70,13 @@ describe('stage structure (#1102)', () => {
     ])
   })
 
-  it('writes header count lines with the last sub-column waiting', () => {
+  it('counts per sub-column with the last sub-column waiting', () => {
     const cards = [card({ gates_passed: 0 }), card({ gates_passed: 1 }), card({ gates_passed: 1 }), card({ column: 2 })]
-    expect(subColumnCountLines(gated, cards)).toEqual(['Doing: 1 working', 'Ready: 2 waiting'])
-    expect(subColumnCountLines(col(), cards)).toEqual([])
+    expect(subColumnCounts(gated, cards)).toEqual([
+      { name: 'Doing', count: 1, state: 'working' },
+      { name: 'Ready', count: 2, state: 'waiting' },
+    ])
+    expect(subColumnCounts(col(), cards)).toEqual([])
   })
 
   it('notes gate positions on a history move row', () => {

@@ -1061,7 +1061,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     >
 
         {/* Tabs */}
-        <div className="flex border-b border-line px-6 gap-1 overflow-x-auto">
+        {/* #2404: at max-sm every control in the modal is lifted to 44px by the container rule below
+            (buttons, text and number inputs, selects, textareas); checkbox and radio rows are lifted on
+            their <label>. A new control here needs no lift of its own unless it is a bare link. */}
+        <div className="flex border-b border-line px-6 gap-1 overflow-x-auto max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
           {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
           {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), ...(isAdmin && !demoMode ? ["webhooks"] : []), "data"] as Tab[]).map((t) => {
             const label =
@@ -1090,7 +1093,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 px-6 py-4">
+        <div className="overflow-y-auto flex-1 px-6 py-4 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
           {/* Hosted demo (#1179): ONE shared notice for the whole modal. Every
               admin control below sits in a DemoInert region that points its
               aria-describedby here, rather than repeating the reason per
