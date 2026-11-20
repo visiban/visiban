@@ -9161,7 +9161,7 @@ same rule as checklist-item reorder, #1292.)</em></p>
 <td><code>choice_colors</code></td>
 <td>object</td>
 <td>no</td>
-<td><em>Since 1.2.</em> Display-only <code>{choice: palette_key}</code> map; <code>{}</code> (default) for none. <code>"dropdown"</code> and <code>"multi_select"</code> fields only — see <a href="#choice-colors">Choice colors</a></td>
+<td><em>Since 1.2.</em> Display-only <code>{choice: color}</code> map, each color a palette key or a <code>#RRGGBB</code> hex (<em>hex since 1.3</em>); <code>{}</code> (default) for none. <code>"dropdown"</code> and <code>"multi_select"</code> fields only — see <a href="#choice-colors">Choice colors</a></td>
 </tr>
 <tr>
 <td><code>threshold_direction</code></td>
@@ -9424,18 +9424,23 @@ errors below.</p>
 </ul>
 <h4 id="choice-colors">Choice colors<a class="headerlink" href="#choice-colors" title="Permanent link">&para;</a></h4>
 <blockquote>
-<p><strong>Added in 1.2</strong></p>
+<p><strong>Added in 1.2</strong> · <strong>Changed in 1.3:</strong> a value may also be a custom <code>#RRGGBB</code> hex (#2096).</p>
 </blockquote>
 <p>An optional, <strong>display-only</strong> color per choice on a <code>"dropdown"</code> or <code>"multi_select"</code> definition, on card and swimlane custom fields alike. <code>choices</code> stays a plain list of strings; the colors live in a separate map keyed by choice text. Values are never touched.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Severity"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Low"</span><span class="p">,</span><span class="w"> </span><span class="s2">"High"</span><span class="p">],</span><span class="w"> </span><span class="nt">"choice_colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"High"</span><span class="p">:</span><span class="w"> </span><span class="s2">"red"</span><span class="p">,</span><span class="w"> </span><span class="nt">"Low"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#2F855A"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><strong>Shape.</strong> An object mapping a choice (its text, exactly as in <code>choices</code>) to a palette
-  key. Default <code>{}</code>. A choice with no entry has no explicit color; the web UI renders it
+  key or a hex color. Default <code>{}</code>. A choice with no entry has no explicit color; the web UI renders it
   with its automatic dot, the same as before 1.2.</li>
-<li><strong>Palette keys only, never hex:</strong> <code>slate</code>, <code>blue</code>, <code>green</code>, <code>amber</code>, <code>red</code>, <code>violet</code>,
-  <code>pink</code>, <code>teal</code>. The client owns how each key looks in light and dark themes and
-  guarantees its contrast; a hex or CSS color is refused.</li>
+<li><strong>A palette key or a hex color.</strong> The palette keys are <code>slate</code>, <code>blue</code>, <code>green</code>,
+  <code>amber</code>, <code>red</code>, <code>violet</code>, <code>pink</code>, <code>teal</code> (case-sensitive: <code>RED</code> is refused); the client
+  owns how each key looks in light and dark themes. <em>Since 1.3</em>, a value may instead be a
+  custom <code>#RRGGBB</code> hex. The server accepts either case and <strong>stores and returns it
+  upper-case</strong> (<code>#2f855a</code> reads back as <code>#2F855A</code>), so every response matches the schema
+  pattern <code>^#[0-9A-F]{6}$</code>. <code>#RGB</code>, CSS names and <code>rgb()</code> are refused. The web UI derives
+  a legible text and tint pair for any hex in both themes, so a near-white or near-black
+  custom color stays readable.</li>
 <li><strong>Optional</strong> on create and <code>PATCH</code>; omitted, the map keeps its default (or current
   value). Sending <code>{}</code> is always accepted, for every <code>field_type</code>.</li>
 <li><strong>Stale keys are pruned, not refused.</strong> On every write, entries whose key is not one of
@@ -9479,22 +9484,30 @@ errors below.</p>
 <td><code>Choice color keys must be choice names without NUL (0x00) characters.</code></td>
 </tr>
 <tr>
-<td>A value that is not one of the palette keys (including hex, other case, or a non-string)</td>
-<td><code>Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal.</code></td>
+<td>A value that is neither a palette key nor a <code>#RRGGBB</code> hex (other case of a key, <code>#RGB</code>, a CSS name, a non-string)</td>
+<td><code>Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal, or a hex color as #RRGGBB.</code></td>
 </tr>
 </tbody>
 </table>
 </li>
 <li>
 <p><strong>Rendering (the web UI's rule, recommended for other clients):</strong> a value whose choice
-  has a known color key renders as a tinted badge <strong>with its text label</strong> — color never
-  carries meaning alone. A value that is no longer a choice (an orphan), or a key the
-  client does not recognize (one added by a newer server), renders neutral, label shown.</p>
+  has a known color key or a hex renders as a tinted badge <strong>with its text label</strong> — color
+  never carries meaning alone. A value that is no longer a choice (an orphan), or a value
+  the client does not recognize (a key added by a newer server), renders neutral, label
+  shown. A client built before 1.3 that only knows palette keys renders a hex choice
+  neutral the same way.</p>
 </li>
 <li><strong>Export.</strong> The JSON export's <code>custom_fields</code> and <code>swimlane_custom_fields</code> entries carry
   <code>choice_colors</code> (additive — <code>schema_version</code> is unchanged; <code>choices</code> is unchanged). Card
   and swimlane values are unchanged in JSON and CSV. A non-admin exporter does not receive
-  an <code>is_admin_only</code> swimlane definition at all, colors included.</li>
+  an <code>is_admin_only</code> swimlane definition at all, colors included. Exports from before 1.3
+  import into 1.3 unchanged. An export that carries a hex choice color, imported into a
+  server older than 1.3, is refused with a <code>400</code> for the <strong>whole import</strong> (that server
+  validates <code>choice_colors</code> as palette keys only); remove the hex entries, or upgrade the
+  target server first. During a rolling upgrade to 1.3, a pre-1.3 server process that
+  handles a write to a definition holding a hex color drops that entry (it re-filters the
+  stored map against palette keys); re-pick the color once the upgrade completes.</li>
 <li><strong>Events.</strong> <code>custom_field.created</code> / <code>custom_field.updated</code> and
   <code>swimlane_custom_field.created</code> / <code>swimlane_custom_field.updated</code> carry the full
   definition, so <code>choice_colors</code> arrives with them (an additive field).</li>
@@ -9536,7 +9549,7 @@ anywhere else — see <a href="#multi-select-fields">Multi-select fields</a>.</p
 - <code>400 Bad Request</code> for a <a href="#number-formatting">number format</a> option on a non-number field
   (judged against the stored <code>field_type</code> when the body does not change it), or out of
   range.
-- <code>400 Bad Request</code> with a <code>choice_colors</code> key for a malformed map, an unknown palette key,
+- <code>400 Bad Request</code> with a <code>choice_colors</code> key for a malformed map, a value that is neither a palette key nor <code>#RRGGBB</code> hex,
   or a non-empty map on a type without choices — see <a href="#choice-colors">Choice colors</a>.
   Renaming or removing a choice prunes its color; retyping away from a choice type clears
   the map.</p>
@@ -9658,7 +9671,7 @@ model docstring for the reasoning; do not assume they track each other.</p>
 <td><code>choice_colors</code></td>
 <td>object</td>
 <td>no</td>
-<td><em>Since 1.2.</em> Display-only <code>{choice: palette_key}</code> map; <code>{}</code> (default) for none. <code>"dropdown"</code> and <code>"multi_select"</code> fields only — see <a href="#choice-colors">Choice colors</a></td>
+<td><em>Since 1.2.</em> Display-only <code>{choice: color}</code> map, each color a palette key or a <code>#RRGGBB</code> hex (<em>hex since 1.3</em>); <code>{}</code> (default) for none. <code>"dropdown"</code> and <code>"multi_select"</code> fields only — see <a href="#choice-colors">Choice colors</a></td>
 </tr>
 <tr>
 <td><code>created_at</code></td>
@@ -9706,7 +9719,7 @@ another board returns <code>404 Not Found</code>.</p>
 - <code>400 Bad Request</code> keyed by the offending field for a <a href="#number-formatting">number format</a>
   option on a non-number field, or out of range. Retyping a definition away from
   <code>"number"</code> clears its format options.
-- <code>400 Bad Request</code> with a <code>choice_colors</code> key for a malformed map, an unknown palette key,
+- <code>400 Bad Request</code> with a <code>choice_colors</code> key for a malformed map, a value that is neither a palette key nor <code>#RRGGBB</code> hex,
   or a non-empty map on a type without choices — see <a href="#choice-colors">Choice colors</a>.
   Renaming or removing a choice prunes its color; retyping away from a choice type clears
   the map.</p>
