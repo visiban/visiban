@@ -11,6 +11,11 @@ sub-flow holding one group's cards. That keeps one definition per number (a
 group's p85 is computed exactly like the board's, under the same ADR #1532
 sample-size rule) and costs no queries: the only query here is the one that
 reads each card's group keys.
+
+Swimlane groups are dated (#2334): a sample counts under the swimlane the card
+was in at the moment the sample is dated by, read from the movement history
+already loaded (``CardFlow.lane_at``). Labels and custom fields keep each
+card's current value, since their history is not recorded (#1909).
 """
 
 import dataclasses
@@ -28,6 +33,12 @@ GROUPABLE_FIELD_TYPES = (CustomFieldDefinition.FieldType.DROPDOWN, CustomFieldDe
 MAX_NAMED_GROUPS = 5
 # How a checkbox value is stored. "true" sorts first on a tie.
 _CHECKBOX_KEYS = ("true", "false")
+# The moment a swimlane group is read at (#2334), one per kind of sample:
+# completion for cycle time and throughput, now for WIP age, and each visit's
+# end for dwell. Other groupings read the card's current value at every anchor.
+COMPLETION = "completion"
+CURRENT = "current"
+VISIT_END = "visit_end"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -44,12 +55,18 @@ class Grouping:
     # key -> tie-break sort value when two groups have as many active cards.
     order: dict
 
+    def lane_key(self, lane_id):
+        """A swimlane id as a group key, or None for one not on the board (deleted, or unmatched on import)."""
+        key = str(lane_id)
+        return key if key in self.names else None
+
 
 def load_grouping(board, flow, by, definition=None):
     """Read the current group keys of every card the flow was loaded under.
 
-    ADR #1532 "Filters": groups use each card's current swimlane, labels and
-    field value, like the filters do. ``definition`` is the custom field the
+    ADR #1532 "Filters": groups use each card's current labels and field
+    value, like the filters do. For a swimlane the current one is recorded
+    here, and ``GroupedFlow`` reads the dated one (#2334). ``definition`` is the custom field the
     query serializer already validated against this board; it is not refetched.
     """
     cards = fm._base_cards(board, flow.swimlane_id, flow.label_id).values("id")
@@ -97,12 +114,22 @@ def load_grouping(board, flow, by, definition=None):
     return Grouping(by, definition.id, keys_by_card, names, order)
 
 
-def _is_active(flow, flow_range, card):
-    """The card can appear on at least one grouped endpoint for this range."""
+def _is_active(flow, flow_range, card, lanes=None):
+    """The card can appear on at least one grouped endpoint for this range.
+
+    ``lanes`` (a set, swimlane grouping only, #2334) collects every swimlane
+    the card is active in, each read at the moment its endpoint dates the
+    sample: now while in progress, the completion, and each closed visit's
+    end. A card that finished in one swimlane and moved on ranks both.
+    """
+    active = False
     # Started and not yet done: a never-started backlog card is a sample on no
     # endpoint, so it must not rank its group.
     if card.is_in_progress(flow.done_uids):
-        return True
+        if lanes is None:
+            return True
+        active = True
+        lanes.add(card.swimlane_id)
     if card.completion_at is not None and (
         flow_range.contains(card.completion_at)
         # Throughput buckets whole UTC days, and on a rolling range the first
@@ -110,11 +137,17 @@ def _is_active(flow, flow_range, card):
         # throughput sample that ``contains`` would miss.
         or flow_range.first_day <= fm._utc_date(card.completion_at) <= flow_range.last_day
     ):
-        return True
-    return any(
-        visit.end is not None and visit.key not in flow.done_uids and flow_range.contains(visit.end)
-        for visit in card.visits
-    )
+        if lanes is None:
+            return True
+        active = True
+        lanes.add(card.lane_at(card.completion_at))
+    for visit in card.visits:
+        if visit.end is not None and visit.key not in flow.done_uids and flow_range.contains(visit.end):
+            if lanes is None:
+                return True
+            active = True
+            lanes.add(card.lane_at(visit.end))
+    return active
 
 
 @dataclasses.dataclass
@@ -135,17 +168,28 @@ class GroupedFlow:
     completion in the range or on one of its bucketed days; or a visit closed in
     the range), not any one endpoint's samples, so a group keeps its place, and its color, across the charts. A
     group may therefore be listed with size 0 on one endpoint.
+
+    ``anchor`` is the moment the endpoint's samples are dated by, which picks
+    a card's swimlane group (#2334). Under ``VISIT_END`` a card that changed
+    swimlane can sit in several slots, each holding a copy of the card with
+    only the visits that ended in that swimlane.
     """
 
-    def __init__(self, flow, flow_range, grouping):
+    def __init__(self, flow, flow_range, grouping, anchor=CURRENT):
         self.flow = flow
         self.grouping = grouping
+        dated = grouping.by == SWIMLANE
         active = {}
         active_uids = set()
         for card in flow.cards:
-            if _is_active(flow, flow_range, card):
+            lanes = set() if dated else None
+            if _is_active(flow, flow_range, card, lanes):
                 active_uids.add(card.uid)
-                for key in grouping.keys_by_card.get(card.id, ()):
+                if dated:
+                    keys = {grouping.lane_key(lane) for lane in lanes} - {None}
+                else:
+                    keys = grouping.keys_by_card.get(card.id, ())
+                for key in keys:
                     active[key] = active.get(key, 0) + 1
         ranked = sorted(active, key=lambda key: (-active[key], grouping.order[key]))
         self.rank = {key: index for index, key in enumerate(ranked)}
@@ -154,6 +198,7 @@ class GroupedFlow:
         if len(ranked) > len(named):
             self.slots.append(_Slot(None, None, ranked[len(named):]))
         slot_of_key = {key: index for index, slot in enumerate(self.slots) for key in slot.member_keys}
+        self.slot_of_key = slot_of_key
         self.excluded_cards = []
         # True when some card in the flow sits in two or more groups (labels), so
         # group sizes can add up to more than an endpoint's ungrouped total. It is
@@ -163,19 +208,53 @@ class GroupedFlow:
         self.slots_by_uid = {}
         self.keys_by_uid = {}
         for card in flow.cards:
-            keys = [k for k in grouping.keys_by_card.get(card.id, ()) if k in slot_of_key]
+            if dated and anchor == VISIT_END:
+                self._split_visits(card)
+                continue
+            if dated:
+                moment = card.completion_at if anchor == COMPLETION else None
+                card_keys = (grouping.lane_key(card.lane_at(moment)),)
+            else:
+                card_keys = grouping.keys_by_card.get(card.id, ())
+            keys = [k for k in card_keys if k in slot_of_key]
             keys.sort(key=self.rank.__getitem__)
             # A card lands once in each slot: a card whose several labels all
             # collapse into "Other" counts once there.
             slots = sorted({slot_of_key[k] for k in keys})
             self.keys_by_uid[card.uid] = keys
             self.slots_by_uid[card.uid] = slots
-            if card.uid in active_uids and len(slots) > 1:
+            # A swimlane sample sits in exactly one swimlane, whatever the card's
+            # history (#2334), so swimlane groups never overlap.
+            if not dated and card.uid in active_uids and len(slots) > 1:
                 self.overlapping = True
             if not slots:
                 self.excluded_cards.append(card)
             for index in slots:
                 self.slots[index].cards.append(card)
+
+    def _split_visits(self, card):
+        """Put each of the card's visits in the slot of the swimlane it ended in (#2334).
+
+        Dwell reads only a card's uid, reopens and visits, so a copy holding a
+        subset of the visits measures exactly those. An open visit ends now,
+        in the current swimlane. A visit in a swimlane no longer on the board
+        goes to the excluded copy, never to the current swimlane.
+        """
+        by_slot, keys = {}, set()
+        for visit in card.visits:
+            key = self.grouping.lane_key(card.lane_at(visit.end))
+            index = self.slot_of_key.get(key)
+            if index is not None:
+                keys.add(key)
+            by_slot.setdefault(index, []).append(visit)
+        self.keys_by_uid[card.uid] = sorted(keys, key=self.rank.__getitem__)
+        self.slots_by_uid[card.uid] = sorted(index for index in by_slot if index is not None)
+        for index, visits in by_slot.items():
+            copy = dataclasses.replace(card, visits=visits)
+            if index is None:
+                self.excluded_cards.append(copy)
+            else:
+                self.slots[index].cards.append(copy)
 
     def sub_flow(self, cards):
         return dataclasses.replace(self.flow, cards=cards)
@@ -195,7 +274,7 @@ class GroupedFlow:
 
 
 def group_cycle_time(payload, flow, flow_range, grouping):
-    grouped = GroupedFlow(flow, flow_range, grouping)
+    grouped = GroupedFlow(flow, flow_range, grouping, COMPLETION)
     results, rest = grouped.per_slot(lambda sub: fm.cycle_time(sub, flow_range))
     for sample in payload["samples"]:
         sample["group_keys"] = list(grouped.keys_by_uid.get(sample["card_uid"], []))
@@ -210,7 +289,7 @@ def group_cycle_time(payload, flow, flow_range, grouping):
 
 
 def group_throughput(payload, flow, flow_range, grouping, period):
-    grouped = GroupedFlow(flow, flow_range, grouping)
+    grouped = GroupedFlow(flow, flow_range, grouping, COMPLETION)
     results, rest = grouped.per_slot(lambda sub: fm.throughput(sub, flow_range, period))
     for index, sample in enumerate(payload["samples"]):
         sample["by_group"] = [
@@ -234,7 +313,7 @@ def group_throughput(payload, flow, flow_range, grouping, period):
 def group_wip_age(payload, flow, flow_range, grouping):
     # age() is not re-run per group: it queries the blocked cards. The samples
     # are already the in-progress cards, so each group's size is a count.
-    grouped = GroupedFlow(flow, flow_range, grouping)
+    grouped = GroupedFlow(flow, flow_range, grouping, CURRENT)
     sizes = [0] * len(grouped.slots)
     excluded = 0
     for sample in payload["samples"]:
@@ -252,7 +331,7 @@ def group_wip_age(payload, flow, flow_range, grouping):
 
 
 def group_dwell(payload, flow, flow_range, grouping):
-    grouped = GroupedFlow(flow, flow_range, grouping)
+    grouped = GroupedFlow(flow, flow_range, grouping, VISIT_END)
     results, rest = grouped.per_slot(lambda sub: fm.column_dwell(sub, flow_range))
     payload["grouping"] = grouped.envelope(
         [

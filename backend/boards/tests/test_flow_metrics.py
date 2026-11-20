@@ -2216,8 +2216,25 @@ class GroupingShapeTests(GroupingFixture):
                         self.get(metric, group_by="custom_field", group_by_field_id=team.id), self.get(metric),
                     )
 
+    def relane(self, card, lane, days_ago):
+        """A swimlane-only move ``days_ago``, written as ``move_card`` writes one."""
+        Card.objects.filter(pk=card.pk).update(swimlane=lane)
+        card.refresh_from_db()
+        self.row(card, card.column, card.column, days_ago)
+
     def test_swimlane_and_field_groups_reconcile_with_the_ungrouped_totals(self):
         team = self.seed_mixed()
+        # Cards that changed swimlane (#2334): after completing, while in
+        # progress, and mid-stay before completing. Groups are dated by the
+        # sample, and every sample still sits in exactly one group.
+        lanes = list(self.board.swimlanes.order_by("position"))
+        self.relane(self.completed(lane=lanes[0]), lanes[1], 1)
+        self.relane(self.wip(lane=lanes[0]), lanes[2], 5)
+        mid_stay = self.path(self.backlog, 20, self.doing, 16, lane=lanes[2])
+        self.relane(mid_stay, lanes[0], 10)
+        Card.objects.filter(pk=mid_stay.pk).update(column=self.done)
+        mid_stay.refresh_from_db()
+        self.row(mid_stay, self.doing, self.done, 3)
         for metric in GROUPED_METRICS:
             for params in ({"group_by": "swimlane"}, {"group_by": "custom_field", "group_by_field_id": team.id}):
                 with self.subTest(metric=metric, **params):

@@ -20,6 +20,7 @@ Every function returns plain JSON-ready data (strings, numbers, lists, dicts),
 so a transport serializes the result as it stands.
 """
 
+import bisect
 import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
@@ -280,6 +281,9 @@ class _Movement(NamedTuple):
     # The row's pk: a visit remembers the movement that started it, so the
     # gate rows that movement wrote are read as its entry position (#2360).
     id: int | None = None
+    # The swimlane the row left the card in (#2334): ``to_swimlane_id``, None
+    # when that swimlane was deleted or an import named one the board lacks.
+    to_lane: int | None = None
 
     @property
     def is_transition(self):
@@ -373,6 +377,38 @@ class CardFlow:
     recompletions: list = field(default_factory=list)
     visits: list = field(default_factory=list)
     placements: list = field(default_factory=list)
+    # The card's swimlane over time (#2334): ``[(moment, swimlane id or None)]``,
+    # one entry per change, oldest first. Empty when the history cannot say
+    # (no movements, or the last one disagrees with ``swimlane_id``): then the
+    # current swimlane stands for the whole history; see ``lane_at``.
+    lanes: list = field(default_factory=list)
+
+    def lane_at(self, moment):
+        """The swimlane the card was in at ``moment``, for event-time attribution (#2334).
+
+        Without a timeline, or with no moment (an open visit, or now), the
+        current swimlane: nothing better is known, and a card is never left
+        without one. None means the history names a swimlane that no longer
+        exists on the board, and the caller counts the sample under no
+        swimlane rather than moving it to the current one. Before the first
+        row (a card with no creation movement) the earliest known one stands.
+        """
+        if not self.lanes or moment is None:
+            return self.swimlane_id
+        index = bisect.bisect_right(self.lanes, moment, key=_lane_moment) - 1
+        return self.lanes[max(index, 0)][1]
+
+    def lane_spans(self):
+        """``(begin or None, end or None, swimlane id or None)`` covering all time (#2334).
+
+        Open-ended at both ends, so clipping any span against them loses
+        nothing: the first swimlane reaches back, the last forward.
+        """
+        if not self.lanes:
+            return [(None, None, self.swimlane_id)]
+        ends = [moment for moment, _ in self.lanes[1:]] + [None]
+        begins = [None] + ends[:-1]
+        return [(begin, end, lane) for begin, end, (_, lane) in zip(begins, ends, self.lanes)]
 
     def reopened_after(self, moment):
         return any(t >= moment for t in self.reopens)
@@ -395,6 +431,26 @@ class CardFlow:
     def open_visit(self):
         last = self.visits[-1] if self.visits else None
         return last if last is not None and last.is_open else None
+
+
+def _lane_moment(entry):
+    return entry[0]
+
+
+def _replay_lanes(flow, live):
+    """``flow.lanes`` from every live row, not just transitions (#2334).
+
+    A swimlane-only move is not a transition, so the visit loop never sees it.
+    When the last row's swimlane is not the card's (moved by a queryset update
+    or the admin, which write no movement), the timeline is wrong somewhere and
+    the card falls back to its current swimlane throughout, as an inconsistent
+    column history falls back on ``complete_history``.
+    """
+    lanes = []
+    for mv in live:
+        if not lanes or lanes[-1][1] != mv.to_lane:
+            lanes.append((mv.moved_at, mv.to_lane))
+    return lanes if lanes and lanes[-1][1] == flow.swimlane_id else []
 
 
 def _replay_visits(flow, live, creation, now):
@@ -569,6 +625,7 @@ def _analyze_card(flow, rows, done_uids, now, committed_uids=None):
         )
     flow.visits = _replay_visits(flow, live, creation, now)
     flow.placements = _replay_placements(flow, live, creation, done_uids, now)
+    flow.lanes = _replay_lanes(flow, live)
 
 
 def _commitment_start(flow, live, creation, done_uids, committed_uids):
@@ -678,10 +735,13 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
             "card_id", "moved_at", "movement_type",
             "from_column_uid", "from_column__uid", "from_column_name",
             "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
+            # The local FK column, never ``to_swimlane__*``: no join (#2334).
+            "to_swimlane_id",
         )
     )
     for (
         card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
+        to_lane,
     ) in movements.iterator(chunk_size=2000):
         rows_by_card.setdefault(card_id, []).append(
             _Movement(
@@ -690,6 +750,7 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
                 _column_key(to_uid, to_fk, to_name),
                 to_gates,
                 movement_id,
+                to_lane,
             )
         )
     for card in cards:
@@ -1942,11 +2003,24 @@ def _union_seconds(spans):
     return total
 
 
+def _clip(spans, begin, end):
+    """``spans`` cut to ``[begin, end)``; a None bound is open."""
+    clipped = []
+    for low, high in spans:
+        low = max(low, begin) if begin is not None else low
+        high = min(high, end) if end is not None else high
+        if high > low:
+            clipped.append((low, high))
+    return clipped
+
+
 def _lane_blocked_and_elapsed(flow, flow_range):
     """``({swimlane_id: blocked_seconds}, {swimlane_id: elapsed_seconds})`` while cards were in progress.
 
     Both sides use the same per-card window, so a block opened in the backlog
     or after completion adds to neither, and overlapping blocks count once.
+    Each second goes to the swimlane the card was in at that second (#2334):
+    a card that changed swimlane mid-work splits its time between the two.
     """
     windows = _in_progress_windows(flow, flow_range)
     spans: dict[int, list] = {}
@@ -1961,8 +2035,10 @@ def _lane_blocked_and_elapsed(flow, flow_range):
         window = windows.get(card.id)
         if window is None:
             continue
-        elapsed[card.swimlane_id] = elapsed.get(card.swimlane_id, 0.0) + _union_seconds(window)
-        blocked[card.swimlane_id] = blocked.get(card.swimlane_id, 0.0) + _union_seconds(spans.get(card.id, ()))
+        card_spans = spans.get(card.id, ())
+        for begin, end, lane in card.lane_spans():
+            elapsed[lane] = elapsed.get(lane, 0.0) + _union_seconds(_clip(window, begin, end))
+            blocked[lane] = blocked.get(lane, 0.0) + _union_seconds(_clip(card_spans, begin, end))
     return blocked, elapsed
 
 
@@ -1978,6 +2054,10 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
     cards still gets a row, so the page can say "0 finished". The board median
     is for the same filters (label, period) and every swimlane.
 
+    Attribution is at event time (#2334): a finished card counts under the
+    swimlane it completed in, ``in_progress`` under the one it is in now. A
+    completion in a since-deleted swimlane is in the board numbers and in no row.
+
     Blocked share is the lane's blocked seconds over its in-progress seconds,
     both counted only while each card was in progress inside the range: from
     its cycle start to its first completion, and again from each reopen. A card
@@ -1985,8 +2065,8 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
     """
     done_uids = flow.done_uids
     samples = cycle_time(flow, flow_range)["samples"]
-    lane_of = {card.uid: card.swimlane_id for card in flow.cards}
-    by_lane: dict[int, list] = {}
+    lane_of = {card.uid: card.lane_at(card.completion_at) for card in flow.cards if card.completion_at is not None}
+    by_lane: dict[int | None, list] = {}
     for sample in samples:
         end = datetime.datetime.fromisoformat(sample["end"])
         by_lane.setdefault(lane_of[sample["card_uid"]], []).append((end, sample["value_days"]))
