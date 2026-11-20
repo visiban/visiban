@@ -209,6 +209,28 @@ describe('StageSettingsPanel follow-ups (#2368, #2382)', () => {
     ])
   })
 
+  it('holds the reorder buttons while a removal is pending and says why', async () => {
+    const user = userEvent.setup()
+    renderPanel({ column: three })
+    const up = screen.getByRole('button', { name: 'Move sub-column Review up' })
+    expect(up).not.toHaveAttribute('aria-disabled')
+    await user.click(screen.getByRole('button', { name: 'Remove sub-column Doing' }))
+    const held = screen.getByRole('button', { name: 'Move sub-column Review up' })
+    expect(held).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Move sub-column Ready down' })).toHaveAttribute('aria-disabled', 'true')
+    expect(held).toHaveAccessibleDescription(/Reorder and remove sub-columns in separate saves/)
+    await user.click(held)
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Ready')
+    expect(screen.getByLabelText('Sub-column 2 name')).toHaveValue('Review')
+  })
+
+  it('shows the server refusal of a reorder plus a removal', async () => {
+    mockSave.mockRejectedValue({ response: { status: 400, data: { sub_columns: ['Reorder and remove sub-columns in separate saves'] } } })
+    renderPanel({ column: three })
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reorder and remove sub-columns in separate saves')
+  })
+
   it('reorders by keyboard', async () => {
     const user = userEvent.setup()
     renderPanel({ column: three })

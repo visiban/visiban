@@ -153,6 +153,9 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     setSubs((prev) => [...prev, row]);
     setFocusTarget(`sub-input-${row.key}`);
   };
+  // A reorder and a removal in one save is refused by the server (a card's
+  // fall-back sub-column could land after it), so reordering waits for Save.
+  const removalPending = initialSubs.some((s) => !subs.some((r) => r.id === s.id));
   const removeSub = (key: string) => {
     if (atMin) return;
     const i = subs.findIndex((r) => r.key === key);
@@ -167,7 +170,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const moveSub = (key: string, dir: -1 | 1) => {
     const i = subs.findIndex((r) => r.key === key);
     const j = i + dir;
-    if (i < 0 || j < 0 || j >= subs.length) return;
+    if (removalPending || i < 0 || j < 0 || j >= subs.length) return;
     const next = [...subs];
     [next[i], next[j]] = [next[j], next[i]];
     setSubs(next);
@@ -355,7 +358,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   className={ARROW}
                   data-focus-key={`sub-up-${s.key}`}
                   aria-label={`Move sub-column ${s.name || i + 1} up`}
-                  aria-disabled={i === 0 || undefined}
+                  aria-disabled={i === 0 || removalPending || undefined}
+                  aria-describedby={removalPending ? `${uid}-reorder-hold` : undefined}
                   onClick={() => moveSub(s.key, -1)}
                 ><span aria-hidden="true">↑</span></button>
                 <button
@@ -363,7 +367,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   className={ARROW}
                   data-focus-key={`sub-down-${s.key}`}
                   aria-label={`Move sub-column ${s.name || i + 1} down`}
-                  aria-disabled={i === subs.length - 1 || undefined}
+                  aria-disabled={i === subs.length - 1 || removalPending || undefined}
+                  aria-describedby={removalPending ? `${uid}-reorder-hold` : undefined}
                   onClick={() => moveSub(s.key, 1)}
                 ><span aria-hidden="true">↓</span></button>
                 <button
@@ -396,6 +401,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
             )}
           </div>
           {atMax && <p id={`${uid}-max`} className="mt-1 text-xs text-fg-tertiary">A stage has at most four sub-columns.</p>}
+          {removalPending && <p id={`${uid}-reorder-hold`} className="mt-1 text-xs text-fg-tertiary">Reorder and remove sub-columns in separate saves. Save the removal first, then reorder.</p>}
           {subs.length > 0 && atMin && <p id={`${uid}-min`} className="mt-1 text-xs text-fg-tertiary">A stage needs at least two sub-columns, or none. Use Remove all sub-columns to make it a plain column.</p>}
           {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it in the saved order. Moving a sub-column takes its cards with it.</p>}
           {consequences.length > 0 && (

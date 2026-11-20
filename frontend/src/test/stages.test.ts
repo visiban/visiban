@@ -108,6 +108,18 @@ describe('track states (#1920/#1921)', () => {
     expect(t).toEqual({ id: 41, name: 'Technical', state: 'not_applicable', fromLane: true })
   })
 
+  it('shows a renamed field on every stage it is a track on (the column copy is stale)', () => {
+    // custom_field.updated replaces only the definitions, so each stage's
+    // `tracks[].name` still holds the old name until a reload.
+    const renamed = { ...tech, name: 'Engineering' } as CustomFieldDefinition
+    const other = col({ id: 2, tracks: [{ id: 9, field_id: 41, name: 'Technical', position: 0 }] as Column['tracks'] })
+    for (const column of [stage, other]) {
+      expect(getTrackStates(values('Done'), column, lane, [renamed, biz])[0].name).toBe('Engineering')
+    }
+    const na = { not_applicable_field_ids: [41] } as unknown as Swimlane
+    expect(getTrackStates(values('Done'), other, na, [renamed])[0].name).toBe('Engineering')
+  })
+
   it('returns nothing for a column without tracks', () => {
     expect(getTrackStates(values('Done'), col(), lane, [tech])).toEqual([])
     expect(getTrackStates(values('Done'), null, null, [tech])).toEqual([])

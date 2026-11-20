@@ -1,8 +1,9 @@
 """Stage settings follow-ups (#2368, #2362).
 
 * The stage-save remap writes its gate transitions with one ``bulk_create``
-  and its cards with one ``bulk_update``, so the save runs a constant number
-  of queries however many cards the stage holds (#2362).
+  and its cards with one conditional ``UPDATE`` per target sub-column (at
+  most four), so the save runs a constant number of queries however many
+  cards the stage holds (#2362).
 * ``write_gate_transitions`` inserts every gate it crosses in one query and
   stays insert-only (#2362).
 * ``GET .../columns/{id}/stage-card-counts/`` gives the Stage settings panel
@@ -85,10 +86,62 @@ class StageSaveBulkRemapTests(_StageBase):
             self.assertEqual(r.card_title, Card.objects.get(pk=r.card_id).title)
             self.assertEqual(r.sub_column_name, "Doing")
 
-    def test_reorder_with_a_removal_falls_back_in_the_old_order(self):
-        # Old [Doing, Review, Ready]; new [Ready, Doing]: a card in Review
-        # falls back to Doing (the kept sub-column before it in the old
-        # order), which is now at index 1.
+    def _snapshot(self, cards):
+        for c in cards:
+            c.refresh_from_db()
+        return (
+            [(c.gates_passed, c.version) for c in cards],
+            CardGateTransition.objects.count(),
+            list(SubColumn.objects.filter(column=self.stage).order_by("position").values_list("pk", "name")),
+        )
+
+    def _refused(self, order):
+        """PUT a reorder-plus-removal; assert the 400 and that nothing changed."""
+        card = Card.objects.create(
+            board=self.board, column=self.stage, swimlane=self.lane, title="R",
+            created_by=self.user, position=1, gates_passed=1,  # in Review
+        )
+        before = self._snapshot([card])
+        resp = self.client.put(
+            self.stage_url(),
+            {"sub_columns": [{"id": self.subs[i].pk, "name": self.subs[i].name} if i is not None
+                             else {"name": "New"} for i in order]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn("Reorder and remove sub-columns in separate saves", str(resp.data))
+        self.assertEqual(self._snapshot([card]), before)
+
+    def test_reorder_with_a_removal_is_refused_backward_move(self):
+        # Old [Doing, Review, Ready], card in Review; new [Ready, New, Doing]
+        # would record a forward "pass" for a backward move.
+        self._refused([2, None, 0])
+
+    def test_reorder_with_a_removal_is_refused_silent_move(self):
+        # New [Ready, Doing]: the card would stay at index 1 but be in Doing,
+        # with no history row, no remapped entry and no version bump.
+        self._refused([2, 0])
+
+    def test_removal_alone_falls_back_to_the_kept_sub_column_before(self):
+        # Old [Doing, Review, Ready]; removing Review (no reorder) moves a
+        # card in Review back to Doing, recorded as one reopen.
+        card = Card.objects.create(
+            board=self.board, column=self.stage, swimlane=self.lane, title="R",
+            created_by=self.user, position=1, gates_passed=1,
+        )
+        resp = self.client.put(
+            self.stage_url(),
+            {"sub_columns": [{"id": self.subs[0].pk, "name": "Doing"},
+                             {"id": self.subs[2].pk, "name": "Ready to pull"}]},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        card.refresh_from_db()
+        self.assertEqual(card.gates_passed, 0)
+        rows = CardGateTransition.objects.filter(card=card, cause="stage_edited")
+        self.assertEqual([(r.kind, r.from_index, r.to_index) for r in rows], [("reopen", 1, 0)])
+
+    def test_reorder_alone_still_saves(self):
         card = Card.objects.create(
             board=self.board, column=self.stage, swimlane=self.lane, title="R",
             created_by=self.user, position=1, gates_passed=2,
@@ -96,12 +149,13 @@ class StageSaveBulkRemapTests(_StageBase):
         resp = self.client.put(
             self.stage_url(),
             {"sub_columns": [{"id": self.subs[2].pk, "name": "Ready to pull"},
-                             {"id": self.subs[0].pk, "name": "Doing"}]},
+                             {"id": self.subs[0].pk, "name": "Doing"},
+                             {"id": self.subs[1].pk, "name": "Review"}]},
             format="json",
         )
         self.assertEqual(resp.status_code, 200, resp.data)
         card.refresh_from_db()
-        self.assertEqual(card.gates_passed, 0)  # follows Ready to pull to index 0
+        self.assertEqual(card.gates_passed, 0)  # follows Ready to pull
         self.assertFalse(CardGateTransition.objects.filter(card=card).exists())
 
 

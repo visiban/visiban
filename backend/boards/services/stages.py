@@ -86,6 +86,18 @@ def _clean_sub_columns(column, raw, existing):
     # Kept sub-columns may be reordered (#2368). A card follows its own
     # sub-column to the new index (``_remap``), so a reorder is a re-index,
     # not a pass: no gate is crossed and no history is written.
+    #
+    # A reorder plus a removal in one save is refused: a card in the removed
+    # sub-column falls back to the nearest kept one before it in the OLD
+    # order, but that sub-column's NEW index can be at or after the card's,
+    # so the "back" move would be recorded as a forward pass (or a fall-back
+    # that leaves the index unchanged would write no row at all).
+    kept_new_order = [e.pk for e, _ in out if e is not None]
+    kept_old_order = [s.pk for s in existing if s.pk in set(kept_new_order)]
+    if by_id and kept_new_order != kept_old_order:
+        raise StageValidationError({
+            "sub_columns": "Reorder and remove sub-columns in separate saves",
+        })
     return out
 
 
