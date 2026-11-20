@@ -5091,7 +5091,7 @@
 <tr>
 <td><code>MOVEMENT_EXPORT_BACKENDS</code> list (<code>boards/hooks.py</code>)</td>
 <td>Enterprise delivery report export (#342 enterprise)</td>
-<td>✅ Implemented — <code>boards/hooks.py</code>. The queryset handed to a backend holds movements of live cards only (<code>card</code> is never <code>None</code>): the retained history of hard-deleted cards (#1469) is filtered out until the contract is widened to say rows may have <code>card=None</code> (#1796)</td>
+<td>✅ Implemented — <code>boards/hooks.py</code>, called from <code>GET /boards/{id}/movements/?export=&lt;format&gt;</code> (#720): first registered backend only, after the export throttle and <code>export_min_role</code> gate, audited in <code>BoardExportLog</code>. Every row carries <code>imported_from_username</code> (#1675, #1701): <code>NULL</code> = recorded on this board, a string (<code>""</code> if the source named nobody) = imported, <code>moved_by</code> is the importer, show it as "imported, originally <name>". By default the queryset holds movements of live cards only (<code>card</code> is never <code>None</code>). Since 1.3 (#1796) a backend that sets <code>accepts_deleted_cards = True</code> on the callable also receives the retained history of hard-deleted cards (#1469), with <code>card=None</code> and the identity in <code>card_uid</code> / <code>card_title</code>; a backend without the attribute is unaffected</td>
 </tr>
 <tr>
 <td><code>ANALYTICS_EXTENSIONS</code> list (<code>boards/hooks.py</code>)</td>
