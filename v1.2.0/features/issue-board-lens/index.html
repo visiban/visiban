@@ -4450,7 +4450,7 @@
 <h1 id="see-github-and-gitlab-issues-as-a-kanban-pivot">See GitHub and GitLab issues as a kanban pivot<a class="headerlink" href="#see-github-and-gitlab-issues-as-a-kanban-pivot" title="Permanent link">&para;</a></h1>
 <p><a id="issue-board-lens"></a></p>
 <p><span class="vb-version" title="Added in 1.2">1.2+</span></p>
-<p>Set <code>GIT_LENS_ENABLED=true</code>, then pick a provider and <code>owner/repo</code> in <strong>Board Settings → Lens</strong>. A read-only <strong>Lens</strong> tab shows that repository's issues as a kanban board.</p>
+<p>Set <code>GIT_LENS_ENABLED=true</code>, then pick a provider and <code>owner/repo</code> in <strong>Board Settings → Issue lens</strong> (under Integrations). A read-only <strong>Lens</strong> tab shows that repository's issues as a kanban board.</p>
 <p><strong>Why it matters:</strong> You get a configurable two-dimensional pivot (columns on one axis, swimlanes on the other) that native GitHub and GitLab boards don't offer.</p>
 <blockquote>
 <p><strong>OSS core</strong> — The Issue Board Lens is part of the open-source core; no enterprise license is required. See <a href="../../architecture/open-core-boundary/#issue-board-lens-oss">Open-Core Boundary</a> for the full ruling.</p>
@@ -4492,8 +4492,8 @@
 <h2 id="configuring-the-lens-on-a-board">Configuring the lens on a board<a class="headerlink" href="#configuring-the-lens-on-a-board" title="Permanent link">&para;</a></h2>
 <p>Only <strong>board admins</strong> can configure the lens.</p>
 <ol>
-<li>Open the board and open the <strong>More board actions</strong> menu (<code>...</code>) in the toolbar and choose <strong>Board settings</strong>.</li>
-<li>Select the <strong>Lens</strong> tab.</li>
+<li>Open the board and click <strong>Settings</strong> in the board toolbar (or press ⌘, on macOS, Ctrl+, elsewhere).</li>
+<li>Select <strong>Issue lens</strong> under Integrations.</li>
 <li>Choose the <strong>Provider</strong>: GitHub or GitLab.</li>
 <li>Enter the repository in <code>owner/repo</code> format, for example <code>acme/backend</code> or <code>torvalds/linux</code>.</li>
 <li>Click <strong>Save</strong>.</li>
@@ -4501,7 +4501,7 @@
 <p>A <strong>Lens</strong> tab appears in the board sub-navigation, visible to all board members regardless of role.</p>
 <p><strong>Landing tab:</strong> once a lens is configured, opening the board (with no <code>?view=</code>, <code>?card=</code>, or <code>?focus=</code> in the URL) lands on the <strong>Lens</strong> tab instead of the native Board. This is automatic; there's no per-board setting.</p>
 <p><strong>Lens-only boards:</strong> if the board has <strong>no native swimlanes</strong>, the <strong>Board</strong> tab shows in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so it doesn't look like two competing boards. The Board tab is never disabled or hidden: it stays one click (or the <code>B</code> key) away, and returns to normal styling as soon as the board has one native swimlane.</p>
-<p><strong>Disconnect:</strong> go to <strong>Settings → Lens</strong> and click <strong>Remove lens</strong>. The Lens tab disappears immediately.</p>
+<p><strong>Disconnect:</strong> go to <strong>Board Settings → Issue lens</strong> and click <strong>Remove lens</strong>. The Lens tab disappears immediately.</p>
 <hr />
 <h2 id="using-the-lens">Using the lens<a class="headerlink" href="#using-the-lens" title="Permanent link">&para;</a></h2>
 <h3 id="the-board-view">The board view<a class="headerlink" href="#the-board-view" title="Permanent link">&para;</a></h3>
