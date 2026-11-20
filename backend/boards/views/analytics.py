@@ -1760,7 +1760,7 @@ class BoardAnalyticsMixin:
         # which can, re-points the card's movements (CardAdmin.save_model).
         # select_related on the nullable card FK is a LEFT JOIN, so retained
         # rows are kept and serialize from their card_uid / card_title
-        # snapshot. Served by movement_board_moved_idx. Rows an older release
+        # snapshot. Served by movement_board_moved_id_idx. Rows an older release
         # wrote during a rolling upgrade, after the 0080 backfill, carry no
         # board; the second branch finds them through their card so they are
         # never missing from History, whether or not
@@ -1777,7 +1777,13 @@ class BoardAnalyticsMixin:
             CardMovement.objects
             .filter(on_board)
             .select_related("card", "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane")
-            .order_by("-moved_at")
+            # "-id" is the tie-break (#2400): offset pages are only stable over a
+            # total order, and bulk moves and imports write many rows at the
+            # same instant. Served by movement_board_moved_id_idx, which carries
+            # the tie-break, so the plan stays a plain index scan with its early
+            # exit (docs/development/nightly-load-test.md, "Movements history
+            # plans"). The enterprise export hook below receives this queryset.
+            .order_by("-moved_at", "-id")
         )
 
         # Date range — no default cutoff; all history is shown when neither

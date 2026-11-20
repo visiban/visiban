@@ -104,7 +104,23 @@ Local run, PostgreSQL 17.11, the nightly fixture (`seed_demo_data --force --scal
 - **Offset cost is linear in the offset.** Deep pages cost 55 times the first page (30.7ms against 0.55ms) because the joins run before the offset is discarded. A page 18,650 rows in is unusual for a person, but a client that pages through everything pays it for every page.
 - **The bare `COUNT` is a full scan of the board's movements.** With one board in the table the planner is right to seq scan (every row matches); on a table of many boards it would use the index. It grows with the board's history, not with the filter, except when a date range is set.
 - **The probe for rows with no `board`** (`board IS NULL AND card IS NOT NULL`, kept for rolling upgrades) is an index scan on the same index and takes 0.02ms.
-- The row ordering is `moved_at` alone, with no tie-breaker. The seed writes many movements at the same instant, so pages can overlap or skip rows at ties; that is a product question, not a latency one, and isn't measured here ([#2400](https://gitlab.com/visiban/visiban/-/issues/2400)).
+- The ordering in this table is `moved_at` alone, as it was when it was measured. [#2400](https://gitlab.com/visiban/visiban/-/issues/2400) changed it; see the next section.
+
+### Tie-break ordering — #2400
+
+The seed writes many movements at the same instant, and so do bulk moves and imports. With `moved_at` as the only sort key, rows that tie have no defined order, so two page reads can return one row twice and skip another. The endpoint now orders by `moved_at DESC, id DESC`, and the card `/timeline/` breaks its ties on `id` the same way.
+
+`movement_board_moved_idx` ends at `moved_at`, so it cannot hand rows back in the new order by itself. Local run, PostgreSQL 17.11, the dev stack's largest board copied 50 times inside a transaction that was rolled back (24,225 movements, copies landing in groups that share one instant), the endpoint's page query with its six `LEFT JOIN`s:
+
+| Request | `(board_id, moved_at DESC)` only | With `movement_board_moved_id_idx` `(board_id, moved_at DESC, id DESC)` |
+|---|---|---|
+| First page | `Index Scan using movement_board_moved_idx`, then `Incremental Sort` (`Presorted Key: m.moved_at`) above the joins, stops after 70 rows: 0.51ms | `Index Scan using movement_board_moved_id_idx`, no sort, stops at 50 rows: 0.56ms |
+| Deep offset (18,650) | Same, but the `Incremental Sort` sorts 276 groups of joined rows: 60.7ms, against 20.9ms for the old `moved_at`-only order on the same data | Plain index scan over 18,700 entries: 22.3ms |
+| `moved_after` 30 days back | `Incremental Sort` above the index scan: 0.39ms | Plain index scan with the range in the `Index Cond`: 0.29ms |
+
+- **The tie-break needs its own index.** Without it the first page stays cheap, because the sort stops at the first full group, but a deep page costs about three times the old order. Migration 0116 builds `movement_board_moved_id_idx` concurrently, and the plan is a plain index scan again with no sort node.
+- **`movement_board_moved_idx` is now a prefix of the new index.** It is kept for this release (an index is never dropped in the migration that replaces it) and can be dropped in a later one.
+- The table above is a one-off probe on synthetic ties, not the nightly fixture, so its absolute numbers are not comparable with the #2237 table. The `board_movements*` scenarios are still `pending_budget`, so the next NUC re-derivation measures the new order.
 
 These are laptop numbers. They show the plans, not budgets: the budgets come from a NUC run.
 
