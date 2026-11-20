@@ -5181,12 +5181,20 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _LANE_MAX_ITEMS = 20
     _LANE_MAX_RULES = 50
     _LANE_MAX_ID = 2**31 - 1
-    _LANE_OPS = {"is", "is_not", "between", "contains", "not_contains", "wildcard"}
+    _LANE_OPS = {"is", "is_not", "between", "contains", "not_contains", "wildcard", "is_set", "is_empty"}
+    # #2247: presence operators, valid only on an enum built-in (health_status).
+    _LANE_PRESENCE_OPS = {"is_set", "is_empty"}
     # Ops whose operand is one typed string (#2226, #2227).
     _LANE_TEXT_OPS = {"contains", "not_contains", "wildcard"}
     # #2336: built-in swimlane fields a lane rule may name instead of a custom
     # field id. Pinned against filter_state_keys.json (laneBuiltinFields).
-    _LANE_BUILTIN_FIELDS = frozenset({"name", "contact_email"})
+    _LANE_BUILTIN_FIELDS = frozenset({"name", "contact_email", "health_status"})
+    # #2247: enum built-ins and their allowed values. The lane filter reads the
+    # lane's effective status (pin, else computed); the values are the stored
+    # HealthStatus enum, so an unknown one is rejected here rather than saved
+    # as a rule that can never match.
+    _LANE_ENUM_BUILTINS = {"health_status": frozenset(HealthStatus.values)}
+    _LANE_ENUM_OPS = {"is", "is_not", "is_set", "is_empty"}
     _LANE_JOINS = {"and", "or"}
     _LANE_RULE_KEYS = {"kind", "id", "join", "field", "op", "value", "min", "max"}
     _LANE_GROUP_KEYS = {"kind", "id", "join", "rules"}
@@ -5410,8 +5418,23 @@ class SavedFilterSerializer(serializers.ModelSerializer):
         op = rule.get("op")
         if not (isinstance(op, str) and op in self._LANE_OPS):
             raise err(f"state_json.laneFilter rule op must be one of {sorted(self._LANE_OPS)}.")
-        if builtin and (op == "between" or "min" in rule or "max" in rule):
-            # Built-ins are text fields: no range operator or bounds.
+        enum_values = self._LANE_ENUM_BUILTINS.get(field) if builtin else None
+        if op in self._LANE_PRESENCE_OPS and enum_values is None:
+            raise err(f"state_json.laneFilter rule op {op} is only valid on {sorted(self._LANE_ENUM_BUILTINS)}.")
+        if enum_values is not None:
+            # An enum built-in takes is / is not over its fixed values, or a
+            # presence operator with no operand at all.
+            if op not in self._LANE_ENUM_OPS:
+                raise err(f"state_json.laneFilter rule on {field} must use one of {sorted(self._LANE_ENUM_OPS)}.")
+            if "min" in rule or "max" in rule:
+                raise err(f"state_json.laneFilter rule on {field} takes a value, not min or max.")
+            if op in self._LANE_PRESENCE_OPS:
+                if "value" in rule:
+                    raise err(f"state_json.laneFilter {op} rule takes no value.")
+            elif not (isinstance(rule.get("value"), str) and rule["value"] in enum_values):
+                raise err(f"state_json.laneFilter rule on {field} needs a value of {sorted(enum_values)}.")
+        elif builtin and (op == "between" or "min" in rule or "max" in rule):
+            # Text built-ins: no range operator or bounds.
             raise err(f"state_json.laneFilter rule on {field} takes a text operator and a value, not between, min or max.")
         for key in ("value", "min", "max"):
             if key in rule:

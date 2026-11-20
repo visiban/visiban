@@ -813,6 +813,42 @@ class SavedFilterLaneFilterStateTests(TestCase):
                 # The saved-filter name is unique per user and board.
                 SavedFilter.objects.filter(pk=r.data["id"]).delete()
 
+    def test_health_status_rules_round_trip(self):
+        """#2247 — the built-in health field: is / is not over the enum, is set / is empty with no operand."""
+        health = {"field": "health_status"}
+        lane_filter = {
+            "items": [
+                _lane_rule(1, op="is", value="at_risk", **health),
+                _lane_rule(2, join="or", op="is_not", value="on_track", **health),
+                # is_set / is_empty carry no operand at all.
+                {"kind": "rule", "id": 3, "join": "or", "field": "health_status", "op": "is_set"},
+            ]
+        }
+        lane_filter["items"].append({"kind": "rule", "id": 4, "join": "and", "field": "health_status", "op": "is_empty"})
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+
+    def test_health_status_rules_reject_unknown_values_and_shapes(self):
+        health = {"field": "health_status"}
+        cases = {
+            "unknown value": _lane_rule(op="is", value="purple", **health),
+            "unknown value is_not": _lane_rule(op="is_not", value="ON_TRACK", **health),
+            "no value": {k: v for k, v in _lane_rule(op="is", **health).items() if k != "value"},
+            "value not str": _lane_rule(op="is", value=["at_risk"], **health),
+            "text op": _lane_rule(op="contains", value="risk", **health),
+            "between": _lane_rule(op="between", **health),
+            "with min": _lane_rule(op="is", value="at_risk", min="1", **health),
+            "is_set with value": _lane_rule(op="is_set", value="at_risk", **health),
+            "is_empty with value": _lane_rule(op="is_empty", value="", **health),
+            "is_set on name": _lane_rule(op="is_set", field="name"),
+            "is_empty on custom field": {k: v for k, v in _lane_rule(op="is_empty").items() if k != "value"},
+        }
+        for label, rule in cases.items():
+            with self.subTest(label):
+                self._assert_400({"items": [rule]})
+
     def test_text_op_rules_rejected_outside_their_bounds(self):
         for op in ("contains", "not_contains", "wildcard"):
             cases = {

@@ -219,8 +219,8 @@ describe('laneFilter', () => {
   it('offers dropdown/number/date/text/url fields, admin-only ones to admins only', () => {
     const defs = [SECRET, NOTES, DEAL, AE, SIGNED, SITE, OWNER]
     // #2336 — the built-ins come first; Contact email to admins only.
-    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual(['name', 1, 3, 6, 8])
-    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual(['name', 'contact_email', 1, 3, 5, 6, 8, 9])
+    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual(['name', 'health_status', 1, 3, 6, 8])
+    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual(['name', 'contact_email', 'health_status', 1, 3, 5, 6, 8, 9])
   })
 
   it('collects the lanes\' distinct text values, trimmed, case-folded and sorted', () => {
@@ -440,16 +440,16 @@ describe('laneFilter — built-in fields (#2336)', () => {
   })
 
   it('models the built-ins as synthetic text fields, with a suffix only on a name collision', () => {
-    expect(LANE_BUILTIN_FIELDS.map((b) => b.key)).toEqual(['name', 'contact_email'])
+    expect(LANE_BUILTIN_FIELDS.map((b) => b.key)).toEqual(['name', 'contact_email', 'health_status'])
     expect(adminFields.slice(0, 2)).toMatchObject([
       { id: 'name', name: 'Lane name', field_type: 'text', is_admin_only: false },
       { id: 'contact_email', name: 'Contact email', field_type: 'text', is_admin_only: true },
     ])
     const clash = laneFilterFields([field(7, ' lane NAME ', 'text'), field(8, 'Contact Email', 'text')], true)
-    expect(clash.map((f) => f.name)).toEqual(['Lane name (built-in)', 'Contact email (built-in)', ' lane NAME ', 'Contact Email'])
+    expect(clash.map((f) => f.name)).toEqual(['Lane name (built-in)', 'Contact email (built-in)', 'Health', ' lane NAME ', 'Contact Email'])
     // A colliding admin-only field a member cannot see does not rename the built-in for them.
     const hidden = laneFilterFields([field(8, 'Lane name', 'text', { is_admin_only: true })], false)
-    expect(hidden.map((f) => f.name)).toEqual(['Lane name'])
+    expect(hidden.map((f) => f.name)).toEqual(['Lane name', 'Health'])
     const label = laneFilterChipItems({ items: [NAME_RULE(1, 'is', 'Acme Corp')] }, clash, (_f, raw) => raw)[0].label
     expect(label).toBe('Lane name (built-in) is Acme Corp')
   })
@@ -591,5 +591,73 @@ describe('laneFilterAvailable with only hideUnmatched (#2214)', () => {
   it('keeps the Lanes control so the flag can be turned off', () => {
     expect(L.laneFilterAvailable(0, 1, { items: [], hideUnmatched: true })).toBe(true)
     expect(L.laneFilterAvailable(0, 1, undefined)).toBe(false)
+  })
+})
+
+describe('laneFilter — health built-in (#2247)', () => {
+  const lane = (id: number, health: string | null, pin: string | null = null) =>
+    ({ id, name: `L${id}`, custom_field_values: [], effective_health_status: health, health_status: pin }) as never
+  const lanes = [lane(1, 'on_track'), lane(2, 'at_risk'), lane(3, 'off_track'), lane(4, null), lane(5, 'at_risk', 'at_risk')]
+  const fields = laneFilterFields([], false)
+  const hidden = (op: string, value?: string) =>
+    [
+      ...laneIdsHiddenByFilter(
+        lanes,
+        { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: op as never, ...(value ? { value } : {}) }] },
+        fields,
+      ),
+    ].sort()
+
+  it('is a fixed-choice enum built-in everyone can use', () => {
+    const def = fields.find((f) => f.id === 'health_status')
+    expect(def).toMatchObject({ name: 'Health', field_type: 'enum', is_admin_only: false, choices: ['on_track', 'at_risk', 'off_track'] })
+    expect(opsForFieldType('enum')).toEqual(['is', 'is_not', 'is_set', 'is_empty'])
+  })
+
+  it('is / is not / is set / is empty filter by the effective status; no status matches is empty', () => {
+    expect(hidden('is', 'at_risk')).toEqual([1, 3, 4])
+    expect(hidden('is_not', 'at_risk')).toEqual([2, 5])
+    expect(hidden('is_set')).toEqual([4])
+    expect(hidden('is_empty')).toEqual([1, 2, 3, 5])
+  })
+
+  it('falls back to the pin when the lane payload carries no effective status', () => {
+    const old = [{ id: 9, name: 'Old', custom_field_values: [], health_status: 'off_track' }] as never
+    const f = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is', value: 'off_track' }] } as never
+    expect([...laneIdsHiddenByFilter(old, f, fields)]).toEqual([])
+  })
+
+  it('an is rule with no value is incomplete and hides nothing; presence ops are complete without one', () => {
+    expect(isRuleComplete({ field: 'health_status', op: 'is' }, 'enum')).toBe(false)
+    expect(isRuleComplete({ field: 'health_status', op: 'is_set' }, 'enum')).toBe(true)
+    expect(isRuleComplete({ field: 1, op: 'is_set' }, 'text')).toBe(false)
+    expect(hidden('is')).toEqual([])
+  })
+
+  it('reads as plain language with the status label', () => {
+    const f = {
+      items: [
+        { kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is', value: 'at_risk' },
+        { kind: 'rule', id: 2, join: 'or', field: 'health_status', op: 'is_empty' },
+      ],
+    } as never
+    expect(summarizeLaneFilter(f, fields, (_d, raw) => raw).readsAs).toBe('Reads as: Health is At risk or Health is empty')
+  })
+
+  it('round-trips through sanitize and the URL form, with presence ops carrying no operand', () => {
+    const f = sanitizeLaneFilter({
+      items: [
+        { kind: 'rule', id: 1, field: 'health_status', op: 'is_not', value: 'on_track' },
+        { kind: 'rule', id: 2, field: 'health_status', op: 'is_set', value: 'stray' },
+      ],
+    })
+    expect(f?.items[1]).not.toHaveProperty('value')
+    expect(parseLaneFilterParam(serializeLaneFilterParam(f))).toEqual(f)
+  })
+
+  it('counts presence rules as an active filter and keeps them through pruning', () => {
+    const f = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is_empty' }] } as never
+    expect(isLaneFilterActive(f)).toBe(true)
+    expect(pruneLaneFilter(f, fields)).toBe(f)
   })
 })
