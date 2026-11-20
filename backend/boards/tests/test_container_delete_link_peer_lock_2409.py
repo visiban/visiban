@@ -104,6 +104,18 @@ class ContainerDeleteLinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
             "column": self.col_c, "swimlane": self.lane_c,
             "board": self.cboard, "user": self.owner,
         }[kind]
+        if kind == "user":
+            # _LinkFixture makes the owner own both boards, which would put the
+            # parent inside the delete's cascade. Hand the parent's board to
+            # someone else so the parent is a peer outside the container.
+            other = User.objects.create_user(
+                username="pown2409", password="pass", email="pown2409@example.com"
+            )
+            self.pboard.owner = other
+            self.pboard.save(update_fields=["owner"])
+            # The user delete also locks every card that references the user
+            # (created_by, assignee), so the parent must not reference them.
+            Card.objects.filter(pk=self.parent.pk).update(created_by=other, assignee=None)
         model_admin = django_admin.site._registry[type(target)]
 
         def delete():

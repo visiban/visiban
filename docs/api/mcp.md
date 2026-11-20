@@ -377,6 +377,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `invalid_gates_passed` | `move_card`: `gates_passed` (since 1.3) is not an integer, is negative, or is past the target stage's last sub-column. |
 | `card_creation_not_allowed` | `create_card` targeted a column that has card creation turned off. Carries a `column` message instead of `detail`: `{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}`. |
 | `container_changed` | Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry. |
+| `links_changed` | `delete_card`: the card's links kept changing while it was being deleted; nothing was deleted; retry. Added in 1.3 (#2409). |
 | `use_move_endpoint` | Reserved: no tool currently emits it, because `update_card` takes no column, swimlane, or position. An update tried to change a card's column, swimlane, or position. Use `move_card` instead. |
 | `card_already_blocked` | `block_card` on a card that already has an open manual block. Nothing changed; unblock it first. Added in 1.3 (#1149). |
 | `card_not_blocked` | `unblock_card` on a card with no open manual block. A `blocks` relation to another card is not a manual block and is not cleared by `unblock_card`. Added in 1.3 (#1149). |

@@ -33,6 +33,7 @@ FACTORIES = {
     "InvalidGatesPassed": lambda: service_errors.InvalidGatesPassed(),
     "VersionConflict": lambda: service_errors.VersionConflict(3),
     "ContainerChanged": lambda: service_errors.ContainerChanged(),
+    "LinksChanged": lambda: service_errors.LinksChanged(),
     "WipLimitExceeded": lambda: service_errors.WipLimitExceeded(
         column_name="c", current_count=1, wip_limit=1),
     "WipHardBlocked": lambda: service_errors.WipHardBlocked(
@@ -76,6 +77,7 @@ EXPECTED_SERVICE_CODES = {
     "InvalidGatesPassed": "invalid_gates_passed",
     "VersionConflict": "version_conflict",
     "ContainerChanged": "container_changed",
+    "LinksChanged": "links_changed",
     "WipLimitExceeded": "wip_limit_exceeded",
     "WipHardBlocked": "wip_hard_blocked",
     "WeightLimitExceeded": "weight_limit_exceeded",

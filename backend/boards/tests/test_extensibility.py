@@ -47,7 +47,8 @@ class URLConfExtensionPointTests(TestCase):
     """``visiban.urls`` must load without the enterprise package (#1047).
 
     The URLConf ends with a ``try: from enterprise.urls import ... except
-    ImportError: pass`` block. In the OSS repo ``enterprise`` is absent, so the
+    ModuleNotFoundError`` guard that skips only an absent ``enterprise``
+    module (#1753). In the OSS repo ``enterprise`` is absent, so the
     except branch is taken; if that guard is ever removed, importing the module
     here would raise ``ImportError`` and fail this test. (The same module loads
     cleanly in the enterprise mirror, where the try branch succeeds — so this

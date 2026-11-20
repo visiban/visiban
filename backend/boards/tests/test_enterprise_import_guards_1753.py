@@ -9,9 +9,11 @@ its settings or routes.
 
 import ast
 import importlib
+import importlib.util
 import sys
 import tempfile
 import textwrap
+from unittest import skipIf
 from pathlib import Path
 
 from django.test import SimpleTestCase
@@ -95,6 +97,12 @@ class UrlsGuardBehaviorTests(SimpleTestCase):
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
+        # The enterprise mirror runs this suite with the real package
+        # importable; hide it for the test and put back exactly what was there.
+        self._saved_modules = {
+            m: sys.modules.pop(m)
+            for m in [m for m in sys.modules if m == "enterprise" or m.startswith("enterprise.")]
+        }
         self.addCleanup(self._restore)
         sys.path.insert(0, self._tmp.name)
 
@@ -102,6 +110,7 @@ class UrlsGuardBehaviorTests(SimpleTestCase):
         sys.path.remove(self._tmp.name)
         for name in [m for m in sys.modules if m == "enterprise" or m.startswith("enterprise.")]:
             del sys.modules[name]
+        sys.modules.update(self._saved_modules)
         import visiban.urls
 
         importlib.reload(visiban.urls)
@@ -121,6 +130,7 @@ class UrlsGuardBehaviorTests(SimpleTestCase):
 
         return importlib.reload(visiban.urls)
 
+    @skipIf(importlib.util.find_spec("enterprise") is not None, "real enterprise package installed")
     def test_no_enterprise_package_is_skipped(self):
         self.assertEqual(self._reload_urls().extension_urlpatterns, [])
 
