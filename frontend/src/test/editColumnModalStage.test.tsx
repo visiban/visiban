@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import EditColumnModal from '../components/Board/EditColumnModal'
 import type { Column, CustomFieldDefinition, Swimlane } from '../types'
 
@@ -7,7 +7,10 @@ vi.mock('../api/boards', () => ({
   updateColumn: vi.fn(),
   createCustomFieldDefinition: vi.fn(),
   saveColumnStage: vi.fn(),
+  updateCustomFieldDefinition: vi.fn(),
+  getStageCardCounts: vi.fn(() => Promise.resolve([])),
 }))
+import { saveColumnStage, updateColumn } from '../api/boards'
 
 const column: Column = {
   id: 5, uid: 'c5', name: 'Discovery', position: 1, color: '#000', wip_limit: null, weight_limit: null,
@@ -47,11 +50,64 @@ describe('EditColumnModal Stage tab (#2278)', () => {
     renderModal({ swimlanes: lanes, customFieldDefinitions: defs })
     fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Discovery 2' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Stage' }))
-    expect(screen.getByTestId('stage-footer')).toHaveTextContent(/unsaved Settings and Policy changes will be lost/)
+    expect(screen.getByTestId('stage-footer')).toHaveTextContent(/The dialog stays open so you can save your Settings and Policy changes after/)
     fireEvent.change(screen.getByLabelText('Sub-column 1 name'), { target: { value: 'Building' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
     expect(screen.queryByRole('button', { name: 'Save stage' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab', { name: 'Stage' }))
     expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Building')
+  })
+
+  it('closes after Save stage when no other tab has unsaved edits', async () => {
+    const saved = { ...column, name: 'Discovery' }
+    vi.mocked(saveColumnStage).mockResolvedValue({ column: saved, remapped: [{ id: 1, gates_passed: 0, version: 2 }] })
+    const onUpdated = vi.fn(); const onClose = vi.fn()
+    renderModal({ initialTab: 'stage', swimlanes: lanes, customFieldDefinitions: defs, onUpdated, onClose })
+    expect(screen.getByTestId('stage-footer')).toHaveTextContent('Save stage saves this tab only and closes.')
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(onUpdated).toHaveBeenCalledWith({ ...saved, remapped: [{ id: 1, gates_passed: 0, version: 2 }] })
+  })
+
+  it('keeps Settings drafts when Save stage runs, then hands the board the stage on Save (#2368)', async () => {
+    const stageSaved = { ...column, sub_columns: [{ id: 11, uid: 's11', position: 0, name: 'Building' }, { id: 12, uid: 's12', position: 1, name: 'Ready' }] }
+    const remapped = [{ id: 7, gates_passed: 0, version: 3 }]
+    vi.mocked(saveColumnStage).mockResolvedValue({ column: stageSaved, remapped })
+    vi.mocked(updateColumn).mockResolvedValue({ ...stageSaved, name: 'Discovery 2' } as Column)
+    const onUpdated = vi.fn(); const onClose = vi.fn()
+    renderModal({ swimlanes: lanes, customFieldDefinitions: defs, onUpdated, onClose })
+    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Discovery 2' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Stage' }))
+    fireEvent.change(screen.getByLabelText('Sub-column 1 name'), { target: { value: 'Building' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(await screen.findByText('Stage saved. Your Settings and Policy changes are not saved yet.')).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onUpdated).not.toHaveBeenCalled()
+    expect(screen.getByRole('tab', { name: 'Stage' })).toHaveFocus()
+    // The panel reseeds from the saved stage, so a second save sends its rows.
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Building')
+    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))
+    expect(screen.getByLabelText('Name *')).toHaveValue('Discovery 2')
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(onUpdated).toHaveBeenCalledWith({ ...stageSaved, name: 'Discovery 2', remapped })
+  })
+
+  it('hands a saved stage to the board when the modal is canceled afterward (#2368)', async () => {
+    const remapped = [{ id: 7, gates_passed: 0, version: 3 }]
+    vi.mocked(saveColumnStage).mockClear()
+    vi.mocked(saveColumnStage).mockResolvedValue({ column, remapped })
+    const onUpdated = vi.fn(); const onClose = vi.fn()
+    renderModal({ swimlanes: lanes, customFieldDefinitions: defs, onUpdated, onClose })
+    fireEvent.change(screen.getByLabelText('Name *'), { target: { value: 'Discovery 2' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Stage' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await screen.findByText('Stage saved. Your Settings and Policy changes are not saved yet.')
+    // A second Save stage while still dirty accumulates the remap.
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(saveColumnStage).toHaveBeenCalledTimes(2))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onUpdated).toHaveBeenCalledWith({ ...column, remapped: [...remapped, ...remapped] })
+    expect(onClose).toHaveBeenCalled()
   })
 })

@@ -417,6 +417,23 @@ export interface StageSettingsBody {
   not_applicable?: { swimlane_id: number; field_id: number }[];
 }
 
+/** One sub-column's cards, active and archived, from `GET .../stage-card-counts/` (#2368). */
+export interface StageSubColumnCardCount {
+  id: number;
+  cards: number;
+  archived_cards: number;
+}
+
+/**
+ * Board admins only (#2368). Per-sub-column counts, archived cards included,
+ * for the Stage settings "N cards will move" summary: a stage save remaps
+ * archived cards too, and the board payload does not carry them.
+ */
+export const getStageCardCounts = (boardId: number, colId: number) =>
+  client.get<{ sub_columns: StageSubColumnCardCount[] }>(
+    `/api/v1/boards/${boardId}/columns/${colId}/stage-card-counts/`,
+  ).then((r) => r.data.sub_columns);
+
 /** Board admins only. The response's `remapped` lists cards whose `gates_passed` changed. */
 export const saveColumnStage = (boardId: number, colId: number, data: StageSettingsBody) =>
   client.put<{ column: Column; remapped: { id: number; gates_passed: number; version: number }[] }>(

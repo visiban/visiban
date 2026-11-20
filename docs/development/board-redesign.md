@@ -208,8 +208,8 @@ Screenshot: `stages-settings.png` (the panel at the bottom).
 
 Opens from the column menu. Three groups:
 
-- **Sub-columns, in order:** numbered name inputs, remove buttons, "Add sub-column". Note: one WIP limit covers the whole stage; time in the last sub-column is recorded as waiting.
-- **Tracks, any order:** name inputs, remove buttons, "Add track". Note: each track is open, done or not applicable and shows as a chip on the card.
+- **Sub-columns, in order:** numbered name inputs, ↑ / ↓ reorder buttons (#2368; not in the image, a card follows its sub-column), remove buttons, "Add sub-column". Note: one WIP limit covers the whole stage; time in the last sub-column is recorded as waiting.
+- **Tracks, any order:** name inputs (a rename PATCHes the dimension field before the stage save, #2382), remove buttons, "Add track". Note: each track is open, done or not applicable and shows as a chip on the card.
 - **Rules and exceptions:** "Every track must be done to reach <last sub-column>" (checkbox; not built yet, #1920), a list of swimlane exceptions ("APAC: Business is not applicable") with remove buttons, "Add swimlane exception".
 
 Save stage (primary) and Cancel. Composite editor rules in § Composite inline editors apply.

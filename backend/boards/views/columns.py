@@ -197,8 +197,11 @@ class ColumnViewSet(viewsets.ModelViewSet):
             "Gated stages (#1102) and stage tracks (#1921). Board admins only. Every key "
             "is optional; an omitted key is left unchanged. `sub_columns` is the ordered "
             "list (`[]` or at least two, at most 4); an entry with an `id` keeps and may "
-            "rename that sub-column, one without is new, and kept sub-columns cannot be "
-            "reordered. Removing a sub-column moves each card past it back one, recording "
+            "rename that sub-column, one without is new, and the list order is the new "
+            "order: kept sub-columns may be reordered (not in the same request that removes "
+            "one: that is a 400, 'Reorder and remove sub-columns in separate saves'), "
+            "and a card follows its own "
+            "sub-column to its new index without a gate transition. Removing a sub-column moves each card past it back one, recording "
             "a `stage_edited` gate transition; the response's `remapped` lists them. "
             "`tracks` is the ordered list of dimension field ids; removing one unbinds it "
             "only. `not_applicable` replaces the lane exceptions for this stage's tracks."
@@ -271,6 +274,44 @@ class ColumnViewSet(viewsets.ModelViewSet):
             "sub_columns", "stage_tracks__field_definition",
         ).get(pk=column.pk)
         return Response({"column": ColumnSerializer(fresh).data, "remapped": remapped})
+
+    @extend_schema(
+        summary="Count the cards in each sub-column of a stage",
+        description=(
+            "Board admins only (#2368). For the Stage settings \"N cards will move\" "
+            "summary: one entry per sub-column, in order, with its active `cards` and "
+            "its `archived_cards`. Archived cards keep their sub-column and are "
+            "remapped by a stage save too. A card past the last sub-column counts "
+            "in the last one. A plain column returns `[]`."
+        ),
+        responses={200: inline_serializer(
+            name="ColumnStageCardCounts",
+            fields={
+                "sub_columns": serializers.ListField(child=inline_serializer(
+                    name="ColumnStageCardCount",
+                    fields={
+                        "id": serializers.IntegerField(),
+                        "cards": serializers.IntegerField(),
+                        "archived_cards": serializers.IntegerField(),
+                    },
+                )),
+            },
+        )},
+    )
+    @action(detail=True, methods=["get"], url_path="stage-card-counts", pagination_class=None)
+    def stage_card_counts(self, request, board_pk=None, pk=None):
+        """Per-sub-column card counts, archived included, for the save preview."""
+        from ..services import stages as stage_services
+        from ..services.errors import CardServiceError
+
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        try:
+            counts = stage_services.stage_card_counts(board=board, column_id=pk)
+        except CardServiceError as exc:
+            return Response(exc.body(), status=exc.status)
+        return Response({"sub_columns": counts})
 
     @extend_schema(
         summary="Reorder columns",

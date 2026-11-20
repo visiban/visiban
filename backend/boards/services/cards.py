@@ -2168,17 +2168,21 @@ def _sub_columns_by_column(column_ids):
     return out
 
 
-def write_gate_transitions(
+def build_gate_transitions(
     *, card, column, sub_columns, from_index, to_index, actor, cause,
     movement=None, reason="", imported_from_username=None, created_at=None,
 ):
-    """Write one ``CardGateTransition`` per gate between two positions (#1102).
+    """Return the unsaved ``CardGateTransition`` rows for one card's gate change (#1102).
 
-    Passing from 0 to 2 writes two ``pass`` rows (0->1, 1->2); going back from
-    2 to 0 writes two ``reopen`` rows (2->1, 1->0). Each row names the
-    sub-column the card reached at that step. Returns the rows, in order.
-    Shared by the move, the stage settings remap and the import, so a gate is
-    recorded the same way on every transport.
+    Passing from 0 to 2 builds two ``pass`` rows (0->1, 1->2); going back from
+    2 to 0 builds two ``reopen`` rows (2->1, 1->0). Each row names the
+    sub-column the card reached at that step.
+
+    The rows carry every snapshot that ``CardGateTransition.save()`` would
+    otherwise fill (board, card uid, card title), because the callers insert
+    them with ``bulk_create``, which skips ``save()`` (#2362). That is still
+    insert-only: ``bulk_create`` never updates an existing row, so the
+    append-only guarantee holds.
     """
     if from_index == to_index:
         return []
@@ -2197,8 +2201,22 @@ def write_gate_transitions(
         )
         if created_at is not None:
             row.created_at = created_at
-        row.save()
         rows.append(row)
+    return rows
+
+
+def write_gate_transitions(**kwargs):
+    """Write one ``CardGateTransition`` per gate between two positions (#1102).
+
+    One ``bulk_create`` for every gate crossed (#2362), not one ``save()``
+    each. Returns the rows, in order, with their ids. The move uses it; the
+    stage settings remap builds rows for many cards with
+    ``build_gate_transitions`` and inserts them all at once, so a gate is
+    recorded the same way on both paths.
+    """
+    rows = build_gate_transitions(**kwargs)
+    if rows:
+        CardGateTransition.objects.bulk_create(rows)
     return rows
 
 

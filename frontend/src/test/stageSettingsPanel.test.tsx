@@ -8,10 +8,15 @@ import type { Column, CustomFieldDefinition, Swimlane } from '../types'
 vi.mock('../api/boards', () => ({
   createCustomFieldDefinition: vi.fn(),
   saveColumnStage: vi.fn(),
+  updateCustomFieldDefinition: vi.fn(),
+  getStageCardCounts: vi.fn(),
 }))
-import { createCustomFieldDefinition, saveColumnStage } from '../api/boards'
+import { createCustomFieldDefinition, getStageCardCounts, saveColumnStage, updateCustomFieldDefinition } from '../api/boards'
+import userEvent from '@testing-library/user-event'
 const mockCreate = createCustomFieldDefinition as ReturnType<typeof vi.fn>
 const mockSave = saveColumnStage as ReturnType<typeof vi.fn>
+const mockRename = updateCustomFieldDefinition as ReturnType<typeof vi.fn>
+const mockCounts = getStageCardCounts as ReturnType<typeof vi.fn>
 
 const column: Column = {
   id: 5, uid: 'c5', name: 'Discovery', position: 1, color: '#000', wip_limit: null, weight_limit: null,
@@ -36,7 +41,11 @@ const renderPanel = (over: Partial<Parameters<typeof StageSettingsPanel>[0]> = {
   return { onSaved, onCancel }
 }
 
-beforeEach(() => { mockCreate.mockReset(); mockSave.mockReset() })
+beforeEach(() => {
+  mockCreate.mockReset(); mockSave.mockReset(); mockRename.mockReset(); mockCounts.mockReset()
+  // Default: the counts request fails, so the summary uses the caller's cards.
+  mockCounts.mockRejectedValue(new Error('offline'))
+})
 
 describe('StageSettingsPanel (#2278)', () => {
   it('seeds sub-columns, tracks and this stage\'s lane exceptions', () => {
@@ -165,10 +174,201 @@ describe('StageSettingsPanel (#2278)', () => {
     expect(await screen.findByText('A stage can have at most 4 sub-columns.')).toHaveAttribute('role', 'alert')
     // After a failed save focus returns to Save, and the live regions stay mounted (WCAG 4.1.3).
     expect(screen.getByRole('button', { name: 'Save stage' })).toHaveFocus()
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(2)
     expect(onSaved).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
+  })
+})
+
+describe('StageSettingsPanel follow-ups (#2368, #2382)', () => {
+  const three = { ...column, sub_columns: [...column.sub_columns!, { id: 13, uid: 's13', position: 2, name: 'Review' }] }
+
+  it('reorders sub-columns with up and down, keeps focus on the moved row and saves the new order', async () => {
+    mockSave.mockResolvedValue({ column: three, remapped: [] })
+    const { onSaved } = renderPanel({ column: three })
+    const up = screen.getByRole('button', { name: 'Move sub-column Doing up' })
+    // The ends are aria-disabled, not disabled, so they stay reachable (G5).
+    expect(up).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(up)
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Doing')
+    expect(screen.getByRole('button', { name: 'Move sub-column Review down' })).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Move sub-column Doing down' }))
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Ready')
+    expect(screen.getByLabelText('Sub-column 2 name')).toHaveValue('Doing')
+    expect(screen.getByRole('button', { name: 'Move sub-column Doing down' })).toHaveFocus()
+    expect(screen.getByText('Doing moved to position 2 of 3.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Move sub-column Ready up' }))
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Ready')
+    // A reorder alone moves no card out of its sub-column: no consequence line.
+    expect(screen.queryByTestId('stage-consequences')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockSave.mock.calls[0][2].sub_columns).toEqual([
+      { id: 12, name: 'Ready' }, { id: 11, name: 'Doing' }, { id: 13, name: 'Review' },
+    ])
+  })
+
+  it('holds the reorder buttons while a removal is pending and says why', async () => {
+    const user = userEvent.setup()
+    renderPanel({ column: three })
+    const up = screen.getByRole('button', { name: 'Move sub-column Review up' })
+    expect(up).not.toHaveAttribute('aria-disabled')
+    await user.click(screen.getByRole('button', { name: 'Remove sub-column Doing' }))
+    const held = screen.getByRole('button', { name: 'Move sub-column Review up' })
+    expect(held).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Move sub-column Ready down' })).toHaveAttribute('aria-disabled', 'true')
+    expect(held).toHaveAccessibleDescription(/Reorder and remove sub-columns in separate saves/)
+    await user.click(held)
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Ready')
+    expect(screen.getByLabelText('Sub-column 2 name')).toHaveValue('Review')
+  })
+
+  it('holds Remove after a reorder and never sends a save that mixes the two', async () => {
+    mockSave.mockResolvedValue({ column: three, remapped: [] })
+    const user = userEvent.setup()
+    renderPanel({ column: three })
+    await user.click(screen.getByRole('button', { name: 'Move sub-column Review up' }))
+    const remove = screen.getByRole('button', { name: 'Remove sub-column Doing' })
+    expect(remove).toHaveAttribute('aria-disabled', 'true')
+    expect(remove).toHaveAccessibleDescription(/Reorder and remove sub-columns in separate saves/)
+    await user.click(remove)
+    expect(screen.getAllByLabelText(/Sub-column \d name/)).toHaveLength(3)
+    await user.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(mockSave).toHaveBeenCalled())
+    expect(mockSave.mock.calls[0][2].sub_columns).toHaveLength(3)
+    expect(mockRename).not.toHaveBeenCalled()
+  })
+
+  it('shows the live field name on every stage after a rename, and treats the old name as free', () => {
+    const renamed = [{ ...defs[0], name: 'Engineering' }, ...defs.slice(1)] as CustomFieldDefinition[]
+    // The column still carries the old copy of the name: a rename reaches only the definitions.
+    renderPanel({ definitions: renamed })
+    expect(screen.getByLabelText('Track 1 name')).toHaveValue('Engineering')
+    fireEvent.change(screen.getByLabelText('New track name'), { target: { value: 'Technical' } })
+    expect(screen.getByLabelText('New track name')).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Add track' })).toBeEnabled()
+    // Saving does not re-rename it: the saved name is the live one.
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(mockRename).not.toHaveBeenCalled()
+  })
+
+  it('shows the server refusal of a reorder plus a removal', async () => {
+    mockSave.mockRejectedValue({ response: { status: 400, data: { sub_columns: ['Reorder and remove sub-columns in separate saves'] } } })
+    renderPanel({ column: three })
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Reorder and remove sub-columns in separate saves')
+  })
+
+  it('reorders by keyboard', async () => {
+    const user = userEvent.setup()
+    renderPanel({ column: three })
+    screen.getByRole('button', { name: 'Move sub-column Review up' }).focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByLabelText('Sub-column 2 name')).toHaveValue('Review')
+    expect(screen.getByRole('button', { name: 'Move sub-column Review up' })).toHaveFocus()
+    await user.keyboard(' ')
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Review')
+    // At the top the same button stays focused and does nothing more.
+    await user.keyboard('{Enter}')
+    expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Review')
+  })
+
+  it('counts archived cards from the server in the summary', async () => {
+    mockCounts.mockResolvedValue([
+      { id: 11, cards: 4, archived_cards: 0 },
+      { id: 12, cards: 1, archived_cards: 2 },
+    ])
+    // The caller's cards say one card is in Ready; the server knows about three.
+    renderPanel({ cards: [{ column: 5, gates_passed: 1 }] })
+    await waitFor(() => expect(mockCounts).toHaveBeenCalledWith(9, 5))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all sub-columns' }))
+    await waitFor(() => expect(screen.getByTestId('stage-consequences')).toHaveTextContent(
+      '3 cards (2 archived) will move from Ready back to the plain Discovery column.',
+    ))
+    expect(screen.getByTestId('stage-consequences')).toHaveTextContent('4 cards will move from Doing back to the plain Discovery column.')
+  })
+
+  it('falls back to the caller\'s cards when the counts cannot load, and skips the request on a plain column', async () => {
+    renderPanel({ cards: [{ column: 5, gates_passed: 1 }] })
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all sub-columns' }))
+    await waitFor(() => expect(mockCounts).toHaveBeenCalled())
+    expect(screen.getByTestId('stage-consequences')).toHaveTextContent('1 card will move from Ready back to the plain Discovery column.')
+    mockCounts.mockClear()
+    renderPanel({ column: { ...column, sub_columns: [] } })
+    expect(mockCounts).not.toHaveBeenCalled()
+  })
+
+  it('renames a track through its field before the stage save, keeping its id and lane exceptions', async () => {
+    mockRename.mockResolvedValue({ id: 41, name: 'Engineering' })
+    mockSave.mockRejectedValueOnce({ response: { status: 500 } }).mockResolvedValueOnce({ column, remapped: [] })
+    const { onSaved } = renderPanel()
+    const input = screen.getByLabelText('Track 1 name')
+    expect(input).toHaveValue('Technical')
+    fireEvent.change(input, { target: { value: '  Engineering ' } })
+    expect(screen.getByText('APAC: Engineering is not applicable')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(await screen.findByText(/didn't save/)).toHaveTextContent(/^Track names were saved\./)
+    expect(mockRename).toHaveBeenCalledWith(9, 41, { name: 'Engineering' })
+    expect(mockSave).toHaveBeenCalledWith(9, 5, {
+      sub_columns: [{ id: 11, name: 'Doing' }, { id: 12, name: 'Ready' }],
+      tracks: [41],
+      not_applicable: [{ swimlane_id: 3, field_id: 41 }],
+    })
+    // A retry does not rename the field a second time.
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockRename).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not rename an unchanged or newly picked track, and names a new track from its edited row', async () => {
+    mockCreate.mockResolvedValue({ id: 50 })
+    mockSave.mockResolvedValue({ column, remapped: [] })
+    const { onSaved } = renderPanel()
+    fireEvent.change(screen.getByLabelText('Existing track field'), { target: { value: '43' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.change(screen.getByLabelText('New track name'), { target: { value: 'Busines' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add track' }))
+    fireEvent.change(screen.getByLabelText('Track 3 name (new)'), { target: { value: 'Business' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockRename).not.toHaveBeenCalled()
+    expect(mockCreate.mock.calls[0][1].name).toBe('Business')
+  })
+
+  it('validates track names with the sub-column error wiring', () => {
+    renderPanel()
+    const input = screen.getByLabelText('Track 1 name')
+    expect(input).not.toHaveAttribute('aria-invalid')
+    fireEvent.change(input, { target: { value: ' ' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input).toHaveAccessibleDescription('Every track needs a name.')
+    expect(screen.getByRole('button', { name: 'Save stage' })).toBeDisabled()
+    // Region is a card field on the board: a track can't take its name.
+    fireEvent.change(input, { target: { value: 'region' } })
+    expect(input).toHaveAccessibleDescription("Track names must be different from each other and from the board's other fields.")
+    fireEvent.change(screen.getByLabelText('Existing track field'), { target: { value: '43' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.change(input, { target: { value: 'Legal' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Track 2 name')).toHaveAttribute('aria-invalid', 'true')
+    fireEvent.change(input, { target: { value: 'Engineering' } })
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Save stage' })).toBeEnabled()
+  })
+
+  it('renames a track by keyboard', async () => {
+    const user = userEvent.setup()
+    mockRename.mockResolvedValue({ id: 41, name: 'Eng' })
+    mockSave.mockResolvedValue({ column, remapped: [] })
+    const { onSaved } = renderPanel()
+    await user.click(screen.getByLabelText('Track 1 name'))
+    await user.keyboard('{Control>}a{/Control}Eng')
+    expect(screen.getByLabelText('Track 1 name')).toHaveValue('Eng')
+    screen.getByRole('button', { name: 'Save stage' }).focus()
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(mockRename).toHaveBeenCalledWith(9, 41, { name: 'Eng' })
   })
 })
 

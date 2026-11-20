@@ -1288,11 +1288,23 @@ Board admins only (`403` for members, `404` for callers without board access). S
 }
 ```
 
-- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a `stage_edited` gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in `remapped` with its new `gates_passed` and bumped `version`.
+- `sub_columns`: `[]` (a plain column) or 2 to 4 entries. An entry with an `id` keeps and may rename that sub-column; one without is new. The list order is the new order: kept sub-columns may be reordered (#2368), but not in the same request that removes one: that returns `400` with `Reorder and remove sub-columns in separate saves`. A reordered sub-column keeps its cards: each card follows its own sub-column to its new index, passes no gate and writes no history, and appears in `remapped`. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a `stage_edited` gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in `remapped` with its new `gates_passed` and bumped `version`.
 - `tracks`: ordered ids of the board's dimension fields. Removing a track unbinds it only; the field and every card's value stay.
 - `not_applicable`: replaces the lane exceptions for this stage's tracks.
 
 Response: `{"column": <Column>, "remapped": [{"id", "gates_passed", "version"}]}`. The same `remapped` list rides the `column_updated` WebSocket event; changed lanes emit `swimlane_updated`.
+
+Archived cards in the column are remapped too, since they keep `gates_passed`. The remap writes its gate transitions in one insert and its cards in one update per target sub-column (at most four), so a save runs a constant number of queries however many cards the stage holds (#2362).
+
+### `GET /api/v1/boards/{board_id}/columns/{column_id}/stage-card-counts/`
+
+Board admins only (`403` for members, `404` for callers without board access or an unknown column). New in 1.3 (#2368). The Stage settings panel reads it for its "N cards will move" summary, because a stage save also remaps archived cards, which the board payload does not carry.
+
+```json
+{"sub_columns": [{"id": 12, "cards": 3, "archived_cards": 1}, {"id": 13, "cards": 0, "archived_cards": 0}]}
+```
+
+One entry per sub-column, in order: `cards` counts active cards and `archived_cards` archived ones. A card whose `gates_passed` is past the last sub-column counts in the last. A plain column returns `[]`.
 
 ### Card activity: `custom_field_changed`
 

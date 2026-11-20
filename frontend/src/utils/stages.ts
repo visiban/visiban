@@ -163,12 +163,16 @@ export function getTrackStates(
   if (tracks.length === 0) return [];
   const laneNa = new Set(swimlane?.not_applicable_field_ids ?? []);
   return tracks.map((t) => {
-    if (laneNa.has(t.field_id)) return { id: t.field_id, name: t.name, state: "not_applicable" as const, fromLane: true };
+    // A field can be a track on several stages, but a rename reaches only the
+    // definitions (custom_field.updated), so the live definition's name wins
+    // over the column's copy.
     const def = definitions?.find((d) => d.id === t.field_id);
+    const name = def?.name ?? t.name;
+    if (laneNa.has(t.field_id)) return { id: t.field_id, name, state: "not_applicable" as const, fromLane: true };
     const value = card.custom_field_values.find((v) => v.field_definition === t.field_id)?.value ?? "";
     const resolution = value ? def?.choice_resolutions?.[value] ?? "open" : "open";
     const state: TrackState = resolution === "satisfied" ? "done" : resolution === "not_applicable" ? "not_applicable" : "open";
-    return { id: t.field_id, name: t.name, state, fromLane: false };
+    return { id: t.field_id, name, state, fromLane: false };
   });
 }
 
