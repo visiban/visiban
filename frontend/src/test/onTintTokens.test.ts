@@ -972,13 +972,15 @@ describe('sub-column and track chip contrast (#2278)', () => {
     expect(r).toBeCloseTo(pinned, 2)
   })
 
-  it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: boundary border also holds 3:1 on surface-sunken (empty progress segment)', (_t, block) => {
-    expect(ratio(rgbOf(block, 'border-boundary'), rgbOf(block, 'surface-sunken'))).toBeGreaterThanOrEqual(3)
+  it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: boundary border also holds 3:1 on surface-sunken (empty progress segment) and canvas (share page dividers)', (_t, block) => {
+    for (const bg of ['surface-sunken', 'canvas']) expect(ratio(rgbOf(block, 'border-boundary'), rgbOf(block, bg))).toBeGreaterThanOrEqual(3)
   })
 
-  it('the five sub-column and track uses carry line-boundary, not line-strong', () => {
-    for (const f of ['Card/TrackChips', 'Board/BoardCell', 'Board/SwimlaneRow', 'Board/PhoneBoard']) {
-      expect(readFileSync(`src/components/${f}.tsx`, 'utf8'), f).toContain('border-line-boundary')
+  it('the sub-column and track uses carry line-boundary, not line-strong', () => {
+    for (const f of ['components/Card/TrackChips', 'components/Board/BoardCell', 'components/Board/SwimlaneRow', 'components/Board/PhoneBoard', 'pages/ShareBoardPage']) {
+      const src = readFileSync(`src/${f}.tsx`, 'utf8')
+      expect(src, f).toContain('border-line-boundary')
+      expect(src, f).not.toMatch(/border-(l|dashed) border-line-strong/)
     }
     expect(readFileSync('src/components/Card/TrackChips.tsx', 'utf8')).not.toContain('line-strong')
   })

@@ -132,7 +132,7 @@ function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn
               <li
                 key={sub.id}
                 data-testid="share-sub-column-header"
-                className={`flex-1 min-w-0 px-2 py-1 flex items-center gap-1 text-xs text-fg-tertiary ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
+                className={`flex-1 min-w-0 px-2 py-1 flex items-center gap-1 text-xs text-fg-tertiary ${i > 0 ? "border-l border-dashed border-line-boundary" : ""}`}
               >
                 <span className="truncate flex-1" title={sub.name}>{sub.name}</span>
                 <span className="shrink-0" aria-hidden="true">{count}</span>
@@ -221,7 +221,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
                         role="group"
                         aria-label={`${col.name}: ${stageSubColumns(col)[i]?.name ?? ""}`}
                         data-testid="share-sub-column-cell"
-                        className={`flex-1 min-w-0 p-1.5 flex flex-col gap-1.5 ${i > 0 ? "border-l border-dashed border-line-strong" : ""}`}
+                        className={`flex-1 min-w-0 p-1.5 flex flex-col gap-1.5 ${i > 0 ? "border-l border-dashed border-line-boundary" : ""}`}
                       >
                         {list.map((card) => (
                           <StaticCardItem key={card.uid} card={card} labels={board.labels} />

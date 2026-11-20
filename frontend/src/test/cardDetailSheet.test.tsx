@@ -393,7 +393,9 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     mountBoard()
     render(<CardDetail {...defaultProps()} />)
     expect(ascending(domOrder(['Back to board', 'Block…', 'Close', 'Title']))).toBe(true)
-    expect(dialog().querySelector('[class*="order-last"]')).toBeNull()
+    // `(^|\s|:)order-` so `border-` does not match
+    const ordered = Array.from(dialog().querySelectorAll('*')).filter((el) => /(^|\s|:)order-/.test(el.getAttribute('class') ?? ''))
+    expect(ordered).toEqual([])
   })
 
   const tabNames = async (user: ReturnType<typeof userEvent.setup>, n: number) => {
