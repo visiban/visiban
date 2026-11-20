@@ -21,6 +21,31 @@ a major version bump coordinated with the enterprise repository.
 # Register via: from boards.hooks import MOVEMENT_EXPORT_BACKENDS
 #               MOVEMENT_EXPORT_BACKENDS.append(my_exporter)
 # The OSS movements view renders no export UI when this list is empty.
+#
+# Call site (#720): ``GET /boards/{id}/movements/?export=<format>`` in
+# ``boards.views.analytics``. Only the FIRST registered backend is called, and
+# only when ``export`` is non-empty; the view applies the board export throttle
+# and ``export_min_role`` gate before calling it and writes a
+# ``BoardExportLog`` row (``movements_<format>``) after a < 400 response.
+#
+# The queryset: ``CardMovement`` rows of this board, newest first
+# (``-moved_at, -id``), with the request's History filters applied and
+# ``card``, ``moved_by`` and the from/to columns and swimlanes select_related.
+# Every row carries ``imported_from_username`` (#1675, #1701): NULL means the
+# move was recorded on this board; a string (``""`` when the source file named
+# nobody) means the row was imported, ``moved_by`` is the importer, and the
+# string is the source's name for the mover, so an export should show it as
+# "imported, originally <name>" the way the OSS CSV export does.
+#
+# Deleted cards (#1796): by default every row has a live ``card`` (never None).
+# A backend that handles retained history of hard-deleted cards (#1469) sets
+#               my_exporter.accepts_deleted_cards = True
+# and then also receives those rows, with ``card=None``: read the card's
+# identity from ``card_uid`` / ``card_title`` (the snapshot when the row was
+# written) and the board from ``board``. Only ``True`` opts in; a missing or
+# other value keeps the live-cards-only queryset, so a backend written before
+# 1.3 is unaffected. Like ANALYTICS_EXTENSIONS' ``min_role`` below, a bound method reads it from its
+# function.
 MOVEMENT_EXPORT_BACKENDS: list = []
 
 # Analytics panel extension hook (enterprise advanced analytics feature).

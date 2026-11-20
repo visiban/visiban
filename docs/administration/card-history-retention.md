@@ -17,6 +17,8 @@ Each movement record of a deleted card keeps:
 
 Since 1.3, each [block](../features/blocked-cards.md) of a deleted card is kept the same way (#1149): the card's UID and title when it was blocked, the block's **reason** and **resolution** (free text), the column, who blocked and unblocked it and when. Board members see the reasons in [Analytics](../features/analytics.md#why-cards-get-blocked).
 
+Since 1.3, a deleted card's **activity trail** is kept too (#1799): one record per field change or action (title, priority, weight, assignee, label, due date and custom field changes, checklist item events, blocks and unblocks, and the record that a comment was posted), each with the card's UID and title, the **old and new values** of the change, who made it and when. These values are free text: earlier titles, custom field values, checklist item text, block reasons and resolutions. A description change is recorded without the description's text. The comments themselves are card content and are deleted with the card.
+
 While the card exists, its history shows under its current title. Once it is deleted, each movement shows under the title recorded with it, so a card renamed before deletion appears in the board's **History** view under each earlier title. This is intended: it is what the card was called at each move.
 
 **Yes, but:** two exceptions.
@@ -26,13 +28,15 @@ While the card exists, its history shows under its current title. Once it is del
 
 **Who can see it:** every board member, through the board's **History** view; users with [`can_access_all_content`](../features/permissions.md), who can open every board; and Django admin users with permission to view card movements (read-only).
 
+A deleted card's activity records are not in the **History** view. Since 1.3 they leave the board only in its [JSON export](../api/boards.md#get-apiv1boardsidexport) (`deleted_card_history`, #1796), so they are readable by every member at or above the board's `export_min_role` (owners and site admins always), and by Django admin users with permission to view card activities (read-only). The export does not yet carry a deleted card's block and gate transition records (#2413).
+
 **How long it lasts:** until the board is deleted, or until a superuser purges it with the command below. Nothing expires it on a schedule.
 
 See [Card History](../features/card-history.md#deleted-cards-keep-their-history) for how deleted-card history appears to board members and how it affects metrics and exports.
 
 ### Other places a deleted card's title can remain
 
-**Watch out:** `purge_card_history` erases movement records and, since 1.3, block records, and redacts the card's change-feed events (see [What the purge redacts in the change feed](#what-the-purge-redacts-in-the-change-feed)). A deleted card's title can also remain in the places below.
+**Watch out:** `purge_card_history` erases movement records and, since 1.3, block, gate transition and activity records, and redacts the card's change-feed events (see [What the purge redacts in the change feed](#what-the-purge-redacts-in-the-change-feed)). A deleted card's title can also remain in the places below.
 
 - **The board [change feed](../api/events.md)** (`GET /api/v1/boards/{id}/events/`), when you have not purged the card. Each event stores its broadcast payload verbatim. `card.created`, `card.updated` and `card.unarchived` events, and the `card` object inside `card.moved`, hold the full card as it was at that moment: title, description, block reason, custom field values and external reference; `card.moved` also holds the movement's notes. Deleting a card does not remove or redact these events. They are not tied to the board by a foreign key either, so deleting the board does not remove them. Only a `purge_card_history` run or the [`prune_board_events`](scheduled-jobs.md) job changes them. The job deletes events older than its retention window (30 days by default) and, since 1.3, runs by default on the Compose `scheduler` service (`SCHEDULE_PRUNE_BOARD_EVENTS`, `03:00` UTC). On Helm it is off until you enable `scheduledJobs.pruneBoardEvents`. If it is off, or you run neither it nor the command, events are kept forever. Until it prunes them, a deleted card's or board's payloads stay in the feed; `purge_card_history` is the path for an erase request. `purge_card_history --board` refuses a board that has been deleted; use `--card` or a date range instead.
 - **The Django admin log** (`django_admin_log`). Any change made to a card in the Django admin, including deleting it there, records the card's title (`object_repr`) in the admin's own history. Visiban does not prune this table.
@@ -84,7 +88,7 @@ Finding the card UID: a deleted card's UID is shown in the Django admin's **Card
 !!! warning "This breaks the append-only history on purpose"
     Movement records are otherwise never edited or deleted outside a board delete, and change-feed events are never otherwise rewritten. A purge removes the records and the redacted values for good: Board History, the change feed and any later review cannot recover them. The action-log entry is the only record that the purge happened.
 
-    The exception is the card's activity trail (`CardActivity`), which the command does not touch. A deleted card's trail was already removed with the card. With `--include-live-cards` the card still exists, so its trail stays: [`GET /api/v1/boards/{board_id}/cards/{id}/timeline/`](../api/cards.md#timeline) still returns its block reasons and resolutions, earlier titles and checklist item text.
+    Since 1.3 (#1799) the card's activity trail (`CardActivity`) is retained after a card delete too, and the command erases it with the movements, blocks and gate transitions, by the same selector (`--since` / `--before` match its `created_at`). Its rows hold block reasons and resolutions, earlier titles, custom field values, and checklist item text. With `--include-live-cards` a live card's activity rows are erased as well, so its [timeline](../api/cards.md#timeline) loses them. The action-log entry counts them in `deleted_activity_count`. In 1.2 the command did not touch activity rows, which were deleted with their card. Comments are still deleted with their card, so there is nothing of theirs to purge.
 
 !!! note "`--actor` is accountability, not authentication"
     Anyone who can run `manage.py` already has database access and can name any account. Shell access is the real control; `--actor` records which superuser authorized the purge, so the action log can answer "who erased this?".

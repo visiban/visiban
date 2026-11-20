@@ -256,6 +256,105 @@ class BoardExportThrottle(UserRateThrottle):
 
     scope = "board_export"
 
+def _movement_export_entry(mv, *, name_snapshots=False):
+    """One movement in a JSON export. ``name_snapshots`` falls back to the
+    ``*_name`` snapshot when the column or swimlane is gone (#1796): a deleted
+    card's movements often outlive their columns too, and a null name would
+    leave nothing to read. Live cards' entries keep their 1.0 meaning (null)."""
+    def name(fk, snapshot):
+        if fk is not None:
+            return fk.name
+        return (snapshot or None) if name_snapshots else None
+
+    return {
+        "from_column": name(mv.from_column, mv.from_column_name),
+        "to_column": name(mv.to_column, mv.to_column_name),
+        "from_swimlane": name(mv.from_swimlane, mv.from_swimlane_name),
+        "to_swimlane": name(mv.to_swimlane, mv.to_swimlane_name),
+        "moved_by": mv.moved_by.username if mv.moved_by else None,
+        "moved_at": mv.moved_at.isoformat(),
+        "notes": mv.notes,
+        "movement_type": mv.movement_type,
+        # Additive (#1675); null unless the row was imported.
+        "imported_from_username": mv.imported_from_username,
+        # Additive (#1102): gate snapshot of the move.
+        "from_gates_passed": mv.from_gates_passed,
+        "from_gates_open": mv.from_gates_open,
+        "to_gates_passed": mv.to_gates_passed,
+    }
+
+
+def _activity_export_entry(act):
+    """One activity in a JSON export."""
+    return {
+        "event_type": act.event_type,
+        "from_value": act.from_value,
+        "to_value": act.to_value,
+        "actor": act.actor.username if act.actor else None,
+        "created_at": act.created_at.isoformat(),
+        "imported_from_username": act.imported_from_username,
+        # Additive (#2199): null except on checklist
+        # assignee and due-date entries.
+        "item_text": act.item_text,
+    }
+
+
+def _deleted_card_history_export(board):
+    """The board's retained history of hard-deleted cards, for the JSON export (#1796).
+
+    Since #1469 (movements) and #1799 (activities), a hard-deleted card's rows
+    stay on its board with ``card`` NULL and the card's uid and title kept as a
+    snapshot. One entry per deleted card, by uid, ordered by its first row:
+    ``{"card_uid", "card_title", "movements", "activities"}``, the two lists
+    shaped exactly like a card's own and oldest first. ``card_title`` is the
+    newest snapshot among the card's rows. Read by the rows' own ``board``, as
+    Board History reads them: two queries whatever the size (both served by a
+    ``(board, ...)`` index), no per-card query.
+
+    Not in the CSV export: a CSV row is a card, and the CSV importer creates a
+    card from every row, so a deleted card there would come back to life
+    (whether the CSV should carry it in another form: #2414).
+
+    Movements and activities only: a deleted card's retained ``CardBlock`` and
+    ``CardGateTransition`` rows are not exported or imported yet (#2413).
+    """
+    movements = (
+        CardMovement.objects.filter(board=board, card__isnull=True)
+        .select_related("from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by")
+        .order_by("moved_at", "id")
+    )
+    activities = (
+        CardActivity.objects.filter(board=board, card__isnull=True)
+        .select_related("actor")
+        .order_by("created_at", "id")
+    )
+    entries = {}
+    newest = {}
+
+    def entry_for(row, at):
+        entry = entries.get(row.card_uid)
+        if entry is None:
+            entry = entries[row.card_uid] = {
+                "card_uid": row.card_uid, "card_title": row.card_title,
+                "movements": [], "activities": [],
+            }
+        if row.card_uid not in newest or at >= newest[row.card_uid]:
+            newest[row.card_uid] = at
+            entry["card_title"] = row.card_title
+        return entry
+
+    for mv in movements:
+        entry_for(mv, mv.moved_at)["movements"].append(_movement_export_entry(mv, name_snapshots=True))
+    for act in activities:
+        entry_for(act, act.created_at)["activities"].append(_activity_export_entry(act))
+    return sorted(
+        entries.values(),
+        key=lambda e: min(
+            [m["moved_at"] for m in e["movements"]] + [a["created_at"] for a in e["activities"]]
+        ),
+    )
+
+
 def _external_ref_export(card):
     """The card's MR/PR link (#352) as ``{provider, ref, url}``, or None.
 
@@ -595,6 +694,15 @@ def _json_skip_counts(data, options):
                     if isinstance(act, dict) and isinstance(act.get("event_type"), str)
                     and act["event_type"] in valid_event_types
                 )
+    # Retained history of hard-deleted cards (#1796) rides ``history`` too.
+    # The shape is validated before this runs.
+    if not options["history"]:
+        for entry in data.get("deleted_card_history", []):
+            skipped["movements"] += _list_len(entry.get("movements", []))
+            skipped["activities"] += sum(
+                1 for act in entry.get("activities", [])
+                if isinstance(act.get("event_type"), str) and act["event_type"] in valid_event_types
+            )
     return skipped
 
 
@@ -705,6 +813,11 @@ _IMPORT_MAX_CHILDREN_PER_CARD = {
 # the import can insert, the importer-generated ones included, as an upper
 # bound for every option combination; no import writes more than this.
 _IMPORT_MAX_ROWS = 50_000
+# Entries in ``deleted_card_history`` (#1796). Rows are bounded by the caps
+# above; this bounds an entry that carries none (an empty entry writes nothing).
+_IMPORT_MAX_DELETED_CARDS = 10_000
+# A card uid as ``Card.uid`` writes it (16 lowercase hex characters).
+_CARD_UID_RE = re.compile(r"[0-9a-f]{16}")
 # Distinct usernames (assignee, moved_by, actor) a file may reference. Only
 # assignees are resolved to accounts (one query); history names are kept as
 # text (#1675) but still count, so the documented cap is unchanged.
@@ -1142,6 +1255,74 @@ def _validate_json_import_values(data):
             usernames.add(value)
         if len(usernames) > _IMPORT_MAX_USERNAMES:
             return _limit_error(f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames.")
+
+    # Retained history of hard-deleted cards (#1796): a card's movements and
+    # activities without the card. Shape and values are checked here, in one
+    # place, with the same specs, caps and timestamp rule as a card's own, and
+    # its rows and names count against the same import-wide limits.
+    from django.utils.dateparse import parse_datetime
+
+    deleted = data.get("deleted_card_history", [])
+    if not isinstance(deleted, list):
+        return "'deleted_card_history' must be a list"
+    if len(deleted) > _IMPORT_MAX_DELETED_CARDS:
+        return _limit_error(
+            f"'deleted_card_history' has {len(deleted)} entries; the limit is "
+            f"{_IMPORT_MAX_DELETED_CARDS}"
+        )
+    title_check = (("card_title", _text(_field_max_length(CardMovement, "card_title"))),)
+    for di, entry in enumerate(deleted):
+        where = f"Deleted card history at index {di}"
+        if not isinstance(entry, dict):
+            return f"{where} must be an object"
+        uid = entry.get("card_uid", "")
+        if not isinstance(uid, str) or (uid and not _CARD_UID_RE.fullmatch(uid)):
+            return f"{where}: 'card_uid' must be a card uid (16 lowercase hex characters)"
+        if error := _check_keys(entry, title_check, where):
+            return error
+        for child, ts_key, str_keys in (
+            ("movements", "moved_at", (
+                "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by",
+                "imported_from_username",
+            )),
+            ("activities", "created_at", ("actor", "imported_from_username")),
+        ):
+            items = entry.get(child, [])
+            if not isinstance(items, list):
+                return f"{where}: '{child}' must be a list"
+            cap = _IMPORT_MAX_CHILDREN_PER_CARD[child]
+            if len(items) > cap:
+                return _limit_error(f"{where}: '{child}' has {len(items)} entries; the limit is {cap}")
+            child_label, specs = child_specs[child]
+            for ji, item in enumerate(items):
+                item_where = f"{where}, {child_label} at index {ji}"
+                if not isinstance(item, dict):
+                    return f"{item_where} must be an object"
+                for key in str_keys:
+                    if _is_truthy_non_string(item.get(key)):
+                        return f"{item_where}: '{key}' must be a string"
+                if _timestamp_error(item.get(ts_key), parse_datetime):
+                    return f"{item_where}: invalid timestamp for '{ts_key}': {_bounded_repr(item.get(ts_key))}"
+                if error := _check_keys(item, specs, item_where):
+                    return error
+        total_rows += len(entry.get("movements", [])) + len(entry.get("activities", []))
+        if total_rows > _IMPORT_MAX_ROWS:
+            return _limit_error(f"Import would write more than {_IMPORT_MAX_ROWS} rows in total.")
+        # Only the two lists an entry may carry: _card_usernames would also
+        # walk keys (``blocks``, ``checklist``) this section never validates.
+        names = (
+            (key, item.get(key))
+            for child, key in (("movements", "moved_by"), ("activities", "actor"))
+            for item in entry.get(child, [])
+        )
+        for key, value in names:
+            if not (isinstance(value, str) and value):
+                continue
+            if len(value) > username_len:
+                return f"{where}: '{key}' must be at most {username_len} characters"
+            usernames.add(value)
+        if len(usernames) > _IMPORT_MAX_USERNAMES:
+            return _limit_error(f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames.")
     return None
 
 
@@ -1276,6 +1457,25 @@ def _imported_from_username(entry, key):
 # how psycopg reports a NUL byte, but it means a genuine importer ValueError
 # also surfaces as a 400 with a warning log rather than a 5xx.
 _IMPORT_WRITE_ERRORS = (DataError, IntegrityError, DjangoValidationError, ValueError, OverflowError)
+
+
+def _fill_activity_snapshots(activities, cards_by_pk=None):
+    """Set ``board`` and the card snapshot on activity rows before ``bulk_create``.
+
+    The manager's ``bulk_create`` fills them too (``fill_activity_snapshots``,
+    #1799), but only on rows that lack them; setting them here from
+    ``cards_by_pk`` costs no query for rows built with ``card_id=``. ``cards_by_pk`` maps ``card_id`` to the
+    card for rows built with ``card_id=``; rows built with ``card=`` read the
+    cached instance.
+    """
+    for act in activities:
+        if act.card_id is None:
+            # A deleted card's retained row (#1796) carries its own snapshot.
+            continue
+        card = cards_by_pk[act.card_id] if cards_by_pk is not None else act.card
+        act.board_id = card.board_id
+        act.card_uid = card.uid
+        act.card_title = card.title
 
 
 @contextlib.contextmanager
@@ -2204,6 +2404,75 @@ class BoardImportExportMixin:
             external_refs_to_create = []
             field_values_to_create = []
 
+            def _imported_movement(mv_data, **identity):
+                """One imported movement row, on a live card or a deleted one (#1796).
+
+                ``identity`` is ``card_id``, ``board_id``, ``card_uid`` and
+                ``card_title``; ``card_id`` is None for a deleted card's row.
+                """
+                from_col_name = mv_data.get("from_column") or ""
+                to_col_name = mv_data.get("to_column") or ""
+                from_sw_name = mv_data.get("from_swimlane") or ""
+                to_sw_name = mv_data.get("to_swimlane") or ""
+                from_col = column_map.get(from_col_name)
+                to_col = column_map.get(to_col_name)
+                from_sw = swimlane_map.get(from_sw_name)
+                to_sw = swimlane_map.get(to_sw_name)
+                raw_movement_type = mv_data.get("movement_type", CardMovement.MovementType.MOVE)
+                # isinstance guard must short-circuit before the membership
+                # test: an unhashable movement_type (list/dict) crashes `in
+                # valid_movement_types` with an unhandled TypeError instead
+                # of falling back to the default like any other invalid
+                # value (#1185).
+                movement_type = (
+                    raw_movement_type
+                    if isinstance(raw_movement_type, str) and raw_movement_type in valid_movement_types
+                    else CardMovement.MovementType.MOVE
+                )
+                return CardMovement(
+                    # bulk_create skips CardMovement.save(), which
+                    # fills board and the card snapshot on every other
+                    # path (#1469): ``identity`` carries them.
+                    **identity,
+                    from_column=from_col,
+                    to_column=to_col,
+                    from_swimlane=from_sw,
+                    to_swimlane=to_sw,
+                    from_column_name=from_col.name if from_col else from_col_name,
+                    to_column_name=to_col.name if to_col else to_col_name,
+                    from_swimlane_name=from_sw.name if from_sw else from_sw_name,
+                    to_swimlane_name=to_sw.name if to_sw else to_sw_name,
+                    from_column_uid=from_col.uid if from_col else "",
+                    to_column_uid=to_col.uid if to_col else "",
+                    from_swimlane_uid=from_sw.uid if from_sw else "",
+                    to_swimlane_uid=to_sw.uid if to_sw else "",
+                    # Imported history is the importer's record of
+                    # what the file says happened (#1675).
+                    moved_by=request.user,
+                    imported_from_username=_imported_from_username(mv_data, "moved_by"),
+                    notes=mv_data.get("notes", ""),
+                    movement_type=movement_type,
+                    from_gates_passed=mv_data.get("from_gates_passed"),
+                    from_gates_open=mv_data.get("from_gates_open"),
+                    to_gates_passed=mv_data.get("to_gates_passed"),
+                )
+
+            def _imported_activity(act_data, event_type, **identity):
+                """One imported activity row; ``identity`` as for movements (#1796)."""
+                return CardActivity(
+                    **identity,
+                    event_type=event_type,
+                    from_value=act_data.get("from_value", ""),
+                    to_value=act_data.get("to_value", ""),
+                    actor=request.user,
+                    imported_from_username=_imported_from_username(act_data, "actor"),
+                    # Kept only where History shows it (#2199), so a
+                    # file cannot park text on other rows.
+                    item_text=(
+                        act_data.get("item_text") if event_type in _ITEM_TEXT_EVENT_TYPES else None
+                    ),
+                )
+
             for card_obj, card_data in zip(cards_to_create, cards_raw):
                 card_pk = card_obj.pk
 
@@ -2327,53 +2596,9 @@ class BoardImportExportMixin:
                 # Movement history
                 card_movement_objs = []  # for gate_transitions' movement_index
                 for mv_data in (card_data.get("movements", []) if history_on else []):
-                    from_col_name = mv_data.get("from_column") or ""
-                    to_col_name = mv_data.get("to_column") or ""
-                    from_sw_name = mv_data.get("from_swimlane") or ""
-                    to_sw_name = mv_data.get("to_swimlane") or ""
-                    from_col = column_map.get(from_col_name)
-                    to_col = column_map.get(to_col_name)
-                    from_sw = swimlane_map.get(from_sw_name)
-                    to_sw = swimlane_map.get(to_sw_name)
-                    raw_movement_type = mv_data.get("movement_type", CardMovement.MovementType.MOVE)
-                    # isinstance guard must short-circuit before the membership
-                    # test: an unhashable movement_type (list/dict) crashes `in
-                    # valid_movement_types` with an unhandled TypeError instead
-                    # of falling back to the default like any other invalid
-                    # value (#1185).
-                    movement_type = (
-                        raw_movement_type
-                        if isinstance(raw_movement_type, str) and raw_movement_type in valid_movement_types
-                        else CardMovement.MovementType.MOVE
-                    )
-                    mv_obj = CardMovement(
-                            card_id=card_pk,
-                            # bulk_create skips CardMovement.save(), which
-                            # fills these on every other path (#1469).
-                            board_id=card_obj.board_id,
-                            card_uid=card_obj.uid,
-                            card_title=card_obj.title,
-                            from_column=from_col,
-                            to_column=to_col,
-                            from_swimlane=from_sw,
-                            to_swimlane=to_sw,
-                            from_column_name=from_col.name if from_col else from_col_name,
-                            to_column_name=to_col.name if to_col else to_col_name,
-                            from_swimlane_name=from_sw.name if from_sw else from_sw_name,
-                            to_swimlane_name=to_sw.name if to_sw else to_sw_name,
-                            from_column_uid=from_col.uid if from_col else "",
-                            to_column_uid=to_col.uid if to_col else "",
-                            from_swimlane_uid=from_sw.uid if from_sw else "",
-                            to_swimlane_uid=to_sw.uid if to_sw else "",
-                            # Imported history is the importer's record of
-                            # what the file says happened (#1675).
-                            moved_by=request.user,
-                            imported_from_username=_imported_from_username(mv_data, "moved_by"),
-                            notes=mv_data.get("notes", ""),
-                            movement_type=movement_type,
-                            from_gates_passed=mv_data.get("from_gates_passed"),
-                            from_gates_open=mv_data.get("from_gates_open"),
-                            to_gates_passed=mv_data.get("to_gates_passed"),
+                    mv_obj = _imported_movement(
+                        mv_data, card_id=card_pk, board_id=card_obj.board_id,
+                        card_uid=card_obj.uid, card_title=card_obj.title,
                     )
                     card_movement_objs.append(mv_obj)
                     movements_to_create.append((mv_obj, mv_data.get("moved_at")))
@@ -2438,21 +2663,32 @@ class BoardImportExportMixin:
                     if not isinstance(event_type, str) or event_type not in valid_event_types:
                         continue
                     imported_activities.append((
-                        CardActivity(
-                            card_id=card_pk,
-                            event_type=event_type,
-                            from_value=act_data.get("from_value", ""),
-                            to_value=act_data.get("to_value", ""),
-                            actor=request.user,
-                            imported_from_username=_imported_from_username(act_data, "actor"),
-                            # Kept only where History shows it (#2199), so a
-                            # file cannot park text on other rows.
-                            item_text=(
-                                act_data.get("item_text") if event_type in _ITEM_TEXT_EVENT_TYPES else None
-                            ),
-                        ),
+                        _imported_activity(act_data, event_type, card_id=card_pk),
                         act_data.get("created_at"),
                     ))
+
+            # Retained history of hard-deleted cards (#1796), behind ``history``
+            # like every card's own history and attributed the same way (Rule
+            # 5): the importer is the actor, the file's name is kept as text.
+            # The rows get no card (there is none to give them), the new board,
+            # and the file's uid and title snapshot, so they land in this
+            # board's History exactly as they sat in the source board's.
+            for entry in (data.get("deleted_card_history", []) if options["history"] else []):
+                identity = {
+                    "card_id": None, "board_id": board.pk,
+                    "card_uid": entry.get("card_uid", ""), "card_title": entry.get("card_title", ""),
+                }
+                for mv_data in entry.get("movements", []):
+                    movements_to_create.append(
+                        (_imported_movement(mv_data, **identity), mv_data.get("moved_at"))
+                    )
+                for act_data in entry.get("activities", []):
+                    event_type = act_data.get("event_type", "")
+                    if not isinstance(event_type, str) or event_type not in valid_event_types:
+                        continue
+                    imported_activities.append(
+                        (_imported_activity(act_data, event_type, **identity), act_data.get("created_at"))
+                    )
 
             # ---------- Phase 3: bulk-insert all related objects ----------
 
@@ -2463,7 +2699,9 @@ class BoardImportExportMixin:
 
             # Auto-generated activities (no timestamp backfill needed — these are
             # produced by the import itself, not carried over from the export).
+            cards_by_pk = {c.pk: c for c in cards_to_create}
             if auto_activities:
+                _fill_activity_snapshots(auto_activities, cards_by_pk)
                 CardActivity.objects.bulk_create(auto_activities)
 
             # Checklist items
@@ -2518,6 +2756,7 @@ class BoardImportExportMixin:
             # Imported activities with optional created_at backfill.
             if imported_activities:
                 act_objs = [a for a, _ in imported_activities]
+                _fill_activity_snapshots(act_objs, cards_by_pk)
                 CardActivity.objects.bulk_create(act_objs)
                 backfill = [
                     (obj, ts) for obj, ts in imported_activities if ts
@@ -3138,6 +3377,7 @@ class BoardImportExportMixin:
                         ))
 
             if activities:
+                _fill_activity_snapshots(activities)
                 CardActivity.objects.bulk_create(activities)
             if label_through_objs:
                 label_through_model.objects.bulk_create(label_through_objs, ignore_conflicts=True)
@@ -3209,6 +3449,8 @@ class BoardImportExportMixin:
                         "custom_fields": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlane_custom_fields": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "cards": drf_serializers.ListField(child=drf_serializers.DictField()),
+                        # Retained history of hard-deleted cards (#1796).
+                        "deleted_card_history": drf_serializers.ListField(child=drf_serializers.DictField()),
                     },
                 ),
                 description="JSON export (`?format=json`).",
@@ -3460,36 +3702,11 @@ class BoardImportExportMixin:
                         for item in sorted(card.checklist_items.all(), key=lambda i: i.position)
                     ],
                     "movements": [
-                        {
-                            "from_column": mv.from_column.name if mv.from_column else None,
-                            "to_column": mv.to_column.name if mv.to_column else None,
-                            "from_swimlane": mv.from_swimlane.name if mv.from_swimlane else None,
-                            "to_swimlane": mv.to_swimlane.name if mv.to_swimlane else None,
-                            "moved_by": mv.moved_by.username if mv.moved_by else None,
-                            "moved_at": mv.moved_at.isoformat(),
-                            "notes": mv.notes,
-                            "movement_type": mv.movement_type,
-                            # Additive (#1675); null unless the row was imported.
-                            "imported_from_username": mv.imported_from_username,
-                            # Additive (#1102): gate snapshot of the move.
-                            "from_gates_passed": mv.from_gates_passed,
-                            "from_gates_open": mv.from_gates_open,
-                            "to_gates_passed": mv.to_gates_passed,
-                        }
+                        _movement_export_entry(mv)
                         for mv in movements
                     ],
                     "activities": [
-                        {
-                            "event_type": act.event_type,
-                            "from_value": act.from_value,
-                            "to_value": act.to_value,
-                            "actor": act.actor.username if act.actor else None,
-                            "created_at": act.created_at.isoformat(),
-                            "imported_from_username": act.imported_from_username,
-                            # Additive (#2199): null except on checklist
-                            # assignee and due-date entries.
-                            "item_text": act.item_text,
-                        }
+                        _activity_export_entry(act)
                         for act in sorted(card.activities.all(), key=lambda a: a.created_at)
                     ],
                     # Manual blocked state (#1149). Additive, like
@@ -3659,6 +3876,10 @@ class BoardImportExportMixin:
                     for sf in swimlane_field_definitions
                 ],
                 "cards": cards_data,
+                # Retained history of hard-deleted cards (#1796), after "cards"
+                # so every existing key keeps its place. Additive: schema_version
+                # stays 2, and an importer that predates the key ignores it.
+                "deleted_card_history": _deleted_card_history_export(board),
             }
 
             content = json.dumps(payload, indent=2, ensure_ascii=False)

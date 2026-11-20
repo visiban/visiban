@@ -23,7 +23,7 @@ from boards.models import Board, BoardMembership
 _EXPORT = "/api/v1/boards/{id}/export/"
 _EXPORT_KEYS = [
     "schema_version", "name", "description", "columns", "swimlanes", "labels",
-    "custom_fields", "swimlane_custom_fields", "cards",
+    "custom_fields", "swimlane_custom_fields", "cards", "deleted_card_history",
 ]
 
 

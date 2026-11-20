@@ -282,6 +282,9 @@ class PurgeCardHistoryTests(TestCase):
                 "deleted_count": 2,
                 "deleted_block_count": 0,
                 "deleted_gate_transition_count": 0,
+                # Additive (#1799); the fixture's activity rows fall outside
+                # the date range.
+                "deleted_activity_count": 0,
                 # No feed rows in this fixture (#1816); the key is always written.
                 "redacted_event_count": 0,
             },

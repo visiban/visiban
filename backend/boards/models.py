@@ -977,12 +977,15 @@ class Card(models.Model):
 
 
 def set_null_keeping_board(collector, field, sub_objs, using):
-    """``on_delete`` for ``CardMovement.card``: SET_NULL that keeps the row reachable (#1469).
+    """``on_delete`` for ``CardMovement.card`` and ``CardActivity.card``: SET_NULL
+    that keeps the row reachable (#1469, #1799).
 
-    A movement written by an older release during a rolling upgrade has no
-    ``board`` or card snapshot yet. Plain SET_NULL would leave such a row with
-    neither a card nor a board: hidden from the board's History and never
-    removed with the board. So, before the card goes, fill ``board`` and the
+    A movement or activity row written by an older release during a rolling
+    upgrade has no ``board`` or card snapshot yet. (Every writer in this
+    release fills them, ``save()`` and ``CardActivityManager.bulk_create``
+    alike, so after the upgrade only such older rows lack them.)
+    Plain SET_NULL would leave such a row with neither a card nor a board:
+    hidden from the board's History and never removed with the board. So, before the card goes, fill ``board`` and the
     snapshot on exactly those rows, from the card being deleted, then defer to
     SET_NULL. For every row written by this release the extra UPDATE matches
     nothing (one indexed statement per deleted batch of cards).
@@ -1254,7 +1257,15 @@ class CardMovement(models.Model):
 
 
 class CardComment(models.Model):
-    """A text comment left by a user on a card."""
+    """A text comment left by a user on a card.
+
+    Card content, not audit trail (#1799): hard-deleting a card deletes its
+    comments (``card`` CASCADE), like its description and checklist. A comment
+    is something a person wrote *on* the card, not a record of what happened
+    to it, and deleting the card is how its content is removed. The record
+    that a comment was posted is the ``comment_added`` ``CardActivity`` row,
+    which outlives the card like every activity row does.
+    """
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(
@@ -1285,8 +1296,77 @@ class CardComment(models.Model):
         ]
 
 
+def fill_activity_snapshots(activities):
+    """Set ``board`` and the card snapshot on unsaved ``CardActivity`` rows.
+
+    Every writer must record them (#1799): a row with no board is not moved
+    with its card by the admin's board move (``exclude(board_id=...)`` matches
+    NULL), and once it has a board the delete-time repair
+    (``set_null_keeping_board``, which only looks at rows with no board) skips
+    it, leaving ``card_uid`` empty so ``purge_card_history --card`` and the
+    export cannot name it. ``save()`` and ``bulk_create`` both call this, so a
+    future writer cannot forget. Rows built with ``card=`` read the cached
+    instance (no query, so hot-path query budgets do not move); rows built
+    with only ``card_id=`` are resolved in one query for the whole batch.
+    Fields a caller set (an imported retained row) are left as they are.
+    """
+    card_field = CardActivity._meta.get_field("card")
+    pending = [
+        act for act in activities
+        if act.card_id is not None
+        and (act.board_id is None or not act.card_uid or not act.card_title)
+    ]
+    uncached = {act.card_id for act in pending if not card_field.is_cached(act)}
+    fetched = (
+        {
+            row["pk"]: row
+            for row in Card.objects.filter(pk__in=uncached).values("pk", "board_id", "uid", "title")
+        }
+        if uncached else {}
+    )
+    for act in pending:
+        if card_field.is_cached(act):
+            card = act.card
+            board_id, uid, title = card.board_id, card.uid, card.title
+        else:
+            row = fetched.get(act.card_id)
+            if row is None:
+                continue  # the insert's FK check reports a missing card
+            board_id, uid, title = row["board_id"], row["uid"], row["title"]
+        if act.board_id is None:
+            act.board_id = board_id
+        if not act.card_uid:
+            act.card_uid = uid
+        if not act.card_title:
+            act.card_title = title
+
+
+class CardActivityManager(models.Manager):
+    """``bulk_create`` skips ``save()``, so it fills the snapshots itself (#1799)."""
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        fill_activity_snapshots(objs)
+        return super().bulk_create(objs, *args, **kwargs)
+
+
 class CardActivity(models.Model):
-    """Immutable audit log entry for a field change or action on a card."""
+    """Immutable audit log entry for a field change or action on a card.
+
+    Audit trail, like ``CardMovement`` (#1799, the #1469 pattern). Hard-deleting
+    a card keeps its activity rows: ``card`` is SET_NULL, ``board`` ties them
+    to the board (deleting the board removes them) and ``card_uid`` /
+    ``card_title`` keep them identifiable. ``save()`` refuses to update an
+    existing row and ``delete()`` always refuses: a guard against accidental
+    application writes, not tamper-proofing (a queryset ``update()`` or
+    ``delete()`` bypasses both, which the deletion collector and the operator's
+    ``purge_card_history`` rely on).
+
+    No API surface reads a deleted card's activities by card (the timeline and
+    the MCP card detail are per live card, and answer 404 once it is gone); they
+    leave the board only in its JSON export (``deleted_card_history``, #1796),
+    behind the same export gate as every other row.
+    """
 
     class EventType(models.TextChoices):
         """Types of field-change events that are logged as card activity."""
@@ -1337,7 +1417,44 @@ class CardActivity(models.Model):
         EventType.CUSTOM_FIELD_CHANGED,
     })
 
-    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
+    # SET_NULL, not CASCADE (#1799): a hard-deleted card keeps its activity
+    # trail. set_null_keeping_board also fills board and the snapshot on rows
+    # that lack them (bulk_create paths, rows an older release wrote).
+    card = models.ForeignKey(
+        Card,
+        on_delete=set_null_keeping_board,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        related_name="activities",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    # Captured at write time (#1799, as CardMovement.board, #1469): what ties a
+    # deleted card's activities to its board, and what removes them with it.
+    # Nullable because rows predating migration 0120's backfill, and rows an
+    # older release writes during a rolling upgrade, do not carry it yet. The
+    # FK constraint was added NOT VALID (0121) and validated after the backfill
+    # (0122) so card_activities was never scanned under ACCESS EXCLUSIVE.
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by activity_board_created_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    # The card's uid and title when the row was written (#1799), read only
+    # once ``card`` is NULL. db_default so an older release's INSERT works.
+    card_uid = models.CharField(
+        max_length=16,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+        db_default="",
+    )
+    card_title = models.CharField(
+        max_length=500,  # pragma: no mutate -- schema constant (migration-check)
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        default="",
+        db_default="",
+    )
     event_type = models.CharField(max_length=30, choices=EventType.choices)
     from_value = models.TextField(blank=True)
     to_value = models.TextField(blank=True)
@@ -1364,6 +1481,8 @@ class CardActivity(models.Model):
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
     )
 
+    objects = CardActivityManager()
+
     class Meta:
         db_table = "card_activities"
         ordering = ["-created_at"]
@@ -1372,7 +1491,40 @@ class CardActivity(models.Model):
             # ordered by descending created_at). Avoids sequential scans on
             # boards with heavy activity history.
             models.Index(fields=["card", "-created_at"], name="activity_card_created_idx"),
+            # A deleted card's retained rows, read by board (export, #1796), and
+            # the board-delete cascade's DELETE ... WHERE board_id IN (...).
+            # Built concurrently in migration 0123, after the 0120 backfill.
+            models.Index(
+                fields=["board", "-created_at"],  # pragma: no mutate -- schema constant (migration-check)
+                name="activity_board_created_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        """Insert only (#1799, as ``CardMovement.save``): a row is never rewritten.
+
+        On insert, fill the board and card snapshots from the card when the
+        caller did not; callers pass the card instance, so this reads the
+        cached object. ``bulk_create`` skips ``save()``, so the manager's
+        ``bulk_create`` fills them the same way (``fill_activity_snapshots``).
+        """
+        if self.pk is not None or not self._state.adding:
+            raise AppendOnlyViolation(
+                "CardActivity rows are append-only; an existing activity cannot be changed."
+            )
+        fill_activity_snapshots([self])
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Refused (#1799): activity rows leave only with their board.
+
+        The board-delete cascade and ``purge_card_history`` delete with a
+        queryset-level SQL delete that never calls this method.
+        """
+        raise AppendOnlyViolation(
+            "CardActivity rows are append-only; an activity is removed only by deleting "
+            "its board or by an operator's purge_card_history run."
+        )
 
 
 class CardBlock(models.Model):

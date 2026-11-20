@@ -13,6 +13,13 @@ the card is deleted. Every selector below matches block rows the same way it
 matches movements (``--since`` / ``--before`` by ``blocked_at``), and one run
 erases both.
 
+Since #1799 card activity rows are retained the same way: a ``CardActivity``
+keeps the card's title snapshot and the changed values (a
+``description_change`` row records only that the description changed, never
+its text), so every selector also matches them (``--since`` / ``--before`` by
+``created_at``).
+Comments are card content and go with the card, so there is nothing to purge.
+
 It deliberately breaks the append-only rule. ``CardMovement.delete()`` refuses
 every call, as a guard against *accidental* application deletes; this command
 is a deliberate, operator-initiated erasure, so it deletes with a queryset
@@ -102,7 +109,9 @@ from django.utils.dateparse import parse_date, parse_datetime
 
 from accounts.models import AdminActionLog
 from boards import broadcast as _broadcast
-from boards.models import Board, BoardEvent, Card, CardBlock, CardGateTransition, CardMovement
+from boards.models import (
+    Board, BoardEvent, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
+)
 
 # Card and board uids are 16 lowercase hex characters (boards/uid.py).
 _UID_RE = re.compile(r"[0-9a-f]{16}")
@@ -304,10 +313,15 @@ class Command(BaseCommand):
         # Gate transitions (#1102) carry the same card snapshot and a free-text
         # reason, so they leave with the card's other history.
         gates = CardGateTransition.objects.all()
+        # Activity rows (#1799) keep the card snapshot plus field values (a
+        # description_change row records only that the description changed,
+        # not its text), so they leave with the card's other history too.
+        activities = CardActivity.objects.all()
         if not include_live:
             rows = rows.filter(card__isnull=True)
             blocks = blocks.filter(card__isnull=True)
             gates = gates.filter(card__isnull=True)
+            activities = activities.filter(card__isnull=True)
 
         if card_uid is not None:
             card_uid = card_uid.strip().lower()
@@ -325,6 +339,9 @@ class Command(BaseCommand):
                 gates = gates.filter(
                     Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
                 )
+                activities = activities.filter(
+                    Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
+                )
             else:
                 if Card.objects.filter(uid=card_uid).exists():
                     raise CommandError(
@@ -335,6 +352,7 @@ class Command(BaseCommand):
                 rows = rows.filter(card_uid=card_uid)
                 blocks = blocks.filter(card_uid=card_uid)
                 gates = gates.filter(card_uid=card_uid)
+                activities = activities.filter(card_uid=card_uid)
 
         board = None
         if board_value is not None:
@@ -342,6 +360,12 @@ class Command(BaseCommand):
             rows = rows.filter(board_id=board.pk)
             blocks = blocks.filter(board_id=board.pk)
             gates = gates.filter(board_id=board.pk)
+            # A live card's row an older release wrote with bulk_create
+            # carries no board until the card is deleted (#1799; every writer
+            # sets it now), so a live card's rows are also found through the card.
+            activities = activities.filter(
+                Q(board_id=board.pk) | Q(board__isnull=True, card__board_id=board.pk)
+            )
 
         since = before = None
         if since_raw is not None:
@@ -349,11 +373,13 @@ class Command(BaseCommand):
             rows = rows.filter(moved_at__gte=since)
             blocks = blocks.filter(blocked_at__gte=since)
             gates = gates.filter(created_at__gte=since)
+            activities = activities.filter(created_at__gte=since)
         if before_raw is not None:
             before = _parse_moment(before_raw, "--before")
             rows = rows.filter(moved_at__lt=before)
             blocks = blocks.filter(blocked_at__lt=before)
             gates = gates.filter(created_at__lt=before)
+            activities = activities.filter(created_at__lt=before)
         if since is not None and before is not None and since >= before:
             raise CommandError("--since must be earlier than --before.")
 
@@ -377,18 +403,29 @@ class Command(BaseCommand):
                     # Gate transitions (#1102) count like blocks.
                     gates.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
                     .order_by().values("_uid"),
+                    # So do activity rows (#1799).
+                    activities.annotate(_uid=Coalesce(F("card__uid"), F("card_uid")))
+                    .order_by().values("_uid"),
                 )
                 .count()
             )
+            # A live activity row an older release wrote has no board yet
+            # (#1799); it counts under its card's board, as the --board filter
+            # above finds it, not as a phantom NULL board.
             boards = (
                 rows.order_by().values("board_id")
-                .union(blocks.order_by().values("board_id"), gates.order_by().values("board_id"))
+                .union(
+                    blocks.order_by().values("board_id"), gates.order_by().values("board_id"),
+                    activities.annotate(_board=Coalesce(F("board_id"), F("card__board_id")))
+                    .order_by().values("_board"),
+                )
                 .count()
             )
             event_count = events.count()
             self.stdout.write(
                 f"Dry run: would delete {count} {scope} and {blocks.count()} block row(s) "
                 f"and {gates.count()} gate transition row(s) "
+                f"and {activities.count()} activity row(s) "
                 f"({cards} card(s), {boards} board(s)) and redact {event_count} "
                 "change-feed event(s). Re-run with --yes to delete."
             )
@@ -421,8 +458,12 @@ class Command(BaseCommand):
             deleted_blocks = per_model.get(CardBlock._meta.label, 0)
             _, per_model = gates.order_by().delete()
             deleted_gates = per_model.get(CardGateTransition._meta.label, 0)
+            # A queryset delete, which never calls the refusing
+            # CardActivity.delete() (#1799).
+            _, per_model = activities.order_by().delete()
+            deleted_activities = per_model.get(CardActivity._meta.label, 0)
             redacted = self._redact(events)
-            if deleted or deleted_blocks or deleted_gates or redacted:
+            if deleted or deleted_blocks or deleted_gates or deleted_activities or redacted:
                 AdminActionLog.record(
                     action=AdminActionLog.Action.CARD_HISTORY_PURGED,
                     source=AdminActionLog.Source.CLI,
@@ -435,15 +476,18 @@ class Command(BaseCommand):
                         "deleted_block_count": deleted_blocks,
                         # Additive (#1102).
                         "deleted_gate_transition_count": deleted_gates,
+                        # Additive (#1799).
+                        "deleted_activity_count": deleted_activities,
                         "redacted_event_count": redacted,
                     },
                 )
 
-        if deleted or deleted_blocks or deleted_gates or redacted:
+        if deleted or deleted_blocks or deleted_gates or deleted_activities or redacted:
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Deleted {deleted} {scope} and {deleted_blocks} block row(s), and "
-                    f"redacted {redacted} change-feed event(s); recorded in the admin "
+                    f"redacted {redacted} change-feed event(s), and deleted "
+                    f"{deleted_activities} activity row(s) (#1799); recorded in the admin "
                     "action log."
                 )
             )
@@ -451,7 +495,7 @@ class Command(BaseCommand):
             # Nothing changed, so nothing is recorded: the action log holds
             # real changes, not no-op runs (same rule as SiteSetting changes).
             self.stdout.write(
-                f"No {scope}, block row(s) or change-feed events matched; nothing "
+                f"No {scope}, block row(s), activity row(s) or change-feed events matched; nothing "
                 "deleted, nothing recorded."
             )
         self._warn_uidless(uidless)

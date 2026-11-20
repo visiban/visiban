@@ -1917,11 +1917,19 @@ class BoardAnalyticsMixin:
                     status=status.HTTP_403_FORBIDDEN,
                 )
             backend = hooks.MOVEMENT_EXPORT_BACKENDS[0]
-            # Live cards only (#1469): the hook's queryset has always held only
-            # rows with a card, and a backend may read ``mv.card``. Retained
-            # history of hard-deleted cards is not handed to it until the
-            # extension-point contract says rows may have ``card=None`` (#1796).
-            export_qs = qs.filter(card__isnull=False)
+            # Live cards only by default (#1469): the hook's queryset has always
+            # held only rows with a card, and a backend written against that may
+            # read ``mv.card.title`` (an AttributeError, so a 500, on a retained
+            # row). A backend that handles ``card=None`` opts in to the retained
+            # history of hard-deleted cards (#1796) with
+            # ``accepts_deleted_cards = True``: widening the shape in place
+            # would break backends this repo cannot see. ``is True``, so only an
+            # explicit True opts in (fail closed, as ANALYTICS_EXTENSIONS'
+            # min_role does).
+            if getattr(backend, "accepts_deleted_cards", False) is True:
+                export_qs = qs
+            else:
+                export_qs = qs.filter(card__isnull=False)
             response = backend(board, export_qs, request)
             # Audit only exports that actually produced data (like the board
             # export, which logs after the body is assembled); a failed or

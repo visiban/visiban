@@ -461,6 +461,10 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                 CardMovement.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
                     board_id=obj.board_id,
                 )
+                # Same for its activity rows, retained the same way (#1799).
+                CardActivity.objects.filter(card=obj).exclude(board_id=obj.board_id).update(
+                    board_id=obj.board_id,
+                )
                 # A card moved to another board leaves its parent/child links
                 # (#1104): a moved child would split its parent's one child
                 # board, and a moved parent may land on a child tier. Both
@@ -502,6 +506,9 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                 # them here too or they stay empty once the card is deleted.
                 CardMovement.objects.filter(card=obj, card_uid="").update(card_uid=obj.uid)
                 CardMovement.objects.filter(card=obj, card_title="").update(card_title=obj.title)
+                # Activity rows are retained the same way (#1799).
+                CardActivity.objects.filter(card=obj, card_uid="").update(card_uid=obj.uid)
+                CardActivity.objects.filter(card=obj, card_title="").update(card_title=obj.title)
         board = obj.board
         event = _broadcast.EVT_CARD_UPDATED if change else _broadcast.EVT_CARD_CREATED
         card_data = _refetched_card_data_or_none(obj, request, board)
@@ -1311,6 +1318,8 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
         """
         to_delete, model_count, perms_needed, protected = super().get_deleted_objects(objs, request)
         perms_needed.discard(CardMovement._meta.verbose_name)
+        # Activity rows are view-only for the same reason (#1799).
+        perms_needed.discard(CardActivity._meta.verbose_name)
         return to_delete, model_count, perms_needed, protected
 
     def delete_queryset(self, request, queryset):
@@ -1608,11 +1617,21 @@ class CardMovementAdmin(admin.ModelAdmin):
         return actions
 
 
-# CardActivity is an append-only audit-trail row too (no update path, and
-# deletion is not part of any documented workflow) — the #1241 audit flagged
-# it and CardMovement as the same gap in principle but lower priority than the
-# six models above; CardMovement is read-only above since #1469.
+@admin.register(CardActivity)
+class CardActivityAdmin(CardMovementAdmin):
+    """The card activity audit trail, view-only (#1799, as movements since #1469).
+
+    The model refuses ``save()`` on an existing row and every ``delete()``, so
+    an editable admin would only 500. Activity rows leave only with their
+    board (``BoardAdmin.get_deleted_objects``) or a ``purge_card_history`` run.
+    """
+
+    list_display = ("created_at", "card_title", "card_uid", "event_type", "actor")
+    list_select_related = ("actor",)
+    list_filter = ("event_type",)
+    search_fields = ("card_uid", "card_title")
+
+
 # Notification is per-user, not board-scoped, so it has no board frame to
 # send. CardAttachment has its own admin above since #1744.
-admin.site.register(CardActivity)
 admin.site.register(Notification)

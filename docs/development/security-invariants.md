@@ -294,7 +294,7 @@ the status filter and the uniform response, not scope.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| JSON import | `boards/views/import_export.py` `BoardImportExportMixin._import_json` | `_resolve_import_users` (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions) and comments use the importer plus `_imported_from_username` |
+| JSON import | `boards/views/import_export.py` `BoardImportExportMixin._import_json` | `_resolve_import_users` (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions), since #1796 the retained `deleted_card_history` movements and activities, and comments use the importer plus `_imported_from_username` |
 | CSV import | `boards/views/import_export.py` `BoardImportExportMixin._import_csv` | `_resolve_import_users` (assignee; CSV import writes no history rows) |
 | Trello import | `boards/views/import_export.py` `BoardImportExportMixin.import_trello` | `boards/services/trello_import.py` `visible_users`, `match_members`. With `add_matched_members` only: matched members become **board members with role `member`** (`execute_plan`, constant role) and get a `board_invite` notification (`_notify_added_members`, #2122), and they are card assignees and, since #2197, checklist item assignees. Unmatched or out-of-pool names get no membership and no assignment. Comments use the importer and keep the author name in `imported_from_username`; Trello import writes no movement or activity rows. Pinned by `boards/tests/test_trello_import.py` (`TrelloImportAddedMemberNoticeTests2122`) |
 | User search | `accounts/views.py` `UserSearchView` | Filters `is_active=True`; matches `username` and `display_name` only |

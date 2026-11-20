@@ -1752,6 +1752,8 @@ class ExportJsonShapeTests(ExportBase):
                 "custom_fields",
                 "swimlane_custom_fields",
                 "cards",
+                # Additive (#1796), after "cards".
+                "deleted_card_history",
             ],
         )
         self.assertEqual(data["schema_version"], 2)

@@ -47,6 +47,7 @@ Clearing **Active** on a user deletes their Personal Access Tokens and API token
 - **Authentication and Authorization → Groups** (Django auth permission groups) — visible and editable by superusers only; staff accounts do not see this entry even when granted the group permissions
 - **Site settings** — instance-wide configuration (registration mode, file uploads, [maintenance mode](maintenance-mode.md)); clicking the entry goes directly to the settings form — there is always exactly one row
 - **Card movements** — view and search only (#1469): movement records can't be added, edited or deleted here. They are removed only by deleting their board, or by a superuser running the `purge_card_history` command (since 1.2, #1797; see [Card History Retention](card-history-retention.md)).
+- **Card activities** — view and search only since 1.3 (#1799), for the same reason: activity records are append-only audit trail and outlive a deleted card. They leave only with their board or a `purge_card_history` run.
 - **Boards, columns, swimlanes** — direct database access for debugging
 - **Board memberships** — view and correct membership records
 - **Email addresses, social accounts, social tokens, social apps, API tokens and Sites** — available to superusers only. Staff accounts do not see these entries.
