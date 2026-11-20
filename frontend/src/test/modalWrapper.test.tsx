@@ -383,7 +383,7 @@ describe('ModalWrapper phone touch targets (#2407)', () => {
     for (const c of ['max-sm:[&_button]:min-h-11', 'max-sm:[&_button]:min-w-11', 'max-sm:[&_select]:min-h-11', 'max-sm:[&_textarea]:min-h-11']) {
       expect(panel.className).toContain(c)
     }
-    expect(panel.className).toContain('max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11')
+    expect(panel.className).toContain('max-sm:[&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not(.inset-0)]:min-h-11')
     expect(panel.className).toContain('max-sm:[&_label:has(input[type=checkbox])]:min-h-11')
     expect(panel.className).toContain('max-sm:[&_label:has(input[type=radio])]:min-h-11')
     // Desktop is unchanged: the rule is phone-scoped only.

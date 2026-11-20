@@ -5,9 +5,10 @@ import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 
 /** #2407: at max-sm every control inside any modal is at least 44px in its smaller dimension. One container rule on
  *  the panel lifts buttons (plus a 44px width for icon-only ones), text inputs, selects, textareas and the <label> row
- *  of a checkbox or radio, so a new control needs no lift of its own. A bare inline link still needs its own lift. */
+ *  of a checkbox or radio, so a new control needs no lift of its own. A bare inline link, a custom role=checkbox/radio/switch that is not a <button>, and an absolute inset-0 click-catcher input
+ *  (excluded) still need their own lift. */
 export const MODAL_PHONE_TOUCH_TARGETS =
-  "max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11";
+  "max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]):not([type=range]):not([type=hidden]):not(.inset-0)]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11";
 
 interface ModalWrapperProps {
   open: boolean;
