@@ -843,7 +843,7 @@ test.describe('phone admin controls at rest (#2384)', () => {
     const card = page.locator(`[data-card-id="${CARD.id}"]`)
     await expect(card).toBeVisible()
     // The first card sits within the first screen, not pushed below rows of admin buttons.
-    expect((await card.boundingBox())!.y).toBeLessThan(500)
+    expect((await card.boundingBox())!.y).toBeLessThan(420)
     for (const name of [/^Edit column/, /^Edit swimlane/, /^Move column/, /^Move swimlane/, /^Field order/, /^Focus on /]) {
       await expect(page.getByRole('button', { name })).toHaveCount(0)
     }

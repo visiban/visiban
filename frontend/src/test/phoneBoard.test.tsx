@@ -463,10 +463,14 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
 
   it('gives a non-admin Lane actions only for Focus, and none when Focus is unavailable (#2384)', async () => {
     const user = userEvent.setup()
-    setup({ ...edit(), isAdmin: false })
+    setup({ ...edit(), isAdmin: false, onSwimlanesReordered: vi.fn(), onEditFieldOrder: vi.fn() })
     expect(screen.queryByRole('button', { name: /^Column actions/ })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lane actions for North' }))
     expect(screen.getByRole('button', { name: 'Focus on North' })).toBeInTheDocument()
+    // The reorder pair and Field order are admin gates, even when the callbacks are wired.
+    expect(screen.queryByTestId('phone-lane-earlier')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-lane-later')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-lane-field-order')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Edit swimlane/ })).not.toBeInTheDocument()
     cleanup()
     setup({ ...edit(), isAdmin: false, onFocusLane: undefined })

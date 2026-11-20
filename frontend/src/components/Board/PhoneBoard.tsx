@@ -469,7 +469,9 @@ export default function PhoneBoard({
           const hasSecondLine = fields.inline.length > 0 || showFieldToggle || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
           const extraId = `${uid}-lane-${lane.id}-fields`;
           // #2384: Edit, Field order, Focus and the lane reorder pair live behind "Lane actions"; Add card
-          // and health stay at rest. A reader with nothing to manage and no Focus gets no toggle.
+          // and health stay at rest. That is the implementer's call, not the owner's: #2384 lists per-lane Add card among
+          // the controls that push cards down, but Add card is an editor action and the reference shows no per-lane
+          // controls. Revisit if the owner wants them behind Lane actions. A reader with nothing to manage and no Focus gets no toggle.
           const showFocus = !!onFocusLane && swimlanes.length > 1;
           const hasLaneMenu = isAdmin || showFocus;
           const laneActionsOpen = openLaneActions.has(lane.id);

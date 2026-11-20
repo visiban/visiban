@@ -99,7 +99,7 @@ Each header is a panel tinted with the column color: color dot, name (wraps, nev
 | Under limit | "2 / 4" | column color, proportional |
 | At limit | "4 / 4" | column color, full |
 | Over limit | "8 / 6 over" in warning text | warning color, full |
-| Split stage | "8 / 8", then one line per sub-column: name and "5 working" or "3 waiting" | as above |
+| Split stage | "8 / 8", then one divided row of sub-columns, each a bold name with its count right-aligned ("5 working" or "3 waiting") | as above |
 
 Headers stay visible when the board scrolls vertically.
 

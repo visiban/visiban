@@ -1624,7 +1624,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             the title and breadcrumb take the full second line (`order-last`), so a long lane or column
             name truncates with room beside Move instead of fighting three 44px controls. The visual
             order differs from the DOM order only on phones: Back, title, Block, Close in the tab order. Known WCAG 2.4.3
-            deviation awaiting an owner decision (see frontend/CLAUDE.md, Phone header layout). */}
+            deviation awaiting an owner decision, tracked in #2410 (see frontend/CLAUDE.md, Phone header layout). */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center">
           {fullscreen && (
             // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
