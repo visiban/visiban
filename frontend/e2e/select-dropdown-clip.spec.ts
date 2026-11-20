@@ -22,7 +22,7 @@ async function openMembersTab(page: import('@playwright/test').Page) {
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press('Control+,')
-  await expect(page.getByRole('button', { name: /^Members \(/ })).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('tab', { name: /^Members \(/ })).toHaveAttribute('aria-selected', 'true')
 }
 
 test.describe('SelectDropdown inside a scrolling modal (#1480)', () => {
@@ -55,6 +55,6 @@ test.describe('SelectDropdown inside a scrolling modal (#1480)', () => {
     await expect(page.getByRole('listbox')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('listbox')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /^Members \(/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^Members \(/ })).toBeVisible()
   })
 })

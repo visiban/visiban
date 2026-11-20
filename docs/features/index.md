@@ -341,7 +341,7 @@ On an instance that requires verified email addresses (`EMAIL_VERIFICATION=manda
 
 ## WIP limits and hard enforcement
 
-WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board Settings → Rules → Enforce WIP hard**, moves into, new cards in, and restores into a full column are blocked for everyone — including board admins and site admins. The move, create, and restore APIs return `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
+WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board settings → Rules & limits → Enforce WIP hard**, moves into, new cards in, and restores into a full column are blocked for everyone — including board admins and site admins. The move, create, and restore APIs return `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
 
 Weight limits work the same way: the corresponding **Enforce weight limits** setting blocks moving, creating, or restoring a card that would push a column's total weight over its budget, and raising a card's weight past it.
 
@@ -420,7 +420,7 @@ Within the card detail Activity tab (now **History**), the **Show full history**
 
 ## Analytics heatmap — absolute threshold coloring
 
-The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Card aging settings**.
+The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Rules & limits → Card aging settings**.
 
 → [Analytics](analytics.md#color-coding)
 

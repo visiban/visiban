@@ -58,8 +58,8 @@ The column grid is one CSS grid template shared by the header row, every lane's 
 Screenshots: `board-dark.png`, `menus.png`.
 
 - **Tabs:** Board, Summary, History, Analytics. History stays a full view and keeps its URL. The active tab is bold with a 2px `primary` underline.
-- **Buttons:** Filter, View, Activity. Bordered, 36px tall, icon plus label. A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
-- **Overflow menu:** Export board, Board settings, Keyboard shortcuts. Nothing else.
+- **Buttons, right-aligned:** Filter, View, Activity, Export (download icon), Settings (gear icon), then the `⋯` kebab. No divider: Row 2 has none. Bordered, 36px tall, icon plus label. Export shows when the viewer can export and Settings for admins; tooltips read "Export board ⌘ ⇧ E" and "Board settings ⌘ ," (#2435). A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
+- **Overflow menu:** Keyboard shortcuts only (#2435). Export and Board settings are toolbar buttons.
 - **Connection status:** the existing `ConnectionStatus` component, last in the row.
 - **Board status pill:** beside the star in Row 1. Same data and menu as today.
 - **Board search:** in Row 1, centered, placeholder "Search cards, people, labels, fields", with the command palette hint.
@@ -117,7 +117,7 @@ A full-width band replaces the left label panel. Left to right:
   - Until #2356 ships, the toggle sits after the name and health pill and renders only when eligible fields exceed the two inline ones. The truncated-slot rule and the fixed-x-on-every-lane rule arrive with #2356 (fixed left zone, K slots, toggle track).
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
 
-The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
+The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board settings → Rules & limits → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
 
 **Information hierarchy (#2335).** What wins when the band runs out of room, for every band at every width. The phone band follows the same tiers (§ Phone width).
 
@@ -255,7 +255,7 @@ Screenshot: `board-phone.png`.
 - A split stage adds a two-part segmented control for its sub-columns.
 - Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the "N fields" toggle (then the first two lane fields while it is closed), overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and the "N fields" toggle is a button. Tapping an item on the second line, such as "4 overdue", does nothing; only line one collapses the lane. Admins get the same "Change field order" link after the open field grid as on the grid. "2 here" is the selected column's cell count, not the lane card count #2328 removed from the desktop band. Lane health stays in the lane actions row under the band (#2277). The second line uses the desktop band's tones (`board-dark.png`), not the dimmer `board-phone.png` draft, so a lane reads the same at every width.
 - Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.
-- The same four tabs as desktop: Board, Summary, History, Analytics. Search is an icon button in the header; Activity and Filter are icon buttons at the end of the tab strip, which is the second and last chrome row (#2348, about 92px at 390px against the png's 105). The Filter button also opens the View options. Star, Health, Notifications and the account menu stay in the header beside the board name; the png leaves them out, and this layout is an implementer proposal awaiting owner ratification in #2348, not an owner decision (the issue's ux-review proposed it, minus moving Search and folding Activity away). The board name gets about 82px at 390px beside six 44px header controls, under the 120px rule; moving Star and Health into More is the open follow-up. The tab strip scrolls (the active tab is scrolled into view and the right edge fades). The connection status shows only when it is not healthy.
+- The same four tabs as desktop: Board, Summary, History, Analytics. Search is an icon button in the header; Filter, Activity, Export (when the viewer can export) and Settings (admins), then More, are icon buttons at the end of the tab strip, which is the second and last chrome row (#2348, about 92px at 390px against the png's 105). The Filter button also opens the View options. Star, Health, Notifications and the account menu stay in the header beside the board name; the png leaves them out, and this layout is an implementer proposal awaiting owner ratification in #2348, not an owner decision (the issue's ux-review proposed it, minus moving Search and folding Activity away). The board name gets about 82px at 390px beside six 44px header controls, under the 120px rule; moving Star and Health into More is the open follow-up. The tab strip scrolls (the active tab is scrolled into view and the right edge fades). With all five buttons it is 122px wide for 356px of tabs at 390px (#2435), so about one and a half tabs show at once; the toolbar stays one row (owner decision 2026-11-20). The connection status shows only when it is not healthy.
 - Every target is at least 44px. No sideways page scroll at 390px.
 
 ## Design tokens
@@ -351,7 +351,7 @@ Decided in #2275: the lane WIP limit reuses #1150's `Swimlane.wip_limit`, and th
 
 For `ux-review` and `completeness-check` on the implementing MRs:
 
-- [ ] Toolbar holds only the four tabs, Filter, View, Activity, the overflow menu and the connection status
+- [ ] Toolbar holds only the four tabs, Filter, View, Activity, Export, Settings, the overflow menu and the connection status
 - [ ] One grid template drives headers, cells and collapsed strips; a split stage is double width
 - [ ] Column names wrap and never truncate; the count line matches [Column headers](#column-headers)
 - [ ] The lane band replaces the label panel and wraps without sideways scroll

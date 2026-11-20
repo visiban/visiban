@@ -57,7 +57,7 @@ import { useOverflowSeenPref } from "../../hooks/useOverflowSeenPref";
 import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
 import OverflowMenu from "../Layout/OverflowMenu";
 import type { OverflowItem } from "../Layout/OverflowMenu";
-import { formatShortcut } from "../../utils/platform";
+import { formatShortcut, formatAriaKeyshortcuts } from "../../utils/platform";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { OverlayIcon, PresetIcon } from "./toolbarIcons";
 import BoardViewMenu from "./BoardViewMenu";
@@ -2864,28 +2864,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const overflowItems: OverflowItem[] = useMemo(() => {
     const items: OverflowItem[] = [];
 
-    // Export, board settings and keyboard shortcuts only (#2269); every other
-    // control that used to sit in the toolbar lives in the View menu.
-    if (canExport) {
-      items.push({
-        id: "export",
-        label: "Export board",
-        icon: ExportIcon,
-        shortcut: formatShortcut({ mod: true, shift: true, key: "E" }),
-        onSelect: () => {
-          setShowExport(true);
-        },
-      });
-    }
-    if (isAdmin) {
-      items.push({
-        id: "settings",
-        label: "Board settings",
-        icon: SettingsIcon,
-        shortcut: formatShortcut({ mod: true, key: "," }),
-        onSelect: () => setShowSettings(true),
-      });
-    }
+    // Keyboard shortcuts only (#2435): Export and Settings are toolbar buttons
+    // beside it, so the overflow menu no longer carries them.
     items.push({
       id: "shortcuts",
       label: "Keyboard shortcuts",
@@ -2897,10 +2877,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     });
 
     return items;
-  }, [
-    isAdmin,
-    canExport,
-  ]);
+  }, []);
 
   // Screen-reader-only announcement for card-action results that change the
   // board in view (#2059); every other result is a toast (#2107). Rendered by
@@ -3201,6 +3178,31 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 <span className="max-sm:sr-only">Activity</span>
               </button>
             </Tooltip>
+            {canExport && (
+              <Tooltip content={`Export board ${formatShortcut({ mod: true, shift: true, key: "E" })}`}>
+                <button type="button"
+                  onClick={() => setShowExport(true)}
+                  aria-keyshortcuts={formatAriaKeyshortcuts({ mod: true, shift: true, key: "E" })}
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 text-fg border-line-strong hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  {ExportIcon}
+                  {/* Icon-only on phones, like Activity; the text stays in the DOM as the accessible name (WCAG 2.5.3). */}
+                  <span className="max-sm:sr-only">Export</span>
+                </button>
+              </Tooltip>
+            )}
+            {isAdmin && (
+              <Tooltip content={`Board settings ${formatShortcut({ mod: true, key: "," })}`}>
+                <button type="button"
+                  onClick={() => setShowSettings(true)}
+                  aria-keyshortcuts={formatAriaKeyshortcuts({ mod: true, key: "," })}
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 text-fg border-line-strong hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  {SettingsIcon}
+                  <span className="max-sm:sr-only">Settings</span>
+                </button>
+              </Tooltip>
+            )}
             <OverflowMenu
               items={overflowItems}
               showDot={!overflowSeen}

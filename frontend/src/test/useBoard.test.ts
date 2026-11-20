@@ -379,7 +379,7 @@ describe('useBoard', () => {
     expect(board.archived_card_count).toBe(1)
 
     render(createElement(BoardSettingsModal, {
-      board, isAdmin: true, onClose: vi.fn(), onBoardDeleted: vi.fn(), initialTab: 'data', currentUserId: board.owner.id,
+      board, isAdmin: true, onClose: vi.fn(), onBoardDeleted: vi.fn(), initialTab: 'danger', currentUserId: board.owner.id,
     }))
     expect(screen.getByRole('button', { name: 'Delete board' })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByPlaceholderText('Renamed')).toBeInTheDocument()

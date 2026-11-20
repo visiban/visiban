@@ -36,6 +36,9 @@ interface ModalWrapperProps {
    *  if the opener is disconnected, and a function is resolved at close, after the
    *  same commit has removed the opener. Without it focus drops to <body>. */
   restoreFocusTo?: HTMLElement | null | (() => HTMLElement | null);
+  /** Optional control rendered in the header between the title and the Close button
+   *  (Board settings' "Find a setting" input, #2436). */
+  headerExtra?: React.ReactNode;
 }
 
 /**
@@ -61,6 +64,7 @@ export default function ModalWrapper({
   panelClassName,
   headerBorder = false,
   restoreFocusTo,
+  headerExtra,
 }: ModalWrapperProps) {
   const headingId = labelId ?? "modal-title";
   const panelRef = useRef<HTMLDivElement>(null);
@@ -134,6 +138,7 @@ export default function ModalWrapper({
             </h2>
             {subtitle && <p className="text-fg-tertiary text-sm mt-0.5">{subtitle}</p>}
           </div>
+          {headerExtra && <div className="flex-1 min-w-0 mx-4">{headerExtra}</div>}
           {dismissable && (
             <button type="button"
               onClick={onClose}

@@ -57,7 +57,7 @@ test.describe('Threshold marks on number fields (#1122)', () => {
     await expect(page.locator('[data-threshold-level]')).toHaveCount(0)
 
     await page.keyboard.press('Control+,')
-    await page.getByRole('button', { name: 'Card fields' }).click()
+    await page.getByRole('tab', { name: /^Card fields/ }).click()
     await page.getByRole('button', { name: `Edit ${spend.name}` }).click()
     await page.getByRole('radiogroup', { name: 'Mark values' }).getByRole('radio', { name: 'Above' }).check()
     await page.getByLabel('Alert at').fill('6000')

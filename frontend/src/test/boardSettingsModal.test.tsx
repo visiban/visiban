@@ -2,11 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { stubVisualViewport, clearVisualViewport } from './visualViewportStub'
 import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
+import { SETTINGS_INDEX, SECTION_LABELS, locateSettingTarget, findSettings, settingKey, type SettingsSection } from '../components/Board/boardSettingsSections'
+import { computeAccessibleName } from 'dom-accessibility-api'
 import { recomputeBoardHealth } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, CustomFieldDefinition, User } from '../types'
+
+const phone = vi.hoisted(() => ({ on: false }))
+vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => phone.on }))
 
 const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
 
@@ -146,9 +151,9 @@ describe('BoardSettingsModal — modal basics', () => {
     vi.clearAllMocks()
   })
 
-  it('renders "Board Settings" heading', () => {
+  it('renders "Board settings" heading', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getByText('Board Settings')).toBeInTheDocument()
+    expect(screen.getByText('Board settings')).toBeInTheDocument()
   })
 
   it('close button calls onClose', async () => {
@@ -1360,18 +1365,18 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   })
 })
 
-// ─── Data tab ──────────────────────────────────────────────────────────────
+// ─── Export section ─────────────────────────────────────────────────────────
 
-describe('BoardSettingsModal — Data tab', () => {
+describe('BoardSettingsModal — Export section', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('clicking Data tab shows format radio options and Export button', async () => {
+  it('clicking the Export section shows format radio options and Export button', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('tab', { name: 'Export' }))
     expect(screen.getByRole('radio', { name: /JSON/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /CSV/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument()
@@ -1382,7 +1387,7 @@ describe('BoardSettingsModal — Data tab', () => {
     const onClose = vi.fn()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
 
-    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('tab', { name: 'Export' }))
     expect(screen.getByRole('radio', { name: /JSON/i })).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Export JSON' }))
 
@@ -1395,7 +1400,7 @@ describe('BoardSettingsModal — Data tab', () => {
     const onClose = vi.fn()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} />)
 
-    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('tab', { name: 'Export' }))
     await user.click(screen.getByRole('radio', { name: /CSV/i }))
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Export CSV' }))
@@ -1416,7 +1421,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('shows staleness threshold input for admins in Rules tab', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     expect(input).toBeInTheDocument()
@@ -1426,7 +1431,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('staleness threshold input is editable for admins', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     expect(input).not.toHaveAttribute('readonly')
@@ -1436,7 +1441,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('calls patchBoard on blur with updated staleness value', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     await user.clear(input)
@@ -1455,7 +1460,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     await user.clear(input)
@@ -1472,7 +1477,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('does not call patchBoard when the staleness threshold is blurred without a change', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
     await user.click(input)
@@ -1484,7 +1489,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('does not call patchBoard when the warning percentage is blurred without a change', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
     await user.click(input)
@@ -1496,7 +1501,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('shows read-only staleness text for non-admins in Rules tab', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     // Should show the values as plain text, not inputs
     expect(screen.queryByRole('spinbutton')).toBeNull()
@@ -1506,7 +1511,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
   it('calls patchBoard on blur with updated stale_warning_pct value', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
     await user.clear(input)
@@ -1525,7 +1530,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     mockPatchBoard.mockRejectedValueOnce(new Error('network error'))
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const input = screen.getByRole('spinbutton', { name: /heatmap warning percentage/i })
     await user.clear(input)
@@ -1540,7 +1545,7 @@ describe('BoardSettingsModal — Rules tab staleness threshold', () => {
     const user = userEvent.setup()
     const boardNoThreshold: BoardFull = { ...fakeBoard, staleness_threshold_days: null as unknown as number }
     render(<BoardSettingsModal currentUserId={null} board={boardNoThreshold} isAdmin={false} onClose={vi.fn()} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     expect(screen.getByText(/14 days/i)).toBeInTheDocument()
   })
@@ -1574,15 +1579,15 @@ describe('BoardSettingsModal — initialTab prop', () => {
     render(
       <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />
     )
-    const tab = screen.getByRole('button', { name: 'Swimlane fields' })
+    const tab = screen.getByRole('tab', { name: /^Swimlane fields/ })
     await waitFor(() => expect(document.activeElement).toBe(tab))
   })
 
-  it('marks only the active tab with aria-current (#1458)', () => {
+  it('marks only the active section with aria-selected (#1458)', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="swimlane-fields" />)
-    expect(screen.getByRole('button', { name: 'Swimlane fields' })).toHaveAttribute('aria-current', 'true')
-    expect(screen.getByRole('button', { name: 'Card fields' })).not.toHaveAttribute('aria-current')
-    expect(screen.getByRole('button', { name: /^Members/ })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('tab', { name: /^Swimlane fields/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /^Card fields/ })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: /^Members/ })).toHaveAttribute('aria-selected', 'false')
   })
 
   it('does not steal focus from a control inside the modal that already has it (#1458)', async () => {
@@ -1596,7 +1601,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
   it('opens on Members by default without moving focus to a tab button (#1458)', async () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await new Promise((r) => requestAnimationFrame(() => r(null)))
-    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^Members/ }))
+    expect(document.activeElement).not.toBe(screen.getByRole('tab', { name: /^Members/ }))
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
   })
 })
@@ -1842,7 +1847,7 @@ describe('BoardSettingsModal — Commitment point (#2050)', () => {
   async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     return { user, onUpdate }
   }
 
@@ -1885,7 +1890,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
   async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     return { user, onUpdate }
   }
 
@@ -1940,7 +1945,7 @@ describe('BoardSettingsModal — Swimlane rollup field (#2275)', () => {
   async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     return { user, onUpdate }
   }
 
@@ -2007,7 +2012,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
         onUpdateBoardSettings={vi.fn()}
       />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     const toggle = screen.getByRole('switch', { name: 'Show at-limit WIP indicator' })
     expect(toggle).toBeInTheDocument()
@@ -2041,7 +2046,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
         onUpdateBoardSettings={onUpdate}
       />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     await user.click(screen.getByRole('switch', { name: 'Show at-limit WIP indicator' }))
     expect(onUpdate).toHaveBeenCalledWith({ show_wip_at_limit: true })
   })
@@ -2056,7 +2061,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
         onUpdateBoardSettings={vi.fn()}
       />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     expect(screen.getByRole('switch', { name: 'Show at-limit WIP indicator' })).toHaveAttribute('aria-checked', 'true')
   })
@@ -2070,7 +2075,7 @@ describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
         onClose={vi.fn()}
       />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
 
     expect(screen.queryByRole('switch', { name: 'Show at-limit WIP indicator' })).not.toBeInTheDocument()
     expect(screen.getByText(/At-limit WIP indicator: shown/i)).toBeInTheDocument()
@@ -2088,12 +2093,12 @@ describe('BoardSettingsModal — Sharing tab', () => {
 
   it('Sharing tab is visible for admins', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Sharing' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Sharing' })).toBeInTheDocument()
   })
 
   it('Sharing tab is NOT visible for non-admins', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: 'Sharing' })).toBeNull()
+    expect(screen.queryByRole('tab', { name: 'Sharing' })).toBeNull()
   })
 
   it('Sharing tab shows toggle and explanatory copy', async () => {
@@ -2710,7 +2715,7 @@ describe('BoardSettingsModal — Sharing tab', () => {
       const { rerender } = render(modal(null, fakeBoard))
       await user.click(screen.getByRole('switch', { name: 'Enable public share link' }))
       expect(await screen.findByTestId('share-link-reveal')).toBeInTheDocument()
-      const sharingTab = screen.getByRole('button', { name: 'Sharing' })
+      const sharingTab = screen.getByRole('tab', { name: 'Sharing' })
       sharingTab.focus()
       rerender(modal('2026-11-01T10:05:00+00:00'))
       expect(screen.queryByTestId('share-link-reveal')).toBeNull()
@@ -2868,7 +2873,7 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
     mockPatchBoard.mockResolvedValue({})
   })
 
-  it('admin sees the threshold dropdown on the Data tab', () => {
+  it('admin sees the threshold dropdown in the Export section', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Export permission')).toBeInTheDocument()
     // SelectDropdown renders its trigger as role="combobox"; the selected
@@ -2924,7 +2929,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
     mockGetBoardExportHistory.mockResolvedValue({ results: [], count: 0, next: null, previous: null })
   })
 
-  it('admin sees Export history section on the Data tab', async () => {
+  it('admin sees Export history in the Export section', async () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
   })
@@ -3024,7 +3029,7 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
     expect(notice).toHaveTextContent("This is a shared demo — settings can't be changed here.")
     expect(notice).toHaveAttribute('role', 'note')
 
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     expect(screen.getAllByText("This is a shared demo — settings can't be changed here.")).toHaveLength(1)
     const region = screen.getByTestId('demo-inert')
     expect(region).toHaveAttribute('role', 'group')
@@ -3047,7 +3052,7 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
     render(
       <BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
     for (const sw of screen.getAllByRole('switch')) {
       await user.click(sw)
     }
@@ -3059,7 +3064,7 @@ describe('BoardSettingsModal — hosted demo (#1179)', () => {
     const user = userEvent.setup()
     const onClose = vi.fn()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode onClose={onClose} />)
-    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('tab', { name: 'Export' }))
     await user.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalled()
   })
@@ -3086,7 +3091,7 @@ describe('BoardSettingsModal — Danger Zone and archived cards (#1289)', () => 
 
   function renderDangerZone(board: BoardFull) {
     return render(
-      <BoardSettingsModal board={{ ...board, owner: fakeUser }} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="data" />
+      <BoardSettingsModal board={{ ...board, owner: fakeUser }} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="danger" />
     )
   }
 
@@ -3127,7 +3132,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn(() => { order.push('deleted') })
     render(
       <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} initialTab="danger" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleted).toHaveBeenCalled())
@@ -3144,7 +3149,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const user = userEvent.setup()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()}
-        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="danger" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
@@ -3157,7 +3162,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     onBoardDeleted.mockClear()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin={true} onClose={vi.fn()} currentUserId={fakeUser.id}
-        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        onBoardDeleted={onBoardDeleted} onBoardDeleting={onBoardDeleting} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="danger" />
     )
     await user.type(screen.getByPlaceholderText('Sprint Board'), 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
@@ -3172,7 +3177,7 @@ describe('BoardSettingsModal — own delete signals (#2041)', () => {
     const onBoardDeleted = vi.fn()
     render(
       <BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 }} isAdmin={true} onClose={vi.fn()}
-        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="data" />
+        currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} initialTab="danger" />
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'Delete board' }))
     await waitFor(() => expect(onBoardDeleteFailed).toHaveBeenCalled())
@@ -3184,8 +3189,8 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
   const owned = { ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 0 } as BoardFull
-  const renderDz = (board: BoardFull, extra: Partial<React.ComponentProps<typeof BoardSettingsModal>> = {}) =>
-    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="data" {...extra} />)
+  const renderDz = (board: BoardFull, extra: Partial<ComponentProps<typeof BoardSettingsModal>> = {}) =>
+    render(<BoardSettingsModal currentUserId={null} board={board} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} initialTab="danger" {...extra} />)
 
   it('offers delete to the board owner', () => {
     renderDz(owned, { currentUserId: fakeUser.id })
@@ -3228,7 +3233,7 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
     render(
       <ToastContext.Provider value={{ notify, dismiss: vi.fn() }}>
         <BoardSettingsModal board={{ ...owned, archived_card_count: 2 }} isAdmin onClose={onClose} currentUserId={fakeUser.id}
-          onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} onDeleteForbidden={onDeleteForbidden} initialTab="data" />
+          onBoardDeleted={onBoardDeleted} onBoardDeleteFailed={onBoardDeleteFailed} onDeleteForbidden={onDeleteForbidden} initialTab="danger" />
       </ToastContext.Provider>
     )
     const field = screen.getByPlaceholderText('Sprint Board')
@@ -3256,7 +3261,7 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
     const onBoardDeleted = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal board={owned} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} initialTab="data" />
+      <BoardSettingsModal board={owned} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={onBoardDeleted} initialTab="danger" />
     )
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
     const busy = await screen.findByRole('button', { name: 'Deleting…' })
@@ -3276,7 +3281,7 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
     const Host = () => {
       const [b, setB] = useState<BoardFull>(owned)
       return <BoardSettingsModal board={b} isAdmin onClose={vi.fn()} currentUserId={fakeUser.id}
-        onBoardDeleted={vi.fn()} onDeleteForbidden={() => setB({ ...owned, owner: fakeMember2 })} initialTab="data" />
+        onBoardDeleted={vi.fn()} onDeleteForbidden={() => setB({ ...owned, owner: fakeMember2 })} initialTab="danger" />
     }
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Delete board' }))
@@ -3296,7 +3301,7 @@ describe('BoardSettingsModal — Danger Zone gate and failures (#2034)', () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
     render(
-      <BoardSettingsModal board={{ ...owned, archived_card_count: 1 }} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={vi.fn()} initialTab="data" />
+      <BoardSettingsModal board={{ ...owned, archived_card_count: 1 }} isAdmin onClose={onClose} currentUserId={fakeUser.id} onBoardDeleted={vi.fn()} initialTab="danger" />
     )
     const field = screen.getByPlaceholderText('Sprint Board')
     await user.type(field, 'Spr')
@@ -3426,28 +3431,28 @@ describe('BoardSettingsModal — invite by email (#1444)', () => {
 })
 
 describe('BoardSettingsModal — Webhooks tab (#863)', () => {
-  const tabNames = () => screen.getAllByRole('button').map((b) => b.textContent ?? '')
+  const tabNames = () => screen.getAllByRole('tab').map((b) => b.textContent ?? '')
 
-  it('board admins get a Webhooks tab between Sharing and Data', () => {
+  it('board admins get a Webhooks section between Sharing and Export', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const names = tabNames()
     const sharing = names.indexOf('Sharing')
     const webhooks = names.indexOf('Webhooks')
     expect(webhooks).toBeGreaterThan(sharing)
-    expect(names.indexOf('Data')).toBeGreaterThan(webhooks)
+    expect(names.indexOf('Export')).toBeGreaterThan(webhooks)
   })
 
   it('non-admins and the hosted demo get no Webhooks tab at all', () => {
     const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={false} onClose={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Webhooks' })).not.toBeInTheDocument()
     unmount()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} demoMode={true} onClose={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: 'Webhooks' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Webhooks' })).not.toBeInTheDocument()
   })
 
   it('initialTab="webhooks" opens the tab and loads it', async () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" focusFirstStoppedWebhook />)
-    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('tab', { name: 'Webhooks' })).toHaveAttribute('aria-selected', 'true')
     expect(await screen.findByText('No webhooks yet')).toBeInTheDocument()
     expect(screen.getByText(/has never run on this server/)).toBeInTheDocument()
   })
@@ -3475,12 +3480,12 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
     expect(screen.getByText(/Close without storing the secret\?/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Cancel closing/ }))
 
-    await user.click(screen.getByRole('button', { name: 'Data' }))
-    expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+    await user.click(screen.getByRole('tab', { name: 'Export' }))
+    expect(screen.getByRole('tab', { name: 'Webhooks' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
     // Confirm runs what was asked for: the tab switch.
     await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
-    expect(screen.getByRole('button', { name: 'Data' })).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
     expect(onClose).not.toHaveBeenCalled()
 
     // With no secret on screen, Close closes.
@@ -3502,9 +3507,9 @@ describe('BoardSettingsModal — Webhooks tab (#863)', () => {
       await user.click(screen.getByRole('button', { name: 'Close' }))
       await user.click(container.firstChild as HTMLElement)
       fireEvent.keyDown(document, { key: 'Escape' })
-      await user.click(screen.getByRole('button', { name: 'Data' }))
+      await user.click(screen.getByRole('tab', { name: 'Export' }))
       expect(onClose).not.toHaveBeenCalled()
-      expect(screen.getByRole('button', { name: 'Webhooks' })).toHaveAttribute('aria-current', 'true')
+      expect(screen.getByRole('tab', { name: 'Webhooks' })).toHaveAttribute('aria-selected', 'true')
       expect(await screen.findByText(/Wait for the new secret/)).toBeInTheDocument()
     }
 
@@ -3897,5 +3902,338 @@ describe('BoardSettingsModal — Webhooks tab live-update wiring', () => {
     rerender(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" webhookChange={change(1)} />)
     expect(await screen.findByTestId('webhook-changed-1')).toHaveTextContent('by Bob Smith')
     ;(listWebhooks as ReturnType<typeof vi.fn>).mockResolvedValue([])
+  })
+})
+
+
+// ─── Grouped sidebar, Find a setting, Export section (#2436) ───────────────────
+
+describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
+  const tabNames = () => screen.getAllByRole('tab').map((b) => b.textContent ?? '')
+  const mount = (props: Partial<ComponentProps<typeof BoardSettingsModal>> = {}) =>
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} onBoardDeleted={vi.fn()} onUpdateBoardSettings={vi.fn()} {...props} />)
+
+  it('is a vertical tablist grouped Board, Fields, Access, Integrations, Data', () => {
+    mount({ gitLensEnabled: true })
+    expect(screen.getByRole('tablist')).toHaveAttribute('aria-orientation', 'vertical')
+    expect(tabNames().map((n) => n.replace(/ \(\d+\)$/, ''))).toEqual([
+      'Display', 'Rules & limits', 'Card fields', 'Swimlane fields', 'Members', 'Sharing', 'Webhooks', 'Issue lens', 'Export', 'Danger zone',
+    ])
+    for (const g of ['Board', 'Fields', 'Access', 'Integrations', 'Data']) expect(screen.getByText(g)).toBeInTheDocument()
+  })
+
+  it('hides admin-only sections from non-admins exactly as the tabs were', () => {
+    mount({ isAdmin: false })
+    const names = tabNames()
+    for (const hidden of ['Sharing', 'Webhooks', 'Issue lens', 'Danger zone']) expect(names).not.toContain(hidden)
+    expect(names).toContain('Export')
+  })
+
+  it('arrow keys move focus through the tabs, Enter selects, and the panel is a tab stop', async () => {
+    const user = userEvent.setup()
+    mount({ initialTab: 'display' })
+    const display = screen.getByRole('tab', { name: 'Display' })
+    display.focus()
+    await user.keyboard('{ArrowDown}')
+    expect(screen.getByRole('tab', { name: /^Rules/ })).toHaveFocus()
+    await user.keyboard('{ArrowUp}{ArrowUp}')
+    expect(screen.getByRole('tab', { name: 'Danger zone' })).toHaveFocus()
+    await user.keyboard('{Home}')
+    expect(display).toHaveFocus()
+    await user.keyboard('{End}{Enter}')
+    expect(screen.getByRole('tab', { name: 'Danger zone' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'board-settings-tab-danger')
+  })
+
+  it('maps the legacy data deep link to Export and shows export, then permission, then history', () => {
+    mount({ initialTab: 'data' })
+    expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    const heads = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    expect(heads).toEqual(['Export', 'Export permission', 'Export history'])
+    expect(screen.getByText(/Also on the board toolbar/)).toBeInTheDocument()
+  })
+
+  it('moves the Issue lens and Danger zone out of Export', async () => {
+    const user = userEvent.setup()
+    mount({ initialTab: 'export', gitLensEnabled: true })
+    expect(screen.queryByText('Issue board lens')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete board' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Issue lens' }))
+    expect(screen.getByText('Issue board lens')).toBeInTheDocument()
+  })
+
+  it('the board name sits under the title', () => {
+    mount()
+    expect(screen.getByText(fakeBoard.name)).toBeInTheDocument()
+  })
+
+  it('falls back to Members when a deep link names a section the viewer cannot see', () => {
+    mount({ isAdmin: false, initialTab: 'webhooks' })
+    expect(screen.getByRole('tab', { name: /^Members/ })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'board-settings-tab-members')
+  })
+
+  describe('phone', () => {
+    afterEach(() => { phone.on = false })
+
+    it('swaps the sidebar for a Section select that switches panels', async () => {
+      phone.on = true
+      const user = userEvent.setup()
+      mount()
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+      const select = screen.getByLabelText('Section')
+      await user.selectOptions(select, 'export')
+      expect(select).toHaveValue('export')
+      expect(screen.getByRole('button', { name: /^Export (JSON|CSV)$/ })).toBeInTheDocument()
+    })
+
+    it('names the panel a region for its section, not a tabpanel pointing at a missing tab', async () => {
+      phone.on = true
+      const user = userEvent.setup()
+      mount()
+      expect(screen.queryByRole('tabpanel')).not.toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Members (2)' })).not.toHaveAttribute('aria-labelledby')
+      await user.selectOptions(screen.getByLabelText('Section'), 'export')
+      expect(screen.getByRole('region', { name: 'Export' })).toBeInTheDocument()
+    })
+  })
+
+  describe('the #863 webhook guard', () => {
+    afterEach(() => { phone.on = false })
+    const armSecret = async (user: ReturnType<typeof userEvent.setup>) => {
+      const { createWebhook } = await import('../api/webhooks')
+      ;(createWebhook as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 9, board: 1, name: '', url_display: 'hooks.example.com/…/abcd', url_host: 'hooks.example.com',
+        event_types: [], enabled: true, disabled_reason: null, disabled_at: null, last_delivered_event_id: 0,
+        consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
+        last_success_at: null, last_error_code: '', last_status_code: null, created_by: null, configured_by: null,
+        created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', configured_at: null,
+        secret_rotated_at: null, previous_secret_expires_at: null, url: 'https://hooks.example.com/abcd', secret: 'whsec_find',
+      })
+      await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      await screen.findByTestId('webhook-secret-reveal')
+    }
+
+    it('blocks a Find a setting jump until the admin confirms, then jumps', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'webhooks' })
+      await armSecret(user)
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'export history')
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('tab', { name: 'Webhooks' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Export history' })).toHaveClass('ring-2'))
+    })
+
+    it('blocks a switch from the phone Section select until the admin confirms', async () => {
+      phone.on = true
+      const user = userEvent.setup()
+      mount({ initialTab: 'webhooks' })
+      await armSecret(user)
+      const select = screen.getByLabelText('Section')
+      await user.selectOptions(select, 'export')
+      expect(select).toHaveValue('webhooks')
+      expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
+      expect(select).toHaveValue('export')
+      expect(screen.getByRole('button', { name: /^Export (JSON|CSV)$/ })).toBeInTheDocument()
+    })
+  })
+
+  describe('Find a setting', () => {
+    it('lists matches for a setting label and jumps to its section on Enter', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'display' })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'wip')
+      expect(screen.getByRole('option', { name: /Enforce WIP limits/ })).toBeInTheDocument()
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByRole('searchbox', { name: 'Find a setting' })).toHaveValue('')
+      await waitFor(() => expect(screen.getByLabelText('Enforce WIP limits')).toHaveClass('ring-2'))
+    })
+
+    it('finds a setting by keyword and by click', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
+      await user.click(screen.getByRole('option', { name: /Export board/ }))
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('arrow keys change the active result', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'export')
+      const opts = screen.getAllByRole('option')
+      expect(opts[0]).toHaveAttribute('aria-selected', 'true')
+      await user.keyboard('{ArrowDown}')
+      expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true')
+      await user.keyboard('{ArrowUp}')
+      expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('says so when nothing matches, and Escape clears it without closing', async () => {
+      const user = userEvent.setup()
+      const onClose = vi.fn()
+      mount({ onClose })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'zzzz')
+      expect(screen.getByText('No setting matches \u2018zzzz\u2019')).toBeInTheDocument()
+      await user.keyboard('{Escape}')
+      expect(screen.getByRole('searchbox', { name: 'Find a setting' })).toHaveValue('')
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    it('a jump inside the current section stays there and highlights the control', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'rules' })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'stale card')
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByLabelText('Stale card threshold')).toHaveClass('ring-2'))
+    })
+
+    it('a result with no target lands on the panel top and focuses the panel', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'display' })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'card fields')
+      await user.click(screen.getByRole('option', { name: /^Card fields/ }))
+      expect(screen.getByRole('tab', { name: /^Card fields/ })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByRole('tabpanel')).toHaveFocus())
+    })
+
+    it('leaving the search clears it', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'display' })
+      const box = screen.getByRole('searchbox', { name: 'Find a setting' })
+      await user.type(box, 'wip')
+      expect(screen.getByRole('listbox', { name: 'Matching settings' })).toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Display' }))
+      expect(box).toHaveValue('')
+      expect(screen.queryByRole('listbox', { name: 'Matching settings' })).not.toBeInTheDocument()
+    })
+
+    it('renders each result once with no duplicate keys', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'fields')
+      const names = screen.getAllByRole('option').map((o) => o.textContent)
+      expect(new Set(names).size).toBe(names.length)
+    })
+
+    it('never offers a section the viewer cannot see', async () => {
+      const user = userEvent.setup()
+      mount({ isAdmin: false })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'webhook')
+      expect(screen.queryByRole('option')).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('BoardSettingsModal — Find a setting index (#2436)', () => {
+  const sections = Object.keys(SECTION_LABELS) as SettingsSection[]
+  const renderSection = (section: SettingsSection) =>
+    render(
+      <BoardSettingsModal
+        currentUserId={null}
+        board={{ ...fakeBoard, health_auto_enabled: true, cards_can_have_children: true, columns: [{ id: 1, uid: 'coluid000001', name: 'To Do', position: 0, wip_limit: null } as never], swimlanes: [{ id: 1, name: 'Lane', position: 0 } as never] }}
+        viewPrefs={{ hiddenColumnIds: [], hiddenSwimlaneIds: [] } as never}
+        onToggleHiddenColumn={vi.fn()}
+        onToggleHiddenSwimlane={vi.fn()}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab={section}
+        gitLensEnabled
+        cardDensityOverride="dense"
+        onSetCardDensityOverride={vi.fn()}
+        onBoardDeleted={vi.fn()}
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+
+  it('every index entry resolves to a control in its section, for an admin', async () => {
+    for (const section of sections) {
+      const entries = SETTINGS_INDEX.filter((e) => e.section === section && e.target)
+      const { unmount } = renderSection(section)
+      const panel = await screen.findByRole('tabpanel')
+      for (const e of entries) {
+        await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
+      }
+      unmount()
+    }
+  })
+
+  // #2436: Find a setting must match individual setting labels, not only section headings. This
+  // walks every section's rendered panel (admin, every flag on) and requires each heading
+  // (h3/h4/legend) and each named switch, checkbox, select/combobox or text/number input to be
+  // the target of an index entry that resolves to it. Plain action buttons are not walked (most are
+  // per-row or per-form actions); the ones worth finding have their own entries and direct tests.
+  // A radio is covered by its group's legend.
+  // Exempt: names that are this fixture's board data, not settings (a column and a lane).
+  const DATA_NAMES = new Set(['to do', 'lane'])
+  const textOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const isHeading = (el: Element) => ['H3', 'H4', 'LEGEND'].includes(el.tagName)
+  const coveredBy = (panel: HTMLElement, el: HTMLElement, name: string, entries: typeof SETTINGS_INDEX) =>
+    entries.some((e) => {
+      const loc = e.target ? locateSettingTarget(panel, e.target) : null
+      if (!loc) return false
+      if (loc === el || el.contains(loc)) return true
+      if (loc.tagName === 'LABEL' && (loc.contains(el) || (loc as HTMLLabelElement).htmlFor === el.id)) return true
+      if (textOf(loc).startsWith(name)) return true
+      return isHeading(el) && e.label.toLowerCase() === name
+    })
+
+  it('every heading and labelled control in every section has an index entry that lands on it', async () => {
+    const missing: string[] = []
+    for (const section of sections) {
+      const entries = SETTINGS_INDEX.filter((e) => e.section === section)
+      const { unmount } = renderSection(section)
+      const panel = await screen.findByRole('tabpanel')
+      // Panels that fill in after a fetch (Members invites, Webhooks, Issue lens) settle first.
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+      const els = Array.from(panel.querySelectorAll<HTMLElement>(
+        'h3, h4, legend, [role="switch"], [role="combobox"], select, input:not([type="radio"]):not([type="hidden"])',
+      ))
+      for (const el of els) {
+        const name = (isHeading(el) ? textOf(el) : computeAccessibleName(el).replace(/\s+/g, ' ').trim().toLowerCase())
+        if (name === '' || DATA_NAMES.has(name)) continue
+        if (!coveredBy(panel, el, name, entries)) missing.push(`${section}: "${name}"`)
+      }
+      unmount()
+    }
+    expect(missing, `controls with no SETTINGS_INDEX entry:\n${missing.join('\n')}`).toEqual([])
+  })
+
+  it.each([
+    ['Use my own density', 'display'],
+    ['Calculate health status automatically', 'rules'],
+    ['Cards can have child cards', 'rules'],
+    ['Enable public share link', 'sharing'],
+    ['Moderator', 'members'],
+    ['Invite by email', 'members'],
+    ['Recompute now', 'rules'],
+    ['commitment point', 'rules'],
+  ] as const)('finds "%s" in %s', (query, section) => {
+    const all = new Set(sections)
+    const hits = findSettings(query, all)
+    expect(hits.some((e) => e.section === section), `${query}: ${hits.map((h) => h.label).join(', ')}`).toBe(true)
+  })
+
+  it('lists each result once, with a unique key', () => {
+    const all = new Set(sections)
+    for (const q of ['fields', 'webhooks', 'export', 'card', 'swimlane', 'health', 'invite', 'share']) {
+      const keys = findSettings(q, all).map(settingKey)
+      expect(new Set(keys).size, q).toBe(keys.length)
+    }
+    expect(findSettings('fields', all).filter((e) => e.label === 'Card fields')).toHaveLength(1)
+    expect(findSettings('webhooks', all).filter((e) => e.label === 'Webhooks')).toHaveLength(1)
+  })
+
+  it('finds Column policies by policy', () => {
+    expect(findSettings('policies', new Set<SettingsSection>(['rules'])).some((e) => e.label === 'Column policies')).toBe(true)
   })
 })

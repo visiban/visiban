@@ -125,7 +125,7 @@ The words carry the state. A collapsed row hides the calm states but keeps the t
 
 *Added in 1.3 (#2275).* A board can show, in every swimlane band, the total of one card [number field](custom-fields.md) over the lane's open cards, for example `$413k open` on a sales board whose cards carry a deal amount. "Open" means every card in the lane that is not in a column marked done; archived cards never count. Cards without a value add nothing. The total uses the field's prefix, suffix and decimal places, so a field with prefix `$` and suffix `k` reads `$413k open`. It sits after the WIP line in the band and updates live as cards are created, moved, edited and archived.
 
-To choose the field, a board admin opens **Board Settings → Rules → Limit enforcement → Swimlane rollup** and picks one of the board's number fields, or **None** (the default, which shows no total). Other members see the choice as a read-only line. Deleting the field turns the rollup off. Changing the field to another type hides the totals until it is a number field again; the settings then say why.
+To choose the field, a board admin opens **Board settings → Rules & limits → Limit enforcement → Swimlane rollup** and picks one of the board's number fields, or **None** (the default, which shows no total). Other members see the choice as a read-only line. Deleting the field turns the rollup off. Changing the field to another type hides the totals until it is a number field again; the settings then say why.
 
 The lane's own WIP limit is set in **Edit Swimlane** (see [Swimlane limits](#swimlane-limits) above); the rollup does not affect limits or moves.
 
@@ -165,7 +165,7 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 
 *Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board is either a parent board, whose cards can have child cards on another board, or a child board, which can only hold children. A board never plays both roles.
 
-A board admin chooses which one in **Board Settings → Rules → Child cards** with the **Cards can have child cards** switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. Linking cards is not available yet; this setting is the prerequisite for it. Once links exist, the switch cannot be changed while links depend on it.
+A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards can have child cards** switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. Linking cards is not available yet; this setting is the prerequisite for it. Once links exist, the switch cannot be changed while links depend on it.
 
 ## Collapsed columns
 
@@ -181,8 +181,8 @@ Click a column header to collapse it to a narrow vertical strip. When collapsed:
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color** — a preset or a [custom color](#custom-colors)
-- **WIP limit** — maximum number of active cards allowed. The column header shows `count / limit` with a meter; when the limit is exceeded the line reads `count / limit over` in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
-- **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds `Weight weight/limit` in warning text. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **WIP limit** — maximum number of active cards allowed. The column header shows `count / limit` with a meter; when the limit is exceeded the line reads `count / limit over` in warning text and the meter turns warning-colored, so the over-limit state is visible at a distance (#963, #2270). If the board has **Enforce WIP limits** enabled (Board settings → Rules & limits), moving a card into a column at or over its limit, creating a card in it, or restoring an archived card into it returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode. Optionally, the **Show at-limit WIP indicator** board setting (off by default) surfaces the *at*-limit case too — see [At-limit WIP indicator](#at-limit-wip-indicator) below.
+- **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the count line adds `Weight weight/limit` in warning text. If the board has **Enforce weight limits** enabled (Board settings → Rules & limits), moving, creating, or restoring a card that would push the column over its budget — or raising a card's weight so that it would — returns a `409` error; board admins can override with `?force=true`. Lowering a card's weight is never blocked. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 - **Intake column note** (since 1.3) — the board's first column that is not done is its intake column, where new work arrives. Its **Edit settings** shows a short note under the **Done column** setting: Analytics never names that column as the bottleneck, because a growing queue there is demand, not a hold-up. It still appears in cumulative flow, WIP, WIP aging, dwell, and cycle-time. **More** explains why and links to [how the bottleneck is chosen](analytics.md#bottleneck). The role follows position: reordering columns, or adding a not-done column to the left of the intake column, moves it to the new first not-done column. **Add Column** tells you when the new column will take over the role.
@@ -227,7 +227,7 @@ By default, WIP limit enforcement is "soft": board admins can bypass a full colu
 - The API returns a `409` error with `code: "wip_hard_blocked"`.
 - The toast indicator uses a `⛔` icon instead of `⚠` to distinguish hard blocks from soft blocks.
 
-Hard enforcement is **off by default**. Enable it in **Board Settings → Rules → Enforce WIP hard**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
+Hard enforcement is **off by default**. Enable it in **Board settings → Rules & limits → Enforce WIP hard**. Toggling it on requires an inline confirmation step because the change takes effect immediately and applies board-wide.
 
 !!! tip
     Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.
@@ -244,7 +244,7 @@ See [Field Enforcement](../architecture/field-enforcement.md).
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-**As of 1.3 (#2270) the column header always shows `count / limit` and a full meter at the limit, so this setting no longer changes the header.** It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm `N cards` state for the *over*-limit case, and the **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board Settings → Rules → Limit enforcement**) added the at-limit state:
+**As of 1.3 (#2270) the column header always shows `count / limit` and a full meter at the limit, so this setting no longer changes the header.** It is kept so existing boards and the API are unchanged. Before 1.3 the column header only flipped out of its calm `N cards` state for the *over*-limit case, and the **Show at-limit WIP indicator** board setting (off by default, admin-only, in **Board settings → Rules & limits → Limit enforcement**) added the at-limit state:
 
 - **Off (default):** a column at its WIP limit shows `N cards`, unchanged from the calm state.
 - **On:** a column at its WIP limit shows `WIP N/N` in place of the card count, styled the same as the calm state (`text-fg-muted`, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)".
@@ -407,7 +407,7 @@ Cards cannot be dragged at this width. Tap a card to open it, then tap **Move**,
 
 Each is disabled at the first or last place and saves the same way a drag does, so everyone on the board sees the new order.
 
-At this width the header and toolbar use icon buttons. The navigation menu button sits at the start of the app header, in the same row as the board name, **Search**, **Notifications** and your account menu, so there is no separate navigation bar above it. **Filters** and **Activity** show only their icon (screen readers still announce their names). The **Filters** button also opens the View options: tap it, then **View options** in the Filter panel's heading row. Screen readers announce the button as "Filters and view options"; with a keyboard, Shift+Tab from **Find a field** reaches **View options**, and Escape in the View options returns focus to the **Filters** button. The board toolbar is one row (1.3+): the tabs (Board, Summary, History, Analytics) scroll sideways in their own box, with **Filters**, **Activity** and **More board actions** after them. The connection status shows on a phone only when it is not healthy (offline, reconnecting, stale), and tapping it still opens the details. The header and the toolbar together take about 92px at 390px. On phones the header no longer links from a board to its group; the group stays reachable from the navigation drawer and the group page shows its own breadcrumb. Every header and toolbar control, including **Search**, **Notifications**, the navigation menu, the filter bar, **More board actions** and the **Show all cards** and **Exit focus** banner buttons, is at least 44px tall and wide when closed. So is every control inside the panels they open: the Filter panel, the View options, the **More board actions** menu, the account menu, the navigation drawer and the notification rows. So are the filter bar's facet menus, the Activity drawer, the Board Health popover and the command palette (1.3+). The pencil beside the board name is hidden; tap the name to rename the board.
+At this width the header and toolbar use icon buttons. The navigation menu button sits at the start of the app header, in the same row as the board name, **Search**, **Notifications** and your account menu, so there is no separate navigation bar above it. **Filters**, **Activity**, **Export** and **Settings** show only their icon (screen readers still announce their names). The **Filters** button also opens the View options: tap it, then **View options** in the Filter panel's heading row. Screen readers announce the button as "Filters and view options"; with a keyboard, Shift+Tab from **Find a field** reaches **View options**, and Escape in the View options returns focus to the **Filters** button. The board toolbar is one row (1.3+): the tabs (Board, Summary, History, Analytics) scroll sideways in their own box, with **Filters**, **Activity**, **Export**, **Settings** and **More board actions** after them (**Export** shows when you can export, **Settings** for board admins). With all five buttons there, the tab box is narrow at 390px, so about one and a half tabs show at a time; swipe it or pick a tab to scroll it into view. The connection status shows on a phone only when it is not healthy (offline, reconnecting, stale), and tapping it still opens the details. The header and the toolbar together take about 92px at 390px. On phones the header no longer links from a board to its group; the group stays reachable from the navigation drawer and the group page shows its own breadcrumb. Every header and toolbar control, including **Search**, **Notifications**, the navigation menu, the filter bar, **More board actions** and the **Show all cards** and **Exit focus** banner buttons, is at least 44px tall and wide when closed. So is every control inside the panels they open: the Filter panel, the View options, the **More board actions** menu, the account menu, the navigation drawer and the notification rows. So are the filter bar's facet menus, the Activity drawer, the Board Health popover and the command palette (1.3+). The pencil beside the board name is hidden; tap the name to rename the board.
 
 ### Board panning
 
@@ -520,7 +520,9 @@ The board toolbar (Row 2) is one row that wraps onto a second line on narrow scr
 
 **View menu:** a panel with the display controls, in order: **Preset**, card density, card layout (Expanded or Compact), **Overlay** (the select reads its current value, "None" by default), **Collapse all** / **Expand all** for swimlanes, **Hide all** / **Show all** for columns, a **Show sub-columns** checkbox (only on a board with a split stage), an **On the card** line naming the fields pinned to the card face with a **Change** link that opens Board settings on Card fields (board admins only), and **Show archived cards**. Press Escape to close an open picker first, then the panel. Screen readers announce the bulk lane and column items: "Collapsed all N lanes" / "Expanded all N lanes" and "Hid all N columns" / "Showed all N columns" ("1 lane", "1 column" in the singular, and no number when the count is not known).
 
-**Overflow menu (`...`):** contains Export, Board settings (admins), and Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
+**Export and Settings buttons:** to the right of Activity, **Export** (shown when you are allowed to export) and **Settings** (board admins) open the export dialog and Board settings. On a phone they show only their icons. The shortcuts are `⌘⇧E` and `⌘,`.
+
+**Overflow menu (`...`):** contains Keyboard shortcuts. To replay the onboarding tour, use **Restart tour** in the keyboard shortcuts overlay or **Restart onboarding tour** in Settings. A small first-run dot marks the menu until you open it.
 
 ## Card layout
 
@@ -855,18 +857,36 @@ The table is keyboard-friendly:
 
 Archive and restore events **are included** in the board History view by default, alongside column-to-column moves. The API supports narrowing this with `exclude_type=archived,unarchived`, but the board toolbar's History view doesn't expose a control for it. Use the API directly, or check the individual card's **History** tab, if you want moves only.
 
+## Board settings
+
+Open **Settings** in the board toolbar (or press `⌘,` / `Ctrl+,`). Board settings has a left sidebar of sections, grouped:
+
+| Group | Sections |
+|---|---|
+| Board | Display, Rules & limits |
+| Fields | Card fields, Swimlane fields |
+| Access | Members, Sharing (admins) |
+| Integrations | Webhooks (admins), Issue lens (admins, when enabled) |
+| Data | Export, Danger zone (admins) |
+
+Use the Up and Down arrow keys to move through the sidebar and Enter to open a section; Tab then moves into the section's panel. On a phone the sidebar is a **Section** menu above the panel.
+
+**Find a setting.** Type in the box at the top (for example `export`, `WIP` or `stale`). Matching settings are listed under it; press Enter or click one to open its section and highlight the control. If nothing matches, the box says so. Escape clears the search.
+
+**Export** holds the export format and button, the export permission (who can export) and the export history. **Issue lens** and **Danger zone**, which used to share the Data tab, are now their own sections.
+
 ## Export & import
 
 ### Export
 
-Open the overflow menu (`...`) in the board toolbar and choose **Export** to download the board data:
+Click **Export** in the board toolbar (or press `⌘⇧E` / `Ctrl+Shift+E`) to download the board data. The same export is in **Board settings → Export**:
 
 - **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
 > **Added in 1.1** — export permission threshold and audit history (#842, #843)
 
-By default, any board member can export. Admins can raise the threshold per board under **Board Settings → Data → Export permission** to restrict exports to collaborators, members, or admins only; owners and site admins always bypass it. The threshold limits only the export action and file formats; it does not change what members can read on the board.
+By default, any board member can export. Admins can raise the threshold per board under **Board settings → Export → Export permission** to restrict exports to collaborators, members, or admins only; owners and site admins always bypass it. The threshold limits only the export action and file formats; it does not change what members can read on the board.
 
 Below the threshold, the **Export** button is hidden and direct API calls return `403 export_restricted`. The export endpoints are:
 
@@ -875,7 +895,7 @@ Below the threshold, the **Export** button is hidden and direct API calls return
 
 #### Export audit history
 
-Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (`csv` / `json`, or `movements_<format>` for movement-history exports, shown as "Movements (CSV)"), and the number of rows exported (cards for a board export, movements for a movement export). Admins can review the log under **Board Settings → Data → Export history**, or via `GET /api/v1/boards/{id}/export-history/` (admin-only). Failed exports (permission denied, rate limited) are not logged.
+Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (`csv` / `json`, or `movements_<format>` for movement-history exports, shown as "Movements (CSV)"), and the number of rows exported (cards for a board export, movements for a movement export). Admins can review the log under **Board Settings → Export → Export history**, or via `GET /api/v1/boards/{id}/export-history/` (admin-only). Failed exports (permission denied, rate limited) are not logged.
 
 This per-board export log is a data-exfiltration safeguard scoped to individual board admins, and it is part of the open-source core. It is intentionally distinct from the site-wide, compliance-oriented **audit log** in Visiban Enterprise, which records administrative activity across the whole instance.
 

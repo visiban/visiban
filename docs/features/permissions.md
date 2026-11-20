@@ -34,7 +34,7 @@ Quick pointers into that table:
 
 Only board Admins (and site admins) can do this.
 
-1. Open the board and open the **More board actions** menu (`...`) in the toolbar and choose **Board settings**.
+1. Open the board and click **Settings** in the board toolbar (or press ⌘, on macOS, Ctrl+, elsewhere).
 2. Go to the **Members** tab.
 3. To add a member: type their username or email in the invite field, choose a role, and click **Add N member(s) to board**. When you add several people at once, each add is sent independently: people who are added leave the "To be added" list, and any add that is refused stays in the list with the reason shown next to that person so you can fix the role or remove them.
 4. To change a member's role: click the role badge next to their name and select a new one.

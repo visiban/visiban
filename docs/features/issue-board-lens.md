@@ -4,7 +4,7 @@
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Set `GIT_LENS_ENABLED=true`, then pick a provider and `owner/repo` in **Board Settings → Lens**. A read-only **Lens** tab shows that repository's issues as a kanban board.
+Set `GIT_LENS_ENABLED=true`, then pick a provider and `owner/repo` in **Board Settings → Issue lens** (under Integrations). A read-only **Lens** tab shows that repository's issues as a kanban board.
 
 **Why it matters:** You get a configurable two-dimensional pivot (columns on one axis, swimlanes on the other) that native GitHub and GitLab boards don't offer.
 
@@ -65,8 +65,8 @@ To monitor how many GitHub/GitLab API calls the lens makes on your instance, see
 
 Only **board admins** can configure the lens.
 
-1. Open the board and open the **More board actions** menu (`...`) in the toolbar and choose **Board settings**.
-2. Select the **Lens** tab.
+1. Open the board and click **Settings** in the board toolbar (or press ⌘, on macOS, Ctrl+, elsewhere).
+2. Select **Issue lens** under Integrations.
 3. Choose the **Provider**: GitHub or GitLab.
 4. Enter the repository in `owner/repo` format, for example `acme/backend` or `torvalds/linux`.
 5. Click **Save**.
@@ -77,7 +77,7 @@ A **Lens** tab appears in the board sub-navigation, visible to all board members
 
 **Lens-only boards:** if the board has **no native swimlanes**, the **Board** tab shows in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so it doesn't look like two competing boards. The Board tab is never disabled or hidden: it stays one click (or the `B` key) away, and returns to normal styling as soon as the board has one native swimlane.
 
-**Disconnect:** go to **Settings → Lens** and click **Remove lens**. The Lens tab disappears immediately.
+**Disconnect:** go to **Board Settings → Issue lens** and click **Remove lens**. The Lens tab disappears immediately.
 
 ---
 

@@ -28,7 +28,7 @@ async function openColorPopover(page: Page, tab: string, fieldName: string) {
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press('Control+,')
-  await page.getByRole('button', { name: tab }).click()
+  await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click()
   await page.getByRole('button', { name: `Edit ${fieldName}` }).click()
   await page.getByRole('button', { name: /^Color for Red/ }).click()
   const popover = page.getByRole('dialog', { name: 'Color for Red' })
@@ -55,7 +55,7 @@ for (const [tab, fieldName] of [['Card fields', 'Priority'], ['Swimlane fields',
 
     await page.getByRole('button', { name: /^Color for Red/ }).click()
     await expect(popover).toBeVisible()
-    await page.getByRole('button', { name: tab }).click()
+    await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click()
     await expect(popover).toBeHidden()
   })
 }

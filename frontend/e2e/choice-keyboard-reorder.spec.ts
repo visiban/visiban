@@ -29,7 +29,7 @@ async function openFieldEditor(page: Page, tab: string, fieldName: string) {
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press('Control+,')
-  await page.getByRole('button', { name: tab }).click()
+  await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click()
   await page.getByRole('button', { name: `Edit ${fieldName}` }).click()
   await expect(page.getByRole('button', { name: 'Drag to reorder choice Red' })).toBeVisible()
 }
@@ -118,6 +118,6 @@ test.describe('custom-field choice keyboard reorder (#2190)', () => {
     ])
     // With no drag in progress, Escape reaches Board Settings again.
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('dialog', { name: 'Board Settings' })).toHaveCount(0)
+    await expect(page.getByRole('dialog', { name: 'Board settings' })).toHaveCount(0)
   })
 })

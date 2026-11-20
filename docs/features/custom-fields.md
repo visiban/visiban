@@ -38,7 +38,7 @@ Seven types are available:
 !!! note "Tab renamed in 1.2"
     This tab was named **Fields** before 1.2. It was renamed to **Card fields** when [swimlane fields](#swimlane-row-custom-fields) shipped, so the two tabs read unambiguously side by side.
 
-Open **Board Settings** and select **Card fields** (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields. A track (a [dimension field](#dimension-fields-13)) cannot be newly pinned to the card face: it shows as a chip, and its row says so. A track that was already pinned (for example through the API) still counts toward the 2-pin limit and shows an **Unpin** control.
+Open **Board Settings** and select **Card fields** in the sidebar's **Fields** group, next to **Swimlane fields** (since 1.2). Since 1.3 the sidebar groups the sections under Board, Fields, Access, Integrations and Data. Only board admins can create, edit, reorder, pin, or delete fields. A track (a [dimension field](#dimension-fields-13)) cannot be newly pinned to the card face: it shows as a chip, and its row says so. A track that was already pinned (for example through the API) still counts toward the 2-pin limit and shows an **Unpin** control.
 
 The tab lists every field in display order with its type glyph, name, type label, and pin state. Hover a row for **✎ Edit** and **✕ Delete**. Drag the `⋮⋮` handle to reorder, or use the keyboard: Tab to the handle, press Space to pick the field up, press the arrow keys to move it past its neighbors, and press Space to drop it (Escape cancels). That order is the order in the card detail panel and, for pinned fields, on the card face.
 
