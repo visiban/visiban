@@ -319,6 +319,14 @@ class ConcurrentTierPatchTests(TransactionTestCase):
     """Two PATCHes moving different fields onto a one-slot-left band: one wins."""
 
     def test_two_concurrent_band_patches_yield_one_success(self):
+        # Patch once, in the main thread, for the whole test. A patch() per
+        # worker thread interleaves: the second thread saves the first one's
+        # mock as "the original" and restores it on exit, leaving
+        # broadcast_board_event mocked for every later test in the process.
+        with patch("boards.broadcast.broadcast_board_event"):
+            self._run_two_concurrent_band_patches()
+
+    def _run_two_concurrent_band_patches(self):
         admin = _make_user("tier_conc_admin")
         board = _make_board(admin, name="Conc")
         _defn(board, "A", 0, "band")
@@ -345,11 +353,10 @@ class ConcurrentTierPatchTests(TransactionTestCase):
                 holding.wait(10)
                 client = APIClient()
                 client.force_authenticate(admin)
-                with patch("boards.broadcast.broadcast_board_event"):
-                    results[name] = client.patch(
-                        f"/api/v1/boards/{board.id}/swimlane-custom-fields/{d.id}/",
-                        {"band_visibility": "band"}, format="json",
-                    ).status_code
+                results[name] = client.patch(
+                    f"/api/v1/boards/{board.id}/swimlane-custom-fields/{d.id}/",
+                    {"band_visibility": "band"}, format="json",
+                ).status_code
             except BaseException as exc:  # noqa: BLE001 - surfaced after join
                 errors.append(exc)
             finally:
