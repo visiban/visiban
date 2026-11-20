@@ -330,6 +330,22 @@ class Board(models.Model):
             "Off (the default) means the board can only hold child cards."
         ),
     )
+    # Where "Add child" creates a new child card (#2208 part 2): a preference,
+    # not a relationship. Upstream/downstream between boards is derived from
+    # the card links (#2207 decision D), so clearing or changing this never
+    # touches an existing link, and a deleted target just clears it
+    # (SET_NULL). Different parents on one board may still use different child
+    # boards (#2206 decision D): this is only where Add child starts.
+    # db_index=False: the index is built CONCURRENTLY in its own migration
+    # (0125), the zero-downtime rule for indexes (database-migrations.md).
+    default_child_board = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="default_child_board_of", db_index=False,
+        help_text=(
+            "The board where Add child on this board's cards creates the new "
+            "child card, in its first column (#2208). Empty means ask each time."
+        ),
+    )
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board
@@ -384,6 +400,14 @@ class Board(models.Model):
                 fields=["health_status_changed_by"],
                 name="board_health_changed_by_idx",
                 condition=models.Q(health_status_changed_by__isnull=False),
+            ),
+            # #2208: the FK index, built concurrently (boards/0125). Partial:
+            # serves the target-delete SET NULL and the "this board is a
+            # default" flag-flip check; most boards have no default.
+            models.Index(
+                fields=["default_child_board"],
+                name="board_default_child_idx",
+                condition=models.Q(default_child_board__isnull=False),
             ),
         ]
         constraints = [

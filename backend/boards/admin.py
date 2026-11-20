@@ -1125,9 +1125,13 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
     # #2245: the computed columns are written only by
     # boards.services.health_compute (with their history rows); the admin
     # applies the same service when the auto settings change (save_model).
+    # #2208: default_child_board is written only by PATCH /boards/{id}/, which
+    # checks ADMIN on both boards and that the target qualifies; fields="__all__"
+    # would otherwise make this form a second, unchecked write path.
     readonly_fields = (
         "health_status_changed_at", "health_status_changed_by", "health_status_note",
         "computed_health_status", "health_computed_at", "health_computed_counts",
+        "default_child_board",
     )
     stale_save_message = (
         "This board was changed after this page was opened, so nothing was saved. "
