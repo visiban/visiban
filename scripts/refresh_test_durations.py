@@ -122,7 +122,10 @@ def build(rows: list[tuple[str, str, float]], collected: list[str]) -> tuple[dic
 
 
 def glab_json(path: str) -> object:
-    out = subprocess.check_output(["glab", "api", path])  # list-form args, no shell
+    # List-form args with no shell, and the same run(check=True, capture_output=True)
+    # shape as collect() below: `path` is built in this file from a pipeline id the
+    # user passed, never interpolated into a shell command line.
+    out = subprocess.run(["glab", "api", path], check=True, capture_output=True).stdout
     return json.loads(out)
 
 
