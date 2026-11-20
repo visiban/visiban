@@ -25,6 +25,7 @@ additionally persists a ``BoardEvent`` row, which is what makes an event
 resumable through ``GET /boards/<id>/events/?after=``.
 """
 
+from ..services import lane_field_tiers
 from django.db import transaction
 from django.db.models import Max
 from rest_framework import serializers as drf_serializers, viewsets
@@ -145,7 +146,20 @@ class SwimlaneCustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 m=Max("position")
             )["m"]
             next_position = 0 if _max is None else _max + 1
-            definition = serializer.save(board=board, position=next_position)
+            extra = {}
+            if "band_visibility" in serializer.validated_data:
+                # An explicit tier on create materializes the board first
+                # (#2439), then is checked against the locked rows.
+                lane_field_tiers.materialize(board, actor_id=self.request.user.id)
+                lane_field_tiers.assert_band_tiers(
+                    board, instance=None,
+                    band_visibility=serializer.validated_data["band_visibility"],
+                )
+            else:
+                # No tier sent: NULL on a legacy board, Details-if-room else
+                # Hidden on a materialized one. Never a 400 for an old client.
+                extra["band_visibility"] = lane_field_tiers.default_tier_for_create(board)
+            definition = serializer.save(board=board, position=next_position, **extra)
             payload = SwimlaneCustomFieldDefinitionSerializer(definition).data
             _broadcast.record_board_event(
                 board.id,
@@ -188,6 +202,17 @@ class SwimlaneCustomFieldDefinitionViewSet(viewsets.ModelViewSet):
                 pin_surface="the swimlane row",
                 field_noun="swimlane custom fields",
             )
+            if "band_visibility" in serializer.validated_data:
+                # #2439: the first tier write leaves the legacy state for good.
+                # Materialize every NULL row, re-read this one (it may have just
+                # been given a tier), then recheck the rule against the locked
+                # rows: validate() saw a pre-lock snapshot.
+                lane_field_tiers.materialize(board, actor_id=self.request.user.id)
+                serializer.instance.refresh_from_db()
+                lane_field_tiers.assert_band_tiers(
+                    board, instance=serializer.instance,
+                    band_visibility=serializer.validated_data["band_visibility"],
+                )
             definition = serializer.save()
             payload = SwimlaneCustomFieldDefinitionSerializer(definition).data
             _broadcast.record_board_event(

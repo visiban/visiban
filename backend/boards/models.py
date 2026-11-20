@@ -241,6 +241,21 @@ class Board(models.Model):
             "preference; card-face chips are unaffected."
         ),
     )
+    # Lane details cap (#2439): how many swimlane fields a lane's "Show N more"
+    # details grid holds before the rest must be Hidden. NOT NULL with a
+    # ``db_default`` rather than nullable: an older pod's INSERT omits the
+    # column and still gets 6, and there is one representation of "the
+    # default" instead of NULL-or-6. The choices are the settings select.
+    LANE_DETAILS_CAP_CHOICES = [(n, str(n)) for n in (4, 6, 9, 12, 16)]
+    lane_details_cap = models.PositiveSmallIntegerField(
+        choices=LANE_DETAILS_CAP_CHOICES,
+        default=6,
+        db_default=6,
+        help_text=(
+            "The most swimlane fields a lane's details grid holds (#2439). "
+            "Fields beyond it are Hidden: listed last, under Hidden on band."
+        ),
+    )
     # Health status (#1133): null = inherit from the nearest group above the
     # board that sets one (groups.health resolves it on read; never stored).
     # Values are limited to HealthStatus by the serializer; no index and no
@@ -2512,6 +2527,22 @@ class SwimlaneCustomFieldDefinition(models.Model):
             "without a release note: it would turn existing valid swimlane writes "
             "into 400s."
         ),
+    )
+    class BandVisibility(models.TextChoices):
+        BAND = "band", "Band"
+        DETAILS = "details", "Details"
+        HIDDEN = "hidden", "Hidden"
+
+    # Where the field shows on a lane band (#2439). NULL means "derived from
+    # position" and is what every pre-#2439 row holds: a board whose rows are
+    # all NULL renders exactly as before (the first two non-empty values on the
+    # band). The first tier-affecting write materializes every NULL row under
+    # the board lock (``boards.services.lane_field_tiers``), so after that a
+    # reorder never moves a field between tiers. Nullable rather than a
+    # ``db_default`` because the legacy tier depends on position, which a
+    # column default cannot express.
+    band_visibility = models.CharField(
+        max_length=10, choices=BandVisibility.choices, null=True, blank=True,
     )
     help_text = models.CharField(max_length=255, blank=True)
     # Display-only number formatting (#1391) — same columns and same rules as
