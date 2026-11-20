@@ -836,22 +836,31 @@ class BlockedStateTests(FeedRedactionBase):
         self.assertIn("(3 card(s), 1 board(s))", out)
         self.assertEqual(len(large.captured_queries), len(small.captured_queries))
 
-    def test_activity_trail_stays_on_a_live_card_and_goes_with_a_deleted_one(self):
-        # The docs state this limit: the command never touches CardActivity.
-        card_id, _uid = self._blocked_card(self.board)
+    def test_activity_trail_is_retained_after_delete_and_purged_with_the_card(self):
+        # Since #1799 a deleted card keeps its activity rows (the blocked and
+        # unblocked rows carry the reason and resolution), so the command
+        # erases them with the card's other history.
+        card_id, uid = self._blocked_card(self.board)
         url = f"{self._base(self.board)}{card_id}/"
         resp = self.client.post(f"{url}unblock/", {"resolution": SECRET_RESOLUTION}, format="json")
         self.assertEqual(resp.status_code, 200, resp.content)
 
-        self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
-
-        self.assertFalse(CardBlock.objects.filter(card_id=card_id).exists())
-        timeline = self.client.get(f"{url}timeline/")
-        self.assertEqual(timeline.status_code, 200, timeline.content)
-        self.assertIn(SECRET_REASON, timeline.content.decode())
-        self.assertIn(SECRET_RESOLUTION, timeline.content.decode())
-
         self.assertEqual(self.client.delete(url).status_code, 204)
+        retained = CardActivity.objects.filter(card__isnull=True, card_uid=uid)
+        self.assertTrue(retained.filter(to_value=SECRET_REASON).exists())
+        self.assertTrue(retained.filter(to_value=SECRET_RESOLUTION).exists())
+
+        self._run("--card", uid, "--yes")
+
+        self.assertFalse(CardBlock.objects.filter(card_uid=uid).exists())
+        self.assertFalse(retained.exists())
+
+    def test_include_live_cards_purges_a_live_cards_activity_trail(self):
+        # With --include-live-cards the activity rows are matched like the
+        # movements and blocks: one selector erases the card's whole history.
+        card_id, _uid = self._blocked_card(self.board)
+        self._run("--board", str(self.board.pk), "--include-live-cards", "--yes")
+        self.assertFalse(CardBlock.objects.filter(card_id=card_id).exists())
         self.assertFalse(CardActivity.objects.filter(card_id=card_id).exists())
 
     def test_failed_log_write_rolls_back_movements_blocks_and_events(self):
