@@ -6531,6 +6531,16 @@
 <td><em>Added in 1.3</em> (#2331). The same tier for the unrounded <code>throughput_avg_days_per_column</code> mean.</td>
 </tr>
 <tr>
+<td><code>swimlanes[].throughput_wait_avg_days_per_column</code></td>
+<td>object</td>
+<td><em>Added in 1.3</em> (#2360). The part of each <code>throughput_avg_days_per_column</code> mean spent in the stage's last sub-column (wait time), keyed only by stages that have sub-columns. <code>{}</code> on a board with no gated stage.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].age_wait_avg_days_per_column</code></td>
+<td>object</td>
+<td><em>Added in 1.3</em> (#2360). The same wait share for <code>age_avg_days_per_column</code>. <code>{}</code> on a board with no gated stage.</td>
+</tr>
+<tr>
 <td><code>swimlanes[].deal_velocity_days</code></td>
 <td>number or null</td>
 <td>Average days from a card's first movement ever to its most recent movement, over this swimlane's cards whose most recent movement falls in the period. Cards count whether or not they reached a done column; a card whose only movement is its creation has not moved and is left out (<em>changed in 1.3</em>, #2297: it counted as 0.0 days). <code>null</code> when there is no velocity data.</td>
@@ -6820,7 +6830,7 @@
 <a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
 <a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a><span class="p">}</span>
 </code></pre></div>
-<p><code>columns</code> lists the columns that are not done, in position order. <code>wip_count</code> <em>(added in 1.3, #2287)</em> is every card not archived in the column now, under the same swimlane and label filters: the count the column header holds against its WIP limit. It includes cards that have not started yet and cards without complete history, which have no sample, so it can be larger than the column's samples. <code>samples</code> run in that order, oldest first within a column. <code>dwell_by_column</code> sums the card's measured visits per column, clipped to the age clock so the values sum to <code>value_days</code>, in order of first entry, with deleted columns as <code>column_uid: null</code>. <code>is_blocked</code> is the card's state now, manual or by a relation. <code>blocked_days</code> is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in <code>excluded_incomplete_history</code>.</p>
+<p><code>columns</code> lists the columns that are not done, in position order. <code>wip_count</code> <em>(added in 1.3, #2287)</em> is every card not archived in the column now, under the same swimlane and label filters: the count the column header holds against its WIP limit. It includes cards that have not started yet and cards without complete history, which have no sample, so it can be larger than the column's samples. <code>samples</code> run in that order, oldest first within a column. <code>dwell_by_column</code> sums the card's measured visits per column, clipped to the age clock so the values sum to <code>value_days</code>, in order of first entry, with deleted columns as <code>column_uid: null</code>. <code>is_blocked</code> is the card's state now, manual or by a relation. <code>blocked_days</code> is its manual blocked time since its age started; it is reported beside age and never subtracted from it. A card without complete history has no age and counts in <code>excluded_incomplete_history</code>. Age samples carry no work/wait split (#2360): an age spans every column the card has been in. The share of age spent waiting in a gated stage's last sub-column is the analytics heatmap's <code>swimlanes[].age_wait_avg_days_per_column</code>, and the split for finished work is on the cycle-time samples and the dwell columns.</p>
 <h4 id="get-apiv1boardsidmetricsdwell"><code>GET /api/v1/boards/{id}/metrics/dwell/</code><a class="headerlink" href="#get-apiv1boardsidmetricsdwell" title="Permanent link">&para;</a></h4>
 <p><em>Added in 1.3 (#2260).</em> Completed dwell time per column: the visits that closed in the range, each at its full length.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
@@ -6835,7 +6845,7 @@
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="p">]</span>
 <a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="p">}</span>
 </code></pre></div>
-<p><code>columns</code> lists the columns that are not done, in position order, each with its own sample size and percentiles under the same sample-size rule. The individual visits are not returned.</p>
+<p><code>columns</code> lists the columns that are not done, in position order, each with its own sample size and percentiles under the same sample-size rule. The individual visits are not returned. <em>Added in 1.3</em> (#2360): each column also carries <code>work_percentiles</code> and <code>wait_percentiles</code>, the same percentiles for the time before and in the stage's last sub-column. Both are <code>null</code> for a stage with no sub-columns, and also for every stage when the request selected no cards (for example a swimlane filter that matches nothing), because the stage's gates are not read in that case.</p>
 <h4 id="get-apiv1boardsidmetricsblocked"><code>GET /api/v1/boards/{id}/metrics/blocked/</code><a class="headerlink" href="#get-apiv1boardsidmetricsblocked" title="Permanent link">&para;</a></h4>
 <p><em>Added in 1.3 (#2260).</em> Blocked time inside the range, under the same filters as every other metric.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>

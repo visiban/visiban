@@ -3285,6 +3285,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Movements history plans — #2237">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tie-break-ordering-2400" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tie-break ordering — #2400
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4647,7 +4664,41 @@
 <li><strong>Offset cost is linear in the offset.</strong> Deep pages cost 55 times the first page (30.7ms against 0.55ms) because the joins run before the offset is discarded. A page 18,650 rows in is unusual for a person, but a client that pages through everything pays it for every page.</li>
 <li><strong>The bare <code>COUNT</code> is a full scan of the board's movements.</strong> With one board in the table the planner is right to seq scan (every row matches); on a table of many boards it would use the index. It grows with the board's history, not with the filter, except when a date range is set.</li>
 <li><strong>The probe for rows with no <code>board</code></strong> (<code>board IS NULL AND card IS NOT NULL</code>, kept for rolling upgrades) is an index scan on the same index and takes 0.02ms.</li>
-<li>The row ordering is <code>moved_at</code> alone, with no tie-breaker. The seed writes many movements at the same instant, so pages can overlap or skip rows at ties; that is a product question, not a latency one, and isn't measured here (<a href="https://gitlab.com/visiban/visiban/-/issues/2400">#2400</a>).</li>
+<li>The ordering in this table is <code>moved_at</code> alone, as it was when it was measured. <a href="https://gitlab.com/visiban/visiban/-/issues/2400">#2400</a> changed it; see the next section.</li>
+</ul>
+<h3 id="tie-break-ordering-2400">Tie-break ordering — #2400<a class="headerlink" href="#tie-break-ordering-2400" title="Permanent link">&para;</a></h3>
+<p>The seed writes many movements at the same instant, and so do bulk moves and imports. With <code>moved_at</code> as the only sort key, rows that tie have no defined order, so two page reads can return one row twice and skip another. The endpoint now orders by <code>moved_at DESC, id DESC</code>, and the card <code>/timeline/</code> breaks its ties on <code>id</code> the same way.</p>
+<p><code>movement_board_moved_idx</code> ends at <code>moved_at</code>, so it cannot hand rows back in the new order by itself. Local run, PostgreSQL 17.11, the dev stack's largest board copied 50 times inside a transaction that was rolled back (24,225 movements, copies landing in groups that share one instant), the endpoint's page query with its six <code>LEFT JOIN</code>s:</p>
+<table>
+<thead>
+<tr>
+<th>Request</th>
+<th><code>(board_id, moved_at DESC)</code> only</th>
+<th>With <code>movement_board_moved_id_idx</code> <code>(board_id, moved_at DESC, id DESC)</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First page</td>
+<td><code>Index Scan using movement_board_moved_idx</code>, then <code>Incremental Sort</code> (<code>Presorted Key: m.moved_at</code>) above the joins, stops after 70 rows: 0.51ms</td>
+<td><code>Index Scan using movement_board_moved_id_idx</code>, no sort, stops at 50 rows: 0.56ms</td>
+</tr>
+<tr>
+<td>Deep offset (18,650)</td>
+<td>Same, but the <code>Incremental Sort</code> sorts 276 groups of joined rows: 60.7ms, against 20.9ms for the old <code>moved_at</code>-only order on the same data</td>
+<td>Plain index scan over 18,700 entries: 22.3ms</td>
+</tr>
+<tr>
+<td><code>moved_after</code> 30 days back</td>
+<td><code>Incremental Sort</code> above the index scan: 0.39ms</td>
+<td>Plain index scan with the range in the <code>Index Cond</code>: 0.29ms</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>The tie-break needs its own index.</strong> Without it the first page stays cheap, because the sort stops at the first full group, but a deep page costs about three times the old order. Migration 0116 builds <code>movement_board_moved_id_idx</code> concurrently, and the plan is a plain index scan again with no sort node.</li>
+<li><strong><code>movement_board_moved_idx</code> is now a prefix of the new index.</strong> It is kept for this release (an index is never dropped in the migration that replaces it); dropping it in a later release is tracked in #2408.</li>
+<li>The table above is a one-off probe on synthetic ties, not the nightly fixture, so its absolute numbers are not comparable with the #2237 table. The <code>board_movements*</code> scenarios are still <code>pending_budget</code>, so the next NUC re-derivation measures the new order.</li>
 </ul>
 <p>These are laptop numbers. They show the plans, not budgets: the budgets come from a NUC run.</p>
 <h2 id="card-search-plans-2063">Card search plans — #2063<a class="headerlink" href="#card-search-plans-2063" title="Permanent link">&para;</a></h2>
