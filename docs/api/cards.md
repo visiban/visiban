@@ -853,6 +853,12 @@ Add a comment. **Minimum role: Collaborator.** Returns `404 Not Found` if the ca
 
 **Request** `{ "body": "Looking into this now." }` — returns the new comment, with `imported_from_username: null`. The field is read-only and ignored if sent.
 
+**Error response (card comment cap reached)** — `400 Bad Request` *(since 1.3)*. A card holds at most `COMMENT_MAX_PER_CARD` comments (default 1000, operator-configurable; see [Comment and checklist limits](../administration/configuration.md#comment-and-checklist-limits)). The comment that would go past it is refused and nothing is stored; comments already on the card are kept.
+
+```json
+{ "code": "comment_quota_exceeded", "detail": "This card already has the maximum of 1000 comments." }
+```
+
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/`
 Delete a comment. **Minimum role: Collaborator.** Collaborators may delete only their own comments, regardless of `is_moderator`. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Returns `404 Not Found` if the card was deleted concurrently; the request has no effect.
 
@@ -1187,6 +1193,12 @@ List checklist items.
 Add a checklist item. **Minimum role: Collaborator.** Returns `404 Not Found` if the card was deleted concurrently; nothing is saved.
 
 **Request** `{ "text": "Write tests" }`
+
+**Error response (card checklist cap reached)** — `400 Bad Request` *(since 1.3)*. A card holds at most `CHECKLIST_MAX_ITEMS_PER_CARD` checklist items (default 500, operator-configurable; see [Comment and checklist limits](../administration/configuration.md#comment-and-checklist-limits)). The item that would go past it is refused and nothing is stored; deleting an item makes room.
+
+```json
+{ "code": "checklist_quota_exceeded", "detail": "This card already has the maximum of 500 checklist items. Delete one to add another." }
+```
 
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**

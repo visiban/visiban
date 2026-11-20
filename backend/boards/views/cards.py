@@ -160,6 +160,29 @@ def _format_bytes(n):
 # Error code of a refused over-quota upload (#2007).
 ATTACHMENT_QUOTA_EXCEEDED = "attachment_quota_exceeded"
 
+# Error codes of a refused comment or checklist item past its per-card cap (#2376).
+COMMENT_QUOTA_EXCEEDED = "comment_quota_exceeded"
+CHECKLIST_QUOTA_EXCEEDED = "checklist_quota_exceeded"
+
+
+def _per_card_cap_error(rows, setting, code, detail):
+    """400 response when the card already holds the ``setting`` cap of ``rows``
+    (a queryset of the card's comments or checklist items), else ``None`` (#2376).
+
+    Must be called with the card row locked (``lock_card_for_write``) and
+    before the insert: every create on the card takes that lock first, so two
+    concurrent creates cannot both see room for the last slot. A cap of 0 is
+    off. Rows already over a lowered cap are left alone; only new ones are
+    refused. ``detail`` is formatted with ``cap``.
+    """
+    cap = int(getattr(django_settings, setting, 0) or 0)
+    if not cap or rows.count() < cap:
+        return None
+    return Response(
+        {"code": code, "detail": detail.format(cap=cap)},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Upload validation helpers (used by attachments action)
@@ -1966,6 +1989,12 @@ class CardViewSet(viewsets.ModelViewSet):
         request=CardCommentSerializer,
         responses={
             201: CardCommentSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Invalid body, or the card already holds `COMMENT_MAX_PER_CARD` comments "
+                    "(default 1000; `code`: `comment_quota_exceeded`, since 1.3). Nothing is stored."
+                ),
+            ),
             403: OpenApiResponse(
                 description="Viewers cannot comment (collaborators and above may).",
                 response=inline_serializer(name="CommentViewerDenied", fields={"detail": serializers.CharField()}),
@@ -1993,6 +2022,14 @@ class CardViewSet(viewsets.ModelViewSet):
             # Hold the card row for the whole write (#1587): a delete that
             # committed first answers 404 here; one that starts later waits.
             card_services.lock_card_for_write(card.pk)
+            # Counted under the card lock, before the insert (#2376).
+            refused = _per_card_cap_error(
+                CardComment.objects.filter(card_id=card.pk), "COMMENT_MAX_PER_CARD",
+                COMMENT_QUOTA_EXCEEDED,
+                "This card already has the maximum of {cap} comments.",
+            )
+            if refused is not None:
+                return refused
             comment = serializer.save(card=card, author=request.user)
             CardActivity.objects.create(
                 card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
@@ -2279,6 +2316,12 @@ class CardViewSet(viewsets.ModelViewSet):
         request=CardChecklistSerializer,
         responses={
             201: CardChecklistSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Invalid body, or the card already holds `CHECKLIST_MAX_ITEMS_PER_CARD` items "
+                    "(default 500; `code`: `checklist_quota_exceeded`, since 1.3). Nothing is stored."
+                ),
+            ),
             403: OpenApiResponse(
                 description="Viewers cannot add checklist items.",
                 response=inline_serializer(name="ChecklistViewerDenied", fields={"detail": serializers.CharField()}),
@@ -2323,6 +2366,15 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             # Card row lock before the insert (#1587) — see lock_card_for_write.
             card_services.lock_card_for_write(card.pk)
+            # Counted under the card lock, before the insert (#2376); not the
+            # prefetched ``position`` above, which was read before the lock.
+            refused = _per_card_cap_error(
+                CardChecklist.objects.filter(card_id=card.pk), "CHECKLIST_MAX_ITEMS_PER_CARD",
+                CHECKLIST_QUOTA_EXCEEDED,
+                "This card already has the maximum of {cap} checklist items. Delete one to add another.",
+            )
+            if refused is not None:
+                return refused
             item = serializer.save(card=card, position=position, created_by=request.user)
             CardActivity.objects.create(
                 card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,

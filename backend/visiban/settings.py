@@ -600,6 +600,22 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
         "ATTACHMENT_MAX_PER_CARD and ATTACHMENT_MAX_BYTES_PER_CARD must be 0 (no limit) or a positive number."
     )
 
+# Per-card caps on comments and checklist items (#2376), the follow-up to the
+# attachment quotas above: without them one member (or a leaked token) could
+# grow a single card's comments or checklist without bound, and with it the
+# card detail response and every change-feed row that copies the card. The
+# defaults are far above normal use so an existing install keeps working; 0
+# turns a cap off. Only new rows are refused (a card already over a cap keeps
+# what it has). Enforced under the card row lock in CardViewSet.comments and
+# CardViewSet.checklist, so two concurrent creates cannot both take the last
+# slot. Board import is not capped: it fills a board it is creating.
+COMMENT_MAX_PER_CARD = env.int("COMMENT_MAX_PER_CARD", default=1000)
+CHECKLIST_MAX_ITEMS_PER_CARD = env.int("CHECKLIST_MAX_ITEMS_PER_CARD", default=500)
+if COMMENT_MAX_PER_CARD < 0 or CHECKLIST_MAX_ITEMS_PER_CARD < 0:
+    raise ImproperlyConfigured(
+        "COMMENT_MAX_PER_CARD and CHECKLIST_MAX_ITEMS_PER_CARD must be 0 (no limit) or a positive number."
+    )
+
 # Rate of the `attachment_upload` throttle scope (#2007): attachment uploads per
 # user, on top of the general `user` scope. Empty keeps the built-in default
 # (120/hour, or the DEBUG ceiling in development). Parsed strictly at startup,

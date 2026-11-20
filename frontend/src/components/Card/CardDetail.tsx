@@ -157,6 +157,18 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
+/**
+ * The server's own reason for a 400 refusal that carries a string `detail`
+ * (a per-card cap reached: attachments #2007, comments and checklist items
+ * #2376), else null so the caller falls back to its generic message. A field
+ * validation 400 has no top-level `detail` and also answers null.
+ */
+function refusalDetail(err: unknown): string | null {
+  const res = (err as { response?: { status?: number; data?: { detail?: unknown } } } | null)?.response;
+  if (res?.status === 400 && typeof res.data?.detail === "string" && res.data.detail) return res.data.detail;
+  return null;
+}
+
 /** Controls whose click still works when it also dismisses the card detail sheet (#1914). */
 const OUTSIDE_CONTROL_SELECTOR = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
 
@@ -1070,9 +1082,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         const el = bodyScrollRef.current;
         if (el) el.scrollTop = el.scrollHeight;
       });
-    } catch {
-      // Typed text is kept so the user can retry without retyping.
-      setCommentError("Could not post comment.");
+    } catch (err) {
+      // Typed text is kept so the user can retry without retyping. A refusal
+      // that says why (the card's comment cap, #2376) is shown as sent.
+      setCommentError(refusalDetail(err) ?? "Could not post comment.");
     } finally {
       commentInFlight.current = false;
     }
@@ -1096,9 +1109,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     } catch (err) {
       // The server's refusals say why (over the card quota, file type does not
       // match its content, #2007); show that rather than a generic failure.
-      const res = (err as { response?: { status?: number; data?: { detail?: unknown } } } | null)?.response;
-      if (res?.status === 400 && typeof res.data?.detail === "string" && res.data.detail) {
-        setAttachError(res.data.detail);
+      const detail = refusalDetail(err);
+      const res = (err as { response?: { status?: number } } | null)?.response;
+      if (detail) {
+        setAttachError(detail);
       } else if (res?.status === 429) {
         setAttachError("Too many uploads. Please wait a while and try again.");
       } else {
@@ -1149,8 +1163,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         const base = liveCardBase();
         onUpdated({ ...base, checklist_total: base.checklist_total + 1 });
       }
-    } catch {
-      setChecklistError("Could not add item.");
+    } catch (err) {
+      // The card's checklist cap (#2376) says why; show it as sent.
+      setChecklistError(refusalDetail(err) ?? "Could not add item.");
     } finally {
       checklistAddInFlight.current = false;
     }
@@ -1174,17 +1189,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       }
       setBulkText("");
       setShowBulkAdd(false);
-    } catch {
+    } catch (err) {
       // Rewrite the textarea to only the items that didn't make it in yet —
       // the failed one plus anything after it that was never attempted — so a
       // literal retry (clicking "Add items" again without editing) resubmits
       // only the remainder instead of re-posting the ones already committed.
       const remaining = items.slice(added.length);
       setBulkText(remaining.join("\n"));
+      // A cap refusal (#2376) is the usual mid-loop stop: say why.
+      const reason = refusalDetail(err);
       setChecklistError(
         added.length > 0
-          ? `Added ${added.length} of ${items.length} items — the rest failed.`
-          : "Could not add items."
+          ? `Added ${added.length} of ${items.length} items — ${reason ?? "the rest failed."}`
+          : reason ?? "Could not add items."
       );
     } finally {
       checklistAddInFlight.current = false;

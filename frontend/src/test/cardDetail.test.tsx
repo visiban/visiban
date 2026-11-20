@@ -1688,6 +1688,56 @@ describe('CardDetail', () => {
       expect(screen.queryByText('New task')).not.toBeInTheDocument()
     })
 
+    it('checklist add: a cap refusal shows the server detail (#2376)', async () => {
+      mockAddChecklistItem.mockRejectedValueOnce({
+        response: { status: 400, data: { code: 'checklist_quota_exceeded', detail: 'This card already has the maximum of 500 checklist items.' } },
+      })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      const input = screen.getByPlaceholderText('Add item (Enter)…') as HTMLInputElement
+      await user.type(input, 'New task')
+      await user.keyboard('{Enter}')
+
+      expect(await screen.findByText('This card already has the maximum of 500 checklist items.')).toBeInTheDocument()
+      expect(screen.queryByText('Could not add item.')).not.toBeInTheDocument()
+      expect(input.value).toBe('New task')
+    })
+
+    it('checklist add: a 400 with field errors but no detail keeps the generic message (#2376)', async () => {
+      mockAddChecklistItem.mockRejectedValueOnce({ response: { status: 400, data: { text: ['This field may not be blank.'] } } })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.type(screen.getByPlaceholderText('Add item (Enter)…'), 'New task')
+      await user.keyboard('{Enter}')
+      expect(await screen.findByText('Could not add item.')).toBeInTheDocument()
+    })
+
+    it('bulk add: a cap refusal mid-batch says why (#2376)', async () => {
+      const detail = 'This card already has the maximum of 500 checklist items.'
+      mockAddChecklistItem
+        .mockResolvedValueOnce({ id: 1, text: 'One', is_checked: false, position: 0 })
+        .mockRejectedValueOnce({ response: { status: 400, data: { code: 'checklist_quota_exceeded', detail } } })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByText('Bulk'))
+      const textarea = screen.getByPlaceholderText(/Buy milk/) as HTMLTextAreaElement
+      await user.type(textarea, 'One\nTwo')
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+      await waitFor(() => expect(screen.getByText(`Added 1 of 2 items — ${detail}`)).toBeInTheDocument())
+      expect(textarea.value).toBe('Two')
+    })
+
+    it('bulk add: a cap refusal on the first item shows the server detail alone (#2376)', async () => {
+      const detail = 'This card already has the maximum of 500 checklist items.'
+      mockAddChecklistItem.mockRejectedValueOnce({ response: { status: 400, data: { code: 'checklist_quota_exceeded', detail } } })
+      render(<CardDetail {...defaultProps()} />)
+      const user = userEvent.setup()
+      await user.click(screen.getByText('Bulk'))
+      await user.type(screen.getByPlaceholderText(/Buy milk/), 'One')
+      await user.click(screen.getByRole('button', { name: 'Add items' }))
+      expect(await screen.findByText(detail)).toBeInTheDocument()
+    })
+
     it('adds the checklist item and clears the input on success', async () => {
       mockAddChecklistItem.mockResolvedValueOnce({ id: 99, text: 'New task', is_checked: false, position: 0 })
       render(<CardDetail {...defaultProps()} />)
@@ -3540,6 +3590,20 @@ describe('CardDetail — custom fields (#371, #1236)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Comment' }))
       await waitFor(() => expect(screen.queryByText('Could not post comment.')).not.toBeInTheDocument())
       expect(addCardComment).toHaveBeenCalledTimes(2)
+    })
+
+    it('comment submit: a cap refusal shows the server detail and keeps the text (#2376)', async () => {
+    rememberCardDetailTab('comments')
+      ;(addCardComment as ReturnType<typeof vi.fn>).mockRejectedValueOnce({
+        response: { status: 400, data: { code: 'comment_quota_exceeded', detail: 'This card already has the maximum of 1000 comments.' } },
+      })
+      render(<CardDetail {...defaultProps()} />)
+      fireEvent.change(screen.getByTestId('mention-textarea'), { target: { value: 'hello' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Comment' }))
+      const err = await screen.findByText('This card already has the maximum of 1000 comments.')
+      expect(err.closest('[aria-live]')).toHaveAttribute('role', 'status')
+      expect(screen.queryByText('Could not post comment.')).not.toBeInTheDocument()
+      expect(screen.getByTestId('mention-textarea')).toHaveValue('hello')
     })
 
     it('checklist toggle: double-click sends one PATCH', async () => {

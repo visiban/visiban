@@ -337,8 +337,8 @@ the instance by uploading in a loop.
   lengthens each such upload request.
 - Lowering a quota never deletes anything. A card already over it keeps its
   attachments and accepts new ones only once it is back under the quota.
-- Only attachments are capped. Per-card limits on comments and checklist items
-  are not in place yet; tracked in #2376.
+- Comments and checklist items have their own per-card caps; see
+  [Comment and checklist limits](#comment-and-checklist-limits).
 - The quota is checked while the card row is locked, so two uploads racing for
   a card's last slot cannot both succeed.
 - These quotas bound one card. A user can still spread uploads over many cards,
@@ -347,6 +347,32 @@ the instance by uploading in a loop.
   that in mind. Turning uploads off entirely is in **Admin → Settings**.
 
 ---
+
+## Comment and checklist limits
+
+*New in 1.3 (#2376).* One card's comments and checklist items are capped, so
+a single member (or a leaked API token) cannot grow one card without bound,
+and with it the card detail response and every change-feed event that copies
+the card.
+
+| Variable | Description | Default |
+|---|---|---|
+| `COMMENT_MAX_PER_CARD` | Most comments one card may hold. `0` = no limit. Helm: `backend.settings.commentMaxPerCard`. | `1000` |
+| `CHECKLIST_MAX_ITEMS_PER_CARD` | Most checklist items one card may hold. `0` = no limit. Helm: `backend.settings.checklistMaxItemsPerCard`. | `500` |
+
+- A comment or checklist item past its cap gets `400` with
+  `"code": "comment_quota_exceeded"` or `"code": "checklist_quota_exceeded"`
+  and a readable `detail`, which the card detail panel shows; nothing is stored.
+- The defaults are far above normal use, so an existing install keeps working.
+  A negative value refuses to start.
+- Lowering a cap never deletes anything. A card already over it keeps its rows
+  and accepts new ones only once it is back under the cap.
+- The count is checked while the card row is locked, so two creates racing for
+  a card's last slot cannot both succeed.
+- Board import (Visiban JSON and Trello) is not capped: it fills a board it is
+  creating, bounded by the import size limit.
+- There is no per-board or instance-wide byte budget for comments, checklist
+  items or descriptions yet.
 
 ## Card link write limit
 
