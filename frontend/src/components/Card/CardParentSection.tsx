@@ -17,7 +17,7 @@ interface Props {
 
 
 const UNLINK_CLASS =
-  "shrink-0 min-h-11 sm:min-h-0 px-2 py-1 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40";
+  "shrink-0 min-h-11 px-2 py-1 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40";
 
 /**
  * The child side of a cross-board parent link, first in the card detail body
@@ -44,6 +44,9 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   const linkButtonRef = useRef<HTMLButtonElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusAfterUnlink = useRef(false);
+  // The card panel, captured before an unlink that may unmount this whole
+  // section (no parent board to offer): focus lands there, never on <body>.
+  const focusFallback = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!canWrite) return;
@@ -66,7 +69,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   useEffect(() => {
     if (!focusAfterUnlink.current || parent !== null) return;
     focusAfterUnlink.current = false;
-    (linkButtonRef.current ?? headingRef.current)?.focus();
+    (linkButtonRef.current ?? headingRef.current ?? focusFallback.current)?.focus();
   }, [parent]);
 
   if (!childBoard) return null;
@@ -77,6 +80,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
     if (unlinking) return;
     setUnlinking(true);
     setError(null);
+    focusFallback.current = headingRef.current?.closest<HTMLElement>('[role="dialog"][tabindex]') ?? null;
     try {
       await unlinkCardParent(board.id, card.id);
       focusAfterUnlink.current = true;
@@ -110,7 +114,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
             ref={linkButtonRef}
             type="button"
             onClick={() => { setError(null); setPickerOpen(true); }}
-            className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="min-h-11 px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Link a parent
           </button>

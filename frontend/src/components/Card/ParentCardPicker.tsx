@@ -198,7 +198,7 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="w-8 h-8 max-sm:min-h-11 max-sm:min-w-11 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="w-11 h-11 flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             <span aria-hidden="true">✕</span>
           </button>

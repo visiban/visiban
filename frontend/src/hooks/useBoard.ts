@@ -183,7 +183,9 @@ function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card
   const i = cards.findIndex((c) => c.id === incoming.id);
   if (i === -1 || isStaleCard(incoming, cards[i])) return cards;
   const next = cards.slice();
-  next[i] = prepare(incoming);
+  // Every wholesale replace (frames, move/forced-move/add/unarchive responses)
+  // keeps the per-reader `parent` the incoming copy leaves out (#1104).
+  next[i] = prepare(carryParent(incoming, cards[i]));
   return next;
 }
 

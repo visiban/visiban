@@ -3496,3 +3496,18 @@ describe('useBoard — per-reader card parent (#1104)', () => {
     expect(out).toBe(err)
   })
 })
+
+describe('useBoard — parent survives a wholesale replace (#1104 regression-check)', () => {
+  it('a move response without the parent key keeps the stored parent', async () => {
+    const base = makeBoard()
+    const parent = { hidden: true as const }
+    mockGetBoardFull.mockResolvedValue({ ...base, cards: base.cards.map((c) => ({ ...c, parent })) })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const stored = result.current.board!.cards[0]
+    const { parent: _drop, ...moved } = stored
+    mockMoveCard.mockResolvedValueOnce({ card: { ...moved, version: stored.version + 1 }, movement: null })
+    await act(async () => { await result.current.moveCard(stored.id, stored.column, stored.swimlane, 0) })
+    expect(result.current.board!.cards[0].parent).toEqual(parent)
+  })
+})
