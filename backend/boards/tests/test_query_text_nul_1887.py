@@ -97,6 +97,7 @@ class NulQueryParamEndpointTests(TestCase):
                 body_schema = declared["content"]["application/json"]["schema"]
                 # Resolve refs in place: a declared 400 is an anyOf whose first
                 # branch is the view's own $ref (#2178).
+                self.assertEqual(set(r.json()), {"code", "detail"})
                 jsonschema.validate(r.json(), {**body_schema, "components": schema["components"]})
 
     def test_non_member_still_gets_404_before_the_search_check(self):

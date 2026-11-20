@@ -2927,9 +2927,11 @@ class CardViewSet(viewsets.ModelViewSet):
             ),
             400: OpenApiResponse(
                 description=(
-                    "`board` missing or not an integer, `search` too long, or `search` "
-                    "containing a NUL (0x00) character "
-                    '(`{"detail": ..., "code": "invalid_query_param"}` for the NUL case).'
+                    "Every 400 is the coded "
+                    '`{"detail": ..., "code": "invalid_query_param"}`: `board` missing, '
+                    "not an integer, or negative (also keyed `board`); `search` over 200 "
+                    "characters (also keyed `search`); or `search` containing a NUL "
+                    "(0x00) character (`detail` and `code` only)."
                 ),
                 response=INVALID_QUERY_PARAM_SCHEMA,
             ),
@@ -2960,10 +2962,17 @@ class CardViewSet(viewsets.ModelViewSet):
         search = query_text(request, "search").strip()
         raw_board = request.query_params.get("board", "")
         if not raw_board.isascii() or not raw_board.isdigit() or len(raw_board) > 18:
-            raise serializers.ValidationError({"board": ["A valid integer is required."]})
-        if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
             raise serializers.ValidationError({
-                "search": [f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."],
+                "board": ["A valid integer is required."],
+                "detail": "board: A valid integer is required.",
+                "code": INVALID_QUERY_PARAM,
+            })
+        if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
+            msg = f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."
+            raise serializers.ValidationError({
+                "search": [msg],
+                "detail": f"search: {msg}",
+                "code": INVALID_QUERY_PARAM,
             })
         parent_board = card_links.resolve_parent_board(request.user, board, int(raw_board))
         return Response({"results": card_links.parent_candidates_for_viewer(

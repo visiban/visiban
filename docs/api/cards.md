@@ -1196,6 +1196,17 @@ write's `400`. `children_board_name` is that other board's name only when you ca
 open it. Rate-limited by the `card_query` scope (`120/min`), shared with the
 cross-board card query `GET /api/v1/cards/`: debounce the picker's search.
 
+Three `400`s, each the [bad query parameter](index.md#error-responses) body
+with `detail` and `code: "invalid_query_param"`:
+
+- `board` missing, not an integer, or negative: also keyed `board`, as in
+  `{"board": ["A valid integer is required."], "detail": "board: A valid integer is required.", "code": "invalid_query_param"}`.
+- `search` over 200 characters: also keyed `search`.
+- `search` containing a NUL (0x00) character:
+  `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}`.
+
+Branch on `code`.
+
 ### History and real-time
 
 Both cards record `parent_linked` / `child_linked` (and `parent_unlinked` /

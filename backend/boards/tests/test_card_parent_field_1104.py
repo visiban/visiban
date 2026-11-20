@@ -352,8 +352,34 @@ class ParentCandidatesTests(_LinkFixture, TestCase):
         for bad in ({}, {"board": "x"}, {"board": "-1"}, {"board": "1" * 19}):
             res = self._get(**bad, search="Init")
             self.assertEqual(res.status_code, 400, bad)
-            self.assertIn("board", res.json())
-        self.assertEqual(self._get(board=self.pboard.pk, search="x" * 201).status_code, 400)
+            body = res.json()
+            self.assertIn("board", body)
+            self.assertEqual(body["code"], "invalid_query_param", bad)
+            self.assertIsInstance(body["detail"], str)
+        for big in ("9" * 18, str(2**63), str(2**64)):
+            # Past any real id, or past 64 bits: a clean 400/404, never a 500.
+            res = self._get(board=big, search="Init")
+            self.assertIn(res.status_code, (400, 404), big)
+        res = self._get(board=self.pboard.pk, search="x" * 201)
+        self.assertEqual(res.status_code, 400)
+        body = res.json()
+        self.assertEqual(body["code"], "invalid_query_param")
+        self.assertIsInstance(body["detail"], str)
+        self.assertIn("search", body)
+        res = self._get(board=self.pboard.pk, search="x" * 200)
+        self.assertEqual(res.status_code, 200)
+
+    def test_400_bodies_match_the_declared_schema(self):
+        import jsonschema
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/boards/{board_pk}/cards/{id}/parent-candidates/"]["get"]
+        declared = op["responses"]["400"]["content"]["application/json"]["schema"]
+        for params in ({"board": "-1"}, {"board": "x"}, {}, {"board": self.pboard.pk, "search": "x" * 201}):
+            res = self._get(**params)
+            self.assertEqual(res.status_code, 400, params)
+            jsonschema.validate(res.json(), {**declared, "components": schema["components"]})
 
     def test_role_and_idor(self):
         viewer = self._user("pc_v", parent_role=Role.MEMBER, child_role=Role.VIEWER)
