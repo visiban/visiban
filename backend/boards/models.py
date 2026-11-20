@@ -337,7 +337,7 @@ class Board(models.Model):
     # (SET_NULL). Different parents on one board may still use different child
     # boards (#2206 decision D): this is only where Add child starts.
     # db_index=False: the index is built CONCURRENTLY in its own migration
-    # (0125), the zero-downtime rule for indexes (database-migrations.md).
+    # (0126), the zero-downtime rule for indexes (database-migrations.md).
     default_child_board = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="default_child_board_of", db_index=False,
@@ -401,7 +401,7 @@ class Board(models.Model):
                 name="board_health_changed_by_idx",
                 condition=models.Q(health_status_changed_by__isnull=False),
             ),
-            # #2208: the FK index, built concurrently (boards/0125). Partial:
+            # #2208: the FK index, built concurrently (boards/0126). Partial:
             # serves the target-delete SET NULL and the "this board is a
             # default" flag-flip check; most boards have no default.
             models.Index(

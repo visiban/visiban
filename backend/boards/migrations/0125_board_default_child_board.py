@@ -2,7 +2,7 @@
 # child card. Nullable with no default, so ADD COLUMN is catalog-only; the
 # boards table is small (precedent: docs/development/database-migrations.md,
 # the swimlane_rollup_field add). The FK index is built CONCURRENTLY on its
-# own in 0125, so the field is declared db_index=False.
+# own in 0126, so the field is declared db_index=False.
 from django.db import migrations, models
 import django.db.models.deletion
 
