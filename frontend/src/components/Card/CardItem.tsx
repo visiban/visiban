@@ -876,7 +876,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             hidden parent names nothing (frontend/CLAUDE.md § Cards). The share
             payload carries no `parent`, so a public link shows no line. */}
         {!compact && card.parent && (
-          <p data-testid="card-parent-line" className={`mb-0.5 text-xs leading-snug truncate ${card.parent.hidden ? "text-fg-muted" : "text-info"}${boardFace ? (denseRow ? " [@media(pointer:fine)]:pr-12" : " [@media(pointer:fine)]:pr-14") : ""}${
+          <p data-testid="card-parent-line" className={`mb-0.5 text-xs leading-snug truncate ${card.parent.hidden ? "text-fg-tertiary" : "text-info"}${boardFace ? (denseRow ? " [@media(pointer:fine)]:pr-12" : " [@media(pointer:fine)]:pr-14") : ""}${
             menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-28" : " [@media(pointer:coarse)]:group-focus-within:pr-28") : ""
           }`}>
             {card.parent.hidden ? (
