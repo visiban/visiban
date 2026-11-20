@@ -192,10 +192,12 @@ Four charts built from the movement log, so you can see how long work takes and 
 **Work and wait in gated stages.** <span class="vb-version" title="Added in 1.3">1.3+</span> In a stage with [sub-columns](board.md), the sub-columns before the last count as work time and the last one counts as wait time (#1102). The split comes from the recorded gate history: the sub-column a card entered in, then every gate passed or reopened while it stayed. A card reopened from the last sub-column goes back to work time, and a card that leaves with gates still open stops waiting when it leaves. The API reports the split as additive fields, and no existing number changes:
 
 - each cycle-time sample carries `wait_days` (its time in the last sub-column of gated stages, 0 when it crossed none) and `work_days` (`value_days` minus `wait_days`);
-- each dwell column carries `work_percentiles` and `wait_percentiles`, null for a stage with no sub-columns (the work-in-progress age samples carry no split);
+- each dwell column carries `work_percentiles` and `wait_percentiles`, null for a stage with no sub-columns, and for every stage when the filters select no cards (the work-in-progress age samples carry no split);
 - each heatmap swimlane carries `throughput_wait_avg_days_per_column` (In period) and `age_wait_avg_days_per_column` (Age), keyed only by gated stages.
 
 Cycle-time samples carry the same two fields: `wait_days` is 0 and `work_days` equals `value_days` when the card crossed no gated stage. The gate history is read for the board's cards and is not limited to the selected date range, so its load grows with the board's gate-transition history.
+
+Time a card spends archived inside a cycle counts as work time: only visits are split into work and wait, and archiving closes the visit, so an archived span is never wait. This is a known simplification.
 
 Work time here includes blocked time, so `work_days` plus `wait_days` is always the sample's `value_days`. #1102 describes work time as "minus blocked time"; this release does not subtract it, pending a product decision, and blocked time stays its own metric (**Blocked time** above).
 

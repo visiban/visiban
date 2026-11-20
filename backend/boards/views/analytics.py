@@ -1229,7 +1229,7 @@ class BoardAnalyticsMixin:
         # extra round-trips to the database (still 2 queries: cards + prefetch).
         buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
-        _last_mv_qs = _mv_qs.order_by("-moved_at")
+        _last_mv_qs = _mv_qs.order_by("-moved_at", "-id")
         all_cards = list(
             flow_metrics._base_cards(board, swimlane_filter, label_filter).filter(
                 Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)

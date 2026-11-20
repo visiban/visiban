@@ -3371,7 +3371,7 @@ class BoardImportExportMixin:
             for card in cards:
                 # Use .all() + sorted() to read from the prefetch cache instead of
                 # issuing an ORDER BY query per card for movements, comments, and checklist.
-                movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
+                movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
                 movement_index = {mv.pk: i for i, mv in enumerate(movements)}
                 cards_data.append({
                     "title": card.title,
@@ -3673,7 +3673,7 @@ class BoardImportExportMixin:
 
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
         for card in cards:
-            movements = sorted(card.movements.all(), key=lambda m: m.moved_at)
+            movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
             # Sorted in Python, not .order_by(): labels are prefetched, and Label has no
             # Meta.ordering, so the DB returns them in arbitrary order. A stable
             # order keeps exports diffable and the CSV shape tests deterministic.

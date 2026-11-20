@@ -752,7 +752,7 @@ Add `date=YYYY-MM-DD`, a UTC day before today, for the cards behind that day's c
 }
 ```
 
-`columns` lists the columns that are not done, in position order, each with its own sample size and percentiles under the same sample-size rule. The individual visits are not returned. *Added in 1.3* (#2360): each column also carries `work_percentiles` and `wait_percentiles`, the same percentiles for the time before and in the stage's last sub-column. Both are `null` for a stage with no sub-columns.
+`columns` lists the columns that are not done, in position order, each with its own sample size and percentiles under the same sample-size rule. The individual visits are not returned. *Added in 1.3* (#2360): each column also carries `work_percentiles` and `wait_percentiles`, the same percentiles for the time before and in the stage's last sub-column. Both are `null` for a stage with no sub-columns, and also for every stage when the request selected no cards (for example a swimlane filter that matches nothing), because the stage's gates are not read in that case.
 
 #### `GET /api/v1/boards/{id}/metrics/blocked/`
 
