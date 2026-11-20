@@ -607,6 +607,13 @@ class BoardViewSet(
         self._require_board_settings_admin(board)
         return Response(card_links.default_child_blockers_for_viewer(board, request.user))
 
+    @action(detail=True, methods=["get"], url_path="default-child-board-options")
+    def default_child_board_options(self, request, pk=None):
+        """Boards this admin may choose as the default child board (#2208)."""
+        board = self.get_object()
+        self._require_board_settings_admin(board)
+        return Response({"boards": card_links.default_child_board_options_for_admin(board, request.user)})
+
     def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
         """Persist ``board.updated`` and schedule its fanout on commit; return the payload.
 

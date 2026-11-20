@@ -636,6 +636,32 @@ def child_board_options_for_viewer(parent, user):
     return out
 
 
+def default_child_board_options_for_admin(board, user):
+    """Boards ``user`` may pick as ``board``'s default child board (#2208). Per viewer.
+
+    Qualifying boards (not a parent tier, first column creates cards, has a
+    lane) where the viewer is ADMIN: setting a default needs ADMIN on both
+    boards. Same rule the write's validator applies, so the select never offers
+    a board the PATCH would refuse. ``[]`` when the viewer is not ADMIN on
+    ``board`` or there is no viewer (#1075 fail closed).
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return []
+    if get_board_roles(user, [board])[board.pk] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+        return []
+    candidates = list(
+        _qualifying(_accessible_boards(user).exclude(pk=board.pk))
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, candidates) if candidates else {}
+    return [
+        {"id": b.pk, "name": b.name}
+        for b in candidates
+        if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
+    ]
+
+
 def remove_link(link, *, actor, moved_from=None):
     """Delete ``link`` and record it on both cards and both boards.
 
@@ -796,6 +822,14 @@ def boards_losing_default(board_pks):
     ``SET_NULL`` has cleared their default and each gets a ``board.updated``
     (:func:`announce_default_cleared`), so their clients drop it and Add child
     falls back to the chooser.
+
+    Deliberately takes no lock on the referencing boards. A write that sets a
+    default locks the target board (FOR NO KEY UPDATE, pk order with its own
+    board), and this delete already holds that row's lock before it reads
+    here: a default PATCH either committed first, so this read sees it, or it
+    waits for the delete and then finds the target gone. Locking the sources
+    here would take them after the target, against the PATCH's pk order, and
+    risk a deadlock for no extra safety.
     """
     return list(
         Board.objects.filter(default_child_board_id__in=board_pks)

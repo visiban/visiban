@@ -2800,6 +2800,16 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 - `parent_cards`: cards on this board that have children. Turning the setting **off** is refused while this is above 0.
 - `default_of`: the boards whose `default_child_board` is this board. Turning the setting **on** is refused while it is not empty. A board you cannot open is `{"hidden": true}`, with no id or name; `can_change` is true when you administer that board.
 
+### Default child board options (since 1.3)
+
+`GET /api/v1/boards/{id}/default-child-board-options/` — the boards you may pick as this board's `default_child_board`, for the Board settings Rules select (#2208). **Minimum role:** board admin (or site admin); a member gets `403`, a user who cannot open the board `404`.
+
+```json
+{"boards": [{"id": 7, "name": "Delivery"}]}
+```
+
+Only boards where you are admin, whose cards cannot have children and whose first column allows card creation are listed: the same rule the `PATCH` applies, so the select never offers a board the write would refuse.
+
 ### Delete impact (since 1.3)
 
 `GET /api/v1/boards/{id}/delete-impact/` — what deleting this board does to [parent/child card links](cards.md#parent-and-children-since-13) on other boards, for the delete confirm (#2208). **Minimum role:** the delete's own gate, the board owner or a site admin; anyone else gets `403` (or `404` without access).

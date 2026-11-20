@@ -611,3 +611,49 @@ class DeleteImpactTests(AddChildFixture):
     def test_board_admin_who_is_not_the_owner_is_refused(self):
         a = self.user_with("nonowner", child=Role.ADMIN)
         self.assertEqual(self.impact(a, self.child).status_code, 403)
+
+
+class DefaultChildBoardOptionsTests(DefaultChildBoardFixture):
+    """``GET /boards/{id}/default-child-board-options/``: the Rules select's data."""
+
+    def options(self, user, board):
+        return client_for(user).get(f"/api/v1/boards/{board.pk}/default-child-board-options/")
+
+    def test_lists_only_qualifying_boards_the_viewer_administers(self):
+        other = User.objects.create_user(username="dcb_other", password="pass")
+        member_only = make_board(other, "Member only")
+        BoardMembership.objects.create(board=member_only, user=self.admin, role=Role.MEMBER)
+        parent_tier = make_board(self.admin, "Parent tier", parent_tier=True)
+        no_create = make_board(self.admin, "No create", first_column_creates=False)
+        for b in (parent_tier, no_create):
+            BoardMembership.objects.create(board=b, user=self.admin, role=Role.ADMIN)
+        r = self.options(self.admin, self.parent)
+        self.assertEqual(r.status_code, 200)
+        names = [b["name"] for b in r.json()["boards"]]
+        self.assertIn("Delivery", names)
+        self.assertNotIn("Pipeline", names)
+        self.assertNotIn("Member only", names)
+        self.assertNotIn("Parent tier", names)
+        self.assertNotIn("No create", names)
+
+    def test_members_are_refused_and_outsiders_get_404(self):
+        member = self.user_with("om", parent=Role.MEMBER, child=Role.ADMIN)
+        self.assertEqual(self.options(member, self.parent).status_code, 403)
+        outsider = self.user_with("oo")
+        self.assertEqual(self.options(outsider, self.parent).status_code, 404)
+
+    def test_no_viewer_fails_closed(self):
+        self.assertEqual(card_links.default_child_board_options_for_admin(self.parent, None), [])
+
+
+class AddChildSchemaTests(TestCase):
+    def test_post_children_declares_its_body_and_responses(self):
+        """Schema-fuzz only exercises a write whose body and statuses are declared."""
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        path = next(p for p in schema["paths"] if p.endswith("/cards/{id}/children/"))
+        post = schema["paths"][path]["post"]
+        self.assertIn("requestBody", post)
+        self.assertTrue({"201", "400", "403", "404"} <= set(post["responses"]))
+        self.assertIn("get", schema["paths"][path])

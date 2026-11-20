@@ -2890,6 +2890,7 @@ class CardViewSet(viewsets.ModelViewSet):
         )
 
     @extend_schema(
+        methods=["GET"],
         parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: OpenApiResponse(description=(
             "`{count, visible, offset, limit, results}`. When the caller cannot "
@@ -2899,6 +2900,23 @@ class CardViewSet(viewsets.ModelViewSet):
             "This card's children, computed for the caller. Minimum role: any "
             "role on this card's board. Children are on one board; titles are "
             "returned only when the caller can open it."
+        ),
+    )
+    @extend_schema(
+        methods=["POST"],
+        request=inline_serializer(
+            "AddChildRequest",
+            fields={"board_id": serializers.IntegerField(), "title": serializers.CharField()},
+        ),
+        responses={
+            201: OpenApiResponse(description="The new child card, as `POST .../cards/` returns it."),
+            400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `children_on_other_board`, `children_limit`)."),
+            403: OpenApiResponse(description="Below `member` on this card's board."),
+            404: OpenApiResponse(description="Unknown, unopenable, below-member or non-qualifying target board: one identical answer."),
+        },
+        description=(
+            "Add child (#2208): create a card on another board and link it under "
+            "this one in one request. Minimum role: member on both boards."
         ),
     )
     @action(detail=True, methods=["get", "post"], url_path="children")
