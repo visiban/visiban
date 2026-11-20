@@ -85,13 +85,15 @@ expect ".env.example with APP_VERSION= (empty value): exits 1, not \"v\"" 1 ""
 # --- --require-tag (#1997, #2398): main must not publish a version before its tag
 # exists AND its tag pipeline's release-main-pipeline-guard passed. The test hooks
 # (TAG_LOOKUP_CMD, GUARD_STATUS_CMD) are honored only inside --self-test, so the
-# CLI cases here use a real local git remote and a local fake GitLab API.
+# CLI cases here use a real local git remote and a local fake GitLab API. runrt
+# scrubs the caller's GitLab API env: a protected CI token on main otherwise turns
+# the no-token cases into real lookups (#2412); API cases pass it back explicitly.
 REMOTE="$TMP/remote.git"; git init -q --bare "$REMOTE"
 WORK="$TMP/work"; git init -q "$WORK"
 git -C "$WORK" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
 git -C "$WORK" tag v1.3.0
 git -C "$WORK" remote add origin "$REMOTE"; git -C "$WORK" push -q origin v1.3.0
-runrt() { RC=0; OUT=$(cd "$WORK" && env -u DOCS_VERSION -u CI_COMMIT_TAG "$@" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?; }
+runrt() { RC=0; OUT=$(cd "$WORK" && env -u DOCS_VERSION -u CI_COMMIT_TAG -u GITLAB_API_TOKEN -u CI_API_V4_URL -u CI_PROJECT_ID "$@" bash "$GATE" --require-tag --env-file "$ENV_REL" 2>/dev/null) || RC=$?; }
 ENV_REL="$TMP/env-release"; echo "APP_VERSION=v1.4.0" > "$ENV_REL"
 runrt
 expect "main, APP_VERSION tag not on origin: exit 3, nothing on stdout" 3 ""
