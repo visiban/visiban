@@ -44,6 +44,7 @@ import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
+import CardParentSection from "./CardParentSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import CardBlockSection, { type BlockFormMode } from "./CardBlockSection";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
@@ -1852,6 +1853,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 // section that is off here still carries its own reason.
                 <p className="text-xs text-fg-muted -mb-3">{DEMO_CARD_DETAIL_NOTE}</p>
               )}
+
+              {/* Parent link, child side (#1104): above everything else, per
+                  the canvas "The child's side". Renders nothing on a parent
+                  board, or with no parent and nothing to link to. Reads the
+                  live `card`, whose `parent` the store refreshes. */}
+              <CardParentSection board={board} card={card} canEdit={canEdit} demoMode={demoMode} />
 
               {/* Manual blocked state (#1149): first in the body, because a
                   blocked card's most important fact is that it is blocked. */}

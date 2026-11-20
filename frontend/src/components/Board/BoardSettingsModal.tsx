@@ -97,7 +97,8 @@ interface Props {
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
-  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+  /** May resolve with the request's error (null on success), so a control can say why it was refused. */
+  onUpdateBoardSettings?: (patch: Record<string, unknown>) => void | Promise<unknown>;
   /**
    * #2244: merge server-resolved fields from a non-optimistic save (the review
    * setting's `health_review_due_at` is computed by the server), so the header
@@ -235,6 +236,24 @@ function RoleTooltip() {
 }
 
 export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
+  // The Child cards switch (#1104): the server refuses a flip while card links
+  // depend on the flag (400). Say why, instead of the silent revert the
+  // sibling switches do.
+  const [childCardsError, setChildCardsError] = useState<string | null>(null);
+  const flipChildCards = async (value: boolean) => {
+    setChildCardsError(null);
+    const err = await onUpdateBoardSettings?.({ cards_can_have_children: value });
+    if (!err) return;
+    const data = (err as { response?: { status?: number; data?: { cards_can_have_children?: unknown; detail?: unknown } } })?.response?.data;
+    const fieldMsg = Array.isArray(data?.cards_can_have_children) ? data?.cards_can_have_children[0] : undefined;
+    setChildCardsError(
+      typeof fieldMsg === "string" && fieldMsg
+        ? fieldMsg
+        : typeof data?.detail === "string" && data.detail
+          ? data.detail
+          : "Failed to change the Child cards setting. Please try again.",
+    );
+  };
   const settingsInert = demoMode && isAdmin;
   const isPhone = useIsPhoneViewport();
   const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "swimlane-fields", "export"]);
@@ -1942,14 +1961,20 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="child-cards-heading">
                 <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
                 {isAdmin ? (
-                  <ToggleField
-                    checked={board.cards_can_have_children}
-                    onChange={(v) => onUpdateBoardSettings?.({ cards_can_have_children: v })}
-                    label="Cards can have child cards"
-                    descriptionId="cards-can-have-children-help"
-                    aria-describedby="cards-can-have-children-help"
-                    description="Cards on this board can have child cards on another board. A board is either a parent board or a child board, never both."
-                  />
+                  <>
+                    <ToggleField
+                      checked={board.cards_can_have_children}
+                      onChange={(v) => { void flipChildCards(v); }}
+                      label="Cards can have child cards"
+                      descriptionId="cards-can-have-children-help"
+                      aria-describedby="cards-can-have-children-help cards-can-have-children-error"
+                      description="Cards on this board can have child cards on another board. A board is either a parent board or a child board, never both. While cards are linked across boards, this can't be changed: unlink them first."
+                    />
+                    {/* Always mounted (#1421): a refused flip (live card links, #1104) is announced. */}
+                    <p id="cards-can-have-children-error" role="status" aria-live="polite" aria-atomic="true" className={childCardsError ? "text-xs text-danger mt-1" : "sr-only"}>
+                      {childCardsError ?? ""}
+                    </p>
+                  </>
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.

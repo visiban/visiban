@@ -1,4 +1,6 @@
 import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
+import LockGlyph from "./LockGlyph";
+import { LINKED_CARD_HIDDEN } from "./cardParent";
 import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
@@ -141,6 +143,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.id !== next.card.id ||
     prev.card.updated_at !== next.card.updated_at ||
     prev.card.title !== next.card.title ||
+    prev.card.parent !== next.card.parent ||
     prev.card.column !== next.card.column ||
     prev.card.swimlane !== next.card.swimlane ||
     prev.card.position !== next.card.position ||
@@ -868,6 +871,25 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       )}
       <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* The title keeps clear of the card-face overlay controls. Show summary reserves pr-14 at fine pointers permanently, so hover never re-wraps the title; ⋯ reserves its width at coarse pointers only while shown. */}
+        {/* Parent line (#1104): one line above the title, in link color,
+            truncating. Text, not a link: the whole face is one control. A
+            hidden parent names nothing (frontend/CLAUDE.md § Cards). The share
+            payload carries no `parent`, so a public link shows no line. */}
+        {!compact && card.parent && (
+          <p data-testid="card-parent-line" className={`mb-0.5 text-xs leading-snug truncate ${card.parent.hidden ? "text-fg-muted" : "text-info"}${boardFace ? " [@media(pointer:fine)]:pr-14" : ""}`}>
+            {card.parent.hidden ? (
+              <>
+                <LockGlyph className="inline-block w-3 h-3 mr-1 align-[-0.125em]" />
+                {LINKED_CARD_HIDDEN}
+              </>
+            ) : (
+              <>
+                <span className="sr-only">Parent: </span>
+                {card.parent.title}
+              </>
+            )}
+          </p>
+        )}
         <RowWrap {...(denseRow ? { className: `flex items-center gap-2${boardFace ? " [@media(pointer:fine)]:pr-12" : ""}`, "data-testid": "card-dense-row" } : {})}>
         <p title={!compact && density !== "comfortable" ? card.title : undefined} className={`leading-snug ${denseRow ? "flex-1 min-w-0 " : ""}${compact ? "text-xs text-fg line-clamp-1" : `text-sm font-semibold text-fg ${density === "comfortable" ? "line-clamp-2" : "line-clamp-1"}`}${
           menuEnabled ? (selected ? " [@media(pointer:coarse)]:pr-28" : " [@media(pointer:coarse)]:group-focus-within:pr-28") : ""

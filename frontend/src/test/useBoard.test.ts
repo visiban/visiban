@@ -3445,3 +3445,54 @@ describe('useBoard — column_entered_at across a move (#459)', () => {
     expect(result.current.board!.cards[0].column_entered_at).toBeNull()
   })
 })
+
+// #1104: `parent` is computed per reader, so frames and write responses leave
+// it out. The store keeps the last read value and only card.parent_changed
+// re-reads it.
+describe('useBoard — per-reader card parent (#1104)', () => {
+  const parent = { hidden: false as const, id: 41, title: 'Initech', board_id: 12, board_name: 'Pipeline', column_id: 3, column_name: 'Qualify', swimlane_id: 4, swimlane_name: 'Initech', archived: false }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updateCard carries parent over when the incoming copy has no parent key', async () => {
+    const base = makeBoard()
+    mockGetBoardFull.mockResolvedValue({ ...base, cards: base.cards.map((c) => ({ ...c, parent })) })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const stored = result.current.board!.cards[0]
+    const { parent: _drop, ...frame } = stored
+    act(() => { result.current.updateCard({ ...frame, title: 'Renamed' } as Card) })
+    expect(result.current.board!.cards[0].title).toBe('Renamed')
+    expect(result.current.board!.cards[0].parent).toEqual(parent)
+  })
+
+  it('applyCardParents sets only parent, skips unknown ids, and is a no-op when empty', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const before = result.current.board!
+    act(() => { result.current.applyCardParents(new Map()) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardParents(new Map([[999999, null]])) })
+    expect(result.current.board).toBe(before)
+    const id = before.cards[0].id
+    act(() => { result.current.applyCardParents(new Map([[id, { hidden: true }]])) })
+    expect(result.current.board!.cards[0]).toEqual({ ...before.cards[0], parent: { hidden: true } })
+  })
+
+  it('updateBoardSettings resolves null on success and with the error on failure', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    mockPatchBoard.mockResolvedValueOnce(undefined)
+    let out: unknown
+    await act(async () => { out = await result.current.updateBoardSettings({ cards_can_have_children: true }) })
+    expect(out).toBeNull()
+    const err = { response: { status: 400, data: { cards_can_have_children: ['no'] } } }
+    mockPatchBoard.mockRejectedValueOnce(err)
+    await act(async () => { out = await result.current.updateBoardSettings({ cards_can_have_children: false }) })
+    expect(out).toBe(err)
+  })
+})

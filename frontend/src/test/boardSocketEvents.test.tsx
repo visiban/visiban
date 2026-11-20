@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
+import * as cardsApi from '../api/cards'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
@@ -233,6 +234,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     evictSwimlane: vi.fn(),
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
+    applyCardParents: vi.fn(),
     silentReload: vi.fn(),
     ...overrides,
   }
@@ -1017,5 +1019,48 @@ describe('BoardView — board invites (#1444)', () => {
     render(<BoardView />)
     await act(async () => {})
     expect(screen.queryByRole('button', { name: 'Dismiss notification' })).not.toBeInTheDocument()
+  })
+})
+
+describe('BoardView — card.parent_changed (#1104)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('re-reads each listed card and applies only its parent', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(async (_b, id) => (id === 5 ? { hidden: true } : null))
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6, 'x'] } }) })
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, { hidden: true }], [6, null]]))
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('re-reads the board instead when more than 20 cards are listed', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardParent')
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const ids = Array.from({ length: 21 }, (_, i) => i + 1)
+    act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: ids } }) })
+    expect(ctx.silentReload).toHaveBeenCalled()
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('answers the card detail refetch event, and skips a failed read', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardParent').mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(null)
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { window.dispatchEvent(new CustomEvent('visiban:card-parent-refetch', { detail: { cardIds: [8, 9] } })) })
+    expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[9, null]]))
+    spy.mockRestore()
   })
 })

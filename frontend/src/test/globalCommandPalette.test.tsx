@@ -70,6 +70,7 @@ function emptyBoardContext(): BoardContextType {
     evictSwimlane: vi.fn(),
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
+    applyCardParents: vi.fn(),
   };
 }
 
