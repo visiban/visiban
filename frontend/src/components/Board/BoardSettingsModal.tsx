@@ -41,6 +41,8 @@ import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
 import { Toggle, ToggleField } from "../Common/Toggle";
+import ChildCardsSettings from "./ChildCardsSettings";
+import BoardDeleteImpactNotice from "./BoardDeleteImpact";
 import DemoInert from "../Common/DemoInert";
 import { getBoardPreset, listBoardPresets } from "../../boardPresets/registry";
 import type { PresetDensitySource } from "../../hooks/useBoardPreset";
@@ -1961,20 +1963,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="child-cards-heading">
                 <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
                 {isAdmin ? (
-                  <>
-                    <ToggleField
-                      checked={board.cards_can_have_children}
-                      onChange={(v) => { void flipChildCards(v); }}
-                      label="Cards can have child cards"
-                      descriptionId="cards-can-have-children-help"
-                      aria-describedby="cards-can-have-children-help cards-can-have-children-error"
-                      description="Cards on this board can have child cards on another board. A board is either a parent board or a child board, never both. While cards are linked across boards, this can't be changed: unlink them first."
-                    />
-                    {/* Always mounted (#1421): a refused flip (live card links, #1104) is announced. */}
-                    <p id="cards-can-have-children-error" role="status" aria-live="polite" aria-atomic="true" className={childCardsError ? "text-xs text-danger mt-1" : "sr-only"}>
-                      {childCardsError ?? ""}
-                    </p>
-                  </>
+                  <ChildCardsSettings board={board} error={childCardsError} onUpdate={(patch) => { if (typeof patch.cards_can_have_children === "boolean") void flipChildCards(patch.cards_can_have_children); else onUpdateBoardSettings?.(patch); }} />
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.
@@ -2375,6 +2364,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   <div className="flex flex-col gap-2">
                     {deleteArmed && (
                       <>
+                        <BoardDeleteImpactNotice boardId={board.id} />
                         {(board.archived_card_count ?? 0) > 0 && (
                           <p className="text-xs text-danger">
                             This board has {board.archived_card_count} archived card{board.archived_card_count !== 1 ? "s" : ""}, which will also be permanently deleted.

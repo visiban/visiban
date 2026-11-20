@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { listBoards, createBoard, deleteBoard } from "../../api/boards";
 import type { Board, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
+import BoardDeleteImpactNotice from "../Board/BoardDeleteImpact";
 import CreateBoardModal from "../Board/CreateBoardModal";
 import { canDeleteBoard } from "../../utils/canDeleteBoard";
 
@@ -176,6 +177,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards (including archived cards), and history will be permanently deleted.
             </p>
             <p className="text-danger text-sm mb-4">This cannot be undone.</p>
+            <BoardDeleteImpactNotice boardId={confirmDeleteId} />
             {hasCards && (
               <div className="mb-4">
                 <p className="text-fg-tertiary text-xs mb-2">

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate } from "../types";
+import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -293,3 +293,13 @@ export const getCardStatus = (boardId: number, cardId: number): Promise<CardStat
     .get<CardStatus>(`/api/v1/boards/${boardId}/cards/${cardId}/status/`)
     .then((r) => r.data)
     .catch(() => null);
+
+// ── Add child (#2208) ────────────────────────────────────────────────────────
+
+/** `GET /boards/{b}/cards/{id}/child-board-options/`: where Add child may put a new child, per viewer. */
+export const getChildBoardOptions = (boardId: number, cardId: number) =>
+  client.get<ChildBoardOptions>(`/api/v1/boards/${boardId}/cards/${cardId}/child-board-options/`).then((r) => r.data);
+
+/** `POST /boards/{b}/cards/{id}/children/`: create a card on `targetBoardId` and link it under this one. */
+export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string }) =>
+  client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);

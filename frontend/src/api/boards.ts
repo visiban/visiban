@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -439,3 +439,17 @@ export const saveColumnStage = (boardId: number, colId: number, data: StageSetti
   client.put<{ column: Column; remapped: { id: number; gates_passed: number; version: number }[] }>(
     `/api/v1/boards/${boardId}/columns/${colId}/stage/`, data,
   ).then((r) => r.data);
+
+// ── Two-tier child cards (#2208) ─────────────────────────────────────────────
+
+/** `GET /boards/{id}/children-setting-blockers/` (board admin). */
+export const getChildrenSettingBlockers = (id: number) =>
+  client.get<ChildrenSettingBlockers>(`/api/v1/boards/${id}/children-setting-blockers/`).then((r) => r.data);
+
+/** `GET /boards/{id}/default-child-board-options/` (board admin): boards the viewer may choose as the default. */
+export const getDefaultChildBoardOptions = (id: number) =>
+  client.get<{ boards: { id: number; name: string }[] }>(`/api/v1/boards/${id}/default-child-board-options/`).then((r) => r.data.boards);
+
+/** `GET /boards/{id}/delete-impact/` (board owner or site admin). */
+export const getBoardDeleteImpact = (id: number) =>
+  client.get<BoardDeleteImpact>(`/api/v1/boards/${id}/delete-impact/`).then((r) => r.data);

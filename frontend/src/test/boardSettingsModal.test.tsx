@@ -6,7 +6,7 @@ import { useState, type ComponentProps } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { SETTINGS_INDEX, SECTION_LABELS, locateSettingTarget, findSettings, settingKey, type SettingsSection } from '../components/Board/boardSettingsSections'
 import { computeAccessibleName } from 'dom-accessibility-api'
-import { recomputeBoardHealth } from '../api/boards'
+import { recomputeBoardHealth, getChildrenSettingBlockers, getDefaultChildBoardOptions, getBoardDeleteImpact } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, CustomFieldDefinition, User } from '../types'
 
@@ -16,6 +16,10 @@ vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => phone.
 const FULL_ACCESS = "Full access to all boards. This account's board role doesn't apply."
 
 vi.mock('../api/boards', () => ({
+  // #2208 — the Rules switch's blockers and the delete confirm's impact read.
+  getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   setBoardMember: vi.fn(),
   removeBoardMember: vi.fn(),
   exportBoardCsv: vi.fn(),
@@ -1885,9 +1889,18 @@ describe('BoardSettingsModal — Commitment point (#2050)', () => {
   })
 })
 
-// ─── Child cards toggle (#2208) ────────────────────────────────────────────────
+// ─── Child cards toggle and default child board (#2208) ────────────────────────
 
 describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
+  const SWITCH = 'Cards on this board can have children'
+
+  beforeEach(() => {
+    vi.mocked(getChildrenSettingBlockers).mockClear()
+    vi.mocked(getBoardDeleteImpact).mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 })
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] })
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([])
+  })
+
   async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={board} isAdmin={isAdmin} onClose={vi.fn()} onUpdateBoardSettings={onUpdate} />)
@@ -1895,25 +1908,23 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     return { user, onUpdate }
   }
 
-  it('admin sees the switch off by default, with the explanation tied to it', async () => {
+  it('admin sees the switch off by default, with the description and status tied to it', async () => {
     await openRules(fakeBoard)
-    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
+    const sw = await screen.findByRole('switch', { name: SWITCH })
     expect(sw).toHaveAttribute('aria-checked', 'false')
-    expect(sw).toHaveAttribute('aria-describedby', 'cards-can-have-children-help cards-can-have-children-error')
-    expect(document.getElementById('cards-can-have-children-help')).toHaveTextContent('Cards on this board can have child cards on another board')
-    // #1104: the help names the existing-links rule.
-    expect(document.getElementById('cards-can-have-children-help')).toHaveTextContent("While cards are linked across boards, this can't be changed: unlink them first.")
+    expect(sw).not.toHaveAttribute('aria-disabled')
+    const described = (sw.getAttribute('aria-describedby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent).join(' ')
+    expect(described).toContain('Turns on the Children tab')
+    expect(described).toContain('Off.')
   })
 
   it('shows the server refusal inline when live links block the flip (#1104)', async () => {
     const msg = 'Cannot change this setting while 2 card link(s) depend on it. Remove those links first.'
     const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { cards_can_have_children: [msg] } } })
     const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true }, onUpdate)
-    const slot = document.getElementById('cards-can-have-children-error')!
-    expect(slot).toHaveAttribute('role', 'status')
-    expect(slot).toHaveTextContent('')
-    await user.click(screen.getByRole('switch', { name: 'Cards can have child cards' }))
-    expect(await screen.findByText(msg)).toBe(slot)
+    await user.click(await screen.findByRole('switch', { name: SWITCH }))
+    const slot = await screen.findByTestId('children-error')
+    expect(slot).toHaveTextContent(msg)
     expect(slot).toHaveClass('text-danger')
   })
 
@@ -1923,25 +1934,24 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
       .mockResolvedValueOnce(new Error('network'))
       .mockResolvedValueOnce(null)
     const { user } = await openRules(fakeBoard, onUpdate)
-    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
-    const slot = document.getElementById('cards-can-have-children-error')!
+    const sw = await screen.findByRole('switch', { name: SWITCH })
     await user.click(sw)
-    await waitFor(() => expect(slot).toHaveTextContent('Refused.'))
+    await waitFor(() => expect(screen.getByTestId('children-error')).toHaveTextContent('Refused.'))
     await user.click(sw)
-    await waitFor(() => expect(slot).toHaveTextContent('Failed to change the Child cards setting. Please try again.'))
+    await waitFor(() => expect(screen.getByTestId('children-error')).toHaveTextContent('Failed to change the Child cards setting. Please try again.'))
     await user.click(sw)
-    await waitFor(() => expect(slot).toHaveTextContent(''))
+    await waitFor(() => expect(screen.queryByTestId('children-error')).toBeNull())
   })
 
   it('toggling sends cards_can_have_children', async () => {
     const { user, onUpdate } = await openRules(fakeBoard)
-    await user.click(screen.getByRole('switch', { name: 'Cards can have child cards' }))
+    await user.click(await screen.findByRole('switch', { name: SWITCH }))
     expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: true })
   })
 
   it('turning it off sends false', async () => {
     const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true })
-    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
+    const sw = await screen.findByRole('switch', { name: SWITCH })
     expect(sw).toHaveAttribute('aria-checked', 'true')
     await user.click(sw)
     expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: false })
@@ -1949,13 +1959,91 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
 
   it('shows the setting read-only to a non-admin', async () => {
     await openRules({ ...fakeBoard, cards_can_have_children: true }, vi.fn(), false)
-    expect(screen.queryByRole('switch', { name: 'Cards can have child cards' })).toBeNull()
+    expect(screen.queryByRole('switch', { name: SWITCH })).toBeNull()
     expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent('Cards on this board can have child cards on another board.')
+    expect(getChildrenSettingBlockers).not.toHaveBeenCalled()
   })
 
   it('tells a non-admin when the board cannot have child cards', async () => {
     await openRules(fakeBoard, vi.fn(), false)
     expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent('cannot have child cards')
+  })
+
+  it('blocks turning it on: stays focusable, aria-disabled, and activating moves focus to the reasons', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({
+      child_cards: 4, parent_cards: 0,
+      default_of: [{ hidden: false, id: 12, name: 'Pipeline', can_change: true }],
+    })
+    const { user, onUpdate } = await openRules(fakeBoard)
+    const sw = await screen.findByRole('switch', { name: SWITCH })
+    await waitFor(() => expect(sw).toHaveAttribute('aria-disabled', 'true'))
+    expect(screen.getByTestId('children-status')).toHaveTextContent("Off. Can't be turned on: 2 reasons below.")
+    const group = screen.getByRole('group', { name: "A child can't also have children" })
+    expect(group).toHaveTextContent('4 cards here are children of cards on another board.')
+    expect(group).toHaveTextContent('This board is the default child board of Pipeline.')
+    expect(within(group).getByRole('link', { name: 'Change on Pipeline' })).toHaveAttribute('href', '/boards/12')
+    sw.focus()
+    await user.keyboard('{Enter}')
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(group).toHaveFocus()
+  })
+
+  it('a default board you cannot open or administer has no button and says who to ask', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({
+      child_cards: 1, parent_cards: 0,
+      default_of: [{ hidden: true }, { hidden: false, id: 5, name: 'Ops', can_change: false }],
+    })
+    await openRules(fakeBoard)
+    const group = await screen.findByRole('group', { name: "A child can't also have children" })
+    expect(group).toHaveTextContent("another board you can't open")
+    expect(within(group).queryAllByRole('link')).toHaveLength(0)
+    expect(group.textContent?.match(/Ask an admin of that board\./g)).toHaveLength(2)
+    expect(group).toHaveTextContent('1 card here is a child of cards on another board.')
+  })
+
+  it('turning off with live parent links is a blocked state, not a confirm', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 9, default_of: [] })
+    const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true })
+    const sw = await screen.findByRole('switch', { name: SWITCH })
+    await waitFor(() => expect(sw).toHaveAttribute('aria-disabled', 'true'))
+    expect(screen.getByTestId('children-status')).toHaveTextContent("On. Can't be turned off: 1 reason below.")
+    expect(screen.getByRole('group', { name: 'Cards here already have children' })).toHaveTextContent('9 cards here have children')
+    await user.click(sw)
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('shows the default child board select only while on, listing the admin options', async () => {
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([{ id: 7, name: 'Delivery' }])
+    const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: null })
+    const select = await screen.findByRole('combobox', { name: /Default child board/ })
+    expect(select).toHaveTextContent('None (ask each time)')
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    expect(onUpdate).toHaveBeenCalledWith({ default_child_board: 7 })
+  })
+
+  it('clearing the default sends null; an unlisted current default reads as not changeable', async () => {
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([])
+    const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: 99 })
+    const select = await screen.findByRole('combobox', { name: /Default child board/ })
+    expect(select).toHaveTextContent("A board you can't change")
+    await user.click(select)
+    await user.click(await screen.findByRole('option', { name: 'None (ask each time)' }))
+    expect(onUpdate).toHaveBeenCalledWith({ default_child_board: null })
+  })
+
+  it('has no default select while the switch is off', async () => {
+    await openRules(fakeBoard)
+    await screen.findByRole('switch', { name: SWITCH })
+    expect(screen.queryByText('Default child board')).toBeNull()
+  })
+
+  it('the board delete confirm names the parent boards it hurts and the hidden ones', async () => {
+    vi.mocked(getBoardDeleteImpact).mockResolvedValue({ child_cards: 14, parent_boards: [{ id: 3, name: 'Pipeline' }], hidden_parent_boards: true, parent_cards: 2 })
+    render(<BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="danger" />)
+    const note = await screen.findByRole('note')
+    expect(note).toHaveTextContent("14 cards here are children of cards on Pipeline and another board you can't open. Those parents lose them from their rollups and Children tabs.")
+    expect(note).toHaveTextContent('2 cards here have children on other boards. They stay there as ordinary cards.')
   })
 })
 
@@ -4242,7 +4330,8 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
   it.each([
     ['Use my own density', 'display'],
     ['Calculate health status automatically', 'rules'],
-    ['Cards can have child cards', 'rules'],
+    ['Cards on this board can have children', 'rules'],
+    ['Default child board', 'rules'],
     ['Enable public share link', 'sharing'],
     ['Moderator', 'members'],
     ['Invite by email', 'members'],

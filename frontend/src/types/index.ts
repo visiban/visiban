@@ -2603,3 +2603,33 @@ export interface CardMovedEventPayload {
 
 /** `group.created` / `group.updated` WebSocket payload; `is_starred` omitted for non-actors (#1705). */
 export type GroupEventPayload = Omit<Group, "is_starred"> & { is_starred?: boolean };
+
+// ── Two-tier child cards (#2208) ─────────────────────────────────────────────
+
+/** A board that names this one as its default child board; `{hidden: true}` when the viewer cannot open it. */
+export type DefaultOfEntry =
+  | { hidden: false; id: number; name: string; can_change: boolean }
+  | { hidden: true };
+
+/** `GET /boards/{id}/children-setting-blockers/`. */
+export interface ChildrenSettingBlockers {
+  child_cards: number;
+  parent_cards: number;
+  default_of: DefaultOfEntry[];
+}
+
+/** `GET /boards/{id}/delete-impact/`. Only parent boards the deleter can open are named. */
+export interface BoardDeleteImpact {
+  child_cards: number;
+  parent_boards: { id: number; name: string }[];
+  hidden_parent_boards: boolean;
+  parent_cards: number;
+}
+
+/** `GET /boards/{b}/cards/{id}/child-board-options/`. */
+export interface ChildBoardOptions {
+  fixed_board: { hidden: false; id: number; name: string } | { hidden: true } | null;
+  default: { id: number; name: string } | null;
+  can_set_default: boolean;
+  boards: { id: number; name: string; can_set_default: boolean }[];
+}
