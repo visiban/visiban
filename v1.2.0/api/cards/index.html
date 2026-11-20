@@ -2647,6 +2647,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#parent-on-a-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        parent on a card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsboard_idcardsidparent-candidatesboardsearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&amp;search=
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#history-and-real-time" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6778,12 +6800,58 @@ and only <code>count</code> is given: no title, board, column or id.</p>
 <p>Unlink one child from this parent. <code>member</code> or higher on the parent's board,
 and a role on the child's board. A child id that is not linked to this parent,
 or one on a board you cannot open, answers the same <code>404</code>.</p>
+<h3 id="parent-on-a-card"><code>parent</code> on a card<a class="headerlink" href="#parent-on-a-card" title="Permanent link">&para;</a></h3>
+<p>Since 1.3; follows the 1.0+ compatibility rules from 1.3 GA (it may change before GA).
+A read-only key on the card object, resolved for the caller:</p>
+<ul>
+<li><code>null</code>: the card has no parent.</li>
+<li><code>{"hidden": true}</code> and no other key: the parent is on a board you cannot open.</li>
+<li>Otherwise <code>{"hidden": false, "id", "title", "board_id", "board_name", "column_id",
+  "column_name", "swimlane_id", "swimlane_name", "archived"}</code>. An archived parent
+  is shown with <code>archived: true</code>.</li>
+</ul>
+<p><code>parent</code> is <strong>present</strong> on <code>GET .../full/</code>, the per-board card list
+<code>GET /api/v1/boards/{board_id}/cards/</code>, <code>GET .../cards/{id}/</code> and
+<code>GET .../cards/archived/</code>. It is <strong>absent</strong> (the key is left out, not <code>null</code>)
+from the cross-board <code>GET /api/v1/cards/</code> query, write responses, and every event payload, change-feed row and webhook,
+because those are not computed for one reader. Keep the last value read: the
+board store replaces a card wholesale on <code>card.updated</code>, so a client must carry
+<code>parent</code> over from its previous copy, or every edit of a child blanks its parent
+line. Refetch on <code>card.parent_changed</code>.</p>
+<h3 id="get-apiv1boardsboard_idcardsidparent-candidatesboardsearch"><code>GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&amp;search=</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidparent-candidatesboardsearch" title="Permanent link">&para;</a></h3>
+<p>Since 1.3 (same stability note). Up to 20 cards on the parent board <code>board</code> that
+this card could be linked to, for the parent picker. <code>member</code> or higher on both
+boards (403 on this board below it); <code>404</code> when the card is not on <code>{board_id}</code>
+or you cannot open that board. <code>board</code> is required and must be an integer (<code>400</code> when absent or not an integer); a <code>board</code> that
+does not exist, that you have no role or only a viewer or
+collaborator role on, that is not a parent board, or that is this card's own
+board answers one identical <code>404</code>. <code>search</code> (at most 200 characters, else <code>400</code>) matches the
+title; fewer than 2 characters returns <code>{"results": []}</code>, unless it is all
+digits, which also matches the card id exactly and lists that card first.
+Archived cards are not listed. A card on a parent board gets <code>{"results": []}</code>.</p>
+<p>Each row: <code>{id, title, column_id, column_name, swimlane_id, swimlane_name,
+assignee, disabled_reason, children_board_name}</code>. <code>disabled_reason</code> is
+<code>children_on_other_board</code>, <code>children_limit</code> or <code>null</code>, the same codes as the link
+write's <code>400</code>. <code>children_board_name</code> is that other board's name only when you can
+open it. Rate-limited by the <code>card_query</code> scope (<code>120/min</code>), shared with the
+cross-board card query <code>GET /api/v1/cards/</code>: debounce the picker's search.</p>
+<p>Three <code>400</code>s, each the <a href="../#error-responses">bad query parameter</a> body
+with <code>detail</code> and <code>code: "invalid_query_param"</code>:</p>
+<ul>
+<li><code>board</code> missing, not an integer, negative, or longer than 18 digits: also keyed <code>board</code>, as in
+  <code>{"board": ["A valid integer is required."], "detail": "board: A valid integer is required.", "code": "invalid_query_param"}</code>.</li>
+<li><code>search</code> over 200 characters: also keyed <code>search</code>.</li>
+<li><code>search</code> containing a NUL (0x00) character:
+  <code>{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}</code>.</li>
+</ul>
+<p>Branch on <code>code</code>.</p>
 <h3 id="history-and-real-time">History and real-time<a class="headerlink" href="#history-and-real-time" title="Permanent link">&para;</a></h3>
 <p>Both cards record <code>parent_linked</code> / <code>child_linked</code> (and <code>parent_unlinked</code> /
 <code>child_unlinked</code>) in their <a href="#history">history</a>, with <code>from_value</code> and
 <code>to_value</code> blank: a history row never names the other card, not even by id. Each link change publishes <code>card.children_changed {parent_id}</code> on the
 parent's board and <code>card.parent_changed {card_ids}</code> on the child's board, both
-ids only. See <a href="../websockets/">WebSockets</a>.</p>
+ids only. <code>card.parent_changed</code> is also sent when a parent is renamed, moved to
+another column or lane, archived or restored. See <a href="../websockets/">WebSockets</a>.</p>
 <hr />
 <h2 id="checklist">Checklist<a class="headerlink" href="#checklist" title="Permanent link">&para;</a></h2>
 <div class="admonition info">
