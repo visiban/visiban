@@ -286,6 +286,16 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: NUM_PROXIES
   value: "2"
 {{- end }}
+{{- /*
+Public share-board cache window (#2380, #1965). Unset (null) renders nothing, so
+the backend keeps its own default of 15 seconds and the default render is
+unchanged. 0 or a negative value is a real setting that turns the cache off, so
+test for a missing key with kindIs "invalid", never truthiness.
+*/}}
+{{- if not (kindIs "invalid" $ctx.Values.backend.settings.shareBoardCacheTtlSeconds) }}
+- name: SHARE_BOARD_CACHE_TTL_SECONDS
+  value: {{ $ctx.Values.backend.settings.shareBoardCacheTtlSeconds | int | toString | quote }}
+{{- end }}
 {{- include "visiban.demoEnv" $ctx }}
 {{- end }}
 

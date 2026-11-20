@@ -157,6 +157,10 @@
               "description": "NUM_PROXIES (#1180): reverse proxies in front of the backend that append to X-Forwarded-For. null (default) renders 2 when ingress.enabled is true and frontend.service.type is ClusterIP (frontend nginx plus the ingress controller) and otherwise nothing, which keeps the backend default of 1; an explicit value always wins; 2 behind a Cloudflare Tunnel (values-demo.yaml).",
               "type": ["integer", "null"],
               "minimum": 0
+            },
+            "shareBoardCacheTtlSeconds": {
+              "description": "SHARE_BOARD_CACHE_TTL_SECONDS (#2380): seconds the anonymous share-link board view is cached. null (default) renders nothing, so the backend keeps its own default of 15. 0 or a negative value turns the cache off.",
+              "type": ["integer", "null"]
             }
           }
         },

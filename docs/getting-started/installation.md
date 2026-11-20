@@ -556,7 +556,7 @@ To confirm, open the browser's developer tools on a board page and check that th
 | `GIT_LENS_ENABLED` | No | Set `true` to turn on the [Issue Board Lens](../features/issue-board-lens.md) (default: `false`). See [Optional features](../administration/configuration.md#optional-features-off-by-default). |
 | `MCP_SERVER_ENABLED` | No | Set `true` to serve the [MCP server](../features/mcp-server.md) at `/mcp` (default: `false`). Also configurable: `MCP_ALLOWED_HOSTS`, and the `MCP_THROTTLE_READ_RATE`, `MCP_THROTTLE_COMPUTE_RATE`, and `MCP_THROTTLE_PREAUTH_RATE` limits. See [Optional features](../administration/configuration.md#optional-features-off-by-default). |
 | `IMPORT_MAX_SIZE_BYTES` | No | Maximum Trello JSON export size for the [Trello import wizard](../features/trello-import.md), in bytes (default: `26214400`, 25 MB). Your reverse proxy must accept bodies at least this large; see [Import limits](../administration/configuration.md#import-limits). The 1.2 pre-release name `VISIBAN_IMPORT_MAX_SIZE` still works as a deprecated alias. |
-| `SHARE_BOARD_CACHE_TTL_SECONDS` | No | Seconds the anonymous [share-link](../features/board.md#board-sharing) board view is cached (default: `15`). Must be a whole number; `0` or a negative value turns the cache off. Not currently exposed by the Helm chart. |
+| `SHARE_BOARD_CACHE_TTL_SECONDS` | No | Seconds the anonymous [share-link](../features/board.md#board-sharing) board view is cached (default: `15`). Must be a whole number; `0` or a negative value turns the cache off. Helm: `backend.settings.shareBoardCacheTtlSeconds`. |
 
 <a id="local-development"></a>
 

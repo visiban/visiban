@@ -127,6 +127,11 @@ backend:
     # clients share one per-IP rate-limit bucket; too high and the backend
     # trusts more X-Forwarded-For entries than your proxy chain appends.
     numProxies: null
+    # SHARE_BOARD_CACHE_TTL_SECONDS (#2380): seconds the anonymous share-link
+    # board view is cached. null (default) renders nothing, so the backend keeps
+    # its own default of 15. A whole number; 0 or a negative value turns the
+    # cache off.
+    shareBoardCacheTtlSeconds: null
 
   # SMTP / email backend.  Required to send password reset and email
   # verification messages.  When backend == "console" emails are written to
