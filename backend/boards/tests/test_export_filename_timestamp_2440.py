@@ -21,7 +21,9 @@ class ExportFilenameTimestampTests(TestCase):
         cache.clear()
         self.user = User.objects.create_user(username="owner", password="x")
         self.board = Board.objects.create(name="My Board", owner=self.user)
-        BoardMembership.objects.create(board=self.board, user=self.user, role=Role.ADMIN)
+        BoardMembership.objects.create(
+            board=self.board, user=self.user, role=Role.ADMIN
+        )
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -31,7 +33,9 @@ class ExportFilenameTimestampTests(TestCase):
             self.user.save()
         cache.clear()
         params = {"format": fmt} if fmt == "json" else {}
-        with mock.patch("boards.views.import_export.django_timezone.now", return_value=PINNED):
+        with mock.patch(
+            "boards.views.import_export.django_timezone.now", return_value=PINNED
+        ):
             resp = self.client.get(f"/api/v1/boards/{self.board.id}/export/", params)
         self.assertEqual(resp.status_code, 200)
         return resp["Content-Disposition"]
@@ -66,3 +70,19 @@ class ExportFilenameTimestampTests(TestCase):
                 self.disposition(fmt, "Asia/Tokyo"),
                 f'attachment; filename="board-20261120-1130.{fmt}"',
             )
+
+    def test_stamp_reads_the_clock_once_per_export(self):
+        # A second now() call could land after midnight and split date from time.
+        # Call the helper directly: the patch targets the shared django.utils.timezone
+        # module, so other request-path callers would inflate call_count.
+        from boards.views.import_export import _export_timestamp
+
+        self.user.timezone = "America/New_York"
+        later = [PINNED + datetime.timedelta(days=d) for d in (1, 2)]
+        with mock.patch(
+            "boards.views.import_export.django_timezone.now",
+            side_effect=[PINNED, *later],
+        ) as now:
+            stamp = _export_timestamp(self.user)
+        self.assertEqual(stamp, "20261119-2130")
+        self.assertEqual(now.call_count, 1)
