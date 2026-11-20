@@ -53,10 +53,10 @@ def link_allowed(parent_board, child_board) -> bool:
     Requires the parent board to be a parent tier and the child board to be a
     child tier. The same board on both sides fails the second condition.
     """
-    return (
-        parent_board.cards_can_have_children is True
-        and child_board.cards_can_have_children is False
-    )
+    # The column is a non-nullable BooleanField, so plain truthiness equals the
+    # old identity checks; they tripped Sonar S2583 (always-false) without
+    # guarding anything.
+    return bool(parent_board.cards_can_have_children) and not child_board.cards_can_have_children
 
 
 def links_blocking_flag_flip(board, new_value: bool) -> int:

@@ -1,0 +1,1 @@
+Cleared three SonarCloud new-code findings (an always-false board-tier check, a keyboard-parity wrapper in the column header, and a reviewed cleartext-loopback false positive) so the quality gate can pass; no behavior change.

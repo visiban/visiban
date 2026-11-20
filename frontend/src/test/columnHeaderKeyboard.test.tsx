@@ -196,3 +196,41 @@ describe('ColumnHeader — split stage (#2278)', () => {
     expect(screen.queryByText('Stage settings…')).not.toBeInTheDocument()
   })
 })
+
+// Sonar S1082 on the multi-lane add-card wrapper: the keyboard path belongs to the menu trigger.
+describe('ColumnHeader — multi-lane add-card keyboard (S1082)', () => {
+  const lanes = [
+    { id: 1, name: 'Lane A', color: '#111111', collapsed: false },
+    { id: 2, name: 'Lane B', color: '#222222', collapsed: false },
+  ]
+
+  it('Enter and Space on the trigger open the lane menu without starting a rename', async () => {
+    const user = userEvent.setup()
+    const onAddCard = vi.fn()
+    renderHeader({ onAddCard, addCardLanes: lanes })
+    const trigger = screen.getByTestId('column-add-card')
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('menu', { name: 'Add card to which swimlane?' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).toBeNull()
+    trigger.focus()
+    await user.keyboard(' ')
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).toBeNull()
+    await user.click(screen.getByRole('menuitem', { name: /Lane B/ }))
+    expect(onAddCard).toHaveBeenCalledWith(2)
+  })
+
+  it('double-clicking the trigger does not open the stage settings the header double-click opens', async () => {
+    const user = userEvent.setup()
+    renderHeader({ onAddCard: vi.fn(), addCardLanes: lanes })
+    const trigger = screen.getByTestId('column-add-card')
+    await user.dblClick(trigger)
+    expect(screen.queryByRole('dialog', { name: /Edit Column/i })).toBeNull()
+    // Control: a double-click on the header itself opens settings in this same setup.
+    await user.dblClick(trigger.closest('div[class*="group/col"]')!)
+    expect(await screen.findByRole('dialog', { name: /Edit Column/i })).toBeInTheDocument()
+  })
+})
