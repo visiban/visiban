@@ -205,7 +205,7 @@ export default function CustomColorPanel({
         <button
           type="button"
           onClick={onCancel}
-          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition max-sm:min-h-11 [@media(pointer:coarse)]:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>
@@ -215,7 +215,7 @@ export default function CustomColorPanel({
           // Keeps focus in a partial hex field, so the click reports on what was typed.
           onMouseDown={(e) => { if (applyBlocked) e.preventDefault(); }}
           onClick={attemptApply}
-          className={`text-sm font-medium bg-button-primary text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`text-sm font-medium bg-button-primary text-on-primary px-3 py-1.5 rounded transition max-sm:min-h-11 [@media(pointer:coarse)]:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             applyBlocked ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"
           }`}
         >

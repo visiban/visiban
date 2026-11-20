@@ -377,6 +377,17 @@ describe("ChoiceColorPicker (#1391)", () => {
     expect(onChange).toHaveBeenLastCalledWith("teal");
   });
 
+  it("text buttons lift to 44px on phones and coarse pointers (#2096)", async () => {
+    const user = userEvent.setup();
+    render(<ChoiceColorPicker choice="High" colorKey="red" onChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /Color for High/ }));
+    for (const name of ["Custom color", "Reset to automatic"]) {
+      const cls = screen.getByRole("button", { name }).className;
+      expect(cls).toContain("max-sm:min-h-11");
+      expect(cls).toContain("[@media(pointer:coarse)]:min-h-11");
+    }
+  });
+
   it("Reset to automatic clears the color", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

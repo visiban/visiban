@@ -259,6 +259,23 @@ class Comparer:
                     f"{op_id} response {code} {media}", "response", frozenset(),
                 )
 
+    def _enum_values(self, spec, schema) -> list | None:
+        """Union of ``enum`` values on a schema and its anyOf/oneOf branches.
+
+        None when no enum is declared anywhere, so an enum-less schema makes no
+        claim. Branches without an enum are ignored (they only widen).
+        """
+        schema = spec.flatten(schema)
+        found: list | None = None
+        if "enum" in schema:
+            found = list(schema["enum"])
+        for key in ("anyOf", "oneOf"):
+            for branch in schema.get(key, []) or []:
+                sub = self._enum_values(spec, branch)
+                if sub is not None:
+                    found = (found or []) + [v for v in sub if v not in (found or [])]
+        return found
+
     def compare_schema(self, old_s, new_s, loc: str, side: str, seen) -> None:
         marker = (json.dumps(old_s, sort_keys=True), json.dumps(new_s, sort_keys=True))
         if marker in seen:
@@ -283,9 +300,14 @@ class Comparer:
             self.add("RESPONSE_BECAME_NULLABLE", loc)
         if side == "request" and _nullable(o) and not _nullable(n):
             self.add("REQUEST_STOPPED_ACCEPTING_NULL", loc)
-        if side == "request" and "enum" in o and "enum" in n:
-            for v in o["enum"]:
-                if v not in n["enum"]:
+        # Enum values are collected across anyOf/oneOf branches (#2096): a
+        # value schema such as ``anyOf[enum, pattern]`` keeps its enum under a
+        # branch. Only a baseline value that no new branch accepts is removed;
+        # a new pattern branch only widens what is accepted.
+        o_enum, n_enum = self._enum_values(self.old, o), self._enum_values(self.new, n)
+        if side == "request" and o_enum is not None and n_enum is not None:
+            for v in o_enum:
+                if v not in n_enum:
                     self.add("REQUEST_ENUM_VALUE_REMOVED", f"{loc} {v!r}")
         if "items" in o and "items" in n:
             self.compare_schema(o["items"], n["items"], f"{loc}[]", side, seen)
@@ -702,6 +724,21 @@ def self_test() -> int:
     check("map value location",
           [f.location for f in diff_schemas(normalize(str_map), normalize(_map({"type": "integer"})))],
           ["GET /api/x/ response 200 application/json .colors .{*} string->integer"])
+
+    # Enums under anyOf (#2096): CHOICE_COLOR_VALUE_SCHEMA is anyOf[enum, pattern].
+    def _req(value):
+        return _spec(body={"type": "object", "properties": {"c": value}})
+
+    flat_enum = {"type": "string", "enum": ["red", "teal"]}
+    any_old = {"anyOf": [{"type": "string", "enum": ["red", "teal"]}, {"type": "string", "pattern": "^#"}]}
+    any_dropped = {"anyOf": [{"type": "string", "enum": ["red"]}, {"type": "string", "pattern": "^#"}]}
+    any_widened = {"anyOf": [{"type": "string", "enum": ["red", "teal"]}, {"type": "string", "pattern": "^#"},
+                             {"type": "string", "pattern": "^rgb"}]}
+    check("flat enum value removed", _kinds(_req(flat_enum), _req({"type": "string", "enum": ["red"]})),
+          ["REQUEST_ENUM_VALUE_REMOVED"])
+    check("anyOf enum value removed", _kinds(_req(any_old), _req(any_dropped)), ["REQUEST_ENUM_VALUE_REMOVED"])
+    check("anyOf branch added passes", _kinds(_req(any_old), _req(any_widened)), [])
+    check("anyOf unchanged passes", _kinds(_req(any_old), _req(any_old)), [])
 
     # normalize keeps a field literally named "description".
     n = normalize({"type": "object", "description": "doc", "properties": {"description": {"type": "string", "description": "x"}}})

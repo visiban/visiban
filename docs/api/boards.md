@@ -2182,7 +2182,7 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
-| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: color}` map, each color a palette key or a `#RRGGBB` hex (*hex since 1.3*); `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `threshold_direction` | string | no | *Since 1.3.* `""` (default, off), `"above"` or `"below"`. `"number"` and `"date"` fields only — see [Threshold marking](#threshold-marking) |
 | `threshold_warn` | number \| null | no | *Since 1.3.* Warning threshold; `null` (default) for none. `"number"` fields only |
 | `threshold_alert` | number \| null | no | *Since 1.3.* Alert threshold; `null` (default) for none. `"number"` fields only |
@@ -2535,7 +2535,7 @@ model docstring for the reasoning; do not assume they track each other.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
-| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: color}` map, each color a palette key or a `#RRGGBB` hex (*hex since 1.3*); `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 ### `GET /api/v1/boards/{id}/swimlane-custom-fields/`
