@@ -64,7 +64,7 @@ class ExportTieOrderTests(_Base):
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/?format=json")
         self.assertEqual(resp.status_code, 200)
         exported = json.loads(resp.content)["cards"][0]
-        self.assertEqual([m["to_column_name"] for m in exported["movements"]], ["To Do", "Doing", "Done"])
+        self.assertEqual([m["to_column"] for m in exported["movements"]], ["To Do", "Doing", "Done"])
         self.assertEqual(exported["gate_transitions"][0]["movement_index"], 1)
         self.assertEqual(
             list(CardMovement.objects.filter(card=card).order_by("id").values_list("pk", flat=True)),
