@@ -4763,6 +4763,31 @@
 <td><code>NUM_PROXIES</code>: trusted proxy hops that append to <code>X-Forwarded-For</code>, so per-client rate limits and the <code>/admin/</code> allowlist see the real client address. An explicit value always wins</td>
 </tr>
 <tr>
+<td><code>backend.settings.shareBoardCacheTtlSeconds</code></td>
+<td>unset (the backend default of <code>15</code>)</td>
+<td><code>SHARE_BOARD_CACHE_TTL_SECONDS</code>: seconds the anonymous share-link board view is cached. <code>0</code> or a negative value turns the cache off (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backendAutoscaling.enabled</code></td>
+<td><code>false</code></td>
+<td>Renders a backend HorizontalPodAutoscaler (CPU utilization) and omits <code>replicas</code> from the Deployment. Tune with <code>minReplicas</code> (<code>2</code>), <code>maxReplicas</code> (<code>5</code>) and <code>targetCPUUtilizationPercentage</code> (<code>70</code>). Needs a metrics server and the media and datastore prerequisites in <a href="../scaling/">Scaling</a> (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.terminationGracePeriodSeconds</code></td>
+<td>unset (Kubernetes' 30s)</td>
+<td>Time between SIGTERM and SIGKILL on the backend pod; it bounds the wait but does not make daphne drain WebSockets (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.preStopSleepSeconds</code></td>
+<td>unset (no hook)</td>
+<td>Sleeps in a preStop hook so the pod leaves the Service endpoints before daphne gets SIGTERM; counts against the grace period (added in 1.3)</td>
+</tr>
+<tr>
+<td><code>backend.startupProbe.enabled</code></td>
+<td><code>false</code></td>
+<td>Adds a startupProbe on <code>/api/health/liveness/</code> so a slow start is not killed by the liveness probe; <code>periodSeconds</code> (<code>5</code>) times <code>failureThreshold</code> (<code>30</code>) is the allowed start time (added in 1.3)</td>
+</tr>
+<tr>
 <td><code>backend.oauth.oidc.serverUrl</code></td>
 <td><code>""</code></td>
 <td>OIDC issuer URL (e.g. <code>https://sso.example.com/realms/my-realm</code>) — set all three OIDC fields to enable</td>

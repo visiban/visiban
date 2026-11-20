@@ -4487,7 +4487,13 @@
 <li><strong>Sticky sessions are not required</strong> — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.</li>
 <li><strong>Database connections</strong> — by default each request opens its own connection; with <code>DATABASE_POOL=true</code> each backend process keeps its own pool (see <a href="#postgresql">Connection count</a> below). Add pgBouncer if the total connection count approaches PostgreSQL's <code>max_connections</code> (default 100).</li>
 </ol>
-<p><strong>Kubernetes:</strong> set <code>backendReplicaCount</code> to 2+ and point <code>externalDatabase</code> and <code>externalRedis</code> at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).</p>
+<p><strong>Kubernetes:</strong> set <code>backendReplicaCount</code> to 2+ (or enable <code>backendAutoscaling</code> for a CPU-driven HorizontalPodAutoscaler) and point <code>externalDatabase</code> and <code>externalRedis</code> at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).</p>
+<p>The chart's defaults are single-replica, and these block a second replica until you change them:</p>
+<ul>
+<li><strong>Media storage.</strong> <code>backend.mediaPersistence</code> defaults to a ReadWriteOnce volume, so a second replica starts only on the same node. For multi-node scale-out use a ReadWriteMany storage class, or object storage (see <a href="#attachment-storage">Attachment storage</a>).</li>
+<li><strong>Graceful rollout.</strong> The backend is one daphne process per pod, so a rollout can cut in-flight requests and WebSockets, and clients reconnect. <code>backend.preStopSleepSeconds</code> lets the pod leave the Service endpoints before it receives SIGTERM, and <code>backend.terminationGracePeriodSeconds</code> bounds how long Kubernetes waits before SIGKILL (both off by default). Neither makes daphne hold WebSockets open until they finish. <code>backend.startupProbe.enabled</code> guards a slow start.</li>
+<li><strong>Disruption budget.</strong> A PodDisruptionBudget renders once there is more than one replica, including <code>backendAutoscaling.minReplicas</code> above 1.</li>
+</ul>
 <p><strong>When to act:</strong> When p95 HTTP response time on <code>/api/v1/boards/{id}/cards/</code> exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.</p>
 <hr />
 <h3 id="postgresql">PostgreSQL<a class="headerlink" href="#postgresql" title="Permanent link">&para;</a></h3>

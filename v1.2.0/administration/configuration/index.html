@@ -5636,7 +5636,7 @@ real sender address is set, by either method.</p>
 </tr>
 <tr>
 <td><code>SHARE_BOARD_CACHE_TTL_SECONDS</code> (default <code>15</code>)</td>
-<td>How long, in seconds, the anonymous <a href="../../features/board/#board-sharing">share-link</a> board view is cached. <code>0</code> turns the cache off. Revoking, rotating, expiring or deactivating a link is never delayed by it. Must be a whole number (a non-numeric value fails at startup); a negative value also turns the cache off. Set it through the Compose/<code>.env</code> path; the Helm chart does not currently expose it. <em>(1.3+, #1965)</em></td>
+<td>How long, in seconds, the anonymous <a href="../../features/board/#board-sharing">share-link</a> board view is cached. <code>0</code> turns the cache off. Revoking, rotating, expiring or deactivating a link is never delayed by it. Must be a whole number (a non-numeric value fails at startup); a negative value also turns the cache off. Helm: <code>backend.settings.shareBoardCacheTtlSeconds</code>. <em>(1.3+, #1965)</em></td>
 <td><a href="../../features/board/#board-sharing">Board sharing</a></td>
 </tr>
 <tr>
