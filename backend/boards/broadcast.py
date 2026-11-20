@@ -203,9 +203,12 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
         "shows children, so there is nothing to refresh."
     ),
     EVT_CARD_PARENT_CHANGED: (
-        "Backend-first (#1104): the child-side parent line and Parent row that "
-        "refetch on this ping ship in the #1104 card-link UI MR. Until then no "
-        "client view shows a card's parent, so there is nothing to refresh."
+        "Backend-first (#1104): sent when a card's parent link changes, and when "
+        "a parent is renamed, moved between columns or lanes, archived or "
+        "restored (REST, MCP and the admin). The child-side parent line and "
+        "Parent row that refetch on this ping ship in the #1104 card-link UI MR. "
+        "Until then no client view shows a card's parent, so there is nothing "
+        "to refresh."
     ),
 }
 

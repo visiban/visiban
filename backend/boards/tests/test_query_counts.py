@@ -23,6 +23,7 @@ from unittest.mock import patch
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User, get_maintenance_state
@@ -203,7 +204,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 19
+    BUDGET = 20  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -264,7 +265,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 19  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches (constant)
+    SITE_ADMIN_READER_QUERIES = 20  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -798,7 +799,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 19  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches (constant)
+    FULL_QUERIES = 20  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -2102,3 +2103,126 @@ class CardChildrenQueryCountTests(TestCase):
                         f"(offset {offset}, visible={visible}) — budget is {self.BUDGET}. "
                         "An N+1 was introduced; fix the read in children_for_viewer.",
                     )
+
+
+class CardParentQueryCountTests(TestCase):
+    """``Card.parent``, the picker reads and the parent pings are flat (#1104).
+
+    ``parents_for_viewer`` is one link query plus ``get_board_roles``'s fixed
+    two, however many children are linked and however many parent boards their
+    parents sit on. A parent ping costs nothing on a board that cannot have
+    children.
+    """
+
+    def setUp(self):
+        from boards.models import BoardMembership, CardParentLink
+        from boards.tests.test_card_parent_links import _LinkFixture
+
+        self.Link = CardParentLink
+        self.Role = BoardMembership.Role
+        fx = _LinkFixture()
+        fx._setup_boards()
+        self.fx = fx
+        # Not a site admin, so get_board_roles issues its two queries.
+        self.user = fx._user("qc_parent", parent_role=self.Role.MEMBER, child_role=self.Role.MEMBER)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.extra_parent_boards = []
+        for i in range(2):
+            b = Board.objects.create(name=f"QC portfolio {i}", owner=fx.owner, cards_can_have_children=True)
+            BoardMembership.objects.create(board=b, user=self.user, role=self.Role.VIEWER)
+            col = Column.objects.create(board=b, name="c", position=0)
+            lane = Swimlane.objects.create(board=b, name="l", position=0)
+            self.extra_parent_boards.append((col, lane))
+
+    def _count(self, url, params=None):
+        with CaptureQueriesContext(connection) as ctx:
+            res = self.client.get(url, params or {})
+        self.assertEqual(res.status_code, 200, res.content)
+        return len(ctx)
+
+    def _link_twenty(self):
+        """19 more linked children whose parents span 3 parent boards."""
+        fx = self.fx
+        cells = [(fx.parent.column, fx.parent.swimlane), *self.extra_parent_boards]
+        for i in range(19):
+            col, lane = cells[i % 3]
+            parent = Card.objects.create(board=col.board, column=col, swimlane=lane, title=f"P{i}", position=i + 1)
+            child = Card.objects.create(board=fx.cboard, column=fx.col_c, swimlane=fx.lane_c, title=f"C{i}", position=i + 1)
+            self.Link.objects.create(parent=parent, child=child)
+
+    def _reads(self):
+        base = f"/api/v1/boards/{self.fx.cboard.pk}"
+        return {
+            "full": lambda: self._count(f"{base}/full/"),
+            "list": lambda: self._count(f"{base}/cards/"),
+            "archived": lambda: self._count(f"{base}/cards/archived/"),
+        }
+
+    def test_reads_cost_two_more_with_links_and_stay_flat_at_twenty(self):
+        reads = self._reads()
+        no_links = {k: f() for k, f in reads.items()}
+        self.Link.objects.create(parent=self.fx.parent, child=self.fx.child)
+        one = {k: f() for k, f in reads.items()}
+        for k in ("full", "list"):
+            self.assertEqual(one[k] - no_links[k], 2, k)
+        self._link_twenty()
+        twenty = {k: f() for k, f in reads.items()}
+        self.assertEqual(one, twenty)
+        Card.objects.filter(board=self.fx.cboard).update(archived_at=timezone.now())
+        archived_twenty = reads["archived"]()
+        Card.objects.filter(board=self.fx.cboard).exclude(pk=self.fx.child.pk).update(archived_at=None)
+        self.assertEqual(reads["archived"](), archived_twenty)
+
+    def test_parent_candidates_flat_in_results(self):
+        from unittest import mock
+
+        from boards.services import card_links
+
+        fx = self.fx
+        url = f"/api/v1/boards/{fx.cboard.pk}/cards/{fx.child.pk}/parent-candidates/"
+        params = {"board": fx.pboard.pk, "search": "Init"}
+        with mock.patch("boards.views.card_query.CardQueryRateThrottle.get_rate", return_value="1000/min"):
+            one = self._count(url, params)
+            other_board = Board.objects.create(name="QC other", owner=fx.owner)
+            ocol = Column.objects.create(board=other_board, name="c", position=0)
+            olane = Swimlane.objects.create(board=other_board, name="l", position=0)
+            for i in range(19):
+                p = Card.objects.create(
+                    board=fx.pboard, column=fx.parent.column, swimlane=fx.parent.swimlane,
+                    title=f"Initiative {i}", position=i + 1,
+                )
+                if i % 2:
+                    c = Card.objects.create(board=other_board, column=ocol, swimlane=olane, title="x", position=i)
+                    self.Link.objects.create(parent=p, child=c)
+            with mock.patch.object(card_links, "CHILDREN_PER_PARENT_LIMIT", 0):
+                twenty = self._count(url, params)
+        # At most the other child boards' one Board load plus get_board_roles's
+        # fixed two, whatever the row count.
+        self.assertLessEqual(twenty - one, 3)
+
+    def test_parent_boards_flat_in_boards(self):
+        url = f"/api/v1/boards/{self.fx.cboard.pk}/parent-boards/"
+        three = self._count(url)
+        for i in range(7):
+            b = Board.objects.create(name=f"QC more {i}", owner=self.fx.owner, cards_can_have_children=True)
+            BoardMembership.objects.create(board=b, user=self.user, role=self.Role.MEMBER)
+        self.assertEqual(self._count(url), three)
+
+    def test_parent_ping_costs(self):
+        from boards.services import card_links
+
+        fx = self.fx
+        with self.assertNumQueries(0):
+            card_links.announce_parent_changed(fx.child.pk, fx.cboard, actor_id=None)
+        with self.assertNumQueries(1):
+            card_links.announce_parent_changed(fx.parent.pk, fx.pboard, actor_id=None)
+        self.Link.objects.create(parent=fx.parent, child=fx.child)
+        with CaptureQueriesContext(connection) as one:
+            card_links.announce_parent_changed(fx.parent.pk, fx.pboard, actor_id=None)
+        for i in range(19):
+            c = Card.objects.create(board=fx.cboard, column=fx.col_c, swimlane=fx.lane_c, title=f"c{i}", position=i + 1)
+            self.Link.objects.create(parent=fx.parent, child=c)
+        with CaptureQueriesContext(connection) as twenty:
+            card_links.announce_parent_changed(fx.parent.pk, fx.pboard, actor_id=None)
+        self.assertEqual(len(one), len(twenty))

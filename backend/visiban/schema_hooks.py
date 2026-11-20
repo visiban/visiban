@@ -361,3 +361,26 @@ def mark_deprecated_fields(result, generator, request, public):
         if field is not None:
             field["deprecated"] = True
     return result
+
+
+# (component, property) pairs a response may OMIT, so they must not be listed
+# in the component's ``required``. drf-spectacular marks every read-only field
+# required, but ``Card.parent`` (#1104) is opt-in per call: it is present on
+# the reads that name a viewer and absent from write responses and every
+# event payload. Left required, every write response would fail the schema.
+_OMITTABLE_RESPONSE_PROPERTIES = (
+    ("Card", "parent"),
+)
+
+
+def unrequire_omittable_response_properties(result, generator, request, public):
+    """Drop each omittable response property from its component's ``required``."""
+    schemas = result.get("components", {}).get("schemas", {})
+    for component, prop in _OMITTABLE_RESPONSE_PROPERTIES:
+        schema = schemas.get(component, {})
+        required = schema.get("required")
+        if required and prop in required:
+            required.remove(prop)
+            if not required:
+                del schema["required"]
+    return result

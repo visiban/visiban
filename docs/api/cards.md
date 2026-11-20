@@ -1156,13 +1156,65 @@ Unlink one child from this parent. `member` or higher on the parent's board,
 and a role on the child's board. A child id that is not linked to this parent,
 or one on a board you cannot open, answers the same `404`.
 
+### `parent` on a card
+
+Since 1.3; follows the 1.0+ compatibility rules from 1.3 GA (it may change before GA).
+A read-only key on the card object, resolved for the caller:
+
+- `null`: the card has no parent.
+- `{"hidden": true}` and no other key: the parent is on a board you cannot open.
+- Otherwise `{"hidden": false, "id", "title", "board_id", "board_name", "column_id",
+  "column_name", "swimlane_id", "swimlane_name", "archived"}`. An archived parent
+  is shown with `archived: true`.
+
+`parent` is **present** on `GET .../full/`, the per-board card list
+`GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and
+`GET .../cards/archived/`. It is **absent** (the key is left out, not `null`)
+from the cross-board `GET /api/v1/cards/` query, write responses, and every event payload, change-feed row and webhook,
+because those are not computed for one reader. Keep the last value read: the
+board store replaces a card wholesale on `card.updated`, so a client must carry
+`parent` over from its previous copy, or every edit of a child blanks its parent
+line. Refetch on `card.parent_changed`.
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&search=`
+
+Since 1.3 (same stability note). Up to 20 cards on the parent board `board` that
+this card could be linked to, for the parent picker. `member` or higher on both
+boards (403 on this board below it); `404` when the card is not on `{board_id}`
+or you cannot open that board. `board` is required and must be an integer (`400` when absent or not an integer); a `board` that
+does not exist, that you have no role or only a viewer or
+collaborator role on, that is not a parent board, or that is this card's own
+board answers one identical `404`. `search` (at most 200 characters, else `400`) matches the
+title; fewer than 2 characters returns `{"results": []}`, unless it is all
+digits, which also matches the card id exactly and lists that card first.
+Archived cards are not listed. A card on a parent board gets `{"results": []}`.
+
+Each row: `{id, title, column_id, column_name, swimlane_id, swimlane_name,
+assignee, disabled_reason, children_board_name}`. `disabled_reason` is
+`children_on_other_board`, `children_limit` or `null`, the same codes as the link
+write's `400`. `children_board_name` is that other board's name only when you can
+open it. Rate-limited by the `card_query` scope (`120/min`), shared with the
+cross-board card query `GET /api/v1/cards/`: debounce the picker's search.
+
+Three `400`s, each the [bad query parameter](index.md#error-responses) body
+with `detail` and `code: "invalid_query_param"`:
+
+- `board` missing, not an integer, negative, or longer than 18 digits: also keyed `board`, as in
+  `{"board": ["A valid integer is required."], "detail": "board: A valid integer is required.", "code": "invalid_query_param"}`.
+- `search` over 200 characters: also keyed `search`.
+- `search` containing a NUL (0x00) character:
+  `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}`.
+
+Branch on `code`.
+
 ### History and real-time
 
 Both cards record `parent_linked` / `child_linked` (and `parent_unlinked` /
 `child_unlinked`) in their [history](#history), with `from_value` and
 `to_value` blank: a history row never names the other card, not even by id. Each link change publishes `card.children_changed {parent_id}` on the
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
-ids only. See [WebSockets](websockets.md).
+ids only. `card.parent_changed` is also sent when a parent is renamed, moved to
+another column or lane, archived or restored. See [WebSockets](websockets.md).
 
 ---
 

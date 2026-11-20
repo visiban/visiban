@@ -50,9 +50,11 @@ from ..serializers import (
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
-    CardTimelineEntrySerializer,
+    CardTimelineEntrySerializer, ParentCandidateSerializer,
+    CARD_PARENTS_CONTEXT_KEY,
     _card_queryset,
 )
+from .card_query import CardQueryRateThrottle
 from ._helpers import (
     BoundedIdFilter, get_board_for_user, _can_modify_others_content, _refetched_card_data,
     fetch_page_and_total, validate_full_reorder_order, LINKS_CHANGED_409,
@@ -116,6 +118,17 @@ def _is_link_write(view, request):
     if action == "parent":
         return request.method in ("POST", "DELETE")
     return action == "child_detail" and request.method == "DELETE"
+
+
+def _with_parents(ctx, rows, user):
+    """Opt ``ctx`` into ``Card.parent`` for ``rows``, resolved for ``user`` (#1104).
+
+    Only the reads that name a viewer call this (list, retrieve, archived).
+    Write actions do not, so their responses, like every event payload built
+    from the same serializer, carry no ``parent``.
+    """
+    ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer([c.pk for c in rows], user)
+    return ctx
 
 
 def _attachment_quota_error(card_id, incoming_size):
@@ -845,6 +858,10 @@ class CardViewSet(viewsets.ModelViewSet):
         # ``user`` scope still counts them and the children GET is not counted.
         if _is_link_write(self, self.request):
             throttles.append(CardLinkWriteThrottle())
+        # The parent picker search (#1104) shares the cross-board card query's
+        # ``card_query`` budget: both search cards on boards beyond this one.
+        if getattr(self, "action", None) == "parent_candidates":
+            throttles.append(CardQueryRateThrottle())
         return throttles
 
     def get_queryset(self):
@@ -908,11 +925,21 @@ class CardViewSet(viewsets.ModelViewSet):
         # block OrderingFilter.
         rows, total = fetch_page_and_total(queryset, offset, limit)
 
-        serializer = self.get_serializer(rows, many=True)
+        rows = list(rows)
+        serializer = self.get_serializer(
+            rows, many=True,
+            context=_with_parents(self.get_serializer_context(), rows, request.user),
+        )
         response = Response(serializer.data)
         response[CARD_LIST_TOTAL_HEADER] = str(total)
         response[CARD_LIST_TRUNCATED_HEADER] = "true" if offset + len(rows) < total else "false"
         return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """One card, with ``parent`` resolved for the caller (#1104)."""
+        card = self.get_object()
+        ctx = _with_parents(self.get_serializer_context(), [card], request.user)
+        return Response(self.get_serializer(card, context=ctx).data)
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -1246,13 +1273,14 @@ class CardViewSet(viewsets.ModelViewSet):
         member_ids = _get_effective_member_ids(board)
         assignable_ids = _get_assignable_member_ids(board)
         board_labels_qs = Label.objects.filter(board=board)
-        serializer = CardSerializer(page_qs, many=True, context={
+        page = list(page_qs)
+        serializer = CardSerializer(page, many=True, context=_with_parents({
             "request": request,
             "board": board,
             "_member_ids": member_ids,
             "_assignable_member_ids": assignable_ids,
             "_board_labels_qs": board_labels_qs,
-        })
+        }, page, request.user))
         return Response({
             "count": total,
             "offset": offset,
@@ -2876,6 +2904,80 @@ class CardViewSet(viewsets.ModelViewSet):
         return Response(card_links.children_for_viewer(
             card, request.user, offset=parse_offset(request), limit=CHILDREN_PAGE_SIZE,
         ))
+
+    @extend_schema(
+        operation_id="api_v1_boards_cards_parent_candidates_list",
+        parameters=[
+            OpenApiParameter(
+                "board", OpenApiTypes.INT, required=True,
+                description="The parent board to search (one of `GET /boards/{id}/parent-boards/`).",
+            ),
+            OpenApiParameter(
+                "search", OpenApiTypes.STR, required=False,
+                description=(
+                    "Title text, or a card id (digits). Fewer than 2 characters that "
+                    "are not all digits returns no rows. At most 200 characters."
+                ),
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="ParentCandidateList",
+                fields={"results": ParentCandidateSerializer(many=True)},
+            ),
+            400: OpenApiResponse(
+                description=(
+                    "Every 400 is the coded "
+                    '`{"detail": ..., "code": "invalid_query_param"}`: `board` missing, '
+                    "not an integer, negative, or longer than 18 digits (also keyed `board`); `search` over 200 "
+                    "characters (also keyed `search`); or `search` containing a NUL "
+                    "(0x00) character (`detail` and `code` only)."
+                ),
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+            404: OpenApiResponse(description=(
+                "No access to this board or card, or `board` is not a parent board "
+                "the caller may link to (one body for every case)."
+            )),
+            429: OpenApiResponse(description="Rate limit exceeded (`card_query` scope, shared with `GET /api/v1/cards/`)."),
+        },
+        description=(
+            "Up to 20 cards on `board` that this card could be linked to as its "
+            "parent (#1104, since 1.3; follows the 1.0+ compatibility rules from 1.3 GA). "
+            "An all-digit search matches the card id exactly first. `disabled_reason` "
+            "marks a card the link write would refuse. Minimum role: member on both "
+            "boards. Rate-limited by the `card_query` scope: debounce the search."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="parent-candidates")
+    def parent_candidates(self, request, board_pk=None, pk=None):
+        """Search the cards this card could take as its parent."""
+        # Check order is the contract: access (404) first, then the card on
+        # this board (IDOR), then role (403), then params, then the parent
+        # board, whose every failure is the same 404 (Rule 7).
+        board, role = self._board_and_role()
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        if role not in card_links.LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        search = query_text(request, "search").strip()
+        raw_board = request.query_params.get("board", "")
+        if not raw_board.isascii() or not raw_board.isdigit() or len(raw_board) > 18:
+            raise serializers.ValidationError({
+                "board": ["A valid integer is required."],
+                "detail": "board: A valid integer is required.",
+                "code": INVALID_QUERY_PARAM,
+            })
+        if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
+            msg = f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."
+            raise serializers.ValidationError({
+                "search": [msg],
+                "detail": f"search: {msg}",
+                "code": INVALID_QUERY_PARAM,
+            })
+        parent_board = card_links.resolve_parent_board(request.user, board, int(raw_board))
+        return Response({"results": card_links.parent_candidates_for_viewer(
+            request.user, card, parent_board, search,
+        )})
 
     @extend_schema(
         responses={

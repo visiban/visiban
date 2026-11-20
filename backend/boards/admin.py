@@ -365,6 +365,11 @@ class CardAdminForm(forms.ModelForm):
             })
 
 
+#: Card fields a child shows of its parent (#1104): an admin edit of any of
+#: them pings the child boards.
+_PARENT_SHOWN_FIELDS = frozenset({"title", "column", "swimlane", "archived_at"})
+
+
 @admin.register(Card)
 class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Card that broadcasts mutations to connected WebSocket clients.
@@ -470,6 +475,13 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                     from .services.card_links import unlink_all
 
                     unlink_all(obj, actor=request.user, old_board_id=stored.board_id)
+                # A parent's title, cell and archived state show on each of its
+                # children (#1104), as update_card / move / archive ping them.
+                # A board change already pinged the children through unlink_all.
+                elif form is not None and set(form.changed_data) & _PARENT_SHOWN_FIELDS:
+                    from .services.card_links import announce_parent_changed
+
+                    announce_parent_changed(obj.pk, obj.board, actor_id=request.user.pk)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it

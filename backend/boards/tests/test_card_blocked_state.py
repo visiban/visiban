@@ -436,7 +436,12 @@ class BlockBroadcastTests(_BlockTestBase):
         self.assertEqual(payload["blocked_reason"], "Hold")
         self.assertIsNotNone(payload["blocked_at"])
         # A complete card, so clients can replace it wholesale.
-        self.assertEqual(set(payload), set(CardSerializer().fields) - {"label_ids", "assignee_id"})
+        # ``parent`` (#1104) is opt-in per read path and never in an event payload:
+        # a broadcast is built with the actor's request, so a parent resolved for
+        # the actor would reach every reader of the frame.
+        self.assertEqual(
+            set(payload), set(CardSerializer().fields) - {"label_ids", "assignee_id", "parent"},
+        )
 
     def test_unblock_broadcasts_card_updated(self):
         self._block()

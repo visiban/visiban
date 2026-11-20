@@ -26,7 +26,8 @@ column or id.
 """
 
 from django.db import connection, transaction
-from django.db.models import Q
+from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models.functions import Lower
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from visiban.exceptions import CodedValidationError
@@ -526,3 +527,233 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
         for c in cards
     ]
     return out
+
+
+#: The one shape a parent the viewer cannot open is reported as (P1). Only the
+#: discriminator: no title, board, column, lane or id (Rule 8, #1104).
+_HIDDEN_PARENT = {"hidden": True}
+
+
+def parents_for_viewer(child_ids, user):
+    """The one parent read for every transport (Rule 10). Computed per viewer.
+
+    Returns ``{child_id: entry}`` for each linked card among ``child_ids``;
+    an unlinked id is left out (the serializer reports it as ``null``). The
+    entry is ``{"hidden": True}`` when ``user`` holds no role on the parent's
+    board, else the visible shape (``hidden`` False plus nine keys).
+
+    **Absent input fails closed** (#1075): with no user, or an anonymous one,
+    every linked entry is hidden and no role is resolved. A broadcast frame is
+    built with the actor's request, so the serializer never reaches this
+    function from a broadcast (it has no ``CARD_PARENTS_CONTEXT_KEY``); this
+    guard is for any other caller that cannot name a viewer.
+
+    The role is resolved on every call, never cached, so a viewer who loses
+    the parent board sees ``hidden`` on the next read (Rules 2 and 3). Cost: one
+    query for the links plus ``get_board_roles``'s fixed two, however many
+    parents or parent boards there are.
+    """
+    ids = list(child_ids)
+    if not ids:
+        return {}
+    links = list(
+        CardParentLink.objects.filter(child_id__in=ids).select_related(
+            "parent__column", "parent__swimlane",
+            f"parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
+        )
+    )
+    if not links:
+        return {}
+    if user is None or not getattr(user, "is_authenticated", False):
+        return {link.child_id: dict(_HIDDEN_PARENT) for link in links}
+    boards = {link.parent.board_id: link.parent.board for link in links}
+    roles = get_board_roles(user, boards.values())
+    out = {}
+    for link in links:
+        p = link.parent
+        if roles.get(p.board_id) is None:
+            out[link.child_id] = dict(_HIDDEN_PARENT)
+            continue
+        out[link.child_id] = {
+            "hidden": False,
+            "id": p.pk,
+            "title": p.title,
+            "board_id": p.board_id,
+            "board_name": p.board.name,
+            "column_id": p.column_id,
+            "column_name": p.column.name,
+            "swimlane_id": p.swimlane_id,
+            "swimlane_name": p.swimlane.name,
+            "archived": p.archived_at is not None,
+        }
+    return out
+
+
+def _accessible_boards(user):
+    # Lazy: the board access rule lives with the view helpers, and importing
+    # it at module load would make views -> services -> views circular.
+    from ..views._helpers import get_accessible_boards_queryset
+
+    return get_accessible_boards_queryset(user)
+
+
+def parent_boards_for_viewer(user, board):
+    """Boards ``user`` may link ``board``'s cards to as parents (P2).
+
+    The boards the user can open that are a parent tier and on which the user
+    holds a link-write role, ordered by name then id. Uncapped on purpose: a
+    silent truncation would hide a board with no sign (#1724). Empty when
+    ``board`` is itself a parent tier (two tiers, #2208).
+    """
+    if board.cards_can_have_children:
+        return []
+    candidates = list(
+        _accessible_boards(user)
+        .filter(cards_can_have_children=True)
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, candidates)
+    return [
+        {"id": b.pk, "name": b.name}
+        for b in candidates
+        if roles.get(b.pk) in LINK_WRITE_ROLES
+    ]
+
+
+#: Longest ``search`` the parent picker accepts, and the most rows it returns.
+PARENT_CANDIDATE_SEARCH_MAX = 200
+PARENT_CANDIDATE_LIMIT = 20
+# 18 digits always fit a 64-bit id; a longer digit string is matched as text
+# only, so int() can never overflow the column.
+_ID_SEARCH_MAX_DIGITS = 18
+
+
+def resolve_parent_board(user, child_board, parent_board_id):
+    """The parent board for the picker, or ``NotFound`` (P3, step 5).
+
+    The board is looked up in the same accessible-board set as
+    :func:`parent_boards_for_viewer` (P2). A board outside that set, one on
+    which the user holds only a viewer/collaborator role, a child-tier board
+    and ``child_board`` itself all raise the SAME ``NotFound`` (Rule 7).
+
+    Every path runs one lookup and one role batch: when the lookup finds no
+    board, the batch runs on ``child_board`` instead, so the refusal is decided
+    the same way whatever the reason.
+    """
+    parent_board = (
+        _accessible_boards(user)
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk=parent_board_id)
+        .first()
+    )
+    subject = parent_board if parent_board is not None else child_board
+    role = get_board_roles(user, [subject])[subject.pk]
+    if (
+        parent_board is None
+        or parent_board.pk == child_board.pk
+        or not parent_board.cards_can_have_children
+        or role not in LINK_WRITE_ROLES
+    ):
+        raise NotFound()
+    return parent_board
+
+
+def parent_candidates_for_viewer(user, child, parent_board, search):
+    """Up to 20 cards on ``parent_board`` that ``child`` could be linked to (P3).
+
+    ``parent_board`` comes from :func:`resolve_parent_board`; ``search`` is
+    already stripped and length-checked by the view. A search shorter than two
+    characters that is not all digits returns nothing without a card query. An
+    all-digit search also matches the card id exactly, and that card sorts first.
+
+    ``disabled_reason`` uses :func:`create_link`'s precedence and codes, so a
+    row the picker offers as enabled is one the link write accepts (barring a
+    race the write re-checks under its locks). ``children_board_name`` is set
+    only when the viewer can open that other child board.
+    """
+    if child.board.cards_can_have_children:
+        return []
+    q = search
+    digits = q.isascii() and q.isdigit() and len(q) <= _ID_SEARCH_MAX_DIGITS
+    if len(q) < 2 and not digits:
+        return []
+    if digits:
+        match = Q(pk=int(q)) | Q(title__ci_contains=q)
+        exact = Case(When(pk=int(q), then=Value(0)), default=Value(1), output_field=IntegerField())
+    else:
+        match = Q(title__ci_contains=q)
+        exact = Value(1, output_field=IntegerField())
+    first_child_board = Subquery(
+        CardParentLink.objects.filter(parent=OuterRef("pk"))
+        .order_by("pk").values("child__board_id")[:1]
+    )
+    cards = list(
+        Card.objects.filter(match, board_id=parent_board.pk, archived_at__isnull=True)
+        .select_related("column", "swimlane", "assignee")
+        .annotate(
+            child_count=Count("child_links", distinct=True),
+            child_board_id=first_child_board,
+            exact_rank=exact,
+        )
+        .order_by("exact_rank", Lower("title"), "pk")[:PARENT_CANDIDATE_LIMIT]
+    )
+    other_board_ids = {
+        c.child_board_id for c in cards
+        if c.child_board_id is not None and c.child_board_id != child.board_id
+    }
+    named = {}
+    if other_board_ids:
+        other_boards = list(
+            Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk__in=other_board_ids)
+        )
+        roles = get_board_roles(user, other_boards)
+        named = {b.pk: b.name for b in other_boards if roles.get(b.pk) is not None}
+
+    from accounts.serializers import BoardUserSerializer
+
+    rows = []
+    for c in cards:
+        reason = None
+        board_name = None
+        if c.child_board_id is not None and c.child_board_id != child.board_id:
+            reason = "children_on_other_board"
+            board_name = named.get(c.child_board_id)
+        elif c.child_count >= CHILDREN_PER_PARENT_LIMIT:
+            reason = "children_limit"
+        rows.append({
+            "id": c.pk,
+            "title": c.title,
+            "column_id": c.column_id,
+            "column_name": c.column.name,
+            "swimlane_id": c.swimlane_id,
+            "swimlane_name": c.swimlane.name,
+            "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
+            "disabled_reason": reason,
+            "children_board_name": board_name,
+        })
+    return rows
+
+
+def announce_parent_changed(card_id, board, *, actor_id):
+    """Ping each child board that a parent card changed in a way its children show (P4).
+
+    Called inside the write's transaction: ``record_board_event`` writes the
+    feed row there and publishes on commit, so a rollback sends nothing.
+    Ids only, never a title (the accepted timing disclosure, Rule 8 residual).
+    Zero queries on a board that cannot have children; else one, and at most
+    one event per child board (all of a parent's children share one board, so
+    in practice one event of at most ``CHILDREN_PER_PARENT_LIMIT`` ids).
+    """
+    if not board.cards_can_have_children:
+        return
+    by_board = {}
+    for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card_id).values_list(
+        "child_id", "child__board_id",
+    ):
+        by_board.setdefault(child_board_id, []).append(child_id)
+    for child_board_id in sorted(by_board):
+        _broadcast.record_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+            {"card_ids": sorted(by_board[child_board_id])}, actor_id=actor_id,
+        )
