@@ -55,6 +55,7 @@ from boards.serializers import (
     SwimlaneCustomFieldDefinitionSerializer,
     SwimlaneSerializer,
 )
+from boards.views.notifications import NotificationSerializer
 from accounts.serializers import (
     BoardUserSerializer,
     ConnectedAccountSerializer,
@@ -128,6 +129,8 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (CurrentUserSerializer, "User", set()),
     # GET /auth/me/connected-accounts/ rows (#1314).
     (ConnectedAccountSerializer, "ConnectedAccount", set()),
+    # GET /notifications/ rows; registered with mention_source (#2203).
+    (NotificationSerializer, "Notification", set()),
     # NOT registered: BoardEventSerializer (#1114, change-feed contract). The
     # `/boards/<id>/events/` endpoint has no frontend consumer today — it
     # exists for an external process to replay missed WebSocket frames over

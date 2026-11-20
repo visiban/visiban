@@ -1444,6 +1444,10 @@ class Command(BaseCommand):
             notification = Notification.objects.create(
                 recipient=visitor, actor=actor, action_type=action_type, verb=verb,
                 card=card, board=board, read=False,
+                # Every demo mention is found in a comment above (#2203).
+                mention_source=(
+                    Notification.MentionSource.COMMENT if action_type == ActionType.MENTIONED else None
+                ),
             )
             # auto_now_add ignores a value passed to create().
             Notification.objects.filter(pk=notification.pk).update(created_at=at)

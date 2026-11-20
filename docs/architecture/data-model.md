@@ -186,6 +186,7 @@ Notification
  ├── verb (str — human-readable summary)
  ├── card → Card (nullable)
  ├── board → Board (nullable)
+ ├── mention_source (str, nullable — comment | description; set on mentioned rows since 1.3, #2203)
  └── read (bool)
 ```
 

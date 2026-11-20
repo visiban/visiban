@@ -866,9 +866,17 @@ export interface Notification {
   board_name: string | null;
   // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
   action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon' | 'comment_added' | 'webhook_disabled';
+  /**
+   * Where a `mentioned` notification's @mention lives (#2203, since 1.3), so
+   * the link can open the tab that holds it. Null for every other action type
+   * and for mentions recorded before 1.3, whose links stay tab-less.
+   */
+  mention_source: NotificationMentionSource | null;
   read: boolean;
   created_at: string;
 }
+
+export type NotificationMentionSource = 'comment' | 'description';
 
 // ─── Outbound webhooks (#863) ───────────────────────────────────────────────
 // Mirrors webhooks/serializers.py. The full URL and the signing secret are

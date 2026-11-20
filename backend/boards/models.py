@@ -1671,6 +1671,21 @@ class Notification(models.Model):
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class MentionSource(models.TextChoices):
+        COMMENT = "comment", "comment"
+        DESCRIPTION = "description", "description"
+
+    # Where a MENTIONED notification's @mention lives (#2203), so a link can
+    # open the card on the tab that holds it: a comment mention opens the
+    # Comments tab, a description mention the default one. Nullable on
+    # purpose: rows written before 1.3 have no source and their links stay
+    # tab-less rather than guessing (an email link outlives any later fix).
+    # Null for every other action type. Additive and unindexed: nothing
+    # filters on it, so the column add is a metadata-only ALTER.
+    mention_source = models.CharField(
+        max_length=16, choices=MentionSource.choices, null=True, blank=True,
+    )
+
     class Meta:
         db_table = "notifications"
         ordering = ["-created_at"]

@@ -14,7 +14,7 @@ The bell in the navbar collects your in-app notifications. Choose which ones you
 
 ## Notification bell
 
-The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of **unread** notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel.
+The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of **unread** notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel. A mention in a comment opens the panel on the **Comments** tab; a mention in the description, and any mention notification from before 1.3, opens it on the tab you last used. The notification email links to the same place.
 
 Click **Mark all read** to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.
 
@@ -295,6 +295,7 @@ The `GET /api/v1/notifications/` response returns an array of objects with the f
     "avatar_url": ""
   },
   "action_type": "assigned",
+  "mention_source": null,
   "read": false,
   "created_at": "2026-03-27T14:00:00Z"
 }

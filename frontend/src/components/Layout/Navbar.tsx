@@ -87,9 +87,12 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
       const url = n.action_type === "webhook_disabled"
         ? `/boards/${n.board_id}?settings=webhooks`
         : n.card_id
-          // Mention links carry no tab: a description mention and a comment mention make identical
-          // notifications, so the Comments tab would be wrong for one of them (#2203 records the source).
-          ? `/boards/${n.board_id}?card=${n.card_id}`
+          // Only a mention recorded as coming from a comment opens the Comments tab (#2203).
+          // A description mention, or one from before the source was recorded, stays on the
+          // default tab. Same rule as the email link (notifications_email.card_link).
+          ? `/boards/${n.board_id}?card=${n.card_id}${
+              n.action_type === "mentioned" && n.mention_source === "comment" ? "&tab=comments" : ""
+            }`
           : `/boards/${n.board_id}`;
       // Fire-and-forget: the declarative router resolves navigate() synchronously,
       // and any failure is handled by its own error boundary.

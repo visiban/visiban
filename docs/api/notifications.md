@@ -63,6 +63,7 @@ Notifications referencing a board the requesting user no longer has access to ar
     "card_title": "Fix login bug",
     "board_id": 3,
     "board_name": "Sales Pipeline",
+    "mention_source": null,
     "read": false,
     "created_at": "2026-03-15T09:41:22Z"
   }
@@ -79,6 +80,7 @@ Notifications referencing a board the requesting user no longer has access to ar
 | `board_id` | integer / null | ID of the related board |
 | `board_name` | string / null | Board name (null if board deleted) |
 | `action_type` | string | Machine-readable event type. One of: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon`, `comment_added`, `webhook_disabled` (`due_soon` and `comment_added` added in 1.2, `webhook_disabled` in 1.3). Use this for programmatic filtering or i18n instead of parsing `verb`. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render `verb` as-is) rather than erroring. |
+| `mention_source` | string / null | Since 1.3 (#2203). Where a `mentioned` notification's @mention lives: `comment` or `description`. `null` for every other `action_type`, and for mentions recorded before 1.3. The web app and the notification email open a `comment` mention on the card's Comments tab (`?card=<id>&tab=comments`); a `description` mention or a `null` source opens the card on its default tab. The set may grow, so treat an unrecognized value like `null`. |
 | `read` | boolean | Always `false` — this endpoint only returns unread notifications |
 | `created_at` | string | ISO 8601 timestamp |
 
