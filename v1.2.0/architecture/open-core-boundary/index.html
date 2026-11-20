@@ -2861,6 +2861,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#a-broken-enterprise-install-fails-startup-1753" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A broken enterprise install fails startup (#1753)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#overriding-rest_framework-from-the-enterprise-settings-include" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4990,12 +5001,12 @@
 <tr>
 <td>Enterprise URL extension point (<code>enterprise.urls.enterprise_urlpatterns</code>)</td>
 <td>All enterprise URL registrations</td>
-<td>✅ Implemented — <code>visiban/urls.py</code> (#715)</td>
+<td>✅ Implemented — <code>visiban/urls.py</code> (#715). Skipped only when the <code>enterprise</code> package or <code>enterprise.urls</code> is absent; any other import failure inside the enterprise code is re-raised at startup (#1753, see below)</td>
 </tr>
 <tr>
 <td>Enterprise settings include (<code>enterprise.settings.*</code>)</td>
 <td>All enterprise settings overrides</td>
-<td>✅ Implemented — <code>visiban/settings.py</code> (#716). Constraint (#1337): the include must not replace <code>ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR</code> with anything that is not <code>accounts.tokens.VisibanPasswordResetTokenGenerator</code> or a subclass of it — subclasses are accepted. System check <code>accounts.E001</code> (Error) stops startup otherwise; <code>SILENCED_SYSTEM_CHECKS = ["accounts.E001"]</code> is the explicit opt-out.</td>
+<td>✅ Implemented — <code>visiban/settings.py</code> (#716). Skipped only when the <code>enterprise</code> package or <code>enterprise.settings</code> is absent; any other import failure is re-raised at startup (#1753, see below). Constraint (#1337): the include must not replace <code>ACCOUNT_PASSWORD_RESET_TOKEN_GENERATOR</code> with anything that is not <code>accounts.tokens.VisibanPasswordResetTokenGenerator</code> or a subclass of it — subclasses are accepted. System check <code>accounts.E001</code> (Error) stops startup otherwise; <code>SILENCED_SYSTEM_CHECKS = ["accounts.E001"]</code> is the explicit opt-out.</td>
 </tr>
 <tr>
 <td><code>extension_urlpatterns</code> module attribute (<code>visiban/urls.py</code>)</td>
@@ -5025,7 +5036,7 @@
 <tr>
 <td>Enterprise WebSocket routing extension point (<code>enterprise.routing.enterprise_websocket_urlpatterns</code>)</td>
 <td>All enterprise WebSocket URL registrations</td>
-<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; silently skipped (<code>ImportError</code>) when the enterprise package is not installed (#1009). Consumers registered here must refuse a handshake with <code>accounts.ws_auth.refuse_handshake(consumer, code)</code> (accept, then close at once with a 4000-4999 code), as the OSS consumers do since #2145: a close before accept reaches the client as HTTP 403 under Daphne, so its code is lost. <strong>Stable:</strong> <code>refuse_handshake</code>'s signature and behavior are part of this extension point. See <a href="../../development/authorization-entry-points/">Authorization entry points</a></td>
+<td>✅ Implemented — <code>visiban/asgi.py</code>, mirrors the HTTP URL extension point above; skipped when the <code>enterprise</code> package or <code>enterprise.routing</code> is absent (#1009); any other import failure is re-raised at startup (#1753, see below). Consumers registered here must refuse a handshake with <code>accounts.ws_auth.refuse_handshake(consumer, code)</code> (accept, then close at once with a 4000-4999 code), as the OSS consumers do since #2145: a close before accept reaches the client as HTTP 403 under Daphne, so its code is lost. <strong>Stable:</strong> <code>refuse_handshake</code>'s signature and behavior are part of this extension point. See <a href="../../development/authorization-entry-points/">Authorization entry points</a></td>
 </tr>
 <tr>
 <td><code>post_board_created/deleted/member_added/removed</code> signals</td>
@@ -5129,6 +5140,8 @@
 </tr>
 </tbody>
 </table>
+<h3 id="a-broken-enterprise-install-fails-startup-1753">A broken enterprise install fails startup (#1753)<a class="headerlink" href="#a-broken-enterprise-install-fails-startup-1753" title="Permanent link">&para;</a></h3>
+<p>The three import sites above (<code>visiban/settings.py</code>, <code>visiban/urls.py</code>, <code>visiban/asgi.py</code>) catch only <code>ModuleNotFoundError</code>, and only when <code>visiban.enterprise_imports.enterprise_module_missing</code> says the missing module is the <code>enterprise</code> package itself or the module that site imports (<code>enterprise.settings</code>, <code>enterprise.urls</code>, <code>enterprise.routing</code>). An OSS-only install starts as before. An enterprise package whose own dependency is missing, that imports a missing <code>enterprise.*</code> submodule of its own, or that raises <code>ImportError: cannot import name ...</code>, now stops the process at startup with that error, rather than starting without its settings or routes. Before 1.3 a bare <code>except ImportError</code> hid all of these.</p>
 <h3 id="overriding-rest_framework-from-the-enterprise-settings-include">Overriding <code>REST_FRAMEWORK</code> from the enterprise settings include<a class="headerlink" href="#overriding-rest_framework-from-the-enterprise-settings-include" title="Permanent link">&para;</a></h3>
 <p><code>visiban/settings.py</code> ends with <code>from enterprise.settings import *</code>, so assigning a new <code>REST_FRAMEWORK</code> dict <strong>replaces</strong> the OSS one rather than merging into it. An enterprise override must start from a copy of the OSS dict (or update individual keys in place) and keep every key OSS relies on, including those added in 1.2:</p>
 <ul>

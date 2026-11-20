@@ -4571,6 +4571,7 @@
 <li>A child write that already holds a card lock commits first, so the cascade sees its new rows and removes them. A child write that arrives later waits, finds the card gone, and answers <code>404</code>. Without the lock, the container delete failed its own deferred foreign-key check at commit with a <code>500</code>.</li>
 <li>Card rows are locked before the container row, in pk order, like <code>move_card</code>'s card lock, so the two queue rather than deadlock.</li>
 <li>The statement locks <code>FOR UPDATE OF</code> the card table only, so a filter that joins (the user admin's <code>board__owner</code>) does not also lock board rows.</li>
+<li><strong>Link peers (#2409).</strong> The statement also locks the cards' link peers (the parent and child cards they are linked to), on any board, in the same single pk-ordered <code>FOR UPDATE</code>, so a link writer holding a peer queues instead of deadlocking. A change to the peer set before the lock is held triggers the same savepoint retry as a changed card set, and the same <code>ContainerChanged</code> when every attempt loses. The single-card counterpart, <code>card_links.lock_card_and_link_peers</code>, answers <code>LinksChanged</code> (<code>code: links_changed</code>, a <code>ContainerChanged</code> subclass).</li>
 </ul>
 <p><strong>Entry columns (#1602).</strong> The card statement locks the rows of its snapshot, so on its own it did not cover a card that entered the container after it ran:</p>
 <ul>

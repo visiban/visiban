@@ -5225,6 +5225,10 @@
 <td>Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry.</td>
 </tr>
 <tr>
+<td><code>links_changed</code></td>
+<td>Reserved: no MCP tool deletes cards. A card's parent/child links kept changing while it was being locked; nothing was written. Retry. Added in 1.3 (#2409).</td>
+</tr>
+<tr>
 <td><code>use_move_endpoint</code></td>
 <td>Reserved: no tool currently emits it, because <code>update_card</code> takes no column, swimlane, or position. An update tried to change a card's column, swimlane, or position. Use <code>move_card</code> instead.</td>
 </tr>

@@ -3684,6 +3684,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#comment-and-checklist-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comment and checklist limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#card-link-write-limit" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5334,8 +5345,8 @@ the instance by uploading in a loop.</p>
   lengthens each such upload request.</li>
 <li>Lowering a quota never deletes anything. A card already over it keeps its
   attachments and accepts new ones only once it is back under the quota.</li>
-<li>Only attachments are capped. Per-card limits on comments and checklist items
-  are not in place yet; tracked in #2376.</li>
+<li>Comments and checklist items have their own per-card caps; see
+  <a href="#comment-and-checklist-limits">Comment and checklist limits</a>.</li>
 <li>The quota is checked while the card row is locked, so two uploads racing for
   a card's last slot cannot both succeed.</li>
 <li>These quotas bound one card. A user can still spread uploads over many cards,
@@ -5344,6 +5355,49 @@ the instance by uploading in a loop.</p>
   that in mind. Turning uploads off entirely is in <strong>Admin → Settings</strong>.</li>
 </ul>
 <hr />
+<h2 id="comment-and-checklist-limits">Comment and checklist limits<a class="headerlink" href="#comment-and-checklist-limits" title="Permanent link">&para;</a></h2>
+<p><em>New in 1.3 (#2376).</em> One card's comments and checklist items are capped, so
+a single member (or a leaked API token) cannot grow one card without bound,
+and with it the card detail response and every change-feed event that copies
+the card.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>COMMENT_MAX_PER_CARD</code></td>
+<td>Most comments one card may hold. <code>0</code> = no limit. Helm: <code>backend.settings.commentMaxPerCard</code>.</td>
+<td><code>1000</code></td>
+</tr>
+<tr>
+<td><code>CHECKLIST_MAX_ITEMS_PER_CARD</code></td>
+<td>Most checklist items one card may hold. <code>0</code> = no limit. Helm: <code>backend.settings.checklistMaxItemsPerCard</code>.</td>
+<td><code>500</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A comment or checklist item past its cap gets <code>400</code> with
+  <code>"code": "comment_quota_exceeded"</code> or <code>"code": "checklist_quota_exceeded"</code>
+  and a readable <code>detail</code>, which the card detail panel shows; nothing is stored.</li>
+<li>The defaults are far above normal use, so an existing install keeps working.
+  A negative value refuses to start.</li>
+<li>Lowering a cap never deletes anything. A card already over it keeps its rows
+  and accepts new ones only once it is back under the cap.</li>
+<li>The count is checked while the card row is locked, so two creates racing for
+  a card's last slot cannot both succeed.</li>
+<li>Board import (Visiban JSON and Trello) is not capped: it fills a board it is
+  creating, bounded by the import size limit.</li>
+<li>Django admin adds of comments and checklist items are not capped (site
+  admins only).</li>
+<li>There is no per-board or instance-wide byte budget for comments, checklist
+  items or descriptions yet (tracked in #2418).</li>
+</ul>
 <h2 id="card-link-write-limit">Card link write limit<a class="headerlink" href="#card-link-write-limit" title="Permanent link">&para;</a></h2>
 <p><em>(new in 1.3)</em> Linking a card to a parent on another board, and removing that
 link from either end, share a per-user rate limit (#2383). Each link write
