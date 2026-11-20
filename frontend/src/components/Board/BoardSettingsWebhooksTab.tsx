@@ -346,11 +346,15 @@ export default function BoardSettingsWebhooksTab({
     if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) return;
     const id = remoteChange.id;
     const by = byLabel(remoteChange.changed_by, membersRef.current);
+    // The detail banner already says this change through the state slot; the
+    // coalesced announcement below would read it a second time (#2403).
+    let announcedInDetail = false;
     setChangedIds((prev) => new Map(prev).set(id, by));
     if (viewRef.current.kind === "detail" && viewRef.current.id === id && remoteChange.status !== "deleted") {
       const text = detailChangeCopy(remoteChange.status, by);
       setDetailChange({ id, text });
       announceState(text);
+      announcedInDetail = true;
     }
     const timers = changedTimersRef.current;
     const previous = timers.get(id);
@@ -363,6 +367,7 @@ export default function BoardSettingsWebhooksTab({
         return next;
       });
     }, CHANGED_ELSEWHERE_MS));
+    if (announcedInDetail) return;
     announceIdsRef.current.set(id, remoteChange);
     if (announceTimerRef.current === null) {
       // Cleared at the start of each batch, so a batch with the same count as
@@ -389,7 +394,15 @@ export default function BoardSettingsWebhooksTab({
   // announced once, through the always-mounted slot; coming back clears it.
   const paused = socketStatus === "reconnecting" || socketStatus === "failed";
   useEffect(() => {
-    if (paused) setStateLive(PAUSED_LIVE_COPY);
+    // The latest state wins: a pending away or detail announcement must not
+    // land after, and overwrite, the paused copy.
+    if (paused) {
+      if (stateLiveTimerRef.current !== null) {
+        clearTimeout(stateLiveTimerRef.current);
+        stateLiveTimerRef.current = null;
+      }
+      setStateLive(PAUSED_LIVE_COPY);
+    }
     else setStateLive((prev) => (prev === PAUSED_LIVE_COPY ? "" : prev));
   }, [paused]);
 

@@ -52,6 +52,7 @@ vi.mock('../api/auth', () => ({
 import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from '../api/boards'
 import { searchUsers } from '../api/auth'
 import { announced } from './confirmAnnouncer'
+import { listWebhooks } from '../api/webhooks'
 
 const mockSetBoardMember = setBoardMember as ReturnType<typeof vi.fn>
 const mockRemoveBoardMember = removeBoardMember as ReturnType<typeof vi.fn>
@@ -3868,5 +3869,33 @@ describe('BoardSettingsModal automatic health status (#2245)', () => {
     render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, health_auto_enabled: true }} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
     expect(screen.getByTestId('health-auto-readonly')).toHaveTextContent('Automatic · Off track at 3 flagged cards')
     expect(screen.queryByRole('button', { name: 'Recompute now' })).not.toBeInTheDocument()
+  })
+})
+
+// #2403 — BoardView's socket status and the modal's member list must reach the Webhooks tab.
+describe('BoardSettingsModal — Webhooks tab live-update wiring', () => {
+  const change = (seq: number) => ({
+    id: 1, status: 'disabled' as const, reason_code: 'manual', consecutive_failures: 0, changed_by: fakeMember2.id, at: '2026-01-01T00:00:00Z', seq,
+  })
+
+  it('passes the socket status through: the paused banner shows while reconnecting', async () => {
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" webhookSocketStatus="reconnecting" />)
+    expect(await screen.findByTestId('webhooks-paused')).toHaveTextContent('Live updates paused')
+  })
+
+  it('passes the members through: a change by a board member is tagged by name', async () => {
+    ;(listWebhooks as ReturnType<typeof vi.fn>).mockResolvedValue([{
+      id: 1, board: fakeBoard.id, name: '', url_display: 'hooks.zapier.com/…/k3f9', url_host: 'hooks.zapier.com',
+      event_types: [], enabled: true, disabled_reason: null, disabled_at: null, last_delivered_event_id: 1,
+      consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
+      last_success_at: null, last_error_code: '', last_status_code: null,
+      created_by: null, configured_by: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+      configured_at: '2026-01-01T00:00:00Z', secret_rotated_at: null, previous_secret_expires_at: null,
+    }])
+    const { rerender } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" />)
+    await screen.findByText('hooks.zapier.com', { exact: false })
+    rerender(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="webhooks" webhookChange={change(1)} />)
+    expect(await screen.findByTestId('webhook-changed-1')).toHaveTextContent('by Bob Smith')
+    ;(listWebhooks as ReturnType<typeof vi.fn>).mockResolvedValue([])
   })
 })

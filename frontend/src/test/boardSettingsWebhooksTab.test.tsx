@@ -1817,6 +1817,32 @@ describe('live updates across admin sessions (#2057)', () => {
     expect(screen.getByRole('button', { name: KEEP_OLD })).toBeInTheDocument()
   })
 
+  it('a pending detail announcement cannot overwrite the paused copy; the later state wins', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} socketStatus="connected" />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} socketStatus="connected" remoteChange={change(1)} />)
+    // Within the 50 ms announce delay the socket drops.
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} socketStatus="reconnecting" remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(200) })
+    expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('Live updates paused.')
+  })
+
+  it('a change announced through the detail banner is not spoken a second time', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'manual' })])
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(3000) })
+    expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('It is now turned off.')
+    expect(screen.queryByText('Webhook 1 of 1 is turned off.')).not.toBeInTheDocument()
+  })
+
   it('an unacknowledged secret reveal survives pause, away and detail banners', async () => {
     const user = setup()
     m.list.mockResolvedValue([sub()])
