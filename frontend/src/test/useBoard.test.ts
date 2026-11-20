@@ -2336,16 +2336,26 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     })
   }
 
-  it('a snapshot racing a newer frame fills the kept copy parent only when the copy has none', async () => {
+  it('a snapshot racing a newer frame fills the parent the kept copy lacks', async () => {
     const { result } = await renderBoard([card(1, 1), card(2, 1)])
     const snapParent = { hidden: true as const }
     const fetch = startFetch(result)
-    // The frame is newer and carries no `parent`; card 2 keeps an explicit one.
+    // The frame is newer and carries no `parent`.
     act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
-    act(() => { result.current.updateCard(card(2, 2, { parent: null })) })
-    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: snapParent }), card(2, 1, { parent: snapParent })] }))
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: snapParent }), card(2, 1)] }))
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: snapParent })
-    expect(byId(result.current.board, 2)).toMatchObject({ version: 2, parent: null })
+  })
+
+  it('a snapshot parent replaces an older read the kept copy carried (#1104)', async () => {
+    const parentA = { hidden: true as const }
+    const parentB = { id: 9, title: 'Parent B' } as unknown as NonNullable<Card['parent']>
+    const { result } = await renderBoard([card(1, 1, { parent: parentA })])
+    const fetch = startFetch(result)
+    // The frame carries no `parent`, so the kept copy carries A forward.
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    expect(byId(result.current.board, 1)?.parent).toEqual(parentA)
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: parentB })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: parentB })
   })
 
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {

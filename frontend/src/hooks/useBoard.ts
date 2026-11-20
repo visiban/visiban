@@ -380,8 +380,9 @@ function mergeSnapshotCards(prev: BoardFull, snapshot: BoardFull, touches: Fetch
     }
     if (touches.written.has(card.id) && isStaleCard(card, mine)) {
       // The kept copy came from a frame or write response, which never
-      // carries `parent`; the snapshot's is the newest read (#1104).
-      cards.push(mine.parent === undefined && card.parent !== undefined ? { ...mine, parent: card.parent } : mine);
+      // carries `parent` (a copy that has one only carried an older read
+      // forward); the snapshot's is the newest read, so it always wins (#1104).
+      cards.push(card.parent !== undefined ? { ...mine, parent: card.parent } : mine);
       changed = true;
     } else if (
       touches.siblingPositions.has(card.id) && card.version === mine.version && card.position !== mine.position

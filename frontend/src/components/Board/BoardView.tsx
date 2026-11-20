@@ -768,6 +768,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // many children was renamed) re-reads the board instead of N cards. The
   // card detail's own link and unlink ask for the same refetch through the
   // `visiban:card-parent-refetch` window event.
+  const parentReadSeqRef = useRef(new Map<number, number>());
   const refetchCardParents = useCallback((ids: readonly number[]) => {
     const boardId = boardRef.current?.id;
     if (boardId === undefined || ids.length === 0) return;
@@ -775,12 +776,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       silentReload();
       return;
     }
+    // Reads race: a link then a quick unlink, or two pings close together, can
+    // land out of order. Each read takes a per-card sequence number and only
+    // the latest one for that card is applied, like silentReload's fetchSeqRef.
+    const seqs = parentReadSeqRef.current;
+    const issued = ids.map((id) => {
+      const n = (seqs.get(id) ?? 0) + 1;
+      seqs.set(id, n);
+      return n;
+    });
     void Promise.allSettled(ids.map((id) => getCardParent(boardId, id))).then((results) => {
       const parents = new Map<number, CardParent | null>();
       results.forEach((r, i) => {
-        if (r.status === "fulfilled") parents.set(ids[i], r.value);
+        if (r.status === "fulfilled" && seqs.get(ids[i]) === issued[i]) parents.set(ids[i], r.value);
       });
-      applyCardParents(parents);
+      if (parents.size > 0) applyCardParents(parents);
     });
   }, [applyCardParents, silentReload]);
   // An unarchived card is appended with no `parent` (frames and write

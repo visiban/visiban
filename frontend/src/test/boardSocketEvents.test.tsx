@@ -1040,6 +1040,26 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     spy.mockRestore()
   })
 
+  it('applies only the newest read for a card when two re-reads resolve out of order (#1104)', async () => {
+    const resolvers: Array<(p: { hidden: true } | null) => void> = []
+    const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(
+      () => new Promise((res) => { resolvers.push(res as (p: { hidden: true } | null) => void) }),
+    )
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5] } }) })
+    act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5] } }) })
+    expect(resolvers).toHaveLength(2)
+    // The newer read (unlinked) lands first, then the older one (still linked).
+    await act(async () => { resolvers[1](null) })
+    await act(async () => { resolvers[0]({ hidden: true }) })
+    const calls = (ctx.applyCardParents as unknown as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls[calls.length - 1][0]).toEqual(new Map([[5, null]]))
+    spy.mockRestore()
+  })
+
   it('re-reads the board instead when more than 20 cards are listed', async () => {
     const spy = vi.spyOn(cardsApi, 'getCardParent')
     const ctx = makeContext()
