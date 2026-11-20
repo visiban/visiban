@@ -1383,7 +1383,7 @@ def card_detail(*, card_id):
 # arguments, call ``flow_metrics`` for the numbers (``load_board_flow`` +
 # ``rolling_range``), and trim the result. Unlike the REST analytics endpoints,
 # which now load only the cards that can change the range, these tools still
-# do a whole-history load (not narrowed). There is deliberately no aggregation over ``CardMovement``
+# do a whole-history load (narrowed there under #2445). There is deliberately no aggregation over ``CardMovement``
 # here, so MCP and REST give identical numbers for identical inputs.
 # ---------------------------------------------------------------------------
 

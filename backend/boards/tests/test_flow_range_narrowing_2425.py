@@ -72,6 +72,18 @@ class AgedBoardMixin:
         )
         CardMovement.objects.filter(card=future, to_column=self.done).update(moved_at=self.now + datetime.timedelta(days=2))
         cards["future"] = future
+        # The same, on a card archived long ago: only the movement clause keeps
+        # it, and it counts in excluded_incomplete_history in every range.
+        future_old = self.path(self.backlog, 300, self.doing, 290, archived=280)
+        CardMovement.objects.create(
+            card=future_old, from_column=self.doing, from_column_uid=self.doing.uid, from_column_name="Doing",
+            to_column=self.done, to_column_uid=self.done.uid, to_column_name="Done", moved_by=self.user,
+            to_swimlane=future_old.swimlane,
+        )
+        CardMovement.objects.filter(card=future_old, to_column=self.done).update(
+            moved_at=self.now + datetime.timedelta(days=2),
+        )
+        cards["future_archived_old"] = future_old
         # Blocks inside and outside the window.
         CardBlock.objects.create(card=cards["wip"], board=self.board, reason="api", blocked_at=self.ago(5))
         CardBlock.objects.create(
@@ -160,7 +172,7 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
         full = fm.load_board_flow(self.board, now=self.now)
         loaded = {card.uid for card in narrowed.cards}
         self.assertLess(len(narrowed.cards), len(full.cards) / 3)
-        for kept in ("recent", "wip", "untouched", "archived_recent", "archived_no_event", "future",
+        for kept in ("recent", "wip", "untouched", "archived_recent", "archived_no_event", "future", "future_archived_old",
                      "created_recent_archived_old", "moved_in_range_archived_old", "old"):
             self.assertIn(cards[kept].uid, loaded, kept)
         for skipped in ("archived_old", "imported_old", "no_movements_old"):
@@ -246,4 +258,21 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
         flow_range = fm.rolling_range(30, now=self.now)
         flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(flow.cards, [])
+        self.assertEqual(flow.settled_placements, {self.done.uid: 1})
+
+
+class CumulativeFlowRaceTests(AgedBoardMixin, FlowFixture):
+    def test_a_movement_for_a_card_outside_the_skipped_set_is_ignored(self):
+        """A card restored between the row query and the movement query streams movements but is not in ``cards``."""
+        self.path(self.backlog, 300, self.doing, 200, self.done, 150, archived=140)
+        stray = self.path(self.backlog, 5, self.doing, 2)
+        real = fm._movement_rows
+
+        def with_stray(qs):
+            rows = list(real(qs))
+            return rows + [(stray.pk, rows[0][1])] if rows else rows
+
+        flow_range = fm.rolling_range(30, now=self.now)
+        with mock.patch.object(fm, "_movement_rows", with_stray):
+            flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(flow.settled_placements, {self.done.uid: 1})

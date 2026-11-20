@@ -1084,7 +1084,15 @@ def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=N
     counts: dict = {}
 
     def rest(card_id, history):
-        created_at, archived_at, column_uid = cards.pop(card_id)
+        # A card restored (or newly moved) between the row query and the
+        # movement query streams movements but is not in ``cards``; it is no
+        # longer settled, so skip it rather than raise. The residual: that
+        # card was also missed by the range load if it changed before that
+        # query ran, which would need one snapshot to close; two reads a few
+        # ms apart on a live board are accepted, as for the other loaders.
+        if (resting := cards.pop(card_id, None)) is None:
+            return
+        created_at, archived_at, column_uid = resting
         live, _ = _live_rows(history, now)
         # Only created_at, archived_at and column_uid are real: they are all
         # _replay_placements reads (RangeNarrowingEquivalenceTests pins it).
