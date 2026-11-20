@@ -48,8 +48,10 @@ from ..permissions import (
 from ..serializers import (
     EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
-    BoardMembershipSerializer, SavedFilterSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch,
+    BoardMembershipSerializer, ParentBoardOptionSerializer, SavedFilterSerializer, SwimlaneSerializer,
+    _swimlane_custom_field_prefetch,
 )
+from ..services import card_links
 from ..services.card_links import announce_cards_removal, check_flag_flip
 from ..services.feed import (
     cursor_row_visible,
@@ -1091,7 +1093,34 @@ class BoardViewSet(
         issuing a second get_board_role() query.
         """
         board, role = get_board_for_user(pk, request.user, with_archived_card_count=True)
-        return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
+        # ``card_parent_viewer`` opts the cards into ``parent`` (#1104), resolved
+        # for this caller; see CARD_PARENTS_CONTEXT_KEY.
+        return Response(BoardFullSerializer(
+            board, context={"request": request, "role": role, "card_parent_viewer": request.user},
+        ).data)
+
+    @extend_schema(
+        responses={
+            200: inline_serializer(
+                name="ParentBoardOptionList",
+                fields={"results": ParentBoardOptionSerializer(many=True)},
+            ),
+        },
+        description=(
+            "Boards whose cards this board's cards can be linked to as parents "
+            "(#1104, since 1.3; follows the 1.0+ compatibility rules from 1.3 GA). "
+            "Only parent-tier boards on which the caller is a member or admin, "
+            "ordered by name. Empty when this board is itself a parent tier. "
+            "Minimum role: member on this board (403 below it; 404 without access)."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="parent-boards")
+    def parent_boards(self, request, pk=None):
+        """List the boards this board's cards may take a parent from."""
+        board, role = get_board_for_user(pk, request.user)
+        if role not in card_links.LINK_WRITE_ROLES:
+            raise PermissionDenied(card_links._PERM_DENIED)
+        return Response({"results": card_links.parent_boards_for_viewer(request.user, board)})
 
     @extend_schema(
         operation_id="api_v1_boards_events_list",

@@ -979,6 +979,7 @@ SPECTACULAR_SETTINGS = {
         "visiban.schema_hooks.add_standard_error_responses",
         "visiban.schema_hooks.require_declared_request_bodies",
         "visiban.schema_hooks.mark_deprecated_fields",
+        "visiban.schema_hooks.unrequire_omittable_response_properties",
     ],
 }
 

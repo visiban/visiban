@@ -830,6 +830,53 @@ export interface Card {
   blocked_reason: string;
   /** Gated stages (#1102): index of the card's sub-column in `column.sub_columns`; 0 on a plain column. */
   gates_passed?: number;
+  /**
+   * This card's parent, resolved for the viewer (#1104, since 1.3). `null` = no
+   * parent. Present only on `/full/`, the card list, retrieve and `archived/`;
+   * absent (`undefined`) from write responses and every `card.*` frame, so a
+   * store that replaces a card wholesale must carry the last value read over.
+   */
+  parent?: CardParent | null;
+}
+
+/** A parent card the viewer can open (#1104). */
+export interface CardParentVisible {
+  hidden: false;
+  id: number;
+  title: string;
+  board_id: number;
+  board_name: string;
+  column_id: number;
+  column_name: string;
+  swimlane_id: number;
+  swimlane_name: string;
+  archived: boolean;
+}
+
+/** A parent card on a board the viewer cannot open: no other key is sent (#1104). */
+export interface CardParentHidden {
+  hidden: true;
+}
+
+export type CardParent = CardParentVisible | CardParentHidden;
+
+/** A row of `GET /boards/{id}/parent-boards/` (#1104). */
+export interface ParentBoardOption {
+  id: number;
+  name: string;
+}
+
+/** A row of `GET /boards/{b}/cards/{id}/parent-candidates/` (#1104). */
+export interface ParentCandidate {
+  id: number;
+  title: string;
+  column_id: number;
+  column_name: string;
+  swimlane_id: number;
+  swimlane_name: string;
+  assignee: BoardUser | null;
+  disabled_reason: "children_on_other_board" | "children_limit" | null;
+  children_board_name: string | null;
 }
 
 /** One manual block of a card, from `GET .../cards/{id}/blocks/` (#1149). */

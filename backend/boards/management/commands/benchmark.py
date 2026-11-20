@@ -60,7 +60,7 @@ _BENCH_HOST = "testserver"
 # middleware, not two separate judgments: when they disagreed (cards 12 vs 14,
 # full 20 vs 19) a regression could pass one guard and fail the other.
 CARD_LIST_BUDGET = 14  # 9 measured here on Postgres (#1341)
-FULL_BUDGET = 19  # 17 measured on Postgres (#1341)
+FULL_BUDGET = 20  # 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup
 SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
 
 # ── fixture dimensions ────────────────────────────────────────────────────────

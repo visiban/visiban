@@ -1236,6 +1236,11 @@ def update_card(
 
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
+        # A parent's title shows on each of its children (#1104): ping their
+        # boards, ids only. No query on a board that cannot have children.
+        if old_title != card.title:
+            from .card_links import announce_parent_changed
+            announce_parent_changed(card.pk, board, actor_id=actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
         # Registered last on purpose — see the comment at the assignee branch.
         if assignment_notifications:
@@ -2168,6 +2173,11 @@ def _move_card_attempt(
             board_id, _broadcast.EVT_CARD_MOVED,
             {**payload, "sibling_positions": sibling_positions}, actor.id,
         )
+        # A parent's column and lane show on each of its children (#1104); a
+        # reorder within one cell changes neither, so it pings nothing.
+        if column_changed or swimlane_changed:
+            from .card_links import announce_parent_changed
+            announce_parent_changed(card.pk, board, actor_id=actor.id)
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 
@@ -2353,6 +2363,9 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
                 card.save(update_fields=["archived_at"])
                 _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
                 _broadcast_after_commit(board_id, _broadcast.EVT_CARD_ARCHIVED, {"card_uid": card_uid}, actor.id)
+                # The children show their parent as archived (#1104).
+                from .card_links import announce_parent_changed
+                announce_parent_changed(card.pk, board, actor_id=actor.id)
                 # Archiving a blocker drops its targets' blocker_count (#449).
                 # Rendered after the save so each peer payload reflects the new
                 # state, and inside the transaction so it rolls back with it.
@@ -2424,6 +2437,9 @@ def unarchive_card(
         # response rather than re-fetched (#1050).
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UNARCHIVED, payload, actor.id)
+        # The children show their parent as restored (#1104).
+        from .card_links import announce_parent_changed
+        announce_parent_changed(card.pk, board, actor_id=actor.id)
         # Restoring a blocker puts its targets back into a blocked state (#449)
         # — the mirror of the archive case above.
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)

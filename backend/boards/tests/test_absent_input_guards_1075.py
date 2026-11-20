@@ -305,3 +305,67 @@ class GroupPredicateAbsentGroupTests(TestCase):
         user = _make_user()
         self.assertFalse(user_has_group_access(user, None))
         self.assertFalse(user_is_group_admin(user, None))
+
+
+class CardParentAbsentInputTests(TestCase):
+    """``Card.parent`` (#1104) is omitted unless a caller names the viewer.
+
+    A request in context is NOT a declared viewer: broadcast payloads carry the
+    actor's request, so a request-derived parent would leak the actor's view of
+    the parent to every child-board reader.
+    """
+
+    def setUp(self):
+        from boards.models import CardParentLink
+        from boards.tests.test_card_parent_links import _LinkFixture
+
+        fx = _LinkFixture()
+        fx._setup_boards()
+        self.fx = fx
+        CardParentLink.objects.create(parent=fx.parent, child=fx.child)
+
+    def _request(self):
+        from django.test import RequestFactory
+        from rest_framework.request import Request
+
+        req = Request(RequestFactory().get("/"))
+        req.user = self.fx.owner  # can open the parent board
+        return req
+
+    def test_card_serializer_with_a_request_but_no_marker_omits_parent(self):
+        from boards.serializers import CardSerializer
+
+        data = CardSerializer(self.fx.child, context={"request": self._request(), "board": self.fx.cboard}).data
+        self.assertNotIn("parent", data)
+
+    def test_board_full_serializer_without_a_viewer_omits_parent(self):
+        from boards.serializers import BoardFullSerializer
+        from boards.views._helpers import get_board_for_user
+
+        board, role = get_board_for_user(self.fx.cboard.pk, self.fx.owner)
+        cards = BoardFullSerializer(board, context={"request": self._request(), "role": role}).data["cards"]
+        self.assertTrue(cards)
+        self.assertTrue(all("parent" not in c for c in cards))
+
+    def test_parents_for_viewer_without_a_user_is_all_hidden(self):
+        from unittest import mock
+
+        from django.contrib.auth.models import AnonymousUser
+
+        from boards.services import card_links
+
+        with mock.patch.object(card_links, "get_board_roles") as roles:
+            for user in (None, AnonymousUser()):
+                self.assertEqual(
+                    card_links.parents_for_viewer([self.fx.child.pk], user),
+                    {self.fx.child.pk: {"hidden": True}},
+                )
+        roles.assert_not_called()
+
+    def test_broadcast_payload_builders_omit_parent(self):
+        from boards.views._helpers import _refetched_card_data, render_card_payloads
+
+        req = self._request()
+        self.assertNotIn("parent", _refetched_card_data(self.fx.child, req, self.fx.cboard))
+        for payload in render_card_payloads(self.fx.cboard, [self.fx.child.pk], request=req):
+            self.assertNotIn("parent", payload)

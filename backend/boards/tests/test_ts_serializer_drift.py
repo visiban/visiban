@@ -50,6 +50,8 @@ from boards.serializers import (
     EffectiveBoardMemberSerializer,
     ExternalRefSerializer,
     LabelSerializer,
+    ParentBoardOptionSerializer,
+    ParentCandidateSerializer,
     SavedFilterSerializer,
     SwimlaneAdminSerializer,
     SwimlaneCustomFieldDefinitionSerializer,
@@ -84,6 +86,10 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # scripts/check-serializer-ts-parity.py, which resolves `extends`.
     (AdminBoardInviteLinkSerializer, "AdminBoardInviteLink", set()),
     (CardSerializer, "Card", set()),
+    # Card-link picker rows (#1104); the services return dicts whose keys a
+    # test in test_card_parent_field_1104.py pins to these serializers.
+    (ParentBoardOptionSerializer, "ParentBoardOption", set()),
+    (ParentCandidateSerializer, "ParentCandidate", set()),
     (ColumnSerializer, "Column", set()),
     # Swimlane TS interface unions the Public and Admin shapes; contact_email
     # and notes are only on SwimlaneAdminSerializer but legitimately appear

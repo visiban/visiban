@@ -3510,6 +3510,114 @@ class ExternalRefSerializer(serializers.Serializer):
         return attrs
 
 
+#: Serializer-context key holding ``card_links.parents_for_viewer``'s result
+#: (#1104). Set ONLY by the read paths that name a viewer (``/full/``, the card
+#: list, retrieve and ``archived``). Without it ``parent`` is omitted, never
+#: computed from ``request``: broadcast payloads are built with the ACTOR's
+#: request, so a request-derived parent would show the actor's view of the
+#: parent to every child-board reader of the frame (#1075 class).
+CARD_PARENTS_CONTEXT_KEY = "card_parents"
+
+_PARENT_VISIBLE_KEYS = (
+    "id", "title", "board_id", "board_name", "column_id", "column_name",
+    "swimlane_id", "swimlane_name", "archived",
+)
+
+
+@extend_schema_field({
+    "nullable": True,
+    "readOnly": True,
+    "description": (
+        "This card's parent (#1104, since 1.3), resolved for the caller. `null` when "
+        "the card has no parent; `{\"hidden\": true}` when the caller cannot open the "
+        "parent's board. Present on `/full/`, the card list, retrieve and `archived/`; "
+        "absent from write responses and from every event payload, feed row and webhook."
+    ),
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "hidden": {"type": "boolean", "enum": [False]},
+                "id": {"type": "integer"},
+                "title": {"type": "string"},
+                "board_id": {"type": "integer"},
+                "board_name": {"type": "string"},
+                "column_id": {"type": "integer"},
+                "column_name": {"type": "string"},
+                "swimlane_id": {"type": "integer"},
+                "swimlane_name": {"type": "string"},
+                "archived": {"type": "boolean"},
+            },
+            "required": ["hidden", *_PARENT_VISIBLE_KEYS],
+        },
+        {
+            "type": "object",
+            "properties": {"hidden": {"type": "boolean", "enum": [True]}},
+            "required": ["hidden"],
+            "additionalProperties": False,
+        },
+    ],
+})
+class CardParentField(serializers.Field):
+    """``Card.parent``: read-only, opt-in per call (#1104).
+
+    ``get_attribute`` raises ``SkipField`` when the context has no
+    ``CARD_PARENTS_CONTEXT_KEY``, so DRF drops the key: absent input fails
+    closed (#1075). The MCP tools, export, signals and every broadcast builder
+    get no ``parent`` without any change of their own.
+    """
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("source", "*")
+        kwargs["read_only"] = True
+        kwargs.setdefault("allow_null", True)
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        parents = self.context.get(CARD_PARENTS_CONTEXT_KEY)
+        if parents is None:
+            raise serializers.SkipField()
+        return parents.get(instance.pk)
+
+    def to_representation(self, value):
+        return value
+
+
+class ParentBoardOptionSerializer(serializers.Serializer):
+    """Schema only (#1104): a row of ``GET /boards/{id}/parent-boards/``.
+
+    ``card_links.parent_boards_for_viewer`` returns dicts; a test pins their
+    keys to these fields.
+    """
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+
+
+class ParentCandidateSerializer(serializers.Serializer):
+    """Schema only (#1104): a row of ``.../cards/{id}/parent-candidates/``.
+
+    ``card_links.parent_candidates_for_viewer`` returns dicts; a test pins
+    their keys to these fields.
+    """
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    column_id = serializers.IntegerField()
+    column_name = serializers.CharField()
+    swimlane_id = serializers.IntegerField()
+    swimlane_name = serializers.CharField()
+    assignee = BoardUserSerializer(allow_null=True)
+    disabled_reason = serializers.ChoiceField(
+        choices=["children_on_other_board", "children_limit"], allow_null=True,
+        help_text="Why this card cannot be picked; `null` when it can. Same codes as the link write's 400.",
+    )
+    children_board_name = serializers.CharField(
+        allow_null=True,
+        help_text="For `children_on_other_board`, that board's name when the caller can open it; else `null`.",
+    )
+
+
 class CardSerializer(serializers.ModelSerializer):
     # ParkedLabelListSerializer (#1223, same pattern as custom_field_values
     # below, #1212) reads the to_attr list _card_queryset() parks the labels
@@ -3558,6 +3666,8 @@ class CardSerializer(serializers.ModelSerializer):
     # replace. Stored in its own table (CardExternalRef) and applied after the
     # row exists — see _apply_external_ref.
     external_ref = ExternalRefSerializer(allow_null=True, required=False)
+    # Parent card (#1104). Omitted unless the caller set CARD_PARENTS_CONTEXT_KEY.
+    parent = CardParentField()
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -3628,6 +3738,9 @@ class CardSerializer(serializers.ModelSerializer):
             # Gated stages (#1102). Additive; read-only here — it changes only
             # through the move endpoint, which records each gate crossed.
             "gates_passed",
+            # Parent card (#1104, since 1.3). Read-only and opt-in per call;
+            # see CardParentField.
+            "parent",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
@@ -4758,7 +4871,16 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # cache; a bare Board.objects.get() would fall back to a live query.
         board_labels_qs = obj.labels.all()
         ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_assignable_member_ids": assignable_ids, "_board_labels_qs": board_labels_qs}
-        return CardSerializer(qs, many=True, context=ctx).data
+        cards = list(qs)
+        # ``parent`` (#1104) only when the caller named a viewer: BoardViewSet.full
+        # does; the MCP tools and the export do not, so their cards carry no
+        # ``parent`` (fail closed, #1075).
+        if "card_parent_viewer" in self.context:
+            from .services import card_links
+            ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
+                [c.pk for c in cards], self.context["card_parent_viewer"],
+            )
+        return CardSerializer(cards, many=True, context=ctx).data
 
     # Schema only (#1137): these rows are the effective roster, not
     # BoardMembership rows — see EffectiveBoardMemberSerializer for why they get
