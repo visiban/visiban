@@ -2025,6 +2025,8 @@ class CardViewSet(viewsets.ModelViewSet):
                             verb=quoted_card_verb(f"{request.user.username} mentioned you in", card.title),
                             card=card,
                             board=board,
+                            # Links open the Comments tab for this one (#2203).
+                            mention_source=Notification.MentionSource.COMMENT,
                         )
                         for u in member_users
                     ],

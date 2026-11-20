@@ -147,9 +147,10 @@ def card_link(notification):
     Mirrors the deep link the in-app notification dropdown builds
     (``Navbar.tsx``): ``/boards/<id>?card=<id>``, which ``BoardView`` reads and
     uses to open the card detail panel. Keeping the two identical means an email
-    and the bell take the reader to the same place. No link names a tab: a
-    description mention and a comment mention create identical notifications,
-    so mention links stay on the default tab until #2203 records the mention source.
+    and the bell take the reader to the same place. Only a mention recorded as
+    coming from a comment (``mention_source``, #2203) adds ``&tab=comments``; a
+    description mention, and any row written before the source was recorded,
+    stays on the default tab rather than guessing.
     """
     base = _frontend_url()
     if notification.board_id is None:
@@ -159,7 +160,13 @@ def card_link(notification):
         return f"{base}/boards/{notification.board_id}?settings=webhooks"
     if notification.card_id is None:
         return f"{base}/boards/{notification.board_id}"
-    return f"{base}/boards/{notification.board_id}?card={notification.card_id}"
+    link = f"{base}/boards/{notification.board_id}?card={notification.card_id}"
+    if (
+        notification.action_type == Notification.ActionType.MENTIONED
+        and notification.mention_source == Notification.MentionSource.COMMENT
+    ):
+        link += "&tab=comments"
+    return link
 
 
 def _build_webhook_disabled_body(notification, context):

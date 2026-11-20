@@ -23,6 +23,7 @@ const mockNotifications: Notification[] = [
     board_id: 1,
     board_name: 'Sprint 1',
     action_type: 'card_moved',
+    mention_source: null,
     read: false,
     created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
   },
@@ -35,6 +36,7 @@ const mockNotifications: Notification[] = [
     board_id: 1,
     board_name: 'Sprint 1',
     action_type: 'mentioned',
+    mention_source: null,
     read: false,
     created_at: new Date(Date.now() - 30 * 60_000).toISOString(),
   },
@@ -87,7 +89,7 @@ describe('Notification dropdown', () => {
     mockedMarkRead.mockResolvedValue(undefined)
   })
 
-  it('clicking a mention notification links to the card with no tab (#967)', async () => {
+  it('clicking a mention notification with no recorded source links to the card with no tab (#967)', async () => {
     const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(1)
     mockedListNotifications.mockResolvedValue([mockNotifications[1]])
@@ -100,6 +102,25 @@ describe('Notification dropdown', () => {
     await user.click(screen.getByText(mockNotifications[1].verb))
 
     expect(mockNavigate).toHaveBeenCalledWith('/boards/1?card=11')
+  })
+
+  it.each([
+    ['a comment mention opens the Comments tab', { action_type: 'mentioned', mention_source: 'comment' }, '/boards/1?card=11&tab=comments'],
+    ['a description mention stays on the default tab', { action_type: 'mentioned', mention_source: 'description' }, '/boards/1?card=11'],
+    ['a non-mention never reads the source', { action_type: 'comment_added', mention_source: 'comment' }, '/boards/1?card=11'],
+  ] as const)('#2203: %s', async (_label, overrides, expected) => {
+    const user = userEvent.setup({ delay: null })
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([{ ...mockNotifications[1], ...overrides }])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle(/Notifications/))
+    await waitFor(() => screen.getByText(mockNotifications[1].verb))
+    await user.click(screen.getByText(mockNotifications[1].verb))
+
+    expect(mockNavigate).toHaveBeenCalledWith(expected)
   })
 
   it('clicking a card notification navigates to /boards/:id?card=:card_id', async () => {
@@ -129,6 +150,7 @@ describe('Notification dropdown', () => {
       board_id: 1,
       board_name: 'Sprint 1',
       action_type: 'board_invite',
+      mention_source: null,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -257,6 +279,7 @@ describe('Notification dropdown', () => {
       board_id: 1,
       board_name: 'Sprint 1',
       action_type: 'board_invite',
+      mention_source: null,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -283,6 +306,7 @@ describe('Notification dropdown', () => {
       board_id: 1,
       board_name: 'Sprint 1',
       action_type: 'webhook_disabled',
+      mention_source: null,
       read: false,
       created_at: new Date(Date.now() - 2 * 60_000).toISOString(),
     }
@@ -316,6 +340,7 @@ describe('Notification dropdown', () => {
       board_id: 1,
       board_name: 'Sprint 1',
       action_type: 'stale',
+      mention_source: null,
       read: false,
       created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
     }

@@ -305,6 +305,7 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
                 verb=quoted_card_verb(f"{actor.username} mentioned you in", fresh_card.title),
                 card=fresh_card,
                 board=fresh_card.board,
+                mention_source=Notification.MentionSource.DESCRIPTION,
             )
         )
         new_ids.append(u.pk)

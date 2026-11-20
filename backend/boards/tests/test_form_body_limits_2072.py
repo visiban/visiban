@@ -59,11 +59,15 @@ class FormBodyLimitTests(TestCase):
         self.client = APIClient(raise_request_exception=False)
         self.client.force_authenticate(self.user)
 
-    def assert_json_400(self, response, label):
+    def assert_json_400(self, response, label, *, code=None):
+        """``code`` is set for the two import actions, whose every error body is
+        ``{"detail", "code"}`` (#1903); every other endpoint answers ``{"detail"}`` only."""
         self.assertEqual(response.status_code, 400, (label, response.content[:300]))
         self.assertEqual(response["Content-Type"], "application/json", label)
         body = response.json()
-        self.assertEqual(list(body), ["detail"], label)
+        self.assertEqual(list(body), ["detail"] if code is None else ["detail", "code"], label)
+        if code is not None:
+            self.assertEqual(body["code"], code, label)
         self.assertIsInstance(body["detail"], str, label)
         return body["detail"]
 
@@ -78,7 +82,8 @@ class FormBodyLimitTests(TestCase):
         for url in ("/api/v1/boards/import/", "/api/v1/boards/import/trello/?dry_run=true"):
             with self.subTest(url):
                 r = self.client.post(url, _files(TOO_MANY_FILES), format="multipart")
-                detail = self.assert_json_400(r, url)
+                # The parser's ParseError, with the import contract's ``code`` (#1903).
+                detail = self.assert_json_400(r, url, code="parse_error")
                 self.assertIn("DATA_UPLOAD_MAX_NUMBER_FILES", detail)
 
     def test_limit_is_parsed_inside_the_session_csrf_check_too(self):

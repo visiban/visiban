@@ -272,7 +272,7 @@ describe('Navbar — hosted demo (#1193)', () => {
     vi.clearAllMocks()
     mockGetUnreadCount.mockResolvedValue(0)
     mockListNotifications.mockResolvedValue([
-      { id: 1, verb: 'moved a card', actor: null, card_id: 5, card_title: 'Card', board_id: 9, board_name: 'Board', action_type: 'card_moved', read: false, created_at: new Date().toISOString() },
+      { id: 1, verb: 'moved a card', actor: null, card_id: 5, card_title: 'Card', board_id: 9, board_name: 'Board', action_type: 'card_moved', mention_source: null, read: false, created_at: new Date().toISOString() },
     ])
   })
 
@@ -346,7 +346,7 @@ describe('Navbar phone hamburger (#2344)', () => {
 describe('Navbar — notification dropdown separators (#487)', () => {
   it('uses engraved double-div separators (header|list and between rows), not border-b', async () => {
     mockGetUnreadCount.mockResolvedValue(0)
-    const row = (id: number, verb: string) => ({ id, verb, actor: null, card_id: null, card_title: null, board_id: null, board_name: null, action_type: 'card_moved', read: false, created_at: new Date().toISOString() })
+    const row = (id: number, verb: string) => ({ id, verb, actor: null, card_id: null, card_title: null, board_id: null, board_name: null, action_type: 'card_moved', mention_source: null, read: false, created_at: new Date().toISOString() })
     mockListNotifications.mockResolvedValue([row(1, 'first thing'), row(2, 'second thing')])
     const user = userEvent.setup()
     renderNavbar()

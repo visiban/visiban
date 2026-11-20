@@ -66,6 +66,9 @@ class NotificationSerializer(serializers.ModelSerializer):
             "board_id",
             "board_name",
             "action_type",
+            # Since 1.3 (#2203): "comment" or "description" on a mentioned
+            # notification, null otherwise and on rows written before 1.3.
+            "mention_source",
             "read",
             "created_at",
         ]

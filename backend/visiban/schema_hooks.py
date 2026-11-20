@@ -266,6 +266,8 @@ _PINNED_ENUMS = {
     ("Board", "export_min_role"): "ExportMinRoleEnum",
     ("BoardFull", "export_min_role"): "ExportMinRoleEnum",
     ("BoardImportResponse", "export_min_role"): "ExportMinRoleEnum",
+    # The Trello confirm body carries the board's fields at the top level since #1903.
+    ("TrelloImportConfirm", "export_min_role"): "ExportMinRoleEnum",
     ("BoardRequest", "export_min_role"): "ExportMinRoleEnum",
     ("PatchedBoardRequest", "export_min_role"): "ExportMinRoleEnum",
     # Column policy mode (#1101): a bare ``mode`` would publish a generic

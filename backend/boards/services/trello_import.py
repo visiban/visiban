@@ -46,6 +46,7 @@ from visiban.colors import normalize_hex_color
 from visiban.parsers import first_lone_surrogate
 from groups.models import GroupMembership
 
+from ..import_errors import ImportErrorCode
 from ..models import (
     Board, BoardMembership, Card, CardChecklist, CardComment, Column, Label, Notification, Swimlane,
 )
@@ -120,11 +121,17 @@ MAPPING_KEYS = frozenset({
 
 
 class TrelloImportError(Exception):
-    """A client-side problem with the upload or mapping. The view maps it to 400."""
+    """A client-side problem with the upload or mapping. The view maps it to 400.
 
-    def __init__(self, detail: str):
+    ``code`` is the stable value the error body carries next to ``detail``
+    (#1903, ``boards.import_errors``); a raise that names none is a contents
+    problem.
+    """
+
+    def __init__(self, detail: str, code: str = ImportErrorCode.INVALID_IMPORT):
         super().__init__(detail)
         self.detail = detail
+        self.code = code
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +238,7 @@ class TrelloExport:
 def _reject_constant(value):
     # json.loads accepts NaN/Infinity by default; they are not valid JSON and
     # would otherwise flow into numeric comparisons as float('nan').
-    raise TrelloImportError(f"Invalid JSON: unsupported constant {value}.")
+    raise TrelloImportError(f"Invalid JSON: unsupported constant {value}.", code=ImportErrorCode.INVALID_FILE)
 
 
 def _clean(value: str) -> str:
@@ -315,26 +322,27 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
     """
     if raw.count(b"{") + raw.count(b"[") > MAX_JSON_CONTAINERS:
         raise TrelloImportError(
-            "The export contains too many objects to import. Split the board in Trello and import the parts."
+            "The export contains too many objects to import. Split the board in Trello and import the parts.",
+            code=ImportErrorCode.LIMIT_EXCEEDED,
         )
     try:
         text = raw.decode("utf-8-sig")  # tolerate a BOM
     except UnicodeDecodeError:
-        raise TrelloImportError("The uploaded file is not valid UTF-8 JSON.")
+        raise TrelloImportError("The uploaded file is not valid UTF-8 JSON.", code=ImportErrorCode.INVALID_FILE)
     try:
         data = json.loads(text, parse_constant=_reject_constant)
     except TrelloImportError:
         raise
     except RecursionError:
-        raise TrelloImportError("The uploaded file is nested too deeply to be a Trello export.")
+        raise TrelloImportError("The uploaded file is nested too deeply to be a Trello export.", code=ImportErrorCode.INVALID_FILE)
     except ValueError:
-        raise TrelloImportError("The uploaded file is not valid JSON.")
+        raise TrelloImportError("The uploaded file is not valid JSON.", code=ImportErrorCode.INVALID_FILE)
     # The decoded text is as large as the upload; drop it before building the
     # normalized export so peak memory holds only the parsed tree.
     del text
 
     if not isinstance(data, dict):
-        raise TrelloImportError("Invalid Trello export: expected an object at the top level.")
+        raise TrelloImportError("Invalid Trello export: expected an object at the top level.", code=ImportErrorCode.INVALID_FILE)
     # A lone UTF-16 surrogate is valid JSON but cannot be encoded for
     # PostgreSQL: it was a 500 at the first lookup or INSERT (#2085). Only the
     # code point is named, so the message stays JSON-encodable.
@@ -346,7 +354,8 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
     if "lists" not in data or "cards" not in data:
         raise TrelloImportError(
             "This does not look like a Trello board export: 'lists' and 'cards' are required. "
-            "In Trello, use Menu → Print, export, and share → Export as JSON."
+            "In Trello, use Menu → Print, export, and share → Export as JSON.",
+            code=ImportErrorCode.INVALID_FILE,
         )
 
     name = _str(data, "name", "Board", default="Imported Trello board").strip() or "Imported Trello board"
@@ -360,18 +369,19 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
     raw_actions = _list(data, "actions", "Board")
 
     if len(raw_lists) > MAX_LISTS:
-        raise TrelloImportError(f"The export contains {len(raw_lists)} lists, which exceeds the limit of {MAX_LISTS}.")
+        raise TrelloImportError(f"The export contains {len(raw_lists)} lists, which exceeds the limit of {MAX_LISTS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
     if len(raw_cards) > MAX_CARDS:
-        raise TrelloImportError(f"The export contains {len(raw_cards)} cards, which exceeds the limit of {MAX_CARDS}.")
+        raise TrelloImportError(f"The export contains {len(raw_cards)} cards, which exceeds the limit of {MAX_CARDS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
     if len(raw_labels) > MAX_LABELS:
-        raise TrelloImportError(f"The export contains {len(raw_labels)} labels, which exceeds the limit of {MAX_LABELS}.")
+        raise TrelloImportError(f"The export contains {len(raw_labels)} labels, which exceeds the limit of {MAX_LABELS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
     if len(raw_members) > MAX_MEMBERS:
-        raise TrelloImportError(f"The export contains {len(raw_members)} members, which exceeds the limit of {MAX_MEMBERS}.")
+        raise TrelloImportError(f"The export contains {len(raw_members)} members, which exceeds the limit of {MAX_MEMBERS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
     if len(raw_actions) > MAX_ACTIONS:
-        raise TrelloImportError(f"The export contains {len(raw_actions)} actions, which exceeds the limit of {MAX_ACTIONS}.")
+        raise TrelloImportError(f"The export contains {len(raw_actions)} actions, which exceeds the limit of {MAX_ACTIONS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
     if len(raw_checklists) > MAX_CHECKLIST_ITEMS:
         raise TrelloImportError(
-            f"The export contains {len(raw_checklists)} checklists, which exceeds the limit of {MAX_CHECKLIST_ITEMS}."
+            f"The export contains {len(raw_checklists)} checklists, which exceeds the limit of {MAX_CHECKLIST_ITEMS}.",
+            code=ImportErrorCode.LIMIT_EXCEEDED,
         )
 
     lists: list[TList] = []
@@ -405,11 +415,11 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
         raw_atts = _list(item, "attachments", where)
         total_attachments += len(raw_atts)
         if total_attachments > MAX_ATTACHMENTS:
-            raise TrelloImportError(f"The export contains more than {MAX_ATTACHMENTS} attachments, which exceeds the limit.")
+            raise TrelloImportError(f"The export contains more than {MAX_ATTACHMENTS} attachments, which exceeds the limit.", code=ImportErrorCode.LIMIT_EXCEEDED)
         for key in ("idLabels", "idMembers"):
             refs = item.get(key)
             if isinstance(refs, list) and len(refs) > MAX_REFS_PER_CARD:
-                raise TrelloImportError(f"{where}: '{key}' has more than {MAX_REFS_PER_CARD} entries.")
+                raise TrelloImportError(f"{where}: '{key}' has more than {MAX_REFS_PER_CARD} entries.", code=ImportErrorCode.LIMIT_EXCEEDED)
         for j, att in _dict_items(raw_atts, f"{where}.attachments"):
             awhere = f"{where}.attachments[{j}]"
             attachments.append(TAttachment(name=_str(att, "name", awhere), url=_str(att, "url", awhere)))
@@ -448,7 +458,8 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
         # Running total, checked before materializing this checklist's items.
         if total_items + len(raw_items) > MAX_CHECKLIST_ITEMS:
             raise TrelloImportError(
-                f"The export contains more than {MAX_CHECKLIST_ITEMS} checklist items, which exceeds the limit."
+                f"The export contains more than {MAX_CHECKLIST_ITEMS} checklist items, which exceeds the limit.",
+                code=ImportErrorCode.LIMIT_EXCEEDED,
             )
         for j, ci in _dict_items(raw_items, f"{where}.checkItems"):
             cwhere = f"{where}.checkItems[{j}]"
@@ -470,7 +481,8 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
         ))
     if total_items > MAX_CHECKLIST_ITEMS:
         raise TrelloImportError(
-            f"The export contains {total_items} checklist items, which exceeds the limit of {MAX_CHECKLIST_ITEMS}."
+            f"The export contains {total_items} checklist items, which exceeds the limit of {MAX_CHECKLIST_ITEMS}.",
+            code=ImportErrorCode.LIMIT_EXCEEDED,
         )
 
     members: list[TMember] = []
@@ -511,7 +523,7 @@ def parse_trello_export(raw: bytes) -> TrelloExport:
             date=date,
         ))
     if len(comments) > MAX_COMMENTS:
-        raise TrelloImportError(f"The export contains {len(comments)} comments, which exceeds the limit of {MAX_COMMENTS}.")
+        raise TrelloImportError(f"The export contains {len(comments)} comments, which exceeds the limit of {MAX_COMMENTS}.", code=ImportErrorCode.LIMIT_EXCEEDED)
 
     board_plugin = data.get("pluginData")
     stickers = sum(
@@ -553,45 +565,46 @@ def parse_options(raw: str | None, export: TrelloExport) -> ImportOptions:
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return ImportOptions()
     if not isinstance(raw, str):
-        raise TrelloImportError("'mapping' must be a JSON object.")
+        raise TrelloImportError("'mapping' must be a JSON object.", code=ImportErrorCode.INVALID_OPTIONS)
     try:
         data = json.loads(raw, parse_constant=_reject_constant)
     except TrelloImportError:
         raise
     except (ValueError, RecursionError):
-        raise TrelloImportError("'mapping' is not valid JSON.")
+        raise TrelloImportError("'mapping' is not valid JSON.", code=ImportErrorCode.INVALID_OPTIONS)
     if not isinstance(data, dict):
-        raise TrelloImportError("'mapping' must be a JSON object.")
+        raise TrelloImportError("'mapping' must be a JSON object.", code=ImportErrorCode.INVALID_OPTIONS)
     # Same lone-surrogate refusal as the export itself (#2085): the unknown-key
     # echo and default_swimlane_name both reach the response or PostgreSQL.
     if first_lone_surrogate(data) is not None:
-        raise TrelloImportError("'mapping' contains a character that cannot be stored (unpaired surrogate).")
+        raise TrelloImportError("'mapping' contains a character that cannot be stored (unpaired surrogate).", code=ImportErrorCode.INVALID_OPTIONS)
     unknown = sorted(set(data) - MAPPING_KEYS)
     if unknown:
-        raise TrelloImportError(f"Unknown mapping option(s): {', '.join(unknown)}.")
+        raise TrelloImportError(f"Unknown mapping option(s): {', '.join(unknown)}.", code=ImportErrorCode.INVALID_OPTIONS)
 
     opts = ImportOptions()
     label_ids = data.get("swimlane_label_ids", [])
     if not isinstance(label_ids, list) or not all(isinstance(x, str) for x in label_ids):
-        raise TrelloImportError("'swimlane_label_ids' must be a list of label ids.")
+        raise TrelloImportError("'swimlane_label_ids' must be a list of label ids.", code=ImportErrorCode.INVALID_OPTIONS)
     eligible = {lbl.id for lbl in export.labels if lbl.name}
     for lid in label_ids:
         if lid not in eligible:
             raise TrelloImportError(
-                f"Label {lid!r} cannot become a swimlane: it is not a named label in this export."
+                f"Label {lid!r} cannot become a swimlane: it is not a named label in this export.",
+                code=ImportErrorCode.INVALID_OPTIONS,
             )
     # De-duplicate while preserving the caller's order.
     opts.swimlane_label_ids = list(dict.fromkeys(label_ids))
 
     name = data.get("default_swimlane_name", DEFAULT_SWIMLANE_NAME)
     if not isinstance(name, str) or not _clean(name).strip():
-        raise TrelloImportError("'default_swimlane_name' must be a non-empty string.")
+        raise TrelloImportError("'default_swimlane_name' must be a non-empty string.", code=ImportErrorCode.INVALID_OPTIONS)
     opts.default_swimlane_name = _clean(name).strip()[:_MAX_SWIMLANE_NAME]
 
     for key in ("include_archived_lists", "add_matched_members"):
         value = data.get(key, False)
         if not isinstance(value, bool):
-            raise TrelloImportError(f"'{key}' must be a boolean.")
+            raise TrelloImportError(f"'{key}' must be a boolean.", code=ImportErrorCode.INVALID_OPTIONS)
         setattr(opts, key, value)
     return opts
 
@@ -819,7 +832,8 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
     if options.default_swimlane_name.lower() in seen:
         raise TrelloImportError(
             f"The default swimlane name {options.default_swimlane_name!r} is the same as a label mapped "
-            "to a swimlane. Choose a different name."
+            "to a swimlane. Choose a different name.",
+            code=ImportErrorCode.INVALID_OPTIONS,
         )
 
     # --- Cards -----------------------------------------------------------

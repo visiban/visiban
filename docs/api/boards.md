@@ -1318,6 +1318,8 @@ import, `[]` when nothing was dropped). It holds at most 20 entries followed by 
 
 Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `import_summary` object (the `BoardImportResponse` component in the OpenAPI document).
 
+*Changed in 1.3 (#1903):* the body also carries `board` (the same board again) and `summary` (the same object as `import_summary`), so it has the same four keys as the [Trello import](#post-apiv1boardsimporttrello) and one client can read either. Nothing was removed: the board's fields stay at the top level. New clients should read `board` and `summary`.
+
 ```json
 {
   "id": 512,
@@ -1339,7 +1341,9 @@ Returns the new board in the shape of `GET /api/v1/boards/{id}/`, plus an `impor
       "colors": 0,
       "assignees": 0
     }
-  }
+  },
+  "board": { "id": 512, "uid": "bd_1a2b3c4d5e6f7890", "name": "Imported: Roadmap", "...": "same fields as above" },
+  "summary": { "options_applied": { "...": "same object as import_summary" }, "skipped": { "...": "" } }
 }
 ```
 
@@ -1356,13 +1360,34 @@ The `board.created` event for the new board carries the resolved options as an a
 
 **Errors**
 
+Since 1.3 (#1903) every error body is `{"detail": "...", "code": "..."}` (the `ImportError` component). `detail` is for people and may be reworded; branch on `code`. See [Import error codes](#import-error-codes).
+
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, has an unsupported extension, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `IMPORT_MAX_SIZE_BYTES`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when `options` is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets `comments`, `checklist`, or `history` to `true` with `cards` set to `false`, or — for a CSV file — has any key other than `labels` and `cards`. A CSV file also returns `400` for a cell over the [CSV cell limits](#csv-cell-limits), a NUL byte, or an impossible `Due Date`. |
-| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
-| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied for a group the caller can see but is not an admin of. Since 1.2; before 1.2 a caller who was not a member of the group received `403`, and any member could import. |
-| `404 Not Found` | `{"detail": "..."}` | `group_id` does not match a group that exists and is visible to the caller. *(1.2+)* Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719). |
-| `429 Too Many Requests` | `{"detail": "..."}` | The `board_import` rate limit was exceeded. |
+| `400 Bad Request` | `{"detail": "...", "code": "..."}` | File is missing, empty, has an unsupported extension, exceeds the upload size limit (`MAX_UPLOAD_SIZE_BYTES`, default 10 MB — the same env var and default as [card attachment uploads](cards.md#attachments), and distinct from the Trello importer's own `IMPORT_MAX_SIZE_BYTES`), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when `options` is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets `comments`, `checklist`, or `history` to `true` with `cards` set to `false`, or — for a CSV file — has any key other than `labels` and `cards`. A CSV file also returns `400` for a cell over the [CSV cell limits](#csv-cell-limits), a NUL byte, or an impossible `Due Date`. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided.", "code": "not_authenticated"}` | Caller is not authenticated. |
+| `403 Forbidden` | `{"detail": "...", "code": "permission_denied"}` | `group_id` was supplied for a group the caller can see but is not an admin of. Since 1.2; before 1.2 a caller who was not a member of the group received `403`, and any member could import. |
+| `404 Not Found` | `{"detail": "...", "code": "not_found"}` | `group_id` does not match a group that exists and is visible to the caller. *(1.2+)* Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719). |
+| `429 Too Many Requests` | `{"detail": "...", "code": "throttled"}` | The `board_import` rate limit was exceeded. |
+
+#### Import error codes
+
+> **Added in 1.3** (#1903). Both import endpoints use these. A code is never renamed or removed; new ones may be added, so treat an unknown code like `invalid_import`.
+
+| `code` | Status | Meaning |
+|---|---|---|
+| `no_file` | `400` | No `file` part in the upload. |
+| `file_too_large` | `400` native, `413` Trello | The file is over the size limit. |
+| `unsupported_format` | `400` | Native import only: neither a `.json` nor a `.csv` file. |
+| `invalid_file` | `400` | The file cannot be read as its format: not UTF-8, not valid JSON or CSV, an empty CSV, nested too deeply, or JSON that is not an export (not an object; for Trello, no `lists` and `cards`). |
+| `limit_exceeded` | `400` | A count cap is exceeded: cards, columns, swimlanes, labels, rows, distinct usernames, or a per-card child list (native); lists, cards, labels, members, actions, checklists, attachments, comments, or a per-card list (Trello). |
+| `invalid_options` | `400` | `options` (native) or `mapping` (Trello) is invalid. |
+| `invalid_name` | `400` | `name` is invalid (too long, a NUL character, or not a string). |
+| `invalid_mode` | `400` | Trello only: not exactly one of `?dry_run=true` and `?confirm=true`. |
+| `file_mismatch` | `400` | Trello only: on `confirm`, `file_sha256` does not match the uploaded file. |
+| `invalid_import` | `400` | Any other problem with the file's contents: a missing field, a wrong type, a reference to an undefined column or swimlane, a value that cannot be stored, or, on Trello `confirm`, no lists to import. |
+
+Errors raised before or around the importer carry the framework's code for them instead, for example `not_authenticated` or `authentication_failed` (`401`), `permission_denied` (`403`), `not_found` (`404`), `unsupported_media_type` (`415`), `throttled` (`429`), and `parse_error` (`400`, a malformed multipart body). One `400` has no `code`: a request in a charset other than UTF-8 is refused before it reaches the API (`{"detail": "Unsupported request charset. Use UTF-8."}`), on every endpoint.
 
 ### `POST /api/v1/boards/import/trello/`
 
@@ -1568,7 +1593,9 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 
 **Response** `201 Created` (`confirm=true`)
 
-Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns the board at the top level (plus `import_summary`), this endpoint wraps the board with a summary. `board` has the shape of `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201). The two envelopes differ today; aligning them additively, and adding an error `code`, is tracked in #1903. Error bodies on both carry `detail` only, with no `code`.
+The board comes back as `board`, with a `summary`. `board` has the shape of `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`. The OpenAPI document names these `TrelloImportPreview` (the `dry_run=true` 200) and `TrelloImportConfirm` (this 201).
+
+*Changed in 1.3 (#1903):* the body also carries the native import's envelope: the board's fields at the top level and the summary again as `import_summary`, so both imports return the same four keys (`board`, `summary`, `import_summary`, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has `counts`, `result`, `warnings` (objects) and `unmappable`; a native one has `options_applied`, `skipped` and, for CSV, `warnings` (strings). Error bodies carry a `code` (see [Import error codes](#import-error-codes)).
 
 ```json
 {
@@ -1600,7 +1627,12 @@ Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns t
     "unmappable": [
       { "kind": "attachment_files", "count": 9 }
     ]
-  }
+  },
+  "import_summary": { "counts": { "...": "same object as summary" } },
+  "id": 513,
+  "uid": "bd_7c1e9a4b2d6f8035",
+  "name": "Website Relaunch",
+  "...": "the rest of the board's fields, as under board"
 }
 ```
 
@@ -1610,12 +1642,12 @@ Creating the board broadcasts `board.created` on the same channels as the native
 
 | Status | Body | When |
 |---|---|---|
-| `400 Bad Request` | `{"detail": "..."}` | Neither or both of `dry_run` / `confirm` given; `file` missing; the file is not valid UTF-8 JSON or is nested too deeply; it is not a Trello export (`lists` and `cards` are required); a schema or type error (the message names the offending field); an [import cap](#post-apiv1boardsimporttrello) is exceeded; `mapping` is not a JSON object, has an unknown key, has a wrong type, lists a label that is not a named label in the export, or uses a `default_swimlane_name` that collides with a mapped label; on `confirm`, `file_sha256` does not match the uploaded file; on `confirm`, there are no lists to import (for example, every list is archived and `include_archived_lists` is `false`). |
-| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
-| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied for a group the caller can see but is not an admin of (since 1.2; before 1.2 a caller who was not a member of the group received `403`, and any member could import); or the account has a pending password or username change. |
-| `404 Not Found` | `{"detail": "..."}` | `group_id` does not match a group that exists and is visible to the caller. *(1.2+)* Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719). |
-| `413 Content Too Large` | `{"detail": "File too large. The maximum size for a Trello import is 25 MB."}` | The file is larger than `IMPORT_MAX_SIZE_BYTES`. Note that the native import endpoint returns `400` for an oversized file. |
-| `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}` | Rate limit exceeded; see **Rate limits** above. |
+| `400 Bad Request` | `{"detail": "...", "code": "..."}` | Neither or both of `dry_run` / `confirm` given; `file` missing; the file is not valid UTF-8 JSON or is nested too deeply; it is not a Trello export (`lists` and `cards` are required); a schema or type error (the message names the offending field); an [import cap](#post-apiv1boardsimporttrello) is exceeded; `mapping` is not a JSON object, has an unknown key, has a wrong type, lists a label that is not a named label in the export, or uses a `default_swimlane_name` that collides with a mapped label; on `confirm`, `file_sha256` does not match the uploaded file; on `confirm`, there are no lists to import (for example, every list is archived and `include_archived_lists` is `false`). |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided.", "code": "not_authenticated"}` | Caller is not authenticated. |
+| `403 Forbidden` | `{"detail": "...", "code": "permission_denied"}` | `group_id` was supplied for a group the caller can see but is not an admin of (since 1.2; before 1.2 a caller who was not a member of the group received `403`, and any member could import); or the account has a pending password or username change. |
+| `404 Not Found` | `{"detail": "...", "code": "not_found"}` | `group_id` does not match a group that exists and is visible to the caller. *(1.2+)* Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719). |
+| `413 Content Too Large` | `{"detail": "File too large. The maximum size for a Trello import is 25 MB.", "code": "file_too_large"}` | The file is larger than `IMPORT_MAX_SIZE_BYTES`. Note that the native import endpoint returns `400` for an oversized file. |
+| `429 Too Many Requests` | `{"detail": "Request was throttled. ...", "code": "throttled"}` | Rate limit exceeded; see **Rate limits** above. |
 
 ---
 

@@ -2,17 +2,34 @@
 
 Schema only: nothing here is used to serialize a response. The views build
 plain dicts and these classes describe them so schema-generated clients get a
-typed component instead of ``{type: object, additionalProperties: {}}``. The
-payloads are documented exactly as they are today -- the JSON/CSV import returns
-the board at the top level plus ``import_summary``, the Trello import wraps it
-as ``{board, summary}`` -- and aligning the two envelopes (and adding
-error ``code``s) is tracked in #1903. ``test_import_response_schemas_1870`` validates
-live responses against these components so the declared shape cannot drift.
+typed component instead of ``{type: object, additionalProperties: {}}``.
+
+Since #1903 both imports return the same envelope: the board's fields at the
+top level and under ``board``, the summary under ``import_summary`` and
+``summary`` (each is a key one of the two endpoints already had, so nothing
+was removed). The summary's contents still differ by source. Error bodies are
+``{detail, code}`` (``ImportErrorSerializer``). ``test_import_response_schemas_1870``
+and ``test_import_envelope_1903`` validate live responses against these
+components so the declared shape cannot drift.
 """
 
 from rest_framework import serializers
 
+from .import_errors import ImportErrorCode
 from .serializers import BoardSerializer
+
+
+class ImportErrorSerializer(serializers.Serializer):
+    """Every 4xx body from ``POST /boards/import/`` and ``POST /boards/import/trello/`` (#1903)."""
+
+    detail = serializers.CharField(help_text="Human-readable message. May be reworded; do not match on it.")
+    code = serializers.CharField(help_text=(
+        "Stable machine-readable code; branch on this, not on detail. Import codes: "
+        + ", ".join(ImportErrorCode.ALL)
+        + ". Errors raised outside the importer carry DRF's code for the exception "
+        "(not_authenticated, permission_denied, not_found, throttled, parse_error, ...). "
+        "New codes may be added; treat an unknown one like invalid_import."
+    ))
 
 
 class ImportOptionsAppliedSerializer(serializers.Serializer):
@@ -67,12 +84,18 @@ class ImportSummarySerializer(serializers.Serializer):
 
 
 class BoardImportResponseSerializer(BoardSerializer):
-    """The new board (same fields as ``GET /boards/{id}/``) plus ``import_summary``."""
+    """The new board (same fields as ``GET /boards/{id}/``) plus ``import_summary``.
+
+    ``board`` and ``summary`` (#1903) repeat the same board and summary in the
+    Trello import's envelope.
+    """
 
     import_summary = ImportSummarySerializer()
+    board = BoardSerializer(help_text="Since 1.3: the same board as the top-level fields.")
+    summary = ImportSummarySerializer(help_text="Since 1.3: the same object as import_summary.")
 
     class Meta(BoardSerializer.Meta):
-        fields = [*BoardSerializer.Meta.fields, "import_summary"]
+        fields = [*BoardSerializer.Meta.fields, "import_summary", "board", "summary"]
 
 
 class TrelloImportCountsSerializer(serializers.Serializer):
@@ -183,8 +206,16 @@ class TrelloImportSummarySerializer(serializers.Serializer):
     unmappable = TrelloImportUnmappableSerializer(many=True)
 
 
-class TrelloImportConfirmSerializer(serializers.Serializer):
-    """``POST /boards/import/trello/?confirm=true`` 201 response."""
+class TrelloImportConfirmSerializer(BoardSerializer):
+    """``POST /boards/import/trello/?confirm=true`` 201 response.
+
+    ``{board, summary}``, plus (#1903) the board's fields at the top level and
+    the summary again as ``import_summary``, the JSON/CSV import's envelope.
+    """
 
     board = BoardSerializer()
     summary = TrelloImportSummarySerializer()
+    import_summary = TrelloImportSummarySerializer(help_text="Since 1.3: the same object as summary.")
+
+    class Meta(BoardSerializer.Meta):
+        fields = [*BoardSerializer.Meta.fields, "board", "summary", "import_summary"]

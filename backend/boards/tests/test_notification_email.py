@@ -146,7 +146,7 @@ class SignalExtensionPointTests(TestCase):
 
 
 class CardLinkTabTests(TestCase):
-    """#967: no notification link names a tab (mention links included, until #2203).
+    """#967: links name no tab, except a comment mention's (#2203, see test_mention_source_2203).
 
     ``card_link`` only builds a URL (no delivery), so this needs no
     NOTIFICATION_EMAIL_ASYNC override and no signal receiver.
@@ -167,7 +167,7 @@ class CardLinkTabTests(TestCase):
             verb="Link card", card=self.card, board=self.board,
         )
 
-    def test_mention_link_has_no_tab(self):
+    def test_mention_link_without_source_has_no_tab(self):
         link = card_link(self._notification(Notification.ActionType.MENTIONED))
         self.assertTrue(link.endswith(f"/boards/{self.board.pk}?card={self.card.pk}"))
         self.assertNotIn("tab=", link)

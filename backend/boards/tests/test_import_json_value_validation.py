@@ -29,6 +29,7 @@ from boards.models import (
     Column, Label, Swimlane,
 )
 from boards.views import import_export
+from boards.tests.import_error_asserts import assert_import_error
 
 IMPORT_URL = "/api/v1/boards/import/"
 INT_MAX = 2**31 - 1
@@ -68,7 +69,7 @@ class JsonImportValueValidationTests(TestCase):
         before = Board.objects.count()
         resp = self._post(data, **kw)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content[:500])
-        self.assertEqual(resp.json(), {"detail": detail})
+        assert_import_error(self, resp, detail)
         self.assertEqual(Board.objects.count(), before, "a rejected import must leave no board behind")
 
     def assert_201(self, data, **kw):
@@ -410,7 +411,7 @@ class JsonImportValueValidationTests(TestCase):
                 )
                 resp = self._post_raw(body)
                 self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-                self.assertEqual(resp.json(), {"detail": "Card at index 0: 'description' must be a string"})
+                self.assertEqual(resp.json(), {"detail": "Card at index 0: 'description' must be a string", "code": "invalid_import"})
 
     # -- lone surrogates in echoed values -----------------------------------------
 
@@ -483,7 +484,7 @@ class JsonImportValueValidationTests(TestCase):
         with self.assertLogs("boards.views.import_export", logging.WARNING) as logs:
             resp = self._post_raw(b'{"name": ' + b"9" * 5000 + b"}")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON."})
+        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON.", "code": "invalid_file"})
         self.assertNotIn("9999", "\n".join(logs.output))
 
     def test_deeply_nested_json(self):
@@ -492,7 +493,7 @@ class JsonImportValueValidationTests(TestCase):
         depth = max(100_000, sys.getrecursionlimit() * 100)
         resp = self._post_raw(b"[" * depth + b"]" * depth)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON."})
+        self.assertEqual(resp.json(), {"detail": "The uploaded file is not valid JSON.", "code": "invalid_file"})
 
     def test_timestamp_backfills_are_batched(self):
         cards = [_card(
@@ -669,7 +670,9 @@ class JsonImportValueValidationTests(TestCase):
                 self.assertLogs("boards.views.import_export", logging.WARNING) as logs:
             resp = self._post(_payload())
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.json(), {"detail": "The import file contains a value that cannot be stored."})
+        self.assertEqual(
+            resp.json(), {"detail": "The import file contains a value that cannot be stored.", "code": "invalid_import"},
+        )
         # The atomic block rolled back: board, membership and columns are gone.
         self.assertEqual(
             (Board.objects.count(), BoardMembership.objects.count(), Column.objects.count()), before,

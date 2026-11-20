@@ -32,6 +32,7 @@ from boards.views.import_export import (
     _query_flag,
     _sanitize_csv_field,
 )
+from boards.tests.import_error_asserts import assert_import_error
 
 ALL_ON = {key: True for key in ImportOptionsSerializer.OPTION_KEYS}
 
@@ -290,7 +291,8 @@ class ImportOpenApiTests(TestCase):
         self.assertEqual(set(op["responses"]), {"201", "400", "401", "403", "404", "429"})
         self.assertEqual(
             op["responses"]["201"]["description"],
-            "The new board (same shape as GET /boards/{id}/) plus an import_summary object.",
+            "The new board: its fields at the top level and under `board`, plus the "
+            "import summary under both `import_summary` and `summary` (#1903).",
         )
 
     def test_trello_import_operation(self):
@@ -374,7 +376,7 @@ class ImportJsonRejectionTests(TestCase):
                 )
                 self.assertEqual(resp.status_code, 400, resp.content)
                 self.assertEqual(
-                    resp.json(), {"detail": "'schema_version' must be an integer."}
+                    resp.json(), {"detail": "'schema_version' must be an integer.", "code": "invalid_import"}
                 )
 
 
@@ -409,7 +411,7 @@ class ImportJsonMessageTests(TestCase):
             format="multipart",
         )
         self.assertEqual(resp.status_code, 400, resp.content)
-        self.assertEqual(resp.json(), {"detail": detail})
+        assert_import_error(self, resp, detail)
         self.assertEqual(Board.objects.count(), before)
 
     def test_structure_entries_must_be_named_objects(self):
@@ -904,7 +906,7 @@ class ImportJsonTailTests(TestCase):
                 self.assertEqual(resp.status_code, 400, resp.content)
                 self.assertEqual(
                     resp.json(),
-                    {"detail": f"Card at index 0, movement at index 0: '{key}' must be a string"},
+                    {"detail": f"Card at index 0, movement at index 0: '{key}' must be a string", "code": "invalid_import"},
                 )
 
     def test_duplicate_label_reference_on_a_card_attaches_once(self):
@@ -944,7 +946,8 @@ class ImportOpenApiResponseTests(TestCase):
         super().setUpClass()
         from drf_spectacular.generators import SchemaGenerator
 
-        cls.paths = SchemaGenerator().get_schema(request=None, public=True)["paths"]
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+        cls.paths = cls.schema["paths"]
 
     def test_error_responses_are_objects(self):
         for path, codes in (
@@ -958,6 +961,9 @@ class ImportOpenApiResponseTests(TestCase):
                     # A declared 400 is widened to anyOf [declared, pre-view
                     # 400 bodies] (#2178); every branch is still an object.
                     for branch in content.get("anyOf", [content]):
+                        # Since #1903 the import errors are a named component.
+                        if "$ref" in branch:
+                            branch = self.schema["components"]["schemas"][branch["$ref"].rsplit("/", 1)[1]]
                         self.assertEqual(branch["type"], "object")
 
 
@@ -1036,5 +1042,5 @@ class ImportTrelloTailTests(TestCase):
         ):
             resp = self._confirm()
         self.assertEqual(resp.status_code, 400, resp.content)
-        self.assertEqual(resp.json(), {"detail": "nope"})
+        self.assertEqual(resp.json(), {"detail": "nope", "code": "invalid_import"})
         self.assertEqual(Board.objects.count(), 0)
