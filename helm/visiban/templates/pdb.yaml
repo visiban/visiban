@@ -1,4 +1,4 @@
-{{- if gt (int .Values.backendReplicaCount) 1 }}
+{{- if or (gt (int .Values.backendReplicaCount) 1) (and (.Values.backendAutoscaling | default dict).enabled (gt (int ((.Values.backendAutoscaling | default dict).minReplicas | default 2)) 1)) }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

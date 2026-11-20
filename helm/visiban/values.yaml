@@ -1,12 +1,53 @@
 # Default values for visiban.
 
-# -- Number of backend (Django) replicas
+# -- Number of backend (Django) replicas. Ignored while backendAutoscaling.enabled
+# is true (the HPA owns the count).
+#
+# Before raising this above 1 (#1466): media must be reachable from every
+# replica. The default media PVC is ReadWriteOnce, so a second replica only
+# starts if the scheduler places it on the same node; for multi-node scale-out
+# use a ReadWriteMany storage class (see backend.mediaPersistence) or object
+# storage. Point externalDatabase and externalRedis at shared instances rather
+# than the bundled single-replica ones. See docs/architecture/scaling.md.
 backendReplicaCount: 1
 
 # -- Number of frontend (Nginx) replicas
 frontendReplicaCount: 1
 
+# Optional HorizontalPodAutoscaler for the backend (#1466). Off by default, so
+# the default render is unchanged. When enabled the Deployment omits `replicas`
+# and the HPA scales between minReplicas and maxReplicas on CPU utilization,
+# which needs backend.resources.requests.cpu (set by default) and a metrics
+# server in the cluster. The same media and shared-datastore caveats as
+# backendReplicaCount apply.
+backendAutoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
 backend:
+  # Graceful shutdown (#1466). Daphne is one process per pod, so a rollout cuts
+  # in-flight requests and WebSockets when the pod is killed. Both knobs are
+  # null by default and then render nothing (Kubernetes' own 30s grace period,
+  # no preStop hook), which keeps existing installs unchanged.
+  #
+  # terminationGracePeriodSeconds: how long Kubernetes waits after SIGTERM
+  # before SIGKILL. Size it above preStopSleepSeconds plus the longest request
+  # or WebSocket drain you want to allow, e.g. 60.
+  terminationGracePeriodSeconds: null
+  # preStopSleepSeconds: sleep this long in a preStop hook so the pod leaves the
+  # Service endpoints before daphne receives SIGTERM, e.g. 5. Counts against
+  # terminationGracePeriodSeconds.
+  preStopSleepSeconds: null
+  # startupProbe: off by default. When enabled, liveness and readiness wait
+  # until /api/health/liveness/ answers once, so a slow start (large migration
+  # backlog on a cold cache) is not killed by the liveness probe. The pod gets
+  # failureThreshold x periodSeconds seconds to come up.
+  startupProbe:
+    enabled: false
+    periodSeconds: 5
+    failureThreshold: 30
   image:
     repository: ghcr.io/visiban/visiban/backend
     pullPolicy: IfNotPresent

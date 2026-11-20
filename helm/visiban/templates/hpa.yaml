@@ -1,0 +1,25 @@
+{{- $hpa := .Values.backendAutoscaling | default dict }}
+{{- if $hpa.enabled }}
+{{- /* Opt-in (#1466). The backend Deployment omits `replicas` while this renders. */}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "visiban.fullname" . }}-backend
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "visiban.fullname" . }}-backend
+  minReplicas: {{ $hpa.minReplicas | default 2 | int }}
+  maxReplicas: {{ $hpa.maxReplicas | default 5 | int }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $hpa.targetCPUUtilizationPercentage | default 70 | int }}
+{{- end }}

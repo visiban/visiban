@@ -6,7 +6,9 @@ metadata:
     {{- include "visiban.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
 spec:
+  {{- if not (.Values.backendAutoscaling | default dict).enabled }}
   replicas: {{ .Values.backendReplicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
@@ -49,9 +51,12 @@ spec:
       # cannot run as this numeric UID, or needs a writable root filesystem,
       # sets backend.securityContext.pod / .container in their values.
       automountServiceAccountToken: false
+      {{- if not (kindIs "invalid" .Values.backend.terminationGracePeriodSeconds) }}
+      terminationGracePeriodSeconds: {{ .Values.backend.terminationGracePeriodSeconds | int }}
+      {{- end }}
       securityContext:
         {{- include "visiban.backend.securityContext.pod" (.Values.backend.securityContext | default dict) | nindent 8 }}
-      {{- if gt (int .Values.backendReplicaCount) 1 }}
+      {{- if or (gt (int .Values.backendReplicaCount) 1) (.Values.backendAutoscaling | default dict).enabled }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -194,6 +199,24 @@ spec:
             - name: static
               mountPath: /app/staticfiles
               readOnly: true
+          {{- if not (kindIs "invalid" .Values.backend.preStopSleepSeconds) }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", {{ .Values.backend.preStopSleepSeconds | int | quote }}]
+          {{- end }}
+          {{- $startup := .Values.backend.startupProbe | default dict }}
+          {{- if $startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: /api/health/liveness/
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: {{ include "visiban.probeHost" . | quote }}
+            periodSeconds: {{ $startup.periodSeconds | default 5 | int }}
+            failureThreshold: {{ $startup.failureThreshold | default 30 | int }}
+          {{- end }}
           livenessProbe:
             httpGet:
               path: /api/health/liveness/

@@ -27,10 +27,41 @@
       "type": "integer",
       "minimum": 0
     },
+    "backendAutoscaling": {
+      "description": "Optional backend HorizontalPodAutoscaler (#1466). Off by default; when enabled the Deployment omits replicas.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 1 },
+        "maxReplicas": { "type": "integer", "minimum": 1 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
     "backend": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "terminationGracePeriodSeconds": {
+          "description": "Pod terminationGracePeriodSeconds (#1466). null renders nothing (Kubernetes default 30).",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "preStopSleepSeconds": {
+          "description": "Seconds to sleep in a preStop hook so the pod leaves Service endpoints before SIGTERM (#1466). null renders no hook.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "startupProbe": {
+          "description": "Optional startupProbe on /api/health/liveness/ (#1466). Off by default.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "periodSeconds": { "type": "integer", "minimum": 1 },
+            "failureThreshold": { "type": "integer", "minimum": 1 }
+          }
+        },
         "image": {
           "type": "object",
           "additionalProperties": false,
