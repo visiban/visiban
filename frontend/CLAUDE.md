@@ -1934,3 +1934,13 @@ A cue that appears in response to a user filter or setting change (for example "
 
 - **A split cell without its header row names each sub-column itself (#2366).** In a read-only grid such as the share view, give each sub-column cell `role="group"` and `aria-label="{stage}: {sub-column}"`, and fold the count into the header item's accessible name ("Doing, 3 cards"). Track chips on the anonymous share view name tracks only and never imply a state: the public payload carries no per-card track state.
 - **A filter that matches "any of" a card's child items says so (#2367).** The Track state row carries helper text ("Cards with at least one track in a chosen state") and its chip reads "Any track done".
+
+## One child board per parent, never split (#2208, #2206)
+
+A parent card's children all live on **one** board, and no UI path may split them: not a link, not Add child, not a default-child-board change, not an admin move. Any surface that creates or links a child must honor it:
+
+- **Add child with children already present** uses the board they are on (`child-board-options` → `fixed_board`); it never offers another board. When that board is `{hidden: true}`, Add child is unavailable to the viewer, never re-routed.
+- **A default child board change** applies only to parents with no children yet. Copy that explains it says so ("Changing this affects parents with no children yet.").
+- **A refusal is the server's `children_on_other_board` code**, rendered as its message; the client never pre-filters it away silently.
+- **Different parents on one board may use different child boards** (#2206 decision D): the rule is per parent, not per board.
+

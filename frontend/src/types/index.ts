@@ -1091,7 +1091,11 @@ export type CardActivityEventType =
   | "parent_linked"
   | "parent_unlinked"
   | "child_linked"
-  | "child_unlinked";
+  | "child_unlinked"
+  // #2208: the other end's whole board was deleted. On the parent's row
+  // to_value is how many children it lost; no board name is ever stored.
+  | "children_removed_board_deleted"
+  | "parent_removed_board_deleted";
 
 export interface CardActivity {
   id: number;
@@ -1257,6 +1261,8 @@ export interface Board {
    * Readable by every member; only a board admin can change it.
    */
   cards_can_have_children: boolean;
+  // #2208: where Add child creates a new child card (id only, never a name), or null to ask.
+  default_child_board: number | null;
 }
 
 /**
@@ -1463,6 +1469,8 @@ export interface BoardFull {
    * Readable by every member; only a board admin can change it.
    */
   cards_can_have_children: boolean;
+  // #2208: where Add child creates a new child card (id only, never a name), or null to ask.
+  default_child_board: number | null;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

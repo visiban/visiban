@@ -16,3 +16,22 @@ describe("activityLabel for cross-board link rows", () => {
     expect(text).not.toContain("4242");
   });
 });
+
+// #2208: a whole-board delete on the other end. The parent's row carries only
+// a count; the label names no board, so every reader sees the same sentence.
+describe("activityLabel for board-deleted link rows", () => {
+  it.each([
+    ["5", "5 children removed: their board was deleted"],
+    ["1", "1 child removed: their board was deleted"],
+    ["", "1 child removed: their board was deleted"],
+    ["junk", "1 child removed: their board was deleted"],
+  ])("children_removed_board_deleted with to_value %j", (toValue, label) => {
+    expect(activityLabel("children_removed_board_deleted", { from_value: "", to_value: toValue })).toBe(label);
+  });
+
+  it("parent_removed_board_deleted ignores any value it is handed", () => {
+    const text = activityLabel("parent_removed_board_deleted", { from_value: "Delivery", to_value: "Delivery" });
+    expect(text).toBe("Parent removed: its board was deleted");
+    expect(text).not.toContain("Delivery");
+  });
+});

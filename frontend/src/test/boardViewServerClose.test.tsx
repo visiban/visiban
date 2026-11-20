@@ -137,6 +137,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     swimlane_rollup_field: null,
     commitment_column_uid: null,
     cards_can_have_children: false,
+    default_child_board: null,
     columns: [
       { id: 10, uid: 'col001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },
       { id: 11, uid: 'col002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null },

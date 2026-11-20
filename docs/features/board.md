@@ -179,6 +179,16 @@ A board admin chooses which one in **Board settings → Rules & limits → Child
 
 Public share links show no parent line. On a phone the picker opens as a full-screen sheet with **‹ Card** and **Close**, and the sheet shrinks to the space above the on-screen keyboard, so the keyboard never covers the list, and Cancel and Link stay pinned at the bottom. Showing a parent's children is not available yet (#2209).
 
+### Default child board and Add child
+
+*Added in 1.3 (#2208).* A parent board can name a **default child board**: the board where **Add child** on one of its cards creates the new child card, in that board's first column and first lane. It is a preference, not a link, so setting, changing or clearing it never moves or unlinks an existing child. A parent's children always stay on one board: once a card has children, Add child uses their board, and a default change only applies to parents with no children yet. Different parents on one board may still use different child boards.
+
+- **Who can set it:** an admin of both boards, through the board PATCH API (the Board settings control and the Add child chooser are still to come). Clearing it needs admin on the parent board only.
+- **Which boards qualify:** a board whose cards cannot have children and whose first column allows card creation. A board named as another board's default cannot turn on "cards can have children" until that default is cleared.
+- **Turning children off** on the parent board clears its default.
+- **Deleting the child board** clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.
+
+
 ## Collapsed columns
 
 Click a column header to collapse it to a narrow vertical strip. When collapsed:
