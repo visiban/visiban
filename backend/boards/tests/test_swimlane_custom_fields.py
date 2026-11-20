@@ -1526,7 +1526,8 @@ class SwimlaneCustomFieldChoiceColorTests(SwimlaneCustomFieldTestBase):
     shared ``validate_choice_colors`` rules as the card level."""
 
     ALLOWED_MSG = (
-        "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal."
+        "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal, "
+        "or a hex color as #RRGGBB."
     )
 
     def _create(self, **extra):
@@ -1561,7 +1562,7 @@ class SwimlaneCustomFieldChoiceColorTests(SwimlaneCustomFieldTestBase):
                 self.assertEqual(definition.choice_colors, {"Gold": "amber", "Silver": "slate"})
 
     def test_invalid_maps_are_400_keyed_to_choice_colors(self):
-        for bad in ("amber", ["Gold"], None, {"Gold": "gold"}, {"Gold": "#FFD700"},
+        for bad in ("amber", ["Gold"], None, {"Gold": "gold"}, {"Gold": "#FFD"},
                     {"Gold": 3}, {"G\x00": "red"}, {f"k{i}": "red" for i in range(101)}):
             with self.subTest(value=bad if not isinstance(bad, dict) or len(bad) < 5 else "101 keys"):
                 r = self._create(choice_colors=bad)
@@ -1569,6 +1570,17 @@ class SwimlaneCustomFieldChoiceColorTests(SwimlaneCustomFieldTestBase):
                 self.assertIn("choice_colors", r.data)
         r = self._create(choice_colors={"Gold": "gold"})
         self.assertIn(self.ALLOWED_MSG, str(r.data["choice_colors"]))
+
+    def test_a_hex_color_round_trips_upper_cased_and_survives_a_rename_patch(self):
+        """#2096, the same shared rule as the card level."""
+        r = self._create(choice_colors={"Gold": "#ffd700", "Silver": "slate"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Gold": "#FFD700", "Silver": "slate"})
+        definition = SwimlaneCustomFieldDefinition.objects.get(pk=r.data["id"])
+        r = self.client.patch(self._detail(definition), {"name": "Tier 2"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.choice_colors, {"Gold": "#FFD700", "Silver": "slate"})
 
     def test_unknown_keys_are_pruned(self):
         r = self._create(choice_colors={"Gold": "amber", "Bronze": "red"})
@@ -1745,7 +1757,7 @@ class ChoiceColorsSchemaTests(TestCase):
     check, generated clients and the schema fuzzer (``backend-schema-fuzz``,
     whose hooks already map both definition paths to the demo board) read."""
 
-    def test_both_definition_components_type_choice_colors_as_a_palette_map(self):
+    def test_both_definition_components_type_choice_colors_as_a_key_or_hex_map(self):
         components = SchemaGenerator().get_schema(request=None, public=True)[
             "components"
         ]["schemas"]
@@ -1753,7 +1765,10 @@ class ChoiceColorsSchemaTests(TestCase):
             "type": "object",
             "additionalProperties": {
                 "type": "string",
-                "enum": ["slate", "blue", "green", "amber", "red", "violet", "pink", "teal"],
+                "anyOf": [
+                    {"enum": ["slate", "blue", "green", "amber", "red", "violet", "pink", "teal"]},
+                    {"pattern": "^#[0-9A-F]{6}$"},
+                ],
             },
         }
         for name in (

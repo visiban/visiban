@@ -23,7 +23,7 @@ import ThresholdFields from "./ThresholdFields";
 import { EMPTY_NUMBER_FORMAT, EMPTY_THRESHOLD_DRAFT, thresholdDraftFrom, thresholdPayload, type ThresholdDraft, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
 import SortableChoiceList from "./SortableChoiceList";
-import { isChoiceColorKey } from "../../constants/choiceColors";
+import { resolveChoiceColor } from "../../constants/choiceColors";
 import { typeLockedMessage } from "../../constants/customFields";
 import { isImeComposing } from "../../utils/imeComposition";
 
@@ -943,7 +943,7 @@ function FieldEditPanel({
             />
           </div>
           {/* Shown only once a choice actually has a color to lose. */}
-          {form.choices.some((c) => isChoiceColorKey(draftChoiceColor(form.choice_colors, c))) && (
+          {form.choices.some((c) => resolveChoiceColor(draftChoiceColor(form.choice_colors, c)) !== null) && (
             <p className="text-xs text-fg-muted mb-1.5">Renaming a choice resets its color.</p>
           )}
           {form.is_dimension && (

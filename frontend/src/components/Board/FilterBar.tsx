@@ -10,7 +10,7 @@ import FilterChip from "./FilterChip";
 import { buildFilterChips, makeLaneValueFormatter } from "./filterChips";
 import { DUE_DATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
-import { CHOICE_COLORS } from "../../constants/choiceColors";
+import { choiceColorBase } from "../../constants/choiceColors";
 import { isCardBlocked } from "../../utils/blockedState";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { LaneFilterControl } from "./LaneFilterPopover";
@@ -727,7 +727,7 @@ function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFi
       ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }]
       : definition.choices.map((c) => {
           const key = explicitChoiceColor(definition, c);
-          return { value: c, label: c, color: key ? CHOICE_COLORS[key].base : choiceColor(c) };
+          return { value: c, label: c, color: key ? choiceColorBase(key) : choiceColor(c) };
         });
   const selected = value.kind === "choice" ? value.values : [];
 

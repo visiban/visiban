@@ -540,9 +540,10 @@ export interface CustomFieldDefinition {
   /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
   number_decimals: number | null;
   /**
-   * Per-choice display color (#1391): `{choice text: palette key}` — keys are
-   * a subset of `choices`, values a `CHOICE_COLOR_KEYS` key (never hex). `{}`
-   * when none is set; a choice with no entry renders with its automatic dot.
+   * Per-choice display color (#1391): `{choice text: color}` — keys are a
+   * subset of `choices`; each value is a `CHOICE_COLOR_KEYS` key or, since
+   * #2096, a custom upper-case `#RRGGBB`. Read it through `resolveChoiceColor`.
+   * `{}` when none is set; a choice with no entry renders with its automatic dot.
    */
   choice_colors: Record<string, string>;
   /**
@@ -653,9 +654,10 @@ export interface SwimlaneCustomFieldDefinition {
   /** Fixed decimal places (0-10) for display; `null` = show the number as typed (#1391). */
   number_decimals: number | null;
   /**
-   * Per-choice display color (#1391): `{choice text: palette key}` — keys are
-   * a subset of `choices`, values a `CHOICE_COLOR_KEYS` key (never hex). `{}`
-   * when none is set; a choice with no entry renders with its automatic dot.
+   * Per-choice display color (#1391): `{choice text: color}` — keys are a
+   * subset of `choices`; each value is a `CHOICE_COLOR_KEYS` key or, since
+   * #2096, a custom upper-case `#RRGGBB`. Read it through `resolveChoiceColor`.
+   * `{}` when none is set; a choice with no entry renders with its automatic dot.
    */
   choice_colors: Record<string, string>;
   created_at: string;

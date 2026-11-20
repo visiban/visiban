@@ -6,7 +6,7 @@ import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
-import { CHOICE_COLORS } from "../../constants/choiceColors";
+import { choiceColorBase } from "../../constants/choiceColors";
 import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
 import Tooltip from "../Common/Tooltip";
 import ActiveMark from "../Common/ActiveMark";
@@ -338,7 +338,7 @@ export default function FilterPanel({
       // Same dot as the filter bar's dropdown filter; multi-select entries carry none there.
       if (def.field_type === "multi_select") return { value: c, label: c, color: undefined };
       const key = explicitChoiceColor(def, c);
-      return { value: c, label: c, color: key ? CHOICE_COLORS[key].base : choiceColor(c) };
+      return { value: c, label: c, color: key ? choiceColorBase(key) : choiceColor(c) };
     });
     return (
       <div role="group" aria-label={def.name}>

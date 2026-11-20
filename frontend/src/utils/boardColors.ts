@@ -13,8 +13,9 @@ export interface BoardColor {
  * Colors in use on a board (#2098): columns, then swimlanes, then labels, in
  * board order, deduped on canonical hex and stable across renders so the row
  * does not shuffle. Derived client-side from `BoardFull`; no endpoint.
- * Custom-field choice colors are not included: they are stored as palette keys
- * (`CHOICE_COLOR_KEYS`), never hex, so they cannot be reused as a custom color.
+ * Custom-field choice colors are not included: most are palette keys
+ * (`CHOICE_COLOR_KEYS`), not hex, and a choice's custom hex (#2096) is picked
+ * inside the choice editor, which does not offer this row.
  */
 export function boardColorsInUse(
   board: Pick<BoardFull, "columns" | "swimlanes" | "labels">,

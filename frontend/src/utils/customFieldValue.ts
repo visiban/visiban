@@ -8,7 +8,7 @@
  */
 import type { FieldDefinitionShape } from "../types";
 import { PALETTE_COLORS } from "../constants/colors";
-import { isChoiceColorKey, type ChoiceColorKey } from "../constants/choiceColors";
+import { resolveChoiceColor, type ChoiceColor } from "../constants/choiceColors";
 import { formatDateStr, todayInTimezone } from "./date";
 
 /**
@@ -28,29 +28,30 @@ export function choiceColor(choice: string): string {
 }
 
 /**
- * The explicit palette key an admin picked for `choice` (#1391), or `null`
- * when the choice should render with its automatic hash dot.
+ * The explicit color an admin picked for `choice` — a palette key (#1391) or
+ * a custom hex (#2096) — or `null` when the choice should render with its
+ * automatic hash dot.
  *
  * `null` — never a guess — for: a choice with no entry; an *orphaned* value
  * (no longer in `choices`, e.g. renamed — the server prunes its color too);
- * and a key this client does not know (one added by a newer server). In
+ * and a value this client cannot resolve (a key added by a newer server). In
  * each case the value still renders, as the neutral chip it was before
  * colors existed, so color never decides whether a label is shown.
  */
-export function explicitChoiceColor(definition: FieldDefinitionShape, choice: string): ChoiceColorKey | null {
+export function explicitChoiceColor(definition: FieldDefinitionShape, choice: string): ChoiceColor | null {
   if (!definition.choices.includes(choice)) return null;
   const colors = definition.choice_colors;
   // Own properties only: a choice named "constructor" or "toString" must not
   // read Object.prototype's member as its color.
   const key = colors && Object.hasOwn(colors, choice) ? colors[choice] : undefined;
-  return isChoiceColorKey(key) ? key : null;
+  return resolveChoiceColor(key);
 }
 
 /**
  * Build the `choice_colors` payload for a save from an editor draft (#1391).
  * The draft is keyed by the choice text as typed; the payload keeps only
- * entries for choices that survive cleaning (trimmed, non-empty) with a known
- * key. The server prunes the same way — this keeps the request honest rather
+ * entries for choices that survive cleaning (trimmed, non-empty) with a color
+ * that resolves (a known key or a hex). The server prunes the same way — this keeps the request honest rather
  * than relying on it.
  */
 export function choiceColorsPayload(choices: string[], draft: Record<string, string>): Record<string, string> {
@@ -58,7 +59,9 @@ export function choiceColorsPayload(choices: string[], draft: Record<string, str
   for (const raw of choices) {
     const key = Object.hasOwn(draft, raw) ? draft[raw] : undefined;
     const choice = raw.trim();
-    if (choice !== "" && isChoiceColorKey(key)) entries.push([choice, key]);
+    // Hex is kept (#2096): dropping it here would wipe a custom color on save.
+    const color = resolveChoiceColor(key);
+    if (choice !== "" && color !== null) entries.push([choice, color]);
   }
   // Object.fromEntries defines own data properties, so a choice literally
   // named "__proto__" becomes a real key (and is serialized by

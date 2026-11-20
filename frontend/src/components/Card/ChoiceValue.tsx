@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { choiceBadgeStyle, type ChoiceColorKey } from "../../constants/choiceColors";
+import { choiceBadgeStyle, type ChoiceColor } from "../../constants/choiceColors";
 import { choiceColor } from "../../utils/customFieldValue";
 
 /**
@@ -15,7 +15,8 @@ export function ChoiceDot({ choice }: { choice: string }) {
 }
 
 interface BadgeProps {
-  colorKey: ChoiceColorKey;
+  /** A palette key or a custom hex (#2096). */
+  colorKey: ChoiceColor;
   children: ReactNode;
   className?: string;
   title?: string;
@@ -25,8 +26,9 @@ interface BadgeProps {
  * A choice value with an explicit color (#1391): a tinted badge that always
  * carries its text label — color never stands alone. Rendered *inside* the
  * neutral bordered field chip, never as the chip itself. The fg/bg pair comes
- * from `CHOICE_COLORS` through the `cf-choice-badge` class (index.css), which
- * switches it with the theme. See frontend/CLAUDE.md § Badges and labels.
+ * from `CHOICE_COLORS` (a palette key) or the contrast helper (a custom hex,
+ * #2096) through the `cf-choice-badge` class (index.css), which switches it
+ * with the theme. See frontend/CLAUDE.md § Badges and labels.
  */
 export function ChoiceBadge({ colorKey, children, className, title }: BadgeProps) {
   return (

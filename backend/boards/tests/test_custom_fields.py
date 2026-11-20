@@ -1984,7 +1984,8 @@ class CustomFieldNumberFormatTests(CustomFieldTestBase):
 # ---------------------------------------------------------------------------
 
 _ALLOWED_COLORS_MSG = (
-    "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal."
+    "Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal, "
+    "or a hex color as #RRGGBB."
 )
 
 
@@ -2047,8 +2048,36 @@ class CustomFieldChoiceColorTests(CustomFieldTestBase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(sorted(r.data["choice_colors"].values()), sorted(keys))
 
-    def test_an_unknown_palette_key_or_a_hex_is_400_with_the_allowed_list(self):
-        for bad in ("purple", "#FF0000", "RED", "", " red"):
+    def test_a_hex_color_round_trips_upper_cased(self):
+        """#2096: a custom ``#RRGGBB`` is stored and served upper-cased, beside
+        palette keys in the same map."""
+        r = self._create(choice_colors={"Low": "#a1b2c3", "High": "red"})
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["choice_colors"], {"Low": "#A1B2C3", "High": "red"})
+        definition = CustomFieldDefinition.objects.get(pk=r.data["id"])
+        self.assertEqual(definition.choice_colors, {"Low": "#A1B2C3", "High": "red"})
+
+    def test_a_stored_hex_survives_a_patch_that_does_not_touch_colors(self):
+        """The prune in ``validate_choice_colors`` re-filters the stored map on
+        every PATCH; before #2096 it kept palette keys only and would have
+        erased a hex on an unrelated edit."""
+        definition = self._dropdown(choice_colors={"Low": "#00FF88", "High": "blue"})
+        for body in ({"name": "Renamed"}, {"choices": ["Low", "High", "Mid"]}):
+            with self.subTest(body=body):
+                r = self.client.patch(self._field_url(definition), body, format="json")
+                self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+                definition.refresh_from_db()
+                self.assertEqual(definition.choice_colors, {"Low": "#00FF88", "High": "blue"})
+
+    def test_a_renamed_choice_drops_its_hex_like_a_key(self):
+        definition = self._dropdown(choice_colors={"Low": "#00FF88", "High": "blue"})
+        r = self.client.patch(self._field_url(definition), {"choices": ["Lowest", "High"]}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(r.data["choice_colors"], {"High": "blue"})
+
+    def test_an_unknown_palette_key_or_a_malformed_hex_is_400_with_the_allowed_list(self):
+        for bad in ("purple", "RED", "", " red", "#FFF", "#FF00001", "#GG0000",
+                    "FF0000", " #FF0000", "#FF0000\n", "rgb(255, 0, 0)"):
             with self.subTest(value=bad):
                 r = self._create(choice_colors={"Low": bad})
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)

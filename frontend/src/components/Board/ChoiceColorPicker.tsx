@@ -2,11 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import {
   CHOICE_COLOR_KEYS,
   CHOICE_COLORS,
+  choiceColorBase,
+  choiceColorLabel,
   choiceColorName,
-  isChoiceColorKey,
-  type ChoiceColorKey,
+  isCustomChoiceColor,
+  resolveChoiceColor,
+  type ChoiceColor,
 } from "../../constants/choiceColors";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { choiceColor } from "../../utils/customFieldValue";
+import { DISMISS_LAYER_ATTR } from "../../utils/dismissLayer";
+import CustomColorPanel from "../Common/CustomColorPanel";
 
 /**
  * Escape priority for the open swatch popover. The picker lives in the Board
@@ -24,13 +30,20 @@ export const CHOICE_COLOR_ESCAPE_PRIORITY = 47;
  */
 const POPOVER_FLIP_THRESHOLD = 200;
 
+/**
+ * The same measurement for the custom body (#2096): the saturation square, hue
+ * slider, hex and R/G/B fields and Apply/Cancel are far taller than the grid, so
+ * switching to it re-measures against this instead.
+ */
+const CUSTOM_FLIP_THRESHOLD = 420;
+
 interface Props {
   /** The choice's text as currently typed in the editor draft. */
   choice: string;
-  /** The draft's palette key for this choice; anything unknown reads as automatic. */
+  /** The draft's color for this choice (palette key or hex); anything unresolvable reads as automatic. */
   colorKey: string | undefined;
-  /** `null` = reset to automatic. */
-  onChange: (key: ChoiceColorKey | null) => void;
+  /** A palette key, a custom upper-case `#RRGGBB` (#2096), or `null` = reset to automatic. */
+  onChange: (color: ChoiceColor | null) => void;
   /** Escape priority override — only tests use this, to prove the ordering. */
   escapePriority?: number;
 }
@@ -51,27 +64,38 @@ interface Props {
  * Tabbing out of the popover, or a click outside, closes it without a change.
  * It opens upward when the viewport has little room below the trigger, and
  * scrolls itself into view inside the settings panel.
+ *
+ * Custom colors (#2096): `+ Custom`, its own Tab stop under the radiogroup,
+ * swaps the popover body for the shared `CustomColorPanel` (re-measuring the
+ * flip and scrolling into view again). Escape or Cancel there returns to the
+ * grid with focus on `+ Custom`; Apply saves the hex to the draft, closes the
+ * popover and focuses the swatch button. A custom value checks no radio and
+ * opens focused on `+ Custom`. The popover carries `data-dismiss-layer`, so a
+ * press on the settings modal's backdrop closes only the popover.
  */
 export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePriority = CHOICE_COLOR_ESCAPE_PRIORITY }: Props) {
   const [open, setOpen] = useState(false);
   const [above, setAbove] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const current = isChoiceColorKey(colorKey) ? colorKey : null;
+  const current = resolveChoiceColor(colorKey);
   const disabled = choice.trim() === "";
-  const label = current ? choiceColorName(current) : "Automatic";
+  const label = current ? choiceColorLabel(current) : "Automatic";
 
   const close = (refocus: boolean) => {
     setOpen(false);
     if (refocus) triggerRef.current?.focus();
   };
 
+  // Measured on open and on a body switch only: the popover does not chase a scrolling panel.
+  const measure = (threshold: number) => {
+    if (!triggerRef.current) return;
+    const below = window.innerHeight - triggerRef.current.getBoundingClientRect().bottom;
+    setAbove(below < threshold);
+  };
+
   const toggle = () => {
-    if (!open && triggerRef.current) {
-      // Measured on open only: the popover does not chase a scrolling panel.
-      const below = window.innerHeight - triggerRef.current.getBoundingClientRect().bottom;
-      setAbove(below < POPOVER_FLIP_THRESHOLD);
-    }
+    if (!open) measure(POPOVER_FLIP_THRESHOLD);
     setOpen((o) => !o);
   };
 
@@ -102,8 +126,8 @@ export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePr
         {current ? (
           <span
             className="block w-5 h-5 rounded-full border border-line-strong"
-            style={{ backgroundColor: CHOICE_COLORS[current].base }}
-            data-swatch={current}
+            style={{ backgroundColor: choiceColorBase(current) }}
+            data-swatch={isCustomChoiceColor(current) ? "custom" : current}
           />
         ) : (
           <span className="block w-5 h-5 rounded-full border border-dashed border-line-strong" data-swatch="automatic" />
@@ -116,8 +140,9 @@ export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePr
           above={above}
           wrapperRef={wrapperRef}
           escapePriority={escapePriority}
-          onPick={(key) => { onChange(key); close(true); }}
+          onPick={(color) => { onChange(color); close(true); }}
           onClose={close}
+          onRemeasure={measure}
         />
       )}
     </div>
@@ -126,32 +151,59 @@ export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePr
 
 interface PopoverProps {
   choice: string;
-  current: ChoiceColorKey | null;
+  current: ChoiceColor | null;
   /** Open upward (`bottom-full`) rather than below the trigger. */
   above: boolean;
   wrapperRef: React.RefObject<HTMLDivElement | null>;
   escapePriority: number;
-  onPick: (key: ChoiceColorKey | null) => void;
+  onPick: (color: ChoiceColor | null) => void;
   onClose: (refocus: boolean) => void;
+  /** Re-run the open/flip measurement against a body's height (#2096). */
+  onRemeasure: (threshold: number) => void;
 }
 
 /** Mounted only while open, so its Escape handler is registered only then. */
-function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onPick, onClose }: PopoverProps) {
-  const startIndex = current ? CHOICE_COLOR_KEYS.indexOf(current) : 0;
+function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onPick, onClose, onRemeasure }: PopoverProps) {
+  const custom = current !== null && isCustomChoiceColor(current) ? current : null;
+  const paletteIndex = current !== null && !custom ? CHOICE_COLOR_KEYS.indexOf(current as (typeof CHOICE_COLOR_KEYS)[number]) : -1;
+  const startIndex = Math.max(paletteIndex, 0);
   const [focusIndex, setFocusIndex] = useState(startIndex);
+  const [mode, setMode] = useState<"grid" | "custom">("grid");
   const swatchRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const customRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  // Set when the custom body closes without applying, so the grid's `+ Custom` takes focus back.
+  const focusCustomOnGrid = useRef(false);
 
-  useEscapeStack(() => { onClose(true); }, escapePriority);
+  const backToGrid = () => {
+    focusCustomOnGrid.current = true;
+    setMode("grid");
+    onRemeasure(POPOVER_FLIP_THRESHOLD);
+  };
+
+  // Escape leaves the custom body first (one press, one layer), then closes.
+  useEscapeStack(() => { if (mode === "custom") backToGrid(); else onClose(true); }, escapePriority);
 
   useEffect(() => {
     // Keep a popover opened on the last row inside the scrolling panel.
     // Optional call: jsdom (tests) has no scrollIntoView.
     popoverRef.current?.scrollIntoView?.({ block: "nearest" });
-    swatchRefs.current[startIndex]?.focus();
+    // A custom value checks no radio, so focus starts on `+ Custom` instead.
+    if (custom) customRef.current?.focus();
+    else swatchRefs.current[startIndex]?.focus();
     // Scroll into view and focus the selected (or first) swatch once, on open.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open-time focus only; startIndex is fixed for the popover's lifetime
   }, []);
+
+  useEffect(() => {
+    if (mode === "custom") {
+      // The taller body may now overflow the panel; the square takes focus itself (focusSquare).
+      popoverRef.current?.scrollIntoView?.({ block: "nearest" });
+    } else if (focusCustomOnGrid.current) {
+      focusCustomOnGrid.current = false;
+      customRef.current?.focus();
+    }
+  }, [mode]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -201,6 +253,9 @@ function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onP
       ref={popoverRef}
       role="dialog"
       aria-label={`Color for ${choice}`}
+      // One press dismisses one layer (#2095): a press on the settings modal's
+      // backdrop closes this popover, not the modal and its unsaved edits.
+      {...{ [DISMISS_LAYER_ATTR]: "" }}
       // A press on a non-focusable part of the popover (the padding, the
       // "Automatic" label) would move focus to the nearest focusable ancestor,
       // the settings modal's tabIndex=-1 dialog, and the wrapper's blur would
@@ -214,7 +269,17 @@ function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onP
       }}
       className={`absolute left-0 ${above ? "bottom-full mb-1" : "top-full mt-1"} z-20 w-max bg-surface border border-line-strong rounded-lg shadow-xl p-2`}
     >
-      <p className="text-xs text-fg-muted mb-1.5">{current ? choiceColorName(current) : "Automatic"}</p>
+      <p className="text-xs text-fg-muted mb-1.5">{current ? choiceColorLabel(current) : "Automatic"}</p>
+      {mode === "custom" ? (
+        <CustomColorPanel
+          value={custom}
+          fallbackColor={current ? choiceColorBase(current) : choiceColor(choice)}
+          onChange={(hex) => onPick(resolveChoiceColor(hex))}
+          onCancel={backToGrid}
+          focusSquare
+        />
+      ) : (
+      <>
       <div role="radiogroup" aria-label="Palette" className="grid grid-cols-4 gap-2">
         {CHOICE_COLOR_KEYS.map((key, i) => {
           const checked = key === current;
@@ -244,13 +309,32 @@ function SwatchPopover({ choice, current, above, wrapperRef, escapePriority, onP
           );
         })}
       </div>
-      <button
-        type="button"
-        onClick={() => onPick(null)}
-        className="mt-2 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-      >
-        Reset to automatic
-      </button>
+      <div className="mt-2 flex flex-col items-start gap-0.5">
+        <button
+          ref={customRef}
+          type="button"
+          onClick={() => { setMode("custom"); onRemeasure(CUSTOM_FLIP_THRESHOLD); }}
+          aria-label={custom ? "Custom color, selected" : "Custom color"}
+          className={`${TEXT_BUTTON} inline-flex items-center gap-1.5`}
+        >
+          {custom ? (
+            <>
+              <span className="w-3 h-3 rounded-full border border-line-strong shrink-0" style={{ backgroundColor: custom }} aria-hidden="true" />
+              Custom
+            </>
+          ) : (
+            "+ Custom"
+          )}
+        </button>
+        <button type="button" onClick={() => onPick(null)} className={TEXT_BUTTON}>
+          Reset to automatic
+        </button>
+      </div>
+      </>
+      )}
     </div>
   );
 }
+
+const TEXT_BUTTON =
+  "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1.5 py-0.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis";

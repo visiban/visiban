@@ -2,6 +2,7 @@ import datetime
 import decimal
 import json
 import math
+import re
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
@@ -1525,15 +1526,20 @@ def validate_choice_colors(attrs, instance, field_type):
     """The ``choice_colors`` rules shared by both definition serializers (#1391).
 
     ``choice_colors`` maps a choice's text to a palette key from
-    :data:`boards.custom_field_types.CHOICE_COLOR_KEYS`. Must run *after*
+    :data:`boards.custom_field_types.CHOICE_COLOR_KEYS` or a ``#RRGGBB`` hex
+    (#2096; see :func:`normalize_choice_color`). Must run *after*
     :func:`validate_definition_choices`, which leaves ``attrs["choices_json"]``
     holding the effective, cleaned choice list (submitted or stored).
 
     * The shape is always checked when submitted — a non-object, a non-string
-      or NUL-bearing key, a value outside the palette, or more than
-      :data:`CHOICE_COLORS_MAX` entries is a 400 keyed to ``choice_colors``.
-      Palette keys only: a hex or CSS value is refused, never stored, because
-      the frontend can only guarantee contrast for colors it defines.
+      or NUL-bearing key, a value that is neither a palette key nor a
+      ``#RRGGBB`` hex, or more than :data:`CHOICE_COLORS_MAX` entries is a 400
+      keyed to ``choice_colors``. Hex is accepted since #2096 ("custom colors
+      everywhere", superseding #1391's palette-keys-only rule): the frontend
+      derives a legible fg/bg pair for any hex (``colorChipStyle``), so contrast
+      no longer depends on the server storing only colors the frontend defined.
+      Hex is stored as canonical upper-case ``#RRGGBB``; ``#RGB``, CSS names and
+      a wrong-case key (``RED``) stay a 400.
     * On a choice-bearing type, entries whose key is not one of the effective
       choices are **pruned**, not refused. The choice text is the key, so a
       request that renames or removes a choice and still carries the old
@@ -1572,12 +1578,43 @@ def validate_choice_colors(attrs, instance, field_type):
     if not isinstance(colors, dict):
         colors = {}
     choices = set(attrs.get("choices_json") or [])
-    attrs["choice_colors"] = {
-        key.strip(): value
-        for key, value in colors.items()
-        if isinstance(key, str) and key.strip() in choices
-        and value in CHOICE_COLOR_KEYS
-    }
+    # The value is normalized here too, not just checked: a submitted map has
+    # passed the shape check, but a stored one is re-filtered on every PATCH, and
+    # this comprehension is what keeps a hex from being silently erased (#2096).
+    pruned = {}
+    for key, value in colors.items():
+        color = normalize_choice_color(value)
+        if isinstance(key, str) and key.strip() in choices and color is not None:
+            pruned[key.strip()] = color
+    attrs["choice_colors"] = pruned
+
+
+#: A custom choice color (#2096). fullmatch, not ^...$: "$" also matches before
+#: a trailing newline. Six digits only — the stored form is the canonical one.
+_CHOICE_HEX_RE = re.compile(r"#[0-9A-Fa-f]{6}")
+
+#: The 400 message for a value that is neither a palette key nor hex.
+CHOICE_COLOR_ERROR = (
+    f"Choice colors must be one of: {', '.join(CHOICE_COLOR_KEYS)}, "
+    "or a hex color as #RRGGBB."
+)
+
+
+def normalize_choice_color(value):
+    """Return *value* as a stored choice color, or ``None`` if it is not one.
+
+    A palette key is returned as is (keys are case-sensitive: ``RED`` is not
+    ``red``, so a client cannot store two spellings of one key). A ``#RRGGBB``
+    hex is returned upper-cased, so the stored map always matches the schema's
+    ``^#[0-9A-F]{6}$`` and the frontend compares hex by string equality.
+    """
+    if not isinstance(value, str):
+        return None
+    if value in CHOICE_COLOR_KEYS:
+        return value
+    if _CHOICE_HEX_RE.fullmatch(value):
+        return value.upper()
+    return None
 
 
 def _check_choice_colors_shape(colors):
@@ -1590,7 +1627,6 @@ def _check_choice_colors_shape(colors):
         raise serializers.ValidationError({
             "choice_colors": f"At most {CHOICE_COLORS_MAX} choice colors are allowed."
         })
-    allowed = ", ".join(CHOICE_COLOR_KEYS)
     for key, value in colors.items():
         # JSON object keys are always strings; the NUL check is the reachable
         # one (Postgres refuses \x00 inside a jsonb string — a 500 otherwise).
@@ -1598,18 +1634,29 @@ def _check_choice_colors_shape(colors):
             raise serializers.ValidationError({
                 "choice_colors": "Choice color keys must be choice names without NUL (0x00) characters."
             })
-        if not isinstance(value, str) or value not in CHOICE_COLOR_KEYS:
-            raise serializers.ValidationError({
-                "choice_colors": f"Choice colors must be one of: {allowed}."
-            })
+        if normalize_choice_color(value) is None:
+            raise serializers.ValidationError({"choice_colors": CHOICE_COLOR_ERROR})
+
+
+#: The OpenAPI shape of one ``choice_colors`` value: a palette key or, since
+#: #2096, an upper-case hex. ``anyOf`` keeps both branches exact for generated
+#: clients and the schema fuzzer; responses always match because the server
+#: stores hex upper-cased (:func:`normalize_choice_color`).
+CHOICE_COLOR_VALUE_SCHEMA = {
+    "type": "string",
+    "anyOf": [
+        {"enum": list(CHOICE_COLOR_KEYS)},
+        {"pattern": "^#[0-9A-F]{6}$"},
+    ],
+}
 
 
 @extend_schema_field({
     "type": "object",
-    "additionalProperties": {"type": "string", "enum": list(CHOICE_COLOR_KEYS)},
+    "additionalProperties": CHOICE_COLOR_VALUE_SCHEMA,
 })
 class ChoiceColorsField(serializers.JSONField):
-    """``choice_colors`` on the two custom-field-definition serializers (#1391).
+    """``choice_colors`` on the two custom-field-definition serializers (#1391, #2096).
 
     Schema-only subclass, the :class:`ChoicesField` pattern: the model column
     is a ``JSONField``, which drf-spectacular would describe with no ``type``,
