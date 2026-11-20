@@ -33,6 +33,7 @@
   --border-default: 51 65 85;      /* slate-700 — panels, inputs */
   --border-strong: 71 85 105;      /* slate-600 — interactive, dropdown triggers (default) */
   --border-emphasis: 148 163 184;  /* slate-400 — hover/pressed emphasis on strong borders */
+  --border-boundary: 113 128 150;  /* #2381: 3.64:1 on surface — a boundary that is the only separator (non-text 3:1) */
 
   /* Foreground (primary → faint) */
   --fg: 226 232 240;               /* slate-200 — body content, card titles */
@@ -140,6 +141,7 @@
   --border-default: 203 213 225;   /* slate-300 */
   --border-strong: 148 163 184;    /* slate-400 */
   --border-emphasis: 100 116 139;  /* slate-500 — darker on hover (inverse of dark mode) */
+  --border-boundary: 100 116 139;  /* #2381: slate-500, 4.76:1 on surface — a boundary that is the only separator (non-text 3:1) */
 
   /* Foreground — inverted: darker colors on light surfaces */
   --fg: 15 23 42;                  /* slate-900 */

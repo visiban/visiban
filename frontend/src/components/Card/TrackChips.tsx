@@ -19,7 +19,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
         const tone = t.state === "done"
           ? "bg-success/20 text-success-on-tint border-transparent"
           : t.state === "open"
-            ? "bg-transparent text-fg-secondary border-line-strong"
+            ? "bg-transparent text-fg-secondary border-line-boundary"
             : "bg-surface-hover text-fg-secondary border-transparent";
         return (
           <li
@@ -71,7 +71,7 @@ export function GateProgress({ index, names }: { index: number; names: string[] 
   return (
     <div data-testid="card-gate-progress" role="img" aria-label={label} title={label} className="mt-1 flex gap-0.5">
       {names.map((n, i) => (
-        <span key={n + i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-primary" : "bg-surface-sunken border border-line-strong"}`} />
+        <span key={n + i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-primary" : "bg-surface-sunken border border-line-boundary"}`} />
       ))}
     </div>
   );

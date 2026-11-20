@@ -964,11 +964,23 @@ describe('failed offline banner: danger-on-tint on bg-danger-bg/30 (#2342)', () 
 // #2278: contrast of the sub-column / track-chip pairs (frontend/CLAUDE.md § Gated stages and tracks).
 // Chips sit on the card face (`surface`); the empty marker sits on `surface` or `surface-sunken`.
 describe('sub-column and track chip contrast (#2278)', () => {
-  // SUPPRESSED-UNTIL(#2381): --border-strong on surface is 1.93:1 dark and 2.56:1 light, under 3:1; #2381 tracks the token fix.
-  // The open chip also carries an icon and its words, so the border is not the only cue. `it.fails` keeps CI
-  // green and turns red the day the token passes, so this gets promoted to a plain `it`.
-  it.fails.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: open chip border is a 3:1 non-text boundary', (_t, block) => {
-    expect(ratio(rgbOf(block, 'border-strong'), rgbOf(block, 'surface'))).toBeGreaterThanOrEqual(3)
+  // #2381: the shared --border-strong stays 1.93:1 dark / 2.56:1 light (it carries the chart exception and 80+ other
+  // uses), so the boundaries that are the only separator use --border-boundary instead.
+  it.each([['dark', darkBlock, 3.64], ['light', lightBlock, 4.76]] as const)('%s theme: boundary border is a 3:1 non-text boundary on surface', (_t, block, pinned) => {
+    const r = ratio(rgbOf(block, 'border-boundary'), rgbOf(block, 'surface'))
+    expect(r).toBeGreaterThanOrEqual(3)
+    expect(r).toBeCloseTo(pinned, 2)
+  })
+
+  it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: boundary border also holds 3:1 on surface-sunken (empty progress segment)', (_t, block) => {
+    expect(ratio(rgbOf(block, 'border-boundary'), rgbOf(block, 'surface-sunken'))).toBeGreaterThanOrEqual(3)
+  })
+
+  it('the five sub-column and track uses carry line-boundary, not line-strong', () => {
+    for (const f of ['Card/TrackChips', 'Board/BoardCell', 'Board/SwimlaneRow', 'Board/PhoneBoard']) {
+      expect(readFileSync(`src/components/${f}.tsx`, 'utf8'), f).toContain('border-line-boundary')
+    }
+    expect(readFileSync('src/components/Card/TrackChips.tsx', 'utf8')).not.toContain('line-strong')
   })
 
   it.each([['dark', darkBlock], ['light', lightBlock]])('%s theme: not-applicable chip text holds 4.5:1 on its surface-hover fill', (_t, block) => {
