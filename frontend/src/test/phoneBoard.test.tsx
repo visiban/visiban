@@ -357,6 +357,7 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
   it('opens Stage settings straight from the column actions for admins only (#2368)', async () => {
     const user = userEvent.setup()
     setup({ isAdmin: true, onColumnUpdated: vi.fn(), onRequestDeleteColumn: vi.fn(), columns: [col(1, 'Prospect')], swimlanes: lanes })
+    await user.click(screen.getByTestId('phone-column-actions-toggle'))
     const btn = screen.getByTestId('phone-column-stage-settings')
     expect(btn).toHaveAccessibleName('Stage settings for Prospect')
     expect(btn.className).toContain('min-h-11')
