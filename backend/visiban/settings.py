@@ -1591,9 +1591,14 @@ SERIALIZER_FALLBACK_GUARD = "raise" if _TESTING else ("warn" if DEBUG else "off"
 
 # Enterprise settings include — the enterprise package may override or extend
 # any setting defined above (e.g. INSTALLED_APPS, MIDDLEWARE, REST_FRAMEWORK,
-# AUTHENTICATION_BACKENDS). If the enterprise package is not installed, this
-# block is silently skipped and the OSS defaults are used as-is.
+# AUTHENTICATION_BACKENDS). If the enterprise package (or its settings
+# module) is not installed, this block is skipped and the OSS defaults are
+# used as-is. A broken enterprise install (a missing dependency, a bad import)
+# is re-raised, not skipped, so its settings cannot vanish silently (#1753).
+from visiban.enterprise_imports import enterprise_module_missing  # noqa: E402
+
 try:
     from enterprise.settings import *  # type: ignore[import]  # noqa: F401,F403
-except ImportError:
-    pass
+except ModuleNotFoundError as exc:
+    if not enterprise_module_missing(exc, "enterprise.settings"):
+        raise

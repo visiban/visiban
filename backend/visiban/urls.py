@@ -30,6 +30,7 @@ from accounts.views import (
     VisibanSignupView,
 )
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
+from visiban.enterprise_imports import enterprise_module_missing
 
 
 class UnsupportedVersionView(APIView):
@@ -326,8 +327,12 @@ try:
     from enterprise.urls import enterprise_urlpatterns  # type: ignore[import]
     extension_urlpatterns = list(enterprise_urlpatterns)
     urlpatterns += extension_urlpatterns
-except ImportError:
-    pass
+except ModuleNotFoundError as exc:
+    # Skipped only when the enterprise package or its urls module is absent;
+    # a broken enterprise install (a missing dependency, a bad import) is
+    # re-raised so the routes cannot vanish silently (#1753).
+    if not enterprise_module_missing(exc, "enterprise.urls"):
+        raise
 
 # Must be genuinely last — after every include() above and the enterprise
 # extension point — so it only ever catches a path nothing else claimed.

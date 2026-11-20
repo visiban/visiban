@@ -17,12 +17,16 @@ websocket_urlpatterns = [*board_ws_patterns, *group_ws_patterns]
 # Enterprise extension point — the enterprise package registers additional
 # WebSocket URL patterns here without modifying this file. Mirrors the
 # HTTP URL extension point in ``visiban/urls.py``. Silently skipped when
-# the enterprise package is not installed (#1009).
+# the enterprise package (or its routing module) is not installed (#1009); a
+# broken enterprise install is re-raised, not skipped (#1753).
+from visiban.enterprise_imports import enterprise_module_missing  # noqa: E402
+
 try:
     from enterprise.routing import enterprise_websocket_urlpatterns  # type: ignore[import]  # noqa: E402
     websocket_urlpatterns += enterprise_websocket_urlpatterns
-except ImportError:
-    pass
+except ModuleNotFoundError as exc:
+    if not enterprise_module_missing(exc, "enterprise.routing"):
+        raise
 
 from mcp_server.asgi_mount import mount_mcp_server  # noqa: E402
 
