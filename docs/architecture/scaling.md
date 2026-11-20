@@ -88,7 +88,7 @@ A good starting point: `(2 × vCPU) + 1` workers.
 The chart's defaults are single-replica, and these block a second replica until you change them:
 
 - **Media storage.** `backend.mediaPersistence` defaults to a ReadWriteOnce volume, so a second replica starts only on the same node. For multi-node scale-out use a ReadWriteMany storage class, or object storage (see [Attachment storage](#attachment-storage)).
-- **Graceful rollout.** The backend is one daphne process per pod, so a rollout cuts in-flight requests and WebSockets unless you set `backend.terminationGracePeriodSeconds` and `backend.preStopSleepSeconds` (both off by default). `backend.startupProbe.enabled` guards a slow start.
+- **Graceful rollout.** The backend is one daphne process per pod, so a rollout can cut in-flight requests and WebSockets, and clients reconnect. `backend.preStopSleepSeconds` lets the pod leave the Service endpoints before it receives SIGTERM, and `backend.terminationGracePeriodSeconds` bounds how long Kubernetes waits before SIGKILL (both off by default). Neither makes daphne hold WebSockets open until they finish. `backend.startupProbe.enabled` guards a slow start.
 - **Disruption budget.** A PodDisruptionBudget renders once there is more than one replica, including `backendAutoscaling.minReplicas` above 1.
 
 **When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.

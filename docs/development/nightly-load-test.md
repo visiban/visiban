@@ -92,7 +92,7 @@ Verified locally on PostgreSQL 17.11 with 20,000 users: with the index the plan 
 
 ## Movements history plans — #2237
 
-Local run, PostgreSQL 17.11, the nightly fixture (`seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications`): 24,919 movements on the load-test board, dated 2026-08-25 to 2026-11-16, 7,265 of them in the last 30 days. `EXPLAIN (ANALYZE, BUFFERS)` on the statements the endpoint issues. The index `movement_board_moved_idx` is `(board_id, moved_at DESC)`, which is the `(board, -moved_at)` index #1961 refers to.
+Local run, PostgreSQL 17.11, the nightly fixture (`seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications`): 24,919 movements on the load-test board, dated 2026-08-25 to 2026-11-16, 7,265 of them in the last 30 days. `EXPLAIN (ANALYZE, BUFFERS)` on the statements the endpoint issues. The index these plans name, `movement_board_moved_idx`, was `(board_id, moved_at DESC)`, the `(board, -moved_at)` index #1961 refers to. Migration 0117 dropped it (#2408); see the tie-break section below.
 
 | Request | Page query | Bare `COUNT` |
 |---|---|---|
@@ -119,7 +119,7 @@ The seed writes many movements at the same instant, and so do bulk moves and imp
 | `moved_after` 30 days back | `Incremental Sort` above the index scan: 0.39ms | Plain index scan with the range in the `Index Cond`: 0.29ms |
 
 - **The tie-break needs its own index.** Without it the first page stays cheap, because the sort stops at the first full group, but a deep page costs about three times the old order. Migration 0116 builds `movement_board_moved_id_idx` concurrently, and the plan is a plain index scan again with no sort node.
-- **`movement_board_moved_idx` was a prefix of the new index, and migration 0117 drops it** (#2408). The plans above that name it were measured before the drop; the new index serves the same reads, so those plans now use `movement_board_moved_id_idx`.
+- **`movement_board_moved_idx` was a prefix of the new index, and migration 0117 drops it** (#2408). The plans above that name it were measured before the drop. The new index has `board_id` first and `moved_at DESC` second, so it covers every access path the old one served. A spot check on the dev database (PostgreSQL, 475 movements on the largest board, so plan shape only, not timings) created the new index and dropped the old one in a transaction that was rolled back: the first-page query, the `moved_after` range query and `DELETE ... WHERE board_id IN (...)` (with sequential and bitmap scans disabled for the delete, since the table is tiny) all chose `Index Scan using movement_board_moved_id_idx` with `board_id` in the `Index Cond`.
 - The table above is a one-off probe on synthetic ties, not the nightly fixture, so its absolute numbers are not comparable with the #2237 table. The `board_movements*` scenarios are still `pending_budget`, so the next NUC re-derivation measures the new order.
 
 These are laptop numbers. They show the plans, not budgets: the budgets come from a NUC run.

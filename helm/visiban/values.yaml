@@ -27,14 +27,15 @@ backendAutoscaling:
   targetCPUUtilizationPercentage: 70
 
 backend:
-  # Graceful shutdown (#1466). Daphne is one process per pod, so a rollout cuts
-  # in-flight requests and WebSockets when the pod is killed. Both knobs are
+  # Graceful shutdown (#1466). Daphne is one process per pod, and the chart does
+  # not configure it to hold connections open on SIGTERM, so a rollout can still
+  # cut in-flight requests and WebSockets (clients reconnect). Both knobs are
   # null by default and then render nothing (Kubernetes' own 30s grace period,
   # no preStop hook), which keeps existing installs unchanged.
   #
   # terminationGracePeriodSeconds: how long Kubernetes waits after SIGTERM
-  # before SIGKILL. Size it above preStopSleepSeconds plus the longest request
-  # or WebSocket drain you want to allow, e.g. 60.
+  # before SIGKILL. Size it above preStopSleepSeconds plus the time you want to
+  # give the process to exit, e.g. 60.
   terminationGracePeriodSeconds: null
   # preStopSleepSeconds: sleep this long in a preStop hook so the pod leaves the
   # Service endpoints before daphne receives SIGTERM, e.g. 5. Counts against
