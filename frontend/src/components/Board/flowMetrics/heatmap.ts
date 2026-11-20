@@ -41,6 +41,9 @@ export interface SwimlaneStat {
    */
   age_heat_level?: Record<string, HeatLevel | null>;
   throughput_heat_level?: Record<string, HeatLevel | null>;
+  /** Gated stages only (#2360): the wait part of the two dwell means, keyed by column name. */
+  throughput_wait_avg_days_per_column?: Record<string, number | null>;
+  age_wait_avg_days_per_column?: Record<string, number | null>;
   deal_velocity_days: number | null;
   stalled_cards: StalledCard[];
 }

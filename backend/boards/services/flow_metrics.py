@@ -24,10 +24,13 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.utils import timezone
 
-from ..models import Card, CardBlock, CardMovement, CardRelation, Column, SwimlaneCustomFieldValue
+from ..models import (
+    Card, CardBlock, CardGateTransition, CardMovement, CardRelation, Column, SubColumn,
+    SwimlaneCustomFieldValue,
+)
 
 # The sample-size floor (ADR "Percentiles and sample size"). The one place it
 # lives, so the API and the UI cannot disagree: the UI draws what comes back.
@@ -271,6 +274,9 @@ class _Movement(NamedTuple):
     movement_type: str
     from_key: object
     to_key: object
+    # The card's gate position on entering ``to_key`` (#1102); None for a
+    # stage with no sub-columns and for rows written before 1.3.
+    to_gates: int | None = None
 
     @property
     def is_transition(self):
@@ -292,10 +298,28 @@ class Visit:
     # False when continuity broke inside the visit, or it is open in a column
     # that does not match Card.column. Such a visit is reported as excluded.
     measured: bool = True
+    # Gated stages (#2360): the gate position the card entered with, and the
+    # ``(begin, end)`` spans it spent in the stage's last sub-column, which
+    # #1102 counts as wait time. ``wait_spans`` stays None in a stage with no
+    # sub-columns, so its visits report no work/wait split at all.
+    entry_gates: int | None = None
+    wait_spans: list | None = None
 
     @property
     def is_open(self):
         return self.end is None
+
+    def wait_days(self, since=None, until=None):
+        """Days in the last sub-column, clipped to ``[since, until]``; None when not gated."""
+        if self.wait_spans is None:
+            return None
+        seconds = 0.0
+        for begin, end in self.wait_spans:
+            begin = max(begin, since) if since is not None else begin
+            end = min(end, until) if until is not None else end
+            if end > begin:
+                seconds += (end - begin).total_seconds()
+        return seconds / SECONDS_PER_DAY
 
     def value_days(self, now):
         """The visit's length, or None if its end comes before its start (never clamped)."""
@@ -382,12 +406,12 @@ def _replay_visits(flow, live, creation, now):
 
     for mv in live:
         if mv is creation:
-            current = Visit(key=mv.to_key, start=mv.moved_at)
+            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates)
             visits.append(current)
         elif mv.is_transition:
             if current is not None:
                 close(mv.moved_at, mv.from_key)
-            current = Visit(key=mv.to_key, start=mv.moved_at)
+            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates)
             visits.append(current)
         elif mv.movement_type == _ARCHIVED:
             if current is not None:
@@ -398,7 +422,9 @@ def _replay_visits(flow, live, creation, now):
                 # observable end, so it cannot be measured.
                 current.measured = False
                 current.end = mv.moved_at
-            current = Visit(key=mv.to_key, start=mv.moved_at, measured=mv.to_key is not None)
+            current = Visit(
+                key=mv.to_key, start=mv.moved_at, measured=mv.to_key is not None, entry_gates=mv.to_gates,
+            )
             visits.append(current)
         # A swimlane-only move does not end a stay. An unattributable move is
         # not a transition, so it closes nothing; the next transition then
@@ -582,6 +608,8 @@ class BoardFlow:
     # Column uids at or past the board's commitment point, or None when the
     # board has none and the ADR's default cycle start applies (#2050).
     committed_uids: set | None = None
+    # ``{column uid: index of its last sub-column}`` for the gated stages (#2360).
+    gate_last: dict = field(default_factory=dict)
 
     def column_ref(self, key):
         """``key`` as a response ``column_uid``: a current column's uid, or None if deleted."""
@@ -642,10 +670,10 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
         .values_list(
             "card_id", "moved_at", "movement_type",
             "from_column_uid", "from_column__uid", "from_column_name",
-            "to_column_uid", "to_column__uid", "to_column_name",
+            "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed",
         )
     )
-    for card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name in movements.iterator(
+    for card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates in movements.iterator(
         chunk_size=2000,
     ):
         rows_by_card.setdefault(card_id, []).append(
@@ -653,15 +681,92 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
                 moved_at, kind,
                 _column_key(from_uid, from_fk, from_name),
                 _column_key(to_uid, to_fk, to_name),
+                to_gates,
             )
         )
     for card in cards:
         _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now, committed_uids)
+    # No cards, no gate history to read: a narrowed load that selects nothing
+    # stays query-free (NarrowedLoadTests).
+    gate_last = _gate_last_index(board) if cards else {}
+    if gate_last:
+        _attach_wait(cards, selected, gate_last, now)
     return BoardFlow(
         board=board, now=now, columns=columns, cards=cards,
         done_uids=done_uids, current_uids={c.uid for c in columns},
         swimlane_id=swimlane_id, label_id=label_id, committed_uids=committed_uids,
+        gate_last=gate_last,
     )
+
+
+def _gate_last_index(board):
+    """``{column uid: last sub-column index}`` for the board's gated stages (#2360).
+
+    The stage's current sub-columns decide which index is "last". A stage edit
+    that changes the count remaps cards with ``stage_edited`` transitions, so
+    their positions stay readable, but time recorded before an edit is judged
+    against today's last sub-column (documented in docs/features/analytics.md).
+    """
+    rows = SubColumn.objects.filter(column__board=board).values("column__uid").annotate(n=Count("id"))
+    return {row["column__uid"]: row["n"] - 1 for row in rows if row["n"] > 1}
+
+
+def _attach_wait(cards, selected, gate_last, now):
+    """Fill ``Visit.wait_spans`` for visits to gated stages from the gate history.
+
+    One query. Rows linked to a movement are the gates a card was placed past
+    as it entered the stage; that position is already the movement's
+    ``to_gates_passed`` (``Visit.entry_gates``), so only in-place transitions
+    are read.
+    """
+    by_card: dict[int, list] = {}
+    rows = (
+        CardGateTransition.objects.filter(card__in=selected.order_by().values("id"), movement__isnull=True)
+        .order_by("card_id", "created_at", "id")
+        .values_list("card_id", "created_at", "column_uid", "column__uid", "column_name", "to_index")
+    )
+    for card_id, at, uid, fk, name, to_index in rows.iterator(chunk_size=2000):
+        by_card.setdefault(card_id, []).append((at, _column_key(uid, fk, name), to_index))
+    for card in cards:
+        transitions = by_card.get(card.id, ())
+        for visit in card.visits:
+            if visit.key in gate_last:
+                visit.wait_spans = _wait_spans(visit, transitions, gate_last[visit.key], now)
+
+
+def _wait_spans(visit, transitions, last, now):
+    """The visit's spans at or past its stage's last sub-column (#1102 "wait").
+
+    #1102: sub-columns before the last count as work time and the last counts
+    as wait time. A card enters at ``entry_gates`` (0 when the row predates
+    gate recording), then each in-place transition inside the visit sets its
+    position. Blocked time is not subtracted from work: under the ADR's
+    "Blocked time" rule it is reported as its own metric, never subtracted.
+    """
+    end = visit.end if visit.end is not None else now
+    spans = []
+    if end <= visit.start:
+        return spans
+    index, since = visit.entry_gates or 0, visit.start
+    for at, key, to_index in transitions:
+        if key != visit.key or at < visit.start:
+            continue
+        if at >= end:
+            break
+        if index >= last and at > since:
+            spans.append((since, at))
+        index, since = to_index, at
+    if index >= last and end > since:
+        spans.append((since, end))
+    return spans
+
+
+def _split(value, wait):
+    """``(wait_days, work_days)`` for a sample, or ``(None, None)`` with no gated time to split."""
+    if wait is None or value is None:
+        return None, None
+    wait = min(wait, value)
+    return wait, value - wait
 
 
 def load_recent_completions(board, flow_range, *, columns):
@@ -791,10 +896,18 @@ def cycle_time(flow, flow_range):
             continue
         if card.complete_history:
             if card.cycle_start is not None:
-                samples.append((
-                    card.completion_at,
-                    _completion_sample(card, card.cycle_start, _days_between(card.cycle_start, card.completion_at)),
-                ))
+                value = _days_between(card.cycle_start, card.completion_at)
+                sample = _completion_sample(card, card.cycle_start, value)
+                # Additive (#2360): the cycle's time in gated stages' last
+                # sub-columns. 0 for a cycle that crossed no gated stage, so
+                # work_days equals value_days there.
+                wait = sum(
+                    visit.wait_days(card.cycle_start, card.completion_at) or 0.0
+                    for visit in card.visits
+                    if visit.key not in flow.done_uids
+                )
+                sample["wait_days"], sample["work_days"] = _split(value, wait)
+                samples.append((card.completion_at, sample))
         elif not (card.created_in_done or card.straight_to_done):
             # Left out only for its history. A card that would have no cycle
             # time anyway is not an exclusion.
@@ -808,9 +921,14 @@ def _column_entries(flow):
 
 def _dwell_response(flow, samples, excluded):
     per_column = {c.uid: [] for c in _column_entries(flow)}
+    waits = {c.uid: [] for c in _column_entries(flow)}
+    works = {c.uid: [] for c in _column_entries(flow)}
     for sample in samples:
         if sample["column_uid"] in per_column:
             per_column[sample["column_uid"]].append(sample["value_days"])
+            if sample.get("wait_days") is not None:
+                waits[sample["column_uid"]].append(sample["wait_days"])
+                works[sample["column_uid"]].append(sample["work_days"])
     response = _duration_response("dwell_time", samples, excluded)
     response["columns"] = [
         {
@@ -818,6 +936,9 @@ def _dwell_response(flow, samples, excluded):
             "column_name": c.name,
             "sample_size": len(per_column[c.uid]),
             "percentiles": percentiles(per_column[c.uid]),
+            # Additive (#2360): null for a stage with no sub-columns.
+            "work_percentiles": percentiles(works[c.uid]) if c.uid in flow.gate_last else None,
+            "wait_percentiles": percentiles(waits[c.uid]) if c.uid in flow.gate_last else None,
         }
         for c in _column_entries(flow)
     ]
@@ -842,6 +963,7 @@ def completed_dwell(flow, flow_range):
         if not visit.measured or value is None:
             excluded += 1
             continue
+        wait, work = _split(value, visit.wait_days())
         samples.append((visit.end, {
             "card_uid": card.uid,
             "column_uid": flow.column_ref(visit.key),
@@ -849,6 +971,9 @@ def completed_dwell(flow, flow_range):
             "start": _iso(visit.start),
             "end": _iso(visit.end),
             "reopened": card.reopened_after(visit.end),
+            # Additive (#2360): null outside a gated stage.
+            "wait_days": wait,
+            "work_days": work,
         }))
     return _dwell_response(flow, _ordered_by_end(samples), excluded)
 
@@ -888,6 +1013,8 @@ def current_dwell(flow):
             "end": None,
             # Additive to the ADR's sample: #1151's aging_cards names blocked cards.
             "is_blocked": card.id in blocked,
+            # Additive (#2360): null outside a gated stage.
+            **dict(zip(("wait_days", "work_days"), _split(visit.value_days(flow.now), visit.wait_days()))),
         }
         for card, visit in open_visits
     ]
@@ -1520,6 +1647,35 @@ def _dwell_by_swimlane(flow, visits):
             continue
         grouped.setdefault(card.swimlane_id, {}).setdefault(visit.key, []).append(value)
     return grouped
+
+
+def _wait_by_swimlane(flow, visits):
+    """``{swimlane_id: {column_uid: [wait days]}}`` for measured visits to gated stages (#2360)."""
+    grouped: dict[int, dict[str, list]] = {}
+    for card, visit in visits:
+        value = visit.value_days(flow.now)
+        wait = visit.wait_days()
+        if value is None or wait is None or not visit.measured or flow.column_ref(visit.key) is None:
+            continue
+        grouped.setdefault(card.swimlane_id, {}).setdefault(visit.key, []).append(min(wait, value))
+    return grouped
+
+
+def completed_wait_by_swimlane(flow, flow_range):
+    """Wait share of the heatmap's In period cells (#2360)."""
+    return _wait_by_swimlane(
+        flow,
+        (
+            (card, visit)
+            for card, visit in _dwell_visits(flow)
+            if not visit.is_open and flow_range.contains(visit.end)
+        ),
+    )
+
+
+def current_wait_by_swimlane(flow):
+    """Wait share of the heatmap's Age cells (#2360)."""
+    return _wait_by_swimlane(flow, ((card, visit) for card, visit in _dwell_visits(flow) if visit.is_open))
 
 
 def completed_dwell_by_swimlane(flow, flow_range):

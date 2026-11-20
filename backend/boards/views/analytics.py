@@ -127,6 +127,19 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                     child=serializers.ChoiceField(choices=["ok", "warning", "high"], allow_null=True),
                     help_text="The same heatmap tier for the unrounded completed-dwell mean. Additive (#2331).",
                 ),
+                "throughput_wait_avg_days_per_column": serializers.DictField(
+                    child=serializers.FloatField(allow_null=True),
+                    help_text=(
+                        "Gated stages only (#2360): the mean of the In period visits' time in the stage's "
+                        "last sub-column, which #1102 counts as wait time. The rest of "
+                        "throughput_avg_days_per_column is work time. A stage with no sub-columns is "
+                        "absent. Additive."
+                    ),
+                ),
+                "age_wait_avg_days_per_column": serializers.DictField(
+                    child=serializers.FloatField(allow_null=True),
+                    help_text="The same wait-time mean for current dwell (Age mode). Additive (#2360).",
+                ),
                 "deal_velocity_days": serializers.FloatField(allow_null=True),
                 "stalled_cards": inline_serializer(
                     name="BoardAnalyticsStalledCard",
@@ -603,6 +616,13 @@ _CYCLE_TIME_RESPONSE = inline_serializer(
                 "end": serializers.DateTimeField(),
                 "reopened": serializers.BooleanField(),
                 "group_keys": _GROUP_KEYS_FIELD,
+                "wait_days": serializers.FloatField(
+                    allow_null=True,
+                    help_text="Days of the cycle in gated stages' last sub-columns (#2360); 0 when none. Additive.",
+                ),
+                "work_days": serializers.FloatField(
+                    allow_null=True, help_text="`value_days` minus `wait_days` (#2360). Additive.",
+                ),
             },
         ),
         "cards": _FLOW_CARD_FIELD,
@@ -858,6 +878,17 @@ _DWELL_COLUMN_FIELD = inline_serializer(
         "column_name": serializers.CharField(),
         "sample_size": serializers.IntegerField(),
         "percentiles": _PERCENTILES_FIELD,
+        "work_percentiles": serializers.DictField(
+            child=serializers.FloatField(allow_null=True), allow_null=True,
+            help_text=(
+                "Gated stages only (#2360): `{p50, p85, p95}` of the visits' work time (sub-columns "
+                "before the last). Null for a stage with no sub-columns. Additive."
+            ),
+        ),
+        "wait_percentiles": serializers.DictField(
+            child=serializers.FloatField(allow_null=True), allow_null=True,
+            help_text="The same for wait time (the last sub-column), null for a stage with no sub-columns. Additive (#2360).",
+        ),
     },
 )
 
@@ -1175,6 +1206,9 @@ class BoardAnalyticsMixin:
         )
         current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
         completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
+        current_wait = flow_metrics.current_wait_by_swimlane(flow)
+        completed_wait = flow_metrics.completed_wait_by_swimlane(flow, flow_range)
+        gated_columns = [col for col in active_columns if col.uid in flow.gate_last]
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
@@ -1405,6 +1439,14 @@ class BoardAnalyticsMixin:
                 "throughput_is_warning": {},  # populated below (#2306)
                 "age_heat_level": {},  # populated below (#2331)
                 "throughput_heat_level": {},  # populated below (#2331)
+                # Additive (#2360): the wait part of the two dwell means above,
+                # keyed only by gated stages so a plain stage reads unchanged.
+                "throughput_wait_avg_days_per_column": _rounded({
+                    col.name: _mean(completed_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
+                }),
+                "age_wait_avg_days_per_column": _rounded({
+                    col.name: _mean(current_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
+                }),
                 "deal_velocity_days": (
                     round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
                     if deal_velocity_days else None

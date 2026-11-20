@@ -189,6 +189,14 @@ Four charts built from the movement log, so you can see how long work takes and 
 
 **What is left out.** A card with missing or broken history (for example, imported without its history) has no cycle time or age, and the chart says how many were left out. It still counts toward throughput once it reaches a done column. Blocked time is part of cycle time and age, never subtracted, because the wait is real.
 
+**Work and wait in gated stages.** <span class="vb-version" title="Added in 1.3">1.3+</span> In a stage with [sub-columns](board.md), the sub-columns before the last count as work time and the last one counts as wait time (#1102). The split comes from the recorded gate history: the sub-column a card entered in, then every gate passed or reopened while it stayed. A card reopened from the last sub-column goes back to work time, and a card that leaves with gates still open stops waiting when it leaves. The API reports the split as additive fields, and no existing number changes:
+
+- each cycle-time sample carries `wait_days` (its time in the last sub-column of gated stages, 0 when it crossed none) and `work_days` (`value_days` minus `wait_days`);
+- each dwell sample carries `wait_days` and `work_days`, and each dwell column carries `work_percentiles` and `wait_percentiles`; all four are null for a stage with no sub-columns;
+- each heatmap swimlane carries `throughput_wait_avg_days_per_column` (In period) and `age_wait_avg_days_per_column` (Age), keyed only by gated stages.
+
+Blocked time is not subtracted from work time: like cycle time, it is reported as its own metric. Which sub-column is "last" is read from the stage as it is now. Editing a stage's sub-columns moves its cards with recorded gate changes, but time a card spent before the edit is judged against today's last sub-column.
+
 **See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column, counted from when the card's age started so the columns add up to the days in progress. **Open card** opens the card; an archived card has no **Open card**.
 
 **Keyboard.** Tab reaches the filters, each chart's toggle, then the aging dots in column order, and Enter opens the drawer. The table view is the complete keyboard path: every point of every chart is a row there, with a button to open it.
