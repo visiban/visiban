@@ -617,7 +617,11 @@ class CardQuerySerializerFieldParityTests(TestCase):
             "If a new field was intentionally added to both, update this test's "
             "expected set; if not, it may be an unreviewed exposure.",
         )
-        missing = card_readable_fields - query_fields
+        # ``parent`` (#1104) is opt-in per read path: CardParentField omits itself
+        # unless the view sets CARD_PARENTS_CONTEXT_KEY, which only /full/, the
+        # board card list, retrieve and archived/ do. This cross-board query names
+        # no per-card parent viewer, so the key is intentionally absent here.
+        missing = card_readable_fields - query_fields - {"parent"}
         self.assertEqual(
             missing, set(),
             f"CardQuerySerializer is missing fields CardSerializer exposes: {missing}",

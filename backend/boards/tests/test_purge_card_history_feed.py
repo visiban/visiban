@@ -916,11 +916,19 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
         "from_gates_passed", "from_gates_open", "to_gates_passed",
     }
     EXTERNAL_REF_STRUCTURE = {"provider"}
+    # #1104: ``parent`` carries the parent card's title (user text), but it is opt-in
+    # per read path (CardParentField) and never in an event payload, feed row or
+    # webhook, so no history row holds it and there is nothing for a purge to redact.
+    # Adding it to a persisted payload would need a redaction rule first.
+    CARD_NEVER_PERSISTED = {"parent"}
 
     def test_card_fields(self):
         self.assertEqual(
             set(CardSerializer.Meta.fields),
-            self.CARD_STRUCTURE | self.CARD_NESTED_CONTENT | set(_CARD_CONTENT_KEYS),
+            self.CARD_STRUCTURE
+            | self.CARD_NESTED_CONTENT
+            | self.CARD_NEVER_PERSISTED
+            | set(_CARD_CONTENT_KEYS),
         )
 
     def test_movement_fields(self):
