@@ -40,3 +40,14 @@ class CompositeIndexPresenceTests(TestCase):
         )
         self.assertIsNotNone(idx, "comment_card_created_idx not found in CardComment._meta.indexes")
         self.assertEqual(list(idx.fields), ["card", "created_at"])
+
+
+class CardMovementBoardIndexTests(TestCase):
+    """#2408: the board History index carries the -id tie-break; its prefix is gone."""
+
+    def test_only_the_tie_break_board_index_remains(self):
+        from boards.models import CardMovement
+
+        names = {index.name for index in CardMovement._meta.indexes}
+        self.assertIn("movement_board_moved_id_idx", names)
+        self.assertNotIn("movement_board_moved_idx", names)

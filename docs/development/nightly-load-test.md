@@ -119,7 +119,7 @@ The seed writes many movements at the same instant, and so do bulk moves and imp
 | `moved_after` 30 days back | `Incremental Sort` above the index scan: 0.39ms | Plain index scan with the range in the `Index Cond`: 0.29ms |
 
 - **The tie-break needs its own index.** Without it the first page stays cheap, because the sort stops at the first full group, but a deep page costs about three times the old order. Migration 0116 builds `movement_board_moved_id_idx` concurrently, and the plan is a plain index scan again with no sort node.
-- **`movement_board_moved_idx` is now a prefix of the new index.** It is kept for this release (an index is never dropped in the migration that replaces it); dropping it in a later release is tracked in #2408.
+- **`movement_board_moved_idx` was a prefix of the new index, and migration 0117 drops it** (#2408). The plans above that name it were measured before the drop; the new index serves the same reads, so those plans now use `movement_board_moved_id_idx`.
 - The table above is a one-off probe on synthetic ties, not the nightly fixture, so its absolute numbers are not comparable with the #2237 table. The `board_movements*` scenarios are still `pending_budget`, so the next NUC re-derivation measures the new order.
 
 These are laptop numbers. They show the plans, not budgets: the budgets come from a NUC run.

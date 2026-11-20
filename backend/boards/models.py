@@ -1202,18 +1202,14 @@ class CardMovement(models.Model):
                 fields=["card", "-moved_at"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_card_moved_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
-            # Board-level History (#1469) reads by board, newest first; the
-            # board-delete cascade's DELETE ... WHERE board_id IN (...) uses it
-            # too. Built concurrently in migration 0081.
-            models.Index(
-                fields=["board", "-moved_at"],  # pragma: no mutate -- schema constant (migration-check)
-                name="movement_board_moved_idx",  # pragma: no mutate -- schema constant (migration-check)
-            ),
-            # The same read with its "-id" tie-break (#2400): ending the index
+            # Board-level History (#1469) reads by board, newest first, with an
+            # "-id" tie-break (#2400); the board-delete cascade's
+            # DELETE ... WHERE board_id IN (...) uses it too. Ending the index
             # at moved_at made PostgreSQL add an Incremental Sort above the
             # joins, three times slower at a deep offset. Built concurrently in
-            # migration 0116. movement_board_moved_idx is now a prefix of this
-            # one; it is dropped in a later release (#2408), never with the add.
+            # migration 0116. It replaced movement_board_moved_idx
+            # (board, -moved_at, migration 0081), a prefix of this index,
+            # which migration 0117 dropped (#2408).
             models.Index(
                 fields=["board", "-moved_at", "-id"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_id_idx",  # pragma: no mutate -- schema constant (migration-check)
