@@ -2905,7 +2905,7 @@ class CardViewSet(viewsets.ModelViewSet):
     @extend_schema(
         methods=["POST"],
         request=inline_serializer(
-            "AddChildRequest",
+            "AddChild",
             fields={"board_id": serializers.IntegerField(), "title": serializers.CharField()},
         ),
         responses={
