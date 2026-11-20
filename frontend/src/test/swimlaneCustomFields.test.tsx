@@ -1676,7 +1676,7 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
     const defs = Array.from({ length: 7 }, (_, i) => makeDef({ id: i + 1, name: `Field ${i}`, position: i, band_visibility: i < 2 ? 'band' : 'details' }))
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />)
     const select = screen.getByLabelText('up to')
-    expect(within(select).getByRole('option', { name: '4' })).toBeDisabled()
+    expect(within(select).getByRole('option', { name: /^4 \(below the \d+ in Details\)$/ })).toBeDisabled()
     await userEvent.selectOptions(select, '9')
     expect(onUpdateBoardSettings).toHaveBeenCalledWith({ lane_details_cap: 9 })
     await userEvent.type(screen.getByPlaceholderText('Find a field'), 'Field 3')

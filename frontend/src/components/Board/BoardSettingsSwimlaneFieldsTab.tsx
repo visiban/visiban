@@ -479,7 +479,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
               >
                 {LANE_DETAILS_CAP_OPTIONS.map((n) => (
                   // A cap below the Details count would 400; a legacy board materializes into the new cap instead.
-                  <option key={n} value={n} disabled={!legacy && n < detailsCount}>{n}</option>
+                  <option key={n} value={n} disabled={!legacy && n < detailsCount}>{!legacy && n < detailsCount ? `${n} (below the ${detailsCount} in Details)` : n}</option>
                 ))}
               </select>
               <span className={`text-xs font-semibold ${detailsCount > cap ? "text-warning" : "text-fg"}`} data-testid="swimlane-details-counter">{detailsCount} / {cap}</span>
@@ -690,6 +690,8 @@ function TierControl({ def, tier, blockedReason, onChange }: {
 }) {
   const reasonId = useId();
   const order: LaneTier[] = ["band", "details", "hidden"];
+  // A blocked option's reason must reach keyboard and touch users, not only a hover tooltip.
+  const [shownReason, setShownReason] = useState<string | null>(null);
   // Roving tabindex: one Tab stop per row; Left/Right move focus between options (a blocked
   // one included, so its reason can be heard), Space/Enter chooses.
   const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
@@ -701,6 +703,7 @@ function TierControl({ def, tier, blockedReason, onChange }: {
     next?.focus();
   };
   return (
+    <span className="relative inline-flex">
     <span role="radiogroup" onKeyDown={onKeyDown} aria-label={`Show ${def.name}`} className="inline-flex rounded border border-line-strong overflow-hidden" data-testid={`swimlane-tier-${def.id}`}>
       {(["band", "details", "hidden"] as LaneTier[]).map((t) => {
         const reason = blockedReason(t);
@@ -715,7 +718,9 @@ function TierControl({ def, tier, blockedReason, onChange }: {
             aria-describedby={reason ? `${reasonId}-${t}` : undefined}
             tabIndex={checked ? 0 : -1}
             title={reason ?? undefined}
-            onClick={() => { if (!reason) onChange(t); }}
+            onFocus={() => setShownReason(reason)}
+            onBlur={() => setShownReason(null)}
+            onClick={() => { if (!reason) onChange(t); else setShownReason(reason); }}
             className={`min-h-6 px-2 py-0.5 text-xs border-l first:border-l-0 border-line-strong focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${checked ? "bg-primary-soft text-fg font-semibold" : "bg-surface text-fg-secondary hover:bg-surface-hover"} ${reason ? "opacity-40 cursor-not-allowed" : ""}`}
           >
             {TIER_LABEL[t]}
@@ -723,6 +728,10 @@ function TierControl({ def, tier, blockedReason, onChange }: {
         );
       })}
       {order.map((t) => { const r = blockedReason(t); return r ? <span key={t} id={`${reasonId}-${t}`} className="sr-only">{r}</span> : null; })}
+    </span>
+    {shownReason && (
+      <span aria-hidden="true" data-testid="swimlane-tier-reason" className="absolute right-0 top-full z-10 mt-1 w-56 rounded border border-line-strong bg-surface px-2 py-1 text-xs text-fg shadow-lg">{shownReason}</span>
+    )}
     </span>
   );
 }
@@ -785,6 +794,7 @@ function FieldRow({ def, editing, dragDisabled, show, onEdit, onDelete, children
           {...listeners}
           className="w-4 text-fg-tertiary hover:text-fg cursor-grab opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           aria-label={`Drag to reorder ${def.name}`}
+          title={dragDisabled && !editing ? "Clear the search to reorder fields" : undefined}
         >
           <span aria-hidden="true">⋮⋮</span>
         </button>
