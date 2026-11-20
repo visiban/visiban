@@ -416,7 +416,7 @@ export default function PhoneBoard({
               data-testid="phone-column-actions-toggle"
               aria-label={`Column actions for ${column.name}`}
               aria-expanded={columnActionsOpen}
-              aria-controls={`${uid}-column-actions`}
+              aria-controls={columnActionsOpen ? `${uid}-column-actions` : undefined}
               onClick={() => setColumnActionsOpen((o) => !o)}
               className={ACTION_BTN}
             >
@@ -561,7 +561,7 @@ export default function PhoneBoard({
                     className={ACTION_BTN}
                     aria-label={`Lane actions for ${lane.name}`}
                     aria-expanded={laneActionsOpen}
-                    aria-controls={`${uid}-lane-actions-${lane.id}`}
+                    aria-controls={laneActionsOpen ? `${uid}-lane-actions-${lane.id}` : undefined}
                     onClick={() => toggleLaneActions(lane.id)}
                   >
                     Lane actions

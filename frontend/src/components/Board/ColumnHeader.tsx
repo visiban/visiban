@@ -429,10 +429,10 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
             if (cells.length === 0) return null;
             return (
               <div data-testid="column-sub-counts" className="mt-1 flex divide-x divide-line text-fg-tertiary">
-                {cells.map((cell) => (
-                  <div key={cell.name} data-testid="column-sub-count" className="flex min-w-0 flex-1 items-baseline justify-between gap-2 px-2 first:pl-0 last:pr-0">
+                {cells.map((cell, i) => (
+                  <div key={`${i}-${cell.name}`} data-testid="column-sub-count" className="flex min-w-0 flex-1 items-baseline justify-between gap-2 px-2 first:pl-0 last:pr-0">
                     <span className="sr-only">{`${cell.name}: ${cell.count} ${cell.state}`}</span>
-                    <span aria-hidden="true" className="min-w-0 truncate font-semibold text-fg-secondary">{cell.name}</span>
+                    <span aria-hidden="true" title={cell.name} className="min-w-0 truncate font-semibold text-fg-secondary">{cell.name}</span>
                     <span aria-hidden="true" className="shrink-0 text-right"><span className="font-semibold text-fg-secondary">{cell.count}</span> {cell.state}</span>
                   </div>
                 ))}
