@@ -99,7 +99,10 @@ function changeAnnouncement(change: WebhookChangedPayload, subs: readonly Webhoo
 /** Rows added, removed or whose state moved between two reads. */
 function countChanged(prev: readonly WebhookSubscription[] | null, next: readonly WebhookSubscription[]): number {
   if (!prev) return 0;
-  const sig = (s: WebhookSubscription) => `${s.enabled}|${s.consecutive_failures}|${s.disabled_reason}|${s.url_display}|${s.event_types.join(",")}|${s.secret_rotated_at}`;
+  // Failing or not, not how many failures: the live event announces only the
+  // first failure (docs/api/websockets.md), so a webhook that keeps failing
+  // must not count as changed on every reconnect (#2403).
+  const sig = (s: WebhookSubscription) => `${s.enabled}|${s.consecutive_failures > 0}|${s.disabled_reason}|${s.url_display}|${s.event_types.join(",")}|${s.secret_rotated_at}`;
   const before = new Map(prev.map((s) => [s.id, sig(s)]));
   let n = 0;
   for (const s of next) if (before.get(s.id) !== sig(s)) n += 1;
@@ -270,6 +273,13 @@ export default function BoardSettingsWebhooksTab({
   membersRef.current = members;
   // A reconnect asked for this read: diff it against the list on screen.
   const awayReadRef = useRef(false);
+  // Mirrors `paused` for async callbacks: a read that resolves after the
+  // connection dropped again must not write over the paused copy (#2403).
+  const pausedRef = useRef(false);
+  // Refresh had focus when the paused banner unmounted (reconnect): focus
+  // then falls to <body>, so a landmark takes it, as for the Dismiss buttons.
+  const refreshButtonElRef = useRef<HTMLButtonElement | null>(null);
+  const refreshHadFocusRef = useRef(false);
   // A frame that arrived before this tab mounted is already in the first load.
   const mountSeqRef = useRef(remoteChange?.seq ?? 0);
   // Likewise a reconnect from before this tab mounted.
@@ -325,7 +335,7 @@ export default function BoardSettingsWebhooksTab({
       const diffAway = awayReadRef.current;
       awayReadRef.current = false;
       listWebhooks(boardId).then((next) => {
-        if (diffAway) {
+        if (diffAway && !pausedRef.current) {
           const n = countChanged(subsRef.current, next);
           if (n > 0) {
             setAwayCount(n);
@@ -343,7 +353,12 @@ export default function BoardSettingsWebhooksTab({
     mountSeqRef.current = remoteChange.seq;
     refetchList();
     // This user's own change (this tab or another of theirs): no "elsewhere" tag.
-    if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) return;
+    if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) {
+      // The user's own change to the open webhook supersedes a banner raised
+      // by someone else's earlier one, which would now state the wrong thing.
+      setDetailChange((prev) => (prev !== null && prev.id === remoteChange.id ? null : prev));
+      return;
+    }
     const id = remoteChange.id;
     const by = byLabel(remoteChange.changed_by, membersRef.current);
     // The detail banner already says this change through the state slot; the
@@ -393,6 +408,8 @@ export default function BoardSettingsWebhooksTab({
   // #2403 — live updates are paused while the socket is down. The banner is
   // announced once, through the always-mounted slot; coming back clears it.
   const paused = socketStatus === "reconnecting" || socketStatus === "failed";
+  pausedRef.current = paused;
+  const ready = status !== null && subs !== null;
   useEffect(() => {
     // The latest state wins: a pending away or detail announcement must not
     // land after, and overwrite, the paused copy.
@@ -401,10 +418,19 @@ export default function BoardSettingsWebhooksTab({
         clearTimeout(stateLiveTimerRef.current);
         stateLiveTimerRef.current = null;
       }
+      // Each reconnect's diff stands alone: a count from an earlier one is gone.
+      setAwayCount(0);
       setStateLive(PAUSED_LIVE_COPY);
+    } else {
+      setStateLive((prev) => (prev === PAUSED_LIVE_COPY ? "" : prev));
+      if (refreshHadFocusRef.current) {
+        refreshHadFocusRef.current = false;
+        setPendingFocus("landmark");
+      }
     }
-    else setStateLive((prev) => (prev === PAUSED_LIVE_COPY ? "" : prev));
-  }, [paused]);
+    // `ready`: the loading branch renders its own (empty) slot, so the first
+    // loaded render mounts a new one; write into it after it is mounted.
+  }, [paused, ready]);
 
   // A detail banner belongs to the webhook it was raised for.
   useEffect(() => {
@@ -416,6 +442,7 @@ export default function BoardSettingsWebhooksTab({
     if (reconnectSignal <= mountReconnectRef.current) return;
     mountReconnectRef.current = reconnectSignal;
     awayReadRef.current = true;
+    setAwayCount(0);
     refetchList();
   }, [reconnectSignal, refetchList]);
 
@@ -697,9 +724,13 @@ export default function BoardSettingsWebhooksTab({
   }
   if (status === null || subs === null) {
     return (
-      <div className="flex justify-center py-6">
-        <Spinner size="sm" label="Loading webhooks" />
-      </div>
+      <>
+        <div className="flex justify-center py-6">
+          <Spinner size="sm" label="Loading webhooks" />
+        </div>
+        {/* Mounted empty, so the paused copy is a change to it (#1421, #2403). */}
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="webhook-state-live">{stateLive}</p>
+      </>
     );
   }
 
@@ -1000,6 +1031,12 @@ export default function BoardSettingsWebhooksTab({
             Live updates paused · Updated {updatedMinutes < 1 ? "just now" : `${updatedMinutes} min ago`}
           </p>
           <button
+            ref={(el) => {
+              if (el === null && refreshButtonElRef.current !== null && document.activeElement === refreshButtonElRef.current) {
+                refreshHadFocusRef.current = true;
+              }
+              refreshButtonElRef.current = el;
+            }}
             type="button"
             onClick={() => refetchList()}
             className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong bg-surface transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"

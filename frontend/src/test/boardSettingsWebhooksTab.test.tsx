@@ -1860,4 +1860,108 @@ describe('live updates across admin sessions (#2057)', () => {
     expect(within(screen.getByTestId('webhook-secret-reveal')).getByRole('textbox')).toHaveValue('whsec_keep')
   })
 
+  it('the state slot is cleared, then rewritten, so an identical announcement is read again (#2403)', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    const slot = screen.getByTestId('webhook-state-live')
+    const seen: string[] = []
+    const observer = new MutationObserver(() => seen.push(slot.textContent ?? ''))
+    observer.observe(slot, { childList: true, characterData: true, subtree: true })
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(1)} />)
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(slot).toHaveTextContent('It is now turned off.')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(2)} />)
+    // Cleared at once; the same sentence lands only after the delay.
+    expect(slot).toHaveTextContent('')
+    await act(async () => { vi.advanceTimersByTime(100) })
+    expect(slot).toHaveTextContent('It is now turned off.')
+    await act(async () => { await Promise.resolve() })
+    observer.disconnect()
+    expect(seen.filter((t) => t === '')).toHaveLength(1)
+  })
+
+  it('opening the tab already paused: the state slot is mounted empty while loading, then holds the paused copy', async () => {
+    let finish: (v: WebhookSubscription[]) => void = () => undefined
+    m.list.mockReturnValue(new Promise<WebhookSubscription[]>((resolve) => { finish = resolve }))
+    render(<BoardSettingsWebhooksTab boardId={3} socketStatus="failed" />)
+    await screen.findByLabelText('Loading webhooks')
+    const loadingSlot = screen.getByTestId('webhook-state-live')
+    expect(loadingSlot).toHaveAttribute('role', 'status')
+    await waitFor(() => expect(m.list).toHaveBeenCalled())
+    await act(async () => { finish([sub()]) })
+    await screen.findByText('Webhooks')
+    await waitFor(() => expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('Live updates paused.'))
+  })
+
+  it('Refresh had focus when the connection came back: focus moves to the heading, not <body>', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} socketStatus="reconnecting" />)
+    await screen.findByText('Webhooks')
+    const refresh = within(screen.getByTestId('webhooks-paused')).getByRole('button', { name: 'Refresh' })
+    await user.click(refresh)
+    act(() => { refresh.focus() })
+    expect(refresh).toHaveFocus()
+    rerender(<BoardSettingsWebhooksTab boardId={3} socketStatus="connected" />)
+    expect(screen.queryByTestId('webhooks-paused')).not.toBeInTheDocument()
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body))
+    expect(screen.getByRole('heading', { name: 'Webhooks' })).toHaveFocus()
+  })
+
+  it('each reconnect diff stands alone: an old away count does not return', async () => {
+    m.list.mockResolvedValue([sub(), sub({ id: 2, url_display: 'b.example.com/…/x', url_host: 'b.example.com' })])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={1} socketStatus="connected" />)
+    await screen.findByText('Webhooks')
+    m.list.mockResolvedValue([sub({ enabled: false, disabled_reason: 'manual' }), sub({ id: 2, enabled: false, disabled_reason: 'manual', url_display: 'b.example.com/…/x', url_host: 'b.example.com' })])
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} socketStatus="connected" />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(await screen.findByTestId('webhooks-away')).toHaveTextContent('2 webhooks changed')
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} socketStatus="reconnecting" />)
+    // Same list on the next reconnect: nothing changed while away this time.
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={3} socketStatus="connected" />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(screen.queryByTestId('webhooks-away')).not.toBeInTheDocument()
+  })
+
+  it('a reconnect read that resolves after the connection dropped again cannot overwrite the paused copy', async () => {
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={1} socketStatus="connected" />)
+    await screen.findByText('Webhooks')
+    let finish: (v: WebhookSubscription[]) => void = () => undefined
+    m.list.mockReturnValue(new Promise<WebhookSubscription[]>((resolve) => { finish = resolve }))
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} socketStatus="connected" />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} socketStatus="reconnecting" />)
+    await act(async () => { finish([sub({ enabled: false, disabled_reason: 'manual' })]) })
+    await act(async () => { vi.advanceTimersByTime(200) })
+    expect(screen.getByTestId('webhook-state-live')).toHaveTextContent('Live updates paused.')
+    expect(screen.queryByTestId('webhooks-away')).not.toBeInTheDocument()
+  })
+
+  it('this user\'s own change to the open webhook clears an earlier detail banner', async () => {
+    const user = setup()
+    m.list.mockResolvedValue([sub()])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} />)
+    await screen.findByText('Webhooks')
+    await openDetail(user)
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(1)} />)
+    expect(await screen.findByTestId('webhook-changed-detail')).toHaveTextContent('It is now turned off.')
+    rerender(<BoardSettingsWebhooksTab boardId={3} currentUserId={7} members={MEMBERS} remoteChange={change(2, { status: 'active', changed_by: 7 })} />)
+    await waitFor(() => expect(screen.queryByTestId('webhook-changed-detail')).not.toBeInTheDocument())
+  })
+
+  it('a webhook that only keeps failing is not "changed while you were away"', async () => {
+    m.list.mockResolvedValue([sub({ consecutive_failures: 3 })])
+    const { rerender } = render(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={1} />)
+    await screen.findByText('Webhooks')
+    m.list.mockResolvedValue([sub({ consecutive_failures: 7 })])
+    rerender(<BoardSettingsWebhooksTab boardId={3} reconnectSignal={2} />)
+    await act(async () => { vi.advanceTimersByTime(400) })
+    expect(m.list).toHaveBeenCalledTimes(2)
+    expect(screen.queryByTestId('webhooks-away')).not.toBeInTheDocument()
+  })
+
 })
