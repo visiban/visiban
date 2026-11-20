@@ -463,9 +463,11 @@ class HealthWriterEntryPointTests(SimpleTestCase):
             cls.__name__ for cls in subclasses(HealthStatusFieldsMixin)
             if not cls().fields["health_status"].read_only
         }
-        # BoardImportResponseSerializer is a response schema only (no writer).
+        # BoardImportResponseSerializer and TrelloImportConfirmSerializer (#1903)
+        # are response schemas only (no writer).
         self.assertEqual(writable, {
             "BoardSerializer", "GroupSerializer", "GroupDetailSerializer", "BoardImportResponseSerializer",
+            "TrelloImportConfirmSerializer",
         })
 
 

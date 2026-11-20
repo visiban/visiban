@@ -156,7 +156,8 @@ class ImportOptionsDefaultTests(_ImportOptionsBase):
         resp = self._post()
         self.assertEqual(resp.data["name"], "Imported: Selective")
         self.assertIn("id", resp.data)
-        self.assertNotIn("board", resp.data)
+        # #1903 adds `board` beside the top-level fields; it never replaces them.
+        self.assertEqual(resp.data["board"]["id"], resp.data["id"])
 
 
 class ImportOptionsFlagTests(_ImportOptionsBase):

@@ -59,6 +59,7 @@ from boards.views.import_export import (
     _role_at_export,
     _sanitize_csv_field,
 )
+from boards.tests.import_error_asserts import assert_import_error
 from groups.models import Group, GroupMembership
 
 
@@ -124,7 +125,7 @@ class ImportBase(TestCase):
 
     def assert_400(self, resp, detail):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST, resp.content)
-        self.assertEqual(resp.json(), {"detail": detail})
+        assert_import_error(self, resp, detail)
 
 
 # ---------------------------------------------------------------------------
@@ -2838,7 +2839,7 @@ class TrelloViewTests(TestCase):
         )
 
     def test_mode_flags_must_be_exactly_one(self):
-        expected = {"detail": "Specify exactly one of ?dry_run=true or ?confirm=true."}
+        expected = {"detail": "Specify exactly one of ?dry_run=true or ?confirm=true.", "code": "invalid_mode"}
         for query in (
             "",
             "dry_run=true&confirm=true",
@@ -2859,7 +2860,7 @@ class TrelloViewTests(TestCase):
     def test_no_file(self):
         resp = self.client.post(f"{TRELLO_URL}?dry_run=true", {}, format="multipart")
         self.assertEqual(resp.status_code, 400)
-        self.assertEqual(resp.json(), {"detail": "No file provided."})
+        self.assertEqual(resp.json(), {"detail": "No file provided.", "code": "no_file"})
 
     @override_settings(VISIBAN_IMPORT_MAX_SIZE=1024 * 1024)
     def test_oversize_is_413_with_mb_in_message_and_boundary_is_inclusive(self):
@@ -2867,7 +2868,7 @@ class TrelloViewTests(TestCase):
         self.assertEqual(over.status_code, 413)
         self.assertEqual(
             over.json(),
-            {"detail": "File too large. The maximum size for a Trello import is 1 MB."},
+            {"detail": "File too large. The maximum size for a Trello import is 1 MB.", "code": "file_too_large"},
         )
         # Exactly at the cap is not a size error (it fails later, as invalid JSON).
         at = self.post(data=b"x" * (1024 * 1024))
@@ -2889,6 +2890,7 @@ class TrelloViewTests(TestCase):
             mismatch.json(),
             {
                 "detail": "The uploaded file does not match the file that was previewed. Preview it again.",
+                "code": "file_mismatch",
             },
         )
         self.assertEqual(Board.objects.count(), 0)
@@ -2908,13 +2910,15 @@ class TrelloViewTests(TestCase):
         resp = self.post(data=b"not json at all")
         self.assertEqual(resp.status_code, 400)
         self.assertTrue(resp.json()["detail"])
-        self.assertEqual(set(resp.json()), {"detail"})
+        self.assertEqual(set(resp.json()), {"detail", "code"})
+        self.assertEqual(resp.json()["code"], "invalid_file")
 
     def test_confirm_creates_board_and_returns_board_and_summary(self):
         resp = self.post("confirm=true")
         self.assertEqual(resp.status_code, 201, resp.content)
         body = resp.json()
-        self.assertEqual(set(body), {"board", "summary"})
+        # {board, summary} plus, since #1903, the board fields and import_summary.
+        self.assertLessEqual({"board", "summary", "import_summary", "id"}, set(body))
         self.assertEqual(
             set(body["summary"]), {"counts", "result", "warnings", "unmappable"}
         )

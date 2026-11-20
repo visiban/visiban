@@ -3,8 +3,9 @@
 The JSON/CSV import returns the board at the top level plus ``import_summary``;
 the Trello import returns ``{board, summary}`` (201) or the preview (200). They
 used to be documented as untyped objects. These tests validate live responses
-against the generated OpenAPI components, and pin the envelope difference so an
-accidental change to either body fails here (aligning them is deferred).
+against the generated OpenAPI components. Since #1903 both carry all four
+envelope keys (``board``, ``summary``, ``import_summary`` and the board's fields
+at the top level); ``test_import_envelope_1903`` pins that alignment.
 """
 
 import json
@@ -78,7 +79,7 @@ class ImportResponseSchemaTests(TestCase):
         self.assertEqual(resp.status_code, 201)
         body = resp.json()
         self.assertIn("id", body)  # board fields stay at the top level
-        self.assertNotIn("board", body)
+        self.assertEqual(body["board"]["id"], body["id"])  # and under `board` (#1903)
         self.assertNotIn("warnings", body["import_summary"])
         self._assert_valid(body, _IMPORT, "201")
 
@@ -115,6 +116,6 @@ class ImportResponseSchemaTests(TestCase):
         resp = self.client.post(_TRELLO + "?confirm=true", {"file": as_file(load_fixture())}, format="multipart")
         self.assertEqual(resp.status_code, 201, resp.content)
         body = resp.json()
-        self.assertEqual(set(body), {"board", "summary"})
+        self.assertLessEqual({"board", "summary", "import_summary", "id"}, set(body))
         self.assertEqual(set(body["summary"]), {"counts", "result", "warnings", "unmappable"})
         self._assert_valid(body, _TRELLO, "201")

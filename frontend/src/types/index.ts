@@ -2015,15 +2015,22 @@ export interface TrelloImportPreview {
   unmappable: TrelloImportUnmappable[];
 }
 
-export interface TrelloImportResult {
-  board: Board;
-  summary: {
-    counts: TrelloImportCounts;
-    result: TrelloImportResultCounts;
-    warnings: TrelloImportWarning[];
-    unmappable: TrelloImportUnmappable[];
-  };
+/** The Trello confirm summary: `summary`, and since 1.3 also `import_summary`. */
+export interface TrelloImportSummary {
+  counts: TrelloImportCounts;
+  result: TrelloImportResultCounts;
+  warnings: TrelloImportWarning[];
+  unmappable: TrelloImportUnmappable[];
 }
+
+/** `POST /boards/import/trello/?confirm=true` 201. Since 1.3 (#1903) it carries the
+ *  native import's envelope too: the board's fields at the top level and the
+ *  summary again as `import_summary`. */
+export type TrelloImportResult = Board & {
+  board: Board;
+  summary: TrelloImportSummary;
+  import_summary: TrelloImportSummary;
+};
 
 /** What to include in a Visiban JSON/CSV board import (#119). Every key is
  *  optional and defaults to `true` server-side; board structure (name,
@@ -2095,8 +2102,32 @@ export interface ImportSummary {
   warnings?: string[];
 }
 
-/** `POST /api/v1/boards/import/` response: the board plus an additive summary. */
-export type ImportBoardResponse = Board & { import_summary: ImportSummary };
+/** `POST /api/v1/boards/import/` response: the board plus an additive summary.
+ *  Since 1.3 (#1903) also the Trello envelope: `board` (the same board) and
+ *  `summary` (the same object as `import_summary`). */
+export type ImportBoardResponse = Board & { import_summary: ImportSummary; board: Board; summary: ImportSummary };
+
+/** Stable `code` on a board-import error body (#1903; `boards/import_errors.py`).
+ *  Errors raised outside the importer carry DRF's code instead
+ *  (`not_authenticated`, `permission_denied`, `not_found`, `throttled`, `parse_error`, ...). */
+export type ImportErrorCode =
+  | 'no_file'
+  | 'file_too_large'
+  | 'unsupported_format'
+  | 'invalid_file'
+  | 'limit_exceeded'
+  | 'invalid_options'
+  | 'invalid_name'
+  | 'invalid_mode'
+  | 'file_mismatch'
+  | 'invalid_import';
+
+/** Every 4xx body from the two import endpoints. Branch on `code`; `detail` may be reworded. */
+export interface ImportErrorResponse {
+  detail: string;
+  /** New codes may be added; treat an unknown one like `invalid_import`. */
+  code: ImportErrorCode | (string & {});
+}
 
 /** One swimlane row of `GET /boards/{id}/summary/`. */
 export interface BoardSummarySwimlane {

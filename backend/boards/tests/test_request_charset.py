@@ -124,7 +124,7 @@ class RequestCharsetTests(TestCase):
         )
         # The part is dropped, so the importer sees no file at all.
         self.assertEqual(resp.status_code, 400, resp.content[:300])
-        self.assertEqual(resp.json(), {"detail": "No file provided."})
+        self.assertEqual(resp.json(), {"detail": "No file provided.", "code": "no_file"})
 
     def test_legacy_charsets_still_work(self):
         for charset in ("iso-8859-2", "windows-1251", "koi8-r", "shift_jis", "gbk"):
@@ -334,10 +334,10 @@ class PartFilenameCodecTests(TestCase):
                 resp = self.send(self.client, key, "hex")
                 self.assertEqual(resp.status_code, 400, resp.content[:300])
                 self.assertEqual(resp["Content-Type"], "application/json")
-                self.assertEqual(
-                    resp.json(),
-                    {"detail": "Multipart form parse error - unsupported charset in a part header."},
-                )
+                expected = {"detail": "Multipart form parse error - unsupported charset in a part header."}
+                if key in ("trello", "import"):
+                    expected["code"] = "parse_error"  # import error bodies carry a code (#1903)
+                self.assertEqual(resp.json(), expected)
 
     def test_surrogate_and_raising_codecs_are_not_a_500(self):
         for key in self.urls:

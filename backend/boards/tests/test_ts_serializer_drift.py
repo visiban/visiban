@@ -55,6 +55,7 @@ from boards.serializers import (
     SwimlaneCustomFieldDefinitionSerializer,
     SwimlaneSerializer,
 )
+from boards.import_schemas import ImportErrorSerializer, ImportSummarySerializer, TrelloImportSummarySerializer
 from boards.views.notifications import NotificationSerializer
 from accounts.serializers import (
     BoardUserSerializer,
@@ -144,12 +145,16 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # Tracked as a follow-up in #1315: add both the TS interface and this
     # pair in that MR if/when a frontend consumer of the feed endpoint ships.
     #
-    # NOT registered: the Trello import response (import_export.py's
-    # `import_trello` action). It is built from hand-rolled dicts rather than
-    # a serializer, so there is no serializer class to point _DRIFT_PAIRS at.
-    # This is the non-registration #1242 itself sanctions (see that issue's
-    # item 2) — intentional, issue-authorized scope, not silently dropped.
-    # Covered by manual review and backend-schema-fuzz only.
+    # Board-import bodies (#1903). The views build plain dicts; the schema-only
+    # classes in boards/import_schemas.py describe them (#1870) and
+    # test_import_response_schemas_1870 / test_import_envelope_1903 validate
+    # live responses against them, so pairing those classes here closes the
+    # TS side too. The two 201 envelopes are TS `type` intersections
+    # (`Board & {...}`), which this interface parser cannot read; their parts
+    # are paired instead.
+    (ImportSummarySerializer, "ImportSummary", set()),
+    (TrelloImportSummarySerializer, "TrelloImportSummary", set()),
+    (ImportErrorSerializer, "ImportErrorResponse", set()),
 ]
 
 

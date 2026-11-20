@@ -27,7 +27,7 @@ from django.utils.text import slugify
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import ErrorDetail, ParseError
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
@@ -56,8 +56,10 @@ from ..serializers import (
     _run_custom_field_validator_hooks, _swimlane_custom_field_values,
 )
 from ..services import trello_import as _trello
+from ..import_errors import ImportErrorCode, fallback_code
 from ..import_schemas import (
-    BoardImportResponseSerializer, TrelloImportConfirmSerializer, TrelloImportPreviewSerializer,
+    BoardImportResponseSerializer, ImportErrorSerializer, TrelloImportConfirmSerializer,
+    TrelloImportPreviewSerializer,
 )
 from ._helpers import annotate_board_counts, get_accessible_boards_queryset, get_board_for_user
 
@@ -277,6 +279,35 @@ _IMPORT_SKIP_KEYS = (
     # or item imported unassigned. Counts references, not distinct names.
     "assignees",
 )
+
+
+def _limit_error(message):
+    """An error detail for a count cap, tagged ``limit_exceeded`` (#1903).
+
+    Helpers return their error as a string that the view wraps in
+    ``{"detail": ...}``; an ``ErrorDetail`` is still a string, and its
+    ``code`` is what ``BoardImportExportMixin.finalize_response`` copies into
+    the body, so a cap does not fall back to ``invalid_import``.
+    """
+    return ErrorDetail(message, code=ImportErrorCode.LIMIT_EXCEEDED)
+
+
+_IMPORT_ACTIONS = frozenset({"import_board", "import_trello"})
+
+
+def _with_import_error_code(response):
+    """Add ``code`` beside ``detail`` on an import error body that lacks one (#1903).
+
+    The sites with a specific code set it themselves; this is the backstop
+    that makes the contract hold for every error body the two import actions
+    return, including the ones DRF builds for a raised exception (a missing
+    group's 404, a throttle's 429), whose ``detail`` carries its own code.
+    A body without a ``detail`` key (none today) is left alone.
+    """
+    data = getattr(response, "data", None)
+    if response.status_code >= 400 and isinstance(data, dict) and "detail" in data and "code" not in data:
+        data["code"] = fallback_code(data["detail"], response.status_code)
+    return response
 
 
 def _flatten_serializer_errors(errors):
@@ -941,7 +972,7 @@ def _validate_json_import_values(data):
 
     labels = data.get("labels", [])
     if len(labels) > _IMPORT_MAX_LABELS:
-        return f"Import contains {len(labels)} labels, which exceeds the limit of {_IMPORT_MAX_LABELS}."
+        return _limit_error(f"Import contains {len(labels)} labels, which exceeds the limit of {_IMPORT_MAX_LABELS}.")
 
     column_specs = (
         ("name", _text(_field_max_length(Column, "name"))),
@@ -1090,12 +1121,12 @@ def _validate_json_import_values(data):
         if gates and gates >= max(sub_counts.get(col_ref, 0) if isinstance(col_ref, str) else 0, 1):
             return f"{where}: 'gates_passed' must be less than the number of sub-columns of its column"
         if len(card.get("labels", [])) > _IMPORT_MAX_LABEL_REFS_PER_CARD:
-            return f"{where}: 'labels' has more than {_IMPORT_MAX_LABEL_REFS_PER_CARD} entries"
+            return _limit_error(f"{where}: 'labels' has more than {_IMPORT_MAX_LABEL_REFS_PER_CARD} entries")
         for child, (child_label, specs) in child_specs.items():
             items = card.get(child, [])
             cap = _IMPORT_MAX_CHILDREN_PER_CARD[child]
             if len(items) > cap:
-                return f"{where}: '{child}' has {len(items)} entries; the limit is {cap}"
+                return _limit_error(f"{where}: '{child}' has {len(items)} entries; the limit is {cap}")
             for ji, entry in enumerate(items):
                 if error := _check_keys(entry, specs, f"{where}, {child_label} at index {ji}"):
                     return error
@@ -1103,14 +1134,14 @@ def _validate_json_import_values(data):
             return error
         total_rows += _card_rows(card)
         if total_rows > _IMPORT_MAX_ROWS:
-            return f"Import would write more than {_IMPORT_MAX_ROWS} rows in total."
+            return _limit_error(f"Import would write more than {_IMPORT_MAX_ROWS} rows in total.")
         # Usernames feed one ``IN`` query; bound how many and how long.
         for key, value in _card_usernames(card):
             if len(value) > username_len:
                 return f"{where}: '{key}' must be at most {username_len} characters"
             usernames.add(value)
         if len(usernames) > _IMPORT_MAX_USERNAMES:
-            return f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames."
+            return _limit_error(f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames.")
     return None
 
 
@@ -1266,7 +1297,9 @@ def _json_import_write_guard():
             "Board JSON import rejected — %s while writing (%s); a per-field check is missing.",
             type(exc).__name__, where,
         )
-        raise ParseError("The import file contains a value that cannot be stored.") from None
+        raise ParseError(
+            "The import file contains a value that cannot be stored.", code=ImportErrorCode.INVALID_IMPORT,
+        ) from None
 
 
 def _timestamp_error(value, parser):
@@ -1412,6 +1445,19 @@ def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on)
     return rows
 
 
+def _import_envelope(board_data, summary):
+    """The 201 body every board import returns (#1903).
+
+    The JSON/CSV import used to return the board's fields at the top level
+    plus ``import_summary``; the Trello import returned ``{board, summary}``.
+    Both now carry all four keys so one client can read either, and neither
+    lost a key (1.x is additive only): the board's fields at the top level
+    and under ``board``, the summary under both ``summary`` and
+    ``import_summary``. The summary's own shape is still per source.
+    """
+    return {**board_data, "import_summary": summary, "board": board_data, "summary": summary}
+
+
 def _resolve_import_users(usernames, importer, group=None):
     """Map imported usernames to users the importer can see, keyed by lowered username.
 
@@ -1441,6 +1487,14 @@ def _resolve_import_users(usernames, importer, group=None):
 class BoardImportExportMixin:
     """Mixin providing import and export @action methods for BoardViewSet."""
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        # Runs after handle_exception, so it also sees the bodies DRF builds
+        # for raised exceptions. Scoped to the two import actions: the error
+        # ``code`` is their contract (#1903), not every board endpoint's.
+        if getattr(self, "action", None) in _IMPORT_ACTIONS:
+            _with_import_error_code(response)
+        return super().finalize_response(request, response, *args, **kwargs)
+
     @extend_schema(
         summary="Import a board from a Visiban JSON or CSV export",
         request={"multipart/form-data": {"type": "object", "properties": {
@@ -1468,10 +1522,12 @@ class BoardImportExportMixin:
         responses={
             201: OpenApiResponse(
                 BoardImportResponseSerializer,
-                description="The new board (same shape as GET /boards/{id}/) plus an import_summary object.",
+                description=(
+                    "The new board: its fields at the top level and under `board`, plus the "
+                    "import summary under both `import_summary` and `summary` (#1903)."
+                ),
             ),
-            400: OpenApiTypes.OBJECT, 401: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT,
+            **{code: ImportErrorSerializer for code in (400, 401, 403, 404, 429)},
         },
     )
     @action(detail=False, methods=["post"], url_path="import", parser_classes=[LimitedMultiPartParser],
@@ -1480,12 +1536,12 @@ class BoardImportExportMixin:
         """Import a board from a Visiban JSON or CSV export file."""
         file = request.FILES.get("file")
         if not file:
-            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "No file provided.", "code": ImportErrorCode.NO_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         max_size = getattr(django_settings, "MAX_UPLOAD_SIZE", 10 * 1024 * 1024)
         if file.size > max_size:
             return Response(
-                {"detail": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB."},
+                {"detail": f"File too large. Maximum size is {max_size // (1024 * 1024)} MB.", "code": ImportErrorCode.FILE_TOO_LARGE},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1498,14 +1554,14 @@ class BoardImportExportMixin:
             importer, options_serializer = self._import_csv, CSVImportOptionsSerializer
         else:
             return Response(
-                {"detail": "Unsupported file format. Upload a .json or .csv file."},
+                {"detail": "Unsupported file format. Upload a .json or .csv file.", "code": ImportErrorCode.UNSUPPORTED_FORMAT},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         # Validated before the file is read so a bad ``options`` field fails
         # fast and never reaches the transaction (#119).
         options, error = _parse_import_options(request.data.get("options"), options_serializer)
         if error:
-            return Response({"detail": error}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": error, "code": ImportErrorCode.INVALID_OPTIONS}, status=status.HTTP_400_BAD_REQUEST)
         return importer(request, file, options)
 
     def _resolve_import_group(self, request):
@@ -1572,10 +1628,10 @@ class BoardImportExportMixin:
         # quote the file.
         except (UnicodeDecodeError, ValueError, RecursionError) as exc:
             logger.warning("Board JSON import rejected — malformed payload: %s", type(exc).__name__)
-            return Response({"detail": "The uploaded file is not valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "The uploaded file is not valid JSON.", "code": ImportErrorCode.INVALID_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         if not isinstance(data, dict):
-            return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "Invalid JSON: expected an object at the top level.", "code": ImportErrorCode.INVALID_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         # Reject malformed payloads where collection keys are present but not lists.
         # Without this guard a string or integer value triggers TypeError/AttributeError
@@ -1658,17 +1714,17 @@ class BoardImportExportMixin:
 
         if card_count > _IMPORT_MAX_CARDS:
             return Response(
-                {"detail": f"Import contains {card_count} cards, which exceeds the limit of {_IMPORT_MAX_CARDS}."},
+                {"detail": f"Import contains {card_count} cards, which exceeds the limit of {_IMPORT_MAX_CARDS}.", "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if column_count > _IMPORT_MAX_COLUMNS:
             return Response(
-                {"detail": f"Import contains {column_count} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}."},
+                {"detail": f"Import contains {column_count} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}.", "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if swimlane_count > _IMPORT_MAX_SWIMLANES:
             return Response(
-                {"detail": f"Import contains {swimlane_count} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}."},
+                {"detail": f"Import contains {swimlane_count} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}.", "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1887,7 +1943,7 @@ class BoardImportExportMixin:
 
         explicit_name = request.data.get("name")
         if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
-            return Response({"detail": f"'name' {problem}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"'name' {problem}", "code": ImportErrorCode.INVALID_NAME}, status=status.HTTP_400_BAD_REQUEST)
 
         group = self._resolve_import_group(request)
         # An explicit ``name`` is used exactly as given; only the default is
@@ -2502,12 +2558,8 @@ class BoardImportExportMixin:
                     from groups.broadcast import broadcast_group_event
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd, actor_id=aid)
             transaction.on_commit(_broadcast_created)
-        # The board body stays at the top level (unwrapped) so existing
-        # clients keep working; ``import_summary`` is additive (#119).
-        return Response(
-            {**board_data, "import_summary": {"options_applied": options, "skipped": skipped}},
-            status=status.HTTP_201_CREATED,
-        )
+        import_summary = {"options_applied": options, "skipped": skipped}
+        return Response(_import_envelope(board_data, import_summary), status=status.HTTP_201_CREATED)
 
     @extend_schema(
         summary="Import a Trello board export (preview or confirm)",
@@ -2524,9 +2576,7 @@ class BoardImportExportMixin:
         }, "required": ["file"]}},
         responses={200: OpenApiResponse(TrelloImportPreviewSerializer, description="Returned for ?dry_run=true."),
                    201: OpenApiResponse(TrelloImportConfirmSerializer, description="Returned for ?confirm=true."),
-                   400: OpenApiTypes.OBJECT,
-                   401: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT,
-                   413: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT},
+                   **{code: ImportErrorSerializer for code in (400, 401, 403, 404, 413, 429)}},
     )
     @action(detail=False, methods=["post"], url_path="import/trello", parser_classes=[LimitedMultiPartParser],
             throttle_classes=[TrelloImportThrottle])
@@ -2543,17 +2593,17 @@ class BoardImportExportMixin:
         confirm = _query_flag(request, "confirm")
         if dry_run == confirm:
             return Response(
-                {"detail": "Specify exactly one of ?dry_run=true or ?confirm=true."},
+                {"detail": "Specify exactly one of ?dry_run=true or ?confirm=true.", "code": ImportErrorCode.INVALID_MODE},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         file = request.FILES.get("file")
         if not file:
-            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "No file provided.", "code": ImportErrorCode.NO_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         max_size = django_settings.VISIBAN_IMPORT_MAX_SIZE
         too_large = Response(
-            {"detail": f"File too large. The maximum size for a Trello import is {max_size // (1024 * 1024)} MB."},
+            {"detail": f"File too large. The maximum size for a Trello import is {max_size // (1024 * 1024)} MB.", "code": ImportErrorCode.FILE_TOO_LARGE},
             status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
         )
         if file.size is not None and file.size > max_size:
@@ -2571,7 +2621,7 @@ class BoardImportExportMixin:
         expected_sha = request.data.get("file_sha256")
         if confirm and expected_sha and (not isinstance(expected_sha, str) or expected_sha != file_sha256):
             return Response(
-                {"detail": "The uploaded file does not match the file that was previewed. Preview it again."},
+                {"detail": "The uploaded file does not match the file that was previewed. Preview it again.", "code": ImportErrorCode.FILE_MISMATCH},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2584,7 +2634,7 @@ class BoardImportExportMixin:
             matched = _trello.match_members(export, request.user, group)
             plan = _trello.build_plan(export, options, matched)
         except _trello.TrelloImportError as exc:
-            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": exc.detail, "code": exc.code}, status=status.HTTP_400_BAD_REQUEST)
 
         preview = {**plan.preview, "file_sha256": file_sha256}
         if dry_run:
@@ -2592,7 +2642,7 @@ class BoardImportExportMixin:
 
         raw_name = request.data.get("name")
         if raw_name is not None and not isinstance(raw_name, str):
-            return Response({"detail": "'name' must be a string."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "'name' must be a string.", "code": ImportErrorCode.INVALID_NAME}, status=status.HTTP_400_BAD_REQUEST)
         board_name = (raw_name or "").replace("\x00", "").strip() or None
         try:
             with transaction.atomic():
@@ -2600,10 +2650,10 @@ class BoardImportExportMixin:
                 board = _trello.execute_plan(plan, request.user, group=group, board_name=board_name)
                 board_data = self._broadcast_imported_board(request, board)
         except _trello.TrelloImportError as exc:
-            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": exc.detail, "code": exc.code}, status=status.HTTP_400_BAD_REQUEST)
 
         summary = {k: preview[k] for k in ("counts", "result", "warnings", "unmappable")}
-        return Response({"board": board_data, "summary": summary}, status=status.HTTP_201_CREATED)
+        return Response(_import_envelope(board_data, summary), status=status.HTTP_201_CREATED)
 
     def _broadcast_imported_board(self, request, board):
         """Serialize the new board and schedule its ``board.created`` broadcast.
@@ -2663,10 +2713,10 @@ class BoardImportExportMixin:
             reader = csv.DictReader(io.StringIO(raw))
             rows = list(reader)
         except (UnicodeDecodeError, csv.Error) as exc:
-            return Response({"detail": f"Invalid CSV: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"Invalid CSV: {exc}", "code": ImportErrorCode.INVALID_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         if not rows:
-            return Response({"detail": "CSV file is empty."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "CSV file is empty.", "code": ImportErrorCode.INVALID_FILE}, status=status.HTTP_400_BAD_REQUEST)
 
         # Normalize headers to canonical casing so that exports from external tools
         # (which commonly use lowercase or snake_case) import cleanly.  Unknown
@@ -2703,7 +2753,8 @@ class BoardImportExportMixin:
         _IMPORT_MAX_CARDS = 500
         if len(rows) > _IMPORT_MAX_CARDS:
             return Response(
-                {"detail": f"Import contains {len(rows)} rows, which exceeds the card limit of {_IMPORT_MAX_CARDS}."},
+                {"detail": f"Import contains {len(rows)} rows, which exceeds the card limit of {_IMPORT_MAX_CARDS}.",
+                 "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2837,18 +2888,18 @@ class BoardImportExportMixin:
         unique_swimlanes = {_cell(row, "Swimlane") for row in rows if _cell(row, "Swimlane")}
         if len(unique_columns) > _IMPORT_MAX_COLUMNS:
             return Response(
-                {"detail": f"Import contains {len(unique_columns)} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}."},
+                {"detail": f"Import contains {len(unique_columns)} columns, which exceeds the limit of {_IMPORT_MAX_COLUMNS}.", "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if len(unique_swimlanes) > _IMPORT_MAX_SWIMLANES:
             return Response(
-                {"detail": f"Import contains {len(unique_swimlanes)} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}."},
+                {"detail": f"Import contains {len(unique_swimlanes)} swimlanes, which exceeds the limit of {_IMPORT_MAX_SWIMLANES}.", "code": ImportErrorCode.LIMIT_EXCEEDED},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         explicit_name = request.data.get("name")
         if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
-            return Response({"detail": f"'name' {problem}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"'name' {problem}", "code": ImportErrorCode.INVALID_NAME}, status=status.HTTP_400_BAD_REQUEST)
 
         group = self._resolve_import_group(request)
         # A CSV carries no board name, so the default is derived from the
@@ -3120,19 +3171,12 @@ class BoardImportExportMixin:
                     from groups.broadcast import broadcast_group_event
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd, actor_id=aid)
             transaction.on_commit(_broadcast_created)
-        # The board body stays at the top level (unwrapped) so existing
-        # clients keep working; ``import_summary`` is additive (#119).
-        return Response(
-            {
-                **board_data,
-                "import_summary": {
-                    "options_applied": options,
-                    "skipped": skipped,
-                    "warnings": _cap_warnings(csv_warnings),
-                },
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        import_summary = {
+            "options_applied": options,
+            "skipped": skipped,
+            "warnings": _cap_warnings(csv_warnings),
+        }
+        return Response(_import_envelope(board_data, import_summary), status=status.HTTP_201_CREATED)
 
     # Schema only (#1783). The action is a file download
     # (Content-Disposition: attachment): CSV by default (also ?format=csv),
