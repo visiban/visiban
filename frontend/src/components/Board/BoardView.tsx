@@ -3905,6 +3905,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           focusFirstStoppedWebhook={webhookDeepLink}
           webhookChange={webhookChange}
           webhookReconnectSignal={socketReconnectSeq}
+          webhookSocketStatus={socketStatus}
           currentUserHasPassword={currentUser?.has_usable_password !== false}
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}

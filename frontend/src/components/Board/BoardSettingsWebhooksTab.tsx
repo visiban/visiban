@@ -14,6 +14,7 @@ import {
   updateWebhook,
 } from "../../api/webhooks";
 import type { WebhookChangedPayload, WebhookStatus, WebhookSubscription } from "../../types";
+import type { SocketStatus } from "../../hooks/useBoardSocket";
 import {
   CHANGED_ELSEWHERE_MS,
   SECRET_LEFT_COPY,
@@ -51,6 +52,64 @@ const HIGHLIGHT_MS = 1500;
 const REFETCH_COALESCE_MS = 300;
 /** Announcements of changes made elsewhere coalesce within this window (1.3 UI spec Part 9). */
 const ANNOUNCE_COALESCE_MS = 2000;
+
+const PAUSED_LIVE_COPY = "Live updates paused.";
+
+const awayCopy = (n: number) => `${n} ${n === 1 ? "webhook" : "webhooks"} changed while you were away`;
+
+/**
+ * "by <name>" for a frame's `changed_by` id (#2403). The frame carries the id
+ * only, so the name comes from the board's member list. An id nobody can be
+ * matched to reads "by another admin", never the raw id; null (the dispatcher
+ * turning a webhook off) names no one.
+ */
+function byLabel(changedBy: number | null, members: ReadonlyArray<{ user: { id: number; display_name: string } }>): string | null {
+  if (changedBy === null) return null;
+  const name = members.find((m) => m.user.id === changedBy)?.user.display_name?.trim();
+  return name ? `by ${name}` : "by another admin";
+}
+
+const STATUS_WORD: Record<WebhookChangedPayload["status"], string> = {
+  active: "on",
+  failing: "failing",
+  disabled: "turned off",
+  deleted: "deleted",
+};
+
+function detailChangeCopy(status: WebhookChangedPayload["status"], by: string | null): string {
+  return `This webhook was changed elsewhere${by ? ` ${by}` : ""}. It is now ${STATUS_WORD[status]}.`;
+}
+
+/**
+ * The announcement for one change made elsewhere (Part 8 copy, no host):
+ * "Webhook 2 of 3 is failing: 3 deliveries in a row." Names the new status;
+ * falls back to the generic sentence when the row is not in the list.
+ */
+function changeAnnouncement(change: WebhookChangedPayload, subs: readonly WebhookSubscription[] | null): string {
+  if (change.status === "deleted") return "A webhook was deleted elsewhere.";
+  if (!subs || !subs.some((s) => s.id === change.id)) return "A webhook was changed elsewhere.";
+  const where = webhookPosition(subs, change.id);
+  if (change.status === "failing") {
+    const n = change.consecutive_failures;
+    return n > 0 ? `${where} is failing: ${n} ${n === 1 ? "delivery" : "deliveries"} in a row.` : `${where} is failing.`;
+  }
+  return `${where} is ${change.status === "active" ? "on" : "turned off"}.`;
+}
+
+/** Rows added, removed or whose state moved between two reads. */
+function countChanged(prev: readonly WebhookSubscription[] | null, next: readonly WebhookSubscription[]): number {
+  if (!prev) return 0;
+  // Failing or not, not how many failures: the live event announces only the
+  // first failure (docs/api/websockets.md), so a webhook that keeps failing
+  // must not count as changed on every reconnect (#2403).
+  const sig = (s: WebhookSubscription) => `${s.enabled}|${s.consecutive_failures > 0}|${s.disabled_reason}|${s.url_display}|${s.event_types.join(",")}|${s.secret_rotated_at}`;
+  const before = new Map(prev.map((s) => [s.id, sig(s)]));
+  let n = 0;
+  for (const s of next) if (before.get(s.id) !== sig(s)) n += 1;
+  const ids = new Set(next.map((s) => s.id));
+  for (const id of before.keys()) if (!ids.has(id)) n += 1;
+  return n;
+}
 
 type SecretOrigin = "create" | "rotate";
 interface LeftPending {
@@ -106,6 +165,16 @@ interface Props {
    * while the socket was down are lost, so each new value re-reads the list.
    */
   reconnectSignal?: number;
+  /**
+   * #2403 — the board socket's state. While it is down, live updates are
+   * paused and the tab says so, with a Refresh. Omitted = no banner.
+   */
+  socketStatus?: SocketStatus;
+  /**
+   * #2403 — the board's members, only to turn a frame's `changed_by` id into a
+   * display name. No new request: the frame carries the id and nothing else.
+   */
+  members?: ReadonlyArray<{ user: { id: number; display_name: string } }>;
 }
 
 type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: number };
@@ -129,6 +198,8 @@ export default function BoardSettingsWebhooksTab({
   remoteChange = null,
   currentUserId = null,
   reconnectSignal = 0,
+  socketStatus,
+  members = [],
 }: Props) {
   const [status, setStatus] = useState<WebhookStatus | null>(null);
   const [featureOff, setFeatureOff] = useState(false);
@@ -150,7 +221,17 @@ export default function BoardSettingsWebhooksTab({
   const [stuck, setStuck] = useState<SecretOrigin | null>(null);
   const [leftPending, setLeftPending] = useState<LeftPending | null>(() => readLeftPending(boardId));
   // #2057 — rows another admin or the dispatcher changed in the last 30 s.
-  const [changedIds, setChangedIds] = useState<ReadonlySet<number>>(() => new Set());
+  // The value is the "by <name>" suffix (#2403); null when nobody is to be named.
+  const [changedIds, setChangedIds] = useState<ReadonlyMap<number, string | null>>(() => new Map());
+  // #2403 — when the list was last read, for "Updated N min ago" while paused.
+  const [updatedAt, setUpdatedAt] = useState(() => Date.now());
+  // #2403 — rows that changed while the socket was down, shown after a reconnect.
+  const [awayCount, setAwayCount] = useState(0);
+  // #2403 — a non-delete change to the webhook whose detail is open.
+  const [detailChange, setDetailChange] = useState<{ id: number; text: string } | null>(null);
+  // Announces the paused / away / detail-changed banners: always mounted (#1421).
+  const [stateLive, setStateLive] = useState("");
+  const stateLiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [remoteLive, setRemoteLive] = useState("");
   // A "may have taken effect" notice or a banner that replaces a vanished
   // subject is announced here, always mounted: a status region that mounts
@@ -185,7 +266,20 @@ export default function BoardSettingsWebhooksTab({
   const refetchDeferredRef = useRef(false);
   const changedTimersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const announceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const announceIdsRef = useRef(new Set<number>());
+  const announceIdsRef = useRef(new Map<number, WebhookChangedPayload>());
+  const subsRef = useRef<WebhookSubscription[] | null>(null);
+  subsRef.current = subs;
+  const membersRef = useRef(members);
+  membersRef.current = members;
+  // A reconnect asked for this read: diff it against the list on screen.
+  const awayReadRef = useRef(false);
+  // Mirrors `paused` for async callbacks: a read that resolves after the
+  // connection dropped again must not write over the paused copy (#2403).
+  const pausedRef = useRef(false);
+  // Refresh had focus when the paused banner unmounted (reconnect): focus
+  // then falls to <body>, so a landmark takes it, as for the Dismiss buttons.
+  const refreshButtonElRef = useRef<HTMLButtonElement | null>(null);
+  const refreshHadFocusRef = useRef(false);
   // A frame that arrived before this tab mounted is already in the first load.
   const mountSeqRef = useRef(remoteChange?.seq ?? 0);
   // Likewise a reconnect from before this tab mounted.
@@ -211,12 +305,24 @@ export default function BoardSettingsWebhooksTab({
     if (highlightTimerRef.current !== null) clearTimeout(highlightTimerRef.current);
     if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
     if (announceTimerRef.current !== null) clearTimeout(announceTimerRef.current);
+    if (stateLiveTimerRef.current !== null) clearTimeout(stateLiveTimerRef.current);
     changedTimersRef.current.forEach((t) => clearTimeout(t));
   }, []);
 
   // ── Live updates (#2057, 1.3 UI spec Part 9) ─────────────────────────────────
   // A refetch only replaces the list: an open create form, confirm or secret
   // reveal is separate state and is never disturbed by one.
+  // Clear, then write on the next tick, so an identical sentence is a change
+  // to the region and is read again (the announcer rule, #2057).
+  const announceState = useCallback((text: string) => {
+    if (stateLiveTimerRef.current !== null) clearTimeout(stateLiveTimerRef.current);
+    setStateLive("");
+    stateLiveTimerRef.current = setTimeout(() => {
+      stateLiveTimerRef.current = null;
+      setStateLive(text);
+    }, 50);
+  }, []);
+
   const refetchList = useCallback(() => {
     if (refetchTimerRef.current !== null) clearTimeout(refetchTimerRef.current);
     refetchTimerRef.current = setTimeout(() => {
@@ -226,47 +332,117 @@ export default function BoardSettingsWebhooksTab({
         refetchDeferredRef.current = true;
         return;
       }
-      listWebhooks(boardId).then(setSubs).catch(() => undefined);
+      const diffAway = awayReadRef.current;
+      awayReadRef.current = false;
+      listWebhooks(boardId).then((next) => {
+        if (diffAway && !pausedRef.current) {
+          const n = countChanged(subsRef.current, next);
+          if (n > 0) {
+            setAwayCount(n);
+            announceState(awayCopy(n));
+          }
+        }
+        setSubs(next);
+        setUpdatedAt(Date.now());
+      }).catch(() => undefined);
     }, REFETCH_COALESCE_MS);
-  }, [boardId]);
+  }, [boardId, announceState]);
 
   useEffect(() => {
     if (!remoteChange || remoteChange.seq <= mountSeqRef.current) return;
     mountSeqRef.current = remoteChange.seq;
     refetchList();
     // This user's own change (this tab or another of theirs): no "elsewhere" tag.
-    if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) return;
+    if (remoteChange.changed_by !== null && remoteChange.changed_by === currentUserId) {
+      // The user's own change to the open webhook supersedes a banner raised
+      // by someone else's earlier one, which would now state the wrong thing.
+      setDetailChange((prev) => (prev !== null && prev.id === remoteChange.id ? null : prev));
+      return;
+    }
     const id = remoteChange.id;
-    setChangedIds((prev) => new Set(prev).add(id));
+    const by = byLabel(remoteChange.changed_by, membersRef.current);
+    // The detail banner already says this change through the state slot; the
+    // coalesced announcement below would read it a second time (#2403).
+    let announcedInDetail = false;
+    setChangedIds((prev) => new Map(prev).set(id, by));
+    if (viewRef.current.kind === "detail" && viewRef.current.id === id && remoteChange.status !== "deleted") {
+      const text = detailChangeCopy(remoteChange.status, by);
+      setDetailChange({ id, text });
+      announceState(text);
+      announcedInDetail = true;
+    }
     const timers = changedTimersRef.current;
     const previous = timers.get(id);
     if (previous !== undefined) clearTimeout(previous);
     timers.set(id, setTimeout(() => {
       timers.delete(id);
       setChangedIds((prev) => {
-        const next = new Set(prev);
+        const next = new Map(prev);
         next.delete(id);
         return next;
       });
     }, CHANGED_ELSEWHERE_MS));
-    announceIdsRef.current.add(id);
+    if (announcedInDetail) return;
+    announceIdsRef.current.set(id, remoteChange);
     if (announceTimerRef.current === null) {
       // Cleared at the start of each batch, so a batch with the same count as
       // the last one is still a change to the region and is announced.
       setRemoteLive("");
       announceTimerRef.current = setTimeout(() => {
         announceTimerRef.current = null;
-        const n = announceIdsRef.current.size;
+        const batch = [...announceIdsRef.current.values()];
         announceIdsRef.current.clear();
-        setRemoteLive(n === 1 ? "A webhook was changed elsewhere." : `${n} webhooks were changed elsewhere.`);
+        setRemoteLive(
+          batch.length === 1
+            ? changeAnnouncement(batch[0], subsRef.current)
+            : `${batch.length} webhooks were changed elsewhere.`,
+        );
       }, ANNOUNCE_COALESCE_MS);
     }
-  }, [remoteChange, currentUserId, refetchList]);
+  }, [remoteChange, currentUserId, refetchList, announceState]);
+
+  useEffect(() => {
+    if (subs !== null) setUpdatedAt(Date.now());
+  }, [subs]);
+
+  // #2403 — live updates are paused while the socket is down. The banner is
+  // announced once, through the always-mounted slot; coming back clears it.
+  const paused = socketStatus === "reconnecting" || socketStatus === "failed";
+  pausedRef.current = paused;
+  const ready = status !== null && subs !== null;
+  useEffect(() => {
+    // The latest state wins: a pending away or detail announcement must not
+    // land after, and overwrite, the paused copy.
+    if (paused) {
+      if (stateLiveTimerRef.current !== null) {
+        clearTimeout(stateLiveTimerRef.current);
+        stateLiveTimerRef.current = null;
+      }
+      // Each reconnect's diff stands alone: a count from an earlier one is gone.
+      setAwayCount(0);
+      setStateLive(PAUSED_LIVE_COPY);
+    } else {
+      setStateLive((prev) => (prev === PAUSED_LIVE_COPY ? "" : prev));
+      if (refreshHadFocusRef.current) {
+        refreshHadFocusRef.current = false;
+        setPendingFocus("landmark");
+      }
+    }
+    // `ready`: the loading branch renders its own (empty) slot, so the first
+    // loaded render mounts a new one; write into it after it is mounted.
+  }, [paused, ready]);
+
+  // A detail banner belongs to the webhook it was raised for.
+  useEffect(() => {
+    if (detailChange && !(view.kind === "detail" && view.id === detailChange.id)) setDetailChange(null);
+  }, [view, detailChange]);
 
   // Frames sent while the socket was down never arrive: re-read on reconnect.
   useEffect(() => {
     if (reconnectSignal <= mountReconnectRef.current) return;
     mountReconnectRef.current = reconnectSignal;
+    awayReadRef.current = true;
+    setAwayCount(0);
     refetchList();
   }, [reconnectSignal, refetchList]);
 
@@ -548,11 +724,28 @@ export default function BoardSettingsWebhooksTab({
   }
   if (status === null || subs === null) {
     return (
-      <div className="flex justify-center py-6">
-        <Spinner size="sm" label="Loading webhooks" />
-      </div>
+      <>
+        <div className="flex justify-center py-6">
+          <Spinner size="sm" label="Loading webhooks" />
+        </div>
+        {/* Mounted empty, so the paused copy is a change to it (#1421, #2403). */}
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="webhook-state-live">{stateLive}</p>
+      </>
     );
   }
+
+  const dismissAway = () => {
+    setAwayCount(0);
+    setStateLive((prev) => (prev === awayCopy(awayCount) ? "" : prev));
+    // The focused button unmounts: a heading takes focus.
+    setPendingFocus("landmark");
+  };
+  const dismissDetailChange = () => {
+    setStateLive((prev) => (prev === detailChange?.text ? "" : prev));
+    setDetailChange(null);
+    setPendingFocus("landmark");
+  };
+  const updatedMinutes = Math.floor(Math.max(0, now - updatedAt) / 60_000);
 
   const lastRun = status.dispatcher_last_run_at ? Date.parse(status.dispatcher_last_run_at) : NaN;
   const lastRunLabel = Number.isNaN(lastRun) ? null : relativeTime(lastRun, now);
@@ -628,6 +821,20 @@ export default function BoardSettingsWebhooksTab({
       );
     } else {
       body = (
+        <>
+        {detailChange?.id === sub.id && (
+          // Announced through the always-mounted state slot; no live role of its own (#1421, #2403).
+          <div data-testid="webhook-changed-detail" className="flex items-start gap-3 rounded-lg border border-line bg-raised px-3 py-2 text-xs text-fg">
+            <p className="flex-1">{detailChange.text}</p>
+            <button
+              type="button"
+              onClick={dismissDetailChange}
+              className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <WebhookDetail
           key={sub.id}
           sub={sub}
@@ -711,6 +918,7 @@ export default function BoardSettingsWebhooksTab({
             setLive("Address changed. You're now this webhook's owner.");
           }}
         />
+        </>
       );
     }
   } else {
@@ -816,6 +1024,39 @@ export default function BoardSettingsWebhooksTab({
           </button>
         </div>
       )}
+      {paused && (
+        // Announced through the always-mounted state slot below (#2403).
+        <div data-testid="webhooks-paused" className="flex items-center gap-3 rounded-lg border border-warning/60 bg-warning/15 px-3 py-2 text-xs text-warning-on-tint">
+          <p className="flex-1">
+            Live updates paused · Updated {updatedMinutes < 1 ? "just now" : `${updatedMinutes} min ago`}
+          </p>
+          <button
+            ref={(el) => {
+              if (el === null && refreshButtonElRef.current !== null && document.activeElement === refreshButtonElRef.current) {
+                refreshHadFocusRef.current = true;
+              }
+              refreshButtonElRef.current = el;
+            }}
+            type="button"
+            onClick={() => refetchList()}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong bg-surface transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+      {awayCount > 0 && !paused && (
+        <div data-testid="webhooks-away" className="flex items-center gap-3 rounded-lg border border-line bg-raised px-3 py-2 text-xs text-fg">
+          <p className="flex-1">{awayCopy(awayCount)}</p>
+          <button
+            type="button"
+            onClick={dismissAway}
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {status.dispatcher_stale && <DispatcherStaleNotice lastRunLabel={lastRunLabel} />}
       {body}
       {/* The list status slot: created, deleted, turned off, turned on. */}
@@ -824,6 +1065,8 @@ export default function BoardSettingsWebhooksTab({
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{remoteLive}</p>
       {/* "May have taken effect" and "deleted elsewhere" (#2127, #2057): the visible banners carry no live role. */}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="webhook-notice-live">{noticeLive}</p>
+      {/* Live updates paused, changed while away, and a change to the open webhook (#2403). */}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="webhook-state-live">{stateLive}</p>
     </div>
   );
 }

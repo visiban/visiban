@@ -7,8 +7,8 @@ interface Props {
   subs: WebhookSubscription[];
   now: number;
   highlightId: number | null;
-  /** Rows changed elsewhere in the last 30 s (#2057): tagged "Changed just now". */
-  changedIds?: ReadonlySet<number>;
+  /** Rows changed elsewhere in the last 30 s (#2057): tagged "Changed just now · by <name>" (#2403); the value is the "by" part, null to name no one. */
+  changedIds?: ReadonlyMap<number, string | null>;
   onManage: (id: number) => void;
   /** Manage-button registration, for focus return and the deep link. */
   manageRef: (id: number) => (el: HTMLButtonElement | null) => void;
@@ -51,7 +51,7 @@ export default function WebhookList({ subs, now, highlightId, changedIds, onMana
                 {eventsSummary(sub.event_types)} · Created by {creator} · <span className="font-mono">#{sub.id}</span>
                 {/* On the metadata line, not beside the URL, which truncates (#2057). */}
                 {changedIds?.has(sub.id) && (
-                  <> · <span data-testid={`webhook-changed-${sub.id}`} className="font-medium text-fg">Changed just now</span></>
+                  <> · <span data-testid={`webhook-changed-${sub.id}`} className="font-medium text-fg">Changed just now{changedIds.get(sub.id) ? ` · ${changedIds.get(sub.id)}` : ""}</span></>
                 )}
               </p>
               {err && <p className="text-xs font-mono text-fg-secondary truncate" title={err}>Last error: {err}</p>}
