@@ -1570,76 +1570,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     : undefined;
   const notch = anchored ? placement.notch : null;
 
-  return (
-    // `contents`: no box of its own, so each layer below positions itself;
-    // the wrapper only marks pointer events from this React tree as inside.
-    <div className="contents" onPointerDownCapture={markPointerInside}>
-      {/* Docked only: a light dimming layer that is visual, not a click
-          target, so the cards behind stay clickable to swap (#1914). Anchored
-          and full-screen sheets have none. */}
-      {placement.mode === "docked" && (
-        <div className="fixed inset-0 z-50 bg-backdrop/20 pointer-events-none" aria-hidden="true" data-testid="card-detail-backdrop" />
-      )}
-
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="card-detail-title"
-        tabIndex={-1}
-        data-sheet-mode={placement.mode}
-        data-sheet-side={anchored ? placement.side ?? undefined : undefined}
-        style={panelStyle}
-        className={`fixed z-50 bg-surface outline-none ${panelModeClass}`}
-      >
-        {/* Notch (#1946): a speech-bubble tail on the sheet's outer edge. A
-            child of the root, which is overflow-visible so the tail can sit
-            outside it; the clip moves to the wrapper below. Tracking: an
-            isosceles triangle. Clamped: a right-triangle wedge whose apex
-            points toward the card, so shape alone shows direction.
-            Decorative: the card's 2px border and aria-current carry the link. */}
-        {notch && (
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            width={7}
-            height={24}
-            viewBox="0 0 7 24"
-            data-testid="card-sheet-notch"
-            data-clamped={notch.clamped ? "true" : "false"}
-            data-direction={notch.clamped ? notch.direction : undefined}
-            className={`pointer-events-none absolute z-20 fill-primary-emphasis ${
-              placement.side === "right" ? "-left-[7px]" : "-right-[7px] -scale-x-100"
-            }`}
-            style={{ top: notch.y - 13 }}
-          >
-            <path d={notch.clamped ? (notch.direction === "up" ? "M7 6H1L7 18Z" : "M7 6L1 18H7Z") : "M7 6L1 12L7 18Z"} />
-          </svg>
-        )}
-        {/* Clip wrapper: rounds the content to the border's inner radius when
-            anchored only (a docked or full-screen panel is flush and square). */}
-        <div className={`flex h-full flex-col overflow-hidden ${anchored ? "rounded-[7px]" : ""}`}>
-        {/* Header */}
-        {/* Phone (#2401): the header wraps. Back to board, Block… and Close share the first line, and
-            the title and breadcrumb take the full second line (`order-last`), so a long lane or column
-            name truncates with room beside Move instead of fighting three 44px controls. The visual
-            order differs from the DOM order only on phones: Back, title, Block, Close in the tab order. Known WCAG 2.4.3
-            deviation awaiting an owner decision, tracked in #2410 (see frontend/CLAUDE.md, Phone header layout). */}
-        <div className="flex items-start gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center">
-          {fullscreen && (
-            // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
-            // It closes the sheet like Close and Escape do.
-            <button
-              type="button"
-              onClick={onClose}
-              // Distinct from the toolbar's "Board" view tab; still contains the visible text (label-in-name).
-              aria-label="Back to board"
-              className="h-11 -my-2 -ml-2 px-2 flex items-center gap-1 rounded text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              <span aria-hidden="true">‹</span> Board
-            </button>
-          )}
-          <div className="flex-1 min-w-0 max-sm:order-last max-sm:basis-full" data-testid="card-detail-title-block">
+  // Title and breadcrumb block (#2410). Declared once and placed by `fullscreen`: after Close on a phone, so the
+  // tab order matches the paint order, and before Block… on larger screens, where the title is painted first.
+  const titleBlock = (
+          <div className={`flex-1 min-w-0 ${fullscreen ? "basis-full" : ""}`} data-testid="card-detail-title-block">
             <input
               id="card-detail-title"
               ref={titleInputRef}
@@ -1717,13 +1651,85 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             )}
             {reorderError && <p role="alert" className="mt-2 text-sm text-danger px-1">{reorderError}</p>}
           </div>
+  );
+
+  return (
+    // `contents`: no box of its own, so each layer below positions itself;
+    // the wrapper only marks pointer events from this React tree as inside.
+    <div className="contents" onPointerDownCapture={markPointerInside}>
+      {/* Docked only: a light dimming layer that is visual, not a click
+          target, so the cards behind stay clickable to swap (#1914). Anchored
+          and full-screen sheets have none. */}
+      {placement.mode === "docked" && (
+        <div className="fixed inset-0 z-50 bg-backdrop/20 pointer-events-none" aria-hidden="true" data-testid="card-detail-backdrop" />
+      )}
+
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="card-detail-title"
+        tabIndex={-1}
+        data-sheet-mode={placement.mode}
+        data-sheet-side={anchored ? placement.side ?? undefined : undefined}
+        style={panelStyle}
+        className={`fixed z-50 bg-surface outline-none ${panelModeClass}`}
+      >
+        {/* Notch (#1946): a speech-bubble tail on the sheet's outer edge. A
+            child of the root, which is overflow-visible so the tail can sit
+            outside it; the clip moves to the wrapper below. Tracking: an
+            isosceles triangle. Clamped: a right-triangle wedge whose apex
+            points toward the card, so shape alone shows direction.
+            Decorative: the card's 2px border and aria-current carry the link. */}
+        {notch && (
+          <svg
+            aria-hidden="true"
+            focusable="false"
+            width={7}
+            height={24}
+            viewBox="0 0 7 24"
+            data-testid="card-sheet-notch"
+            data-clamped={notch.clamped ? "true" : "false"}
+            data-direction={notch.clamped ? notch.direction : undefined}
+            className={`pointer-events-none absolute z-20 fill-primary-emphasis ${
+              placement.side === "right" ? "-left-[7px]" : "-right-[7px] -scale-x-100"
+            }`}
+            style={{ top: notch.y - 13 }}
+          >
+            <path d={notch.clamped ? (notch.direction === "up" ? "M7 6H1L7 18Z" : "M7 6L1 18H7Z") : "M7 6L1 12L7 18Z"} />
+          </svg>
+        )}
+        {/* Clip wrapper: rounds the content to the border's inner radius when
+            anchored only (a docked or full-screen panel is flush and square). */}
+        <div className={`flex h-full flex-col overflow-hidden ${anchored ? "rounded-[7px]" : ""}`}>
+        {/* Header */}
+        {/* Phone (#2401): the header wraps. Back to board, Block… and Close share the first line, and
+            the title and breadcrumb take the full second line, so a long lane or column name truncates
+            with room beside Move instead of fighting three 44px controls. #2410: the title block is
+            rendered after Close on a phone (`fullscreen`) and before Block… elsewhere, so the DOM and tab
+            order equal the paint order in both layouts, with no `order-*` class (WCAG 2.4.3). */}
+        <div className={`flex ${fullscreen ? "items-center" : "items-start"} gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center ${fullscreen ? "flex-wrap" : ""}`}>
+          {fullscreen && (
+            // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
+            // It closes the sheet like Close and Escape do.
+            <button
+              type="button"
+              onClick={onClose}
+              // Distinct from the toolbar's "Board" view tab; still contains the visible text (label-in-name).
+              aria-label="Back to board"
+              className="h-11 -my-2 -ml-2 px-2 flex items-center gap-1 rounded text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              <span aria-hidden="true">‹</span> Board
+            </button>
+          )}
+          {!fullscreen && titleBlock}
           {canBlock && !manuallyBlocked && (
             <button
               ref={(el) => { blockTriggerRef("block")(el); blockButtonRef.current = el; }}
               type="button"
               onClick={() => { setTab("details"); setBlockFormMode((m) => (m === "block" ? null : "block")); }}
               aria-expanded={blockFormMode === "block"}
-              className="max-sm:min-h-11 max-sm:ml-auto px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className={`max-sm:min-h-11 ${fullscreen ? "ml-auto" : ""} px-3 py-1.5 -my-1 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
             >
               Block…
             </button>
@@ -1764,10 +1770,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <button type="button"
             ref={closeButtonRef}
             onClick={onClose}
-            className={`${fullscreen ? "w-11 h-11 -my-2 -mr-2" : "w-7 h-7"} ${canBlock && !manuallyBlocked ? "" : "max-sm:ml-auto"} flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+            className={`${fullscreen ? "w-11 h-11 -my-2 -mr-2" : "w-7 h-7"} ${fullscreen && !(canBlock && !manuallyBlocked) ? "ml-auto" : ""} flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
             title="Close"
             aria-label="Close"
           >×</button>
+          {fullscreen && titleBlock}
         </div>
 
         {/* Key facts (#1916): row 3 of the header, so it stays put while the body

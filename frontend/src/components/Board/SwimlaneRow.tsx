@@ -678,7 +678,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
                   <span className="sr-only">{summary}</span>
                   {groups.map((g, i) => (
                     <span key={i} className="contents" data-testid={subs.length > 0 ? `swimlane-strip-sub-${col.id}-${i}` : undefined}>
-                      {i > 0 && <span aria-hidden="true" data-testid="swimlane-strip-sub-divider" className="self-stretch border-l border-dashed border-line-strong" />}
+                      {i > 0 && <span aria-hidden="true" data-testid="swimlane-strip-sub-divider" className="self-stretch border-l border-dashed border-line-boundary" />}
                       <span aria-hidden="true" className="text-sm font-semibold text-fg">{g.length > 0 ? g.length : "–"}</span>
                       {g.length > 0 && (
                         <span aria-hidden="true" className="flex flex-wrap items-center gap-1">

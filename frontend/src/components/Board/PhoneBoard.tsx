@@ -367,7 +367,7 @@ export default function PhoneBoard({
         // aria-pressed buttons in a group, as BoardViewMenu's segments: Tab reaches each one, so no
         // roving radio keys are needed (frontend/CLAUDE.md § Gated stages and tracks).
         <>
-          <div role="group" aria-label={`${column.name} sub-columns`} data-testid="phone-sub-column-switcher" className="flex rounded border border-line-strong overflow-hidden">
+          <div role="group" aria-label={`${column.name} sub-columns`} data-testid="phone-sub-column-switcher" className="flex rounded border border-line-boundary overflow-hidden">
             {subCounts.map(({ sub, n }, i) => {
               const on = i === activeSub;
               return (
@@ -377,7 +377,7 @@ export default function PhoneBoard({
                   aria-pressed={on}
                   aria-label={`${sub.name}, ${n} ${n === 1 ? "card" : "cards"}`}
                   onClick={() => setSubIndex(i)}
-                  className={`flex-1 min-h-11 px-2 inline-flex items-center justify-center gap-1 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-strong" : ""} ${
+                  className={`flex-1 min-h-11 px-2 inline-flex items-center justify-center gap-1 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-boundary" : ""} ${
                     on ? "bg-primary-emphasis/20 text-info font-semibold" : "text-fg-secondary hover:bg-surface-hover"
                   }`}
                 >

@@ -23,6 +23,7 @@ export default {
         line: "rgb(var(--border-default) / <alpha-value>)",
         "line-subtle": "rgb(var(--border-subtle) / <alpha-value>)",
         "line-strong": "rgb(var(--border-strong) / <alpha-value>)",
+        "line-boundary": "rgb(var(--border-boundary) / <alpha-value>)",
         "line-emphasis": "rgb(var(--border-emphasis) / <alpha-value>)",
 
         // Foreground — `fg*` keys avoid the `text-text-*` double prefix

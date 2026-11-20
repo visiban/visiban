@@ -446,7 +446,7 @@ function SubColumnDrop({ id, label, first, dragging, children }: { id: string; l
       role="group"
       aria-label={label}
       data-sub-column-drop={id}
-      className={`flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-strong pl-1"} ${
+      className={`flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-boundary pl-1"} ${
         dragging && isOver ? "bg-primary/20 outline-dashed outline-1 outline-info" : ""
       }`}
     >
