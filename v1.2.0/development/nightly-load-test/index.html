@@ -4556,7 +4556,7 @@
 <tr>
 <td>Flow metrics</td>
 <td><code>GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/</code></td>
-<td>Each replays the whole board's movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>), so cost grows with the board's movements, not with the requested range. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
+<td>Each replays movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>). Since <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a> only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. <code>cumulative-flow</code> still reads every older card's movements once, folded card by card, because finished work stays in the done band for ever: it keeps one dict entry per skipped card (per-card, not per-movement), and its latency still grows with the board's history. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
 </tr>
 </tbody>
 </table>
