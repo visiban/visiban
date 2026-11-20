@@ -2628,7 +2628,7 @@ export interface BoardDeleteImpact {
 
 /** `GET /boards/{b}/cards/{id}/child-board-options/`. */
 export interface ChildBoardOptions {
-  fixed_board: { hidden: false; id: number; name: string } | { hidden: true } | null;
+  fixed_board: { hidden: false; id: number; name: string; can_add: boolean } | { hidden: true } | null;
   default: { id: number; name: string } | null;
   can_set_default: boolean;
   boards: { id: number; name: string; can_set_default: boolean }[];

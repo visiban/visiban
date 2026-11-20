@@ -1189,8 +1189,10 @@ Any role on this card's board.
 ```
 
 - `fixed_board`: the board this card's children are already on, as
-  `{"hidden": false, "id", "name"}`, or `{"hidden": true}` when you cannot open
-  it (Add child is then unavailable to you). `null` when it has no children.
+  `{"hidden": false, "id", "name", "can_add"}`, or `{"hidden": true}` when you
+  cannot open it (Add child is then unavailable to you). `can_add` is false when
+  you are below `member` there or its first column no longer allows card
+  creation: Add child would be refused, so the dialog disables it. `null` when it has no children.
 - `default`: the board's [`default_child_board`](boards.md), only when you are
   `member` or higher there and it still qualifies; otherwise `null`, and the
   client asks which board to use.

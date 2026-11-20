@@ -623,10 +623,17 @@ def child_board_options_for_viewer(parent, user):
     )
     if fixed_id is not None:
         fixed = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=fixed_id).first()
-        if fixed is None or get_board_roles(user, [fixed])[fixed.pk] is None:
+        fixed_role = get_board_roles(user, [fixed])[fixed.pk] if fixed is not None else None
+        if fixed_role is None:
             out["fixed_board"] = {"hidden": True}
         else:
-            out["fixed_board"] = {"hidden": False, "id": fixed.pk, "name": fixed.name}
+            # ``can_add`` is the POST's own rule, so the dialog never offers a
+            # target the write always refuses (a viewer there, or a first
+            # column that stopped allowing card creation).
+            out["fixed_board"] = {
+                "hidden": False, "id": fixed.pk, "name": fixed.name,
+                "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),
+            }
     candidates = list(
         _qualifying(_accessible_boards(user).exclude(pk=parent_board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)

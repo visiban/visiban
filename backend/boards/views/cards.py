@@ -101,8 +101,9 @@ class AttachmentUploadThrottle(UserRateThrottle):
 class CardLinkWriteThrottle(UserRateThrottle):
     """Per-user ceiling on parent/child link writes (#2383), scope ``card_link_write``.
 
-    Added to the default throttles for the three link writes only (see
-    ``CardViewSet.get_throttles``): ``POST``/``DELETE .../parent/`` and
+    Added to the default throttles for the four link writes only (see
+    ``CardViewSet.get_throttles``): ``POST``/``DELETE .../parent/``,
+    ``POST .../children/`` (Add child, #2208) and
     ``DELETE .../children/{child_id}/``. The children read is not counted.
     Each write records history on two cards and pings two boards, and a
     linked child's later moves change its parent's children read, so link
@@ -2850,7 +2851,7 @@ class CardViewSet(viewsets.ModelViewSet):
             "on a board the caller cannot open is a 404, identical in both cases. "
             "Two-tier, already-linked, other-child-board and 100-children refusals "
             "are 400s carrying a `code`."
-            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the four link writes (link, Add child, child-side unlink, parent-side unlink): over it, 429."
         ),
     )
     @extend_schema(
@@ -2862,7 +2863,7 @@ class CardViewSet(viewsets.ModelViewSet):
         description=(
             "Remove this card's parent link. Minimum role: member on this card's "
             "board; the caller need not be able to open the parent."
-            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the four link writes (link, Add child, child-side unlink, parent-side unlink): over it, 429."
         ),
     )
     @action(detail=True, methods=["post", "delete"], url_path="parent")
@@ -2914,10 +2915,12 @@ class CardViewSet(viewsets.ModelViewSet):
             403: OpenApiResponse(description="Below `member` on this card's board."),
             404: OpenApiResponse(description="Unknown, unopenable, below-member or non-qualifying target board: one identical answer."),
             409: _limit_conflict_response("AddChildLimitConflict", _ENTER_COLUMN_409),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
         },
         description=(
             "Add child (#2208): create a card on another board and link it under "
             "this one in one request. Minimum role: member on both boards."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the four link writes (link, Add child, child-side unlink, parent-side unlink): over it, 429."
         ),
     )
     @action(detail=True, methods=["get", "post"], url_path="children")
@@ -2979,7 +2982,8 @@ class CardViewSet(viewsets.ModelViewSet):
         responses={200: OpenApiResponse(description=(
             "`{fixed_board, default, boards, can_set_default}`, computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
-            "(`{hidden: true}` when the caller cannot open it), `default` the board's "
+            "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "
+            "false when the caller may not add a child there), `default` the board's "
             "default child board when the caller can add cards there, `boards` every "
             "board the caller may add the child to, each with `can_set_default`."
         ))},
@@ -3079,7 +3083,7 @@ class CardViewSet(viewsets.ModelViewSet):
         description=(
             "Unlink one child from this parent card. Minimum role: member on "
             "this card's board."
-            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the four link writes (link, Add child, child-side unlink, parent-side unlink): over it, 429."
         ),
     )
     @action(detail=True, methods=["delete"], url_path=r"children/(?P<child_pk>[0-9]+)")

@@ -411,9 +411,25 @@ class ChildBoardOptionsTests(AddChildFixture):
 
     def test_fixed_board_is_hidden_when_the_viewer_cannot_open_it(self):
         CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child), created_by=self.admin)
-        self.assertEqual(self.options(self.admin)["fixed_board"], {"hidden": False, "id": self.child.pk, "name": "Delivery"})
+        self.assertEqual(self.options(self.admin)["fixed_board"], {"hidden": False, "id": self.child.pk, "name": "Delivery", "can_add": True})
         u = self.user_with("fh", parent=Role.MEMBER)
         self.assertEqual(self.options(u)["fixed_board"], {"hidden": True})
+
+    def test_fixed_board_can_add_is_false_for_a_viewer_there(self):
+        """The POST refuses a viewer, so the options must not offer the board as a target."""
+        CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child), created_by=self.admin)
+        viewer = self.user_with("fv", parent=Role.MEMBER, child=Role.VIEWER)
+        self.assertEqual(
+            self.options(viewer)["fixed_board"],
+            {"hidden": False, "id": self.child.pk, "name": "Delivery", "can_add": False},
+        )
+        member = self.user_with("fm", parent=Role.MEMBER, child=Role.MEMBER)
+        self.assertTrue(self.options(member)["fixed_board"]["can_add"])
+
+    def test_fixed_board_can_add_is_false_when_its_first_column_stopped_allowing_creation(self):
+        CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child), created_by=self.admin)
+        Column.objects.filter(board=self.child, position=0).update(allow_card_creation=False)
+        self.assertFalse(self.options(self.admin)["fixed_board"]["can_add"])
 
     def test_absent_user_fails_closed(self):
         self.assertEqual(card_links.child_board_options_for_viewer(self.parent_card, None)["boards"], [])
@@ -587,6 +603,40 @@ class BoardDeleteTests(AddChildFixture):
         self.assertIsNotNone(ev)
         self.assertIsNone(ev.data["default_child_board"])
 
+    def _assert_default_cleared_and_announced(self):
+        self.parent.refresh_from_db()
+        self.assertIsNone(self.parent.default_child_board_id)
+        ev = BoardEvent.objects.filter(board_id=self.parent.pk, event="board.updated").last()
+        self.assertIsNotNone(ev)
+        self.assertIsNone(ev.data["default_child_board"])
+
+    def _admin_request(self):
+        request = RequestFactory().post("/")
+        request.user = self.admin
+        return request
+
+    def test_admin_delete_model_clears_the_default_and_announces_it(self):
+        self.set_default()
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            BoardAdmin(Board, AdminSite()).delete_model(self._admin_request(), self.child)
+        self._assert_default_cleared_and_announced()
+
+    def test_admin_delete_queryset_clears_the_default_and_announces_it(self):
+        self.set_default()
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            BoardAdmin(Board, AdminSite()).delete_queryset(
+                self._admin_request(), Board.objects.filter(pk=self.child.pk),
+            )
+        self._assert_default_cleared_and_announced()
+
+    def test_delete_boards_locked_clears_the_default_and_announces_it(self):
+        from boards.services.cards import delete_boards_locked
+
+        self.set_default()
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            delete_boards_locked(Board.objects.filter(pk=self.child.pk))
+        self._assert_default_cleared_and_announced()
+
     def test_single_card_delete_still_records_a_plain_unlink(self):
         kid = add_card(self.child, "k")
         self.link(self.parent_card, kid)
@@ -658,6 +708,23 @@ class DefaultChildBoardOptionsTests(DefaultChildBoardFixture):
         self.assertEqual(card_links.default_child_board_options_for_admin(self.parent, None), [])
 
 
+class AddChildThrottleTests(AddChildFixture):
+    def test_add_child_counts_against_the_card_link_write_scope(self):
+        """Add child creates a card AND a link, so it spends the same per-user budget."""
+        from django.core.cache import cache
+
+        from boards.views.cards import CardLinkWriteThrottle
+
+        cache.clear()
+        with patch.object(CardLinkWriteThrottle, "get_rate", return_value="2/hour"):
+            self.assertEqual(self.add_child(self.member, title="a").status_code, 201)
+            self.assertEqual(self.add_child(self.member, title="b").status_code, 201)
+            r = self.add_child(self.member, title="c")
+        self.assertEqual(r.status_code, 429)
+        self.assertIn("Retry-After", r)
+        self.assertEqual(CardParentLink.objects.filter(parent=self.parent_card).count(), 2)
+
+
 class AddChildSchemaTests(TestCase):
     def test_post_children_declares_its_body_and_responses(self):
         """Schema-fuzz only exercises a write whose body and statuses are declared."""
@@ -667,7 +734,10 @@ class AddChildSchemaTests(TestCase):
         path = next(p for p in schema["paths"] if p.endswith("/cards/{id}/children/"))
         post = schema["paths"][path]["post"]
         self.assertIn("requestBody", post)
-        self.assertTrue({"201", "400", "403", "404", "409"} <= set(post["responses"]))
+        self.assertTrue({"201", "400", "403", "404", "409", "429"} <= set(post["responses"]))
+        # spectacular adds a bare 429 to any throttled view, so pin OUR text and scope.
+        self.assertIn("card_link_write", post["responses"]["429"]["description"])
+        self.assertIn("card_link_write", post["description"])
         self.assertIn("get", schema["paths"][path])
 
 

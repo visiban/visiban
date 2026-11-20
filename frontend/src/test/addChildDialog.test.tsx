@@ -107,10 +107,30 @@ describe('AddChildDialog (#2208)', () => {
   })
 
   it('a fixed board replaces the select', async () => {
-    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops' } })
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: true } })
     expect(await screen.findByText(/New children go there too/)).toHaveTextContent('Ops')
     expect(screen.queryByText('Child board')).toBeNull()
     expect(screen.getByRole('button', { name: 'Add to Ops' })).toBeDisabled()
+  })
+
+  it('a fixed board the viewer cannot add to disables Add child and says why', async () => {
+    setup({ ...BASE, fixed_board: { hidden: false, id: 8, name: 'Ops', can_add: false } })
+    expect(await screen.findByRole('alert')).toHaveTextContent("you can't add cards there")
+    expect(screen.getByRole('alert')).toHaveTextContent('Ops')
+    expect(screen.getByRole('button', { name: 'Add to Ops' })).toBeDisabled()
+    expect(screen.queryByLabelText('Title')).toBeNull()
+    expect(screen.queryByText(/no longer available/)).toBeNull()
+  })
+
+  it('a failed "use as default" write is reported to the caller after the child is added', async () => {
+    const { user, onAdded } = setup({ ...BASE, can_set_default: true, boards: [{ id: 7, name: 'Delivery', can_set_default: true }] })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    vi.mocked(patchBoard).mockRejectedValue(new Error('nope'))
+    await choose(user, 'Delivery')
+    await user.click(screen.getByRole('checkbox'))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith({ boardName: 'Delivery', title: 'Task', defaultNotSet: true }))
   })
 
   it('a hidden fixed board disables Add child', async () => {
@@ -181,6 +201,21 @@ describe('CardAddChildSection (#2208)', () => {
     expect(container).toBeEmptyDOMElement()
     rerender(<CardAddChildSection board={{ ...board, current_user_role: null }} cardId={5} />)
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('tells the user when the default could not be set', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({ ...BASE, can_set_default: true, boards: [{ id: 7, name: 'Delivery', can_set_default: true }] })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    vi.mocked(patchBoard).mockRejectedValue(new Error('nope'))
+    const user = userEvent.setup()
+    render(<CardAddChildSection board={board} cardId={5} />)
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await choose(user, 'Delivery')
+    await user.click(screen.getByRole('checkbox'))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('status')).toHaveTextContent('Added "Task" to Delivery; the default was not changed.')
   })
 
   it('opens the dialog, announces the result and returns focus to the button', async () => {

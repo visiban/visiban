@@ -13,7 +13,7 @@ interface Props {
   cardId: number;
   onClose: () => void;
   /** Called once the child exists; the board's own socket event adds it to its board. */
-  onAdded: (info: { boardName: string; title: string }) => void;
+  onAdded: (info: { boardName: string; title: string; defaultNotSet?: boolean }) => void;
 }
 
 /** The server's refusal text for an Add child write, or a generic line. */
@@ -71,7 +71,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
   const fixedVisible = fixed && !fixed.hidden ? fixed : null;
   const chosenBoard = options?.boards.find((b) => String(b.id) === chosen) ?? null;
   const targetName = fixedVisible?.name ?? chosenBoard?.name ?? null;
-  const canPick = !fixedHidden && (fixedVisible != null || chosenBoard != null);
+  const fixedBlocked = fixedVisible?.can_add === false;
+  const canPick = !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
   const hasDefault = options?.default != null;
   const offerDefault = !fixedVisible && chosenBoard?.can_set_default === true && options?.default?.id !== chosenBoard.id;
   const hasTitle = title.trim().length > 0;
@@ -93,10 +94,11 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
     }
     // The checkbox is a second write by design (one write path for the default). The child exists
     // either way, so a refusal here is not an error for the add.
+    let defaultNotSet = false;
     if (offerDefault && makeDefault) {
-      try { await patchBoard(boardId, { default_child_board: targetId }); } catch { /* the child was added */ }
+      try { await patchBoard(boardId, { default_child_board: targetId }); } catch { defaultNotSet = true; }
     }
-    onAdded({ boardName: targetName, title: title.trim() });
+    onAdded({ boardName: targetName, title: title.trim(), ...(defaultNotSet && { defaultNotSet }) });
   };
 
   return (
@@ -122,6 +124,10 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
           {fixedHidden ? (
             <p role="alert" className="text-sm text-fg-secondary">
               This card's children are on a board you can't open, so you can't add another from here.
+            </p>
+          ) : fixedBlocked ? (
+            <p role="alert" className="text-sm text-fg-secondary">
+              This card's children are on <span className="font-medium text-fg">{fixedVisible?.name}</span>, and you can't add cards there (you need member access, and its first column must allow new cards). Ask a board admin there.
             </p>
           ) : fixedVisible ? (
             <p className="text-sm text-fg-secondary">
@@ -155,7 +161,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
             <p className="text-xs text-fg-muted">A board admin can set one so this step is skipped.</p>
           )))}
 
-          {!fixedHidden && (
+          {!fixedHidden && !fixedBlocked && (
             <div className="flex flex-col gap-1">
               <label htmlFor={titleFieldId} className="text-sm text-fg-secondary">Title</label>
               <input

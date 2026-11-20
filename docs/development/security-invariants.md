@@ -448,7 +448,8 @@ each surface that delivers them:
   `test_absent_input_guards_1075.py` `CardParentAbsentInputTests`). To be
   re-decided (gated per recipient, or closed) by that date; #2210 (the
   parent/child progress rollup UI) is its open tracker. The threat model's other
-  three controls for these links are built (#2383): link writes have their own
+  three controls for these links are built (#2383): the four link writes (link,
+  Add child, both unlinks) have their own
   per-user throttle scope, `card_link_write` (`boards/views/cards.py`
   `CardLinkWriteThrottle`, `boards/tests/test_card_link_hardening_2383.py`),
   the children read has a query-count case at the 100-child cap

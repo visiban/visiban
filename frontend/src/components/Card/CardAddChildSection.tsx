@@ -39,9 +39,9 @@ export default function CardAddChildSection({ board, cardId }: Props) {
           boardName={board.name}
           cardId={cardId}
           onClose={() => { setOpen(false); queueMicrotask(() => buttonRef.current?.focus()); }}
-          onAdded={({ boardName, title }) => {
+          onAdded={({ boardName, title, defaultNotSet }) => {
             setOpen(false);
-            setAdded(`Added "${title}" to ${boardName}.`);
+            setAdded(`Added "${title}" to ${boardName}${defaultNotSet ? "; the default was not changed" : ""}.`);
             queueMicrotask(() => buttonRef.current?.focus());
           }}
         />

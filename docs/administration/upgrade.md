@@ -389,7 +389,7 @@ Read the notes for every version between your current release and the target bef
     Since 1.3 a card holds at most 1000 comments and 500 checklist items (#2376). A create past a cap gets `400` `comment_quota_exceeded` or `checklist_quota_exceeded`; nothing already stored is deleted. To keep the 1.2 behavior, set `COMMENT_MAX_PER_CARD=0` and `CHECKLIST_MAX_ITEMS_PER_CARD=0` (Helm: `backend.settings.commentMaxPerCard`, `checklistMaxItemsPerCard`). See [Comment and checklist limits](configuration.md#comment-and-checklist-limits).
 
 !!! note "Card link writes have their own rate limit"
-    Since 1.3 each user may make at most 300 card parent/child link writes an hour (linking, and unlinking from either end, together; #2383). One over the rate gets `429` with a `Retry-After` header. Reading a card's children is not counted. Raise it with `CARD_LINK_THROTTLE_WRITE_RATE` (Helm: `backend.settings.cardLinkWriteRate`). See [Card link write limit](configuration.md#card-link-write-limit).
+    Since 1.3 each user may make at most 300 card parent/child link writes an hour (linking, Add child, and unlinking from either end, together; #2383). One over the rate gets `429` with a `Retry-After` header. Reading a card's children is not counted. Raise it with `CARD_LINK_THROTTLE_WRITE_RATE` (Helm: `backend.settings.cardLinkWriteRate`). See [Card link write limit](configuration.md#card-link-write-limit).
 
 !!! note "Board owners are protected, and non-admin updates answer `403` before `400`"
     Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191, #2225):
