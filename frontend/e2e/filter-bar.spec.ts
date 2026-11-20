@@ -39,11 +39,11 @@ test.describe('filter bar', () => {
     await page.keyboard.press('Enter')
     const panel = page.getByRole('dialog', { name: 'Filter' })
     await expect(panel).toBeVisible()
-    await expect(panel.getByRole('textbox', { name: 'Find a field' })).toBeFocused()
+    await expect(panel.getByRole('textbox', { name: 'Search fields and values to filter' })).toBeFocused()
 
-    await panel.getByRole('textbox', { name: 'Find a field' }).fill('lab')
-    const row = panel.getByRole('button', { name: /^Label/ })
-    await expect(panel.getByRole('button', { name: /^Assignee/ })).toHaveCount(0)
+    await panel.getByRole('textbox', { name: 'Search fields and values to filter' }).fill('lab')
+    const row = panel.getByRole('button', { name: /Label/ })
+    await expect(panel.getByRole('button', { name: /Assignee/ })).toHaveCount(0)
     await row.focus()
     await page.keyboard.press('Enter')
     const bug = panel.getByRole('checkbox', { name: LABEL_BUG.name })
@@ -53,6 +53,9 @@ test.describe('filter bar', () => {
 
     await expect(row).toContainText(LABEL_BUG.name)
     await expect(page).toHaveURL(/f_labels=/)
+    // #2437: the first Escape clears the typed query, the second closes the panel.
+    await page.keyboard.press('Escape')
+    await expect(panel).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(panel).toHaveCount(0)
     await expect(trigger).toBeFocused()

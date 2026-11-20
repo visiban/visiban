@@ -2,7 +2,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { BoardFull, BoardUser, CustomFieldDefinition, SavedFilter } from "../../types";
 import { userDisplayName } from "../../types";
-import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
@@ -14,6 +13,9 @@ import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { stageSubColumns } from "../../utils/stages";
 import { DUE_DATE_OPTIONS, TRACK_STATE_OPTIONS, PRIORITY_OPTIONS, emptyCustomFieldFilterValue, isCustomFieldFilterActive } from "./filterOptions";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { resolveLaneTiers } from "../../utils/laneBand";
+import { DEFAULT_LANE_DETAILS_CAP } from "../../utils/laneBand";
+import { applyValueHit, matchRange, searchFields, type SearchScope, type ValueHit, type NameHit } from "../../utils/filterFieldSearch";
 import { isImeComposing } from "../../utils/imeComposition";
 import { removeLaneItem, laneFilterChipItems } from "../../utils/laneFilter";
 import FilterChip from "./FilterChip";
@@ -50,7 +52,7 @@ interface Props {
   onOpenViewOptions?: (trigger: HTMLButtonElement) => void;
 }
 
-const PANEL_WIDTH = 360;
+const PANEL_WIDTH = 520;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
@@ -59,6 +61,11 @@ interface Row {
   label: string;
   /** Current value text, or null when the row is not filtering. */
   value: string | null;
+}
+
+/** "Card" or "Swimlane" tag on a result row; text, not color, tells them apart. */
+function ScopeTag({ scope }: { scope: "card" | "lane" }) {
+  return <span className="shrink-0 text-xs font-medium text-fg-secondary border border-line rounded px-1.5 leading-4">{scope === "lane" ? "Swimlane" : "Card"}</span>;
 }
 
 /**
@@ -77,6 +84,7 @@ export default function FilterPanel({
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<SearchScope>("all");
   const [expanded, setExpanded] = useState<RowId | null>(null);
   const [saveMode, setSaveMode] = useState(false);
   const [saveName, setSaveName] = useState("");
@@ -95,6 +103,7 @@ export default function FilterPanel({
     setOpen(false);
     setAnchor(null);
     setQuery("");
+    setScope("all");
     setExpanded(null);
     setSaveMode(false);
     setSaveError(null);
@@ -108,8 +117,17 @@ export default function FilterPanel({
   useEffect(() => {
     if (saveMode) saveInputRef.current?.focus();
   }, [saveMode]);
-  // Popover tier 25, like the View menu.
-  useDropdownEscape(open, close, triggerRef, 25);
+  // Popover tier 25, like the View menu. Escape clears a typed query first (#2437), then closes.
+  useEscapeStack(() => {
+    if (!open) return false;
+    if (query !== "") {
+      setQuery("");
+      findRef.current?.focus();
+      return;
+    }
+    close();
+    triggerRef.current?.focus();
+  }, 25);
 
   useEffect(() => {
     if (!open) return;
@@ -304,7 +322,75 @@ export default function FilterPanel({
   };
 
   const needle = query.trim().toLowerCase();
-  const visibleRows = needle ? rows.filter((r) => r.label.toLowerCase().includes(needle)) : rows;
+  const tiers = useMemo(
+    () => resolveLaneTiers(board.swimlane_custom_field_definitions ?? [], board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP),
+    [board.swimlane_custom_field_definitions, board.lane_details_cap],
+  );
+  // Lane fields come from laneFilterFields (admin-only ones already dropped for a non-admin), never the raw definitions.
+  const result = useMemo(
+    () => searchFields(query, scope, {
+      cardFields: customDefs,
+      laneFields: laneFields as { id: number | "name" | "contact_email" | "health_status"; name: string; field_type: string; is_admin_only: boolean; position: number; choices?: string[] }[],
+      cards: board.cards,
+      lanes: board.swimlanes,
+      isAdmin: isBoardAdmin,
+      tiers,
+      format: (sc, f, raw) => {
+        const def = sc === "card" ? customDefs.find((d) => d.id === f.id) : (board.swimlane_custom_field_definitions ?? []).find((d) => d.id === f.id);
+        return def ? formatCustomFieldValue(def, raw, userDateFormat) : raw;
+      },
+    }),
+    [query, scope, customDefs, laneFields, board.cards, board.swimlanes, board.swimlane_custom_field_definitions, isBoardAdmin, tiers, userDateFormat],
+  );
+  // The built-in and card-field rows narrow by name exactly as before; lane fields come from the search.
+  const showNames = !result.shorthand || result.shorthand.value === "";
+  const nameNeedle = result.shorthand ? result.shorthand.field : needle;
+  const rowScope = (r: Row): "card" | "lane" => (r.id === "lanes" ? "lane" : "card");
+  const visibleRows = needle
+    ? showNames ? rows.filter((r) => (scope === "all" || scope === rowScope(r)) && matchRange(r.label, nameNeedle) !== null) : []
+    : rows;
+  const laneNameHits = needle && showNames ? result.names.filter((h) => h.scope === "lane" && !isLaneBuiltinField(h.fieldId)) : [];
+  const valueHits = result.values;
+  const laneHitValue = (h: NameHit): string | null => {
+    const vals = (filters.laneFilter?.items ?? []).flatMap((it) => (it.kind === "rule" ? [it] : it.rules)).filter((r) => r.field === h.fieldId)
+      .map((r) => (r.op === "between" ? [r.min, r.max].filter(Boolean).join(" to ") : r.value ?? ""));
+    return vals.length ? vals.join(", ") : null;
+  };
+  const addTitle = () => onChange({ ...filters, search: query.trim() });
+  const addValue = (h: ValueHit) => { onChange(applyValueHit(filters, h)); };
+  const resultButtons = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>("[data-fp-result]") ?? []);
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      const first = resultButtons()[0];
+      if (first) { e.preventDefault(); first.focus(); }
+    } else if (e.key === "Enter" && needle && !isImeComposing(e)) {
+      // Enter adds the first value (so `tier:gold` jumps and applies), else the card-text fallback.
+      e.preventDefault();
+      if (valueHits[0]) addValue(valueHits[0]);
+      else if (result.titleQuery) addTitle();
+    }
+  };
+  const onResultKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const list = resultButtons();
+    const at = list.indexOf(e.currentTarget);
+    const next = e.key === "ArrowDown" ? list[at + 1] : list[at - 1];
+    if (next) next.focus();
+    else if (e.key === "ArrowUp") findRef.current?.focus();
+  };
+  const hl = (text: string, q: string) => {
+    const r = matchRange(text, q);
+    if (!r) return text;
+    // The marked copy is aria-hidden and the plain text is read instead: a <mark> splits the accessible name ("Lab el").
+    return (
+      <>
+        <span aria-hidden="true">{text.slice(0, r[0])}<mark className="bg-primary-emphasis/10 text-info-on-tint font-semibold underline decoration-1 underline-offset-2 rounded-sm">{text.slice(r[0], r[1])}</mark>{text.slice(r[1])}</span>
+        <span className="sr-only">{text}</span>
+      </>
+    );
+  };
+  const valueNeedle = result.shorthand ? result.shorthand.value : needle;
 
   const toggleIn = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
@@ -450,15 +536,32 @@ export default function FilterPanel({
       ) : (
         <h2 className="text-sm font-semibold text-fg">Filter</h2>
       )}
-      <input
-        ref={findRef}
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Find a field"
-        aria-label="Find a field"
-        className="w-full bg-sunken border border-line-strong rounded px-2.5 py-2 text-sm text-fg placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-      />
+      <div className="relative">
+        <input
+          ref={findRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={onSearchKeyDown}
+          placeholder="Search fields and values to filter"
+          aria-label="Search fields and values to filter"
+          className="w-full bg-sunken border border-line-strong rounded px-2.5 py-2 pr-12 text-sm text-fg placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        />
+        <kbd aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-fg-secondary border border-line-strong rounded px-1 leading-4 max-sm:hidden">Esc</kbd>
+      </div>
+      <div role="group" aria-label="Search scope" className="flex items-center gap-1.5">
+        {([["all", "All fields"], ["card", "Card fields"], ["lane", "Swimlane fields"]] as const).map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={scope === v}
+            onClick={() => setScope(v)}
+            className={`text-xs rounded-full border px-2.5 py-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${scope === v ? "bg-primary-emphasis/10 text-info-on-tint border-info/40 font-semibold" : "text-fg-secondary border-line hover:bg-surface-hover"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {hasChips && (
         <div data-testid="filter-panel-chips" className="flex flex-col gap-1.5 pb-1">
           <div className="flex items-center justify-between gap-2 px-0.5">
@@ -539,6 +642,7 @@ export default function FilterPanel({
           )}
         </div>
       )}
+      {needle && <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Fields matching &ldquo;{query.trim()}&rdquo;</h3>}
       <ul aria-label="Filterable fields" className="space-y-0.5">
         {visibleRows.map((row) => {
           const active = row.value !== null;
@@ -556,19 +660,88 @@ export default function FilterPanel({
               <button
                 type="button"
                 onClick={onRow}
+                onKeyDown={needle ? onResultKeyDown : undefined}
+                data-fp-result={needle ? "" : undefined}
                 aria-expanded={row.id === "lanes" ? undefined : isOpen}
                 aria-haspopup={row.id === "lanes" ? "dialog" : undefined}
                 className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${active ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
               >
-                <span className="flex items-center gap-1.5 shrink-0"><ActiveMark active={active} testId="filter-row-mark" />{row.label}</span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <ActiveMark active={active} testId="filter-row-mark" />
+                  {needle && <ScopeTag scope={rowScope(row)} />}
+                  {needle ? hl(row.label, nameNeedle) : row.label}
+                </span>
                 <span className={`truncate text-right ${active ? "" : "text-fg-secondary font-normal"}`}>{row.value ?? "Any"}</span>
               </button>
               {isOpen && <div className="pl-2 pr-1 pb-1 max-h-48 overflow-y-auto">{editor(row)}</div>}
             </li>
           );
         })}
+        {laneNameHits.map((h) => {
+          const cur = laneHitValue(h);
+          return (
+            <li key={`lane-field:${h.fieldId}`}>
+              <button
+                type="button"
+                onClick={() => { close(); onOpenLaneFilters(); }}
+                onKeyDown={onResultKeyDown}
+                data-fp-result=""
+                aria-haspopup="dialog"
+                className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${cur ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
+              >
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <ActiveMark active={!!cur} testId="filter-row-mark" />
+                  <ScopeTag scope="lane" />
+                  <span className="truncate">{hl(h.name, nameNeedle)}</span>
+                  <span className="shrink-0 text-xs font-normal text-fg-secondary">{h.fieldType.replace("_", "-")}</span>
+                </span>
+                <span className={`truncate text-right ${cur ? "" : "text-fg-secondary font-normal"}`}>{cur ?? "Any"}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
-      {visibleRows.length === 0 && <p role="status" className="px-2 py-1 text-sm text-fg-secondary">No field matches "{query}".</p>}
+      {needle && visibleRows.length + laneNameHits.length === 0 && <p role="status" className="px-2 py-1 text-sm text-fg-secondary">No field matches "{query}".</p>}
+
+      {needle && (valueHits.length > 0 || result.titleQuery) && (
+        <>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Values matching &ldquo;{result.shorthand ? result.shorthand.value : query.trim()}&rdquo;</h3>
+          <ul aria-label="Matching values" className="space-y-0.5">
+            {valueHits.map((h) => (
+              <li key={`${h.scope}:${h.fieldId}:${h.raw}`}>
+                <button
+                  type="button"
+                  onClick={() => addValue(h)}
+                  onKeyDown={onResultKeyDown}
+                  data-fp-result=""
+                  className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left text-fg hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <ScopeTag scope={h.scope} />
+                    <span className="truncate">{h.fieldName} is <span className="font-semibold">{hl(h.label, valueNeedle)}</span></span>
+                    {h.hiddenOnBand && <span className="shrink-0 text-xs text-fg-secondary">(hidden on band)</span>}
+                  </span>
+                  <span className="shrink-0 text-xs text-fg-secondary">{h.count} {h.scope === "lane" ? (h.count === 1 ? "lane" : "lanes") : (h.count === 1 ? "card" : "cards")}</span>
+                </button>
+              </li>
+            ))}
+            {result.titleQuery && (
+              <li>
+                <button
+                  type="button"
+                  onClick={addTitle}
+                  onKeyDown={onResultKeyDown}
+                  data-fp-result=""
+                  className={`w-full flex items-center gap-1.5 px-2 py-2 rounded text-sm text-left text-fg hover:bg-surface-hover transition ${MENU_ITEM_FOCUS_RING}`}
+                >
+                  <ScopeTag scope="card" />
+                  <span className="truncate">Title contains &lsquo;{result.titleQuery}&rsquo;</span>
+                </button>
+              </li>
+            )}
+          </ul>
+        </>
+      )}
 
       <div className="border-t border-line pt-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2 pb-1">Saved filters</h3>
@@ -596,6 +769,7 @@ export default function FilterPanel({
       </div>
 
       <div className="border-t border-line pt-2">
+        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add &middot; field:value to jump</p>
         <button
           type="button"
           onClick={() => { close(); onToggleFilterBar(); }}
