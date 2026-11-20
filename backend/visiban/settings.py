@@ -611,6 +611,14 @@ _ATTACHMENT_UPLOAD_RATE = _parse_throttle_rate(
     os.environ.get("ATTACHMENT_THROTTLE_UPLOAD_RATE"), name="ATTACHMENT_THROTTLE_UPLOAD_RATE"
 )
 
+# Rate of the `card_link_write` throttle scope (#2383): parent/child link
+# creates and unlinks per user, on top of the general `user` scope. Empty keeps
+# the built-in default (300/hour, or the DEBUG ceiling in development); parsed
+# strictly at startup like ATTACHMENT_THROTTLE_UPLOAD_RATE above.
+_CARD_LINK_WRITE_RATE = _parse_throttle_rate(
+    os.environ.get("CARD_LINK_THROTTLE_WRITE_RATE"), name="CARD_LINK_THROTTLE_WRITE_RATE"
+)
+
 # Maximum Trello JSON export accepted by POST /api/v1/boards/import/trello/ (#456),
 # in bytes. Separate from MAX_UPLOAD_SIZE because Trello exports of large boards
 # routinely exceed the 10 MB attachment cap. The import runs synchronously, so
@@ -890,6 +898,14 @@ REST_FRAMEWORK = {
         # file cap) still covers dragging in a large batch of files.
         # ATTACHMENT_THROTTLE_UPLOAD_RATE overrides it, DEBUG included.
         "attachment_upload": _ATTACHMENT_UPLOAD_RATE or ("9999/hour" if DEBUG else "120/hour"),
+        # Cross-board parent/child link writes (#2383): creating or removing a
+        # link writes two history rows and pings two boards, and every later
+        # move of a linked child changes what its parent's children read
+        # returns, so the generic `user` scope alone let one account churn
+        # links thousands of times an hour. 300/hour (5 a minute) still fills
+        # a parent to its 100-child cap three times over in an hour.
+        # CARD_LINK_THROTTLE_WRITE_RATE overrides it, DEBUG included.
+        "card_link_write": _CARD_LINK_WRITE_RATE or ("9999/hour" if DEBUG else "300/hour"),
     },
 }
 

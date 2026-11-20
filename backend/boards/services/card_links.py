@@ -13,9 +13,10 @@ computes a parent's children for a viewer (threat model, Rule 10). REST calls
 it today; MCP, export and the #2212 extension slot must call
 :func:`children_for_viewer` rather than querying ``CardParentLink`` on their
 own, so a second transport can never show more than REST does. In v1 links
-are absent from MCP and export; the parity test that pins that, a throttle on
-link writes and a perf-bench case for the children read are not built yet
-(tracked in #2383).
+are absent from MCP and export, pinned by
+``boards/tests/test_card_link_transport_parity.py``; link writes have their
+own ``card_link_write`` throttle scope, and the children read has a
+query-count case at the cap in ``boards/tests/test_query_counts.py`` (#2383).
 
 **Why every read is per viewer:** a link crosses an authorization boundary.
 Whoever can open the parent board is not necessarily able to open the child
@@ -163,6 +164,46 @@ def _lock_endpoints(parent_pk, child_pk, board_pks=()):
     )
 
 
+def lock_card_and_link_peers(card_id):
+    """Lock ``card_id`` and every card linked to it, ``FOR UPDATE``, in pk order (#2383).
+
+    For a path that is about to lock one card and then touch its link peers:
+    the REST card delete (``services.cards.delete_card``, whose
+    :func:`announce_card_removal` inserts a history row that takes a key-share
+    lock on each surviving peer) and the Django-admin card delete and move
+    (``CardAdminForm.clean``, ``CardAdmin._lock_cell_entry`` and
+    ``CardAdmin.delete_model``; a move then unlinks through
+    :func:`unlink_all`). Without it those paths held their own card first and
+    the peer second, while the link writes hold "both cards, in pk order"
+    (:func:`_lock_endpoints`): against a link write naming the same pair the
+    other way round, PostgreSQL aborted one of the two with a deadlock error.
+    Taken here first, the caller's later lock on its own card is one it
+    already holds, so it queues behind a link write in the same order.
+
+    Call it before the caller's own card lock, inside its transaction. A card
+    with no links locks nothing here (the caller's own lock follows). The peer
+    set is read before the lock, so a link committed in the moment between
+    that read and the lock is not covered; the remaining residual is
+    recorded in ``docs/development/security-invariants.md`` (Rule 8).
+    No-op on SQLite, as in :func:`_lock_endpoints`.
+    """
+    if not connection.features.has_select_for_update:
+        return
+    pks = {card_id}
+    for parent_id, child_id in CardParentLink.objects.filter(
+        Q(parent_id=card_id) | Q(child_id=card_id)
+    ).values_list("parent_id", "child_id"):
+        pks.update((parent_id, child_id))
+    if len(pks) == 1:
+        return
+    list(
+        Card.objects.select_for_update()
+        .filter(pk__in=sorted(pks))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+
+
 def _record(card_id, event_type, actor):
     """Write one link history row with NO reference to the other card.
 
@@ -300,9 +341,10 @@ def unlink_all(card, *, actor=None, old_board_id=None):
     child would split its parent's one child board, and a moved parent could
     land on a child tier. Called inside the caller's transaction.
 
-    The caller already holds ``card``'s row lock, so :func:`remove_link`
-    locks the peer after it: a named lock-order residual (#2383), see
-    ``CardAdmin.save_model`` and ``docs/development/security-invariants.md``.
+    The caller must already hold ``card`` and its peers, taken in pk order by
+    :func:`lock_card_and_link_peers` (#2383; the Django admin does this in
+    ``CardAdminForm.clean`` and ``CardAdmin._lock_cell_entry``), so the
+    :func:`remove_link` locks below are ones it already holds.
     """
     links = CardParentLink.objects.select_related("parent", "child").filter(
         Q(child_id=card.pk) | Q(parent_id=card.pk)
@@ -342,13 +384,16 @@ def announce_cards_removal(cards, *, actor=None):
     their ``card.deleted`` / container-deleted event. Pings carry ids only and
     are published on commit (``record_board_event``).
 
-    **Lock order (named residual, #2383):** the caller already holds the
-    deleted cards' locks, and the history rows inserted here take a key-share
-    lock on each peer card. That is card-then-peer, not the "both boards, then
-    both cards, in pk order" of :func:`_lock_endpoints`. Against a concurrent
-    link write taking the opposite order, Postgres aborts one of the two
-    transactions with a deadlock error; neither commits a partial state. See
-    ``docs/development/security-invariants.md``.
+    **Lock order (#2383):** the history rows inserted here take a key-share
+    lock on each peer card. A single-card delete (``delete_card``, the
+    Django-admin ``delete_model``) takes the card and its peers in pk order
+    first, with :func:`lock_card_and_link_peers`, so that key-share lock is
+    covered by a lock it already holds. A container delete (column, swimlane,
+    board, the admin bulk deletes, the seed ``--wipe``) still holds its own
+    cards first and then touches the peers: against a concurrent unlink taking
+    the opposite order, PostgreSQL aborts one of the two transactions with a
+    deadlock error and neither commits a partial state. That is the remaining
+    named residual in ``docs/development/security-invariants.md``.
     """
     actor_id = getattr(actor, "id", None)
     links = list(

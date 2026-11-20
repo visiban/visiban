@@ -27,7 +27,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User, get_maintenance_state
 from boards.models import (
-    Board, BoardMembership, Card, CardAttachment, CardChecklist,
+    Board, BoardMembership, Card, CardAttachment, CardChecklist, CardParentLink,
     CardMovement, Column, CustomFieldDefinition, Label, Swimlane,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
@@ -1768,7 +1768,7 @@ class CardMutationQueryCountTests(TestCase):
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_UNARCHIVE = 23           # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 31             # measured 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_DESTROY = 32             # measured 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # Relation write paths (#449). Both re-render BOTH endpoint cards for the
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
@@ -2023,3 +2023,82 @@ class CardMutationQueryCountTests(TestCase):
             f"PATCH cards/{{id}}/ query count grew from {baseline} to {scaled} when the "
             "card gained labels — the activity-diff label lookup regressed to a live query.",
         )
+
+
+class CardChildrenQueryCountTests(TestCase):
+    """``GET .../cards/{id}/children/`` at the 100-child cap (#2383, perf-bench case).
+
+    The children read is the one place a parent's children are computed for
+    every transport (``card_links.children_for_viewer``), and the UI polls it
+    after every ``card.children_changed`` ping. It must cost the same at the
+    cap (``CHILDREN_PER_PARENT_LIMIT``) as with one child, on both pages and
+    for both answers: a reader who can open the child board (titles) and one
+    who cannot (count only). Its scaling axis is the number of children; the
+    child board is one board by rule, so there is no second axis.
+
+    The issue also asks for a bench case for "the rollup"; no server-side
+    rollup exists (it is UI work), so that case is deferred to #2210.
+    """
+
+    # 11 measured with titles, 10 count-only (auth, board role, parent card,
+    # link reads, child board + role, the page), flat in the child count; 2x.
+    BUDGET = 22
+
+    def setUp(self):
+        from boards.services.card_links import CHILDREN_PER_PARENT_LIMIT
+        from boards.tests.test_card_parent_links import _LinkFixture
+
+        fixture = _LinkFixture()
+        fixture._setup_boards()
+        self.fixture = fixture
+        self.cap = CHILDREN_PER_PARENT_LIMIT
+        self.url = f"/api/v1/boards/{fixture.pboard.pk}/cards/{fixture.parent.pk}/children/"
+        CardParentLink.objects.create(parent=fixture.parent, child=fixture.child)
+        self.full = fixture._user("qc_children_full", parent_role="viewer", child_role="viewer")
+        self.count_only = fixture._user("qc_children_count", parent_role="viewer")
+
+    def _fill_to_cap(self):
+        from boards.tests.conftest import _make_card
+
+        f = self.fixture
+        for i in range(self.cap - 1):
+            child = _make_card(f.col_c, f.lane_c, title=f"child {i}")
+            CardParentLink.objects.create(parent=f.parent, child=child)
+        self.assertEqual(CardParentLink.objects.filter(parent=f.parent).count(), self.cap)
+
+    def _count(self, user, offset=0):
+        client = APIClient()
+        client.force_authenticate(user)
+        with CaptureQueriesContext(connection) as ctx:
+            r = client.get(f"{self.url}?offset={offset}")
+        self.assertEqual(r.status_code, 200, r.content)
+        return len(ctx), r.json()
+
+    def test_children_read_is_flat_up_to_the_cap(self):
+        baseline = {}
+        for user, visible in ((self.full, True), (self.count_only, False)):
+            baseline[visible], _ = self._count(user)
+            with self.subTest(visible=visible):
+                self.assertLessEqual(
+                    baseline[visible], self.BUDGET,
+                    f"children/ used {baseline[visible]} queries at one child",
+                )
+        self._fill_to_cap()
+        for user, visible in ((self.full, True), (self.count_only, False)):
+            for offset in (0, 50):
+                with self.subTest(visible=visible, offset=offset):
+                    n, body = self._count(user, offset)
+                    self.assertEqual(body["count"], self.cap)
+                    self.assertIs(body["visible"], visible)
+                    self.assertEqual(len(body["results"]), 50 if visible else 0)
+                    self.assertEqual(
+                        n, baseline[visible],
+                        f"children/ query count grew from {baseline[visible]} to {n} at "
+                        f"the {self.cap}-child cap — N+1 regression detected.",
+                    )
+                    self.assertLessEqual(
+                        n, self.BUDGET,
+                        f"children/ used {n} queries at the {self.cap}-child cap "
+                        f"(offset {offset}, visible={visible}) — budget is {self.BUDGET}. "
+                        "An N+1 was introduced; fix the read in children_for_viewer.",
+                    )

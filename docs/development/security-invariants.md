@@ -435,22 +435,40 @@ each surface that delivers them:
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed and a
   child-board reader learns when a card's parent link changed. To be
-  re-decided (gated per recipient, or closed) by that date. Three of the
-  threat model's controls for these links are not built yet and are tracked in
-  the same issue, #2383: a throttle on link writes, a perf-bench case for the
-  children read, and the MCP/export parity test (Rule 10);
+  re-decided (gated per recipient, or closed) by that date; #2210 (the
+  parent/child progress rollup UI) is its open tracker. The threat model's other
+  three controls for these links are built (#2383): link writes have their own
+  per-user throttle scope, `card_link_write` (`boards/views/cards.py`
+  `CardLinkWriteThrottle`, `boards/tests/test_card_link_hardening_2383.py`),
+  the children read has a query-count case at the 100-child cap
+  (`boards/tests/test_query_counts.py` `CardChildrenQueryCountTests`; the
+  rollup bench case is deferred to #2210, since no server-side rollup exists
+  yet), and the
+  MCP/export parity test pins Rule 10
+  (`boards/tests/test_card_link_transport_parity.py`);
 - card-link lock order (recorded here beside the link-event residual, since
   both concern the same writes). The link writes take "both boards, then both
-  cards, in pk order" (`boards/services/card_links.py` `_lock_endpoints`). Two
-  paths take the peer card's lock after their own card's instead: a
-  Django-admin move of a card to another board holds the moved card's row and
-  then `remove_link` (through `unlink_all`) locks the peer card
-  (`boards/admin.py` `CardAdmin.save_model`); and a card or container delete
-  holds the deleted cards' rows and then `announce_cards_removal` inserts the
-  peer's history row, which takes a key-share lock on the peer card. Accepted
-  residual (#2383, expires 2027-05-31): against a concurrent link write that
-  takes the opposite order, PostgreSQL aborts one of the two transactions with
-  a deadlock error; nothing commits half-done and nothing is disclosed. To be
+  cards, in pk order" (`boards/services/card_links.py` `_lock_endpoints`).
+  Since #2383 the single-card paths that touch a link peer take the card and
+  its peers in that pk order before their own card lock
+  (`card_links.lock_card_and_link_peers`): the REST card delete
+  (`boards/services/cards.py` `delete_card`), the Django-admin card delete
+  (`CardAdmin.delete_model`) and the Django-admin move of a card to another
+  board, which unlinks it (`CardAdminForm.clean` and
+  `CardAdmin._lock_cell_entry`). Tests:
+  `boards/tests/test_card_link_hardening_2383.py` `LinkPeerLockOrderTests`
+  (PostgreSQL only), which fail with the helper removed. Remaining accepted
+  residual (#2409, expires 2027-05-31): a container delete (REST column,
+  swimlane and board destroys, the Django-admin column, swimlane, board and
+  bulk card deletes, and the seed `--wipe`) still holds its own cards first
+  (`services/cards.py` `lock_cards_for_cascade`, whose savepoint retry
+  compares the locked set with the container's cards, so peers cannot simply
+  join that statement), and then `announce_cards_removal` inserts each
+  peer's history row, which takes a key-share lock on the peer card; and on
+  the single-card paths a link committed between the unlocked peer read and
+  the lock is not covered. Against a concurrent link write taking the
+  opposite order, PostgreSQL aborts one of the two transactions with a
+  deadlock error; nothing commits half-done and nothing is disclosed. To be
   re-decided (reordered, or closed) by that date;
 - admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
@@ -579,7 +597,7 @@ fails closed.
 | MCP (output) | `mcp_server/tools.py` `board_snapshot`, `_serialize_user`, `_swimlanes_payload`, `_serialize_card` | Explicit allow-list shapes, not `BoardFullSerializer`; web-session-only fields (share token, share-link expiry and `share_link_active`, capabilities, members, current role) are absent (`test_mcp.py` `test_web_only_fields_are_never_exposed`); users carry only the REST user fields and no email; admin-only swimlane fields are included for admin roles only |
 | Change feed and board export | `boards/serializers.py` `BoardEventSerializer.to_representation`; `boards/views/import_export.py` `BoardImportExportMixin.export` | Rule 8 rows: per-reader field gating with the reader's role |
 | Cross-board card links: children read (#1104) | `boards/services/card_links.py` `children_for_viewer` | The one children read: REST `GET .../cards/{id}/children/` calls it, and any other transport (MCP, export, the #2212 extension slot) must call it rather than query `CardParentLink`. It resolves the reader's role on the child board with `get_board_roles` on every call and returns a count only when there is none. Tests: `boards/tests/test_card_parent_links.py` `ChildrenReadTests` |
-| Cross-board card links on MCP and export (#1104) | `mcp_server/tools.py` `_serialize_card`; `boards/views/import_export.py` | Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). The parity test that pins this to REST is not built yet, tracked in #2383 |
+| Cross-board card links on MCP and export (#1104) | `mcp_server/tools.py` `_serialize_card`; `boards/views/import_export.py` | Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). Tests: `boards/tests/test_card_link_transport_parity.py` (#2383) asserts that no MCP card shape (`_serialize_card`, `card_detail`, `list_cards`, `board_snapshot`, `aging_cards`) and no JSON or CSV export of either board names a link, that none of them queries the link table, and that importing an export carrying link keys creates no link; the MCP half runs only with `MCP_SERVER_ENABLED=true` |
 | Outbound webhooks | `webhooks/dispatch.py` `_deliver`, `send_test` | A delivery is one change-feed row as `GET /boards/{id}/events/` returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863). The admin-only `webhook.changed` frame (`webhooks/live.py`, #2057, in `ADMIN_ONLY_EVENTS`) is an invalidation with ids and codes only (`{id, status, reason_code, consecutive_failures, changed_by, at}`), never the URL, host, label or a secret; it is not written to the change feed and is not subscribable |
 
 Coverage: `mcp_server/tests/test_mcp.py` (`UserFieldParityTests`, which pins

@@ -1103,6 +1103,12 @@ one. The rules:
   Deleting either card deletes the link.
 - Links are not exported or imported, and the [public share link](boards.md)
   shows none of this.
+- **Rate limit.** The three link writes below (link, child-side unlink,
+  parent-side unlink) share a per-user limit, the `card_link_write` throttle
+  scope (default 300 per hour, `CARD_LINK_THROTTLE_WRITE_RATE`), on top of the
+  general per-user API limit. Over it, a write gets `429 Too Many Requests`
+  with a `Retry-After` header and changes nothing. Reading children does not
+  count against it.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/parent/`
 

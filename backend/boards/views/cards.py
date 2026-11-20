@@ -96,6 +96,28 @@ class AttachmentUploadThrottle(UserRateThrottle):
     scope = "attachment_upload"
 
 
+class CardLinkWriteThrottle(UserRateThrottle):
+    """Per-user ceiling on parent/child link writes (#2383), scope ``card_link_write``.
+
+    Added to the default throttles for the three link writes only (see
+    ``CardViewSet.get_throttles``): ``POST``/``DELETE .../parent/`` and
+    ``DELETE .../children/{child_id}/``. The children read is not counted.
+    Each write records history on two cards and pings two boards, and a
+    linked child's later moves change its parent's children read, so link
+    churn is amplified beyond one request's cost (threat model, #1104).
+    """
+
+    scope = "card_link_write"
+
+
+def _is_link_write(view, request):
+    """True for the three card-link writes the ``card_link_write`` scope counts."""
+    action = getattr(view, "action", None)
+    if action == "parent":
+        return request.method in ("POST", "DELETE")
+    return action == "child_detail" and request.method == "DELETE"
+
+
 def _attachment_quota_error(card_id, incoming_size):
     """400 response when one more file of ``incoming_size`` bytes would break a
     per-card quota (#2007), else ``None``.
@@ -784,7 +806,8 @@ class CardViewSet(viewsets.ModelViewSet):
         ]
 
     def get_throttles(self):
-        """The default throttles, plus ``attachment_upload`` on an upload (#2007).
+        """The default throttles, plus ``attachment_upload`` on an upload (#2007)
+        and ``card_link_write`` on a link write (#2383).
 
         Appended rather than set through ``@action(throttle_classes=...)``,
         which would replace the default ``user`` scope and would also count the
@@ -793,6 +816,10 @@ class CardViewSet(viewsets.ModelViewSet):
         throttles = super().get_throttles()
         if getattr(self, "action", None) == "attachments" and self.request.method == "POST":
             throttles.append(AttachmentUploadThrottle())
+        # Same shape for the card-link writes (#2383): appended, so the
+        # ``user`` scope still counts them and the children GET is not counted.
+        if _is_link_write(self, self.request):
+            throttles.append(CardLinkWriteThrottle())
         return throttles
 
     def get_queryset(self):
@@ -2722,21 +2749,29 @@ class CardViewSet(viewsets.ModelViewSet):
         request=inline_serializer(
             "CardParentLinkCreate", fields={"parent_id": serializers.IntegerField()},
         ),
-        responses={201: OpenApiResponse(description="Linked: `{parent_id, child_id}`.")},
+        responses={
+            201: OpenApiResponse(description="Linked: `{parent_id, child_id}`."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Link this card (the child) to a parent card on another board. "
             "Minimum role: member on BOTH boards. A parent id that is missing or "
             "on a board the caller cannot open is a 404, identical in both cases. "
             "Two-tier, already-linked, other-child-board and 100-children refusals "
             "are 400s carrying a `code`."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
         ),
     )
     @extend_schema(
         methods=["DELETE"],
-        responses={204: OpenApiResponse(description="Unlinked.")},
+        responses={
+            204: OpenApiResponse(description="Unlinked."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Remove this card's parent link. Minimum role: member on this card's "
             "board; the caller need not be able to open the parent."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
         ),
     )
     @action(detail=True, methods=["post", "delete"], url_path="parent")
@@ -2785,10 +2820,14 @@ class CardViewSet(viewsets.ModelViewSet):
         ))
 
     @extend_schema(
-        responses={204: OpenApiResponse(description="Unlinked.")},
+        responses={
+            204: OpenApiResponse(description="Unlinked."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Unlink one child from this parent card. Minimum role: member on "
             "this card's board."
+            " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the three link writes: over it, 429."
         ),
     )
     @action(detail=True, methods=["delete"], url_path=r"children/(?P<child_pk>[0-9]+)")
