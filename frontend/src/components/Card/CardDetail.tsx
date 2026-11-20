@@ -1708,7 +1708,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             with room beside Move instead of fighting three 44px controls. #2410: the title block is
             rendered after Close on a phone (`fullscreen`) and before Block… elsewhere, so the DOM and tab
             order equal the paint order in both layouts, with no `order-*` class (WCAG 2.4.3). */}
-        <div className={`flex items-start gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center ${fullscreen ? "flex-wrap items-center" : ""}`}>
+        <div className={`flex ${fullscreen ? "items-center" : "items-start"} gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center ${fullscreen ? "flex-wrap" : ""}`}>
           {fullscreen && (
             // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
             // It closes the sheet like Close and Escape do.

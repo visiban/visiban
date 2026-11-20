@@ -396,6 +396,40 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     expect(dialog().querySelector('[class*="order-last"]')).toBeNull()
   })
 
+  const tabNames = async (user: ReturnType<typeof userEvent.setup>, n: number) => {
+    const seen: string[] = []
+    for (let i = 0; i < n; i++) {
+      await user.tab()
+      const el = document.activeElement as HTMLElement
+      seen.push(el.id === 'card-detail-title' ? 'Title' : el.getAttribute('aria-label') ?? (el.textContent ?? '').replace(/\s+/g, ' ').trim())
+    }
+    return seen
+  }
+
+  it('tabs Back, Block, Close, then the title on a phone (#2410)', async () => {
+    setViewport(640)
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    const user = userEvent.setup()
+    screen.getByRole('button', { name: 'Back to board' }).focus()
+    const seen = await tabNames(user, 3)
+    expect(seen[0]).toMatch(/^Block/)
+    expect(seen[1]).toBe('Close')
+    expect(seen[2]).toBe('Title')
+  })
+
+  it('tabs the title, then Block, then Close on desktop (#2410)', async () => {
+    mountBoard()
+    render(<CardDetail {...defaultProps()} />)
+    const user = userEvent.setup()
+    ;(document.getElementById('card-detail-title') as HTMLElement).focus()
+    const seen: string[] = []
+    for (let i = 0; i < 40 && !seen.includes('Close'); i++) seen.push((await tabNames(user, 1))[0])
+    const block = seen.findIndex((x) => x.startsWith('Block'))
+    expect(block).toBeGreaterThanOrEqual(0)
+    expect(seen.indexOf('Close')).toBeGreaterThan(block)
+  })
+
   it('keeps the title block before Block and Close in DOM order on desktop (#2410)', () => {
     mountBoard()
     render(<CardDetail {...defaultProps()} />)
