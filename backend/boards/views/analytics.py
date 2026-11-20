@@ -4,9 +4,10 @@ import datetime
 import json
 import logging
 import statistics
+from typing import NamedTuple
 from types import SimpleNamespace
 
-from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
@@ -429,6 +430,26 @@ class CumulativeFlowQuerySerializer(FlowMetricsQuerySerializer):
     validate_date = FlowMetricsQuerySerializer._in_bounds
 
 
+class _AnalyticsMove(NamedTuple):
+    """One buffered movement as the heatmap reads it (#2427)."""
+
+    to_column_id: int | None
+    moved_at: datetime.datetime
+
+
+class _AnalyticsCard:
+    """One card row of the ``analytics`` heatmap: the fields it reads, and its buffered movements (#2427)."""
+
+    __slots__ = (
+        "id", "uid", "title", "swimlane_id", "column_id", "archived_at", "created_at",
+        "_last_moved_at", "_last_col_id", "_first_moved_at", "_pre_buffer_col_id", "_analytics_movements",
+    )
+
+    def __init__(self, **fields):
+        for name, value in fields.items():
+            setattr(self, name, value)
+
+
 def _flow_query(serializer_class, request, board, **context):
     """Validated query params, or a 400 in the API-wide bad-parameter shape (#1825)."""
     serializer = serializer_class(data=request.query_params, context={"board": board, **context})
@@ -446,8 +467,20 @@ def _flow_range(params, now):
 
 
 def _load_flow(board, params, now):
+    """The board's whole history under the filters: only cumulative flow's ``date`` drill-down needs it."""
     return flow_metrics.load_board_flow(
         board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
+    )
+
+
+def _load_range_flow(board, params, now, flow_range):
+    """Only the cards that can change a metric inside ``flow_range`` (#2425, see ``can_affect_range``).
+
+    Cost follows the cards live now or active since the range opened, not the
+    board's age; the numbers are the same as on ``_load_flow``.
+    """
+    return flow_metrics.load_range_flow(
+        board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
     )
 
 
@@ -1233,11 +1266,17 @@ class BoardAnalyticsMixin:
         buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
         _last_mv_qs = _mv_qs.order_by("-moved_at", "-id")
-        all_cards = list(
-            flow_metrics._base_cards(board, swimlane_filter, label_filter).filter(
-                Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
-            )
-            .annotate(
+        window_cards = flow_metrics._base_cards(board, swimlane_filter, label_filter).filter(
+            Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
+        )
+        # Plain rows, not model instances (#2427): on a 12k-card board with a
+        # year of history a days=365 request read ~600k movements, and as
+        # deferred CardMovement instances they were most of its 691 MB peak.
+        # The same two queries (cards, then their movements in the buffer),
+        # the same rows and order, so the same numbers.
+        all_cards = [
+            _AnalyticsCard(**row)
+            for row in window_cards.annotate(
                 # Most-recent movement timestamp — used for stall detection.
                 _last_moved_at=Subquery(_last_mv_qs.values("moved_at")[:1]),
                 # Most-recent movement destination — mirrors movements[-1].to_column_id
@@ -1256,35 +1295,28 @@ class BoardAnalyticsMixin:
                     _mv_qs.filter(moved_at__lt=buffer_cutoff).order_by("-moved_at", "-id").values("to_column_id")[:1]
                 ),
             )
+            .order_by("swimlane_id", "position")
             # Only the card fields this method reads. Without it every card's
             # description and other wide columns are loaded and discarded (#1884).
-            .only("id", "uid", "title", "swimlane_id", "column_id", "position", "archived_at", "created_at")
-            .prefetch_related(
-                Prefetch(
-                    "movements",
-                    # Scope the prefetch to a 2× analysis-window buffer: all the frozen
-                    # clamped-dwell logic reads (movements entering just before
-                    # period_cutoff). This does NOT bound the request's memory, as it
-                    # did for #654/#646: load_recent_dwell above holds the whole
-                    # history of every card relevant to the window, about 17.6 MB per
-                    # 37,500 movements, in memory until the response is built. Accepted
-                    # for #448; nightly-load-test measures it under #2110.
-                    # Stall detection and velocity use card-level annotations above
-                    # instead of the prefetch, so no historical data is lost.
-                    # Load only the fields the algorithm reads; order at the DB level so
-                    # the per-card Python sort is eliminated.
-                    queryset=CardMovement.objects.filter(
-                        moved_at__gte=buffer_cutoff
-                    ).only(
-                        "card_id", "to_column_id", "moved_at"
-                    ).order_by("moved_at"),
-                    # A plain list on the card: reading it needs no per-card
-                    # queryset clone (#1884, the pattern #1212 flagged).
-                    to_attr="_analytics_movements",
-                )
-            )
-            .order_by("swimlane_id", "position")
-        )
+            .values(*_AnalyticsCard.__slots__[:-1])
+        ]
+        # Scope the movements to a 2× analysis-window buffer: all the frozen
+        # clamped-dwell logic reads (movements entering just before
+        # period_cutoff). load_recent_dwell above also holds the whole history
+        # of every card relevant to the window, as compact tuples; this query
+        # is the heatmap's own frozen avg_days_per_column path. Stall detection
+        # and velocity use the card-level annotations above instead, so no
+        # historical data is lost. Ordered at the DB level so no per-card sort.
+        movements_by_card: dict[int, list] = {}
+        for card_id, to_column_id, moved_at in (
+            CardMovement.objects.filter(card__in=window_cards.order_by().values("id"), moved_at__gte=buffer_cutoff)
+            .order_by("moved_at")
+            .values_list("card_id", "to_column_id", "moved_at")
+            .iterator(chunk_size=2000)
+        ):
+            movements_by_card.setdefault(card_id, []).append(_AnalyticsMove(to_column_id, moved_at))
+        for _c in all_cards:
+            _c._analytics_movements = movements_by_card.get(_c.id, [])
         cards_by_swimlane: dict[int, list] = {}
         for _c in all_cards:
             cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
@@ -1302,8 +1334,8 @@ class BoardAnalyticsMixin:
             deal_velocity_days = []
 
             for card in cards:
-                # The to_attr list from the Prefetch above, already ordered by
-                # moved_at at the DB level. The prefetch is scoped to a 2× window
+                # The card's buffer movements from the query above, already
+                # ordered by moved_at at the DB level. The prefetch is scoped to a 2× window
                 # buffer — movements contains only entries from period_cutoff - days onward.
                 movements = card._analytics_movements
 
@@ -1549,8 +1581,8 @@ class BoardAnalyticsMixin:
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
         flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
         payload = flow_metrics.cycle_time(flow, flow_range)
         grouping = _grouping(board, params, flow)
         if grouping is not None:
@@ -1585,10 +1617,11 @@ class BoardAnalyticsMixin:
         board, role = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(SwimlaneComparisonQuerySerializer, request, board, role=role)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
+        flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
         lanes = list(board.swimlanes.order_by("position", "id"))
         return Response(flow_metrics.swimlane_comparison(
-            flow, _flow_range(params, now), lanes, params.get("group_by_field_id"),
+            flow, flow_range, lanes, params.get("group_by_field_id"),
         ))
 
     @extend_schema(
@@ -1610,8 +1643,8 @@ class BoardAnalyticsMixin:
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(ThroughputQuerySerializer, request, board)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
         flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
         payload = flow_metrics.throughput(flow, flow_range, params["period"])
         grouping = _grouping(board, params, flow)
         if grouping is not None:
@@ -1649,9 +1682,15 @@ class BoardAnalyticsMixin:
         if day is not None and day >= now.date():
             # Today is still running, so it is never a bucket (ADR "Whole days").
             raise CodedValidationError(INVALID_QUERY_PARAM, "date must be a whole UTC day before today.")
-        flow = _load_flow(board, params, now)
         if day is None:
-            return Response(flow_metrics.cumulative_flow(flow, _flow_range(params, now)))
+            flow_range = _flow_range(params, now)
+            flow = flow_metrics.load_cumulative_flow(
+                board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+            )
+            return Response(flow_metrics.cumulative_flow(flow, flow_range))
+        # One day's card list names every card resting in each band that day,
+        # finished work from any year included, so it reads the whole history.
+        flow = _load_flow(board, params, now)
         payload = flow_metrics.cumulative_flow_cards(flow, day)
         payload["cards"] = flow_metrics.card_directory(
             flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
@@ -1669,8 +1708,8 @@ class BoardAnalyticsMixin:
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
         flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
         payload = flow_metrics.age(flow, flow_range)
         grouping = _grouping(board, params, flow)
         if grouping is not None:
@@ -1689,8 +1728,8 @@ class BoardAnalyticsMixin:
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
         flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
         payload = flow_metrics.column_dwell(flow, flow_range)
         grouping = _grouping(board, params, flow)
         if grouping is not None:
@@ -1726,10 +1765,9 @@ class BoardAnalyticsMixin:
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(FlowMetricsQuerySerializer, request, board)
         now = timezone.now()
-        flow = _load_flow(board, params, now)
-        payload = flow_metrics.needs_attention(
-            flow, _flow_range(params, now), stalled_days=board.staleness_threshold_days,
-        )
+        flow_range = _flow_range(params, now)
+        flow = _load_range_flow(board, params, now, flow_range)
+        payload = flow_metrics.needs_attention(flow, flow_range, stalled_days=board.staleness_threshold_days)
         payload["cards"] = flow_metrics.card_directory(flow, (item["card_uid"] for item in payload["items"]))
         return Response(payload)
 
