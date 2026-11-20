@@ -4762,21 +4762,11 @@ table in one plain <code>AddField</code>, no <code>NOT VALID</code> split needed
 <p><code>db_index=False</code> is the part worth not skipping. <code>ForeignKey</code> builds a b-tree index on the
 column by default — same as an explicit <code>db_index=True</code> on any other field — and that index
 build <em>does</em> scan the whole table under <code>ACCESS EXCLUSIVE</code>, whether the new column's values
-are <code>NULL</code> or not. <code>accounts/0031</code> splits it out for exactly this reason: <code>db_index=False</code>
-here, then a separate <code>AddIndexConcurrently</code> in <code>accounts/0032_user_pending_email_addr_idx</code>.
-Follow that shape for new work — <code>boards/0044</code> predates the split and left its default index
-inline, which was only harmless because <code>cardchecklist</code> was small at the time.</p>
-<p>The constraint half is cheap for a new column, not free. Even with every row <code>NULL</code>,
-PostgreSQL still emits <code>ADD CONSTRAINT ... FOREIGN KEY</code> and validates the column against the
-target table under a lock on both — a scan that finds nothing to check, but one whose length
-tracks the table's size. On a small table (the two precedents above) that is fine. <strong>On a
-large table — <code>cards</code>, <code>card_movements</code>, <code>card_activities</code>, anything append-only — use the
-<a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code> recipe</a> below
-even when the column starts all <code>NULL</code>.</strong> <code>boards/0119</code>–<code>0122</code> (#1799) is the in-tree
-precedent: <code>0119</code> adds <code>card_activities.board</code> with <code>db_constraint=False, db_index=False</code>,
-<code>0120</code> backfills it in batches, <code>0121</code> adds the constraint <code>NOT VALID</code>, and <code>0122</code> validates
-it once, after the backfill. <a href="#known-gaps-in-the-11-to-12-migrations">Known gaps</a> below
-records the two shipped migrations that did not.</p>
+are <code>NULL</code> or not; only the constraint validation is free for a new column, not the index
+build. <code>accounts/0031</code> splits it out for exactly this reason: <code>db_index=False</code> here, then a
+separate <code>AddIndexConcurrently</code> in <code>accounts/0032_user_pending_email_addr_idx</code>. Follow that
+shape for new work — <code>boards/0044</code> predates the split and left its default index inline,
+which was only harmless because <code>cardchecklist</code> was small at the time.</p>
 <h3 id="a-foreign-key-on-a-column-that-already-holds-data">A foreign key on a column that already holds data<a class="headerlink" href="#a-foreign-key-on-a-column-that-already-holds-data" title="Permanent link">&para;</a></h3>
 <p>Once the column already has real, non-<code>NULL</code> values — an existing plain integer column being
 turned into a proper <code>ForeignKey</code>, or a nullable one already backfilled with real
@@ -5292,9 +5282,8 @@ installs have already run them; these are documented instead.</p>
   no such equivalent and has shipped, so it is documented here rather than edited. For a
   future FK on a large table, use the <a href="#a-foreign-key-on-a-column-that-already-holds-data"><code>NOT VALID</code> then <code>VALIDATE</code>
   recipe</a> even if the column starts all
-  <code>NULL</code> — <code>boards/0119</code>–<code>0122</code> (<code>card_activities.board</code>, #1799) does. No checker enforces
-  this today: <code>check_migration_concurrency</code> does not inspect foreign-key validation (see
-  above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
+  <code>NULL</code>. No checker enforces this today: <code>check_migration_concurrency</code> does not inspect
+  foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
   considered (#1894) and declined for now: a lint cannot tell a large table from a small
   one, so it would either flag every FK on a small table or miss the ones that matter.</li>
 <li><strong>NOT NULL columns first shipped with a Python-only <code>default=</code>.</strong> <code>accounts/0027</code>,
