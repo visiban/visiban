@@ -420,7 +420,7 @@ Within the card detail Activity tab (now **History**), the **Show full history**
 
 ## Analytics heatmap — absolute threshold coloring
 
-The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Card aging settings**.
+The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Rules & limits → Card aging settings**.
 
 → [Analytics](analytics.md#color-coding)
 

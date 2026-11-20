@@ -10,6 +10,7 @@ import {
   SECTION_GROUPS,
   SECTION_LABELS,
   findSettings,
+  settingKey,
   locateSettingTarget,
   resolveInitialSection,
   type SettingEntry,
@@ -1097,9 +1098,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   };
 
   // The viewer's role or the instance flags can change while the modal is open.
+  // `availableSections` is a fresh Set each render, so the effect keys on the one fact it acts on.
+  const tabAvailable = availableSections.has(tab);
   useEffect(() => {
-    if (!availableSections.has(tab)) setTab("members");
-  });
+    if (!tabAvailable) setTab("members");
+  }, [tabAvailable]);
   const [findQuery, setFindQuery] = useState("");
   const [jumpNotice, setJumpNotice] = useState("");
   const [findIndex, setFindIndex] = useState(0);
@@ -1171,7 +1174,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <ul id="board-settings-find-results" role="listbox" aria-label="Matching settings" className="py-1">
               {findResults.map((r, i) => (
                 <li
-                  key={`${r.section}-${r.label}`}
+                  key={settingKey(r)}
                   id={`board-settings-find-${i}`}
                   role="option"
                   aria-selected={i === findIndex}
@@ -1270,7 +1273,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         )}
 
         {/* Content */}
-        <div ref={panelRef} role="tabpanel" id="board-settings-panel" aria-labelledby={`board-settings-tab-${tab}`} tabIndex={0} className="overflow-y-auto flex-1 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-primary-emphasis max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
+        {/* Phone: no tab is rendered, so the panel is a region named for its section, not a tabpanel pointing at a missing tab. */}
+        <div ref={panelRef} role={isPhone ? "region" : "tabpanel"} id="board-settings-panel" aria-labelledby={isPhone ? undefined : `board-settings-tab-${tab}`} aria-label={isPhone ? sectionLabel(tab) : undefined} tabIndex={0} className="overflow-y-auto flex-1 px-6 py-4 focus:outline-none focus:ring-2 focus:ring-primary-emphasis max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
           {/* Hosted demo (#1179): ONE shared notice for the whole modal. Every
               admin control below sits in a DemoInert region that points its
               aria-describedby here, rather than repeating the reason per

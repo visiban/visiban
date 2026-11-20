@@ -4,7 +4,8 @@ import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testi
 import userEvent from '@testing-library/user-event'
 import { useState, type ComponentProps } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
-import { SETTINGS_INDEX, SECTION_LABELS, locateSettingTarget, findSettings, type SettingsSection } from '../components/Board/boardSettingsSections'
+import { SETTINGS_INDEX, SECTION_LABELS, locateSettingTarget, findSettings, settingKey, type SettingsSection } from '../components/Board/boardSettingsSections'
+import { computeAccessibleName } from 'dom-accessibility-api'
 import { recomputeBoardHealth } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, CustomFieldDefinition, User } from '../types'
@@ -1364,14 +1365,14 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
   })
 })
 
-// ─── Data tab ──────────────────────────────────────────────────────────────
+// ─── Export section ─────────────────────────────────────────────────────────
 
-describe('BoardSettingsModal — Data tab', () => {
+describe('BoardSettingsModal — Export section', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('clicking Data tab shows format radio options and Export button', async () => {
+  it('clicking the Export section shows format radio options and Export button', async () => {
     const user = userEvent.setup()
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
@@ -2872,7 +2873,7 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
     mockPatchBoard.mockResolvedValue({})
   })
 
-  it('admin sees the threshold dropdown on the Data tab', () => {
+  it('admin sees the threshold dropdown in the Export section', () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     expect(screen.getByText('Export permission')).toBeInTheDocument()
     // SelectDropdown renders its trigger as role="combobox"; the selected
@@ -2928,7 +2929,7 @@ describe('BoardSettingsModal — Export history (#842)', () => {
     mockGetBoardExportHistory.mockResolvedValue({ results: [], count: 0, next: null, previous: null })
   })
 
-  it('admin sees Export history section on the Data tab', async () => {
+  it('admin sees Export history in the Export section', async () => {
     render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
     await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
   })
@@ -3986,6 +3987,62 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       expect(select).toHaveValue('export')
       expect(screen.getByRole('button', { name: /^Export (JSON|CSV)$/ })).toBeInTheDocument()
     })
+
+    it('names the panel a region for its section, not a tabpanel pointing at a missing tab', async () => {
+      phone.on = true
+      const user = userEvent.setup()
+      mount()
+      expect(screen.queryByRole('tabpanel')).not.toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Members (2)' })).not.toHaveAttribute('aria-labelledby')
+      await user.selectOptions(screen.getByLabelText('Section'), 'export')
+      expect(screen.getByRole('region', { name: 'Export' })).toBeInTheDocument()
+    })
+  })
+
+  describe('the #863 webhook guard', () => {
+    afterEach(() => { phone.on = false })
+    const armSecret = async (user: ReturnType<typeof userEvent.setup>) => {
+      const { createWebhook } = await import('../api/webhooks')
+      ;(createWebhook as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 9, board: 1, name: '', url_display: 'hooks.example.com/…/abcd', url_host: 'hooks.example.com',
+        event_types: [], enabled: true, disabled_reason: null, disabled_at: null, last_delivered_event_id: 0,
+        consecutive_failures: 0, failing_since: null, next_attempt_at: null, last_attempt_at: null,
+        last_success_at: null, last_error_code: '', last_status_code: null, created_by: null, configured_by: null,
+        created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z', configured_at: null,
+        secret_rotated_at: null, previous_secret_expires_at: null, url: 'https://hooks.example.com/abcd', secret: 'whsec_find',
+      })
+      await user.click(await screen.findByRole('button', { name: 'Add webhook' }))
+      await user.type(screen.getByLabelText('Endpoint URL'), 'https://hooks.example.com/abcd')
+      await user.click(screen.getByRole('button', { name: 'Create webhook' }))
+      await screen.findByTestId('webhook-secret-reveal')
+    }
+
+    it('blocks a Find a setting jump until the admin confirms, then jumps', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'webhooks' })
+      await armSecret(user)
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'export history')
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('tab', { name: 'Webhooks' })).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Export history' })).toHaveClass('ring-2'))
+    })
+
+    it('blocks a switch from the phone Section select until the admin confirms', async () => {
+      phone.on = true
+      const user = userEvent.setup()
+      mount({ initialTab: 'webhooks' })
+      await armSecret(user)
+      const select = screen.getByLabelText('Section')
+      await user.selectOptions(select, 'export')
+      expect(select).toHaveValue('webhooks')
+      expect(screen.getByTestId('webhook-secret-reveal')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Confirm: close without storing the secret' }))
+      expect(select).toHaveValue('export')
+      expect(screen.getByRole('button', { name: /^Export (JSON|CSV)$/ })).toBeInTheDocument()
+    })
   })
 
   describe('Find a setting', () => {
@@ -4031,6 +4088,43 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       expect(onClose).not.toHaveBeenCalled()
     })
 
+    it('a jump inside the current section stays there and highlights the control', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'rules' })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'stale card')
+      await user.keyboard('{Enter}')
+      expect(screen.getByRole('tab', { name: /^Rules/ })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByLabelText('Stale card threshold')).toHaveClass('ring-2'))
+    })
+
+    it('a result with no target lands on the panel top and focuses the panel', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'display' })
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'card fields')
+      await user.click(screen.getByRole('option', { name: /^Card fields/ }))
+      expect(screen.getByRole('tab', { name: /^Card fields/ })).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(screen.getByRole('tabpanel')).toHaveFocus())
+    })
+
+    it('leaving the search clears it', async () => {
+      const user = userEvent.setup()
+      mount({ initialTab: 'display' })
+      const box = screen.getByRole('searchbox', { name: 'Find a setting' })
+      await user.type(box, 'wip')
+      expect(screen.getByRole('listbox', { name: 'Matching settings' })).toBeInTheDocument()
+      await user.click(screen.getByRole('tab', { name: 'Display' }))
+      expect(box).toHaveValue('')
+      expect(screen.queryByRole('listbox', { name: 'Matching settings' })).not.toBeInTheDocument()
+    })
+
+    it('renders each result once with no duplicate keys', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'fields')
+      const names = screen.getAllByRole('option').map((o) => o.textContent)
+      expect(new Set(names).size).toBe(names.length)
+    })
+
     it('never offers a section the viewer cannot see', async () => {
       const user = userEvent.setup()
       mount({ isAdmin: false })
@@ -4046,7 +4140,7 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
     render(
       <BoardSettingsModal
         currentUserId={null}
-        board={{ ...fakeBoard, columns: [{ id: 1, uid: 'coluid000001', name: 'To Do', position: 0, wip_limit: null } as never], swimlanes: [{ id: 1, name: 'Lane', position: 0 } as never] }}
+        board={{ ...fakeBoard, health_auto_enabled: true, cards_can_have_children: true, columns: [{ id: 1, uid: 'coluid000001', name: 'To Do', position: 0, wip_limit: null } as never], swimlanes: [{ id: 1, name: 'Lane', position: 0 } as never] }}
         viewPrefs={{ hiddenColumnIds: [], hiddenSwimlaneIds: [] } as never}
         onToggleHiddenColumn={vi.fn()}
         onToggleHiddenSwimlane={vi.fn()}
@@ -4073,19 +4167,70 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
     }
   })
 
-  it('every section heading has an index entry', async () => {
+  // #2436: Find a setting must match individual setting labels, not only section headings. This
+  // walks every section's rendered panel (admin, every flag on) and requires each heading
+  // (h3/h4/legend) and each named switch, checkbox, select/combobox or text/number input to be
+  // the target of an index entry that resolves to it. Plain action buttons are not walked (most are
+  // per-row or per-form actions); the ones worth finding have their own entries and direct tests.
+  // A radio is covered by its group's legend.
+  // Exempt: names that are this fixture's board data, not settings (a column and a lane).
+  const DATA_NAMES = new Set(['to do', 'lane'])
+  const textOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+  const isHeading = (el: Element) => ['H3', 'H4', 'LEGEND'].includes(el.tagName)
+  const coveredBy = (panel: HTMLElement, el: HTMLElement, name: string, entries: typeof SETTINGS_INDEX) =>
+    entries.some((e) => {
+      const loc = e.target ? locateSettingTarget(panel, e.target) : null
+      if (!loc) return false
+      if (loc === el || el.contains(loc)) return true
+      if (loc.tagName === 'LABEL' && (loc.contains(el) || (loc as HTMLLabelElement).htmlFor === el.id)) return true
+      if (textOf(loc).startsWith(name)) return true
+      return isHeading(el) && e.label.toLowerCase() === name
+    })
+
+  it('every heading and labelled control in every section has an index entry that lands on it', async () => {
+    const missing: string[] = []
     for (const section of sections) {
       const entries = SETTINGS_INDEX.filter((e) => e.section === section)
       const { unmount } = renderSection(section)
       const panel = await screen.findByRole('tabpanel')
-      if (panel.querySelectorAll('h3').length === 0) { unmount(); continue }
-      for (const h of Array.from(panel.querySelectorAll('h3'))) {
-        const text = (h.textContent ?? '').trim().toLowerCase()
-        const covered = entries.some((e) => (e.target ?? e.label).toLowerCase().startsWith(text) || text.startsWith((e.target ?? e.label).toLowerCase()))
-        expect(covered, `${section}: heading "${text}" has no SETTINGS_INDEX entry`).toBe(true)
+      // Panels that fill in after a fetch (Members invites, Webhooks, Issue lens) settle first.
+      await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+      const els = Array.from(panel.querySelectorAll<HTMLElement>(
+        'h3, h4, legend, [role="switch"], [role="combobox"], select, input:not([type="radio"]):not([type="hidden"])',
+      ))
+      for (const el of els) {
+        const name = (isHeading(el) ? textOf(el) : computeAccessibleName(el).replace(/\s+/g, ' ').trim().toLowerCase())
+        if (name === '' || DATA_NAMES.has(name)) continue
+        if (!coveredBy(panel, el, name, entries)) missing.push(`${section}: "${name}"`)
       }
       unmount()
     }
+    expect(missing, `controls with no SETTINGS_INDEX entry:\n${missing.join('\n')}`).toEqual([])
+  })
+
+  it.each([
+    ['Use my own density', 'display'],
+    ['Calculate health status automatically', 'rules'],
+    ['Cards can have child cards', 'rules'],
+    ['Enable public share link', 'sharing'],
+    ['Moderator', 'members'],
+    ['Invite by email', 'members'],
+    ['Recompute now', 'rules'],
+    ['commitment point', 'rules'],
+  ] as const)('finds "%s" in %s', (query, section) => {
+    const all = new Set(sections)
+    const hits = findSettings(query, all)
+    expect(hits.some((e) => e.section === section), `${query}: ${hits.map((h) => h.label).join(', ')}`).toBe(true)
+  })
+
+  it('lists each result once, with a unique key', () => {
+    const all = new Set(sections)
+    for (const q of ['fields', 'webhooks', 'export', 'card', 'swimlane', 'health', 'invite', 'share']) {
+      const keys = findSettings(q, all).map(settingKey)
+      expect(new Set(keys).size, q).toBe(keys.length)
+    }
+    expect(findSettings('fields', all).filter((e) => e.label === 'Card fields')).toHaveLength(1)
+    expect(findSettings('webhooks', all).filter((e) => e.label === 'Webhooks')).toHaveLength(1)
   })
 
   it('finds Column policies by policy', () => {

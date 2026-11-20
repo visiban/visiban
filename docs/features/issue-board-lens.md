@@ -77,7 +77,7 @@ A **Lens** tab appears in the board sub-navigation, visible to all board members
 
 **Lens-only boards:** if the board has **no native swimlanes**, the **Board** tab shows in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so it doesn't look like two competing boards. The Board tab is never disabled or hidden: it stays one click (or the `B` key) away, and returns to normal styling as soon as the board has one native swimlane.
 
-**Disconnect:** go to **Settings → Issue lens** and click **Remove lens**. The Lens tab disappears immediately.
+**Disconnect:** go to **Board Settings → Issue lens** and click **Remove lens**. The Lens tab disappears immediately.
 
 ---
 

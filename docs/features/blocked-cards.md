@@ -72,7 +72,7 @@ Some boards already track blocked work with a [custom field](custom-fields.md) c
 | **Blocked only** filter | Yes | Filter on the field instead |
 | Free to rename, recolor, combine with other values | No | Yes |
 
-To switch over, filter the board on the old field value, block each of those cards with a reason, then remove the choice from the field (Board Settings → Fields) once nobody uses it. Keep the field if it means something the blocked state does not, for example a status your process reports on.
+To switch over, filter the board on the old field value, block each of those cards with a reason, then remove the choice from the field (Board Settings → Card fields) once nobody uses it. Keep the field if it means something the blocked state does not, for example a status your process reports on.
 
 ---
 

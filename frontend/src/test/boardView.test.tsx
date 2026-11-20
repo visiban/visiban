@@ -721,6 +721,9 @@ describe('BoardView', () => {
     const at = (n: string) => names.findIndex((x) => x === n)
     expect(at('Export')).toBeGreaterThan(at('Activity'))
     expect(at('Settings')).toBe(at('Export') + 1)
+    // Settings sits before the overflow kebab, which closes the row.
+    const more = within(toolbar).getByRole('button', { name: 'More board actions' })
+    expect(settingsBtn().compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(toolbar).queryByRole('separator')).not.toBeInTheDocument()
     // WCAG 2.5.3: the accessible name starts with the visible label.
     expect(exportBtn()).toHaveTextContent('Export')
