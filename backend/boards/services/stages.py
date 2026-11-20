@@ -14,6 +14,7 @@ this save waited; the attempt is retried when that happens.
 """
 
 from django.db import transaction
+from django.db.models import Count, Q
 
 from visiban.request_shape import id_in_db_range
 
@@ -22,7 +23,7 @@ from ..models import (
     Card, CardGateTransition, Column, CustomFieldDefinition, StageTrack, SubColumn,
     Swimlane, SwimlaneTrackException,
 )
-from .cards import write_gate_transitions
+from .cards import build_gate_transitions
 from .errors import ColumnNotFound, VersionConflict
 
 _ATTEMPTS = 3
@@ -55,7 +56,7 @@ def _clean_sub_columns(column, raw, existing):
             "sub_columns": f"A stage can have at most {SubColumn.MAX_PER_COLUMN} sub-columns.",
         })
     by_id = {s.pk: s for s in existing}
-    out, names, kept_positions = [], set(), []
+    out, names = [], set()
     for entry in raw:
         if not isinstance(entry, dict):
             raise StageValidationError({"sub_columns": "Each sub-column must be an object."})
@@ -81,11 +82,10 @@ def _clean_sub_columns(column, raw, existing):
             raise StageValidationError({
                 "sub_columns": "A sub-column id does not belong to this column.",
             })
-        kept_positions.append(by_id[sid].position)
         out.append((by_id.pop(sid), name))
-    # No reorder in phase 1: kept sub-columns stay in their order.
-    if kept_positions != sorted(kept_positions):
-        raise StageValidationError({"sub_columns": "Sub-columns cannot be reordered."})
+    # Kept sub-columns may be reordered (#2368). A card follows its own
+    # sub-column to the new index (``_remap``), so a reorder is a re-index,
+    # not a pass: no gate is crossed and no history is written.
     return out
 
 
@@ -176,6 +176,45 @@ def _remap(cards, old_subs, plan):
     return out
 
 
+def stage_card_counts(*, board, column_id):
+    """Cards in each sub-column of a stage, archived ones counted apart (#2368).
+
+    The Stage settings panel warns "N cards will move" before a save. The
+    client only holds active cards, but ``_remap`` moves archived cards too
+    (they carry ``gates_passed`` and come back where they were), so the panel
+    reads the server's counts. A card's sub-column is
+    ``min(gates_passed, last)``, the clamp ``_remap`` uses. One aggregate
+    query; a plain column returns ``[]``.
+
+    Authorization is the caller's (board admin only, like the save).
+    """
+    # The URL only says \d+; an id past the column type's range would overflow
+    # the query parameter (a 500), so it is the same 404 as an unknown id.
+    if not id_in_db_range(int(column_id)):
+        raise ColumnNotFound()
+    column = Column.objects.filter(board=board, pk=column_id).first()
+    if column is None:
+        raise ColumnNotFound()
+    subs = list(SubColumn.objects.filter(column=column).order_by("position", "id"))
+    if not subs:
+        return []
+    out = [{"id": s.pk, "cards": 0, "archived_cards": 0} for s in subs]
+    rows = (
+        Card.objects.filter(board=board, column=column)
+        .values("gates_passed")
+        .annotate(
+            active=Count("pk", filter=Q(archived_at__isnull=True)),
+            archived=Count("pk", filter=Q(archived_at__isnull=False)),
+        )
+        .order_by()
+    )
+    for row in rows:
+        entry = out[min(max(row["gates_passed"], 0), len(subs) - 1)]
+        entry["cards"] += row["active"]
+        entry["archived_cards"] += row["archived"]
+    return out
+
+
 def save_stage(*, actor, board, column_id, data):
     """Save a column's stage settings atomically; return ``(column, remapped, lanes)``.
 
@@ -240,6 +279,11 @@ def _save_stage_attempt(*, actor, board, column_id, data):
                     SubColumn.objects.filter(pk=existing.pk).update(position=idx, name=name)
                     existing.position, existing.name = idx, name
                     new_subs.append(existing)
+            # Bulk writes (#2362): one INSERT for every transition and one
+            # UPDATE for every remapped card, so the column lock is held for a
+            # constant number of queries however many cards the stage holds.
+            # The cards were locked first above, so lock order is unchanged.
+            transitions, updated = [], []
             for card in cards:
                 if card.pk not in changes:
                     continue
@@ -248,15 +292,21 @@ def _save_stage_attempt(*, actor, board, column_id, data):
                 # metrics would count a phantom pass); only a card whose own
                 # sub-column was removed falls back and is recorded.
                 if fell_back:
-                    write_gate_transitions(
+                    transitions.extend(build_gate_transitions(
                         card=card, column=column, sub_columns=new_subs,
                         from_index=card.gates_passed, to_index=new, actor=actor,
                         cause=CardGateTransition.Cause.STAGE_EDITED,
-                    )
+                    ))
+                # The card rows are locked, so the version read above is
+                # current and +1 is the value the UPDATE writes.
                 card.gates_passed = new
                 card.version += 1
-                Card.objects.filter(pk=card.pk).update(gates_passed=new, version=card.version)
+                updated.append(card)
                 remapped.append({"id": card.pk, "gates_passed": new, "version": card.version})
+            if transitions:
+                CardGateTransition.objects.bulk_create(transitions)
+            if updated:
+                Card.objects.bulk_update(updated, ["gates_passed", "version"])
 
         if "tracks" in data:
             fields = _clean_tracks(board, data["tracks"])

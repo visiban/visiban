@@ -211,14 +211,29 @@ class StageActionTests(_StageBase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual([s["name"] for s in resp.data["column"]["sub_columns"]], ["Ready to pull", "Doing"])
 
-    def test_reorder_is_refused(self):
+    def test_reorder_moves_cards_with_their_sub_column_without_history(self):
+        # #2368: kept sub-columns may be reordered; a card follows its own
+        # sub-column to the new index, and a re-index passes no gate.
+        card = Card.objects.create(
+            board=self.board, column=self.stage, swimlane=self.lane, title="S",
+            created_by=self.user, position=1, gates_passed=1, version=2,
+        )
         resp = self.client.put(
             self.stage_url(),
             {"sub_columns": [{"id": self.subs[1].pk, "name": "Review"},
-                             {"id": self.subs[0].pk, "name": "Doing"}]},
+                             {"id": self.subs[0].pk, "name": "Doing"},
+                             {"id": self.subs[2].pk, "name": "Ready to pull"}]},
             format="json",
         )
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(
+            [s["name"] for s in resp.data["column"]["sub_columns"]],
+            ["Review", "Doing", "Ready to pull"],
+        )
+        card.refresh_from_db()
+        self.assertEqual((card.gates_passed, card.version), (0, 3))
+        self.assertEqual(resp.data["remapped"], [{"id": card.pk, "gates_passed": 0, "version": 3}])
+        self.assertFalse(CardGateTransition.objects.filter(card=card).exists())
 
     def test_removing_a_sub_column_remaps_cards_past_it(self):
         cards = []
