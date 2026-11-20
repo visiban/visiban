@@ -2622,6 +2622,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#import-error-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import error codes
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -7718,6 +7729,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
 <p>Returns the new board in the shape of <code>GET /api/v1/boards/{id}/</code>, plus an <code>import_summary</code> object (the <code>BoardImportResponse</code> component in the OpenAPI document).</p>
+<p><em>Changed in 1.3 (#1903):</em> the body also carries <code>board</code> (the same board again) and <code>summary</code> (the same object as <code>import_summary</code>), so it has the same four keys as the <a href="#post-apiv1boardsimporttrello">Trello import</a> and one client can read either. Nothing was removed: the board's fields stay at the top level. New clients should read <code>board</code> and <code>summary</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
 <a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
 <a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_1a2b3c4d5e6f7890"</span><span class="p">,</span>
@@ -7738,8 +7750,10 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a><span class="w">      </span><span class="nt">"colors"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a><span class="w">      </span><span class="nt">"assignees"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
 <a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a><span class="p">}</span>
+<a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a><span class="w">  </span><span class="nt">"board"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span><span class="w"> </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_1a2b3c4d5e6f7890"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Imported: Roadmap"</span><span class="p">,</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"same fields as above"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a><span class="w">  </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"options_applied"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"same object as import_summary"</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"skipped"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a><span class="p">}</span>
 </code></pre></div>
 <h4 id="import-summary">Import summary<a class="headerlink" href="#import-summary" title="Permanent link">&para;</a></h4>
 <blockquote>
@@ -7765,6 +7779,7 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </table>
 <p>The <code>board.created</code> event for the new board carries the resolved options as an additional <code>import_options</code> field.</p>
 <p><strong>Errors</strong></p>
+<p>Since 1.3 (#1903) every error body is <code>{"detail": "...", "code": "..."}</code> (the <code>ImportError</code> component). <code>detail</code> is for people and may be reworded; branch on <code>code</code>. See <a href="#import-error-codes">Import error codes</a>.</p>
 <table>
 <thead>
 <tr>
@@ -7776,31 +7791,97 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <tbody>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "..."}</code></td>
 <td>File is missing, empty, has an unsupported extension, exceeds the upload size limit (<code>MAX_UPLOAD_SIZE_BYTES</code>, default 10 MB — the same env var and default as <a href="../cards/#attachments">card attachment uploads</a>, and distinct from the Trello importer's own <code>IMPORT_MAX_SIZE_BYTES</code>), is not valid JSON/CSV, or references columns/swimlanes that fail validation. Also returned when <code>options</code> is not valid JSON, is not an object, has an unknown key, has a non-boolean value, sets <code>comments</code>, <code>checklist</code>, or <code>history</code> to <code>true</code> with <code>cards</code> set to <code>false</code>, or — for a CSV file — has any key other than <code>labels</code> and <code>cards</code>. A CSV file also returns <code>400</code> for a cell over the <a href="#csv-cell-limits">CSV cell limits</a>, a NUL byte, or an impossible <code>Due Date</code>.</td>
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>
-<td><code>{"detail": "Authentication credentials were not provided."}</code></td>
+<td><code>{"detail": "Authentication credentials were not provided.", "code": "not_authenticated"}</code></td>
 <td>Caller is not authenticated.</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "permission_denied"}</code></td>
 <td><code>group_id</code> was supplied for a group the caller can see but is not an admin of. Since 1.2; before 1.2 a caller who was not a member of the group received <code>403</code>, and any member could import.</td>
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "not_found"}</code></td>
 <td><code>group_id</code> does not match a group that exists and is visible to the caller. <em>(1.2+)</em> Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719).</td>
 </tr>
 <tr>
 <td><code>429 Too Many Requests</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "throttled"}</code></td>
 <td>The <code>board_import</code> rate limit was exceeded.</td>
 </tr>
 </tbody>
 </table>
+<h4 id="import-error-codes">Import error codes<a class="headerlink" href="#import-error-codes" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.3</strong> (#1903). Both import endpoints use these. A code is never renamed or removed; new ones may be added, so treat an unknown code like <code>invalid_import</code>.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th><code>code</code></th>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>no_file</code></td>
+<td><code>400</code></td>
+<td>No <code>file</code> part in the upload.</td>
+</tr>
+<tr>
+<td><code>file_too_large</code></td>
+<td><code>400</code> native, <code>413</code> Trello</td>
+<td>The file is over the size limit.</td>
+</tr>
+<tr>
+<td><code>unsupported_format</code></td>
+<td><code>400</code></td>
+<td>Native import only: neither a <code>.json</code> nor a <code>.csv</code> file.</td>
+</tr>
+<tr>
+<td><code>invalid_file</code></td>
+<td><code>400</code></td>
+<td>The file cannot be read as its format: not UTF-8, not valid JSON or CSV, an empty CSV, nested too deeply, or JSON that is not an export (not an object; for Trello, no <code>lists</code> and <code>cards</code>).</td>
+</tr>
+<tr>
+<td><code>limit_exceeded</code></td>
+<td><code>400</code></td>
+<td>A count cap is exceeded: cards, columns, swimlanes, labels, rows, distinct usernames, or a per-card child list (native); lists, cards, labels, members, actions, checklists, attachments, comments, or a per-card list (Trello).</td>
+</tr>
+<tr>
+<td><code>invalid_options</code></td>
+<td><code>400</code></td>
+<td><code>options</code> (native) or <code>mapping</code> (Trello) is invalid.</td>
+</tr>
+<tr>
+<td><code>invalid_name</code></td>
+<td><code>400</code></td>
+<td><code>name</code> is invalid (too long, a NUL character, or not a string).</td>
+</tr>
+<tr>
+<td><code>invalid_mode</code></td>
+<td><code>400</code></td>
+<td>Trello only: not exactly one of <code>?dry_run=true</code> and <code>?confirm=true</code>.</td>
+</tr>
+<tr>
+<td><code>file_mismatch</code></td>
+<td><code>400</code></td>
+<td>Trello only: on <code>confirm</code>, <code>file_sha256</code> does not match the uploaded file.</td>
+</tr>
+<tr>
+<td><code>invalid_import</code></td>
+<td><code>400</code></td>
+<td>Any other problem with the file's contents: a missing field, a wrong type, a reference to an undefined column or swimlane, a value that cannot be stored, or, on Trello <code>confirm</code>, no lists to import.</td>
+</tr>
+</tbody>
+</table>
+<p>Errors raised before or around the importer carry the framework's code for them instead, for example <code>not_authenticated</code> or <code>authentication_failed</code> (<code>401</code>), <code>permission_denied</code> (<code>403</code>), <code>not_found</code> (<code>404</code>), <code>unsupported_media_type</code> (<code>415</code>), <code>throttled</code> (<code>429</code>), and <code>parse_error</code> (<code>400</code>, a malformed multipart body). One <code>400</code> has no <code>code</code>: a request in a charset other than UTF-8 is refused before it reaches the API (<code>{"detail": "Unsupported request charset. Use UTF-8."}</code>), on every endpoint.</p>
 <h3 id="post-apiv1boardsimporttrello"><code>POST /api/v1/boards/import/trello/</code><a class="headerlink" href="#post-apiv1boardsimporttrello" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#456)</p>
@@ -8176,7 +8257,8 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 </tbody>
 </table>
 <p><strong>Response</strong> <code>201 Created</code> (<code>confirm=true</code>)</p>
-<p>Unlike <a href="#post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code></a>, which returns the board at the top level (plus <code>import_summary</code>), this endpoint wraps the board with a summary. <code>board</code> has the shape of <code>GET /api/v1/boards/{id}/</code>; <code>summary</code> repeats the preview's <code>counts</code>, <code>result</code>, <code>warnings</code>, and <code>unmappable</code>. The OpenAPI document names these <code>TrelloImportPreview</code> (the <code>dry_run=true</code> 200) and <code>TrelloImportConfirm</code> (this 201). The two envelopes differ today; aligning them additively, and adding an error <code>code</code>, is tracked in #1903. Error bodies on both carry <code>detail</code> only, with no <code>code</code>.</p>
+<p>The board comes back as <code>board</code>, with a <code>summary</code>. <code>board</code> has the shape of <code>GET /api/v1/boards/{id}/</code>; <code>summary</code> repeats the preview's <code>counts</code>, <code>result</code>, <code>warnings</code>, and <code>unmappable</code>. The OpenAPI document names these <code>TrelloImportPreview</code> (the <code>dry_run=true</code> 200) and <code>TrelloImportConfirm</code> (this 201).</p>
+<p><em>Changed in 1.3 (#1903):</em> the body also carries the native import's envelope: the board's fields at the top level and the summary again as <code>import_summary</code>, so both imports return the same four keys (<code>board</code>, <code>summary</code>, <code>import_summary</code>, and the board's fields). Nothing was removed. The summary's contents still differ by source: a Trello summary has <code>counts</code>, <code>result</code>, <code>warnings</code> (objects) and <code>unmappable</code>; a native one has <code>options_applied</code>, <code>skipped</code> and, for CSV, <code>warnings</code> (strings). Error bodies carry a <code>code</code> (see <a href="#import-error-codes">Import error codes</a>).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
 <a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">"board"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">513</span><span class="p">,</span>
@@ -8206,8 +8288,13 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <a id="__codelineno-27-27" name="__codelineno-27-27" href="#__codelineno-27-27"></a><span class="w">    </span><span class="nt">"unmappable"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <a id="__codelineno-27-28" name="__codelineno-27-28" href="#__codelineno-27-28"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"attachment_files"</span><span class="p">,</span><span class="w"> </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="w"> </span><span class="p">}</span>
 <a id="__codelineno-27-29" name="__codelineno-27-29" href="#__codelineno-27-29"></a><span class="w">    </span><span class="p">]</span>
-<a id="__codelineno-27-30" name="__codelineno-27-30" href="#__codelineno-27-30"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-27-31" name="__codelineno-27-31" href="#__codelineno-27-31"></a><span class="p">}</span>
+<a id="__codelineno-27-30" name="__codelineno-27-30" href="#__codelineno-27-30"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-27-31" name="__codelineno-27-31" href="#__codelineno-27-31"></a><span class="w">  </span><span class="nt">"import_summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"counts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"same object as summary"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-27-32" name="__codelineno-27-32" href="#__codelineno-27-32"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">513</span><span class="p">,</span>
+<a id="__codelineno-27-33" name="__codelineno-27-33" href="#__codelineno-27-33"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bd_7c1e9a4b2d6f8035"</span><span class="p">,</span>
+<a id="__codelineno-27-34" name="__codelineno-27-34" href="#__codelineno-27-34"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Website Relaunch"</span><span class="p">,</span>
+<a id="__codelineno-27-35" name="__codelineno-27-35" href="#__codelineno-27-35"></a><span class="w">  </span><span class="nt">"..."</span><span class="p">:</span><span class="w"> </span><span class="s2">"the rest of the board's fields, as under board"</span>
+<a id="__codelineno-27-36" name="__codelineno-27-36" href="#__codelineno-27-36"></a><span class="p">}</span>
 </code></pre></div>
 <p>Creating the board broadcasts <code>board.created</code> on the same channels as the native import.</p>
 <p><strong>Errors</strong></p>
@@ -8222,32 +8309,32 @@ import, <code>[]</code> when nothing was dropped). It holds at most 20 entries f
 <tbody>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "..."}</code></td>
 <td>Neither or both of <code>dry_run</code> / <code>confirm</code> given; <code>file</code> missing; the file is not valid UTF-8 JSON or is nested too deeply; it is not a Trello export (<code>lists</code> and <code>cards</code> are required); a schema or type error (the message names the offending field); an <a href="#post-apiv1boardsimporttrello">import cap</a> is exceeded; <code>mapping</code> is not a JSON object, has an unknown key, has a wrong type, lists a label that is not a named label in the export, or uses a <code>default_swimlane_name</code> that collides with a mapped label; on <code>confirm</code>, <code>file_sha256</code> does not match the uploaded file; on <code>confirm</code>, there are no lists to import (for example, every list is archived and <code>include_archived_lists</code> is <code>false</code>).</td>
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>
-<td><code>{"detail": "Authentication credentials were not provided."}</code></td>
+<td><code>{"detail": "Authentication credentials were not provided.", "code": "not_authenticated"}</code></td>
 <td>Caller is not authenticated.</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "permission_denied"}</code></td>
 <td><code>group_id</code> was supplied for a group the caller can see but is not an admin of (since 1.2; before 1.2 a caller who was not a member of the group received <code>403</code>, and any member could import); or the account has a pending password or username change.</td>
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
-<td><code>{"detail": "..."}</code></td>
+<td><code>{"detail": "...", "code": "not_found"}</code></td>
 <td><code>group_id</code> does not match a group that exists and is visible to the caller. <em>(1.2+)</em> Also returned, with nothing created, when the group is deleted while the import runs; a group delete that arrives while an import into it is in flight waits for it and then detaches the new board from the group (#1719).</td>
 </tr>
 <tr>
 <td><code>413 Content Too Large</code></td>
-<td><code>{"detail": "File too large. The maximum size for a Trello import is 25 MB."}</code></td>
+<td><code>{"detail": "File too large. The maximum size for a Trello import is 25 MB.", "code": "file_too_large"}</code></td>
 <td>The file is larger than <code>IMPORT_MAX_SIZE_BYTES</code>. Note that the native import endpoint returns <code>400</code> for an oversized file.</td>
 </tr>
 <tr>
 <td><code>429 Too Many Requests</code></td>
-<td><code>{"detail": "Request was throttled. ..."}</code></td>
+<td><code>{"detail": "Request was throttled. ...", "code": "throttled"}</code></td>
 <td>Rate limit exceeded; see <strong>Rate limits</strong> above.</td>
 </tr>
 </tbody>

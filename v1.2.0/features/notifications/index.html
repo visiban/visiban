@@ -4504,7 +4504,7 @@
 <p><strong>Go deeper:</strong> five of these events can also be <strong>delivered by email</strong>; see <a href="#email-notifications">Email notifications</a> below.</p>
 <p><strong>Watch out:</strong> the due-date and stale-card scans run from management commands, and <strong>nothing is sent until an operator turns on the scheduler</strong>. See <a href="#due-date-notifications">Due date notifications</a> and <a href="#running-the-stale-check">Running the stale check</a>.</p>
 <h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
-<p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of <strong>unread</strong> notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel.</p>
+<p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed of <strong>unread</strong> notifications. Each notification is a deep link: clicking it marks it read (removing it from the dropdown), navigates to the board, and opens the card detail panel. A mention in a comment opens the panel on the <strong>Comments</strong> tab; a mention in the description, and any mention notification from before 1.3, opens it on the tab you last used. The notification email links to the same place.</p>
 <p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
 <div class="admonition note">
 <p class="admonition-title">Notification limit</p>
@@ -4820,9 +4820,10 @@ not on, but <code>EMAIL_VERIFICATION=mandatory</code> closes both, and
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"mention_source"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
 </code></pre></div>
 <p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code>, <code>comment_added</code> <em>(<code>due_soon</code> and <code>comment_added</code> added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
 <div class="admonition note">
