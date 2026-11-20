@@ -186,13 +186,12 @@ class PeerReadUnderLockTests(_LinkFixture, TransactionTestCase):
         self.assertEqual(ctx.exception.status, 409)
         self.assertEqual(ctx.exception.body()["code"], "links_changed")
 
-    def test_outside_a_transaction_takes_nothing(self):
-        """A lock outside a transaction would end with its statement (and
-        Django refuses ``select_for_update`` there), so there is nothing to take."""
+    def test_outside_a_transaction_refuses_to_run(self):
+        """Absent input (#1075): with no transaction to hold the locks, the
+        helper raises instead of silently taking nothing."""
         CardParentLink.objects.create(parent=self.parent, child=self.child)
-        with mock.patch.object(card_links, "link_peer_pks") as spy:
+        with self.assertRaises(RuntimeError):
             card_links.lock_card_and_link_peers(self.child.pk)
-        spy.assert_not_called()
 
 
 class AdminFormLinksChangedTests(_LinkFixture, TestCase):

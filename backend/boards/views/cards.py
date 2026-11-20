@@ -176,7 +176,8 @@ def _per_card_cap_error(rows, setting, code, detail):
     refused. ``detail`` is formatted with ``cap``.
     """
     cap = int(getattr(django_settings, setting, 0) or 0)
-    if not cap or rows.count() < cap:
+    # Counted up to the cap only, so the check does not scan a card far over it.
+    if not cap or rows.values("pk")[:cap].count() < cap:
         return None
     return Response(
         {"code": code, "detail": detail.format(cap=cap)},

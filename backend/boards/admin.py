@@ -366,7 +366,7 @@ class CardAdminForm(forms.ModelForm):
 
 
 @admin.register(Card)
-class CardAdmin(admin.ModelAdmin):
+class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Card that broadcasts mutations to connected WebSocket clients.
 
     Mutations made through the admin site bypass the REST viewset and its

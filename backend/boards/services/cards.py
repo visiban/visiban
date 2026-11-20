@@ -1778,7 +1778,11 @@ def _lock_cascade_cards(cards):
 
     peers = link_peer_pks(cards)
     if peers:
-        cards = Card.objects.filter(Q(pk__in=cards.values("pk")) | Q(pk__in=sorted(peers)))
+        # One materialized pk list, not ``pk IN (subquery) OR pk IN (list)``,
+        # which PostgreSQL cannot drive from the pk index (a scan of the whole
+        # card table under FOR UPDATE). A card that enters the container after
+        # this read is caught by the caller's re-read and retry.
+        cards = Card.objects.filter(pk__in=sorted(_cascade_card_pks(cards) | peers))
     return frozenset(
         cards.order_by("pk").select_for_update(of=("self",)).values_list("pk", flat=True)
     )

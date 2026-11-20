@@ -194,15 +194,15 @@ def lock_card_and_link_peers(card_id):
     ``services.cards.lock_cards_for_cascade``. Locking the newcomer in a
     second statement instead would take a lower pk after a higher one. A card
     whose links change on every one of ``_PEER_LOCK_ATTEMPTS`` attempts raises
-    ``LinksChanged`` (409) with nothing written. Outside a transaction a
-    lock would end with its own statement (and Django refuses
-    ``select_for_update`` there), so there is nothing to take; every caller
-    runs inside one. No-op on SQLite, as in :func:`_lock_endpoints`.
+    ``LinksChanged`` (409) with nothing written. Outside a transaction the
+    locks would end with their own statement, so the helper refuses to run
+    (``RuntimeError``) rather than silently taking nothing (#1075).
+    No-op on SQLite, as in :func:`_lock_endpoints`.
     """
     if not connection.features.has_select_for_update:
         return
     if not transaction.get_connection().in_atomic_block:
-        return
+        raise RuntimeError("lock_card_and_link_peers must run inside transaction.atomic()")
     for _attempt in range(_PEER_LOCK_ATTEMPTS):
         try:
             with transaction.atomic():
