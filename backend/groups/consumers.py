@@ -10,13 +10,21 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from accounts.ws_auth import WS_CREDENTIAL_SCOPE_KEY, load_live_ws_user, refuse_handshake
 from visiban.authorization import authorize_account
 
+from django.db.models import Case, IntegerField, Q, Value, When
+
 from boards.broadcast import EVT_BOARD_CREATED, EVT_BOARD_UPDATED
 from boards.consumers import CLOSE_ACCESS_CHECK_FAILED, CLOSE_ACCESS_DENIED, CLOSE_NO_CREDENTIAL
-from boards.consumers import _lookup_role as _board_role
-from boards.permissions import PER_USER_EVENTS, per_user_event_visible, without_actor_scoped_fields
+from boards.models import Board
+from boards.permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
+    PER_USER_EVENTS,
+    get_board_roles,
+    per_user_event_visible,
+    without_actor_scoped_fields,
+)
 
 from .broadcast import EVT_GROUP_STAR_CHANGED, EVT_MEMBER_REMOVED, EVT_PING
-from .models import Group, user_has_group_access
+from .models import _GROUP_TRAVERSAL_MAX_DEPTH, Group, user_has_group_access
 
 # Group-channel events whose payload is one user's private state, keyed by
 # ``data["user_id"]`` (#1677): forwarded only to that user's own sockets.
@@ -32,6 +40,14 @@ GROUP_PER_USER_EVENTS = PER_USER_EVENTS | {EVT_GROUP_STAR_CHANGED}
 # the board's identifiers, and access can no longer be resolved for a deleted
 # board, so it is not gated: it lets a client drop a row it already lists.
 BOARD_STATE_EVENTS = frozenset({EVT_BOARD_CREATED, EVT_BOARD_UPDATED})
+
+# Most boards one board-frame verdict pass resolves (#1929). On a cache miss the
+# socket resolves the frame's board together with up to this many other boards
+# of its group, so a burst of board metadata edits across a group costs one
+# fixed pass per socket per access window instead of ~3 queries per board. The
+# cap keeps that pass a bounded read on a group holding thousands of boards; a
+# board beyond it is resolved by a later pass when its own frame arrives.
+BOARD_VERDICT_BATCH = 200
 
 # Mirror BoardConsumer.PING_INTERVAL; NATs and reverse proxies commonly drop idle
 # WebSocket connections after 60–120s of silence, so 30s keeps them warm.
@@ -75,9 +91,16 @@ _now = time.monotonic
 logger = logging.getLogger(__name__)
 
 
+# The whole capped ancestor chain, joined up front: ``user_has_group_access``
+# walks it in Python, so loading only ``parent`` cost one lazy query per level
+# above it on every handshake and access re-check, up to four extra at the
+# depth cap (#1929).
+_GROUP_PARENT_CHAIN = "__".join(["parent"] * _GROUP_TRAVERSAL_MAX_DEPTH)
+
+
 def _user_can_access_group_id(user, group_id):
     """Resolve ``group_id`` and apply the shared REST membership predicate."""
-    group = Group.objects.select_related("parent").filter(pk=group_id).first()
+    group = Group.objects.select_related(_GROUP_PARENT_CHAIN).filter(pk=group_id).first()
     if group is None:
         return False
     return user_has_group_access(user, group)
@@ -246,27 +269,27 @@ class GroupConsumer(AsyncWebsocketConsumer):
     async def _board_visible(self, data):
         """True if the subscriber has a role on the board a board.* frame describes (#1829).
 
-        The same predicate as ``BoardConsumer`` and REST board detail
-        (``get_board_role``, through ``boards.consumers._lookup_role``), so a
-        group member blocked from one board by their own board membership
-        does not receive that board's state on the group channel. Fails
-        closed: a frame with no usable board id, a board that no longer
-        exists, or a check that raises is withheld. The verdict is cached per
+        The same predicate as ``BoardConsumer`` and REST board detail: the
+        ``get_board_role`` ladder, applied in bulk by ``get_board_roles``
+        (#1929), so a group member blocked from one board by their own board
+        membership does not receive that board's state on the group channel.
+        Fails closed: a frame with no usable board id, a board that no longer
+        exists, or a check that raises is withheld. Verdicts are cached per
         board until the group access check is next re-evaluated.
         """
         board_id = data.get("id") if isinstance(data, dict) else None
         if not isinstance(board_id, int) or isinstance(board_id, bool):
             return False
         # Bound to a local before the await: if an access re-check replaces
-        # the cache meanwhile, this verdict lands in the discarded dict, not in
-        # the fresh one. (Channels also runs one handler per socket at a time.)
+        # the cache meanwhile, these verdicts land in the discarded dict, not
+        # in the fresh one. (Channels also runs one handler per socket at a time.)
         verdicts = self._board_verdicts
         if verdicts is None:
             verdicts = self._board_verdicts = {}
         if board_id in verdicts:
             return verdicts[board_id]
         try:
-            visible = await self._board_role_resolves(board_id)
+            resolved = await self._board_verdicts_for(board_id)
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure, see docstring
             # Class name only: the message can carry DB connection details.
             logger.warning(
@@ -275,13 +298,36 @@ class GroupConsumer(AsyncWebsocketConsumer):
                 type(exc).__name__,
             )
             return False
+        verdicts.update(resolved)
+        # A board the pass did not return (deleted, or an id no board has)
+        # resolves to no role, and is cached as such like any other verdict.
+        visible = resolved.get(board_id, False)
         verdicts[board_id] = visible
         return visible
 
     @database_sync_to_async
-    def _board_role_resolves(self, board_id):
+    def _board_verdicts_for(self, board_id):
+        """``{board_id: has_role}`` for ``board_id`` and a batch of this group's boards (#1929).
+
+        One pass, a fixed three queries (one for a ``can_access_all_content``
+        user) whatever the batch size: the boards with their group ancestor
+        chain, then ``get_board_roles``' two membership reads. The frame's own
+        board is always in the batch (ordered first), even when it is not, or
+        no longer, in this group; the rest are this group's boards, up to
+        ``BOARD_VERDICT_BATCH``, so the frames that follow in a burst are
+        answered from the cache. Every verdict comes from the same ladder as
+        ``get_board_role``; only how the inputs are loaded differs.
+        """
         user = self._live_user or self.scope["user"]
-        return _board_role(user, board_id) is not None
+        boards = list(
+            Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
+            .filter(Q(pk=board_id) | Q(group_id=self.group_id))
+            .order_by(
+                Case(When(pk=board_id, then=Value(0)), default=Value(1), output_field=IntegerField()),
+                "pk",
+            )[:BOARD_VERDICT_BATCH]
+        )
+        return {bid: role is not None for bid, role in get_board_roles(user, boards).items()}
 
     async def _access_close_code(self):
         """None if the subscriber may still receive this group's frames (#1477),

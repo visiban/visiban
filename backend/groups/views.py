@@ -1239,11 +1239,14 @@ class GroupViewSet(viewsets.ModelViewSet):
             membership_data = GroupMembershipSerializer(membership).data
             group_id = group.pk
 
-            def _broadcast_membership_updated(gid=group_id, data=membership_data):
-                from .broadcast import broadcast_group_event
+            def _broadcast_membership_updated(gid=group_id, data=membership_data, uid=target_user.pk):
+                from .broadcast import broadcast_group_event, broadcast_member_inherited_rows
                 # member.* mirrors the board channel's member.added/updated/removed
                 # naming so a single frontend socket layer handles both channels.
                 broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_UPDATED, data)
+                # Subgroups that list the user inherited from this group now
+                # show the new role (#2235).
+                broadcast_member_inherited_rows(gid, uid)
 
             transaction.on_commit(_broadcast_membership_updated)
         return Response(membership_data)
@@ -1847,9 +1850,16 @@ class GroupViewSet(viewsets.ModelViewSet):
                 annotated, context={"request": request, "group_access": full_group_access},
             ).data
 
-            def _broadcast_transfer(gid=group.pk, data=group_data, aid=request.user.id):
-                from .broadcast import broadcast_group_event
+            def _broadcast_transfer(
+                gid=group.pk, data=group_data, aid=request.user.id, uids=(new_owner_id, request.user.id),
+            ):
+                from .broadcast import broadcast_group_event, broadcast_member_inherited_rows
                 broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data, actor_id=aid)
+                # The transfer makes the new owner, and keeps the previous
+                # one, an admin of this group: a role change (or none) for
+                # each, which subgroups inheriting their rows must see (#2235).
+                for uid in uids:
+                    broadcast_member_inherited_rows(gid, uid, actor_id=aid)
 
             transaction.on_commit(_broadcast_transfer)
 
@@ -2739,9 +2749,12 @@ class JoinGroupView(APIView):
                 membership_data = GroupMembershipSerializer(membership).data
                 joined_gid = link.group_id
 
-                def _broadcast_member_added(gid=joined_gid, data=membership_data):
-                    from .broadcast import broadcast_group_event
+                def _broadcast_member_added(gid=joined_gid, data=membership_data, uid=request.user.pk):
+                    from .broadcast import broadcast_group_event, broadcast_member_inherited_rows
                     broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_ADDED, data)
+                    # Subgroups now list the new member inherited from this
+                    # group, unless a nearer membership already lists them (#2235).
+                    broadcast_member_inherited_rows(gid, uid)
 
                 transaction.on_commit(_broadcast_member_added)
 

@@ -278,7 +278,8 @@ def _grant_membership(link: GroupInviteLink, user) -> None:
     """Join ``user`` to the invite's group with its role; caller has claimed the invite.
 
     Emits the same ``member.added`` event ``JoinGroupView`` does, deferred to
-    commit, so an admin watching GroupDetail sees the new member appear (#998).
+    commit, so an admin watching GroupDetail sees the new member appear (#998),
+    and the same ``member.updated`` to the subgroups that inherit it (#2235).
     """
     membership, created = GroupMembership.objects.get_or_create(
         group_id=link.group_id, user=user, defaults={"role": link.role},
@@ -294,10 +295,13 @@ def _grant_membership(link: GroupInviteLink, user) -> None:
 
         data = dict(GroupMembershipSerializer(membership).data)
         gid = link.group_id
+        uid = user.pk
 
         def _broadcast_member_added():
-            from .broadcast import broadcast_group_event
+            from .broadcast import broadcast_group_event, broadcast_member_inherited_rows
             broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_ADDED, data)
+            # And to the subgroups that now list the new member (#2235).
+            broadcast_member_inherited_rows(gid, uid)
 
         # robust: the membership is committed by the time this runs; a
         # failure to publish is logged by Django and never undoes the grant

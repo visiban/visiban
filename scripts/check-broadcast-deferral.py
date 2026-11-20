@@ -285,6 +285,14 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "loop iterates boards (distinct channels), not rows on one channel, and "
         "each iteration re-checks get_board_role() post-commit before emitting."
     ),
+    "backend/groups/broadcast.py::_send_inherited_rows": (
+        "One member.updated per descendant group that inherits an added or "
+        "re-roled member (#2235). The loop iterates subgroups (distinct group "
+        "channels), and each frame carries that subgroup's own inherited row "
+        "(source group, role, joined_at), so they cannot be collapsed into one "
+        "payload. Callers run post-commit (transaction.on_commit). Bounded by "
+        "INHERITED_ROW_FANOUT_MAX, and the user is serialized once above the loop."
+    ),
     "backend/boards/admin.py::CardAdmin.delete_queryset": (
         "Admin bulk delete spans boards, so the loop iterates channels. Each "
         "frame is that board's own card.deleted; there is no single channel to "
