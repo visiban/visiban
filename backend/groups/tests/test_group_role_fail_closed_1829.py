@@ -314,7 +314,7 @@ class GroupChannelBoardFrameTests(TransactionTestCase):
         self.assertIsNone(self._deliver(consumer, "board.updated", {"id": self.blocked.id}))
         BoardMembership.objects.filter(pk=self.blocked_row.pk).update(role="member")
 
-        with patch.object(consumer, "_board_role_resolves", wraps=consumer._board_role_resolves) as check:
+        with patch.object(consumer, "_board_verdicts_for", wraps=consumer._board_verdicts_for) as check:
             self.assertIsNone(self._deliver(consumer, "board.updated", {"id": self.blocked.id}))
             check.assert_not_called()
 
@@ -325,13 +325,13 @@ class GroupChannelBoardFrameTests(TransactionTestCase):
 
     def test_a_failing_board_check_withholds_without_closing(self):
         consumer = self._consumer()
-        consumer._board_role_resolves = AsyncMock(side_effect=RuntimeError("db down"))
+        consumer._board_verdicts_for = AsyncMock(side_effect=RuntimeError("db down"))
         with self.assertLogs("groups.consumers", level="WARNING") as logs:
             self.assertIsNone(self._deliver(consumer, "board.updated", {"id": self.open.id}))
         self.assertIn("RuntimeError", "\n".join(logs.output))
         consumer.close.assert_not_called()
         # Not cached: the next frame asks again.
-        consumer._board_role_resolves = AsyncMock(return_value=True)
+        consumer._board_verdicts_for = AsyncMock(return_value={self.open.id: True})
         self.assertIsNotNone(self._deliver(consumer, "board.updated", {"id": self.open.id}))
 
     def test_board_check_uses_the_user_row_from_the_last_recheck(self):
