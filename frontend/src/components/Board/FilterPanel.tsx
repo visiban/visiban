@@ -642,7 +642,7 @@ export default function FilterPanel({
           )}
         </div>
       )}
-      {needle && <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Fields matching &ldquo;{query.trim()}&rdquo;</h3>}
+      {needle && showNames && <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-secondary px-2">Fields matching &ldquo;{query.trim()}&rdquo;</h3>}
       <ul aria-label="Filterable fields" className="space-y-0.5">
         {visibleRows.map((row) => {
           const active = row.value !== null;
@@ -666,10 +666,11 @@ export default function FilterPanel({
                 aria-haspopup={row.id === "lanes" ? "dialog" : undefined}
                 className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${active ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
               >
-                <span className="flex items-center gap-1.5 shrink-0">
+                <span className="flex items-center gap-1.5 min-w-0">
                   <ActiveMark active={active} testId="filter-row-mark" />
                   {needle && <ScopeTag scope={rowScope(row)} />}
-                  {needle ? hl(row.label, nameNeedle) : row.label}
+                  <span className={needle ? "truncate" : "shrink-0"}>{needle ? hl(row.label, nameNeedle) : row.label}</span>
+                  {needle && row.id.startsWith("cf:") && <span className="shrink-0 text-xs font-normal text-fg-secondary">{customDefs.find((d) => `cf:${d.id}` === row.id)?.field_type.replace("_", "-")}</span>}
                 </span>
                 <span className={`truncate text-right ${active ? "" : "text-fg-secondary font-normal"}`}>{row.value ?? "Any"}</span>
               </button>
@@ -694,6 +695,7 @@ export default function FilterPanel({
                   <ScopeTag scope="lane" />
                   <span className="truncate">{hl(h.name, nameNeedle)}</span>
                   <span className="shrink-0 text-xs font-normal text-fg-secondary">{h.fieldType.replace("_", "-")}</span>
+                  {h.hiddenOnBand && <span className="shrink-0 text-xs font-normal text-fg-secondary">(hidden on band)</span>}
                 </span>
                 <span className={`truncate text-right ${cur ? "" : "text-fg-secondary font-normal"}`}>{cur ?? "Any"}</span>
               </button>
@@ -701,7 +703,7 @@ export default function FilterPanel({
           );
         })}
       </ul>
-      {needle && visibleRows.length + laneNameHits.length === 0 && <p role="status" className="px-2 py-1 text-sm text-fg-secondary">No field matches "{query}".</p>}
+      {needle && showNames && visibleRows.length + laneNameHits.length === 0 && <p role="status" className="px-2 py-1 text-sm text-fg-secondary">No field matches "{query}".</p>}
 
       {needle && (valueHits.length > 0 || result.titleQuery) && (
         <>

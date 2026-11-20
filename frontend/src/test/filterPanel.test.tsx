@@ -66,7 +66,7 @@ function setup(over: { activeCount?: number; filters?: FilterState; board?: Boar
 const open = async (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getByRole('button', { name: /^Filters/ }))
 
 describe('FilterPanel (#2301)', () => {
-  it('opens with Find a field focused, one row per field showing Any, and saved filters', async () => {
+  it('opens with the search input focused, one row per field showing Any, and saved filters', async () => {
     const u = userEvent.setup()
     setup()
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -82,14 +82,14 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('button', { name: 'My open work' })).toBeInTheDocument()
   })
 
-  it('Find a field narrows the rows and reports no match', async () => {
+  it('the search input narrows the rows and reports no match', async () => {
     const u = userEvent.setup()
     setup()
     await open(u)
     await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'reg')
     const rows = screen.getAllByRole('button', { name: /Any$/ })
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toHaveAccessibleName('Card Region Any')
+    expect(rows[0]).toHaveAccessibleName('Card Region dropdown Any')
     await u.clear(screen.getByRole('textbox', { name: 'Search fields and values to filter' }))
     await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'zzz')
     expect(screen.getByRole('status')).toHaveTextContent('No field matches "zzz"')
@@ -353,7 +353,7 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.queryByText(/No saved filters yet/)).toBeNull()
   })
 
-  it('Shift+Tab off Find a field closes the panel', async () => {
+  it('Shift+Tab off the search input closes the panel', async () => {
     const u = userEvent.setup()
     setup()
     await open(u)
@@ -469,7 +469,7 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     expect(screen.getByRole('button', { name: 'Save filter' })).toHaveFocus()
   })
 
-  it('falls back to Find a field when the row goes away (Clear all with the filters prop updated)', async () => {
+  it('falls back to the search input when the row goes away (Clear all with the filters prop updated)', async () => {
     const u = userEvent.setup()
     function Wrapper() {
       const [f, setF] = useState<FilterState>(active)
@@ -813,6 +813,18 @@ describe('FilterPanel search (#2437)', () => {
     await open(u)
     await u.type(box(), 'hunter2')
     expect(screen.getByRole('button', { name: /Secret code is hunter2/ })).toBeInTheDocument()
+  })
+
+  it('field:value shows no false empty state and a Hidden lane name hit is labeled', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'tier:gold')
+    expect(screen.queryByText(/No field matches/)).toBeNull()
+    expect(screen.queryByText(/Fields matching/)).toBeNull()
+    await u.clear(box())
+    await u.type(box(), 'tier')
+    expect(screen.getByRole('button', { name: /Swimlane.*Tier.*hidden on band/ })).toBeInTheDocument()
   })
 
   it('an empty query shows the per-field rows and no result groups', async () => {
