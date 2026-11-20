@@ -24,7 +24,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Count, Exists, F, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from ..models import (
@@ -277,6 +277,9 @@ class _Movement(NamedTuple):
     # The card's gate position on entering ``to_key`` (#1102); None for a
     # stage with no sub-columns and for rows written before 1.3.
     to_gates: int | None = None
+    # The row's pk: a visit remembers the movement that started it, so the
+    # gate rows that movement wrote are read as its entry position (#2360).
+    id: int | None = None
 
     @property
     def is_transition(self):
@@ -304,6 +307,9 @@ class Visit:
     # sub-columns, so its visits report no work/wait split at all.
     entry_gates: int | None = None
     wait_spans: list | None = None
+    # The movement that started the visit, and whether it was a restore (#2360).
+    entry_movement_id: int | None = None
+    restored: bool = False
 
     @property
     def is_open(self):
@@ -406,12 +412,12 @@ def _replay_visits(flow, live, creation, now):
 
     for mv in live:
         if mv is creation:
-            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates)
+            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates, entry_movement_id=mv.id)
             visits.append(current)
         elif mv.is_transition:
             if current is not None:
                 close(mv.moved_at, mv.from_key)
-            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates)
+            current = Visit(key=mv.to_key, start=mv.moved_at, entry_gates=mv.to_gates, entry_movement_id=mv.id)
             visits.append(current)
         elif mv.movement_type == _ARCHIVED:
             if current is not None:
@@ -424,6 +430,7 @@ def _replay_visits(flow, live, creation, now):
                 current.end = mv.moved_at
             current = Visit(
                 key=mv.to_key, start=mv.moved_at, measured=mv.to_key is not None, entry_gates=mv.to_gates,
+                entry_movement_id=mv.id, restored=True,
             )
             visits.append(current)
         # A swimlane-only move does not end a stay. An unattributable move is
@@ -608,7 +615,7 @@ class BoardFlow:
     # Column uids at or past the board's commitment point, or None when the
     # board has none and the ADR's default cycle start applies (#2050).
     committed_uids: set | None = None
-    # ``{column uid: index of its last sub-column}`` for the gated stages (#2360).
+    # ``{column uid: _GateStage}`` for the gated stages (#2360).
     gate_last: dict = field(default_factory=dict)
 
     def column_ref(self, key):
@@ -670,18 +677,19 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
         .values_list(
             "card_id", "moved_at", "movement_type",
             "from_column_uid", "from_column__uid", "from_column_name",
-            "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed",
+            "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
         )
     )
-    for card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates in movements.iterator(
-        chunk_size=2000,
-    ):
+    for (
+        card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
+    ) in movements.iterator(chunk_size=2000):
         rows_by_card.setdefault(card_id, []).append(
             _Movement(
                 moved_at, kind,
                 _column_key(from_uid, from_fk, from_name),
                 _column_key(to_uid, to_fk, to_name),
                 to_gates,
+                movement_id,
             )
         )
     for card in cards:
@@ -699,66 +707,142 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
     )
 
 
-def _gate_last_index(board):
-    """``{column uid: last sub-column index}`` for the board's gated stages (#2360).
+class _GateStage(NamedTuple):
+    """A gated stage as it is now: which sub-column is last (#2360)."""
 
-    The stage's current sub-columns decide which index is "last". A stage edit
-    that changes the count remaps cards with ``stage_edited`` transitions, so
-    their positions stay readable, but time recorded before an edit is judged
-    against today's last sub-column (documented in docs/features/analytics.md).
+    last: int
+    last_uid: str
+    uids: frozenset
+
+    def waits(self, index, sub_uid):
+        """True when a card at this position sits in the stage's last sub-column.
+
+        A position is judged by its sub-column's identity when it has one that
+        still belongs to the stage, so an edit that re-indexes sub-columns (a
+        count change, a reorder) does not move recorded time between work and
+        wait. Without one (an entry at gate 0 writes no row, and a deleted
+        sub-column's uid matches nothing) the index decides, against today's
+        stage.
+        """
+        if sub_uid and sub_uid in self.uids:
+            return sub_uid == self.last_uid
+        return index >= self.last
+
+
+class _Gate(NamedTuple):
+    at: datetime.datetime
+    key: object
+    to_index: int
+    sub_uid: str
+    movement_id: int | None
+
+
+def _gate_last_index(board):
+    """``{column uid: _GateStage}`` for the board's gated stages (#2360).
+
+    The stage's current sub-columns decide which one is "last", so time
+    recorded before a stage edit is judged against today's last sub-column
+    (documented in docs/features/analytics.md).
     """
-    rows = SubColumn.objects.filter(column__board=board).values("column__uid").annotate(n=Count("id"))
-    return {row["column__uid"]: row["n"] - 1 for row in rows if row["n"] > 1}
+    rows = (
+        SubColumn.objects.filter(column__board=board)
+        .order_by("column_id", "position", "id")
+        .values_list("column__uid", "uid")
+    )
+    by_column: dict = {}
+    for column_uid, uid in rows:
+        by_column.setdefault(column_uid, []).append(uid)
+    return {
+        column_uid: _GateStage(len(uids) - 1, uids[-1], frozenset(uids))
+        for column_uid, uids in by_column.items()
+        if len(uids) > 1
+    }
 
 
 def _attach_wait(cards, selected, gate_last, now):
     """Fill ``Visit.wait_spans`` for visits to gated stages from the gate history.
 
-    One query. Rows linked to a movement are the gates a card was placed past
-    as it entered the stage; that position is already the movement's
-    ``to_gates_passed`` (``Visit.entry_gates``), so only in-place transitions
-    are read.
+    One query. The rows the visit's own entering movement wrote are the gates
+    the card was placed past as it entered, so they give its entry position.
+    Every other row in the visit moves it in place, including rows linked to a
+    lane-only move inside the stage, which changes the gate but starts no visit.
     """
     by_card: dict[int, list] = {}
     rows = (
-        CardGateTransition.objects.filter(card__in=selected.order_by().values("id"), movement__isnull=True)
+        CardGateTransition.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "created_at", "id")
-        .values_list("card_id", "created_at", "column_uid", "column__uid", "column_name", "to_index")
+        .values_list(
+            "card_id", "created_at", "column_uid", "column__uid", "column_name", "to_index",
+            "sub_column_uid", "movement_id",
+        )
     )
-    for card_id, at, uid, fk, name, to_index in rows.iterator(chunk_size=2000):
-        by_card.setdefault(card_id, []).append((at, _column_key(uid, fk, name), to_index))
+    for card_id, at, uid, fk, name, to_index, sub_uid, movement_id in rows.iterator(chunk_size=2000):
+        by_card.setdefault(card_id, []).append(_Gate(at, _column_key(uid, fk, name), to_index, sub_uid, movement_id))
     for card in cards:
         transitions = by_card.get(card.id, ())
+        # Per stage: the position the card held when its last visit there ended.
+        left = {}
         for visit in card.visits:
-            if visit.key in gate_last:
-                visit.wait_spans = _wait_spans(visit, transitions, gate_last[visit.key], now)
+            stage = gate_last.get(visit.key)
+            if stage is None:
+                continue
+            entry = _entry_position(visit, transitions, left.get(visit.key))
+            visit.wait_spans, position = _wait_spans(visit, transitions, stage, entry, now)
+            left[visit.key] = (position, visit.end if visit.end is not None else now)
 
 
-def _wait_spans(visit, transitions, last, now):
-    """The visit's spans at or past its stage's last sub-column (#1102 "wait").
+def _entry_position(visit, transitions, left):
+    """``(index, sub-column uid)`` the card held as the visit started.
+
+    The last row its entering movement wrote, if any; else the movement's
+    ``to_gates_passed`` (0 when the row predates gate recording). An archive
+    and restore never write ``to_gates_passed``, and the card keeps its
+    sub-column while archived, so a restore picks up where the card's last
+    visit to the stage left off, plus any row written while it was archived.
+    """
+    linked = [g for g in transitions if g.movement_id is not None and g.movement_id == visit.entry_movement_id]
+    if linked:
+        return linked[-1].to_index, linked[-1].sub_uid
+    if visit.restored and visit.entry_gates is None and left is not None:
+        (index, sub_uid), since = left
+        for g in transitions:
+            if g.key == visit.key and since <= g.at < visit.start:
+                index, sub_uid = g.to_index, g.sub_uid
+        return index, sub_uid
+    return visit.entry_gates or 0, ""
+
+
+def _wait_spans(visit, transitions, stage, entry, now):
+    """The visit's spans in its stage's last sub-column (#1102 "wait"), and its final position.
 
     #1102: sub-columns before the last count as work time and the last counts
-    as wait time. A card enters at ``entry_gates`` (0 when the row predates
-    gate recording), then each in-place transition inside the visit sets its
-    position. Blocked time is not subtracted from work: under the ADR's
-    "Blocked time" rule it is reported as its own metric, never subtracted.
+    as wait time. The card starts at ``entry``, then each later row inside the
+    visit sets its position. Blocked time is not subtracted from work, so
+    work + wait is the sample's value: #1102 asks for "minus blocked time",
+    which waits on an owner decision (docs/features/analytics.md). The ADR's
+    "Blocked time" rule (never subtracted) is scoped to lead, cycle, dwell and
+    age, which are elapsed time, and leaves a later flow-efficiency ratio
+    open; it does not decide this split.
     """
     end = visit.end if visit.end is not None else now
+    index, sub_uid = entry
     spans = []
     if end <= visit.start:
-        return spans
-    index, since = visit.entry_gates or 0, visit.start
-    for at, key, to_index in transitions:
-        if key != visit.key or at < visit.start:
+        return spans, entry
+    since = visit.start
+    for g in transitions:
+        if g.key != visit.key or g.at < visit.start:
             continue
-        if at >= end:
+        if g.movement_id is not None and g.movement_id == visit.entry_movement_id:
+            continue
+        if g.at >= end:
             break
-        if index >= last and at > since:
-            spans.append((since, at))
-        index, since = to_index, at
-    if index >= last and end > since:
+        if stage.waits(index, sub_uid) and g.at > since:
+            spans.append((since, g.at))
+        index, sub_uid, since = g.to_index, g.sub_uid, g.at
+    if stage.waits(index, sub_uid) and end > since:
         spans.append((since, end))
-    return spans
+    return spans, (index, sub_uid)
 
 
 def _split(value, wait):

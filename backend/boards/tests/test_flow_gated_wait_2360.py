@@ -2,10 +2,11 @@
 
 #1102: in a stage with sub-columns, the sub-columns before the last count as
 work time and the last counts as wait time. The split is read from the
-recorded gate history: the movement's ``to_gates_passed`` on entry, then each
-in-place ``CardGateTransition``. A stage with no sub-columns reports no split.
+recorded gate history: the entering movement's gate rows (or its
+``to_gates_passed``), then every later ``CardGateTransition`` in the visit. A stage with no sub-columns reports no split.
 """
 import datetime
+from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
@@ -73,7 +74,7 @@ class GatedWaitTests(TestCase):
         t1 = self.t0 + DAY
         self._move(card, None, self.backlog, self.t0)
         entry = self._move(card, self.backlog, self.build, t1, to_gates=2)
-        # The gates the move placed it past: already its to_gates_passed, not re-read.
+        # The gates the move placed it past: its entry position, not in-place changes.
         self._gate(card, 0, 1, t1, movement=entry)
         self._gate(card, 1, 2, t1, movement=entry)
         self._gate(card, 2, 1, t1 + DAY)
@@ -150,3 +151,132 @@ class GatedWaitTests(TestCase):
         self.assertEqual(lane["throughput_wait_avg_days_per_column"], {"Build": 2.0})
         self.assertEqual(lane["age_wait_avg_days_per_column"], {"Build": None})
         self.assertNotIn("Backlog", lane["throughput_wait_avg_days_per_column"])
+
+
+class GatedWaitThroughTheMoveApiTests(TestCase):
+    """The split read from rows the real move, archive and restore paths write.
+
+    Each step goes through the API, then its rows are re-dated: the code under
+    test only reads timestamps, and the rows' shape (which movement a gate row
+    is linked to, its sub-column uid, its ``to_gates_passed``) is what the
+    write paths decide.
+    """
+
+    def setUp(self):
+        patcher = mock.patch("boards.broadcast.broadcast_board_event")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.user = User.objects.create_user(username="flow2360api", password="pw")
+        self.board = Board.objects.create(name="Gated API", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role="admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.backlog = Column.objects.create(board=self.board, name="Backlog", position=0)
+        self.build = Column.objects.create(board=self.board, name="Build", position=1)
+        self.subs = [
+            SubColumn.objects.create(column=self.build, position=i, name=name)
+            for i, name in enumerate(["Doing", "Review", "Ready to pull"])
+        ]
+        self.lane = Swimlane.objects.create(board=self.board, name="Lane", position=0)
+        self.lane2 = Swimlane.objects.create(board=self.board, name="Lane 2", position=1)
+        self.now = timezone.now()
+        self.card = Card.objects.create(
+            board=self.board, column=self.backlog, swimlane=self.lane, title="A", created_by=self.user,
+        )
+        CardMovement.objects.create(card=self.card, board=self.board, to_column=self.backlog, moved_by=self.user)
+        self._redate(self.now - 10 * DAY, since=(0, 0))
+
+    def _marks(self):
+        last_mv = CardMovement.objects.order_by("-pk").values_list("pk", flat=True).first() or 0
+        last_gate = CardGateTransition.objects.order_by("-pk").values_list("pk", flat=True).first() or 0
+        return last_mv, last_gate
+
+    def _redate(self, when, since):
+        CardMovement.objects.filter(pk__gt=since[0]).update(moved_at=when)
+        CardGateTransition.objects.filter(pk__gt=since[1]).update(created_at=when)
+
+    def _step(self, when, path, body=None):
+        since = self._marks()
+        url = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/{path}/"
+        resp = self.client.post(url, body or {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self._redate(when, since)
+
+    def _move(self, when, column, lane=None, **extra):
+        body = {"column_id": column.pk, "swimlane_id": (lane or self.lane).pk, "position": 0, **extra}
+        self._step(when, "move", body)
+
+    def _open_sample(self):
+        samples = fm.current_dwell(fm.load_board_flow(self.board, now=self.now))["samples"]
+        self.assertEqual(len(samples), 1, samples)
+        return samples[0]
+
+    def test_a_gate_changed_by_a_lane_move_inside_the_stage_counts(self):
+        self._move(self.now - 3 * DAY, self.build)
+        self._move(self.now - DAY, self.build, lane=self.lane2, gates_passed=2)
+        # The lane move wrote the gate rows, linked to its movement.
+        lane_move = CardMovement.objects.latest("id")
+        self.assertEqual(CardGateTransition.objects.filter(movement=lane_move).count(), 2)
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 1.0, places=3)
+        self.assertAlmostEqual(sample["work_days"], 2.0, places=3)
+
+    def test_entering_past_gates_counts_from_the_entry(self):
+        self._move(self.now - 2 * DAY, self.build, gates_passed=2)
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 2.0, places=3)
+        self.assertAlmostEqual(sample["work_days"], 0.0, places=3)
+
+    def test_a_restored_card_resumes_its_sub_column(self):
+        self._move(self.now - 4 * DAY, self.build, gates_passed=2)
+        self._step(self.now - 3 * DAY, "archive")
+        self._step(self.now - DAY, "unarchive")
+        restore = CardMovement.objects.latest("id")
+        self.assertEqual(restore.movement_type, CardMovement.MovementType.UNARCHIVED)
+        self.assertIsNone(restore.to_gates_passed)  # the restore path never writes it
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 1.0, places=3)
+        self.assertAlmostEqual(sample["work_days"], 0.0, places=3)
+
+    def test_rows_without_gate_recording_fall_back_to_the_index(self):
+        """A pre-1.3 entry has no ``to_gates_passed`` and old rows no sub-column uid."""
+        self._move(self.now - 3 * DAY, self.build)
+        self._move(self.now - DAY, self.build, gates_passed=2)
+        CardMovement.objects.filter(card=self.card).update(to_gates_passed=None)
+        CardGateTransition.objects.update(sub_column_uid="")
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 1.0, places=3)
+        self.assertAlmostEqual(sample["work_days"], 2.0, places=3)
+
+    def test_gates_passed_at_once_share_a_timestamp_and_read_in_write_order(self):
+        self._move(self.now - 3 * DAY, self.build)
+        self._move(self.now - DAY, self.build, gates_passed=2)
+        rows = list(CardGateTransition.objects.filter(card=self.card).order_by("id").values_list("created_at", "to_index"))
+        self.assertEqual([to for _, to in rows], [1, 2])
+        self.assertEqual(rows[0][0], rows[1][0])
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 1.0, places=3)
+
+    def _reorder_ready_before_review(self):
+        """What a sub-column reorder does (#2368): re-index, no gate row."""
+        review, ready = self.subs[1], self.subs[2]
+        SubColumn.objects.filter(pk=ready.pk).update(position=9)
+        SubColumn.objects.filter(pk=review.pk).update(position=2)
+        SubColumn.objects.filter(pk=ready.pk).update(position=1)
+        Card.objects.filter(pk=self.card.pk).update(gates_passed=1)
+
+    def test_attribution_follows_the_sub_column_through_a_reorder(self):
+        self._move(self.now - 3 * DAY, self.build)
+        self._move(self.now - 2 * DAY, self.build, gates_passed=2)  # into Ready to pull
+        self._reorder_ready_before_review()
+        # Ready to pull is no longer last, so its time is work; by index it would be wait.
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 0.0, places=3)
+        self.assertAlmostEqual(sample["work_days"], 3.0, places=3)
+
+    def test_the_entry_position_follows_the_sub_column_through_a_reorder(self):
+        self._move(self.now - 2 * DAY, self.build, gates_passed=1)  # entered into Review
+        self._reorder_ready_before_review()
+        # Review is now last: the entering move's own rows name it.
+        sample = self._open_sample()
+        self.assertAlmostEqual(sample["wait_days"], 2.0, places=3)
