@@ -3505,6 +3505,7 @@ class BoardImportExportMixin:
                         "schema_version": drf_serializers.IntegerField(),
                         "name": drf_serializers.CharField(),
                         "description": drf_serializers.CharField(),
+                        "lane_details_cap": drf_serializers.IntegerField(),
                         "columns": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlanes": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "labels": drf_serializers.ListField(child=drf_serializers.DictField()),
