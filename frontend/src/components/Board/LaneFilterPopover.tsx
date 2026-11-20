@@ -8,6 +8,7 @@ import { useAnchoredPlacement, POPOVER_VIEWPORT_MARGIN, visibleMaxHeight, clampL
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import {
   isRuleComplete,
+  isPresenceOp,
   isTextRuleType,
   opsForFieldType,
   ruleText,
@@ -27,6 +28,7 @@ import {
   withHideUnmatched,
   withLaneItems,
   type LaneBuiltinFieldDef,
+  laneValueLabel,
   type LaneFieldKey,
   type LaneFilter,
   type LaneFilterItem,
@@ -40,7 +42,7 @@ const INNER_ESCAPE_PRIORITY = 26;
 
 const SECONDARY_BTN =
   "text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
-const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", not_contains: "does not contain", wildcard: "matches wildcard", between: "between" };
+const OP_LABELS: Record<FieldRuleOp, string> = { is: "is", is_not: "is not", contains: "contains", not_contains: "does not contain", wildcard: "matches wildcard", between: "between", is_set: "is set", is_empty: "is empty" };
 /** No text choices for a field: no lane carries a value for it yet. */
 const NO_CHOICES: string[] = [];
 /** Operators that take a typed operand instead of a choice from the lanes' values. */
@@ -276,6 +278,11 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
 
   const changeOp = (r: LaneRule, op: FieldRuleOp) => {
     if (op === r.op) return;
+    if (isPresenceOp(op)) {
+      // #2247 — a presence operator has no operand; the server rejects a stray value.
+      updateRule(r.id, { op, value: undefined });
+      return;
+    }
     if (isTypedOp(op)) {
       updateRule(r.id, { op, value: r.value ?? "" });
       return;
@@ -304,7 +311,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
     const textType = t !== null && isTextRuleType(t);
     const valueChoices = textType && !isTypedOp(r.op) ? choicesFor(r) : NO_CHOICES;
     const laneValues = new Set(((r.field !== null && textChoices?.get(r.field)) || NO_CHOICES).map((c) => c.toLowerCase()));
-    const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => fmt(def, raw)) : "incomplete"}`;
+    const removeName = `Remove filter ${n}: ${complete && t && def ? ruleText(r, t, def.name, (raw) => laneValueLabel(def, raw, fmt)) : "incomplete"}`;
     return (
       <div key={r.id} data-lane-row={r.id} className="flex flex-wrap items-center gap-2">
         <MenuUnmountGuard ruleId={r.id} onGone={trackMenu} />
@@ -345,7 +352,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
         ) : (
           <span className="text-sm text-fg-tertiary w-40">{t ? OP_LABELS[ops[0]] : ""}</span>
         )}
-        {t === "dropdown" && def && (
+        {(t === "dropdown" || t === "enum") && def && !isPresenceOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <SingleSelectDropdown<string>
               label="Choose a value"
@@ -354,7 +361,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               className="w-full justify-between"
               labelClassName="truncate"
               escapePriority={INNER_ESCAPE_PRIORITY}
-              options={def.choices.map((c) => ({ value: c, label: c }))}
+              options={def.choices.map((c) => ({ value: c, label: laneValueLabel(def, c, fmt) }))}
               selected={r.value ? r.value : null}
               onChange={(v) => updateRule(r.id, { value: v ?? "" })}
             />

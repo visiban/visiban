@@ -420,9 +420,9 @@ describe('LaneFilterPopover — built-in fields (#2336)', () => {
     const user = userEvent.setup()
     render(<Harness board={withLanes(makeBoard([NOTES, MARGIN]), LANES)} />)
     const menu = await fieldMenu(user, await openPopover(user))
-    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Lane name', 'Contact email', 'Margin', 'Notes'].map((n) => expect.stringContaining(n)))
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Lane name', 'Contact email', 'Health', 'Margin', 'Notes'].map((n) => expect.stringContaining(n)))
     const builtIn = within(menu).getByRole('group', { name: 'Built-in' })
-    expect(within(builtIn).getAllByRole('menuitem')).toHaveLength(2)
+    expect(within(builtIn).getAllByRole('menuitem')).toHaveLength(3)
     expect(within(menu).getByRole('group', { name: 'Custom fields' })).toBeInTheDocument()
     expect(within(within(menu).getByRole('menuitem', { name: /Contact email/ })).getByRole('img', { name: 'Admin-only field' })).toBeInTheDocument()
     expect(within(menu).getByRole('menuitem', { name: 'Contact email Admin-only field' })).toBeInTheDocument()
@@ -432,9 +432,30 @@ describe('LaneFilterPopover — built-in fields (#2336)', () => {
     const user = userEvent.setup()
     render(<Harness board={withLanes(makeBoard([], 'member'), LANES)} />)
     const menu = await fieldMenu(user, await openPopover(user))
-    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([expect.stringContaining('Lane name')])
+    expect(within(menu).getAllByRole('menuitem').map((m) => m.textContent)).toEqual([expect.stringContaining('Lane name'), expect.stringContaining('Health')])
     expect(within(menu).queryByRole('group')).not.toBeInTheDocument()
     expect(within(menu).queryByText('Built-in')).not.toBeInTheDocument()
+  })
+
+  it('Health offers the status values with is / is not / is set / is empty and hides the value for presence ops (#2247)', async () => {
+    const user = userEvent.setup()
+    const lanes = [
+      { ...swimlane(1, {}), name: 'Acme', effective_health_status: 'at_risk' },
+      { ...swimlane(2, {}), name: 'Globex', effective_health_status: null },
+    ] as Swimlane[]
+    render(<Harness board={withLanes(makeBoard([], 'member'), lanes)} />)
+    const dialog = await openPopover(user)
+    const menu = await fieldMenu(user, dialog)
+    await user.click(within(menu).getByRole('menuitem', { name: 'Health' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    expect(within(within(dialog).getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['On track', 'At risk', 'Off track'])
+    await user.click(within(dialog).getByRole('menuitem', { name: 'At risk' }))
+    expect(dialog).toHaveTextContent('Reads as: Health is At risk')
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    expect(within(within(dialog).getByRole('menu')).getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['is', 'is not', 'is set', 'is empty'])
+    await user.click(within(dialog).getByRole('menuitem', { name: 'is empty' }))
+    expect(dialog).toHaveTextContent('Reads as: Health is empty')
+    expect(within(dialog).queryByRole('button', { name: /^Filter 1 value/ })).not.toBeInTheDocument()
   })
 
   it('picking a built-in starts at is; Contact email typed ops use the @acme.com placeholder', async () => {

@@ -44,6 +44,7 @@ import logging
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError as _DRFValidationError
+from rest_framework.fields import DateTimeField as _DRFDateTimeField
 
 from accounts.models import User
 from boards.models import (
@@ -55,10 +56,11 @@ from boards.permissions import (
 from boards.serializers import (
     BlockCardSerializer, CardChecklistSerializer, CardMovementSerializer, CardSerializer,
     SubColumnSerializer, UnblockCardSerializer,
-    _card_checklist_items, _card_queryset,
+    _board_health_start, _card_checklist_items, _card_queryset,
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
+from groups.health import build_health_map, resolve_health_origin, valid_health_status
 from boards.services.errors import (
     BoardNotFound, CardNotFound, CardServiceError,
 )
@@ -75,11 +77,49 @@ from .context import get_current_user
 logger = logging.getLogger(__name__)
 
 
-def _serialize_board(board, role):
+def _rest_datetime(value):
+    """A datetime as the REST serializers render it (``Z`` suffix), or ``None``."""
+    return None if value is None else _DRFDateTimeField().to_representation(value)
+
+
+def _board_health_payload(board, health_map=None):
+    """The four read-only board health keys (#2249), shared by ``list_boards``
+    and the ``board://`` snapshot so both match the REST board serializer."""
+    # A computed value only counts while auto health is on, as in
+    # ``HealthStatusFieldsMixin._computed`` (#2245).
+    computed = board.computed_health_status if board.health_auto_enabled else None
+    start = _board_health_start(board)
+    if health_map is None:
+        health_map = {} if (
+            valid_health_status(board.health_status) or valid_health_status(computed)
+        ) else build_health_map([start])
+    effective, source, origin = resolve_health_origin(
+        board.health_status, start[1], health_map, computed,
+    )
+    return {
+        "health_status": board.health_status,
+        "effective_health_status": effective,
+        "health_status_source": (
+            None if source is None else {
+                "id": source["id"],
+                "name": source["name"],
+                "changed_at": _rest_datetime(source["changed_at"]),
+            }
+        ),
+        "health_status_origin": origin,
+    }
+
+
+def _serialize_board(board, role, health_map=None):
     """Shape one board for the MCP wire format.
 
     ``id`` is the integer pk, matching how the REST API addresses boards, so a
     future write tool (#512) can reuse the identifier a caller already holds.
+
+    The three health fields (#2249) are read-only and sent to every role, as
+    ``BoardSerializer`` serves them to every member over REST. ``health_map``
+    is the batch ancestor map ``list_boards`` builds once; when absent the
+    resolver builds one for this board alone.
     """
     return {
         "id": board.id,
@@ -92,6 +132,7 @@ def _serialize_board(board, role):
         "card_count": board._card_count,
         "created_at": board.created_at.isoformat(),
         "updated_at": board.updated_at.isoformat(),
+        **_board_health_payload(board, health_map),
     }
 
 
@@ -136,6 +177,14 @@ def list_boards():
     # rules to keep in step with anything.
     roles = get_board_roles(user, boards)
 
+    # One ancestor map for every board still needing a group walk (#2249):
+    # at most one query for the whole list, whatever its length.
+    health_map = build_health_map(
+        _board_health_start(b) for b in boards
+        if not valid_health_status(b.health_status)
+        and not (b.health_auto_enabled and valid_health_status(b.computed_health_status))
+    )
+
     results = []
     for board in boards:
         role = roles[board.id]
@@ -145,7 +194,7 @@ def list_boards():
             # occur. If the two ever disagree, the role resolver wins and the
             # board is omitted rather than reported with a null role.
             continue
-        results.append(_serialize_board(board, role))
+        results.append(_serialize_board(board, role, health_map))
     return results
 
 
@@ -748,6 +797,12 @@ def _swimlanes_payload(board, role):
     )
     results = []
     for s in swimlanes:
+        # Not gated on board.health_auto_enabled: the lane list endpoint does
+        # not either (every write path clears the column when auto goes off).
+        computed = valid_health_status(s.computed_health_status)
+        pinned = valid_health_status(s.health_status)
+        effective = pinned or computed
+        origin = "manual" if pinned else ("computed" if computed else None)
         row = {
             "id": s.id,
             "uid": s.uid,  # #1974, as for columns
@@ -762,6 +817,13 @@ def _swimlanes_payload(board, role):
             # Lane health status (#2243): read-only here, every role, as
             # SwimlaneSerializer serves it to every member over REST.
             "health_status": s.health_status,
+            # #2245, as SwimlaneSerializer: the pin, else the computed value
+            # (not gated on the board's auto health: every write path clears
+            # the computed column when auto goes off), else null.
+            "effective_health_status": effective,
+            "health_status_origin": origin,
+            "computed_health_status": s.computed_health_status,
+            "health_computed_at": _rest_datetime(s.health_computed_at),
         }
         if can_see_contact_email:
             row["contact_email"] = s.contact_email
@@ -1229,6 +1291,7 @@ def board_snapshot(*, board_id):
         "cards_total": cards_total,
         "cards_truncated": len(cards) < cards_total,
         "labels": [_serialize_label(label) for label in board.labels.all()],
+        **_board_health_payload(board),
     }
 
 

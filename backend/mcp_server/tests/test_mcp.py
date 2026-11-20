@@ -420,6 +420,49 @@ class ListBoardsTests(McpTestCase):
         self.assertEqual([b["name"] for b in boards], ["Mine"])
         self.assertEqual(boards[0]["id"], mine.id)
 
+    def test_board_health_fields_match_rest_for_every_role(self):
+        """#2249: pin, computed and inherited health, read-only, same as REST."""
+        from rest_framework.test import APIClient
+
+        from groups.models import Group
+
+        owner = _make_user("health-owner")
+        group = Group.objects.create(name="Portfolio", owner=owner, health_status="at_risk")
+        inherited = _make_board(owner, name="Inherits")
+        pinned = _make_board(owner, name="Pinned")
+        auto = _make_board(owner, name="Auto")
+        for board in (inherited, pinned, auto):
+            board.group = group
+        pinned.health_status = "on_track"
+        auto.health_auto_enabled = True
+        auto.computed_health_status = "off_track"
+        for board in (inherited, pinned, auto):
+            board.save()
+            _make_membership(board, self.user, role=BoardMembership.Role.VIEWER)
+
+        boards = {b["name"]: b for b in self._call_list_boards(self.raw_token)}
+        client = APIClient()
+        client.force_authenticate(self.user)
+        keys = ("health_status", "effective_health_status", "health_status_source", "health_status_origin")
+        for board in (inherited, pinned, auto):
+            rest = client.get(f"/api/v1/boards/{board.pk}/").json()
+            self.assertEqual(
+                {k: boards[board.name][k] for k in keys}, {k: rest[k] for k in keys}, board.name,
+            )
+        self.assertEqual(boards["Inherits"]["effective_health_status"], "at_risk")
+        self.assertEqual(boards["Inherits"]["health_status_source"]["name"], "Portfolio")
+        self.assertEqual(boards["Pinned"]["effective_health_status"], "on_track")
+        self.assertEqual(boards["Auto"]["health_status_origin"], "computed")
+
+    def test_board_without_any_status_reports_nulls(self):
+        _make_board(self.user, name="Plain")
+        board = self._call_list_boards(self.raw_token)[0]
+        self.assertEqual(
+            (board["health_status"], board["effective_health_status"],
+             board["health_status_source"], board["health_status_origin"]),
+            (None, None, None, None),
+        )
+
     def test_reports_the_callers_effective_role(self):
         other = _make_user("other-owner")
         board = _make_board(other, name="Shared")
@@ -479,6 +522,8 @@ class ListBoardsTests(McpTestCase):
             {
                 "id", "uid", "name", "description", "role", "column_count",
                 "swimlane_count", "card_count", "created_at", "updated_at",
+                "health_status", "effective_health_status", "health_status_source",
+                "health_status_origin",
             },
         )
 
@@ -574,6 +619,35 @@ class BoardResourceTests(McpTestCase):
         self.assertIn("error", payload, payload)
         return payload["error"]["message"]
 
+    def test_snapshot_board_health_matches_rest(self):
+        """The snapshot carries the same four board health keys REST serves."""
+        from rest_framework.test import APIClient
+
+        from groups.models import Group
+
+        owner = _make_user("snap-health-owner")
+        group = Group.objects.create(name="Portfolio", owner=owner, health_status="at_risk")
+        inherited = _make_board(owner, name="Inherits")
+        pinned = _make_board(owner, name="Pinned")
+        auto = _make_board(owner, name="Auto")
+        for board in (inherited, pinned, auto):
+            board.group = group
+        pinned.health_status = "on_track"
+        auto.health_auto_enabled = True
+        auto.computed_health_status = "off_track"
+        for board in (inherited, pinned, auto):
+            board.save()
+            _make_membership(board, self.user, role=BoardMembership.Role.VIEWER)
+
+        client = APIClient()
+        client.force_authenticate(self.user)
+        keys = ("health_status", "effective_health_status", "health_status_source", "health_status_origin")
+        for board in (inherited, pinned, auto):
+            snap = self._read_board(board.id)
+            rest = client.get(f"/api/v1/boards/{board.pk}/").json()
+            self.assertEqual({k: snap[k] for k in keys}, {k: rest[k] for k in keys}, board.name)
+        self.assertEqual(self._read_board(inherited.id)["health_status_origin"], "inherited")
+
     def test_snapshot_shape_and_content(self):
         board = _make_board(self.user, name="Snapshot", description="d")
         column = _make_column(board, name="Doing", order=0)
@@ -589,7 +663,9 @@ class BoardResourceTests(McpTestCase):
         self.assertEqual(
             set(data),
             {"id", "uid", "name", "description", "created_at", "updated_at",
-             "columns", "swimlanes", "cards", "cards_total", "cards_truncated", "labels"},
+             "columns", "swimlanes", "cards", "cards_total", "cards_truncated", "labels",
+             "health_status", "effective_health_status", "health_status_source",
+             "health_status_origin"},
         )
         self.assertEqual(data["id"], board.id)
         # #1974: every snapshot object carries its stable uid.
@@ -1082,6 +1158,43 @@ class ListBoardsCountShapeTests(TestCase):
         for table in (Column, Swimlane, Card):
             table = table._meta.db_table
             self.assertNotRegex(sql, rf'JOIN "{table}"')
+
+
+class ListBoardsHealthQueryCountTests(TestCase):
+    """list_boards health costs at most one extra query, however many boards
+    (the claim in tools.list_boards, #2249)."""
+
+    def _count(self, board_count, via_group, pinned):
+        from groups.models import Group
+
+        suffix = f"{'g' if via_group else 'd'}{'p' if pinned else 'u'}{board_count}"
+        user = _make_user(f"hq-{suffix}")
+        group = None
+        if via_group:
+            root = Group.objects.create(name=f"hr-{suffix}", owner=user, health_status="at_risk")
+            group = Group.objects.create(name=f"hl-{suffix}", owner=user, parent=root)
+        for i in range(board_count):
+            board = _make_board(user, name=f"hb-{suffix}-{i}")
+            board.group = group
+            board.health_status = "on_track" if pinned else None
+            board.save()
+        token = set_current_user(user)
+        try:
+            with CaptureQueriesContext(connection) as ctx:
+                tools.list_boards()
+        finally:
+            reset_current_user(token)
+        return len(ctx.captured_queries)
+
+    def test_health_adds_at_most_one_query_and_does_not_grow(self):
+        for via_group in (False, True):
+            with self.subTest(via_group=via_group):
+                # Pinned boards need no ancestor walk: the baseline.
+                base = self._count(3, via_group, pinned=True)
+                few = self._count(3, via_group, pinned=False)
+                many = self._count(7, via_group, pinned=False)
+                self.assertEqual(few, many, f"query count grew: {few} -> {many}")
+                self.assertLessEqual(few - base, 1)
 
 
 class BoardSnapshotQueryCountTests(TestCase):

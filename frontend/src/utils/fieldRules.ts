@@ -20,11 +20,19 @@ import { wildcardMatch } from "./textMatch";
 
 export type FieldRuleJoin = "and" | "or";
 /** Additive-only: the backend validates against the same enum. */
-export type FieldRuleOp = "is" | "is_not" | "between" | "contains" | "not_contains" | "wildcard";
-/** The field types a rule can target (text and url since #2226). */
-export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url";
+export type FieldRuleOp = "is" | "is_not" | "between" | "contains" | "not_contains" | "wildcard" | "is_set" | "is_empty";
+/**
+ * The field types a rule can target (text and url since #2226). `enum` (#2247)
+ * is a fixed set of values supplied by a built-in field, e.g. lane health.
+ */
+export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url" | "enum";
 
-export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date", "text", "url"];
+export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date", "text", "url", "enum"];
+
+/** Presence operators (#2247): they take no operand. */
+export function isPresenceOp(op: FieldRuleOp): op is "is_set" | "is_empty" {
+  return op === "is_set" || op === "is_empty";
+}
 
 /** Text-backed types: matched trimmed and case-insensitively. */
 export function isTextRuleType(t: RuleFieldType): t is "text" | "url" {
@@ -54,6 +62,7 @@ export function isRuleFieldType(t: string): t is RuleFieldType {
 /** The operators a field type offers, in menu order. */
 export function opsForFieldType(t: RuleFieldType): FieldRuleOp[] {
   if (t === "dropdown") return ["is", "is_not"];
+  if (t === "enum") return ["is", "is_not", "is_set", "is_empty"];
   if (isTextRuleType(t)) return ["is", "is_not", "contains", "not_contains", "wildcard"];
   return ["between"];
 }
@@ -101,7 +110,8 @@ function normalizeFor(t: RuleFieldType, raw: string | null | undefined): number 
 export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null | undefined): boolean {
   if (rule.field === null || !t) return false;
   if (!opsForFieldType(t).includes(rule.op)) return false;
-  if (t === "dropdown") return typeof rule.value === "string" && rule.value !== "";
+  if (t === "enum" && isPresenceOp(rule.op)) return true;
+  if (t === "dropdown" || t === "enum") return typeof rule.value === "string" && rule.value !== "";
   // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
   if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
@@ -113,8 +123,10 @@ export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null
  * unparsable one) fails `is`, `contains`, `wildcard` and `between`, and passes `is_not` and `not_contains`.
  */
 export function matchRule(rule: FieldRule<unknown>, t: RuleFieldType, raw: string | undefined): boolean {
-  if (t === "dropdown") {
+  if (t === "dropdown" || t === "enum") {
     const has = typeof raw === "string" && raw !== "";
+    if (rule.op === "is_set") return has;
+    if (rule.op === "is_empty") return !has;
     if (rule.op === "is_not") return !has || raw !== rule.value;
     return has && raw === rule.value;
   }
@@ -183,6 +195,8 @@ const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
  * display (number grouping, the user's date format).
  */
 export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
+  if (t === "enum" && isPresenceOp(rule.op)) return `${label} ${rule.op === "is_set" ? "is set" : "is empty"}`;
+  if (t === "enum") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${fmt(rule.value ?? "")}`;
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
     const word = TEXT_OP_WORDS[rule.op] ?? "is";

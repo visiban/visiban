@@ -233,9 +233,9 @@ test.describe('lane filters', () => {
     await dialog.getByRole('button', { name: /^Filter 5 field/ }).click()
     const items = dialog.getByRole('menuitem')
     const count = await items.count()
-    // #2336 — Lane name and Contact email (admin) under a Built-in heading, then the 9 custom fields
+    // #2336 — Lane name, Contact email (admin) and Health under a Built-in heading, then the 9 custom fields
     // under Custom fields: the headings add menu height the measured reserve must absorb.
-    expect(count).toBe(11)
+    expect(count).toBe(12)
     await expect(dialog.getByRole('group', { name: 'Custom fields' })).toBeVisible()
     const list = (await dialog.locator('.overflow-y-auto').first().boundingBox())!
     // The first options are visible without any scrolling by the user.

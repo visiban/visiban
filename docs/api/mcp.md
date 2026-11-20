@@ -263,6 +263,12 @@ Returns every board the authenticated user can access.
 | `card_count` | integer | Number of **non-archived** cards. |
 | `created_at` | string | ISO 8601 timestamp. |
 | `updated_at` | string | ISO 8601 timestamp. |
+| `health_status` | string or null | The board's own manual health status: `on_track`, `at_risk`, `off_track`, or `null`. Read-only. *Added in 1.3 (#2249).* |
+| `effective_health_status` | string or null | The status shown: the board's own pin, else its computed status (auto health on), else the nearest group's, else `null`. *Added in 1.3 (#2249).* |
+| `health_status_source` | object or null | `{id, name, changed_at}` of the group supplying an inherited status; `null` when the board's own pin or computed status applies. *Added in 1.3 (#2249).* |
+| `health_status_origin` | string or null | `manual`, `computed`, `inherited` or `null`. *Added in 1.3 (#2249).* |
+
+The health fields are read-only and sent to every role, exactly as the REST board endpoints serve them; there is no MCP tool that writes a health status.
 
 **Example**
 
@@ -278,7 +284,11 @@ Returns every board the authenticated user can access.
     "swimlane_count": 3,
     "card_count": 42,
     "created_at": "2026-09-14T05:13:39.725480+00:00",
-    "updated_at": "2026-09-14T05:13:39.725490+00:00"
+    "updated_at": "2026-09-14T05:13:39.725490+00:00",
+    "health_status": "at_risk",
+    "effective_health_status": "at_risk",
+    "health_status_source": null,
+    "health_status_origin": "manual"
   }
 ]
 ```
@@ -426,7 +436,7 @@ Lists a board's swimlanes, ordered by position. All board roles may call it.
 
 **Arguments:** `board_id` (integer, required).
 
-**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed, wip_limit, weight_limit, health_status}` (`uid` since 1.3; `wip_limit` and `weight_limit`, the swimlane's own limits or `null`, since 1.3, #1150; `health_status`, the lane's manual health status, `on_track`/`at_risk`/`off_track` or `null` for no status, read-only, since 1.3, #2243), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
+**Returns:** an array of `{id, uid, name, position, color, card_count, is_collapsed, wip_limit, weight_limit, health_status, effective_health_status, health_status_origin, computed_health_status, health_computed_at}` (`uid` since 1.3; `wip_limit` and `weight_limit`, the swimlane's own limits or `null`, since 1.3, #1150; `health_status`, the lane's manual health status, `on_track`/`at_risk`/`off_track` or `null` for no status, read-only, since 1.3, #2243; and, since 1.3 (#2249), the auto health fields REST serves: `effective_health_status` (the pin, else the computed status, else `null`), `health_status_origin` (`manual`, `computed` or `null`), `computed_health_status` and `health_computed_at`), plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
 
 ### `list_cards`
 
@@ -574,6 +584,10 @@ A read-only board snapshot: metadata, columns, swimlanes, up to 200 active cards
 | `cards_total` | integer | Number of active cards on the board, ignoring the 200-card cap. Added in 1.2 (#1762). |
 | `cards_truncated` | boolean | `true` when `cards` holds fewer than `cards_total` rows; fetch the rest with `list_cards` (`limit`/`offset`). Added in 1.2 (#1762). |
 | `labels` | array | `{id, uid, name, color}` objects, one per label defined on the board (`uid` since 1.3). A card's `labels` stay an array of names, which are unique per board; map them to a `uid` through this list. |
+| `health_status` | string or null | The board's own manual health status. Read-only. Same as in `list_boards`. *Added in 1.3 (#2249).* |
+| `effective_health_status` | string or null | The status shown: the board's pin, else its computed status, else the nearest group's, else `null`. *Added in 1.3 (#2249).* |
+| `health_status_source` | object or null | `{id, name, changed_at}` of the group supplying an inherited status, else `null`. *Added in 1.3 (#2249).* |
+| `health_status_origin` | string or null | `manual`, `computed`, `inherited` or `null`. *Added in 1.3 (#2249).* |
 
 !!! note
     `board://{board_id}` deliberately omits every web-session-only field the REST board detail response carries — `share_token` (deprecated on REST since 1.2), `share_token_expires_at`, `share_link_active`, `capabilities`, `is_starred`, `members`, `current_user_role`. These have no meaning for an AI agent reading board context, and a share token in particular is a bearer credential that must never appear in agent-facing output.

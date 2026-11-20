@@ -355,7 +355,10 @@ def build_mcp_server():
         name="list_boards",
         description=(
             "List every Visiban board the authenticated user can access, with "
-            "their effective role and column, swimlane, and card counts."
+            "their effective role and column, swimlane, and card counts, plus the read-only board "
+            "health fields: health_status (the board's own pin), effective_health_status, "
+            "health_status_source (the group supplying an inherited status, or null) and "
+            "health_status_origin (manual, computed, inherited or null)."
         ),
     )
     @_throttled()
@@ -386,10 +389,12 @@ def build_mcp_server():
         name="list_swimlanes",
         description=(
             "List a board's swimlanes (id, uid, name, position, color, card_count, is_collapsed, "
-            "wip_limit, weight_limit, health_status), ordered by position. wip_limit/weight_limit "
+            "wip_limit, weight_limit, health_status, effective_health_status, health_status_origin, "
+            "computed_health_status, health_computed_at), ordered by position. wip_limit/weight_limit "
             "are the swimlane's own limits (null = none); health_status is the lane's manual "
             "health status (on_track, at_risk, off_track, or null = no status; read-only "
-            "here, independent of the board's status); card_count counts every active card in the "
+            "here); effective_health_status is the pin, else the computed status, else null, and "
+            "health_status_origin says which (manual, computed or null); card_count counts every active card in the "
             "row, not only the columns that count toward its limits. contact_email is "
             "included only for admin/site_admin callers."
         ),

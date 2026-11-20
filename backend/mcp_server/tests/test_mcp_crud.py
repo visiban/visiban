@@ -26,7 +26,7 @@ from accounts.models import (
     invalidate_maintenance_mode_cache,
 )
 from boards.models import (
-    BoardEvent, BoardMembership, Card, CardActivity, CardMovement, CardRelation,
+    Board, BoardEvent, BoardMembership, Card, CardActivity, CardMovement, CardRelation,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -146,6 +146,8 @@ class ListSwimlanesTests(CrudToolsTestCase):
             {
                 "id", "uid", "name", "position", "color", "card_count", "is_collapsed",
                 "contact_email", "wip_limit", "weight_limit", "health_status",
+                "effective_health_status", "health_status_origin", "computed_health_status",
+                "health_computed_at",
             },
         )
         self.assertEqual(row["uid"], self.swimlane.uid)  # #1974
@@ -171,6 +173,44 @@ class ListSwimlanesTests(CrudToolsTestCase):
         rows = {r["id"]: r for r in result}
         self.assertEqual(rows[self.swimlane.id]["health_status"], "at_risk")
         self.assertIsNone(rows[self.other_swimlane.id]["health_status"])
+
+    def test_lane_computed_health_fields_match_rest(self):
+        # #2249 / #2245: the pin wins over the computed value. Every key is
+        # compared with REST's.
+        from rest_framework.test import APIClient
+
+        stamp = timezone.now()
+        self.swimlane.health_status = "at_risk"
+        self.swimlane.computed_health_status = "off_track"
+        self.swimlane.health_computed_at = stamp
+        self.swimlane.save(update_fields=["health_status", "computed_health_status", "health_computed_at"])
+        self.other_swimlane.computed_health_status = "off_track"
+        self.other_swimlane.health_computed_at = stamp
+        self.other_swimlane.save(update_fields=["computed_health_status", "health_computed_at"])
+        keys = (
+            "health_status", "effective_health_status", "health_status_origin",
+            "computed_health_status", "health_computed_at",
+        )
+
+        for auto in (True, False):
+            Board.objects.filter(pk=self.board.pk).update(health_auto_enabled=auto)
+            client = APIClient()
+            client.force_authenticate(self.user)
+            body = client.get(f"/api/v1/boards/{self.board.pk}/swimlanes/").json()
+            rest = {r["id"]: r for r in (body["results"] if isinstance(body, dict) else body)}
+            mcp = {
+                r["id"]: r for r in self._call("list_swimlanes", self.raw_token, board_id=self.board.id)
+            }
+            for lane in (self.swimlane, self.other_swimlane):
+                self.assertEqual(
+                    {k: mcp[lane.id][k] for k in keys}, {k: rest[lane.id][k] for k in keys}, (auto, lane.name),
+                )
+            expected = ("off_track", "computed")
+            self.assertEqual(
+                (mcp[self.other_swimlane.id]["effective_health_status"],
+                 mcp[self.other_swimlane.id]["health_status_origin"]),
+                expected,
+            )
 
     def test_move_into_a_full_swimlane_is_a_structured_swimlane_error(self):
         # #1150: enforced exactly as over REST, with no override over MCP.

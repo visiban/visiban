@@ -17,9 +17,11 @@
  * misapplying it.
  */
 import type { Swimlane } from "../types";
+import { HEALTH_STATUS_LABELS, HEALTH_STATUS_VALUES } from "../constants/healthStatus";
 import {
   evalChain,
   isRuleComplete,
+  isPresenceOp,
   isRuleFieldType,
   isTextRuleType,
   matchRule,
@@ -35,7 +37,7 @@ import {
 } from "./fieldRules";
 
 /** Built-in swimlane fields a rule can target (#2336). */
-export type LaneBuiltinField = "name" | "contact_email";
+export type LaneBuiltinField = "name" | "contact_email" | "health_status";
 /** A rule's field: a swimlane custom field id or a built-in field. */
 export type LaneFieldKey = number | LaneBuiltinField;
 
@@ -93,7 +95,7 @@ export const LANE_FILTER_MAX_ID = 2 ** 31 - 1;
 
 // An op this client does not know (a newer client's, say) drops the whole
 // rule in parseRule, so it can never filter with semantics it cannot apply.
-const OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard"];
+export const LANE_FILTER_OPS: readonly FieldRuleOp[] = ["is", "is_not", "between", "contains", "not_contains", "wildcard", "is_set", "is_empty"];
 
 /** A field a lane rule can target: a custom field definition or a built-in. */
 export interface FieldLike {
@@ -104,24 +106,67 @@ export interface FieldLike {
   position: number;
 }
 
-/** A built-in field modeled as a synthetic text field definition (#2336). */
+/** A built-in field modeled as a synthetic field definition (#2336, #2247). */
 export interface LaneBuiltinFieldDef extends FieldLike {
   id: LaneBuiltinField;
-  field_type: "text";
-  /** Always empty; present so a built-in fits where a custom definition does. */
+  field_type: "text" | "enum";
+  /** Empty for a text built-in; the stored values of an enum built-in. */
   choices: string[];
+}
+
+/** One entry of the built-in lane attribute registry (#2247). */
+export interface LaneBuiltinSpec {
+  key: LaneBuiltinField;
+  name: string;
+  field_type: "text" | "enum";
+  is_admin_only: boolean;
+  /** Stored values of an enum built-in, in menu order. */
+  choices?: readonly string[];
+  /** Display label of one enum value. */
+  choiceLabel?: (value: string) => string;
+  /**
+   * The raw value a lane carries for this field, undefined when it has none.
+   * The one place a built-in's source is named, so evaluation, the value
+   * choices and the picker never special-case a field.
+   */
+  read: (lane: LaneFilterLane) => string | undefined;
 }
 
 /**
  * Built-in fields, in picker order. Contact email is admin-only exactly like
  * an `is_admin_only` custom field: the value is never sent to other roles.
+ * Health (#2247) reads the lane's pin, else its effective (computed) status
+ * (#2245), in the same order as laneHealthFields: the status the lane header
+ * shows, so the filter and the pill never disagree. A lane with no status has no value and matches
+ * "is empty".
  */
-export const LANE_BUILTIN_FIELDS: readonly { key: LaneBuiltinField; name: string; field_type: "text"; is_admin_only: boolean }[] = [
-  { key: "name", name: "Lane name", field_type: "text", is_admin_only: false },
-  { key: "contact_email", name: "Contact email", field_type: "text", is_admin_only: true },
+export const LANE_BUILTIN_FIELDS: readonly LaneBuiltinSpec[] = [
+  { key: "name", name: "Lane name", field_type: "text", is_admin_only: false, read: (l) => (typeof l.name === "string" ? l.name : undefined) },
+  {
+    key: "contact_email",
+    name: "Contact email",
+    field_type: "text",
+    is_admin_only: true,
+    read: (l) => (typeof l.contact_email === "string" ? l.contact_email : undefined),
+  },
+  {
+    key: "health_status",
+    name: "Health",
+    field_type: "enum",
+    is_admin_only: false,
+    choices: HEALTH_STATUS_VALUES,
+    choiceLabel: (v) => (HEALTH_STATUS_LABELS as Record<string, string>)[v] ?? v,
+    read: (l) => l.health_status ?? l.effective_health_status ?? undefined,
+  },
 ];
 
 const BUILTIN_KEYS: readonly string[] = LANE_BUILTIN_FIELDS.map((b) => b.key);
+
+/** Display text of a rule value: an enum built-in's label, else the shared formatter. */
+export function laneValueLabel(field: FieldLike, raw: string, fmt: LaneValueFormatter): string {
+  const spec = LANE_BUILTIN_FIELDS.find((b) => b.key === field.id);
+  return spec?.choiceLabel ? spec.choiceLabel(raw) : fmt(field, raw);
+}
 
 export function isLaneBuiltinField(v: unknown): v is LaneBuiltinField {
   return typeof v === "string" && BUILTIN_KEYS.includes(v);
@@ -144,7 +189,7 @@ export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmi
     field_type: b.field_type,
     is_admin_only: b.is_admin_only,
     position: i - LANE_BUILTIN_FIELDS.length,
-    choices: [],
+    choices: [...(b.choices ?? [])],
   }));
   return [...builtins, ...custom];
 }
@@ -199,16 +244,22 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     if (typeof r !== "object" || r === null || ruleBudget <= 0) return null;
     const o = r as Record<string, unknown>;
     if (o.kind !== undefined && o.kind !== "rule") return null;
-    const op = typeof o.op === "string" && (OPS as readonly string[]).includes(o.op) ? (o.op as FieldRuleOp) : null;
+    const op = typeof o.op === "string" && (LANE_FILTER_OPS as readonly string[]).includes(o.op) ? (o.op as FieldRuleOp) : null;
     if (!op) return null;
     const field =
       o.field === null || o.field === undefined ? null : validId(o.field) || isLaneBuiltinField(o.field) ? o.field : undefined;
     if (field === undefined) return null;
+    // The server rejects a presence op on any field but an enum built-in, and
+    // an enum built-in value outside its choices; drop those, never send them.
+    const choices = isLaneBuiltinField(field) ? LANE_BUILTIN_FIELDS.find((b) => b.key === field)?.choices : undefined;
+    if (isPresenceOp(op) && !choices) return null;
+    if (choices && !isPresenceOp(op) && typeof o.value === "string" && o.value !== "" && !choices.includes(o.value)) return null;
     ruleBudget--;
     const rule: LaneRule = { kind: "rule", id: takeId(o.id), join: o.join === "or" ? "or" : "and", field, op };
     const value = str(o.value);
     const min = str(o.min);
     const max = str(o.max);
+    if (isPresenceOp(op)) return rule; // is set / is empty carry no operand
     if (op === "contains" || op === "not_contains" || op === "wildcard") {
       // The server accepts these only with a string value and no range
       // bounds. The compact URL form drops an empty value, so restore it.
@@ -306,7 +357,7 @@ function pruneRule(r: LaneRule, types: Map<LaneFieldKey, RuleFieldType>): LaneRu
   // that narrows the result rather than widening it; the stored state is
   // left as is, so an admin's own filter comes back if they regain the role.
   if (!t || !opsForFieldType(t).includes(r.op)) return null;
-  if (t === "dropdown" || isTextRuleType(t)) return r;
+  if (t === "dropdown" || t === "enum" || isTextRuleType(t)) return r;
   const norm = t === "number" ? normalizeNumber : normalizeDate;
   const badMin = !!r.min && norm(r.min) === null;
   const badMax = !!r.max && norm(r.max) === null;
@@ -377,19 +428,22 @@ export function ignoredRulesText(n: number): string {
 export function isLaneFilterActive(f: LaneFilter | undefined): boolean {
   if (!f) return false;
   const done = (r: LaneRule) =>
-    r.field !== null && (r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim());
+    r.field !== null && (isPresenceOp(r.op) ? true : r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim());
   return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some(done)));
 }
 
 /** The lane fields a filter reads. `contact_email` is absent for non-admins. */
-export type LaneFilterLane = Pick<Swimlane, "custom_field_values"> & Partial<Pick<Swimlane, "name" | "contact_email">>;
+export type LaneFilterLane = Pick<Swimlane, "custom_field_values"> &
+  Partial<Pick<Swimlane, "name" | "contact_email" | "health_status" | "effective_health_status">>;
 
 function laneValues(s: LaneFilterLane): Map<LaneFieldKey, string> {
   const m = new Map<LaneFieldKey, string>((s.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
   // Matched on the full stored text; "" normalizes to no value, so an empty
   // contact email fails is / contains / wildcard and passes the negations.
-  if (typeof s.name === "string") m.set("name", s.name);
-  if (typeof s.contact_email === "string") m.set("contact_email", s.contact_email);
+  for (const b of LANE_BUILTIN_FIELDS) {
+    const v = b.read(s);
+    if (v !== undefined) m.set(b.key, v);
+  }
   return m;
 }
 
@@ -484,7 +538,7 @@ export type LaneValueFormatter = (field: FieldLike, raw: string) => string;
 
 function ruleLabel(r: LaneRule, fieldsById: Map<LaneFieldKey, FieldLike>, fmt: LaneValueFormatter): string {
   const def = fieldsById.get(r.field as LaneFieldKey) as FieldLike;
-  return ruleText(r, def.field_type as RuleFieldType, def.name, (raw) => fmt(def, raw));
+  return ruleText(r, def.field_type as RuleFieldType, def.name, (raw) => laneValueLabel(def, raw, fmt));
 }
 
 export interface LaneChipItem {
