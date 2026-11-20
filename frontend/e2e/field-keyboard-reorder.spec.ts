@@ -33,7 +33,7 @@ async function openSettingsTab(page: Page, tab: string) {
   await page.goto(`/boards/${BOARD_FULL.id}`)
   await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press('Control+,')
-  await page.getByRole('button', { name: tab }).click()
+  await page.getByRole('tab', { name: new RegExp(`^${tab}`) }).click()
 }
 
 async function reorderFirstToLast(page: Page, names: [string, string, string]) {
