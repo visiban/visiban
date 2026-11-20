@@ -1768,7 +1768,7 @@ class CardMutationQueryCountTests(TestCase):
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_UNARCHIVE = 23           # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 31             # measured 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_DESTROY = 32             # measured 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # Relation write paths (#449). Both re-render BOTH endpoint cards for the
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
