@@ -224,6 +224,35 @@ describe('StageSettingsPanel follow-ups (#2368, #2382)', () => {
     expect(screen.getByLabelText('Sub-column 2 name')).toHaveValue('Review')
   })
 
+  it('holds Remove after a reorder and never sends a save that mixes the two', async () => {
+    mockSave.mockResolvedValue({ column: three, remapped: [] })
+    const user = userEvent.setup()
+    renderPanel({ column: three })
+    await user.click(screen.getByRole('button', { name: 'Move sub-column Review up' }))
+    const remove = screen.getByRole('button', { name: 'Remove sub-column Doing' })
+    expect(remove).toHaveAttribute('aria-disabled', 'true')
+    expect(remove).toHaveAccessibleDescription(/Reorder and remove sub-columns in separate saves/)
+    await user.click(remove)
+    expect(screen.getAllByLabelText(/Sub-column \d name/)).toHaveLength(3)
+    await user.click(screen.getByRole('button', { name: 'Save stage' }))
+    await waitFor(() => expect(mockSave).toHaveBeenCalled())
+    expect(mockSave.mock.calls[0][2].sub_columns).toHaveLength(3)
+    expect(mockRename).not.toHaveBeenCalled()
+  })
+
+  it('shows the live field name on every stage after a rename, and treats the old name as free', () => {
+    const renamed = [{ ...defs[0], name: 'Engineering' }, ...defs.slice(1)] as CustomFieldDefinition[]
+    // The column still carries the old copy of the name: a rename reaches only the definitions.
+    renderPanel({ definitions: renamed })
+    expect(screen.getByLabelText('Track 1 name')).toHaveValue('Engineering')
+    fireEvent.change(screen.getByLabelText('New track name'), { target: { value: 'Technical' } })
+    expect(screen.getByLabelText('New track name')).not.toHaveAttribute('aria-invalid')
+    expect(screen.getByRole('button', { name: 'Add track' })).toBeEnabled()
+    // Saving does not re-rename it: the saved name is the live one.
+    fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
+    expect(mockRename).not.toHaveBeenCalled()
+  })
+
   it('shows the server refusal of a reorder plus a removal', async () => {
     mockSave.mockRejectedValue({ response: { status: 400, data: { sub_columns: ['Reorder and remove sub-columns in separate saves'] } } })
     renderPanel({ column: three })

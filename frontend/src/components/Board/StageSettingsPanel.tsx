@@ -60,7 +60,12 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const initialSubs = useMemo(() => stageSubColumns(column), [column]);
   const [subs, setSubs] = useState<SubRow[]>(() => initialSubs.map((s) => ({ key: nextKey(), id: s.id, name: s.name })));
   const [tracks, setTracks] = useState<TrackRow[]>(() =>
-    [...(column.tracks ?? [])].sort((a, b) => a.position - b.position).map((t) => ({ key: `f-${t.field_id}`, fieldId: t.field_id, name: t.name, savedName: t.name })));
+    [...(column.tracks ?? [])].sort((a, b) => a.position - b.position).map((t) => {
+      // A rename reaches the field definitions only, not this column's copy of
+      // the track name, so the live definition's name wins (as in getTrackStates).
+      const name = definitions.find((d) => d.id === t.field_id)?.name ?? t.name;
+      return { key: `f-${t.field_id}`, fieldId: t.field_id, name, savedName: name };
+    }));
   const initialTrackIds = useMemo(() => new Set((column.tracks ?? []).map((t) => t.field_id)), [column.tracks]);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>(() =>
     swimlanes.flatMap((l) => (l.not_applicable_field_ids ?? [])
@@ -156,8 +161,13 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   // A reorder and a removal in one save is refused by the server (a card's
   // fall-back sub-column could land after it), so reordering waits for Save.
   const removalPending = initialSubs.some((s) => !subs.some((r) => r.id === s.id));
+  // The reverse holds too: once the kept sub-columns are out of their saved
+  // order, removing one would build the same refused save.
+  const keptIds = new Set(subs.filter((r) => r.id !== undefined).map((r) => r.id));
+  const savedKeptOrder = initialSubs.filter((s) => keptIds.has(s.id)).map((s) => s.id);
+  const reorderPending = subs.filter((r) => r.id !== undefined).some((r, i) => r.id !== savedKeptOrder[i]);
   const removeSub = (key: string) => {
-    if (atMin) return;
+    if (atMin || reorderPending) return;
     const i = subs.findIndex((r) => r.key === key);
     const rest = subs.filter((r) => r.key !== key);
     setSubs(rest);
@@ -261,6 +271,12 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
 
   const save = async () => {
     if (!canSave) return;
+    // Defense in depth: the server refuses this combination, but only after the
+    // renames and new tracks below have already been written.
+    if (removalPending && reorderPending) {
+      setError("Reorder and remove sub-columns in separate saves.");
+      return;
+    }
     setSaving(true);
     setError(null);
     let renamedAny = false;
@@ -378,8 +394,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   aria-label={`Remove sub-column ${s.name || i + 1}`}
                   // Two is the floor; below it the stage becomes a plain column via "Remove all".
                   // aria-disabled keeps the reason reachable by keyboard.
-                  aria-disabled={atMin || undefined}
-                  aria-describedby={atMin ? `${uid}-min` : undefined}
+                  aria-disabled={atMin || reorderPending || undefined}
+                  aria-describedby={atMin ? `${uid}-min` : reorderPending ? `${uid}-remove-hold` : undefined}
                   onClick={() => removeSub(s.key)}
                 >Remove</button>
               </li>
@@ -402,6 +418,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           </div>
           {atMax && <p id={`${uid}-max`} className="mt-1 text-xs text-fg-tertiary">A stage has at most four sub-columns.</p>}
           {removalPending && <p id={`${uid}-reorder-hold`} className="mt-1 text-xs text-fg-tertiary">Reorder and remove sub-columns in separate saves. Save the removal first, then reorder.</p>}
+          {reorderPending && <p id={`${uid}-remove-hold`} className="mt-1 text-xs text-fg-tertiary">Reorder and remove sub-columns in separate saves. Save the new order first, then remove.</p>}
           {subs.length > 0 && atMin && <p id={`${uid}-min`} className="mt-1 text-xs text-fg-tertiary">A stage needs at least two sub-columns, or none. Use Remove all sub-columns to make it a plain column.</p>}
           {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it in the saved order. Moving a sub-column takes its cards with it.</p>}
           {consequences.length > 0 && (
