@@ -2799,3 +2799,17 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 - `child_cards`: cards on this board that are children of cards on another board. Turning the setting **on** is refused while this is above 0.
 - `parent_cards`: cards on this board that have children. Turning the setting **off** is refused while this is above 0.
 - `default_of`: the boards whose `default_child_board` is this board. Turning the setting **on** is refused while it is not empty. A board you cannot open is `{"hidden": true}`, with no id or name; `can_change` is true when you administer that board.
+
+### Delete impact (since 1.3)
+
+`GET /api/v1/boards/{id}/delete-impact/` — what deleting this board does to [parent/child card links](cards.md#parent-and-children-since-13) on other boards, for the delete confirm (#2208). **Minimum role:** the delete's own gate, the board owner or a site admin; anyone else gets `403` (or `404` without access).
+
+```json
+{"child_cards": 14, "parent_boards": [{"id": 3, "name": "Pipeline"}], "hidden_parent_boards": false, "parent_cards": 0}
+```
+
+- `child_cards`: this board's cards that are children of cards on other boards. Their parents lose them, and each parent records one `children_removed_board_deleted` history row whose `to_value` is how many it lost.
+- `parent_boards`: the boards those parents are on that you can open, by name. `hidden_parent_boards` is true when some are on boards you cannot open; those are never named or counted per board.
+- `parent_cards`: this board's cards that have children on other boards. The children stay as ordinary cards and record `parent_removed_board_deleted`.
+
+Deleting a board also clears `default_child_board` on every board that named it, and each of those boards gets a `board.updated` event.

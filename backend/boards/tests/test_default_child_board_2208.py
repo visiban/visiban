@@ -535,3 +535,79 @@ class ConcurrentDefaultWriteTests(ConcurrentAddChildTests):
         self.assertEqual(results["setter"].status_code, 200)
         self.assertEqual(results["flipper"].status_code, 400)
         self.assertFalse(Board.objects.get(pk=self.child.pk).cards_can_have_children)
+
+
+from boards.models import BoardEvent  # noqa: E402
+
+
+class BoardDeleteTests(AddChildFixture):
+    def link(self, parent_card, child_card):
+        CardParentLink.objects.create(parent=parent_card, child=child_card, created_by=self.admin)
+
+    def delete(self, board, user=None):
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            return client_for(user or self.admin).delete(f"/api/v1/boards/{board.pk}/")
+
+    def test_child_board_delete_records_a_count_on_each_parent_and_no_board_name(self):
+        for i in range(3):
+            self.link(self.parent_card, add_card(self.child, f"c{i}"))
+        self.assertEqual(self.delete(self.child).status_code, 204)
+        row = CardActivity.objects.get(card=self.parent_card, event_type="children_removed_board_deleted")
+        self.assertEqual(row.to_value, "3")
+        self.assertEqual(row.from_value, "")
+        self.assertNotIn("Delivery", f"{row.to_value}{row.from_value}{row.item_text}")
+        self.assertFalse(CardActivity.objects.filter(card=self.parent_card, event_type="child_unlinked").exists())
+
+    def test_parent_board_delete_leaves_children_as_ordinary_cards(self):
+        kid = add_card(self.child, "k")
+        self.link(self.parent_card, kid)
+        self.assertEqual(self.delete(self.parent).status_code, 204)
+        self.assertTrue(Card.objects.filter(pk=kid.pk).exists())
+        self.assertTrue(CardActivity.objects.filter(card=kid, event_type="parent_removed_board_deleted").exists())
+
+    def test_deleting_the_default_clears_it_and_announces_board_updated(self):
+        self.set_default()
+        self.assertEqual(self.delete(self.child).status_code, 204)
+        self.parent.refresh_from_db()
+        self.assertIsNone(self.parent.default_child_board_id)
+        self.assertTrue(self.parent.cards_can_have_children)
+        ev = BoardEvent.objects.filter(board_id=self.parent.pk, event="board.updated").last()
+        self.assertIsNotNone(ev)
+        self.assertIsNone(ev.data["default_child_board"])
+
+    def test_single_card_delete_still_records_a_plain_unlink(self):
+        kid = add_card(self.child, "k")
+        self.link(self.parent_card, kid)
+        with patch(PATCH_BROADCAST):
+            client_for(self.admin).delete(f"/api/v1/boards/{self.child.pk}/cards/{kid.pk}/")
+        self.assertTrue(CardActivity.objects.filter(card=self.parent_card, event_type="child_unlinked").exists())
+
+
+class DeleteImpactTests(AddChildFixture):
+    def impact(self, user, board):
+        return client_for(user).get(f"/api/v1/boards/{board.pk}/delete-impact/")
+
+    def test_counts_and_names_only_visible_parent_boards(self):
+        secret = make_board(self.admin, "Secret", parent_tier=True)
+        self.link_pair(self.parent_card, add_card(self.child, "a"))
+        self.link_pair(add_card(secret, "s"), add_card(self.child, "b"))
+        owner_view = self.impact(self.admin, self.child).json()
+        self.assertEqual(owner_view["child_cards"], 2)
+        self.assertEqual([b["name"] for b in owner_view["parent_boards"]], ["Pipeline", "Secret"])
+        self.assertFalse(owner_view["hidden_parent_boards"])
+        self.assertEqual(self.impact(self.admin, self.parent).json()["parent_cards"], 1)
+
+    def link_pair(self, p, c):
+        CardParentLink.objects.create(parent=p, child=c, created_by=self.admin)
+
+    def test_hidden_parent_board_is_never_named(self):
+        owner = User.objects.create_user(username="dcb_owner2", password="pass")
+        mine = make_board(owner, "Mine")
+        BoardMembership.objects.create(board=mine, user=owner, role=Role.ADMIN)
+        self.link_pair(self.parent_card, add_card(mine, "x"))
+        out = self.impact(owner, mine).json()
+        self.assertEqual(out, {"child_cards": 1, "parent_boards": [], "hidden_parent_boards": True, "parent_cards": 0})
+
+    def test_board_admin_who_is_not_the_owner_is_refused(self):
+        a = self.user_with("nonowner", child=Role.ADMIN)
+        self.assertEqual(self.impact(a, self.child).status_code, 403)

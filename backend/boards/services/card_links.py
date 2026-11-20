@@ -696,7 +696,20 @@ def announce_card_removal(card, *, actor=None):
     announce_cards_removal(Card.objects.filter(pk=card.pk), actor=actor)
 
 
-def announce_cards_removal(cards, *, actor=None):
+#: ``announce_cards_removal(reason=...)`` for a whole-board delete (#2208).
+REASON_BOARD_DELETED = "board_deleted"
+
+
+def _record_count(card_id, event_type, actor, count):
+    """Write one history row whose only value is a count (#2208).
+
+    Like :func:`_record`, no reference to the other card or its board: a
+    number of children lost is all a parent's reader learns.
+    """
+    CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor, to_value=str(count))
+
+
+def announce_cards_removal(cards, *, actor=None, reason=None):
     """Record what deleting the ``cards`` queryset does to their links, before the delete.
 
     The link rows CASCADE away with the cards, so this must run first, inside
@@ -726,8 +739,15 @@ def announce_cards_removal(cards, *, actor=None):
     their link peers in one pk-ordered statement in
     ``services.cards.lock_cards_for_cascade`` (#2409), so it holds every peer
     too before this runs.
+
+    ``reason=REASON_BOARD_DELETED`` (every whole-board delete, #2208) records
+    one ``children_removed_board_deleted`` row per surviving parent carrying
+    how many children it lost, and ``parent_removed_board_deleted`` on each
+    surviving child, instead of the plain unlink rows: "5 children removed:
+    their board was deleted" for every reader, with no board name stored.
     """
     actor_id = getattr(actor, "id", None)
+    board_deleted = reason == REASON_BOARD_DELETED
     links = list(
         CardParentLink.objects.filter(Q(child__in=cards) | Q(parent__in=cards))
         .values_list("parent_id", "parent__board_id", "child_id", "child__board_id")
@@ -737,14 +757,21 @@ def announce_cards_removal(cards, *, actor=None):
         return
     deleted = set(cards.values_list("pk", flat=True))
     parents = {}  # parent_id -> its board, for each surviving parent of a deleted child
+    lost = {}  # parent_id -> how many of its children are deleted
     children_by_board = {}  # child board -> surviving child ids of a deleted parent
     for parent_id, parent_board_id, child_id, child_board_id in links:
         if child_id in deleted and parent_id not in deleted:
             parents[parent_id] = parent_board_id
+            lost[parent_id] = lost.get(parent_id, 0) + 1
         elif parent_id in deleted and child_id not in deleted:
             children_by_board.setdefault(child_board_id, []).append(child_id)
     for parent_id in sorted(parents):
-        _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
+        if board_deleted:
+            _record_count(
+                parent_id, CardActivity.EventType.CHILDREN_REMOVED_BOARD_DELETED, actor, lost[parent_id],
+            )
+        else:
+            _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         _broadcast.record_board_event(
             parents[parent_id], _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
@@ -752,11 +779,74 @@ def announce_cards_removal(cards, *, actor=None):
     for child_board_id in sorted(children_by_board):
         child_ids = sorted(children_by_board[child_board_id])
         for child_id in child_ids:
-            _record(child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
+            _record(child_id, (
+                CardActivity.EventType.PARENT_REMOVED_BOARD_DELETED if board_deleted
+                else CardActivity.EventType.PARENT_UNLINKED
+            ), actor)
         _broadcast.record_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": child_ids}, actor_id=actor_id,
         )
+
+
+def boards_losing_default(board_pks):
+    """``[(pk, group_id)]`` of surviving boards whose default child board is in ``board_pks``.
+
+    Read inside a board delete's transaction before the delete; after it the
+    ``SET_NULL`` has cleared their default and each gets a ``board.updated``
+    (:func:`announce_default_cleared`), so their clients drop it and Add child
+    falls back to the chooser.
+    """
+    return list(
+        Board.objects.filter(default_child_board_id__in=board_pks)
+        .exclude(pk__in=board_pks).order_by("pk").values_list("pk", "group_id")
+    )
+
+
+def announce_default_cleared(rows):
+    """Record a system ``board.updated`` for each ``(pk, group_id)`` in ``rows`` (#2208).
+
+    A loop fan-out, one event per board, published on commit by
+    ``record_board_updated``. Call after the delete, inside its transaction.
+    """
+    from .board_events import record_board_updated, system_board_payload
+
+    for pk, group_id in rows:
+        record_board_updated(
+            pk, system_board_payload(pk), old_group_id=group_id, new_group_id=group_id, actor_id=None,
+        )
+
+
+def board_delete_impact_for_viewer(board, user):
+    """What deleting ``board`` does to card links elsewhere, for its delete confirm (#2208).
+
+    ``{"child_cards", "parent_boards", "hidden_parent_boards", "parent_cards"}``:
+    ``child_cards`` is how many of this board's cards are children of cards on
+    other boards; ``parent_boards`` the boards those parents are on that
+    ``user`` can open (``{"id", "name"}``, by name); ``hidden_parent_boards``
+    whether any parent is on a board ``user`` cannot open (named nowhere, and
+    no count per board: decision E, warn only, discloses nothing about a
+    board the deleter cannot open); ``parent_cards`` how many of this board's
+    cards have children elsewhere. The caller holds the delete gate.
+    """
+    child_cards = CardParentLink.objects.filter(child__board_id=board.pk).exclude(parent__board_id=board.pk)
+    parent_board_ids = set(child_cards.values_list("parent__board_id", flat=True))
+    parent_cards = (
+        CardParentLink.objects.filter(parent__board_id=board.pk).exclude(child__board_id=board.pk)
+        .values("parent_id").distinct().count()
+    )
+    boards = list(
+        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk__in=parent_board_ids).order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, boards) if boards else {}
+    visible = [{"id": b.pk, "name": b.name} for b in boards if roles.get(b.pk) is not None]
+    return {
+        "child_cards": child_cards.count(),
+        "parent_boards": visible,
+        "hidden_parent_boards": len(visible) < len(boards),
+        "parent_cards": parent_cards,
+    }
 
 
 # ─── Read path ───────────────────────────────────────────────────────────────

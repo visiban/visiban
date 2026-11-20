@@ -1445,6 +1445,12 @@ class CardActivity(models.Model):
         PARENT_UNLINKED = "parent_unlinked", "Parent unlinked"
         CHILD_LINKED = "child_linked", "Child linked"
         CHILD_UNLINKED = "child_unlinked", "Child unlinked"
+        # #2208: the other end's whole board was deleted. ``to_value`` on the
+        # parent's row is how many children it lost (a count, never a board
+        # name: the reader may be unable to open that board). The child's row
+        # carries nothing.
+        CHILDREN_REMOVED_BOARD_DELETED = "children_removed_board_deleted", "Children removed: board deleted"
+        PARENT_REMOVED_BOARD_DELETED = "parent_removed_board_deleted", "Parent removed: board deleted"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
