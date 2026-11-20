@@ -495,8 +495,11 @@ _FLOW_GROUP_PARAMETERS = [
         name="group_by", type={"type": "string", "enum": list(flow_grouping.GROUP_BY_CHOICES)},
         location=OpenApiParameter.QUERY, required=False,
         description=(
-            "Break the numbers down by each card's current swimlane, labels, or one card custom field "
-            "(`custom_field`, with `group_by_field_id`). Adds `grouping` to the response and group keys "
+            "Break the numbers down by swimlane, label, or one card custom field "
+            "(`custom_field`, with `group_by_field_id`). Labels and fields are each card's current ones. "
+            "A swimlane is the one the card was in when the sample is dated (#2334): its first completion "
+            "for cycle time and throughput, the visit's end for dwell, now for wip-age; history in a "
+            "deleted swimlane counts in `excluded`. Adds `grouping` to the response and group keys "
             "to the samples; without it the response is unchanged."
         ),
     ),
@@ -1557,6 +1560,12 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="Per-swimlane cycle time, trend, blocked share and status against the board",
+        description=(
+            "A card counts under the swimlane it was in at the time (#2334): finished cards, their "
+            "median, 85th percentile and rolling median under the swimlane of their first completion, "
+            "`in_progress` under the current swimlane, and blocked share split across the swimlanes a "
+            "card was in while in progress. A completion in a deleted swimlane is in `board` only."
+        ),
         parameters=[
             *(p for p in _FLOW_FILTER_PARAMETERS if p.name != "swimlane_id"),
             OpenApiParameter(

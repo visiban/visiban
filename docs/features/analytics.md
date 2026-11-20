@@ -97,6 +97,7 @@ Under the page title, two links switch between **Overview** and **Swimlanes**. T
 - **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked; and cards in progress and finished.
 - **Status:** "Slower than the board" or "Faster than the board" when the median is more than 20% away from the board median, otherwise "In line with the board". A swimlane needs 10 finished cards for a status; with 5 to 9 it shows its median and no status line. Color repeats the words and never replaces them.
 - **Small samples:** under 5 finished cards a swimlane shows no median, bar or trend; with 5 or 6 it shows no 85th percentile line.
+- **Cards that changed swimlane** (*changed in 1.3*, #2334): finished cards and their cycle times count under the swimlane each card entered the done column in, cards in progress under the swimlane they are in now, and blocked share splits a card's time between the swimlanes it was in. A card dragged straight into done in another swimlane is finished in the new swimlane and blocked in the one it left. The board median includes every finished card, also one that finished in a swimlane since deleted.
 - The server computes every number. See `GET /api/v1/boards/{id}/metrics/swimlanes/` in the [API reference](../api/boards.md).
 
 Below 1024px each row's cells wrap under the name.
@@ -108,7 +109,7 @@ Below 1024px each row's cells wrap under the name.
 One filter bar drives every panel on the page, the heatmap, stalled and blocked sections included; no panel has a period control of its own.
 
 - **Date range:** the last 30, 90, 180 or 365 days. **90 by default**, because a weekly median needs five whole weeks and percentiles need enough finished cards.
-- **Swimlane** and **Label:** use each card's current swimlane and labels.
+- **Swimlane** and **Label:** use each card's current swimlane and labels. The Swimlane filter selects the cards in that swimlane now, even when a breakdown or the Swimlanes view counts some of their work under another swimlane (see [Break down by](#break-down-by)).
 
 A filter change refreshes every panel once. The panels keep showing the previous numbers, dimmed, until the new ones arrive, and an open drawer closes.
 
@@ -129,7 +130,9 @@ A filter change refreshes every panel once. The panels keep showing the previous
 - **Labels:** a card with several labels is counted once in each, so the group numbers can add up to more than the board's.
 - **Custom fields:** cards with no value for the field are left out.
 - When no card in the view has a value to break down by, a status line replaces the legend ("No cards in this view have a swimlane to break down by.", or the same for label or the field) and the charts stay uncolored.
-- Groups use each card's current swimlane, labels and field values, like the filters.
+- **Swimlanes count at the time of the work** (*changed in 1.3*, #2334): counts follow the swimlane the card was in at the moment they are dated by, blocked share is split by time across the swimlanes the card sat in, and a column stay counts whole under one swimlane. A finished card counts under the swimlane it entered the done column in, a card in progress under the swimlane it is in now, and a stay in a column, counted whole, under the swimlane the card was in when it left the column (a swimlane change made by the exit move itself does not count, and a change during the stay moves the whole stay to the later swimlane). A card that moved to another swimlane after it finished stays with the first. A card dragged straight into done in another swimlane counts as finished in the new swimlane, while its blocked time and its last stay count in the one it left. Work recorded in a swimlane that has since been deleted is left out of the swimlane groups and still counts in the board's numbers.
+- Labels and custom fields use each card's current values: their history is not recorded.
+- The [Summary view](#summary-view) velocity and average cycle time, and the [dwell time heatmap](#dwell-time-heatmap) rows, still use each card's current swimlane, so for a card that changed swimlane they can differ from the breakdown and the Swimlanes view.
 
 ### Bottleneck
 
