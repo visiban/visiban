@@ -420,6 +420,49 @@ class ListBoardsTests(McpTestCase):
         self.assertEqual([b["name"] for b in boards], ["Mine"])
         self.assertEqual(boards[0]["id"], mine.id)
 
+    def test_board_health_fields_match_rest_for_every_role(self):
+        """#2249: pin, computed and inherited health, read-only, same as REST."""
+        from rest_framework.test import APIClient
+
+        from groups.models import Group
+
+        owner = _make_user("health-owner")
+        group = Group.objects.create(name="Portfolio", owner=owner, health_status="at_risk")
+        inherited = _make_board(owner, name="Inherits")
+        pinned = _make_board(owner, name="Pinned")
+        auto = _make_board(owner, name="Auto")
+        for board in (inherited, pinned, auto):
+            board.group = group
+        pinned.health_status = "on_track"
+        auto.health_auto_enabled = True
+        auto.computed_health_status = "off_track"
+        for board in (inherited, pinned, auto):
+            board.save()
+            _make_membership(board, self.user, role=BoardMembership.Role.VIEWER)
+
+        boards = {b["name"]: b for b in self._call_list_boards(self.raw_token)}
+        client = APIClient()
+        client.force_authenticate(self.user)
+        keys = ("health_status", "effective_health_status", "health_status_source", "health_status_origin")
+        for board in (inherited, pinned, auto):
+            rest = client.get(f"/api/v1/boards/{board.pk}/").json()
+            self.assertEqual(
+                {k: boards[board.name][k] for k in keys}, {k: rest[k] for k in keys}, board.name,
+            )
+        self.assertEqual(boards["Inherits"]["effective_health_status"], "at_risk")
+        self.assertEqual(boards["Inherits"]["health_status_source"]["name"], "Portfolio")
+        self.assertEqual(boards["Pinned"]["effective_health_status"], "on_track")
+        self.assertEqual(boards["Auto"]["health_status_origin"], "computed")
+
+    def test_board_without_any_status_reports_nulls(self):
+        _make_board(self.user, name="Plain")
+        board = self._call_list_boards(self.raw_token)[0]
+        self.assertEqual(
+            (board["health_status"], board["effective_health_status"],
+             board["health_status_source"], board["health_status_origin"]),
+            (None, None, None, None),
+        )
+
     def test_reports_the_callers_effective_role(self):
         other = _make_user("other-owner")
         board = _make_board(other, name="Shared")
@@ -479,6 +522,8 @@ class ListBoardsTests(McpTestCase):
             {
                 "id", "uid", "name", "description", "role", "column_count",
                 "swimlane_count", "card_count", "created_at", "updated_at",
+                "health_status", "effective_health_status", "health_status_source",
+                "health_status_origin",
             },
         )
 
