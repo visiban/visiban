@@ -739,6 +739,24 @@ describe('FilterPanel search (#2437)', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ search: 'zzz' }))
   })
 
+  it('Enter on a lane-field name with no value hit opens swimlane filters, not a title search (#2437)', async () => {
+    const u = userEvent.setup()
+    const { onChange, onOpenLaneFilters } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'tier{Enter}')
+    expect(onOpenLaneFilters).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('Enter on a card-field name with no value hit opens that field\'s editor, not a title search (#2437)', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'region{Enter}')
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /Region/ })).toHaveAttribute('aria-expanded', 'true')
+  })
+
   it('arrow keys move across groups and back to the input', async () => {
     const u = userEvent.setup()
     setup({ board: searchBoard() })

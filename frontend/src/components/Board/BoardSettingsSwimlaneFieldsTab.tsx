@@ -14,6 +14,7 @@ import {
   deleteSwimlaneCustomFieldDefinition,
   reorderSwimlaneCustomFields,
 } from "../../api/boards";
+import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import NumberFormatFields from "./NumberFormatFields";
 import { EMPTY_NUMBER_FORMAT, choiceColorsPayload, draftChoiceColor, numberFormatDraftFrom, numberFormatPayload, pastedChoicesToAdd, withChoiceColor, withoutChoiceColor, type NumberFormatDraft } from "../../utils/customFieldValue";
 import ChoiceColorPicker from "./ChoiceColorPicker";
@@ -751,9 +752,13 @@ function TierPreview({ board, fields, tierOf }: {
       <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1">Preview</p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line bg-surface px-3 py-2 text-sm">
         <span className="font-semibold text-fg">{lane?.name ?? "Lane"}</span>
-        {band.map((f) => (
-          <span key={f.id} className="text-fg-secondary">{f.name} <span className="text-fg font-medium">{values.get(f.id) || "—"}</span></span>
-        ))}
+        {band.map((f) => {
+          const v = values.get(f.id);
+          // The band's own renderer, so a multi-select, date or number shows as it will on the lane.
+          return v
+            ? <CustomFieldValueDisplay key={f.id} definition={f} value={v} variant="band" adminOnly={f.is_admin_only} />
+            : <span key={f.id} className="text-fg-secondary">{f.name} <span className="text-fg font-medium">—</span></span>;
+        })}
         {more > 0 && <span className="text-xs text-fg-secondary">Show {more} more</span>}
       </div>
       <p className="mt-1 text-xs text-fg-muted">Details: {details.length ? details.map((f) => f.name).join(", ") : "none"}</p>

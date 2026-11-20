@@ -102,7 +102,7 @@ function renderRow(
   swimlane: Swimlane,
   defs: SwimlaneCustomFieldDefinition[],
   collapsed = false,
-  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; hideRowChipFieldNames?: boolean; density?: CardDensity; cards?: Card[] } = {},
+  extra: { isAdmin?: boolean; onEditFieldOrder?: () => void; onManageSwimlaneFields?: () => void; hideRowChipFieldNames?: boolean; density?: CardDensity; cards?: Card[] } = {},
 ) {
   return render(
     <SwimlaneRow
@@ -128,6 +128,7 @@ function renderRow(
       isFocused={false}
       swimlaneFieldDefinitions={defs}
       onEditFieldOrder={extra.onEditFieldOrder}
+      onManageSwimlaneFields={extra.onManageSwimlaneFields}
       hideRowChipFieldNames={extra.hideRowChipFieldNames}
       density={extra.density}
     />
@@ -1600,8 +1601,8 @@ describe('lane field tiers (#2439)', () => {
   ] })
 
   it('shows Band fields, "Show N more", then details, Hidden on band and the footer', async () => {
-    const onEditFieldOrder = vi.fn()
-    renderRow(lane(), tiered(), false, { onEditFieldOrder })
+    const onManageSwimlaneFields = vi.fn()
+    renderRow(lane(), tiered(), false, { onManageSwimlaneFields })
     expect(screen.getByText('Diane')).toBeInTheDocument()
     const toggle = screen.getByTestId('swimlane-fields-toggle')
     expect(toggle).toHaveTextContent('Show 3 more')
@@ -1613,11 +1614,11 @@ describe('lane field tiers (#2439)', () => {
     expect(within(group).getByText('Renewal soon')).toBeInTheDocument()
     expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 2 hidden on band')
     await userEvent.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
-    expect(onEditFieldOrder).toHaveBeenCalled()
+    expect(onManageSwimlaneFields).toHaveBeenCalled()
   })
 
   it('a non-admin reads a Hidden field, without admin-only fields in any count or the manage link', async () => {
-    renderRow(lane(), tiered(), false, { isAdmin: false, onEditFieldOrder: vi.fn() })
+    renderRow(lane(), tiered(), false, { isAdmin: false, onEditFieldOrder: vi.fn(), onManageSwimlaneFields: vi.fn() })
     const toggle = screen.getByTestId('swimlane-fields-toggle')
     expect(toggle).toHaveTextContent('Show 2 more')
     await userEvent.click(toggle)
@@ -1645,6 +1646,24 @@ describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
     expect(within(screen.getByRole('radiogroup', { name: 'Show F2' })).getByRole('radio', { name: 'Band' })).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText(/Every field can be searched and used in filters/)).toBeInTheDocument()
     expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Show 2 more')
+  })
+
+  it('the preview formats band values with the band renderer, not the raw stored text', () => {
+    const defs = [
+      makeDef({ id: 1, name: 'Regions', field_type: 'multi_select', choices: ['EMEA', 'APAC'], position: 0, band_visibility: 'band' }),
+      makeDef({ id: 2, name: 'Quota', field_type: 'number', number_suffix: 'k', position: 1, band_visibility: 'band' }),
+      makeDef({ id: 3, name: 'Notes', position: 2, band_visibility: 'details' }),
+      makeDef({ id: 4, name: 'Region', position: 3, band_visibility: 'hidden' }),
+    ]
+    const lane = makeSwimlane({ custom_field_values: [{ field_definition: 1, value: '["EMEA","APAC"]' }, { field_definition: 2, value: '600' }] })
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs, [lane])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
+    const preview = screen.getByTestId('swimlane-tier-preview')
+    expect(preview).not.toHaveTextContent('["EMEA"')
+    expect(within(preview).getByText('EMEA')).toBeInTheDocument()
+    expect(within(preview).getByText('APAC')).toBeInTheDocument()
+    expect(preview).toHaveTextContent('600k')
+    expect(preview).toHaveTextContent('Details: Notes')
+    expect(preview).toHaveTextContent('Hidden on band: Region')
   })
 
   it('a tier change materializes locally and PATCHes band_visibility', async () => {

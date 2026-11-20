@@ -733,3 +733,64 @@ describe('PhoneBoard track chips (#2278)', () => {
     expect(screen.getAllByText('Technical: done').length).toBeGreaterThan(0)
   })
 })
+
+describe('PhoneBoard lane band tiers (#2439)', () => {
+  const tdef = (id: number, name: string, band_visibility: 'band' | 'details' | 'hidden', extra: Partial<SwimlaneCustomFieldDefinition> = {}) =>
+    ({ id, uid: `sf${id}`, name, field_type: 'text', choices: [], position: id, show_on_row: false, is_admin_only: false, band_visibility, ...extra }) as unknown as SwimlaneCustomFieldDefinition
+  const defs = [
+    tdef(1, 'Owner', 'band'), tdef(2, 'Region', 'details'), tdef(3, 'Site', 'hidden'),
+    tdef(4, 'Secret code', 'hidden', { is_admin_only: true }),
+  ]
+  const tiered = { ...lane(1, 'North'), custom_field_values: [[1, 'Avery'], [2, 'West'], [3, 'example.test'], [4, 'S3CRET']].map(([field_definition, value]) => ({ field_definition, value })) } as unknown as Swimlane
+  const toggleName = /^Show \d+ more fields for North/
+
+  it('shows only the Band fields, then "Show N more" opens Details and the Hidden on band group', async () => {
+    const user = userEvent.setup()
+    setup({ swimlanes: [tiered], swimlaneFieldDefinitions: defs, isAdmin: false })
+    const band = screen.getByTestId('phone-lane-band-details')
+    expect(band).toHaveTextContent(/Owner\s*Avery/)
+    expect(band).not.toHaveTextContent('West')
+    // A member counts Region (details) and Site (hidden); the admin-only field is out of the count.
+    const more = screen.getByRole('button', { name: /^Show 2 more fields for North/ })
+    expect(more).toHaveTextContent('Show 2 more')
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('swimlane-lane-details')).toBeNull()
+    await user.click(more)
+    const open = screen.getByTestId('swimlane-lane-details')
+    expect(within(open).getByText('Region')).toBeInTheDocument()
+    expect(within(open).getByText('West')).toBeInTheDocument()
+    const hidden = within(open).getByTestId('swimlane-hidden-group')
+    expect(within(hidden).getByRole('heading', { name: 'Hidden on band' })).toBeInTheDocument()
+    expect(within(hidden).getByText('Site')).toBeInTheDocument()
+    expect(open).toHaveTextContent('1 in details · 1 hidden on band')
+    await user.click(screen.getByRole('button', { name: /^Hide details for North/ }))
+    expect(screen.queryByTestId('swimlane-lane-details')).toBeNull()
+  })
+
+  it('never shows an admin-only field to a non-admin, and shows it to an admin', async () => {
+    const user = userEvent.setup()
+    setup({ swimlanes: [tiered], swimlaneFieldDefinitions: defs, isAdmin: false })
+    await user.click(screen.getByRole('button', { name: toggleName }))
+    expect(screen.queryByText('Secret code')).toBeNull()
+    expect(screen.queryByText('S3CRET')).toBeNull()
+    cleanup()
+    setup({ swimlanes: [tiered], swimlaneFieldDefinitions: defs, isAdmin: true })
+    await user.click(screen.getByRole('button', { name: /^Show 3 more fields for North/ }))
+    expect(within(screen.getByTestId('swimlane-hidden-group')).getByText('Secret code')).toBeInTheDocument()
+  })
+
+  it('offers "Manage swimlane fields" to an admin even with one field; never to a non-admin', async () => {
+    const user = userEvent.setup()
+    const one = [tdef(3, 'Site', 'hidden')]
+    const oneLane = { ...lane(1, 'North'), custom_field_values: [{ field_definition: 3, value: 'x' }] } as unknown as Swimlane
+    const onManageSwimlaneFields = vi.fn()
+    setup({ swimlanes: [oneLane], swimlaneFieldDefinitions: one, isAdmin: true, onManageSwimlaneFields })
+    await user.click(screen.getByRole('button', { name: toggleName }))
+    await user.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
+    expect(onManageSwimlaneFields).toHaveBeenCalledTimes(1)
+    cleanup()
+    setup({ swimlanes: [oneLane], swimlaneFieldDefinitions: one, isAdmin: false, onManageSwimlaneFields })
+    await user.click(screen.getByRole('button', { name: toggleName }))
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).toBeNull()
+  })
+})

@@ -58,6 +58,8 @@ interface Props {
   allColumns?: Column[];
   /** Admin shortcut from the open field grid to Board settings -> Swimlane fields, as on the grid band. */
   onEditFieldOrder?: () => void;
+  /** "Manage swimlane fields" in the tiered details footer (#2439): admin-only, no field-count gate. */
+  onManageSwimlaneFields?: () => void;
   boardColors?: BoardColor[];
   limitFlags?: LimitFlags;
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
@@ -169,7 +171,7 @@ export default function PhoneBoard({
   selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onOpenCardMenu,
   contextTargetCardId, onCardUpdated, density, userTimezone, currentUserId, userDateFormat,
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
-  isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
+  isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, onManageSwimlaneFields, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
@@ -551,7 +553,7 @@ export default function PhoneBoard({
                       </span>
                     )}
                     {fieldsOpen && tiers && (
-                      <LaneTierDetails id={extraId} laneColor={lane.color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onEditFieldOrder : undefined} touch />
+                      <LaneTierDetails id={extraId} laneColor={lane.color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onManageSwimlaneFields : undefined} touch />
                     )}
                     {fieldsOpen && !tiers && (
                       <>

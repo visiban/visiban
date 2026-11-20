@@ -364,9 +364,14 @@ export default function FilterPanel({
       const first = resultButtons()[0];
       if (first) { e.preventDefault(); first.focus(); }
     } else if (e.key === "Enter" && needle && !isImeComposing(e)) {
-      // Enter adds the first value (so `tier:gold` jumps and applies), else the card-text fallback.
+      // Enter adds the first value (so `tier:gold` jumps and applies). With only name hits it opens the
+      // first matching field's editor, as selecting that row does; with neither, the card-text fallback.
       e.preventDefault();
       if (valueHits[0]) addValue(valueHits[0]);
+      else if (visibleRows[0]) {
+        if (visibleRows[0].id === "lanes") { close(); onOpenLaneFilters(); }
+        else setExpanded(visibleRows[0].id);
+      } else if (laneNameHits[0]) { close(); onOpenLaneFilters(); }
       else if (result.titleQuery) addTitle();
     }
   };
@@ -771,7 +776,7 @@ export default function FilterPanel({
       </div>
 
       <div className="border-t border-line pt-2">
-        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add &middot; field:value to jump</p>
+        <p className="px-2 pb-1 text-xs text-fg-secondary">&uarr;&darr; to move &middot; Enter to add or open &middot; field:value to jump</p>
         <button
           type="button"
           onClick={() => { close(); onToggleFilterBar(); }}
