@@ -3,6 +3,12 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 
+/** #2407: at max-sm every control inside any modal is at least 44px in its smaller dimension. One container rule on
+ *  the panel lifts buttons (plus a 44px width for icon-only ones), text inputs, selects, textareas and the <label> row
+ *  of a checkbox or radio, so a new control needs no lift of its own. A bare inline link still needs its own lift. */
+export const MODAL_PHONE_TOUCH_TARGETS =
+  "max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11";
+
 interface ModalWrapperProps {
   open: boolean;
   onClose: () => void;
@@ -117,7 +123,7 @@ export default function ModalWrapper({
         aria-modal="true"
         aria-labelledby={headingId}
         tabIndex={-1}
-        className={`bg-surface border border-line rounded-lg shadow-xl w-full ${maxWidth} flex flex-col outline-none${panelClassName ? ` ${panelClassName}` : ""}`}
+        className={`bg-surface border border-line rounded-lg shadow-xl w-full ${maxWidth} flex flex-col outline-none ${MODAL_PHONE_TOUCH_TARGETS}${panelClassName ? ` ${panelClassName}` : ""}`}
       >
         {/* Header */}
         <div className={`flex items-center justify-between px-6 pt-6 pb-4${headerBorder ? " border-b border-line" : ""}`}>

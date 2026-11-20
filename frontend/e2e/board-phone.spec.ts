@@ -979,3 +979,27 @@ test.describe('phone board settings modal (#2404)', () => {
     expect(await smallControls(page, ['[role="dialog"]']), 'create webhook form').toEqual([])
   })
 })
+
+// #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so any modal's controls
+// are at least 44px at 390px. This sweeps the modal reachable without extra fixtures.
+test.describe('phone ModalWrapper modals (#2407)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('keyboard shortcuts overlay controls are at least 44px, with the title clear of Close', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+
+    await page.keyboard.press('?')
+    const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
+    await expect(shortcuts).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'keyboard shortcuts').toEqual([])
+    // The larger Close does not crowd the title: both stay inside the header row.
+    const title = (await shortcuts.getByRole('heading', { name: 'Keyboard shortcuts' }).boundingBox())!
+    const close = (await shortcuts.getByRole('button', { name: 'Close' }).boundingBox())!
+    expect(title.x + title.width).toBeLessThanOrEqual(close.x + 0.5)
+    await shortcuts.getByRole('button', { name: 'Close' }).dispatchEvent('click')
+    await expect(shortcuts).toBeHidden()
+  })
+})

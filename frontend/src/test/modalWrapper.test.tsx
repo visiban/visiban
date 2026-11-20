@@ -371,3 +371,27 @@ describe('ModalWrapper initial focus (#1732)', () => {
     })
   })
 })
+
+describe('ModalWrapper phone touch targets (#2407)', () => {
+  it('carries the 44px container rule for every control kind on the panel', () => {
+    render(
+      <ModalWrapper open={true} onClose={vi.fn()} title="Phone">
+        <button type="button">Go</button>
+      </ModalWrapper>
+    )
+    const panel = screen.getByRole('dialog')
+    for (const c of ['max-sm:[&_button]:min-h-11', 'max-sm:[&_button]:min-w-11', 'max-sm:[&_select]:min-h-11', 'max-sm:[&_textarea]:min-h-11']) {
+      expect(panel.className).toContain(c)
+    }
+    expect(panel.className).toContain('max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11')
+    expect(panel.className).toContain('max-sm:[&_label:has(input[type=checkbox])]:min-h-11')
+    expect(panel.className).toContain('max-sm:[&_label:has(input[type=radio])]:min-h-11')
+    // Desktop is unchanged: the rule is phone-scoped only.
+    expect(panel.className.split(' ').filter((c) => c.includes('min-h-11')).every((c) => c.startsWith('max-sm:'))).toBe(true)
+  })
+
+  it('keeps a caller panelClassName after the rule', () => {
+    render(<ModalWrapper open={true} onClose={vi.fn()} title="X" panelClassName="max-h-[90vh]"><p>b</p></ModalWrapper>)
+    expect(screen.getByRole('dialog').className).toMatch(/min-h-11 max-h-\[90vh\]$/)
+  })
+})
