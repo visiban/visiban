@@ -508,22 +508,62 @@ poller that takes `m[0]` (newest first) can pick the scheduled one and either
 wait on something unrelated to the merge or report the batch red over one of
 its jobs.
 
+**Read required-job status on the newest pipeline, not the top-level status.**
+Two things make a main pipeline's top-level status wrong for this gate. First,
+`docs-deploy` stays `manual` on a merge that touched no docs, so the pipeline
+never reads `success`. Second, a newer merge (another session's, or a human's)
+auto-cancels a running main pipeline's interruptible jobs (#2421), so a
+superseded pipeline ends `canceled` without being red. Main is linear, so the
+newest main push pipeline tests a superset of `$MAINSHA`. When the merge's own
+pipeline was superseded, the gate follows the newest one instead of stopping.
+Inside the pipeline it judges jobs. A `failed` job without `allow_failure`
+is red. A `canceled` job is red in the newest pipeline, since nothing
+superseded it (a human pressed Cancel); the next merge re-runs the poll. `manual`, `skipped`, success and allowed failures pass. Any
+job still in progress means wait.
+
 ```bash
 git fetch origin main                                  # after the merge above
 MAINSHA=$(git rev-parse origin/main)                   # the merge commit now on main
 # NB: this loop is deliberately SILENT while waiting — do not add a per-
 # iteration echo (see the note under "Run both polls under Monitor" below).
 for i in $(seq 1 120); do                              # bounded: 120 × 30s = 60 min
-  ST=$(glab api "projects/:id/pipelines?ref=main&per_page=20" \
-        | python3 -c "import sys,json;m=[p for p in json.load(sys.stdin) if p['sha']=='$MAINSHA' and p.get('source')=='push'];print(m[0]['status'] if m else 'none')")
+  ST=$(glab api "projects/:id/pipelines?ref=main&source=push&per_page=20" | MAINSHA="$MAINSHA" python3 -c '
+import json, os, subprocess, sys
+ps = sorted(json.load(sys.stdin), key=lambda p: p["id"], reverse=True)  # newest first
+own = [p for p in ps if p["sha"] == os.environ["MAINSHA"]]
+if not own:
+    print("none"); sys.exit()
+p = own[0]
+if p["status"] in ("canceled", "canceling") and ps[0]["id"] != p["id"]:
+    p = ps[0]                       # a newer merge superseded it: judge the newest
+jobs = []
+for page in (1, 2, 3):
+    batch = json.loads(subprocess.check_output(["glab", "api",
+        "projects/:id/pipelines/%d/jobs?per_page=100&page=%d" % (p["id"], page)]))
+    jobs += batch
+    if len(batch) < 100:
+        break
+bad = {"failed"} if p["id"] != ps[0]["id"] else {"failed", "canceled"}  # nothing newer: a cancel is red
+red = [j["name"] for j in jobs if j["status"] in bad and not (j["status"] == "failed" and j.get("allow_failure"))]
+if red:
+    print("failed:%s:%s" % (p["sha"][:8], ",".join(red)))
+elif {j["status"] for j in jobs} & {"created", "waiting_for_resource", "preparing", "pending", "running", "canceling"}:
+    print("running")
+else:
+    print("success:%s" % p["sha"][:8])
+')
   case "$ST" in
-    success)                 echo "MAIN($MAINSHA) SUCCESS"; exit 0 ;;   # green → proceed
-    failed|canceled)         echo "MAIN PIPELINE $ST for $MAINSHA → STOP THE RUN"; exit 1 ;;
+    success:*)               echo "MAIN($MAINSHA) SUCCESS via ${ST#success:}"; exit 0 ;;   # green → proceed
+    failed:*)                echo "MAIN PIPELINE RED ${ST#failed:} for $MAINSHA → STOP THE RUN"; exit 1 ;;
     *)                       sleep 30 ;;               # incl. 'none' = not created yet
   esac
 done
 echo "MAIN($MAINSHA) TIMEOUT after 60m"; exit 1
 ```
+
+`SUCCESS via <sha>` names the commit whose pipeline was judged. When it is not
+`$MAINSHA`, say so in the report: the merge was verified as part of a newer
+main commit, not on its own (the #2421 trade-off).
 
 > **Run both polls under `Monitor` (or `run_in_background`), never as
 > foreground Bash.** The agent harness **blocks foreground `sleep`**, so a

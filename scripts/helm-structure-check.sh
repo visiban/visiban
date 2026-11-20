@@ -19,6 +19,8 @@
 # Modes:
 #   bash scripts/helm-structure-check.sh [chart-dir]   # assert the contract
 #   bash scripts/helm-structure-check.sh --self-test   # prove it can still fail
+#       SELF_TEST_JOBS=N   concurrent cases (default: CPU count; 1 = serial)
+#       SELF_TEST_ONLY=re  local-only fixture filter; refused when CI is set
 #   bash scripts/helm-structure-check.sh --lint-tmp    # reject literal temp paths
 #
 # ---------------------------------------------------------------------------
@@ -44,9 +46,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # under it: the render-error captures used to be fixed /tmp/helm-*-err.txt
 # paths, so two worktrees checking concurrently read each other's render
 # errors. TMPDIR is pointed at it so every bare `mktemp` lands here too and one
-# EXIT trap cleans the lot. Self-test fixtures run in-process subshells
-# (`( RENDERED=...; run_all_checks )`), so they share this one directory; that
-# is safe because they run sequentially, never concurrently. Do not write a
+# EXIT trap cleans the lot. Self-test fixtures run as separate worker processes (#2420), each with its
+# own RUN_TMP, so concurrent fixtures never share a scratch file. Do not write a
 # hardcoded system temp path in this file: --lint-tmp (run in CI) rejects it.
 RUN_TMP="$(mktemp -d)"
 trap 'rm -rf "$RUN_TMP"' EXIT
@@ -2538,26 +2539,9 @@ check_share_cache_and_rollout() {
 # ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
-self_test() {
-  echo "helm-structure-check.sh --self-test: proving each section can still fail"
-  echo
-
-  # SELF_TEST_ONLY is a local-iteration aid. CI must never run a partial
-  # self-test, so refuse it there rather than let it quietly disarm the gate.
-  if [ -n "${SELF_TEST_ONLY:-}" ] && [ -n "${CI:-}" ]; then
-    echo "SELF_TEST_ONLY is not allowed when CI is set: CI must run every fixture and control" >&2
-    exit 2
-  fi
-
-  local tmp passes=0 selftest_failures=0 matched=0
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
-
-  # Each fixture is (name, sed-program applied to a chart file, file).
-  # Run the FULL check against the damaged chart and require a non-zero exit —
-  # asserting on the exit code rather than on message text, so a reworded
-  # failure message does not silently disarm the fixture.
-  local fixtures=(
+# Fixture table, shared by the orchestrator and the per-fixture workers.
+selftest_define_fixtures() {
+  SELF_TEST_FIXTURES=(
     # 1a: an install-phase hook comes back — #1117 verbatim. Re-annotating an
     # existing hook is the cheapest faithful injection: it needs no newline in
     # the replacement, which matters because BSD and busybox sed disagree about
@@ -2722,57 +2706,159 @@ self_test() {
     # silently loses the sweep CronJob.
     "19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
   )
+}
 
-  for fixture in "${fixtures[@]}"; do
-    local name file prog broken
-    name="${fixture%%|*}"
+# One self-test case, run as its own process (#2420). Everything a fixture
+# touches is therefore per-worker by construction: the damaged chart copy, the
+# rendered manifest, and this process's own RUN_TMP (every `mktemp` and every
+# $RUN_TMP/helm-*-err.txt capture inside the checks). The orchestrator reads
+# back <resultdir>/<idx>.log (the lines to print) and <resultdir>/<idx>.status
+# (pass or fail). A worker that dies before writing .status counts as a
+# failure, never as a pass. Case "control" is the undamaged chart.
+selftest_worker() {
+  local resultdir="$1" idx="$2" tmp name file prog broken rc
+  tmp="$RUN_TMP/w"; mkdir -p "$tmp"
+  selftest_define_fixtures
+  exec >"$resultdir/$idx.log" 2>&1
+
+  if [ "$idx" = "control" ]; then
+    # Control: the UNDAMAGED chart must pass. Without this, a
+    # check that fails on everything would score a perfect self-test.
+    local control="$tmp/control" control_log="$tmp/control-run.log"
+    cp -R "$CHART_DIR" "$control"
+    if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
+      echo "  ✓ control: the undamaged chart passes"
+      echo pass > "$resultdir/$idx.status"
+    else
+      # Unlike every fixture, a control failure has no injected damage to
+      # name — it means the undamaged chart itself trips one of the checks, so
+      # the failing check's own output is the only lead.
+      echo "  ✗ SELF-TEST FAIL: the undamaged chart does not pass — every fixture result is meaningless"
+      sed 's/^/      /' "$control_log"
+      echo fail > "$resultdir/$idx.status"
+    fi
+    return 0
+  fi
+
+  local fixture="${SELF_TEST_FIXTURES[$idx]}"
+  name="${fixture%%|*}"
+  file="$(cut -d'|' -f2 <<< "$fixture")"
+  prog="$(cut -d'|' -f3- <<< "$fixture")"
+
+  broken="$tmp/fixture"
+  rm -rf "$broken"
+  # Copied WHOLE. When Chart.yaml still declared the postgresql subchart
+  # (removed in 0.8.0, #1911), a copy without charts/ failed to render at
+  # all — and a render failure is indistinguishable from a detection unless
+  # the two are separated, as they are below. That mistake scored a perfect
+  # 6/6 on the first run of this self-test; the control is what exposed it.
+  cp -R "$CHART_DIR" "$broken"
+  sed -i.bak "$prog" "$broken/$file"
+  rm -f "$broken/$file.bak"
+  # A fixture that changes nothing is a fixture that proves nothing — and an
+  # unanchored sed silently becomes one the moment the line it targets is
+  # reworded. Compare against the pristine copy rather than trusting sed's
+  # exit status, which is 0 for "no lines matched".
+  if diff -q "$CHART_DIR/$file" "$broken/$file" >/dev/null 2>&1; then
+    echo "  ✗ SELF-TEST FAIL: fixture '$name' changed nothing in $file — its sed program no longer matches"
+    echo fail > "$resultdir/$idx.status"; return 0
+  fi
+
+  # A fixture must RENDER and then FAIL the contract. A fixture that merely
+  # breaks `helm template` proves nothing about this script — helm already
+  # catches that — so it is reported as a broken fixture, not a pass.
+  if ! helm template "$RELEASE" "$broken" "${RENDER_ARGS[@]}" > "$tmp/rendered.yaml" 2>"$tmp/render-err.txt"; then
+    echo "  ✗ SELF-TEST FAIL: fixture '$name' does not render, so it cannot exercise the check:"
+    sed 's/^/      /' "$tmp/render-err.txt"
+    echo fail > "$resultdir/$idx.status"; return 0
+  fi
+
+  # CHART_UNDER_TEST must follow the DAMAGED copy: section 2 re-renders it to
+  # prove the secret checksum varies, and pointing that re-render at the
+  # pristine chart would report a clean pass on a broken one.
+  rc=0
+  ( RENDERED="$tmp/rendered.yaml"; CHART_UNDER_TEST="$broken"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ) || rc=1
+  if [ "$rc" -eq 0 ]; then
+    echo "  ✗ SELF-TEST FAIL: '$name' was injected and the check still passed"
+    echo fail > "$resultdir/$idx.status"
+  else
+    echo "  ✓ '$name' is detected"
+    echo pass > "$resultdir/$idx.status"
+  fi
+}
+
+# Worker count: SELF_TEST_JOBS, else the CPU count (nproc on Linux/busybox,
+# sysctl on macOS/BSD, getconf as a last resort), else 4.
+selftest_jobs() {
+  local n="${SELF_TEST_JOBS:-}"
+  [ -n "$n" ] || n="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
+  case "$n" in ''|*[!0-9]*|0) n=4 ;; esac
+  echo "$n"
+}
+
+self_test() {
+  echo "helm-structure-check.sh --self-test: proving each section can still fail"
+  echo
+
+  # SELF_TEST_ONLY is a local-iteration aid. CI must never run a partial
+  # self-test, so refuse it there rather than let it quietly disarm the gate.
+  if [ -n "${SELF_TEST_ONLY:-}" ] && [ -n "${CI:-}" ]; then
+    echo "SELF_TEST_ONLY is not allowed when CI is set: CI must run every fixture and control" >&2
+    exit 2
+  fi
+
+  local tmp passes=0 selftest_failures=0 matched=0
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' RETURN
+
+  # Each fixture is (name, sed-program applied to a chart file, file).
+  # Run the FULL check against the damaged chart and require a non-zero exit —
+  # asserting on the exit code rather than on message text, so a reworded
+  # failure message does not silently disarm the fixture.
+
+  selftest_define_fixtures
+  local idx name jobs resultdir="$tmp/results" order=()
+  mkdir -p "$resultdir"
+  for idx in "${!SELF_TEST_FIXTURES[@]}"; do
+    name="${SELF_TEST_FIXTURES[$idx]%%|*}"
     # SELF_TEST_ONLY=<regex> runs only the matching fixtures (and skips the
-    # controls below) so a new fixture can be proven without the 30+ minute
-    # full run. CI never sets it.
+    # controls below) so a new fixture can be proven without the full run.
+    # CI never sets it.
     if [ -n "${SELF_TEST_ONLY:-}" ] && ! [[ "$name" =~ $SELF_TEST_ONLY ]]; then continue; fi
     matched=$((matched + 1))
-    file="$(cut -d'|' -f2 <<< "$fixture")"
-    prog="$(cut -d'|' -f3- <<< "$fixture")"
+    order+=("$idx")
+  done
+  # The undamaged-chart control is a full check run too, so it joins the pool
+  # (first, so the longest single case starts immediately).
+  [ -n "${SELF_TEST_ONLY:-}" ] || order=(control ${order[@]+"${order[@]}"})
 
-    broken="$tmp/$(echo "$name" | tr ' #()' '____')"
-    rm -rf "$broken"
-    # Copied WHOLE. When Chart.yaml still declared the postgresql subchart
-    # (removed in 0.8.0, #1911), a copy without charts/ failed to render at
-    # all — and a render failure is indistinguishable from a detection unless
-    # the two are separated, as they are below. That mistake scored a perfect
-    # 6/6 on the first run of this self-test; the control is what exposed it.
-    cp -R "$CHART_DIR" "$broken"
-    sed -i.bak "$prog" "$broken/$file"
-    rm -f "$broken/$file.bak"
-    # A fixture that changes nothing is a fixture that proves nothing — and an
-    # unanchored sed silently becomes one the moment the line it targets is
-    # reworded. Compare against the pristine copy rather than trusting sed's
-    # exit status, which is 0 for "no lines matched".
-    if diff -q "$CHART_DIR/$file" "$broken/$file" >/dev/null 2>&1; then
-      echo "  ✗ SELF-TEST FAIL: fixture '$name' changed nothing in $file — its sed program no longer matches" >&2
-      selftest_failures=$((selftest_failures + 1))
-      continue
+  # Fixtures are independent, so run each as its own process through a bounded
+  # pool (#2420). xargs -P is in GNU findutils (CI installs it), busybox and
+  # BSD. Workers always exit 0 and report through files: an xargs child that
+  # exits non-zero would otherwise stop the pool early.
+  jobs="$(selftest_jobs)"
+  if [ "${#order[@]}" -gt 0 ]; then
+    echo "running ${#order[@]} cases, $jobs at a time (SELF_TEST_JOBS to change)"
+    export SELF_TEST_CHART_DIR="$CHART_DIR"
+    printf '%s\n' "${order[@]}" \
+      | xargs -P "$jobs" -n 1 bash "${BASH_SOURCE[0]}" --self-test-worker "$resultdir" \
+      || { echo "  ✗ SELF-TEST FAIL: the worker pool itself failed" >&2; selftest_failures=$((selftest_failures + 1)); }
+  fi
+
+  # Report in fixture order, whatever order the workers finished in. A missing
+  # .status means the worker died: that is a failure, never a pass.
+  for idx in ${order[@]+"${order[@]}"}; do
+    if [ -f "$resultdir/$idx.log" ]; then
+      # Failure lines belong on stderr, as before.
+      if grep -q 'SELF-TEST FAIL' "$resultdir/$idx.log"; then cat "$resultdir/$idx.log" >&2; else cat "$resultdir/$idx.log"; fi
     fi
-
-    # A fixture must RENDER and then FAIL the contract. A fixture that merely
-    # breaks `helm template` proves nothing about this script — helm already
-    # catches that — so it is reported as a broken fixture, not a pass.
-    if ! helm template "$RELEASE" "$broken" "${RENDER_ARGS[@]}" > "$tmp/rendered.yaml" 2>"$tmp/render-err.txt"; then
-      echo "  ✗ SELF-TEST FAIL: fixture '$name' does not render, so it cannot exercise the check:" >&2
-      sed 's/^/      /' "$tmp/render-err.txt" >&2
-      selftest_failures=$((selftest_failures + 1))
-      continue
-    fi
-
-    # CHART_UNDER_TEST must follow the DAMAGED copy: section 2 re-renders it to
-    # prove the secret checksum varies, and pointing that re-render at the
-    # pristine chart would report a clean pass on a broken one.
-    if ( RENDERED="$tmp/rendered.yaml"; CHART_UNDER_TEST="$broken"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ); then
-      echo "  ✗ SELF-TEST FAIL: '$name' was injected and the check still passed" >&2
-      selftest_failures=$((selftest_failures + 1))
-    else
-      echo "  ✓ '$name' is detected"
+    if [ "$(cat "$resultdir/$idx.status" 2>/dev/null)" = "pass" ]; then
       passes=$((passes + 1))
+    else
+      if [ ! -f "$resultdir/$idx.status" ]; then
+        echo "  ✗ SELF-TEST FAIL: case '$idx' produced no result (the worker died)" >&2
+      fi
+      selftest_failures=$((selftest_failures + 1))
     fi
   done
 
@@ -2785,23 +2871,6 @@ self_test() {
     echo "SELF_TEST_ONLY=$SELF_TEST_ONLY: controls skipped; $passes passed, $selftest_failures failed (partial run, not a CI result)"
     [ "$selftest_failures" -eq 0 ] || exit 1
     return 0
-  fi
-
-  # Control: the UNDAMAGED chart must pass. Without this, a
-  # check that fails on everything would score a perfect self-test.
-  local control="$tmp/control" control_log="$tmp/control-run.log"
-  cp -R "$CHART_DIR" "$control"
-  if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
-    echo "  ✓ control: the undamaged chart passes"
-    passes=$((passes + 1))
-  else
-    # Unlike every fixture above, a control failure has no injected damage to
-    # name — it means the undamaged chart itself trips one of the checks, so
-    # the failing check's own output is the only lead. Printed here rather
-    # than left in $control_log, which this function deletes on return.
-    echo "  ✗ SELF-TEST FAIL: the undamaged chart does not pass — every fixture result above is meaningless" >&2
-    sed 's/^/      /' "$control_log" >&2
-    selftest_failures=$((selftest_failures + 1))
   fi
 
   # Negative control for check_frontend_image_headers (#1994). Its inputs are
@@ -2901,6 +2970,13 @@ if [ "${1:-}" = "--lint-tmp" ]; then
   done
   [ "$lint_rc" -eq 0 ] || exit 1
   echo "PASSED: no literal temp paths in scripts/helm-structure-check.sh or scripts/helm-install-drill.sh"
+  exit 0
+fi
+
+if [ "${1:-}" = "--self-test-worker" ]; then
+  # Internal: one self-test case as its own process; see selftest_worker.
+  CHART_DIR="${SELF_TEST_CHART_DIR:?}"
+  selftest_worker "$2" "$3"
   exit 0
 fi
 

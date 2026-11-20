@@ -96,6 +96,12 @@ Before running the script:
       non-merge commits, have passed without a tag, say so in the pre-flight summary — a cut
       that large carries untested publish-path changes and a large diff surface at once.
       Informational only; it does not block the cut.
+- [ ] **Stable `X.Y.0` (dot-release close): refresh `backend/.test_durations` (#2422).** On a
+      `chore/` branch, run
+      `python3 scripts/refresh_test_durations.py --pipeline latest --collect --output backend/.test_durations`
+      and open an MR with the file. It rebuilds pytest-split's shard-balancing data from the
+      newest green `main` pipeline's JUnit times. Without it, `backend-test` shards drift out of
+      balance as the suite grows. Does not block the cut; see `docs/development/testing.md#ci`.
 
 ## Step 1b — Documentation audit
 
