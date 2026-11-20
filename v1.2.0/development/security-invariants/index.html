@@ -5364,22 +5364,40 @@ each surface that delivers them:</p>
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed and a
   child-board reader learns when a card's parent link changed. To be
-  re-decided (gated per recipient, or closed) by that date. Three of the
-  threat model's controls for these links are not built yet and are tracked in
-  the same issue, #2383: a throttle on link writes, a perf-bench case for the
-  children read, and the MCP/export parity test (Rule 10);</li>
+  re-decided (gated per recipient, or closed) by that date; #2210 (the
+  parent/child progress rollup UI) is its open tracker. The threat model's other
+  three controls for these links are built (#2383): link writes have their own
+  per-user throttle scope, <code>card_link_write</code> (<code>boards/views/cards.py</code>
+  <code>CardLinkWriteThrottle</code>, <code>boards/tests/test_card_link_hardening_2383.py</code>),
+  the children read has a query-count case at the 100-child cap
+  (<code>boards/tests/test_query_counts.py</code> <code>CardChildrenQueryCountTests</code>; the
+  rollup bench case is deferred to #2210, since no server-side rollup exists
+  yet), and the
+  MCP/export parity test pins Rule 10
+  (<code>boards/tests/test_card_link_transport_parity.py</code>);</li>
 <li>card-link lock order (recorded here beside the link-event residual, since
   both concern the same writes). The link writes take "both boards, then both
-  cards, in pk order" (<code>boards/services/card_links.py</code> <code>_lock_endpoints</code>). Two
-  paths take the peer card's lock after their own card's instead: a
-  Django-admin move of a card to another board holds the moved card's row and
-  then <code>remove_link</code> (through <code>unlink_all</code>) locks the peer card
-  (<code>boards/admin.py</code> <code>CardAdmin.save_model</code>); and a card or container delete
-  holds the deleted cards' rows and then <code>announce_cards_removal</code> inserts the
-  peer's history row, which takes a key-share lock on the peer card. Accepted
-  residual (#2383, expires 2027-05-31): against a concurrent link write that
-  takes the opposite order, PostgreSQL aborts one of the two transactions with
-  a deadlock error; nothing commits half-done and nothing is disclosed. To be
+  cards, in pk order" (<code>boards/services/card_links.py</code> <code>_lock_endpoints</code>).
+  Since #2383 the single-card paths that touch a link peer take the card and
+  its peers in that pk order before their own card lock
+  (<code>card_links.lock_card_and_link_peers</code>): the REST card delete
+  (<code>boards/services/cards.py</code> <code>delete_card</code>), the Django-admin card delete
+  (<code>CardAdmin.delete_model</code>) and the Django-admin move of a card to another
+  board, which unlinks it (<code>CardAdminForm.clean</code> and
+  <code>CardAdmin._lock_cell_entry</code>). Tests:
+  <code>boards/tests/test_card_link_hardening_2383.py</code> <code>LinkPeerLockOrderTests</code>
+  (PostgreSQL only), which fail with the helper removed. Remaining accepted
+  residual (#2409, expires 2027-05-31): a container delete (REST column,
+  swimlane and board destroys, the Django-admin column, swimlane, board and
+  bulk card deletes, and the seed <code>--wipe</code>) still holds its own cards first
+  (<code>services/cards.py</code> <code>lock_cards_for_cascade</code>, whose savepoint retry
+  compares the locked set with the container's cards, so peers cannot simply
+  join that statement), and then <code>announce_cards_removal</code> inserts each
+  peer's history row, which takes a key-share lock on the peer card; and on
+  the single-card paths a link committed between the unlocked peer read and
+  the lock is not covered. Against a concurrent link write taking the
+  opposite order, PostgreSQL aborts one of the two transactions with a
+  deadlock error; nothing commits half-done and nothing is disclosed. To be
   re-decided (reordered, or closed) by that date;</li>
 <li>admin-only swimlane custom field values are never in a broadcast payload, and
   change-feed swimlane rows are re-filtered at read time against the board's
@@ -5667,7 +5685,7 @@ fails closed.</p>
 <tr>
 <td>Cross-board card links on MCP and export (#1104)</td>
 <td><code>mcp_server/tools.py</code> <code>_serialize_card</code>; <code>boards/views/import_export.py</code></td>
-<td>Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). The parity test that pins this to REST is not built yet, tracked in #2383</td>
+<td>Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). Tests: <code>boards/tests/test_card_link_transport_parity.py</code> (#2383) asserts that no MCP card shape (<code>_serialize_card</code>, <code>card_detail</code>, <code>list_cards</code>, <code>board_snapshot</code>, <code>aging_cards</code>) and no JSON or CSV export of either board names a link, that none of them queries the link table, and that importing an export carrying link keys creates no link; the MCP half runs only with <code>MCP_SERVER_ENABLED=true</code></td>
 </tr>
 <tr>
 <td>Outbound webhooks</td>

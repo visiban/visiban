@@ -5182,6 +5182,11 @@
 <td>Per-card attachment quotas and the per-user upload rate (defaults: <code>100</code> files, <code>1073741824</code> bytes, <code>120/hour</code>; <code>0</code> turns a quota off). See <a href="../../administration/configuration/#attachment-limits">Attachment limits</a>.</td>
 </tr>
 <tr>
+<td><code>CARD_LINK_THROTTLE_WRITE_RATE</code></td>
+<td style="text-align: center;">No</td>
+<td>Per-user rate of card parent/child link writes (default: <code>300/hour</code>). See <a href="../../administration/configuration/#card-link-write-limit">Card link write limit</a>.</td>
+</tr>
+<tr>
 <td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
 <td style="text-align: center;">No</td>
 <td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own: schedule <code>manage.py prune_board_events</code> (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>) or the <code>board_events</code> table grows without bound. Set it longer than the longest outage a feed consumer must survive.</td>

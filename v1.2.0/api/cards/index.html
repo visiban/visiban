@@ -6700,6 +6700,12 @@ one. The rules:</p>
   Deleting either card deletes the link.</li>
 <li>Links are not exported or imported, and the <a href="../boards/">public share link</a>
   shows none of this.</li>
+<li><strong>Rate limit.</strong> The three link writes below (link, child-side unlink,
+  parent-side unlink) share a per-user limit, the <code>card_link_write</code> throttle
+  scope (default 300 per hour, <code>CARD_LINK_THROTTLE_WRITE_RATE</code>), on top of the
+  general per-user API limit. Over it, a write gets <code>429 Too Many Requests</code>
+  with a <code>Retry-After</code> header and changes nothing. Reading children does not
+  count against it.</li>
 </ul>
 <h3 id="post-apiv1boardsboard_idcardsidparent"><code>POST /api/v1/boards/{board_id}/cards/{id}/parent/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidparent" title="Permanent link">&para;</a></h3>
 <p>Link this card (the child) to a parent. Body: <code>{"parent_id": &lt;int&gt;}</code>.

@@ -4944,6 +4944,10 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <p>Since 1.3 a card holds at most 100 attachments and 1 GiB of them, and each user may upload at most 120 attachments an hour (#2007). An upload over a quota gets <code>400</code> <code>attachment_quota_exceeded</code>; one over the rate gets <code>429</code>. Nothing already stored is deleted, and a card already over a quota keeps its files. A binary upload must also carry the signature of the type it declares (a PDF sent as <code>image/png</code> is now refused), and plain-text and CSV uploads are checked for HTML markup over the whole file rather than the first 4 KB. To keep the 1.2 behavior for the quotas, set <code>ATTACHMENT_MAX_PER_CARD=0</code> and <code>ATTACHMENT_MAX_BYTES_PER_CARD=0</code>; to raise the rate, set <code>ATTACHMENT_THROTTLE_UPLOAD_RATE</code> (Helm: <code>backend.settings.attachmentMaxPerCard</code>, <code>attachmentMaxBytesPerCard</code>, <code>attachmentUploadRate</code>). See <a href="../configuration/#attachment-limits">Attachment limits</a>.</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Card link writes have their own rate limit</p>
+<p>Since 1.3 each user may make at most 300 card parent/child link writes an hour (linking, and unlinking from either end, together; #2383). One over the rate gets <code>429</code> with a <code>Retry-After</code> header. Reading a card's children is not counted. Raise it with <code>CARD_LINK_THROTTLE_WRITE_RATE</code> (Helm: <code>backend.settings.cardLinkWriteRate</code>). See <a href="../configuration/#card-link-write-limit">Card link write limit</a>.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Board owners are protected, and non-admin updates answer <code>403</code> before <code>400</code></p>
 <p>Several behavior changes in 1.3 can affect scripts and clients (#1828, #2009, #1902, #2191, #2225):</p>
 <ul>
