@@ -37,6 +37,10 @@ class AgedBoardMixin:
                 self.path(self.backlog, base + 30, self.doing, base + 10, archived=base - 2, lane=lane)
                 # Through a column that was later deleted, then done.
                 self.path(self.backlog, base + 20, legacy, base + 10, self.done, base + 5, archived=base, lane=lane)
+        # Done 6h before a 90-day window opens (after the midnight its first day
+        # buckets from), then archived: only range_boundary's midnight clause
+        # keeps it, and its done count lands in the first bucket.
+        self.path(self.backlog, 95, self.doing, 92, self.done, 90.25, archived=90.2)
         cards["wip"].labels.add(self.label)
         cards["recent"].labels.add(self.label)
         # Imported long ago with no creation row, archived without an event.
@@ -46,6 +50,14 @@ class AgedBoardMixin:
         # Created recently by an import but archived "before" it (bad data).
         odd = self.card(self.backlog, created=3, archived=300)
         cards["created_recent_archived_old"] = odd
+        # Archived long ago but with a movement dated inside the window: only
+        # the movement clause keeps it.
+        moved = self.card(self.done, created=300, archived=200)
+        self.row(moved, self.doing, self.done, 250)
+        self.row(moved, self.done, self.done, 10)
+        cards["moved_in_range_archived_old"] = moved
+        # Finished and archived long ago, never moved at all (no rows).
+        cards["no_movements_old"] = self.card(self.done, created=500, archived=400)
         # Restored then archived again, all long ago.
         restored = self.path(self.backlog, 400, self.doing, 380, self.done, 370, archived=360)
         self.row(restored, self.done, self.done, 350, UNARCHIVED)
@@ -121,6 +133,26 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
                         with self.subTest(metric=metric, params=params):
                             self.assert_same(metric, params)
 
+    def test_every_endpoint_loads_through_the_narrowed_loader(self):
+        """A view reverting to ``load_board_flow`` would still match the full replay, so pin the call itself."""
+        self.aged_board()
+        full_count = len(fm.load_board_flow(self.board, now=self.now).cards)
+        for metric in self.METRIC_PARAMS:
+            loader = "load_cumulative_flow" if metric == "cumulative-flow" else "load_range_flow"
+            loaded = []
+
+            def spy(*args, _real=getattr(fm, loader), **kwargs):
+                flow = _real(*args, **kwargs)
+                loaded.append(len(flow.cards))
+                return flow
+
+            with self.subTest(metric=metric):
+                with mock.patch.object(fm, loader, side_effect=spy) as patched:
+                    self.get(metric, {"days": "90"})
+                self.assertEqual(patched.call_count, 1)
+                self.assertEqual(len(loaded), 1)
+                self.assertLess(loaded[0], full_count / 3)
+
     def test_old_archived_history_is_not_loaded(self):
         cards = self.aged_board()
         flow_range = fm.rolling_range(90, now=self.now)
@@ -129,18 +161,20 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
         loaded = {card.uid for card in narrowed.cards}
         self.assertLess(len(narrowed.cards), len(full.cards) / 3)
         for kept in ("recent", "wip", "untouched", "archived_recent", "archived_no_event", "future",
-                     "created_recent_archived_old", "old"):
+                     "created_recent_archived_old", "moved_in_range_archived_old", "old"):
             self.assertIn(cards[kept].uid, loaded, kept)
-        for skipped in ("archived_old", "imported_old"):
+        for skipped in ("archived_old", "imported_old", "no_movements_old"):
             self.assertNotIn(cards[skipped].uid, loaded, skipped)
 
     def test_cumulative_flow_counts_skipped_finished_work_in_its_band(self):
         self.aged_board()
         flow_range = fm.rolling_range(90, now=self.now)
         flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
-        # 48 archived done cards from the generations, the imported one and the
-        # restored one; the generations archived outside done leave the diagram.
-        self.assertEqual(flow.settled_placements, {self.done.uid: 50})
+        # 48 archived done cards from the generations, the imported one, the
+        # restored one and the one with no movement rows; the generations
+        # archived outside done leave the diagram. The midnight-clause card and
+        # the moved one are loaded, not settled.
+        self.assertEqual(flow.settled_placements, {self.done.uid: 51})
         full = fm.cumulative_flow(fm.load_board_flow(self.board, now=self.now), flow_range)
         self.assertEqual(fm.cumulative_flow(flow, flow_range), full)
 

@@ -1380,9 +1380,10 @@ def card_detail(*, card_id):
 #
 # Read-only questions an agent asks about how work moves, answered by the
 # #448 flow service (ADR #1532) and nothing else: these functions validate
-# arguments, call ``flow_metrics`` exactly as the REST analytics endpoints do
-# (``boards/views/analytics.py``: ``load_board_flow`` + ``rolling_range``), and
-# trim the result. There is deliberately no aggregation over ``CardMovement``
+# arguments, call ``flow_metrics`` for the numbers (``load_board_flow`` +
+# ``rolling_range``), and trim the result. Unlike the REST analytics endpoints,
+# which now load only the cards that can change the range, these tools still
+# do a whole-history load (not narrowed). There is deliberately no aggregation over ``CardMovement``
 # here, so MCP and REST give identical numbers for identical inputs.
 # ---------------------------------------------------------------------------
 
