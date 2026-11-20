@@ -2913,6 +2913,7 @@ class CardViewSet(viewsets.ModelViewSet):
             400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `children_on_other_board`, `children_limit`)."),
             403: OpenApiResponse(description="Below `member` on this card's board."),
             404: OpenApiResponse(description="Unknown, unopenable, below-member or non-qualifying target board: one identical answer."),
+            409: _limit_conflict_response("AddChildLimitConflict", _ENTER_COLUMN_409),
         },
         description=(
             "Add child (#2208): create a card on another board and link it under "

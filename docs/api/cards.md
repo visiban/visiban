@@ -1170,6 +1170,9 @@ and weight limits apply as for any create. `201` returns the new card, as
   under the same locks. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
+- **Limits:** a hard WIP or weight limit on the target cell answers `409`
+  (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
+  `swimlane_*` forms), with the same body as `POST .../cards/`.
 - **Events:** `card.created` on the child's board, plus the same ids-only
   `card.children_changed` and `card.parent_changed` pings as a link.
 

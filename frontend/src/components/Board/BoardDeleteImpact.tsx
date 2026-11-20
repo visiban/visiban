@@ -24,15 +24,26 @@ export default function BoardDeleteImpactNotice({ boardId }: { boardId: number }
     return () => { live = false; };
   }, [boardId]);
 
-  if (!impact || (impact.child_cards === 0 && impact.parent_cards === 0)) return null;
+  // The live region is mounted before the read resolves: a region inserted together with its content is
+  // not reliably announced, and this notice arrives after the dialog opens, possibly while the deleter
+  // is already typing the board name.
+  const show = impact !== null && (impact.child_cards > 0 || impact.parent_cards > 0);
 
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true">
+      {show && <ImpactBody impact={impact} />}
+    </div>
+  );
+}
+
+function ImpactBody({ impact }: { impact: BoardDeleteImpact }) {
   const where = [
     ...(impact.parent_boards.length > 0 ? [joinNames(impact.parent_boards.map((b) => b.name))] : []),
     ...(impact.hidden_parent_boards ? ["another board you can't open"] : []),
   ];
 
   return (
-    <div role="note" data-testid="board-delete-impact" className="mb-3 flex flex-col gap-1 text-xs text-fg-secondary">
+    <div data-testid="board-delete-impact" className="mb-3 flex flex-col gap-1 text-xs text-fg-secondary">
       {impact.child_cards > 0 && (
         <p>
           <span className="text-danger font-medium">

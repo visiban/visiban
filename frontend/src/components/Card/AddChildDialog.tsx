@@ -151,7 +151,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
               <input type="checkbox" className="h-4 w-4 accent-primary focus:ring-2 focus:ring-primary-emphasis" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} />
               Use {chosenBoard?.name} as the default for {boardName}
             </label>
-          ) : (!hasDefault && !fixedVisible && !options.can_set_default && options.boards.length > 0 && (
+          ) : (!hasDefault && !fixedVisible && !offerDefault && options.boards.length > 0 && (
             <p className="text-xs text-fg-muted">A board admin can set one so this step is skipped.</p>
           )))}
 

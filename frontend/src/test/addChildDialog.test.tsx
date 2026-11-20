@@ -85,6 +85,16 @@ describe('AddChildDialog (#2208)', () => {
     expect(patchBoard).toHaveBeenCalledWith(1, { default_child_board: 7 })
   })
 
+  it('an admin of this board who does not administer the chosen board sees the hint, not the checkbox', async () => {
+    const { user } = setup({
+      ...BASE, can_set_default: true,
+      boards: [{ id: 7, name: 'Delivery', can_set_default: false }],
+    })
+    await choose(user, 'Delivery')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Add child' })).toHaveTextContent('A board admin can set one so this step is skipped.')
+  })
+
   it('a refused default PATCH does not undo the add', async () => {
     const { user, onAdded } = setup({ ...BASE, can_set_default: true, boards: [{ id: 7, name: 'Delivery', can_set_default: true }] })
     await choose(user, 'Delivery')

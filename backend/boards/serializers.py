@@ -4449,10 +4449,14 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
         value = self.validated_data["default_child_board"]
         if value is None:
             return
+        if value.pk == board.default_child_board_id:
+            # An echo of the stored value is accepted even as the flag turns
+            # off: a child tier has no child board, so the write clears it.
+            if not flag:
+                self.validated_data["default_child_board"] = None
+            return
         if not flag:
             raise serializers.ValidationError({"default_child_board": [DEFAULT_CHILD_BOARD_FLAG_OFF_MSG]})
-        if value.pk == board.default_child_board_id:
-            return
         try:
             self._check_default_child_board(value)
         except serializers.ValidationError as exc:

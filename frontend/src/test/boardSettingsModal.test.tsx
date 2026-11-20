@@ -2041,7 +2041,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
   it('the board delete confirm names the parent boards it hurts and the hidden ones', async () => {
     vi.mocked(getBoardDeleteImpact).mockResolvedValue({ child_cards: 14, parent_boards: [{ id: 3, name: 'Pipeline' }], hidden_parent_boards: true, parent_cards: 2 })
     render(<BoardSettingsModal board={{ ...fakeBoard, owner: fakeUser, cards: [], archived_card_count: 2 }} isAdmin onClose={vi.fn()} onBoardDeleted={vi.fn()} currentUserId={fakeUser.id} initialTab="danger" />)
-    const note = await screen.findByRole('note')
+    const note = await screen.findByTestId('board-delete-impact')
     expect(note).toHaveTextContent("14 cards here are children of cards on Pipeline and another board you can't open. Those parents lose them from their rollups and Children tabs.")
     expect(note).toHaveTextContent('2 cards here have children on other boards. They stay there as ordinary cards.')
   })

@@ -165,6 +165,17 @@ class DefaultChildBoardWriteTests(DefaultChildBoardFixture):
         self.parent.refresh_from_db()
         self.assertIsNone(self.parent.default_child_board_id)
 
+    def test_echoing_the_default_while_turning_the_flag_off_clears_it(self):
+        self.set_default()
+        r = self.patch_board(
+            self.admin, {"cards_can_have_children": False, "default_child_board": self.child.pk},
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIsNone(r.json()["default_child_board"])
+        self.parent.refresh_from_db()
+        self.assertIsNone(self.parent.default_child_board_id)
+        self.assertFalse(self.parent.cards_can_have_children)
+
     def test_target_cannot_turn_its_flag_on_while_it_is_a_default(self):
         self.set_default()
         r = self.patch_board(self.admin, {"cards_can_have_children": True}, url=f"/api/v1/boards/{self.child.pk}/")
@@ -351,7 +362,8 @@ class AddChildTests(AddChildFixture):
         col.save(update_fields=["wip_limit"])
         Board.objects.filter(pk=self.child.pk).update(enforce_wip_limits=True, enforce_wip_hard=True)
         r = self.add_child(self.member)
-        self.assertNotEqual(r.status_code, 201)
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.json()["code"], "wip_hard_blocked")
         self.assertFalse(CardParentLink.objects.exists())
 
     def test_create_child_without_a_user_fails_closed(self):
@@ -655,7 +667,7 @@ class AddChildSchemaTests(TestCase):
         path = next(p for p in schema["paths"] if p.endswith("/cards/{id}/children/"))
         post = schema["paths"][path]["post"]
         self.assertIn("requestBody", post)
-        self.assertTrue({"201", "400", "403", "404"} <= set(post["responses"]))
+        self.assertTrue({"201", "400", "403", "404", "409"} <= set(post["responses"]))
         self.assertIn("get", schema["paths"][path])
 
 

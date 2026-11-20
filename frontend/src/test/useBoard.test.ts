@@ -33,6 +33,9 @@ vi.mock('../api/boards', () => ({
   enableBoardSharing: vi.fn(),
   disableBoardSharing: vi.fn(),
   getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
+  getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
+  getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../api/cards', () => ({
