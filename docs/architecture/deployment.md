@@ -232,6 +232,11 @@ helm install visiban helm/visiban \
 | `webhooks.dispatcher.networkPolicy.denyCIDRs` / `denyCIDRsIPv6` | RFC 1918, `100.64.0.0/10`, link-local, loopback; IPv6 ULA, link-local, loopback | Ranges the public-egress rule excludes |
 | `webhooks.dispatcher.networkPolicy.allowedCIDRs` | `[]` | CIDRs allowed even inside a denied range: private webhook targets and external datastores |
 | `backend.settings.numProxies` | unset (renders `2` with the ingress enabled and a `ClusterIP` frontend Service, otherwise the backend default of `1`) | `NUM_PROXIES`: trusted proxy hops that append to `X-Forwarded-For`, so per-client rate limits and the `/admin/` allowlist see the real client address. An explicit value always wins |
+| `backend.settings.shareBoardCacheTtlSeconds` | unset (the backend default of `15`) | `SHARE_BOARD_CACHE_TTL_SECONDS`: seconds the anonymous share-link board view is cached. `0` or a negative value turns the cache off (added in 1.3) |
+| `backendAutoscaling.enabled` | `false` | Renders a backend HorizontalPodAutoscaler (CPU utilization) and omits `replicas` from the Deployment. Tune with `minReplicas` (`2`), `maxReplicas` (`5`) and `targetCPUUtilizationPercentage` (`70`). Needs a metrics server and the media and datastore prerequisites in [Scaling](scaling.md) (added in 1.3) |
+| `backend.terminationGracePeriodSeconds` | unset (Kubernetes' 30s) | Time between SIGTERM and SIGKILL on the backend pod; it bounds the wait but does not make daphne drain WebSockets (added in 1.3) |
+| `backend.preStopSleepSeconds` | unset (no hook) | Sleeps in a preStop hook so the pod leaves the Service endpoints before daphne gets SIGTERM; counts against the grace period (added in 1.3) |
+| `backend.startupProbe.enabled` | `false` | Adds a startupProbe on `/api/health/liveness/` so a slow start is not killed by the liveness probe; `periodSeconds` (`5`) times `failureThreshold` (`30`) is the allowed start time (added in 1.3) |
 | `backend.oauth.oidc.serverUrl` | `""` | OIDC issuer URL (e.g. `https://sso.example.com/realms/my-realm`) — set all three OIDC fields to enable |
 | `backend.oauth.oidc.clientId` | `""` | OIDC client ID |
 | `backend.oauth.oidc.clientSecret` | `""` | OIDC client secret |

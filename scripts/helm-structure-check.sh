@@ -2482,6 +2482,57 @@ run_all_checks() {
   check_db_pool
   check_sweep_webhook_secrets_fallback
   check_dispatcher_egress_policy
+  check_share_cache_and_rollout
+}
+
+# ---------------------------------------------------------------------------
+# 21. Share-board cache TTL, backend autoscaling and graceful shutdown (#2380, #1466).
+# ---------------------------------------------------------------------------
+check_share_cache_and_rollout() {
+  section "21. SHARE_BOARD_CACHE_TTL_SECONDS keeps 0, backendAutoscaling drops replicas, graceful-shutdown knobs render (#2380, #1466)"
+  local got bad=0 out
+  got="$(backend_env_value SHARE_BOARD_CACHE_TTL_SECONDS)"
+  if [ -n "$got" ]; then
+    fail "SHARE_BOARD_CACHE_TTL_SECONDS renders by default, expected absent: $got"; bad=1
+  fi
+  # 0 is falsy in a Go template; it must still render (it turns the cache off).
+  got="$(backend_env_value SHARE_BOARD_CACHE_TTL_SECONDS --set backend.settings.shareBoardCacheTtlSeconds=0)"
+  if ! grep -qE '^deployment/backend=0$' <<< "$got"; then
+    fail "shareBoardCacheTtlSeconds=0 does not render SHARE_BOARD_CACHE_TTL_SECONDS=\"0\": ${got:-<none>}"; bad=1
+  fi
+  got="$(backend_env_value SHARE_BOARD_CACHE_TTL_SECONDS --set backend.settings.shareBoardCacheTtlSeconds=-5)"
+  if ! grep -qE '^deployment/backend=-5$' <<< "$got"; then
+    fail "shareBoardCacheTtlSeconds=-5 does not render SHARE_BOARD_CACHE_TTL_SECONDS=\"-5\": ${got:-<none>}"; bad=1
+  fi
+
+  out="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" --set backendAutoscaling.enabled=true 2>&1)" || {
+    fail "backendAutoscaling.enabled=true does not render: $out"; out=""; bad=1; }
+  if [ -n "$out" ]; then
+    if [ "$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec | has("replicas")' <<< "$out" | grep -c true)" -ne 0 ]; then
+      fail "backendAutoscaling.enabled=true: the backend Deployment still sets replicas"; bad=1
+    fi
+    if [ "$(yq 'select(.kind == "HorizontalPodAutoscaler") | .kind' <<< "$out" | grep -c HorizontalPodAutoscaler)" -ne 1 ]; then
+      fail "backendAutoscaling.enabled=true does not render exactly one HorizontalPodAutoscaler"; bad=1
+    fi
+    if [ "$(yq 'select(.kind == "PodDisruptionBudget" and (.metadata.name | test("backend$"))) | .kind' <<< "$out" | grep -c PodDisruptionBudget)" -ne 1 ]; then
+      fail "backendAutoscaling.enabled=true does not render the backend PodDisruptionBudget"; bad=1
+    fi
+  fi
+
+  out="$(helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+    --set backend.terminationGracePeriodSeconds=60 --set backend.preStopSleepSeconds=7 \
+    --set backend.startupProbe.enabled=true 2>&1)" || { fail "graceful-shutdown values do not render: $out"; out=""; bad=1; }
+  if [ -n "$out" ]; then
+    local dep
+    dep="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))' <<< "$out")"
+    [ "$(yq '.spec.template.spec.terminationGracePeriodSeconds' <<< "$dep")" = "60" ] \
+      || { fail "terminationGracePeriodSeconds=60 does not render in the backend Deployment"; bad=1; }
+    [ "$(yq '.spec.template.spec.containers[] | select(.name == "backend") | .lifecycle.preStop.exec.command | join(" ")' <<< "$dep")" = "sleep 7" ] \
+      || { fail "preStopSleepSeconds=7 does not render a preStop sleep 7 in the backend container"; bad=1; }
+    [ "$(yq '[.spec.template.spec.containers[] | select(.startupProbe != null)] | length' <<< "$dep")" = "1" ] \
+      || { fail "startupProbe.enabled=true does not render a startupProbe on the backend container"; bad=1; }
+  fi
+  [ "$bad" -eq 0 ] && pass "share-cache TTL keeps 0 and negatives and is absent by default; autoscaling drops replicas and renders HPA + PDB; grace period, preStop and startupProbe render"
 }
 
 # ---------------------------------------------------------------------------

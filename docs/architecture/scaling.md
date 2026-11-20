@@ -83,7 +83,13 @@ A good starting point: `(2 × vCPU) + 1` workers.
 3. **Sticky sessions are not required** — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.
 4. **Database connections** — by default each request opens its own connection; with `DATABASE_POOL=true` each backend process keeps its own pool (see [Connection count](#postgresql) below). Add pgBouncer if the total connection count approaches PostgreSQL's `max_connections` (default 100).
 
-**Kubernetes:** set `backendReplicaCount` to 2+ and point `externalDatabase` and `externalRedis` at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).
+**Kubernetes:** set `backendReplicaCount` to 2+ (or enable `backendAutoscaling` for a CPU-driven HorizontalPodAutoscaler) and point `externalDatabase` and `externalRedis` at shared instances, not the bundled in-cluster Valkey pod (single-replica by default).
+
+The chart's defaults are single-replica, and these block a second replica until you change them:
+
+- **Media storage.** `backend.mediaPersistence` defaults to a ReadWriteOnce volume, so a second replica starts only on the same node. For multi-node scale-out use a ReadWriteMany storage class, or object storage (see [Attachment storage](#attachment-storage)).
+- **Graceful rollout.** The backend is one daphne process per pod, so a rollout can cut in-flight requests and WebSockets, and clients reconnect. `backend.preStopSleepSeconds` lets the pod leave the Service endpoints before it receives SIGTERM, and `backend.terminationGracePeriodSeconds` bounds how long Kubernetes waits before SIGKILL (both off by default). Neither makes daphne hold WebSockets open until they finish. `backend.startupProbe.enabled` guards a slow start.
+- **Disruption budget.** A PodDisruptionBudget renders once there is more than one replica, including `backendAutoscaling.minReplicas` above 1.
 
 **When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
 
