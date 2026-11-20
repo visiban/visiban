@@ -359,7 +359,12 @@ class Command(BaseCommand):
             rows = rows.filter(board_id=board.pk)
             blocks = blocks.filter(board_id=board.pk)
             gates = gates.filter(board_id=board.pk)
-            activities = activities.filter(board_id=board.pk)
+            # A live card's rows written by bulk_create (services, commands)
+            # carry no board until the card is deleted (#1799), so a live
+            # card's rows are also found through the card.
+            activities = activities.filter(
+                Q(board_id=board.pk) | Q(board__isnull=True, card__board_id=board.pk)
+            )
 
         since = before = None
         if since_raw is not None:

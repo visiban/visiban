@@ -982,9 +982,9 @@ def set_null_keeping_board(collector, field, sub_objs, using):
 
     A movement written by an older release during a rolling upgrade has no
     ``board`` or card snapshot yet, and neither has an activity row written by
-    a ``bulk_create`` path that does not set them (which skips ``save()``). Plain SET_NULL would leave such a row with
-    neither a card nor a board: hidden from the board's History and never
-    removed with the board. So, before the card goes, fill ``board`` and the
+    a ``bulk_create`` path that does not set them (which skips ``save()``).
+    Plain SET_NULL would leave such a row with neither a card nor a board:
+    hidden from the board's History and never removed with the board. So, before the card goes, fill ``board`` and the
     snapshot on exactly those rows, from the card being deleted, then defer to
     SET_NULL. For every row written by this release the extra UPDATE matches
     nothing (one indexed statement per deleted batch of cards).

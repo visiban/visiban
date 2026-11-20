@@ -128,6 +128,16 @@ class ActivityRetentionTests(_Fixture):
         self.assertFalse(CardActivity.objects.filter(board__isnull=True).exists())
         self.assertEqual(set(CardActivity.objects.values_list("card_uid", flat=True)), {card.uid})
 
+    def test_purge_by_board_with_live_cards_finds_rows_without_a_board(self):
+        live = self._card("Live")
+        CardActivity.objects.bulk_create([CardActivity(card=live, event_type="title_change")])
+        User.objects.create_superuser(username="root", password="pw-1799-x!")
+        call_command(
+            "purge_card_history", "--board", str(self.board.pk), "--include-live-cards",
+            "--actor", "root", "--yes", stdout=io.StringIO(),
+        )
+        self.assertFalse(CardActivity.objects.filter(card=live).exists())
+
     def test_purge_erases_retained_activities_only(self):
         gone, live = self._card("Secret title"), self._card("Live")
         uid = gone.uid
@@ -302,3 +312,24 @@ class MovementExportHookTests(_Fixture):
                 if expect_deleted:
                     self.assertEqual({m.card_uid for m in deleted}, {gone_uid})
                 self.assertIn(live.pk, {m.card_id for m in queryset})
+
+    def test_backend_without_the_attribute_gets_live_rows_only(self):
+        # The absent-input case (#1075): a plain function, as enterprise
+        # registers, has no accepts_deleted_cards at all.
+        self._move(gone := self._card("Gone"), self.col_done)
+        self._delete_card(gone)
+        self._move(self._card("Live"), self.col_done)
+        handed = []
+
+        def backend(board, queryset, request):
+            handed.extend(queryset)
+            return HttpResponse("ok")
+
+        self._call_plain(backend)
+        self.assertTrue(handed)
+        self.assertNotIn(None, {m.card_id for m in handed})
+
+    def _call_plain(self, backend):
+        with patch("boards.hooks.MOVEMENT_EXPORT_BACKENDS", [backend]):
+            resp = self.client.get(f"/api/v1/boards/{self.board.pk}/movements/?export=csv")
+        self.assertEqual(resp.status_code, 200, resp.content)
