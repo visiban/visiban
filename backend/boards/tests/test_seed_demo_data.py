@@ -755,6 +755,17 @@ class SeedNotificationsTests(TestCase):
             self.assertIsNotNone(notif.card_id)
             self.assertTrue(notif.verb)
 
+    def test_seeded_mention_rows_carry_a_comment_source(self):
+        """#2203: a MENTIONED row records where the mention lives; every other
+        action type leaves mention_source null."""
+        _seed(with_notifications=True)
+        rows = Notification.objects.filter(recipient__username="demo2")
+        mentioned = rows.filter(action_type=Notification.ActionType.MENTIONED)
+        self.assertTrue(mentioned.exists())
+        self.assertFalse(mentioned.exclude(mention_source=Notification.MentionSource.COMMENT).exists())
+        others = rows.exclude(action_type=Notification.ActionType.MENTIONED)
+        self.assertFalse(others.exclude(mention_source__isnull=True).exists())
+
     def test_with_notifications_works_alongside_scale(self):
         _seed(scale=2, with_notifications=True)
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)

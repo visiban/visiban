@@ -2073,6 +2073,11 @@ class Command(BaseCommand):
                 card=card,
                 board=board,
                 read=False,
+                mention_source=(
+                    Notification.MentionSource.COMMENT
+                    if action_type == Notification.ActionType.MENTIONED
+                    else None
+                ),
             )
             # Back-fill created_at; auto_now_add=True ignores values at create time.
             created_at = anchor - datetime.timedelta(hours=random.randint(1, 240))

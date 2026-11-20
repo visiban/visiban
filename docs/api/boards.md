@@ -1387,7 +1387,7 @@ Since 1.3 (#1903) every error body is `{"detail": "...", "code": "..."}` (the `I
 | `file_mismatch` | `400` | Trello only: on `confirm`, `file_sha256` does not match the uploaded file. |
 | `invalid_import` | `400` | Any other problem with the file's contents: a missing field, a wrong type, a reference to an undefined column or swimlane, a value that cannot be stored, or, on Trello `confirm`, no lists to import. |
 
-Errors raised before or around the importer carry the framework's code for them instead: `not_authenticated` or `authentication_failed` (`401`), `permission_denied` (`403`), `not_found` (`404`), `throttled` (`429`), and `parse_error` (`400`, a malformed multipart body). One `400` has no `code`: a request in a charset other than UTF-8 is refused before it reaches the API (`{"detail": "Unsupported request charset. Use UTF-8."}`), on every endpoint.
+Errors raised before or around the importer carry the framework's code for them instead, for example `not_authenticated` or `authentication_failed` (`401`), `permission_denied` (`403`), `not_found` (`404`), `unsupported_media_type` (`415`), `throttled` (`429`), and `parse_error` (`400`, a malformed multipart body). One `400` has no `code`: a request in a charset other than UTF-8 is refused before it reaches the API (`{"detail": "Unsupported request charset. Use UTF-8."}`), on every endpoint.
 
 ### `POST /api/v1/boards/import/trello/`
 
