@@ -382,6 +382,7 @@ test.describe('board phone layout', () => {
     await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByTestId('phone-board')).toBeVisible()
+    await page.getByRole('button', { name: /^Lane actions for / }).first().click()
     await page.getByRole('button', { name: /^Focus on / }).first().click()
     const exit = page.getByText('Focused on:').locator('..').getByRole('button', { name: 'Exit focus' })
     await expect(exit).toBeVisible()
@@ -455,11 +456,13 @@ test.describe('board phone layout', () => {
     await expect(page.locator('[data-card-id="77"]')).toBeVisible()
     expect(body).toMatchObject({ column: 1, swimlane: 1, title: 'Phone card' })
 
+    await page.getByRole('button', { name: /^Lane actions for / }).click()
     await page.getByRole('button', { name: /^Edit swimlane/ }).click()
     await expect(page.getByRole('dialog', { name: 'Edit Swimlane' })).toBeVisible()
   })
 
   test('Edit column opens the column modal; Add column and Add swimlane are reachable', async ({ page }) => {
+    await page.getByTestId('phone-column-actions-toggle').click()
     await page.getByTestId('phone-column-actions').click()
     await expect(page.getByRole('dialog').first()).toBeVisible()
     await page.keyboard.press('Escape')
@@ -488,6 +491,7 @@ test.describe('board phone layout', () => {
       order = JSON.parse(route.request().postData() ?? '{}').order
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ ...COLUMN_DONE, position: 0 }, { ...COLUMN_TODO, position: 1 }]) })
     })
+    await page.getByTestId('phone-column-actions-toggle').click()
     const later = page.getByRole('button', { name: 'Move column To Do later' })
     await expect(page.getByRole('button', { name: 'Move column To Do earlier' })).toBeDisabled()
     await later.click()
@@ -816,5 +820,97 @@ test.describe('phone card detail panel (#2377)', () => {
     expect(optionRows.length).toBe(2)
     expect(Math.min(...optionRows)).toBeGreaterThanOrEqual(44)
     expect(Math.round((await page.getByRole('button', { name: 'Done' }).boundingBox())!.height)).toBeGreaterThanOrEqual(44)
+  })
+})
+
+// #2384: an admin's controls rest behind Column actions / Lane actions so cards are on screen.
+test.describe('phone admin controls at rest (#2384)', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('cards show at rest for an admin, and every admin action is reachable by keyboard at 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, { ...BOARD_FULL, swimlanes: [SWIMLANE, { ...SWIMLANE, id: 2, uid: 'swimlane02x', name: 'Second lane', position: 1 }] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await expect(card).toBeVisible()
+    // The first card sits within the first screen, not pushed below rows of admin buttons.
+    expect((await card.boundingBox())!.y).toBeLessThan(500)
+    for (const name of [/^Edit column/, /^Edit swimlane/, /^Move column/, /^Move swimlane/, /^Field order/, /^Focus on /]) {
+      await expect(page.getByRole('button', { name })).toHaveCount(0)
+    }
+    expect(await smallControls(page, ['[data-testid="phone-board"]'])).toEqual([])
+    // Keyboard: focus the toggle, press Enter, and the actions appear, each 44px.
+    const colToggle = page.getByTestId('phone-column-actions-toggle')
+    await colToggle.focus()
+    await page.keyboard.press('Enter')
+    await expect(colToggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByRole('button', { name: /^Edit column/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Move column/ }).first()).toBeVisible()
+    const laneToggle = page.getByRole('button', { name: /^Lane actions for / }).first()
+    await laneToggle.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('button', { name: /^Edit swimlane/ }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Focus on / }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Move swimlane/ }).first()).toBeVisible()
+    expect(await smallControls(page, ['[data-testid="phone-board"]'])).toEqual([])
+  })
+})
+
+// #2401: the card detail header on a phone, with long lane and column names.
+test.describe('phone card detail header (#2401)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('long lane and column names truncate without overflow and every header control is 44px', async ({ page }) => {
+    const longLane = 'Platform Reliability and Incident Response Engineering'
+    const longCol = 'Awaiting Customer Acceptance Sign-off Review'
+    await routeAuth(page)
+    await routeBoard(page, {
+      ...BOARD_FULL,
+      swimlanes: [{ ...SWIMLANE, name: longLane }],
+      columns: [{ ...COLUMN_TODO, name: longCol }, COLUMN_DONE],
+    } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    await expect(panel).toBeVisible()
+    const header = page.getByTestId('card-detail-title-block').locator('xpath=..')
+    const hb = (await header.boundingBox())!
+    const m = await header.evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }))
+    expect(m.sw).toBeLessThanOrEqual(m.cw)
+    for (const name of ['Back to board', 'Block…', 'Close', 'Move card to different column or swimlane']) {
+      const b = (await panel.getByRole('button', { name }).boundingBox())!
+      expect(Math.min(b.width, b.height), name).toBeGreaterThanOrEqual(43.5)
+      expect(b.x, name).toBeGreaterThanOrEqual(hb.x)
+      expect(b.x + b.width, name).toBeLessThanOrEqual(hb.x + hb.width + 0.5)
+    }
+    for (const full of [longLane, longCol]) {
+      const crumb = panel.getByRole('button', { name: full, exact: true })
+      await expect(crumb).toHaveAttribute('title', full)
+      const b = (await crumb.boundingBox())!
+      expect(b.height).toBeGreaterThanOrEqual(43.5)
+      expect(b.x + b.width).toBeLessThanOrEqual(hb.x + hb.width)
+    }
+  })
+})
+
+// #2404: every control in Board settings, on every tab, is 44px at 390px (no carve-outs).
+test.describe('phone board settings modal (#2404)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  test('every control on every tab is at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    const tabs = ['Members', 'Display', 'Rules', 'Card fields', 'Swimlane fields', 'Sharing', 'Webhooks', 'Data']
+    for (const t of tabs) {
+      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
+      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
+      expect(await smallControls(page, ['[role="dialog"]']), `tab ${t}`).toEqual([])
+    }
   })
 })

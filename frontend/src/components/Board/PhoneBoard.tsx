@@ -190,6 +190,15 @@ export default function PhoneBoard({
   const [openFieldLanes, setOpenFieldLanes] = useState<Set<number>>(() => new Set());
   // Phone sub-column switcher (#2278): which sub-column of a split stage is shown.
   const [subIndex, setSubIndex] = useState(0);
+  // #2384: admin controls rest behind one "Column actions" / "Lane actions" disclosure so a 390px
+  // board shows cards, not rows of buttons. Lanes track their own open state.
+  const [columnActionsOpen, setColumnActionsOpen] = useState(false);
+  const [openLaneActions, setOpenLaneActions] = useState<Set<number>>(() => new Set());
+  const toggleLaneActions = (laneId: number) => setOpenLaneActions((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(laneId)) next.add(laneId);
+    return next;
+  });
   // Each column starts on its first sub-column; the index is not carried across columns.
   useEffect(() => { setSubIndex(0); }, [selectedId]);
   const toggleLaneFields = (laneId: number) => setOpenFieldLanes((prev) => {
@@ -214,6 +223,10 @@ export default function PhoneBoard({
   }, [addRequest, collapsedSwimlaneIds, onToggleSwimlane, onAddRequestHandled]);
   // A column deleted or hidden while selected falls back to the first one.
   const column = ordered.find((c) => c.id === selectedId) ?? ordered[0];
+  // The Column actions menu belongs to one column. Keyed on the resolved column, not selectedId: moving the
+  // first column pins selectedId to it without changing the column, and the menu must stay open then.
+  const columnId = column?.id;
+  useEffect(() => { setColumnActionsOpen(false); }, [columnId]);
   if (!column) return <p data-testid="phone-board-empty" className="px-3 py-4 text-sm text-fg-secondary">No visible columns</p>;
 
   const columnCards = cards.filter((c) => c.column === column.id);
@@ -400,14 +413,30 @@ export default function PhoneBoard({
           {isAdmin && (
             <button
               type="button"
-              data-testid="phone-column-actions"
-              aria-label={`Edit column ${column.name}`}
-              onClick={() => setEditTab("settings")}
+              data-testid="phone-column-actions-toggle"
+              aria-label={`Column actions for ${column.name}`}
+              aria-expanded={columnActionsOpen}
+              aria-controls={`${uid}-column-actions`}
+              onClick={() => setColumnActionsOpen((o) => !o)}
               className={ACTION_BTN}
             >
-              Edit column
+              Column actions
             </button>
           )}
+        </div>
+      )}
+      {isAdmin && columnActionsOpen && (
+        // One more column action (e.g. Stage settings) slots in here as another ACTION_BTN.
+        <div id={`${uid}-column-actions`} className="flex flex-wrap gap-2" data-testid="phone-column-actions-menu">
+          <button
+            type="button"
+            data-testid="phone-column-actions"
+            aria-label={`Edit column ${column.name}`}
+            onClick={() => setEditTab("settings")}
+            className={ACTION_BTN}
+          >
+            Edit column
+          </button>
           {canReorderColumns && (
             <>
               <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-column-earlier" aria-label={`Move column ${column.name} earlier`} disabled={columnIdx <= 0} onClick={() => moveColumn(-1)}>Move earlier</button>
@@ -439,6 +468,11 @@ export default function PhoneBoard({
           const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);
           const hasSecondLine = fields.inline.length > 0 || showFieldToggle || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
           const extraId = `${uid}-lane-${lane.id}-fields`;
+          // #2384: Edit, Field order, Focus and the lane reorder pair live behind "Lane actions"; Add card
+          // and health stay at rest. A reader with nothing to manage and no Focus gets no toggle.
+          const showFocus = !!onFocusLane && swimlanes.length > 1;
+          const hasLaneMenu = isAdmin || showFocus;
+          const laneActionsOpen = openLaneActions.has(lane.id);
           const renderField = ({ def, value }: LaneBandField) => (
             <CustomFieldValueDisplay key={def.id} definition={def} value={value} variant="band" adminOnly={def.is_admin_only} hideName={hideRowChipFieldNames} userDateFormat={userDateFormat} />
           );
@@ -520,30 +554,47 @@ export default function PhoneBoard({
                     <span aria-hidden="true" className="mr-1">+</span>Add card<span className="sr-only"> to {column.name} in {lane.name}</span>
                   </button>
                 )}
-                {isAdmin && (
-                  <button type="button" className={ACTION_BTN} aria-label={`Edit swimlane ${lane.name}`} onClick={() => setEditingLane(lane.id)}>Edit</button>
-                )}
-                {isAdmin && onEditFieldOrder && (
-                  <button type="button" className={ACTION_BTN} aria-label={`Field order for ${lane.name}`} data-testid="phone-lane-field-order" onClick={onEditFieldOrder}>Field order</button>
-                )}
-                {onFocusLane && swimlanes.length > 1 && (
+                {hasLaneMenu && (
                   <button
                     type="button"
+                    data-testid="phone-lane-actions-toggle"
                     className={ACTION_BTN}
-                    aria-pressed={focusedSwimlaneId === lane.id}
-                    aria-label={focusedSwimlaneId === lane.id ? "Exit focus" : `Focus on ${lane.name}`}
-                    onClick={() => (focusedSwimlaneId === lane.id ? onExitFocus?.() : onFocusLane(lane.id))}
+                    aria-label={`Lane actions for ${lane.name}`}
+                    aria-expanded={laneActionsOpen}
+                    aria-controls={`${uid}-lane-actions-${lane.id}`}
+                    onClick={() => toggleLaneActions(lane.id)}
                   >
-                    {focusedSwimlaneId === lane.id ? "Exit focus" : "Focus"}
+                    Lane actions
                   </button>
                 )}
-                {canReorderLanes && (
-                  <>
-                    <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-earlier" aria-label={`Move swimlane ${lane.name} earlier`} disabled={laneIdx === 0} onClick={() => moveLane(lane.id, -1)}>Move earlier</button>
-                    <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-later" aria-label={`Move swimlane ${lane.name} later`} disabled={laneIdx === swimlanes.length - 1} onClick={() => moveLane(lane.id, 1)}>Move later</button>
-                  </>
-                )}
               </div>
+              {hasLaneMenu && laneActionsOpen && (
+                <div id={`${uid}-lane-actions-${lane.id}`} className="flex flex-wrap gap-2" data-testid="phone-lane-actions-menu">
+                  {isAdmin && (
+                    <button type="button" className={ACTION_BTN} aria-label={`Edit swimlane ${lane.name}`} onClick={() => setEditingLane(lane.id)}>Edit</button>
+                  )}
+                  {isAdmin && onEditFieldOrder && (
+                    <button type="button" className={ACTION_BTN} aria-label={`Field order for ${lane.name}`} data-testid="phone-lane-field-order" onClick={onEditFieldOrder}>Field order</button>
+                  )}
+                  {showFocus && (
+                    <button
+                      type="button"
+                      className={ACTION_BTN}
+                      aria-pressed={focusedSwimlaneId === lane.id}
+                      aria-label={focusedSwimlaneId === lane.id ? "Exit focus" : `Focus on ${lane.name}`}
+                      onClick={() => (focusedSwimlaneId === lane.id ? onExitFocus?.() : onFocusLane?.(lane.id))}
+                    >
+                      {focusedSwimlaneId === lane.id ? "Exit focus" : "Focus"}
+                    </button>
+                  )}
+                  {canReorderLanes && (
+                    <>
+                      <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-earlier" aria-label={`Move swimlane ${lane.name} earlier`} disabled={laneIdx === 0} onClick={() => moveLane(lane.id, -1)}>Move earlier</button>
+                      <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-later" aria-label={`Move swimlane ${lane.name} later`} disabled={laneIdx === swimlanes.length - 1} onClick={() => moveLane(lane.id, 1)}>Move later</button>
+                    </>
+                  )}
+                </div>
+              )}
               {canAdd && addingLane === lane.id && !collapsed && (
                 <div className="flex flex-col gap-2" data-testid="phone-add-card">
                   <input
