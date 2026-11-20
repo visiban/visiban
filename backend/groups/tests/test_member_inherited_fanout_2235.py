@@ -311,6 +311,46 @@ class OwnershipTransferFanOutTests(_Tree):
         # The previous owner's direct Child row shields Child's subtree.
         self.assertEqual(by_user[self.owner.pk], {self.sibling.pk})
 
+    def test_django_admin_action_end_to_end_reaches_new_and_previous_owner(self):
+        """Posts the real admin action, so a dropped id in `member_ids` fails here."""
+        from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+        from django.test import override_settings
+        from django.urls import reverse
+
+        root_user = User.objects.create_user(
+            username="su_2235", password="pw", is_staff=True, is_superuser=True
+        )
+        client = self.client_class()
+        client.force_login(root_user)
+        plain = override_settings(STORAGES={
+            "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+        })
+        with plain, patch("groups.broadcast.broadcast_group_event") as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = client.post(
+                    reverse("admin:groups_group_changelist"),
+                    {
+                        "action": "transfer_ownership",
+                        ACTION_CHECKBOX_NAME: [self.root.pk],
+                        "step": "confirm",
+                        "expected_owner": self.owner.pk,
+                        "new_owner": self.member.pk,
+                    },
+                    follow=True,
+                )
+        self.assertEqual(resp.status_code, 200)
+        self.root.refresh_from_db()
+        self.assertEqual(self.root.owner_id, self.member.pk)
+        by_user = {}
+        for gid, payload in self._frames_all(send):
+            by_user.setdefault(payload["user"]["id"], set()).add(gid)
+        self.assertEqual(
+            by_user[self.member.pk], {self.child.pk, self.grandchild.pk, self.great.pk, self.sibling.pk}
+        )
+        # The previous owner's direct Child row shields Child's subtree.
+        self.assertEqual(by_user[self.owner.pk], {self.sibling.pk})
+
     def test_django_admin_transfer_reaches_the_inheriting_subgroups(self):
         with patch("groups.broadcast.broadcast_group_event") as send:
             with self.captureOnCommitCallbacks(execute=True):
