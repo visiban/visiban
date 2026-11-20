@@ -568,26 +568,29 @@ def _replay_placements(flow, live, creation, done_uids, now):
     return placements
 
 
+def _live_rows(rows, now):
+    """``(live, misdated)``: the rows up to the first one dated after ``now``."""
+    for index, mv in enumerate(rows):
+        if mv.moved_at > now:
+            return rows[:index], True
+    return rows, False
+
+
+def _creation_row(live):
+    """The card's creation movement: its first row, when that row places it from nowhere."""
+    first = live[0] if live else None
+    if first is not None and first.movement_type == _MOVE and first.from_key is None and first.to_key is not None:
+        return first
+    return None
+
+
 def _analyze_card(flow, rows, done_uids, now, committed_uids=None):
     """Fill ``flow`` from the card's movements, ordered by ``(moved_at, id)``."""
     # A movement dated after this request is misdated: it and everything after
     # it are ignored, and the card has incomplete history.
-    live = rows
-    misdated = False
-    for index, mv in enumerate(rows):
-        if mv.moved_at > now:
-            live, misdated = rows[:index], True
-            break
+    live, misdated = _live_rows(rows, now)
 
-    first = live[0] if live else None
-    creation = (
-        first
-        if first is not None
-        and first.movement_type == _MOVE
-        and first.from_key is None
-        and first.to_key is not None
-        else None
-    )
+    creation = _creation_row(live)
     flow.has_creation = creation is not None
     flow.last_moved_at = live[-1].moved_at if live else None
     flow.created_in_done = creation is not None and creation.to_key in done_uids
@@ -691,6 +694,11 @@ class BoardFlow:
     committed_uids: set | None = None
     # ``{column uid: _GateStage}`` for the gated stages (#2360).
     gate_last: dict = field(default_factory=dict)
+    # ``{placement key: card count}`` for the cards a range-bounded load left
+    # out because their history ended before the range (#2425): each still
+    # sits in one cumulative-flow band for the whole window. Only
+    # ``load_cumulative_flow`` fills it; ``cumulative_flow`` adds it in.
+    settled_placements: dict = field(default_factory=dict)
 
     def column_ref(self, key):
         """``key`` as a response ``column_uid``: a current column's uid, or None if deleted."""
@@ -711,7 +719,10 @@ def _base_cards(board, swimlane_id, label_id):
     return cards
 
 
-def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns=None, cards_matching=None):
+def load_board_flow(
+    board, *, swimlane_id=None, label_id=None, now=None, columns=None, cards_matching=None,
+    gate_index_as_full=False,
+):
     """Load and analyze a board's history in a fixed number of queries.
 
     Pass ``columns`` (the board's columns, in position order) when the caller
@@ -720,6 +731,12 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
 
     ``cards_matching`` narrows which cards are loaded, each still with its whole
     history, for a caller that can prove the others cannot change its answer.
+
+    ``gate_index_as_full`` keeps ``gate_last`` what an unnarrowed load would
+    give when the narrowed one selects no card: the index is read whenever the
+    filter selects any card at all (one EXISTS query, only in that case), so a
+    dwell response's ``work_percentiles`` does not turn from ``{p50: null...}``
+    into ``null`` just because no card is recent (#2425).
     """
     now = now or timezone.now()
     if columns is None:
@@ -745,6 +762,34 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
     ]
 
     rows_by_card: dict[int, list] = {}
+    for card_id, movement in _movement_rows(selected):
+        rows_by_card.setdefault(card_id, []).append(movement)
+    for card in cards:
+        _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now, committed_uids)
+    # No cards, no gate history to read: a narrowed load that selects nothing
+    # stays query-free (NarrowedLoadTests), unless the caller asked for the
+    # full load's index (see ``gate_index_as_full``).
+    any_card = bool(cards) or (
+        gate_index_as_full and cards_matching is not None
+        and _base_cards(board, swimlane_id, label_id).exists()
+    )
+    gate_last = _gate_last_index(board) if any_card else {}
+    if gate_last and cards:
+        _attach_wait(cards, selected, gate_last, now)
+    return BoardFlow(
+        board=board, now=now, columns=columns, cards=cards,
+        done_uids=done_uids, current_uids={c.uid for c in columns},
+        swimlane_id=swimlane_id, label_id=label_id, committed_uids=committed_uids,
+        gate_last=gate_last,
+    )
+
+
+def _movement_rows(selected):
+    """``(card_id, _Movement)`` for every movement of ``selected``, by card then ``(moved_at, id)``.
+
+    Streamed in chunks, so a caller that folds each card's rows as they arrive
+    holds one card's history at a time.
+    """
     movements = (
         CardMovement.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "moved_at", "id")
@@ -760,29 +805,14 @@ def load_board_flow(board, *, swimlane_id=None, label_id=None, now=None, columns
         card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
         to_lane,
     ) in movements.iterator(chunk_size=2000):
-        rows_by_card.setdefault(card_id, []).append(
-            _Movement(
-                moved_at, kind,
-                _column_key(from_uid, from_fk, from_name),
-                _column_key(to_uid, to_fk, to_name),
-                to_gates,
-                movement_id,
-                to_lane,
-            )
+        yield card_id, _Movement(
+            moved_at, kind,
+            _column_key(from_uid, from_fk, from_name),
+            _column_key(to_uid, to_fk, to_name),
+            to_gates,
+            movement_id,
+            to_lane,
         )
-    for card in cards:
-        _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now, committed_uids)
-    # No cards, no gate history to read: a narrowed load that selects nothing
-    # stays query-free (NarrowedLoadTests).
-    gate_last = _gate_last_index(board) if cards else {}
-    if gate_last:
-        _attach_wait(cards, selected, gate_last, now)
-    return BoardFlow(
-        board=board, now=now, columns=columns, cards=cards,
-        done_uids=done_uids, current_uids={c.uid for c in columns},
-        swimlane_id=swimlane_id, label_id=label_id, committed_uids=committed_uids,
-        gate_last=gate_last,
-    )
 
 
 class _GateStage(NamedTuple):
@@ -970,6 +1000,124 @@ def load_recent_dwell(board, flow_range, *, columns, swimlane_id=None, label_id=
         board, swimlane_id=swimlane_id, label_id=label_id, now=flow_range.end,
         columns=columns, cards_matching=relevant,
     )
+
+
+def range_boundary(flow_range, now):
+    """The earliest moment anything a ``flow_range`` response reports can be dated (#2425).
+
+    The window's ``start``, or the midnight its first bucketed day opens at
+    when that is earlier (a rolling range starts mid-day, and throughput and
+    cumulative flow bucket whole UTC days), and never later than ``now``, so a
+    row dated after the request (counted as an exclusion in every range) is
+    always on the near side of it.
+    """
+    return min(flow_range.start, _midnight(flow_range.first_day), now)
+
+
+def can_affect_range(boundary):
+    """The cards whose history can change a range metric's answer, as a ``Q`` (#2425).
+
+    WHY this is safe. Every number a range endpoint returns is dated by one
+    of: a movement (a first completion, a cycle start, a reopen, the end of a
+    visit, a cumulative-flow placement), the card's ``archived_at`` (the end of
+    its last visit, or of its last round of work), its ``created_at`` (the
+    placement of a card with no creation movement), or "now" for a card that
+    is still on the board (WIP age, needs attention, an open visit or round).
+    So a card that is archived, was archived before ``boundary``, was created
+    before it, and has no movement at or after it has every such moment
+    before the range: it can be no sample, no exclusion, no started or
+    completed count, no closed visit and no in-progress window inside it.
+
+    The cards kept are loaded with their whole history, not just the part in
+    the range: a completion in the range still needs the cycle start years
+    before it, and a reopen in the range still needs to know the first
+    completion was older. Live cards are always kept, done or not, so the
+    snapshot metrics read the same cards as an unnarrowed load. The one
+    thing a skipped card still contributes is its cumulative-flow band, since
+    finished work stays in the done band for ever; ``load_cumulative_flow``
+    counts that separately.
+    """
+    moved = CardMovement.objects.filter(card=OuterRef("pk"), moved_at__gte=boundary)
+    return (
+        Q(archived_at__isnull=True)
+        | Q(archived_at__gte=boundary)
+        | Q(created_at__gte=boundary)
+        | Exists(moved)
+    )
+
+
+def load_range_flow(board, flow_range, *, now, swimlane_id=None, label_id=None, columns=None):
+    """The snapshot cycle time, throughput, dwell, WIP age, attention and swimlanes read (#2425).
+
+    Only the cards ``can_affect_range`` keeps, so the cost follows the cards
+    live now or active since the range opened, not the board's age. Every
+    number is the same as on an unnarrowed load (``RangeNarrowingEquivalenceTests``).
+    """
+    return load_board_flow(
+        board, swimlane_id=swimlane_id, label_id=label_id, now=now, columns=columns,
+        cards_matching=can_affect_range(range_boundary(flow_range, now)), gate_index_as_full=True,
+    )
+
+
+def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=None, columns=None):
+    """The snapshot ``cumulative_flow`` reads: a range load, plus where each skipped card rests (#2425).
+
+    A card ``can_affect_range`` skips has every placement dated before the
+    first bucketed day, so the diagram reads only its last one, for the whole
+    window, and none of its band changes fall inside it. Its history is
+    folded to that one placement as the rows stream past, card by card, so
+    memory holds one skipped card's movements at a time rather than all of
+    them; ``_replay_placements`` itself decides the placement, so the rule is
+    the one the full load applies. Two queries more than a range load: the
+    skipped cards and their movements.
+    """
+    flow = load_range_flow(
+        board, flow_range, now=now, swimlane_id=swimlane_id, label_id=label_id, columns=columns,
+    )
+    settled = _base_cards(board, swimlane_id, label_id).exclude(
+        can_affect_range(range_boundary(flow_range, now)),
+    )
+    rows = settled.order_by("id").values_list("id", "created_at", "archived_at", "column__uid")
+    cards = {card_id: (created_at, archived_at, column_uid) for card_id, created_at, archived_at, column_uid in rows}
+    if not cards:
+        return flow
+    counts: dict = {}
+
+    def rest(card_id, history):
+        # A card restored (or newly moved) between the row query and the
+        # movement query streams movements but is not in ``cards``; it is no
+        # longer settled, so skip it rather than raise. The residual: that
+        # card was also missed by the range load if it changed before that
+        # query ran, which would need one snapshot to close; two reads a few
+        # ms apart on a live board are accepted, as for the other loaders.
+        if (resting := cards.pop(card_id, None)) is None:
+            return
+        created_at, archived_at, column_uid = resting
+        live, _ = _live_rows(history, now)
+        # Only created_at, archived_at and column_uid are real: they are all
+        # _replay_placements reads (RangeNarrowingEquivalenceTests pins it).
+        stub = CardFlow(
+            id=card_id, uid="", title="", swimlane_id=0, assignee_id=None, created_at=created_at,
+            archived_at=archived_at, blocked_at=None, column_uid=column_uid,
+        )
+        placement = _replay_placements(stub, live, _creation_row(live), flow.done_uids, now)[-1][1]
+        if placement is not _OFF_DIAGRAM:
+            counts[placement] = counts.get(placement, 0) + 1
+
+    current_id, history = None, []
+    for card_id, movement in _movement_rows(settled):
+        if card_id != current_id:
+            if current_id is not None:
+                rest(current_id, history)
+            current_id, history = card_id, []
+        history.append(movement)
+    if current_id is not None:
+        rest(current_id, history)
+    # Skipped cards with no movement at all rest where ``created_at`` placed them.
+    for card_id in list(cards):
+        rest(card_id, [])
+    flow.settled_placements = counts
+    return flow
 
 
 def card_directory(flow, uids):
@@ -1691,6 +1839,13 @@ def cumulative_flow(flow, flow_range):
         if day <= flow_range.first_day:
             return 0
         return index.get(day, len(days))
+
+    # Cards a range load skipped (#2425): every placement before the first
+    # day, so each sits in its last band from the first day to the last.
+    for placement, count in flow.settled_placements.items():
+        if days:
+            deltas[_band(flow, placement)][0] += count
+            deltas[_band(flow, placement)][len(days)] -= count
 
     for card in flow.cards:
         stops = card.placements
