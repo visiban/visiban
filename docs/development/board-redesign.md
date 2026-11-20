@@ -286,7 +286,7 @@ The screenshots use literal colors. Build with the tokens.
 
 Column and lane tints come from the user-assigned column or lane color: 10% of the color as the fill and 30% (column) or 35% (lane) as the border, over the page background. Add one helper for this next to `colorChipStyle`, and pin text contrast on the tint for a sample of the RGB cube in both themes, as `colorContrast.test.ts` does for label chips. Text on a tinted band or header is `text-fg` and `text-fg-secondary` only.
 
-Sizes: radius 8px on panels, cards and wells, pill on chips, 4px on track chips. Grid gap 8px; lane sections 10px apart; card padding 10px; card rows 7px apart. Type: lane name 17px semibold; column name, card title 13px semibold; card subtitle, fields, status 12px; chips 11px semibold; body 14px. Smallest text is 11px and only on chips. Where the type scale in § Typography has no exact step, use the nearest step.
+Sizes: radius 8px on panels, cards and wells, pill on chips, 4px on track chips. Grid gap 8px; lane sections 10px apart in the canvas (shipped at 4px between wrappers with a `py-2` band after the #2434 density pass, a deliberate departure); card padding 10px; card rows 7px apart. Type: lane name 17px semibold; column name, card title 13px semibold; card subtitle, fields, status 12px; chips 11px semibold; body 14px. Smallest text is 11px and only on chips. Where the type scale in § Typography has no exact step, use the nearest step.
 
 ## What the API must return
 
