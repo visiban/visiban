@@ -2749,7 +2749,10 @@ class CardViewSet(viewsets.ModelViewSet):
         request=inline_serializer(
             "CardParentLinkCreate", fields={"parent_id": serializers.IntegerField()},
         ),
-        responses={201: OpenApiResponse(description="Linked: `{parent_id, child_id}`.")},
+        responses={
+            201: OpenApiResponse(description="Linked: `{parent_id, child_id}`."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Link this card (the child) to a parent card on another board. "
             "Minimum role: member on BOTH boards. A parent id that is missing or "
@@ -2761,7 +2764,10 @@ class CardViewSet(viewsets.ModelViewSet):
     )
     @extend_schema(
         methods=["DELETE"],
-        responses={204: OpenApiResponse(description="Unlinked.")},
+        responses={
+            204: OpenApiResponse(description="Unlinked."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Remove this card's parent link. Minimum role: member on this card's "
             "board; the caller need not be able to open the parent."
@@ -2814,7 +2820,10 @@ class CardViewSet(viewsets.ModelViewSet):
         ))
 
     @extend_schema(
-        responses={204: OpenApiResponse(description="Unlinked.")},
+        responses={
+            204: OpenApiResponse(description="Unlinked."),
+            429: OpenApiResponse(description="Link-write rate limit exceeded (`card_link_write` scope, since 1.3)."),
+        },
         description=(
             "Unlink one child from this parent card. Minimum role: member on "
             "this card's board."

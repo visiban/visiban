@@ -451,7 +451,7 @@ each surface that delivers them:
   cards, in pk order" (`boards/services/card_links.py` `_lock_endpoints`).
   Since #2383 the single-card paths that touch a link peer take the card and
   its peers in that pk order before their own card lock
-  (`card_links.lock_card_and_link_peers`): the REST and MCP card delete
+  (`card_links.lock_card_and_link_peers`): the REST card delete
   (`boards/services/cards.py` `delete_card`), the Django-admin card delete
   (`CardAdmin.delete_model`) and the Django-admin move of a card to another
   board, which unlinks it (`CardAdminForm.clean` and

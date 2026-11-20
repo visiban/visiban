@@ -20,6 +20,7 @@ from rest_framework.throttling import UserRateThrottle
 
 from boards.admin import CardAdmin
 from boards.models import Card, CardParentLink
+from boards.tests.test_admin_card_cell_entry_race import _admin_post_data
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane
 from boards.tests.lock_wait import assert_blocked_on_lock
 from boards.tests.test_card_parent_links import HOLD_TIMEOUT, Role, _LinkFixture
@@ -92,7 +93,6 @@ class CardLinkWriteThrottleTests(_LinkFixture, TestCase):
             self.assertEqual(self._link(owner).status_code, 201)
 
 
-@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
 class IsLinkWriteAbsentInputTests(TestCase):
     """#1075: a view with no resolvable action is never a link write, and never raises."""
 
@@ -105,6 +105,7 @@ class IsLinkWriteAbsentInputTests(TestCase):
         self.assertFalse(_is_link_write(mock.Mock(action=None), request))
 
 
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
 class LinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
     """The card and its link peers are locked in pk order before the card alone.
 
@@ -193,12 +194,27 @@ class LinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
     def test_django_admin_move_to_another_board(self):
         other_board = _make_board(self.owner, name="Elsewhere 2383")
         col, lane = _make_column(other_board), _make_swimlane(other_board)
+        # ``_admin_post_data`` builds the change form as the first superuser.
+        type(self.owner).objects.filter(pk=self.owner.pk).update(is_superuser=True, is_staff=True)
+        self.owner.refresh_from_db()
 
         def move():
+            # Drive the real changeform path: ``CardAdminForm.clean`` takes the
+            # card and its link peers in pk order, then ``save_model`` runs in
+            # the same transaction, as ``changeform_view`` does. Calling
+            # ``save_model`` alone would never exercise the clean-time locks.
+            model_admin = CardAdmin(Card, django_admin.site)
+            request = self._admin_request()
             child = Card.objects.get(pk=self.child.pk)
-            child.board, child.column, child.swimlane = other_board, col, lane
+            data = _admin_post_data(
+                child, board=other_board.pk, column=col.pk, swimlane=lane.pk,
+                # An empty list renders as no POST value, which the JSON field reads as null.
+                mentioned_user_ids="[]",
+            )
             with transaction.atomic():
-                CardAdmin(Card, django_admin.site).save_model(self._admin_request(), child, None, True)
+                form = model_admin.get_form(request, obj=child)(data, instance=child)
+                self.assertTrue(form.is_valid(), form.errors)
+                model_admin.save_model(request, form.instance, form, True)
 
         self._assert_waits_on_peer_without_holding_card(move)
         self.assertEqual(Card.objects.get(pk=self.child.pk).board_id, other_board.pk)

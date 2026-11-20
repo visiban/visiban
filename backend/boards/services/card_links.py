@@ -168,7 +168,7 @@ def lock_card_and_link_peers(card_id):
     """Lock ``card_id`` and every card linked to it, ``FOR UPDATE``, in pk order (#2383).
 
     For a path that is about to lock one card and then touch its link peers:
-    the REST/MCP card delete (``services.cards.delete_card``, whose
+    the REST card delete (``services.cards.delete_card``, whose
     :func:`announce_card_removal` inserts a history row that takes a key-share
     lock on each surviving peer) and the Django-admin card delete and move
     (``CardAdminForm.clean``, ``CardAdmin._lock_cell_entry`` and
