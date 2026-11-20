@@ -108,6 +108,7 @@ javascript:S7761|Data attributes should be accessed using .dataset
 python:S1192|String literals should not be duplicated
 python:S1313|Hardcoded IP addresses should be reviewed for safety
 python:S2068|Hard-coded passwords are security-sensitive
+python:S2077|Formatting SQL queries is security-sensitive
 python:S2245|Pseudorandom number generators are security-sensitive
 python:S3776|Cognitive Complexity of functions should not be too high
 python:S6418|Secrets should not be hard-coded

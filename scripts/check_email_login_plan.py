@@ -103,6 +103,7 @@ def run(users):
     _django_setup()
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
+    from psycopg import sql as pg_sql
 
     from accounts.backends import resolve_login_user
     from accounts.models import User
@@ -127,7 +128,8 @@ def run(users):
             ignore_conflicts=True,
         )
     with connection.cursor() as cur:
-        cur.execute(f"ANALYZE {connection.ops.quote_name(User._meta.db_table)}")
+        # psycopg composes the identifier itself; no string formatting of SQL.
+        cur.execute(pg_sql.SQL("ANALYZE {}").format(pg_sql.Identifier(User._meta.db_table)))
     total = User.objects.count()
     print(f"users table: {total} rows (added {missing}); ANALYZE done")
     if total < users:
