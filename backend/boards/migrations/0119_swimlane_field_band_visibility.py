@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0117_remove_cardmovement_board_moved_idx'),
+        ('boards', '0118_notification_mention_source'),
     ]
 
     operations = [
