@@ -23,7 +23,7 @@ from boards.models import Card, CardParentLink
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane
 from boards.tests.lock_wait import assert_blocked_on_lock
 from boards.tests.test_card_parent_links import HOLD_TIMEOUT, Role, _LinkFixture
-from boards.views.cards import CardLinkWriteThrottle
+from boards.views.cards import CardLinkWriteThrottle, _is_link_write
 
 
 class CardLinkWriteThrottleTests(_LinkFixture, TestCase):
@@ -93,6 +93,18 @@ class CardLinkWriteThrottleTests(_LinkFixture, TestCase):
 
 
 @skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class IsLinkWriteAbsentInputTests(TestCase):
+    """#1075: a view with no resolvable action is never a link write, and never raises."""
+
+    def test_view_without_action_is_not_a_link_write(self):
+        request = mock.Mock(method="POST")
+        self.assertFalse(_is_link_write(object(), request))
+
+    def test_view_with_none_action_is_not_a_link_write(self):
+        request = mock.Mock(method="DELETE")
+        self.assertFalse(_is_link_write(mock.Mock(action=None), request))
+
+
 class LinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
     """The card and its link peers are locked in pk order before the card alone.
 

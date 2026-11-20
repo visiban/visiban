@@ -435,13 +435,15 @@ each surface that delivers them:
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed and a
   child-board reader learns when a card's parent link changed. To be
-  re-decided (gated per recipient, or closed) by that date; #2383 stays its
-  open tracker until the parent/child UI MRs land. The threat model's other
+  re-decided (gated per recipient, or closed) by that date; #2210 (the
+  parent/child progress rollup UI) is its open tracker. The threat model's other
   three controls for these links are built (#2383): link writes have their own
   per-user throttle scope, `card_link_write` (`boards/views/cards.py`
   `CardLinkWriteThrottle`, `boards/tests/test_card_link_hardening_2383.py`),
   the children read has a query-count case at the 100-child cap
-  (`boards/tests/test_query_counts.py` `CardChildrenQueryCountTests`), and the
+  (`boards/tests/test_query_counts.py` `CardChildrenQueryCountTests`; the
+  rollup bench case is deferred to #2210, since no server-side rollup exists
+  yet), and the
   MCP/export parity test pins Rule 10
   (`boards/tests/test_card_link_transport_parity.py`);
 - card-link lock order (recorded here beside the link-event residual, since
@@ -456,7 +458,7 @@ each surface that delivers them:
   `CardAdmin._lock_cell_entry`). Tests:
   `boards/tests/test_card_link_hardening_2383.py` `LinkPeerLockOrderTests`
   (PostgreSQL only), which fail with the helper removed. Remaining accepted
-  residual (#2383, expires 2027-05-31): a container delete (REST column,
+  residual (#2409, expires 2027-05-31): a container delete (REST column,
   swimlane and board destroys, the Django-admin column, swimlane, board and
   bulk card deletes, and the seed `--wipe`) still holds its own cards first
   (`services/cards.py` `lock_cards_for_cascade`, whose savepoint retry
@@ -595,7 +597,7 @@ fails closed.
 | MCP (output) | `mcp_server/tools.py` `board_snapshot`, `_serialize_user`, `_swimlanes_payload`, `_serialize_card` | Explicit allow-list shapes, not `BoardFullSerializer`; web-session-only fields (share token, share-link expiry and `share_link_active`, capabilities, members, current role) are absent (`test_mcp.py` `test_web_only_fields_are_never_exposed`); users carry only the REST user fields and no email; admin-only swimlane fields are included for admin roles only |
 | Change feed and board export | `boards/serializers.py` `BoardEventSerializer.to_representation`; `boards/views/import_export.py` `BoardImportExportMixin.export` | Rule 8 rows: per-reader field gating with the reader's role |
 | Cross-board card links: children read (#1104) | `boards/services/card_links.py` `children_for_viewer` | The one children read: REST `GET .../cards/{id}/children/` calls it, and any other transport (MCP, export, the #2212 extension slot) must call it rather than query `CardParentLink`. It resolves the reader's role on the child board with `get_board_roles` on every call and returns a count only when there is none. Tests: `boards/tests/test_card_parent_links.py` `ChildrenReadTests` |
-| Cross-board card links on MCP and export (#1104) | `mcp_server/tools.py` `_serialize_card`; `boards/views/import_export.py` | Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). Tests: `boards/tests/test_card_link_transport_parity.py` (#2383) asserts that no MCP card shape (`_serialize_card`, `card_detail`, `list_cards`) and no JSON or CSV export of either board names a link, that none of them queries the link table, and that importing an export carrying link keys creates no link; the MCP half runs only with `MCP_SERVER_ENABLED=true` |
+| Cross-board card links on MCP and export (#1104) | `mcp_server/tools.py` `_serialize_card`; `boards/views/import_export.py` | Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). Tests: `boards/tests/test_card_link_transport_parity.py` (#2383) asserts that no MCP card shape (`_serialize_card`, `card_detail`, `list_cards`, `board_snapshot`, `aging_cards`) and no JSON or CSV export of either board names a link, that none of them queries the link table, and that importing an export carrying link keys creates no link; the MCP half runs only with `MCP_SERVER_ENABLED=true` |
 | Outbound webhooks | `webhooks/dispatch.py` `_deliver`, `send_test` | A delivery is one change-feed row as `GET /boards/{id}/events/` returns it to a viewer, so it is no broader than REST for the lowest board role; the test event carries ids only. Configuration is board-admin only and is not readable over any other transport; the URL is returned once, on create (#863). The admin-only `webhook.changed` frame (`webhooks/live.py`, #2057, in `ADMIN_ONLY_EVENTS`) is an invalidation with ids and codes only (`{id, status, reason_code, consecutive_failures, changed_by, at}`), never the URL, host, label or a secret; it is not written to the change feed and is not subscribable |
 
 Coverage: `mcp_server/tests/test_mcp.py` (`UserFieldParityTests`, which pins

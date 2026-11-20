@@ -31,8 +31,9 @@ from boards.models import Board, CardParentLink
 from boards.tests.test_card_parent_links import _LinkFixture
 
 LINK_TABLE = CardParentLink._meta.db_table
-# A key that names a link end: parent, parent_id, children, child_ids, ...
-LINK_KEY = re.compile(r"(^|_)(parent|parents|child|children)(_|$)", re.IGNORECASE)
+# A key that names a link end: parent, parent_id, children, child_ids,
+# card_links, links, linked_cards, ...
+LINK_KEY = re.compile(r"(^|_)(parent|parents|child|children|link|links|linked)(_|$)", re.IGNORECASE)
 
 
 def _keys(value):
@@ -129,3 +130,8 @@ class McpLinkParityTests(_LinkedBoards, TestCase):
             listed = self._call(tools.list_cards, board_id=board.pk, include_meta=True)
             self.assertTrue(listed)
             self._assert_no_link_keys(listed, "MCP list_cards")
+            snapshot = self._call(tools.board_snapshot, board_id=board.pk)
+            self.assertTrue(snapshot["cards"])
+            self._assert_no_link_keys(snapshot, "MCP board_snapshot")
+            aging = self._call(tools.aging_cards, board_id=board.pk)
+            self._assert_no_link_keys(aging, "MCP aging_cards")

@@ -2035,6 +2035,9 @@ class CardChildrenQueryCountTests(TestCase):
     for both answers: a reader who can open the child board (titles) and one
     who cannot (count only). Its scaling axis is the number of children; the
     child board is one board by rule, so there is no second axis.
+
+    The issue also asks for a bench case for "the rollup"; no server-side
+    rollup exists (it is UI work), so that case is deferred to #2210.
     """
 
     # 11 measured with titles, 10 count-only (auth, board role, parent card,
