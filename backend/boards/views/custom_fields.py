@@ -33,7 +33,10 @@ from visiban.permissions import (
 from visiban.request_shape import id_in_db_range, require_json_object
 
 from .. import broadcast as _broadcast
-from ..models import Board, BoardMembership, CustomFieldDefinition
+from ..models import (
+    Board, BoardMembership, Column, CustomFieldDefinition, StageTrack, Swimlane,
+    SwimlaneTrackException,
+)
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     CustomFieldDefinitionSerializer,
@@ -203,6 +206,18 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             was_rollup_field = Board.objects.filter(
                 pk=board_id, swimlane_rollup_field_id=instance.pk,
             ).exists()
+            # Read under the same lock, before the CASCADE removes them (#2361):
+            # the stages showing this dimension as a track and the lanes that
+            # mark it not applicable. custom_field.deleted names only the field,
+            # so without their own frames other clients keep the track chip and
+            # the lane exception until they reload.
+            track_column_ids = sorted(set(
+                StageTrack.objects.filter(field_definition=instance).values_list("column_id", flat=True)
+            ))
+            exception_lane_ids = sorted(set(
+                SwimlaneTrackException.objects.filter(field_definition=instance)
+                .values_list("swimlane_id", flat=True)
+            ))
             # CASCADE removes every CustomFieldValue for this definition — the
             # values are meaningless without the schema that types them, and
             # keeping orphans would resurrect them if a field of the same name
@@ -217,6 +232,42 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             )
             if was_rollup_field:
                 self._broadcast_board_updated(board_id)
+            self._broadcast_tracks_removed(board_id, track_column_ids, exception_lane_ids)
+
+    def _broadcast_tracks_removed(self, board_id, column_ids, lane_ids):
+        """Existing ``column.updated`` / ``swimlane.updated`` frames for the cascade (#2361).
+
+        The server sends what changed rather than leaving every client to know
+        that a dimension's delete cascades to its tracks and lane exceptions: a
+        client replaying ``/events/?after=`` and the MCP surface get it too. The
+        payloads are the ones a stage save sends (``services.stages``), so the
+        socket handler needs no new branch. Called inside the write's
+        transaction, after the delete; ``record_board_event`` persists each row
+        and defers the send to ``on_commit``.
+        """
+        if not column_ids and not lane_ids:
+            return
+        from ..serializers import ColumnSerializer, SwimlaneSerializer, _swimlane_custom_field_prefetch
+
+        actor_id = self.request.user.id
+        columns = (
+            Column.objects.filter(pk__in=column_ids, board_id=board_id)
+            .prefetch_related("sub_columns", "stage_tracks__field_definition")
+            .order_by("position", "pk")
+        )
+        for column in columns:
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_COLUMN_UPDATED, ColumnSerializer(column).data, actor_id=actor_id,
+            )
+        lanes = (
+            Swimlane.objects.filter(pk__in=lane_ids, board_id=board_id)
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+            .order_by("position", "pk")
+        )
+        for lane in lanes:
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_SWIMLANE_UPDATED, SwimlaneSerializer(lane).data, actor_id=actor_id,
+            )
 
     def _broadcast_board_updated(self, board_id):
         """Persist ``board.updated`` and send it on commit (#2275).
