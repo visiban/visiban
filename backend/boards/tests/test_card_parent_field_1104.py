@@ -432,6 +432,16 @@ class ParentSchemaTests(TestCase):
             with self.assertRaises(jsonschema.ValidationError):
                 jsonschema.validate(bad, prop)
 
+    def test_existing_disabled_reason_component_keeps_its_name(self):
+        # The picker's `disabled_reason` reuses the webhook field's name; without
+        # the ENUM_NAME_OVERRIDES pin the collision renamed the published
+        # `DisabledReasonEnum` to a hash-suffixed name (a client-breaking rename).
+        comps = self.schema["components"]["schemas"]
+        self.assertIn("DisabledReasonEnum", comps)
+        self.assertIn("creator_lost_access", comps["DisabledReasonEnum"]["enum"])
+        self.assertIn("ParentCandidateDisabledReasonEnum", comps)
+        self.assertFalse([n for n in comps if n.startswith("DisabledReason") and n != "DisabledReasonEnum"])
+
     def test_picker_endpoints_are_published(self):
         paths = self.schema["paths"]
         self.assertIn("/api/v1/boards/{id}/parent-boards/", paths)

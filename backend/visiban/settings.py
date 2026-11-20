@@ -965,8 +965,12 @@ SPECTACULAR_SETTINGS = {
     # One name for the health-status choice set (#1133): health_status and
     # effective_health_status share it, and without an override the enum hook
     # names it after whichever property it meets first.
+    # DisabledReasonEnum (#1104): the parent picker's `disabled_reason` reuses the
+    # field name, and without this pin the collision renamed the published
+    # webhook component to a hash-suffixed name, breaking generated clients.
     "ENUM_NAME_OVERRIDES": {
         "HealthStatusEnum": "groups.models.HealthStatus",
+        "DisabledReasonEnum": "webhooks.serializers._DISABLED_REASONS",
     },
     # Documents the 401/403/404/429 error envelope on every operation that
     # doesn't already declare one, so backend-schema-fuzz's
