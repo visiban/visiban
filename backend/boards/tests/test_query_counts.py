@@ -261,6 +261,34 @@ class BoardFullQueryCountTests(TestCase):
             f"full/ used {len(ctx)} queries — budget is {self.BUDGET}.",
         )
 
+    def test_full_query_count_is_flat_in_the_swimlane_field_count(self):
+        """#2438: the cap went from 15 to 30; every lane x field value still
+        rides one prefetch, so the count must not move with the field count."""
+        counts = {}
+        for n_fields in (15, 30):
+            with self.subTest(n_fields=n_fields):
+                board, _cols, lanes = _seed_board(
+                    self.user, n_cols=3, n_lanes=5, cards_per_cell=1,
+                )
+                defs = [
+                    SwimlaneCustomFieldDefinition.objects.create(
+                        board=board, name=f"F{i}", field_type="text", position=i,
+                    )
+                    for i in range(n_fields)
+                ]
+                SwimlaneCustomFieldValue.objects.bulk_create([
+                    SwimlaneCustomFieldValue(swimlane=lane, field_definition=d, value="v")
+                    for lane in lanes for d in defs
+                ])
+                with CaptureQueriesContext(connection) as ctx:
+                    r = self.client.get(f"/api/v1/boards/{board.id}/full/")
+                self.assertEqual(r.status_code, 200)
+                self.assertEqual(len(r.data["swimlane_custom_field_definitions"]), n_fields)
+                self.assertEqual(sum(len(s["custom_field_values"]) for s in r.data["swimlanes"]), 5 * n_fields)
+                counts[n_fields] = len(ctx)
+                self.assertLessEqual(len(ctx), self.BUDGET)
+        self.assertEqual(counts[15], counts[30], counts)
+
     # Measured for a site-admin reader on this fixture (#1714). Pinned at the
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that

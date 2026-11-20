@@ -297,7 +297,7 @@ export const createSwimlaneCustomFieldDefinition = (boardId: number, data: {
 export const updateSwimlaneCustomFieldDefinition = (
   boardId: number,
   fieldId: number,
-  data: Partial<Pick<SwimlaneCustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_row" | "is_admin_only" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors">>
+  data: Partial<Pick<SwimlaneCustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_row" | "is_admin_only" | "number_prefix" | "number_suffix" | "number_decimals" | "choice_colors" | "band_visibility">>
 ) =>
   client.patch<SwimlaneCustomFieldDefinition>(`/api/v1/boards/${boardId}/swimlane-custom-fields/${fieldId}/`, data).then((r) => r.data);
 

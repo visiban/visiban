@@ -79,7 +79,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     labels: [],
     members: [],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, export_min_role: 'viewer', card_density: 'comfortable',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, show_row_chip_field_names: true, lane_details_cap: 6, export_min_role: 'viewer', card_density: 'comfortable',
     is_starred: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',

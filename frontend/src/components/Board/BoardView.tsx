@@ -1278,7 +1278,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  // Set only by the swimlane "N fields" grid's "Change field order" shortcut (#1458); every other opener
+  // Set only by the lane band shortcuts that open Board settings on the Swimlane fields tab: the legacy "N fields" grid's
+  // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
+  // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
   const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
@@ -3458,9 +3460,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               isAdmin={isAdmin}
               allColumns={board.columns}
               onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
+              onManageSwimlaneFields={isAdmin ? openSwimlaneFieldOrder : undefined}
               boardColors={boardColors}
               limitFlags={board}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              laneDetailsCap={board.lane_details_cap}
               intakeColumnId={intakeColumnId}
               onCardAdded={onCardAdded}
               onColumnUpdated={handleColumnUpdated}
@@ -3630,8 +3634,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              laneDetailsCap={board.lane_details_cap}
                       hideRowChipFieldNames={board.show_row_chip_field_names === false}
                       onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
+                      onManageSwimlaneFields={isAdmin ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}
                       overlayCells={gridOverlayState?.cells}
                       overlayLabel={gridOverlayState?.label}

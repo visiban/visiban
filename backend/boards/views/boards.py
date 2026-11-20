@@ -512,6 +512,9 @@ class BoardViewSet(
             # Same for the rollup field (#2275): a field deleted or retyped
             # after validation is a 400 here, not an IntegrityError at commit.
             serializer.recheck_rollup_field_under_lock(board)
+            # Lane details cap (#2439): materializes a legacy board's tiers and
+            # refuses a cap below the Details count, against the locked rows.
+            serializer.recheck_lane_details_cap_under_lock(board)
             # Two-tier card links (#2208): refuse a flip that would invalidate
             # existing card links (#1104), decided against the locked row.
             # card_links.create_link takes this same board lock, so a flip and

@@ -12,7 +12,7 @@ deal. This is also the hosted demo's "Sales Territory (Overlay)" board: since
 keeping a second, hand-built copy (#1412).
 
 It has ten accounts and every 1.2 board feature in use: every custom field type on
-cards, fifteen swimlane fields (the per-board maximum, eight of them
+cards, fifteen swimlane fields (half the per-board maximum of 30, eight of them
 pinned to the row header, one admin-only), WIP and weight limits
 (Commercial deliberately one card over, as on every template), CRM links, archived wins and a full audit trail on every card.
 

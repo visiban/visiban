@@ -178,7 +178,7 @@ export function isLaneBuiltinField(v: unknown): v is LaneBuiltinField {
  * name; the built-in reads "Lane name (built-in)" instead, set here once so
  * the picker, chips and "Reads as" all agree.
  */
-export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmin: boolean): (T | LaneBuiltinFieldDef)[] {
+export function laneFilterFields<T extends FieldLike>(defs: readonly T[], isAdmin: boolean | undefined): (T | LaneBuiltinFieldDef)[] {
   const custom = defs
     .filter((d) => isRuleFieldType(d.field_type) && (isAdmin || !d.is_admin_only))
     .sort((a, b) => a.position - b.position);
@@ -357,7 +357,7 @@ function pruneRule(r: LaneRule, types: Map<LaneFieldKey, RuleFieldType>): LaneRu
   // that narrows the result rather than widening it; the stored state is
   // left as is, so an admin's own filter comes back if they regain the role.
   if (!t || !opsForFieldType(t).includes(r.op)) return null;
-  if (t === "dropdown" || t === "enum" || isTextRuleType(t)) return r;
+  if (t === "dropdown" || t === "enum" || t === "checkbox" || t === "multi_select" || isTextRuleType(t)) return r;
   const norm = t === "number" ? normalizeNumber : normalizeDate;
   const badMin = !!r.min && norm(r.min) === null;
   const badMax = !!r.max && norm(r.max) === null;

@@ -66,13 +66,13 @@ function setup(over: { activeCount?: number; filters?: FilterState; board?: Boar
 const open = async (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getByRole('button', { name: /^Filters/ }))
 
 describe('FilterPanel (#2301)', () => {
-  it('opens with Find a field focused, one row per field showing Any, and saved filters', async () => {
+  it('opens with the search input focused, one row per field showing Any, and saved filters', async () => {
     const u = userEvent.setup()
     setup()
     expect(screen.queryByRole('dialog')).toBeNull()
     await open(u)
     expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
     const rows = within(screen.getByRole('list', { name: 'Filterable fields' })).getAllByRole('button')
     expect(rows.map((r) => r.textContent)).toEqual([
       'SearchAny', 'AssigneeAny', 'LabelAny', 'PriorityAny', 'Due dateAny', 'BlockedAny',
@@ -82,14 +82,16 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('button', { name: 'My open work' })).toBeInTheDocument()
   })
 
-  it('Find a field narrows the rows and reports no match', async () => {
+  it('the search input narrows the rows and reports no match', async () => {
     const u = userEvent.setup()
     setup()
     await open(u)
-    await u.type(screen.getByRole('textbox', { name: 'Find a field' }), 'reg')
-    expect(screen.getAllByRole('button', { name: /Any$/ }).map((b) => b.textContent)).toEqual(['RegionAny'])
-    await u.clear(screen.getByRole('textbox', { name: 'Find a field' }))
-    await u.type(screen.getByRole('textbox', { name: 'Find a field' }), 'zzz')
+    await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'reg')
+    const rows = screen.getAllByRole('button', { name: /Any$/ })
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveAccessibleName('Card Region dropdown Any')
+    await u.clear(screen.getByRole('textbox', { name: 'Search fields and values to filter' }))
+    await u.type(screen.getByRole('textbox', { name: 'Search fields and values to filter' }), 'zzz')
     expect(screen.getByRole('status')).toHaveTextContent('No field matches "zzz"')
   })
 
@@ -287,7 +289,7 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     trigger.focus()
     await u.tab()
-    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
     screen.getByRole('button', { name: /Show filter bar/ }).focus()
     await u.tab()
     // Focus goes to the trigger and the native Tab then moves on to the next toolbar control.
@@ -351,7 +353,7 @@ describe('FilterPanel (#2301)', () => {
     expect(screen.queryByText(/No saved filters yet/)).toBeNull()
   })
 
-  it('Shift+Tab off Find a field closes the panel', async () => {
+  it('Shift+Tab off the search input closes the panel', async () => {
     const u = userEvent.setup()
     setup()
     await open(u)
@@ -388,7 +390,7 @@ describe('FilterPanel (#2301)', () => {
     const u = userEvent.setup()
     setup()
     await open(u)
-    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
     act(() => { window.dispatchEvent(new Event('resize')) })
     expect(screen.getByRole('dialog', { name: 'Filter' })).toBeInTheDocument()
     // Width change closes even with focus inside.
@@ -467,7 +469,7 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     expect(screen.getByRole('button', { name: 'Save filter' })).toHaveFocus()
   })
 
-  it('falls back to Find a field when the row goes away (Clear all with the filters prop updated)', async () => {
+  it('falls back to the search input when the row goes away (Clear all with the filters prop updated)', async () => {
     const u = userEvent.setup()
     function Wrapper() {
       const [f, setF] = useState<FilterState>(active)
@@ -483,7 +485,7 @@ describe('FilterPanel Filtered by row (#2315)', () => {
     await open(u)
     await u.click(screen.getByRole('button', { name: 'Clear all' }))
     expect(screen.queryByTestId('filter-panel-chips')).toBeNull()
-    expect(screen.getByRole('textbox', { name: 'Find a field' })).toHaveFocus()
+    expect(screen.getByRole('textbox', { name: 'Search fields and values to filter' })).toHaveFocus()
   })
 
   it('keeps focus in the panel when a chip is removed: the neighbor chip, then Clear all', async () => {
@@ -655,5 +657,199 @@ describe('FilterPanel on phones: one Filter button for filters and View (#2340)'
     expect(screen.getByRole('radio', { name: 'Any' }).closest('label')).toHaveClass('max-sm:min-h-11')
     await u.click(screen.getByRole('button', { name: /^Priority/ }))
     expect(screen.getAllByRole('checkbox')[0].closest('label')).toHaveClass('max-sm:min-h-11')
+  })
+})
+
+// #2437 — field and value search.
+describe('FilterPanel search (#2437)', () => {
+  const box = () => screen.getByRole('textbox', { name: 'Search fields and values to filter' })
+  const cv = (field_definition: number, value: string) => ({ field_definition, value })
+  const searchBoard = (role: string | null = 'admin') => makeBoard({
+    current_user_role: (role ?? undefined) as never,
+    cards: [
+      { id: 1, custom_field_values: [cv(7, 'EMEA')] },
+      { id: 2, custom_field_values: [cv(7, 'EMEA')] },
+      { id: 3, custom_field_values: [cv(7, 'APAC')] },
+    ] as never,
+    swimlanes: [
+      { id: 1, name: 'Acme', custom_field_values: [cv(50, 'gold'), cv(51, 'hunter2')] },
+      { id: 2, name: 'Bolt', custom_field_values: [cv(50, 'silver')] },
+    ] as never,
+    lane_details_cap: 6,
+    swimlane_custom_field_definitions: [
+      { id: 50, uid: 'a', name: 'Tier', field_type: 'dropdown', choices: ['gold', 'silver'], position: 0, show_on_row: false, is_admin_only: false, is_required: false, help_text: '', band_visibility: 'hidden' },
+      { id: 51, uid: 'b', name: 'Secret code', field_type: 'text', choices: [], position: 1, show_on_row: false, is_admin_only: true, is_required: false, help_text: '', band_visibility: 'band' },
+    ] as never,
+  })
+
+  it('is 520px wide with scope chips, the Esc keycap and the footer hint', async () => {
+    const u = userEvent.setup()
+    setup()
+    await open(u)
+    expect(screen.getByTestId('filter-panel').style.width).toBe('520px')
+    expect(screen.getByRole('button', { name: 'All fields' })).toHaveAttribute('aria-pressed', 'true')
+    await u.click(screen.getByRole('button', { name: 'Card fields' }))
+    expect(screen.getByRole('button', { name: 'Card fields' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'All fields' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Esc')).toBeInTheDocument()
+    expect(screen.getByText(/to jump/)).toBeInTheDocument()
+  })
+
+  it('lists matching values with counts and adds the filter on click', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'emea')
+    const row = screen.getByRole('button', { name: /Region is EMEA/ })
+    expect(row).toHaveTextContent('2 cards')
+    expect(screen.getByRole('button', { name: /Title contains .emea./ })).toBeInTheDocument()
+    await u.click(row)
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ customFields: { 7: { kind: 'choice', values: ['EMEA'] } } }))
+  })
+
+  it('a Hidden lane field is found by name and value and labeled (hidden on band)', async () => {
+    const u = userEvent.setup()
+    const { onChange, onOpenLaneFilters } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'gold')
+    const row = screen.getByRole('button', { name: /Tier is gold/ })
+    expect(row).toHaveTextContent('(hidden on band)')
+    expect(row).toHaveTextContent('1 lane')
+    await u.click(row)
+    expect(onChange.mock.calls[0][0].laneFilter.items[0]).toMatchObject({ field: 50, op: 'is', value: 'gold' })
+    await u.clear(box())
+    await u.type(box(), 'tier')
+    await u.click(screen.getByRole('button', { name: /Swimlane.*Tier/ }))
+    expect(onOpenLaneFilters).toHaveBeenCalled()
+  })
+
+  it('field:value applies with Enter', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'tier:silver{Enter}')
+    expect(onChange.mock.calls[0][0].laneFilter.items[0]).toMatchObject({ field: 50, value: 'silver' })
+  })
+
+  it('Enter with no value hit falls back to Title contains', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'zzz{Enter}')
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ search: 'zzz' }))
+  })
+
+  it('Enter on a lane-field name with no value hit opens swimlane filters, not a title search (#2437)', async () => {
+    const u = userEvent.setup()
+    const { onChange, onOpenLaneFilters } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'tier{Enter}')
+    expect(onOpenLaneFilters).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('Enter on a card-field name with no value hit opens that field\'s editor, not a title search (#2437)', async () => {
+    const u = userEvent.setup()
+    const { onChange } = setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'region{Enter}')
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /Region/ })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('arrow keys move across groups and back to the input', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'a')
+    await u.keyboard('{ArrowDown}')
+    const results = Array.from(document.querySelectorAll('[data-fp-result]')) as HTMLElement[]
+    expect(results.length).toBeGreaterThan(2)
+    expect(results[0]).toHaveFocus()
+    await u.keyboard('{ArrowDown}')
+    expect(results[1]).toHaveFocus()
+    await u.keyboard('{ArrowUp}{ArrowUp}')
+    expect(box()).toHaveFocus()
+  })
+
+  it('scope chips narrow the results', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'gold')
+    await u.click(screen.getByRole('button', { name: 'Card fields' }))
+    expect(screen.queryByRole('button', { name: /Tier is gold/ })).toBeNull()
+    await u.click(screen.getByRole('button', { name: 'Swimlane fields' }))
+    expect(screen.getByRole('button', { name: /Tier is gold/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Title contains/ })).toBeNull()
+  })
+
+  it('Escape clears the query first, then closes', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'emea')
+    await u.keyboard('{Escape}')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(box()).toHaveValue('')
+    expect(box()).toHaveFocus()
+    await u.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('Escape in the save-name input still cancels it before clearing the query', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard(), filters: { ...EMPTY_FILTER, blockedOnly: true }, onSaveFilter: vi.fn() })
+    await open(u)
+    await u.type(box(), 'emea')
+    await u.click(screen.getByRole('button', { name: 'Save filter' }))
+    await u.keyboard('{Escape}')
+    expect(screen.queryByPlaceholderText('Filter name')).toBeNull()
+    expect(box()).toHaveValue('emea')
+  })
+
+  it('a non-admin never sees an admin-only lane field name or value', async () => {
+    for (const role of ['member', 'viewer', null]) {
+      cleanup()
+      const u = userEvent.setup()
+      setup({ board: searchBoard(role) })
+      await open(u)
+      await u.type(box(), 'secret')
+      expect(screen.queryByText(/Secret code/), `name, role ${role}`).toBeNull()
+      await u.clear(box())
+      await u.type(box(), 'hunter2')
+      expect(screen.queryByRole('button', { name: /is hunter2/ }), `value, role ${role}`).toBeNull()
+      await u.clear(box())
+      await u.type(box(), 'secret code:hunter')
+      expect(screen.queryByText(/hunter2/)).toBeNull()
+    }
+  })
+
+  it('an admin sees the admin-only lane field', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard('admin') })
+    await open(u)
+    await u.type(box(), 'hunter2')
+    expect(screen.getByRole('button', { name: /Secret code is hunter2/ })).toBeInTheDocument()
+  })
+
+  it('field:value shows no false empty state and a Hidden lane name hit is labeled', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    await u.type(box(), 'tier:gold')
+    expect(screen.queryByText(/No field matches/)).toBeNull()
+    expect(screen.queryByText(/Fields matching/)).toBeNull()
+    await u.clear(box())
+    await u.type(box(), 'tier')
+    expect(screen.getByRole('button', { name: /Swimlane.*Tier.*hidden on band/ })).toBeInTheDocument()
+  })
+
+  it('an empty query shows the per-field rows and no result groups', async () => {
+    const u = userEvent.setup()
+    setup({ board: searchBoard() })
+    await open(u)
+    expect(screen.getByRole('button', { name: /^Region/ })).toBeInTheDocument()
+    expect(screen.queryByText(/Values matching/)).toBeNull()
   })
 })

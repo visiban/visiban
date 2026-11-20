@@ -320,7 +320,7 @@ class CsvCustomFieldImportTests(TestCase):
         before = Board.objects.count()
         for headers in (
             [f"Custom: F{i}" for i in range(31)],
-            [f"Swimlane Custom: F{i}" for i in range(16)],
+            [f"Swimlane Custom: F{i}" for i in range(31)],
         ):
             resp = self._post(
                 _csv(headers, ["A", "To Do", "Lane", *([""] * len(headers))])
@@ -337,8 +337,8 @@ class CsvCustomFieldImportTests(TestCase):
         )
         self._ok(
             _csv(
-                [f"Swimlane Custom: F{i}" for i in range(15)],
-                ["A", "To Do", "Lane", *([""] * 15)],
+                [f"Swimlane Custom: F{i}" for i in range(30)],
+                ["A", "To Do", "Lane", *([""] * 30)],
             )
         )
 

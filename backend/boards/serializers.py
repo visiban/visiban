@@ -32,6 +32,7 @@ from groups.serializers import (
     HEALTH_HISTORY_FIELDS, HEALTH_REVIEW_DAYS_HELP, HEALTH_REVIEW_FIELDS, HEALTH_STATUS_HELP, GroupBriefSerializer, HealthStatusFieldsMixin, HealthStatusListSerializer,
 )
 
+from .services import lane_field_tiers
 from .broadcast import (
     EVT_SWIMLANE_CREATED,
     EVT_SWIMLANE_REORDERED,
@@ -2432,6 +2433,21 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
     number_suffix = number_affix_field()
     number_decimals = number_decimals_field()
     choice_colors = ChoiceColorsField(required=False)
+    # #2439. Optional and nullable: an older client that never sends it keeps
+    # working, and NULL ("derived from position") is a value every pre-#2439
+    # row already holds. Not on the card-level serializer: cards have no band.
+    band_visibility = serializers.ChoiceField(
+        choices=SwimlaneCustomFieldDefinition.BandVisibility.choices,
+        allow_null=True,
+        required=False,
+        help_text=(
+            "Where the field shows on a lane band: 'band' (always visible, at "
+            "most 2), 'details' (behind Show N more, at most the board's "
+            "lane_details_cap) or 'hidden' (listed last in lane details). "
+            "null = derived from position; the first write that sets a tier "
+            "materializes every null row on the board."
+        ),
+    )
 
     class Meta:
         model = SwimlaneCustomFieldDefinition
@@ -2439,7 +2455,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "id", "uid", "name", "field_type", "choices", "position",
             "show_on_row", "is_admin_only", "is_required", "help_text",
             "number_prefix", "number_suffix", "number_decimals", "choice_colors",
-            "created_at",
+            "band_visibility", "created_at",
         ]
         read_only_fields = ["id", "uid", "position", "created_at"]
         # Schema-only (#1077): class token without a model help_text migration.
@@ -2498,6 +2514,14 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         validate_choice_colors(attrs, instance, field_type)
 
         board = self.context.get("board") or (instance.board if instance else None)
+        if "band_visibility" in attrs and not self.context.get("tiers_checked_by_caller"):
+            # #1075: the tier rule needs the board to count against, so a
+            # submitted tier with no board raises instead of passing. The JSON
+            # import validates a not-yet-created batch and opts out with the
+            # explicit marker, checking the whole list itself.
+            lane_field_tiers.assert_band_tiers(
+                board, instance=instance, band_visibility=attrs["band_visibility"]
+            )
         if board is not None:
             # Same reason as the card-level serializer: `board` is not a
             # serializer field, so DRF's UniqueTogetherValidator cannot reach
@@ -4224,7 +4248,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4360,6 +4384,23 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             )
         except serializers.ValidationError as exc:
             raise serializers.ValidationError({"group": exc.detail})
+
+    def recheck_lane_details_cap_under_lock(self, board):
+        """Apply a ``lane_details_cap`` change under the board row lock (#2439).
+
+        Materializes a legacy board's tiers with the new cap, then refuses a cap
+        below the Details count. Under the lock because a definition PATCH
+        moving a field into Details takes the same board row first, so the
+        count read here cannot change before ``save()``. A failure is a 400 and
+        rolls the materialization (and its deferred events) back.
+        """
+        new_cap = self.validated_data.get("lane_details_cap")
+        if new_cap is None or new_cap == board.lane_details_cap:
+            return
+        request = self.context.get("request")
+        lane_field_tiers.recheck_lane_details_cap(
+            board, new_cap, actor_id=getattr(getattr(request, "user", None), "id", None)
+        )
 
     def recheck_rollup_field_under_lock(self, board):
         """Re-read the chosen rollup field under the board row lock (#2275).
@@ -4716,7 +4757,7 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count", "share_link_active",
             "health_status", "effective_health_status", "health_status_source",
             *HEALTH_HISTORY_FIELDS,

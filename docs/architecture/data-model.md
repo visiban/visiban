@@ -118,7 +118,7 @@ Board
  ├── Swimlane  (uid, position, color, is_collapsed)
  ├── Label  (uid, name, color)
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required, is_dimension + choice_resolutions 1.3+ — max 30/board)
- ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
+ ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 30/board (15 before 1.3))
  ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
  └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
       └── BoardInviteRedemption → User  (role_granted, membership_created, via — join | registration; unique per invite+user)
@@ -338,7 +338,7 @@ Both definition models also carry `choice_colors` (`jsonb`, `NOT NULL`, default 
 - Values are palette *keys* (`slate`, `blue`, `green`, `amber`, `red`, `violet`, `pink`, `teal`; `CHOICE_COLOR_KEYS` in `boards/custom_field_types.py`) or, since 1.3 (#2096, superseding #1391's "never hex"), a custom `#RRGGBB` hex stored upper-case. The frontend owns light/dark rendering: a key has a recorded pair, and a hex gets one derived by the contrast helper. Widening the accepted values needed no migration.
 - The serializer prunes keys that are no longer choices on every write (renaming a choice drops its color) and clears the map when a definition is retyped away from a choice type.
 
-The same shape exists for swimlanes: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 15 definitions and 3 pinned per board. A swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator, so existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
+The same shape exists for swimlanes: `SwimlaneCustomFieldDefinition` / `SwimlaneCustomFieldValue` (#1140), capped at 30 definitions (15 before 1.3) and 3 pinned per board. A swimlane typically represents an account or project, so it carries fewer, richer fields than a card. It is a separate pair of tables rather than a `target_type` discriminator, so existing 1.0 response shapes (`BoardFullSerializer`, the CSV export header, the per-board cap count) never filter for scope. `is_admin_only` (default `true`) restricts a row field's values to board admins, reusing the `SwimlaneSerializer` / `SwimlaneAdminSerializer` split.
 
 ### CardRelation
 

@@ -25,6 +25,7 @@ const MARGIN = def(3, 'Margin', 'number', { is_admin_only: true })
 const NOTES = def(4, 'Notes', 'text')
 const SIGNED = def(5, 'Signed', 'checkbox')
 const SITE = def(6, 'Site', 'url')
+const REGIONS = def(7, 'Pricing regions', 'multi_select', { choices: ['EMEA', 'APAC'] })
 
 const swimlane = (id: number, vals: Record<number, string>): Swimlane => ({
   id, uid: `sl${id}`, name: `Lane ${id}`, position: id, color: '', is_collapsed: false, created_at: '',
@@ -44,7 +45,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[] = [AE, DEAL, MARGIN], r
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false,
-    show_row_chip_field_names: true, export_min_role: 'viewer', card_density: 'comfortable', is_starred: false,
+    show_row_chip_field_names: true, lane_details_cap: 6, export_min_role: 'viewer', card_density: 'comfortable', is_starred: false,
     created_at: '', updated_at: '', current_user_role: role, owner: fakeUser, capabilities: { movement_export: false },
     share_token: null, share_token_expires_at: null, share_link_active: false,
     custom_field_definitions: [], swimlane_custom_field_definitions: defs,
@@ -73,8 +74,8 @@ const openPopover = async (user: ReturnType<typeof userEvent.setup>) => {
 }
 
 describe('Lanes trigger', () => {
-  it('is hidden when the viewer has no dropdown/number/date/text/url swimlane field', () => {
-    render(<Harness board={makeBoard([SIGNED, MARGIN], 'member')} />)
+  it('is hidden when the viewer can rule on no swimlane field (admin-only ones hidden)', () => {
+    render(<Harness board={makeBoard([MARGIN], 'member')} />)
     expect(screen.queryByRole('button', { name: /^Lanes(, \d+ active)?$/ })).not.toBeInTheDocument()
   })
 
@@ -144,6 +145,36 @@ describe('LaneFilterPopover', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lanes, 1 active' })).toHaveFocus()
+  })
+
+  it('builds a checkbox rule with Yes or No and a multi-select rule with an entry (#2438)', async () => {
+    const user = userEvent.setup()
+    const onState = vi.fn()
+    render(<Harness board={makeBoard([SIGNED, REGIONS], 'member')} onState={onState} />)
+    const dialog = await openPopover(user)
+    await user.click(within(dialog).getByRole('button', { name: '+ Add filter' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 field/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'Signed' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'Yes' }))
+    expect(screen.getByText('Reads as: Signed: Yes')).toBeInTheDocument()
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 5, op: 'is', value: 'true' })
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 field/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'Pricing regions' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 operator/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'is not' }))
+    await user.click(within(dialog).getByRole('button', { name: /^Filter 1 value/ }))
+    await user.click(within(dialog).getByRole('menuitem', { name: 'EMEA' }))
+    expect(screen.getByText('Reads as: Pricing regions: not EMEA')).toBeInTheDocument()
+    expect(onState.mock.calls.at(-1)![0].laneFilter.items[0]).toMatchObject({ field: 7, op: 'is_not', value: 'EMEA' })
+  })
+
+  it('shows a checkbox lane rule as a Lanes chip', () => {
+    const lf: LaneFilter = { items: [rule(1, 5, 'is', { value: 'true' })] }
+    render(<Harness initial={lf} board={makeBoard([SIGNED], 'member')} />)
+    const chip = document.querySelector('[data-lane-chip]') as HTMLElement
+    expect(chip).toHaveTextContent('Lanes')
+    expect(chip).toHaveTextContent('Signed: Yes')
   })
 
   it('does not offer admin-only fields to a non-admin', async () => {

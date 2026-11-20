@@ -1,0 +1,35 @@
+{
+  "_comment": "Swimlane field tier resolution (#2439). Shared by backend boards/tests/test_lane_field_tiers_2439.py (resolve_tiers in boards/services/lane_field_tiers.py) and frontend src/test/laneFieldTiersParity.test.ts (resolveLaneTiers in src/utils/laneBand.ts), so a rule change on one side fails CI until the other follows. Each case lists definitions as [id, position, band_visibility] and the expected tier per id.",
+  "cases": [
+    {
+      "name": "empty board",
+      "cap": 6,
+      "defs": [],
+      "expected": {}
+    },
+    {
+      "name": "legacy: first two by position are band, the rest details, uncapped",
+      "cap": 4,
+      "defs": [[3, 2, null], [1, 0, null], [2, 1, null], [4, 3, null], [5, 4, null], [6, 5, null], [7, 6, null]],
+      "expected": {"1": "band", "2": "band", "3": "details", "4": "details", "5": "details", "6": "details", "7": "details"}
+    },
+    {
+      "name": "materialized: explicit tiers win over position",
+      "cap": 6,
+      "defs": [[1, 0, "hidden"], [2, 1, "details"], [3, 2, "band"], [4, 3, "band"]],
+      "expected": {"1": "hidden", "2": "details", "3": "band", "4": "band"}
+    },
+    {
+      "name": "mixed: a null row is never band and fills details up to the cap",
+      "cap": 4,
+      "defs": [[1, 0, null], [2, 1, "band"], [3, 2, "details"], [4, 3, "details"], [5, 4, null], [6, 5, null]],
+      "expected": {"1": "details", "2": "band", "3": "details", "4": "details", "5": "details", "6": "hidden"}
+    },
+    {
+      "name": "mixed: details already full sends a null row to hidden",
+      "cap": 4,
+      "defs": [[1, 0, "details"], [2, 1, "details"], [3, 2, "details"], [4, 3, "details"], [5, 4, null]],
+      "expected": {"1": "details", "2": "details", "3": "details", "4": "details", "5": "hidden"}
+    }
+  ]
+}

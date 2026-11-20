@@ -56,6 +56,7 @@ from ..serializers import (
     SwimlaneCustomFieldDefinitionSerializer, _normalize_custom_field_value,
     _run_custom_field_validator_hooks, _swimlane_custom_field_values,
 )
+from ..services import lane_field_tiers
 from ..services import trello_import as _trello
 from ..import_errors import ImportErrorCode, fallback_code
 from ..import_schemas import (
@@ -491,7 +492,10 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
     for i, entry in enumerate(raw):
         if not isinstance(entry, dict):
             return None, f"'{list_name}' entry at index {i} must be an object."
-        ser = serializer_class(data=entry)
+        # The tier rule (#2439) needs a board to count against and raises
+        # without one (#1075); this batch has none yet, so it opts out with the
+        # explicit marker and _validate_import_lane_tiers checks the whole list.
+        ser = serializer_class(data=entry, context={"tiers_checked_by_caller": True})
         if not ser.is_valid():
             # DRF messages can quote the value ('"x" is not a valid choice'),
             # so the message is bounded like every other echo (#1507).
@@ -508,6 +512,39 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
             f"at most {model.MAX_PINNED_PER_BOARD} are allowed."
         )
     return validated, None
+
+
+def _validate_import_lane_tiers(swimlane_field_defs, raw_cap):
+    """Return ``(lane_details_cap, error_detail)`` for a JSON import (#2439).
+
+    The batch-wide half of ``assert_band_tiers``: at most two Band and at most
+    the cap in Details, over the whole list in file order (its position). An
+    export from before #2439 carries neither key, so every row imports NULL
+    (a legacy board) and the cap is the default.
+    """
+    from boards.models import Board
+
+    allowed = [value for value, _label in Board.LANE_DETAILS_CAP_CHOICES]
+    if raw_cap is None:
+        cap = Board._meta.get_field("lane_details_cap").default
+    elif not isinstance(raw_cap, int) or isinstance(raw_cap, bool) or raw_cap not in allowed:
+        # Strict int: 6.0 == 6 would otherwise pass and reach the column as a float.
+        return None, f"'lane_details_cap' must be one of {allowed}."
+    else:
+        cap = raw_cap
+    rows = [
+        {"id": i, "position": i, "band_visibility": attrs.get("band_visibility")}
+        for i, attrs in enumerate(swimlane_field_defs)
+    ]
+    if lane_field_tiers.is_legacy(rows):
+        return cap, None
+    try:
+        lane_field_tiers.check_tier_counts(
+            lane_field_tiers.resolve_tiers(rows, cap).values(), cap
+        )
+    except drf_serializers.ValidationError as exc:
+        return None, f"'swimlane_custom_fields': {_flatten_serializer_errors(exc.detail)}"
+    return cap, None
 
 
 def _import_field_values(raw, definitions_by_name, hook_name):
@@ -2141,6 +2178,11 @@ class BoardImportExportMixin:
         )
         if _err:
             return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        lane_details_cap, _err = _validate_import_lane_tiers(
+            swimlane_field_defs, data.get("lane_details_cap")
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
         # Stage tracks and lane exceptions (#1921) name dimension fields of
         # this file's ``custom_fields``, the way a card's column names a column.
         _dimension_names = {d["name"] for d in card_field_defs if d.get("is_dimension")}
@@ -2175,6 +2217,7 @@ class BoardImportExportMixin:
                 description=data.get("description", ""),
                 owner=request.user,
                 group=group,
+                lane_details_cap=lane_details_cap,
             )
             BoardMembershipModel.objects.create(
                 board=board, user=request.user, role=BoardMembershipModel.Role.ADMIN
@@ -3243,6 +3286,8 @@ class BoardImportExportMixin:
                 obj.name: obj
                 for obj in SwimlaneCustomFieldDefinition.objects.bulk_create(
                     [
+                        # CSV carries no tier columns, so band_visibility
+                        # stays NULL: a legacy board (#2439).
                         SwimlaneCustomFieldDefinition(board=board, position=i, **attrs)
                         for i, attrs in enumerate(lane_field_defs)
                     ]
@@ -3460,6 +3505,7 @@ class BoardImportExportMixin:
                         "schema_version": drf_serializers.IntegerField(),
                         "name": drf_serializers.CharField(),
                         "description": drf_serializers.CharField(),
+                        "lane_details_cap": drf_serializers.IntegerField(),
                         "columns": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlanes": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "labels": drf_serializers.ListField(child=drf_serializers.DictField()),
@@ -3773,6 +3819,8 @@ class BoardImportExportMixin:
                 "schema_version": 2,
                 "name": board.name,
                 "description": board.description,
+                # #2439. Additive key; an import of an export without it uses the default.
+                "lane_details_cap": board.lane_details_cap,
                 "columns": [
                     {
                         "name": col.name,
@@ -3889,6 +3937,8 @@ class BoardImportExportMixin:
                         "number_decimals": sf.number_decimals,
                         # Per-choice display colors (#1391); see above.
                         "choice_colors": sf.choice_colors,
+                        # #2439; null on a board whose tiers were never set.
+                        "band_visibility": sf.band_visibility,
                     }
                     for sf in swimlane_field_definitions
                 ],
