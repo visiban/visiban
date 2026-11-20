@@ -451,8 +451,8 @@ only need), the kind/Compose drills, and the scheduled-only long jobs (`backend-
 `scripts/tests/ci-interruptible.test.sh` enforces the list. A non-interruptible job whose
 `needs:` were canceled is skipped. For the `main` image pushes, that means a superseded
 commit gets no `:<short-sha>` image, and the newer pipeline moves `:main` forward. Tag
-pipelines are unique refs and are never superseded. A scheduled pipeline never cancels
-another pipeline (`workflow:rules` sets `on_new_commit: none` for it).
+pipelines are unique refs and are never superseded. A newer commit never cancels a
+scheduled pipeline (`workflow:rules` sets `on_new_commit: none` on it).
 
 **What to do:** nothing for an MR. For `main`, read the **newest** `main` push pipeline's
 required jobs, not "every `main` pipeline is green". `/mass_merge`'s post-merge gate does that.

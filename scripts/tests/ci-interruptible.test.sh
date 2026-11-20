@@ -45,7 +45,9 @@ REQUIRED_FALSE = [
 # Script markers of an external write. Comment lines are ignored.
 PUBLISH_MARKERS = re.compile(
     r"--destination[= ]|helm push|git push|cosign (sign|attest)|--file-issues|"
-    r"sonar-scanner|manifest-tool .*push|crane (copy|cp|tag)"
+    r"sonar-scanner|manifest-tool .*push|crane (copy|cp|tag)|"
+    r"gh release|mike deploy|glab (api|release|issue|mr)|"
+    r"curl\b.*(-X|--request)[ =]*(POST|PUT|PATCH|DELETE)|release-cli|kubectl (apply|delete)"
 )
 
 text = open(sys.argv[1]).read().split("\n")
@@ -164,5 +166,12 @@ fail_case "new publishing job without the override is caught" "$WORK/new-job.yml
 # ...and passes once it opts out.
 { cat "$CI"; printf '\nnew-publisher:\n  stage: deploy\n  interruptible: false\n  script:\n    - /kaniko/executor --destination=registry.example/x:y\n'; } > "$WORK/new-job-ok.yml"
 pass_case "new publishing job with interruptible: false passes" "$WORK/new-job-ok.yml"
+
+# A job using a newer publish shape (gh release) without the override.
+{ cat "$CI"; printf '\nnew-releaser:\n  stage: deploy\n  script:\n    - gh release create v0 --notes x\n'; } > "$WORK/new-gh.yml"
+fail_case "new gh release job without the override is caught" "$WORK/new-gh.yml" "new-releaser: script publishes"
+
+{ cat "$CI"; printf '\nnew-releaser:\n  stage: deploy\n  interruptible: false\n  script:\n    - gh release create v0 --notes x\n'; } > "$WORK/new-gh-ok.yml"
+pass_case "new gh release job with interruptible: false passes" "$WORK/new-gh-ok.yml"
 
 exit "$fail"

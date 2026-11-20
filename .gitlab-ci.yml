@@ -167,7 +167,8 @@ workflow:
   #   * Tag pipelines are unique refs, so nothing supersedes them.
   #   * Scheduled pipelines also run on main. Their long scheduled-only jobs
   #     (mutation, nightly load test, deep fuzz, sonar) are non-interruptible,
-  #     and a scheduled pipeline never cancels anything itself (rule below).
+  #     and a newer commit never cancels a scheduled pipeline (the rule below
+  #     sets `on_new_commit: none` on it).
   auto_cancel:
     on_new_commit: interruptible
   rules:
