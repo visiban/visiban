@@ -1294,7 +1294,7 @@ Board admins only (`403` for members, `404` for callers without board access). S
 
 Response: `{"column": <Column>, "remapped": [{"id", "gates_passed", "version"}]}`. The same `remapped` list rides the `column_updated` WebSocket event; changed lanes emit `swimlane_updated`.
 
-Archived cards in the column are remapped too, since they keep `gates_passed`. The remap writes its gate transitions in one insert and its cards in one update, so a save runs a constant number of queries however many cards the stage holds (#2362).
+Archived cards in the column are remapped too, since they keep `gates_passed`. The remap writes its gate transitions in one insert and its cards in one update per target sub-column (at most four), so a save runs a constant number of queries however many cards the stage holds (#2362).
 
 ### `GET /api/v1/boards/{board_id}/columns/{column_id}/stage-card-counts/`
 

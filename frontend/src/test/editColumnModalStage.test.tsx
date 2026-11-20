@@ -83,6 +83,7 @@ describe('EditColumnModal Stage tab (#2278)', () => {
     expect(await screen.findByText('Stage saved. Your Settings and Policy changes are not saved yet.')).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
     expect(onUpdated).not.toHaveBeenCalled()
+    expect(screen.getByRole('tab', { name: 'Stage' })).toHaveFocus()
     // The panel reseeds from the saved stage, so a second save sends its rows.
     expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Building')
     fireEvent.click(screen.getByRole('tab', { name: 'Settings' }))

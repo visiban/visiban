@@ -123,11 +123,15 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     const k = t.name.trim().toLowerCase();
     trackNameCounts.set(k, (trackNameCounts.get(k) ?? 0) + 1);
   }
+  // Only the rows the shown message covers are marked invalid: an empty name
+  // is reported first, so duplicates are marked once every row has a name.
+  const anyEmptyTrack = tracks.some((t) => !t.name.trim());
   const trackInvalid = (t: TrackRow) => {
     const k = t.name.trim().toLowerCase();
-    return k === "" || (trackNameCounts.get(k) ?? 0) > 1 || otherFieldNames.has(k);
+    if (anyEmptyTrack) return k === "";
+    return (trackNameCounts.get(k) ?? 0) > 1 || otherFieldNames.has(k);
   };
-  const trackError = tracks.some((t) => !t.name.trim())
+  const trackError = anyEmptyTrack
     ? "Every track needs a name."
     : tracks.some(trackInvalid)
       ? "Track names must be different from each other and from the board's other fields."
@@ -256,6 +260,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     if (!canSave) return;
     setSaving(true);
     setError(null);
+    let renamedAny = false;
     try {
       // Renamed tracks PATCH their field first (#2382): values and lane
       // exceptions are keyed by field id, so a rename keeps every state.
@@ -264,6 +269,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
         if (t.fieldId === undefined || t.name.trim() === t.savedName) continue;
         await updateCustomFieldDefinition(boardId, t.fieldId, { name: t.name.trim() });
         renamed.set(t.key, t.name.trim());
+        renamedAny = true;
       }
       // A retry after a later failure does not PATCH the same rename again.
       if (renamed.size) setTracks((prev) => prev.map((t) => (renamed.has(t.key) ? { ...t, savedName: renamed.get(t.key) } : t)));
@@ -292,7 +298,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
       const res = await saveColumnStage(boardId, column.id, body);
       onSaved({ ...res.column, remapped: res.remapped });
     } catch (err) {
-      setError(stageErrorMessage(err));
+      // A rename is its own request and has already landed: say so.
+      setError(renamedAny ? `Track names were saved. ${stageErrorMessage(err)}` : stageErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -300,7 +307,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
 
   const INPUT = "w-full max-sm:min-h-11 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted disabled:opacity-60";
   const LINK_BUTTON = "text-sm text-info px-1 py-1 max-sm:min-h-11 max-sm:px-2 hover:underline disabled:text-fg-muted disabled:no-underline disabled:cursor-not-allowed aria-disabled:text-fg-muted aria-disabled:no-underline aria-disabled:cursor-not-allowed rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
-  const ARROW = "shrink-0 h-8 w-8 max-sm:h-11 max-sm:w-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+  const ARROW = "shrink-0 transition h-8 w-8 max-sm:h-11 max-sm:w-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
   const REMOVE = "shrink-0 h-8 max-sm:h-11 px-2 text-xs text-fg-secondary hover:text-danger hover:bg-surface-hover rounded disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
   const laneName = (id: number) => swimlanes.find((l) => l.id === id)?.name ?? "Deleted swimlane";
   const trackName = (key: string) => tracks.find((t) => t.key === key)?.name ?? "";
@@ -330,7 +337,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           <p className="mt-0.5 text-xs text-fg-tertiary">One WIP limit covers the whole stage. Time in the last sub-column is recorded as waiting.</p>
           <ol className="mt-2 flex flex-col gap-1.5">
             {subs.map((s, i) => (
-              <li key={s.key} className="flex items-center gap-2">
+              <li key={s.key} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                 <span aria-hidden="true" className="w-4 text-right text-xs tabular-nums text-fg-tertiary">{i + 1}</span>
                 <input
                   aria-label={`Sub-column ${i + 1} name`}
@@ -340,7 +347,8 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   aria-invalid={subError ? true : undefined}
                   aria-describedby={subError ? `${uid}-suberr` : undefined}
                   onChange={(e) => setSubs((prev) => prev.map((r) => (r.key === s.key ? { ...r, name: e.target.value } : r)))}
-                  className={INPUT}
+                  // At phone width the input keeps its own line and the buttons wrap below it.
+                  className={`${INPUT} max-sm:basis-[calc(100%-1.5rem)] sm:flex-1`}
                 />
                 <button
                   type="button"
@@ -389,7 +397,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           </div>
           {atMax && <p id={`${uid}-max`} className="mt-1 text-xs text-fg-tertiary">A stage has at most four sub-columns.</p>}
           {subs.length > 0 && atMin && <p id={`${uid}-min`} className="mt-1 text-xs text-fg-tertiary">A stage needs at least two sub-columns, or none. Use Remove all sub-columns to make it a plain column.</p>}
-          {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it. Moving a sub-column takes its cards with it.</p>}
+          {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it in the saved order. Moving a sub-column takes its cards with it.</p>}
           {consequences.length > 0 && (
             <ul data-testid="stage-consequences" className="mt-2 rounded border border-line bg-surface-sunken px-3 py-2 text-xs text-fg-secondary">
               {consequences.map((line) => <li key={line}>{line}</li>)}
@@ -410,7 +418,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                   value={t.name}
                   maxLength={100}
                   aria-invalid={trackInvalid(t) || undefined}
-                  aria-describedby={trackInvalid(t) && trackError ? `${uid}-trackerr` : undefined}
+                  aria-describedby={trackInvalid(t) ? `${uid}-trackerr` : undefined}
                   onChange={(e) => setTracks((prev) => prev.map((r) => (r.key === t.key ? { ...r, name: e.target.value } : r)))}
                   className={INPUT}
                 />

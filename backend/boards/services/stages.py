@@ -14,7 +14,7 @@ this save waited; the attempt is retried when that happens.
 """
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 
 from visiban.request_shape import id_in_db_range
 
@@ -280,7 +280,7 @@ def _save_stage_attempt(*, actor, board, column_id, data):
                     existing.position, existing.name = idx, name
                     new_subs.append(existing)
             # Bulk writes (#2362): one INSERT for every transition and one
-            # UPDATE for every remapped card, so the column lock is held for a
+            # UPDATE per target sub-column for the remapped cards, so the column lock is held for a
             # constant number of queries however many cards the stage holds.
             # The cards were locked first above, so lock order is unchanged.
             transitions, updated = [], []
@@ -305,8 +305,16 @@ def _save_stage_attempt(*, actor, board, column_id, data):
                 remapped.append({"id": card.pk, "gates_passed": new, "version": card.version})
             if transitions:
                 CardGateTransition.objects.bulk_create(transitions)
-            if updated:
-                Card.objects.bulk_update(updated, ["gates_passed", "version"])
+            # One conditional UPDATE per target index rather than bulk_update's
+            # CASE chain (a statement that grows with the card count, and that
+            # SQLite splits at its parameter limit). Every remapped card's
+            # version goes up by one, so only gates_passed differs, and a stage
+            # has at most four sub-columns: at most four UPDATEs.
+            by_target = {}
+            for card in updated:
+                by_target.setdefault(card.gates_passed, []).append(card.pk)
+            for new, pks in sorted(by_target.items()):
+                Card.objects.filter(pk__in=pks).update(gates_passed=new, version=F("version") + 1)
 
         if "tracks" in data:
             fields = _clean_tracks(board, data["tracks"])

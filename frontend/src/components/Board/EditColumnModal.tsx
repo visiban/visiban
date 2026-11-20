@@ -77,7 +77,6 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   // a second Save stage sends the new sub-column ids, not the old rows.
   const [pendingStage, setPendingStage] = useState<(Column & { remapped?: StageRemap[] }) | null>(null);
   const [stageKey, setStageKey] = useState(0);
-  const [stageSavedNote, setStageSavedNote] = useState("");
   // Save stage closes the modal only when no Settings or Policy edit is unsaved.
   const otherTabsDirty = name !== column.name || color !== column.color
     || wipLimit !== (column.wip_limit?.toString() ?? "") || weightLimit !== (column.weight_limit?.toString() ?? "")
@@ -138,8 +137,13 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
     }
     setPendingStage((prev) => ({ ...saved, remapped: [...(prev?.remapped ?? []), ...(saved.remapped ?? [])] }));
     setStageKey((k) => k + 1);
-    setStageSavedNote("Stage saved. Your Settings and Policy changes are not saved yet.");
   };
+  // Derived, so it clears if the other drafts are reverted.
+  const stageSavedNote = pendingStage && otherTabsDirty ? "Stage saved. Your Settings and Policy changes are not saved yet." : "";
+  // The remount destroys the focused Save stage button: put focus on the Stage tab.
+  useEffect(() => {
+    if (stageKey > 0) tabRefs.current.get("stage")?.focus();
+  }, [stageKey]);
 
   const handleSave = async () => {
     if (!name.trim()) return;

@@ -257,7 +257,7 @@ describe('StageSettingsPanel follow-ups (#2368, #2382)', () => {
     fireEvent.change(input, { target: { value: '  Engineering ' } })
     expect(screen.getByText('APAC: Engineering is not applicable')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Save stage' }))
-    await screen.findByText(/didn't save/)
+    expect(await screen.findByText(/didn't save/)).toHaveTextContent(/^Track names were saved\./)
     expect(mockRename).toHaveBeenCalledWith(9, 41, { name: 'Engineering' })
     expect(mockSave).toHaveBeenCalledWith(9, 5, {
       sub_columns: [{ id: 11, name: 'Doing' }, { id: 12, name: 'Ready' }],

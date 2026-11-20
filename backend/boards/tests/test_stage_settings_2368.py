@@ -12,6 +12,7 @@
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
@@ -184,6 +185,35 @@ class StageCardCountsTests(_StageBase):
         BoardMembership.objects.create(board=self.board, user=member, role="member")
         self.client.force_authenticate(member)
         self.assertEqual(self.client.get(self.counts_url()).status_code, 403)
+
+    def test_viewer_gets_403(self):
+        viewer = User.objects.create_user(username="viewer2368", password="pass")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        self.client.force_authenticate(viewer)
+        self.assertEqual(self.client.get(self.counts_url()).status_code, 403)
+
+    def test_site_admin_without_membership_gets_200(self):
+        su = User.objects.create_user(
+            username="su2368", password="pass", is_superuser=True, is_staff=True,
+        )
+        self.client.force_authenticate(su)
+        resp = self.client.get(self.counts_url())
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data["sub_columns"]), 3)
+
+    def test_read_scope_token_keeps_the_owners_role(self):
+        # A token acts as its owner: read scope reaches the GET, and the
+        # admin-only role check still applies under token auth.
+        from accounts.models import SCOPE_READ, PersonalAccessToken
+
+        _, admin_raw = PersonalAccessToken.generate(self.user, "ro", scopes=[SCOPE_READ])
+        member = User.objects.create_user(username="patmember2368", password="pass")
+        BoardMembership.objects.create(board=self.board, user=member, role="member")
+        _, member_raw = PersonalAccessToken.generate(member, "ro", scopes=[SCOPE_READ])
+        client = APIClient()
+        url = self.counts_url()
+        self.assertEqual(client.get(url, HTTP_AUTHORIZATION=f"Token {admin_raw}").status_code, 200)
+        self.assertEqual(client.get(url, HTTP_AUTHORIZATION=f"Token {member_raw}").status_code, 403)
 
     def test_non_member_gets_404(self):
         stranger = User.objects.create_user(username="stranger2368", password="pass")

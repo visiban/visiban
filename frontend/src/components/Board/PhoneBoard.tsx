@@ -441,7 +441,6 @@ export default function PhoneBoard({
             type="button"
             data-testid="phone-column-stage-settings"
             aria-label={`Stage settings for ${column.name}`}
-            aria-haspopup="dialog"
             onClick={() => setEditTab("stage")}
             className={ACTION_BTN}
           >
