@@ -341,7 +341,7 @@ On an instance that requires verified email addresses (`EMAIL_VERIFICATION=manda
 
 ## WIP limits and hard enforcement
 
-WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board Settings → Rules → Enforce WIP hard**, moves into, new cards in, and restores into a full column are blocked for everyone — including board admins and site admins. The move, create, and restore APIs return `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
+WIP limits can now be configured in two modes: **soft** (advisory, admins can override) or **hard** (strict, no override for any role). When hard enforcement is enabled in **Board settings → Rules & limits → Enforce WIP hard**, moves into, new cards in, and restores into a full column are blocked for everyone — including board admins and site admins. The move, create, and restore APIs return `409` with code `wip_hard_blocked`, and the board shows a `⛔` toast rather than the `⚠` used for soft blocks.
 
 Weight limits work the same way: the corresponding **Enforce weight limits** setting blocks moving, creating, or restoring a card that would push a column's total weight over its budget, and raising a card's weight past it.
 

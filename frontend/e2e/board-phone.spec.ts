@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
 
@@ -724,9 +724,9 @@ test.describe('phone settings toggles (#2378)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.keyboard.press('Control+,')
-    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    const dialog = page.getByRole('dialog', { name: 'Board settings' })
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: 'Rules' }).dispatchEvent('click')
+    await pickSettingsSection(dialog, 'Rules')
     await expect(dialog.getByRole('switch').first()).toBeVisible()
     const sizes = await dialog.getByRole('switch').evaluateAll((els) => els.map((el) => {
       const r = el.getBoundingClientRect()
@@ -902,6 +902,14 @@ test.describe('phone card detail header (#2401)', () => {
   })
 })
 
+// #2436: at phone width the grouped sidebar is a "Section" select; pick a section by the start of its label.
+async function pickSettingsSection(dialog: Locator, name: string) {
+  const select = dialog.getByLabel('Section')
+  const value = await select.locator('option').filter({ hasText: new RegExp(`^${name}`) }).first().getAttribute('value')
+  await select.selectOption(value!)
+  await expect(select).toHaveValue(value!)
+}
+
 // #2404: every control in Board settings, on every tab, is 44px at 390px (no carve-outs).
 test.describe('phone board settings modal (#2404)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
@@ -912,12 +920,11 @@ test.describe('phone board settings modal (#2404)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.keyboard.press('Control+,')
-    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    const dialog = page.getByRole('dialog', { name: 'Board settings' })
     await expect(dialog).toBeVisible()
-    const tabs = ['Members', 'Display', 'Rules', 'Card fields', 'Swimlane fields', 'Sharing', 'Webhooks', 'Data']
+    const tabs = ['Members', 'Display', 'Rules', 'Card fields', 'Swimlane fields', 'Sharing', 'Webhooks', 'Export', 'Danger zone']
     for (const t of tabs) {
-      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
-      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
+      await pickSettingsSection(dialog, t)
       expect(await smallControls(page, ['[role="dialog"]']), `tab ${t}`).toEqual([])
       // Reachable sub-states: an open SelectDropdown menu (its options are measured too).
       const trigger = dialog.locator('[aria-haspopup="listbox"]:not([disabled])').first()
@@ -940,12 +947,9 @@ test.describe('phone board settings modal (#2404)', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.keyboard.press('Control+,')
-    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    const dialog = page.getByRole('dialog', { name: 'Board settings' })
     await expect(dialog).toBeVisible()
-    const openTab = async (t: string) => {
-      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
-      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
-    }
+    const openTab = (t: string) => pickSettingsSection(dialog, t)
 
     // Members: the Add member form (typing opens the search and the staged-invite controls) and the remove confirm.
     await openTab('Members')

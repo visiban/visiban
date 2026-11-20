@@ -58,8 +58,8 @@ The column grid is one CSS grid template shared by the header row, every lane's 
 Screenshots: `board-dark.png`, `menus.png`.
 
 - **Tabs:** Board, Summary, History, Analytics. History stays a full view and keeps its URL. The active tab is bold with a 2px `primary` underline.
-- **Buttons:** Filter, View, Activity. Bordered, 36px tall, icon plus label. A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
-- **Overflow menu:** Export board, Board settings, Keyboard shortcuts. Nothing else.
+- **Buttons, right-aligned:** Filter, View, Activity, Export (download icon), Settings (gear icon), then the `⋯` kebab. No divider: Row 2 has none. Bordered, 36px tall, icon plus label. Export shows when the viewer can export and Settings for admins; tooltips read "Export board ⌘ ⇧ E" and "Board settings ⌘ ," (#2435). A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
+- **Overflow menu:** Keyboard shortcuts only (#2435). Export and Board settings are toolbar buttons.
 - **Connection status:** the existing `ConnectionStatus` component, last in the row.
 - **Board status pill:** beside the star in Row 1. Same data and menu as today.
 - **Board search:** in Row 1, centered, placeholder "Search cards, people, labels, fields", with the command palette hint.
@@ -117,7 +117,7 @@ A full-width band replaces the left label panel. Left to right:
   - Until #2356 ships, the toggle sits after the name and health pill and renders only when eligible fields exceed the two inline ones. The truncated-slot rule and the fixed-x-on-every-lane rule arrive with #2356 (fixed left zone, K slots, toggle track).
 - at the right: overdue count (danger text), stale count (warning text), lane WIP "WIP 9 / 10" (warning text and the word "over" when over), and the number rollup "$413k open".
 
-The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board Settings → Rules → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
+The band is tinted with the lane color and wraps to a second line when it runs out of room. Overdue and stale counts are omitted when zero. Lane WIP and the rollup shipped with #2275: the lane WIP line uses the existing swimlane `wip_limit` (#1150), and the rollup sums the card number field chosen in `Board.swimlane_rollup_field` (Board settings → Rules & limits → Swimlane rollup); each is omitted when unset. The band ends at the rollup, as in `board-dark.png`: the card count was removed in #2328 (owner ruling 2026-11-16).
 
 **Information hierarchy (#2335).** What wins when the band runs out of room, for every band at every width. The phone band follows the same tiers (§ Phone width).
 

@@ -105,17 +105,17 @@ test.describe('swimlane field order shortcut', () => {
     await expect(page.getByText('Tier')).toBeVisible()
     await page.getByRole('button', { name: 'Change field order' }).click()
 
-    const tab = page.getByRole('button', { name: 'Swimlane fields' })
+    const tab = page.getByRole('tab', { name: /^Swimlane fields/ })
     await expect(tab).toBeFocused()
-    await expect(tab).toHaveAttribute('aria-current', 'true')
+    await expect(tab).toHaveAttribute('aria-selected', 'true')
 
     await page.keyboard.press('Escape')
     await expect(tab).toHaveCount(0)
 
     await page.keyboard.press('Control+,')
-    // aria-current marks the active tab, so this fails if the modal reopens on Swimlane fields.
-    await expect(page.getByRole('button', { name: /^Members \(/ })).toHaveAttribute('aria-current', 'true')
-    await expect(page.getByRole('button', { name: 'Swimlane fields' })).not.toHaveAttribute('aria-current', 'true')
+    // aria-selected marks the active section, so this fails if the modal reopens on Swimlane fields.
+    await expect(page.getByRole('tab', { name: /^Members \(/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Swimlane fields/ })).toHaveAttribute('aria-selected', 'false')
   })
 })
 
@@ -201,8 +201,8 @@ test.describe('auto health status', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.keyboard.press('Control+,')
-    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
-    await dialog.getByRole('button', { name: 'Rules' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Board settings' })
+    await dialog.getByRole('tab', { name: /^Rules/ }).click()
 
     const toggle = dialog.getByRole('switch', { name: 'Calculate health status automatically' })
     await expect(toggle).toHaveAttribute('aria-checked', 'false')

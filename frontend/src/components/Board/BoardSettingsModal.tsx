@@ -4,6 +4,18 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { formatShortcut } from "../../utils/platform";
+import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
+import {
+  SECTION_GROUPS,
+  SECTION_LABELS,
+  findSettings,
+  locateSettingTarget,
+  resolveInitialSection,
+  type SettingEntry,
+  type SettingsInitialSection,
+  type SettingsSection,
+} from "./boardSettingsSections";
 import { useToast } from "../../contexts/useToast";
 import { canDeleteBoard } from "../../utils/canDeleteBoard";
 import { POPOVER_VIEWPORT_MARGIN, useInputAnchoredPlacement, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
@@ -61,7 +73,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
+  initialTab?: SettingsInitialSection;
   /** #863 — opened from a `webhook_disabled` notification: the Webhooks tab focuses the first webhook that was turned off automatically. */
   focusFirstStoppedWebhook?: boolean;
   /** #2057 — the latest `webhook.changed` frame; the Webhooks tab refetches on each. */
@@ -174,7 +186,7 @@ function isLaterShareIssue(a: string, b: string): boolean {
   return ta > tb;
 }
 
-type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "webhooks" | "data";
+type Tab = SettingsSection;
 
 interface StagedInvite {
   user: User;
@@ -223,7 +235,8 @@ function RoleTooltip() {
 
 export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
   const settingsInert = demoMode && isAdmin;
-  const [tab, setTab] = useState<Tab>(initialTab ?? "members");
+  const isPhone = useIsPhoneViewport();
+  const [tab, setTab] = useState<Tab>(resolveInitialSection(initialTab) ?? "members");
   // #863: the Webhooks tab can hold a one-time secret that is lost if Board
   // settings closes or switches tabs before the admin acknowledges it. The tab
   // registers a guard; Close, the backdrop and every tab button ask it first.
@@ -235,10 +248,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     if (webhookCloseGuardRef.current?.(onClose)) return;
     onClose();
   }, [onClose]);
-  const selectTab = (next: Tab) => {
-    if (next === tab) return;
+  const selectTab = (next: Tab, afterSwitch?: () => void) => {
+    if (next === tab) {
+      afterSwitch?.();
+      return;
+    }
     const go = () => {
       setTab(next);
+      afterSwitch?.();
       // The notification deep link is one-shot: leaving the tab spends it.
       if (tab === "webhooks") setWebhookDeepLinkLive(false);
     };
@@ -809,7 +826,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // confirmation (priority 40.5, above the modal's 40) before it can close the modal.
   useEscapeStack(() => {
     if (deletingRef.current) return true;
-    if (tab !== "data" || !userCanDeleteBoard || (deleteInput === "" && deleteError === null)) return false;
+    if (tab !== "danger" || !userCanDeleteBoard || (deleteInput === "" && deleteError === null)) return false;
     setDeleteInput("");
     setDeleteError(null);
     deleteInputRef.current?.focus();
@@ -1038,7 +1055,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   // The endpoint is admin-only server-side; we mirror that gate here so we
   // don't issue a request that would 403 for viewers/collaborators.
   useEffect(() => {
-    if (tab !== "data" || !isAdmin) return;
+    if (tab !== "export" || !isAdmin) return;
     if (exportHistory !== null || exportHistoryLoading) return;
     setExportHistoryLoading(true);
     setExportHistoryError(null);
@@ -1048,52 +1065,197 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       .finally(() => setExportHistoryLoading(false));
   }, [tab, isAdmin, board.id, exportHistory, exportHistoryLoading]);
 
+  // ── Sections and "Find a setting" (#2436) ──
+  // Sections are hidden exactly as the old tabs were: Sharing and Webhooks for admins
+  // (Webhooks never in demo mode, #863), Issue lens for admins when the instance flag is on,
+  // Danger zone for admins who can reach the delete flow.
+  const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "swimlane-fields", "export"]);
+  if (isAdmin) availableSections.add("sharing");
+  if (isAdmin && !demoMode) availableSections.add("webhooks");
+  if (isAdmin && gitLensEnabled) availableSections.add("lens");
+  if (isAdmin && onBoardDeleted) availableSections.add("danger");
+  const sectionLabel = (t: Tab): string =>
+    t === "members" ? `Members (${members.length})`
+    : t === "fields" ? `Card fields (${board.custom_field_definitions?.length ?? 0})`
+    : t === "swimlane-fields" ? `Swimlane fields (${board.swimlane_custom_field_definitions?.length ?? 0})`
+    : SECTION_LABELS[t];
+
+  const onSidebarKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+    if (!keys.includes(e.key)) return;
+    const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) return;
+    e.preventDefault();
+    const nextIdx = e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : (at + (e.key === "ArrowDown" ? 1 : -1) + tabs.length) % tabs.length;
+    // Manual activation: arrows move focus, Enter/Space selects, so the #863 webhook guard is asked once per switch.
+    tabs[nextIdx]?.focus();
+  };
+
+  const [findQuery, setFindQuery] = useState("");
+  const [findIndex, setFindIndex] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pendingJump, setPendingJump] = useState<SettingEntry | null>(null);
+  const highlightTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(highlightTimerRef.current), []);
+  const findResults = findSettings(findQuery, availableSections);
+  // Escape clears an open search before it can close the modal (priority above ModalWrapper's 40).
+  useEscapeStack(() => {
+    if (findQuery === "") return false;
+    setFindQuery("");
+  }, 41);
+  const jumpToSetting = (entry: SettingEntry) => {
+    setFindQuery("");
+    setFindIndex(0);
+    selectTab(entry.section, () => setPendingJump(entry));
+  };
+  useEffect(() => {
+    if (!pendingJump || pendingJump.section !== tab) return;
+    // The section's panel mounts on this commit; some panels fill in after a fetch, so fall back to the panel top.
+    const timer = window.setTimeout(() => {
+      const root = panelRef.current;
+      if (root) {
+        const el = locateSettingTarget(root, pendingJump.target);
+        if (el) {
+          el.scrollIntoView?.({ block: "center" });
+          const ring = ["ring-2", "ring-primary-emphasis", "rounded"];
+          el.classList.add(...ring);
+          window.clearTimeout(highlightTimerRef.current);
+          highlightTimerRef.current = window.setTimeout(() => el.classList.remove(...ring), 1800);
+        } else {
+          root.scrollTo?.({ top: 0 });
+          root.focus();
+        }
+      }
+      setPendingJump(null);
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [pendingJump, tab]);
+
+  const findSetting = (
+    <div className="relative">
+      <input
+        type="search"
+        aria-label="Find a setting"
+        aria-controls="board-settings-find-results"
+        aria-activedescendant={findResults.length > 0 ? `board-settings-find-${findIndex}` : undefined}
+        aria-autocomplete="list"
+        placeholder="Find a setting (e.g. export, WIP, fields)"
+        value={findQuery}
+        onChange={(e) => { setFindQuery(e.target.value); setFindIndex(0); }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" && findResults.length > 0) { e.preventDefault(); setFindIndex((i) => (i + 1) % findResults.length); }
+          else if (e.key === "ArrowUp" && findResults.length > 0) { e.preventDefault(); setFindIndex((i) => (i - 1 + findResults.length) % findResults.length); }
+          else if (e.key === "Enter" && findResults[findIndex]) { e.preventDefault(); jumpToSetting(findResults[findIndex]); }
+        }}
+        className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+      />
+      {findQuery.trim() !== "" && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded border border-line-strong bg-surface shadow-xl max-h-64 overflow-y-auto">
+          {findResults.length > 0 ? (
+            <ul id="board-settings-find-results" role="listbox" aria-label="Matching settings" className="py-1">
+              {findResults.map((r, i) => (
+                <li
+                  key={`${r.section}-${r.label}`}
+                  id={`board-settings-find-${i}`}
+                  role="option"
+                  aria-selected={i === findIndex}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => jumpToSetting(r)}
+                  className={`flex items-center justify-between gap-3 px-3 py-1.5 text-sm cursor-pointer max-sm:min-h-11 ${i === findIndex ? "bg-surface-hover text-fg" : "text-fg-secondary hover:bg-surface-hover"}`}
+                >
+                  <span className="truncate">{r.label}</span>
+                  <span className="shrink-0 text-xs text-fg-muted">{SECTION_LABELS[r.section]}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p id="board-settings-find-results" role="status" className="px-3 py-2 text-sm text-fg-muted">
+              No setting matches &lsquo;{findQuery.trim()}&rsquo;
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <ModalWrapper
       open={true}
       onClose={guardedClose}
-      title="Board Settings"
-      maxWidth="max-w-2xl"
+      title="Board settings"
+      subtitle={board.name}
+      headerExtra={findSetting}
+      maxWidth="max-w-4xl"
       noPadding
       labelId="board-settings-title"
       panelClassName="h-[85vh] max-h-[640px] min-h-0"
       headerBorder
     >
 
-        {/* Tabs */}
-        {/* #2404: at max-sm every control in the modal is lifted to 44px by the container rule below
-            (buttons, text and number inputs, selects, textareas); checkbox and radio rows are lifted on
-            their <label>. A new control here needs no lift of its own unless it is a bare link. */}
-        <div className="flex border-b border-line px-6 gap-1 overflow-x-auto max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
-          {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
-          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), ...(isAdmin && !demoMode ? ["webhooks"] : []), "data"] as Tab[]).map((t) => {
-            const label =
-              t === "members" ? `Members (${members.length})`
-              : t === "display" ? "Display"
-              : t === "rules" ? "Rules"
-              : t === "fields" ? "Card fields"
-              : t === "swimlane-fields" ? "Swimlane fields"
-              : t === "sharing" ? "Sharing"
-              : t === "webhooks" ? "Webhooks"
-              : "Data";
-            return (
-              <button
-                key={t}
-                ref={tab === t ? activeTabRef : undefined}
-                aria-current={tab === t ? "true" : undefined}
-                onClick={() => selectTab(t)}
-                className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                  tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+        {/* Grouped sidebar (#2436): a vertical tablist that switches panels in place.
+            #2404: at max-sm every control in the modal is lifted to 44px by the panel container rule
+            (ModalWrapper), so a new control here needs no lift of its own. */}
+        <div className="flex flex-1 min-h-0">
+        {!isPhone && (
+        <div className="w-[232px] shrink-0 border-r border-line overflow-y-auto py-3 px-3">
+          <div role="tablist" aria-orientation="vertical" aria-label="Board settings sections" onKeyDown={onSidebarKeyDown} className="flex flex-col gap-0.5">
+            {/* #863: Webhooks is omitted from the DOM in demo mode and for non-admins, never DemoInert. */}
+            {SECTION_GROUPS.map((g) => {
+              const sections = g.sections.filter((t) => availableSections.has(t));
+              if (sections.length === 0) return null;
+              return (
+                <Fragment key={g.label}>
+                  <div role="presentation" className="px-2 pt-3 pb-1 text-xs font-semibold text-fg-tertiary uppercase tracking-wide first:pt-0">{g.label}</div>
+                  {sections.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="tab"
+                      id={`board-settings-tab-${t}`}
+                      aria-selected={tab === t}
+                      aria-controls="board-settings-panel"
+                      tabIndex={tab === t ? 0 : -1}
+                      ref={tab === t ? activeTabRef : undefined}
+                      onClick={() => selectTab(t)}
+                      className={`text-left px-2 py-1.5 text-sm font-medium rounded border-l-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        tab === t ? "border-primary-emphasis bg-primary-emphasis/15 text-fg" : "border-transparent text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+                      } ${t === "danger" ? "text-danger" : ""}`}
+                    >
+                      {sectionLabel(t)}
+                    </button>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </div>
         </div>
+        )}
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
+        {/* Phone (<sm): the sidebar becomes a Section select above the panel. */}
+        {isPhone && (
+        <div className="px-6 pt-3">
+          <label htmlFor="board-settings-section-select" className="sr-only">Section</label>
+          <select
+            id="board-settings-section-select"
+            value={tab}
+            onChange={(e) => selectTab(e.target.value as Tab)}
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+          >
+            {SECTION_GROUPS.map((g) => {
+              const sections = g.sections.filter((t) => availableSections.has(t));
+              return sections.length === 0 ? null : (
+                <optgroup key={g.label} label={g.label}>
+                  {sections.map((t) => <option key={t} value={t}>{sectionLabel(t)}</option>)}
+                </optgroup>
+              );
+            })}
+          </select>
+        </div>
+        )}
 
         {/* Content */}
-        <div className="overflow-y-auto flex-1 px-6 py-4 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
+        <div ref={panelRef} role="tabpanel" id="board-settings-panel" aria-labelledby={`board-settings-tab-${tab}`} tabIndex={0} className="overflow-y-auto flex-1 px-6 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11 max-sm:[&_select]:min-h-11 max-sm:[&_textarea]:min-h-11 max-sm:[&_label:has(input[type=checkbox])]:min-h-11 max-sm:[&_label:has(input[type=radio])]:min-h-11">
           {/* Hosted demo (#1179): ONE shared notice for the whole modal. Every
               admin control below sits in a DemoInert region that points its
               aria-describedby here, rather than repeating the reason per
@@ -1985,79 +2147,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             />
           )}
 
-          {/* ── Data tab ── */}
-          {tab === "data" && (
+          {/* ── Export section ── */}
+          {tab === "export" && (
             <div className="flex flex-col gap-6">
-              <section>
-                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export permission</h3>
-                {isAdmin ? (
-                  <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
-                    <p className="text-xs text-fg-muted mb-2">
-                      Choose who can use the export action and download export files. This does not change what members can view on the board. Owners and site admins always bypass this threshold.
-                    </p>
-                    <SelectDropdown
-                      value={exportMinRole}
-                      onChange={(v) => handleExportMinRoleChange(v as BoardExportMinRole)}
-                      options={[
-                        { value: "viewer", label: "Anyone with read access (default)" },
-                        { value: "collaborator", label: "Collaborators and above" },
-                        { value: "member", label: "Members and above" },
-                        { value: "admin", label: "Admins only" },
-                      ]}
-                    />
-                    <p className="text-xs h-4 mt-1">
-                      {exportRoleError && <span className="text-danger">{exportRoleError}</span>}
-                    </p>
-                  </DemoInert>
-                ) : (
-                  <p className="text-sm text-fg-secondary">
-                    {exportMinRole === "viewer" && "Anyone with read access can export this board."}
-                    {exportMinRole === "collaborator" && "Collaborators and above can export this board."}
-                    {exportMinRole === "member" && "Members and above can export this board."}
-                    {exportMinRole === "admin" && "Only admins can export this board."}
-                  </p>
-                )}
-              </section>
-
-              {/* Issue board lens — admin-only, gated on the instance feature flag. */}
-              {isAdmin && gitLensEnabled && (
-                <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
-                <section>
-                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Issue board lens</h3>
-                  <p className="text-xs text-fg-muted mb-2">
-                    Mirror a public GitHub or GitLab repository's issues as a read-only board.
-                  </p>
-                  {lensConnection ? (
-                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-line-strong">
-                      <div className="min-w-0">
-                        <p className="text-sm text-fg font-medium truncate" title={lensConnection.repo_slug}>
-                          {lensConnection.repo_slug}
-                        </p>
-                        <p className="text-xs text-fg-muted">
-                          {lensConnection.provider === "github" ? "GitHub" : "GitLab"} · read-only
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onManageLens?.()}
-                        className="shrink-0 text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                      >
-                        Manage
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onManageLens?.()}
-                      className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      Connect a repository
-                    </button>
-                  )}
-                </section>
-                </DemoInert>
-              )}
-
               {canExport && (
               <section>
                 <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export</h3>
@@ -2096,8 +2188,40 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 >
                   Export {exportFormat.toUpperCase()}
                 </button>
+                <p className="text-xs text-fg-muted mt-2">Also on the board toolbar · {formatShortcut({ mod: true, shift: true, key: "E" })}</p>
               </section>
               )}
+
+              <section>
+                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export permission</h3>
+                {isAdmin ? (
+                  <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
+                    <p className="text-xs text-fg-muted mb-2">
+                      Choose who can use the export action and download export files. This does not change what members can view on the board. Owners and site admins always bypass this threshold.
+                    </p>
+                    <SelectDropdown
+                      value={exportMinRole}
+                      onChange={(v) => handleExportMinRoleChange(v as BoardExportMinRole)}
+                      options={[
+                        { value: "viewer", label: "Anyone with read access (default)" },
+                        { value: "collaborator", label: "Collaborators and above" },
+                        { value: "member", label: "Members and above" },
+                        { value: "admin", label: "Admins only" },
+                      ]}
+                    />
+                    <p className="text-xs h-4 mt-1">
+                      {exportRoleError && <span className="text-danger">{exportRoleError}</span>}
+                    </p>
+                  </DemoInert>
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    {exportMinRole === "viewer" && "Anyone with read access can export this board."}
+                    {exportMinRole === "collaborator" && "Collaborators and above can export this board."}
+                    {exportMinRole === "member" && "Members and above can export this board."}
+                    {exportMinRole === "admin" && "Only admins can export this board."}
+                  </p>
+                )}
+              </section>
 
               {isAdmin && (
                 <section>
@@ -2135,8 +2259,57 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   )}
                 </section>
               )}
+            </div>
+          )}
 
-              {isAdmin && onBoardDeleted && (
+          {/* ── Issue lens section ── */}
+          {tab === "lens" && isAdmin && gitLensEnabled && (
+            <div className="flex flex-col gap-6">
+              {/* Issue board lens — admin-only, gated on the instance feature flag. */}
+              {isAdmin && gitLensEnabled && (
+                <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
+                <section>
+                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Issue board lens</h3>
+                  <p className="text-xs text-fg-muted mb-2">
+                    Mirror a public GitHub or GitLab repository's issues as a read-only board.
+                  </p>
+                  {lensConnection ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-line-strong">
+                      <div className="min-w-0">
+                        <p className="text-sm text-fg font-medium truncate" title={lensConnection.repo_slug}>
+                          {lensConnection.repo_slug}
+                        </p>
+                        <p className="text-xs text-fg-muted">
+                          {lensConnection.provider === "github" ? "GitHub" : "GitLab"} · read-only
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onManageLens?.()}
+                        className="shrink-0 text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      >
+                        Manage
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onManageLens?.()}
+                      className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      Connect a repository
+                    </button>
+                  )}
+                </section>
+                </DemoInert>
+              )}
+            </div>
+          )}
+
+          {/* ── Danger zone section ── */}
+          {tab === "danger" && isAdmin && !!onBoardDeleted && (
+            <div className="flex flex-col gap-6">
+              {(
                 <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section className="border-t border-line pt-5">
                   <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
@@ -2195,6 +2368,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               )}
             </div>
           )}
+
 
           {/* ── Display tab ── */}
           {tab === "display" && (
@@ -2483,6 +2657,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             Members inherited from group membership are shown here. Assigning a direct role overrides group access.
           </div>
         )}
+        </div>
+        </div>
     </ModalWrapper>
   );
 }
