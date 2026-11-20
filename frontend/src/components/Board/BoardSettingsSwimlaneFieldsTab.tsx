@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { BoardFull, CustomFieldType, SwimlaneCustomFieldDefinition } from "../../types";
+import type { BoardFull, CustomFieldType, LaneTier, SwimlaneCustomFieldDefinition } from "../../types";
+import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, LANE_DETAILS_CAP_OPTIONS, isLegacyTiers, resolveLaneTiers } from "../../utils/laneBand";
 import ModalWrapper from "../shared/ModalWrapper";
 import { useDragSensors } from "../../hooks/useDragSensors";
 import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
@@ -93,6 +94,27 @@ const TYPE_GLYPH: Record<CustomFieldType, string> = {
 };
 
 /** Types whose definition carries a `choices` list (#1391: dropdown, multi-select). */
+const TIER_LABEL: Record<LaneTier, string> = { band: "Band", details: "Details", hidden: "Hidden" };
+const BAND_FULL_REASON = "The band holds 2 fields. Move one to Details first.";
+const detailsFullReason = (cap: number) => `Lane details hold ${cap} fields. Move one to Hidden first.`;
+
+/**
+ * The local mirror of the server's materialization (#2439, `lane_field_tiers.materialize`):
+ * the first tier write on a legacy board gives every row an explicit tier (first two Band,
+ * next `cap` Details, the rest Hidden). Applied before the write so this tab shows what the
+ * server will hold without waiting for the per-row `swimlane_custom_field.updated` events.
+ */
+function materializeLocal(fields: SwimlaneCustomFieldDefinition[], cap: number): SwimlaneCustomFieldDefinition[] {
+  if (!isLegacyTiers(fields)) {
+    const tiers = resolveLaneTiers(fields, cap);
+    return fields.map((f) => (f.band_visibility == null ? { ...f, band_visibility: tiers.get(f.id) } : f));
+  }
+  return fields.map((f, i) => ({
+    ...f,
+    band_visibility: i < INLINE_FIELD_COUNT ? "band" : i < INLINE_FIELD_COUNT + cap ? "details" : "hidden",
+  }));
+}
+
 function hasChoices(t: CustomFieldType): boolean {
   return t === "dropdown" || t === "multi_select";
 }
@@ -155,6 +177,44 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   const [deleteTarget, setDeleteTarget] = useState<SwimlaneCustomFieldDefinition | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [tierError, setTierError] = useState<string | null>(null);
+  const cap = board.lane_details_cap ?? DEFAULT_LANE_DETAILS_CAP;
+  const tiers = resolveLaneTiers(fields, cap);
+  const tierOf = (f: SwimlaneCustomFieldDefinition): LaneTier => tiers.get(f.id) ?? "details";
+  const bandCount = fields.filter((f) => tierOf(f) === "band").length;
+  const detailsCount = fields.filter((f) => tierOf(f) === "details").length;
+  const legacy = isLegacyTiers(fields);
+  const q = query.trim().toLowerCase();
+  const visibleFields = q ? fields.filter((f) => f.name.toLowerCase().includes(q)) : fields;
+  /** Why `tier` cannot be chosen for `def`, or null when it can (the server enforces the same rule). */
+  const tierBlockedReason = (def: SwimlaneCustomFieldDefinition, tier: LaneTier): string | null => {
+    if (tierOf(def) === tier) return null;
+    if (tier === "band" && bandCount >= INLINE_FIELD_COUNT) return BAND_FULL_REASON;
+    if (tier === "details" && detailsCount >= cap) return detailsFullReason(cap);
+    return null;
+  };
+  const setTier = async (def: SwimlaneCustomFieldDefinition, tier: LaneTier) => {
+    if (tierOf(def) === tier && def.band_visibility != null) return;
+    if (tierBlockedReason(def, tier)) return;
+    const prev = fields;
+    setTierError(null);
+    commit(materializeLocal(fields, cap).map((f) => (f.id === def.id ? { ...f, band_visibility: tier } : f)));
+    try {
+      const updated = await updateSwimlaneCustomFieldDefinition(board.id, def.id, { band_visibility: tier });
+      commit(materializeLocal(prev, cap).map((f) => (f.id === def.id ? updated : f)));
+    } catch (err: unknown) {
+      commit(prev);
+      const detail = (err as { response?: { data?: { band_visibility?: unknown } } })?.response?.data?.band_visibility;
+      setTierError(Array.isArray(detail) ? String(detail[0]) : typeof detail === "string" ? detail : "Couldn't change where this field shows. Try again.");
+    }
+  };
+  const setCap = (next: number) => {
+    if (!onUpdateBoardSettings || next === cap) return;
+    // A cap change materializes a legacy board on the server too, so mirror it here.
+    if (legacy) commit(materializeLocal(fields, next));
+    onUpdateBoardSettings({ lane_details_cap: next });
+  };
   // Keeps DndContext's default keyboard reordering; adds touch press-and-hold (#1287).
   const dragSensors = useDragSensors({ keyboard: true, sortable: true });
   const fieldDrag = useSortableFieldDrag(fields);
@@ -372,16 +432,72 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
 
   return (
     <div ref={tabRef}>
-      <RowChipNamesSetting board={board} isAdmin onUpdateBoardSettings={onUpdateBoardSettings} />
-      <div className="flex items-center justify-between mb-2">
-        <p ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">Swimlane fields</p>
-        <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
-          {fields.length} of {FIELD_CAP}
-        </span>
+      {/* Artboard "4 · Swimlane fields" (#2439), top to bottom: header, row chip names toggle,
+          summary bar, field list, the filters line, the help line, the preview. */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          <p ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg focus:outline-none">Swimlane fields</p>
+          <p className="text-xs text-fg-tertiary mt-0.5">Choose where each field appears on the lane band. Drag to reorder.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs ${fields.length >= FIELD_CAP - 2 ? "text-warning" : "text-fg-muted"}`}>
+            {fields.length} of {FIELD_CAP}
+          </span>
+          {fields.length >= FIELD_CAP && editingId === null && (
+            <button disabled className="text-xs px-3 py-1.5 rounded border border-line-strong bg-surface text-fg-muted disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              + Add field
+            </button>
+          )}
+          {fields.length > 0 && editingId === null && fields.length < FIELD_CAP && (
+            <button data-add-field onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              + Add field
+            </button>
+          )}
+        </div>
       </div>
-      <p className="text-xs text-fg-tertiary mb-2">
-        The swimlane header shows the first two field values in the order below; any beyond the first two are behind the N fields toggle.
-      </p>
+      <RowChipNamesSetting board={board} isAdmin onUpdateBoardSettings={onUpdateBoardSettings} />
+
+      {fields.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end mb-3 p-3 rounded-lg border border-line bg-sunken" data-testid="swimlane-tier-summary">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-fg">On the band</p>
+            <p className="text-xs text-fg-muted">Always visible · max {INLINE_FIELD_COUNT}</p>
+            <p className="text-xs font-semibold text-fg mt-1" data-testid="swimlane-band-counter">{bandCount} / {INLINE_FIELD_COUNT}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-fg">In lane details</p>
+            <p className="text-xs text-fg-muted">Behind “Show N more”</p>
+            <div className="flex items-center gap-2 mt-1">
+              <label htmlFor="lane-details-cap" className="text-xs text-fg-muted">up to</label>
+              <select
+                id="lane-details-cap"
+                value={cap}
+                disabled={!onUpdateBoardSettings}
+                onChange={(e) => setCap(Number(e.target.value))}
+                className="bg-surface border border-line rounded px-2 py-1 text-xs text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                {LANE_DETAILS_CAP_OPTIONS.map((n) => (
+                  // A cap below the Details count would 400; a legacy board materializes into the new cap instead.
+                  <option key={n} value={n} disabled={!legacy && n < detailsCount}>{n}</option>
+                ))}
+              </select>
+              <span className={`text-xs font-semibold ${detailsCount > cap ? "text-warning" : "text-fg"}`} data-testid="swimlane-details-counter">{detailsCount} / {cap}</span>
+            </div>
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="swimlane-field-find" className="sr-only">Find a field</label>
+            <input
+              id="swimlane-field-find"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find a field"
+              className="w-full sm:w-44 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted"
+            />
+          </div>
+        </div>
+      )}
+      {tierError && <p role="alert" className="text-xs text-danger-on-tint mb-2">{tierError}</p>}
 
       {/* Surfaced once here rather than repeated per field: with the default
           being admin-only, a board can quietly end up with nothing visible to
@@ -402,13 +518,23 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
           onDragCancel={fieldDrag.onDragCancel}
           onDragEnd={fieldDrag.wrapDragEnd((e) => void handleDragEnd(e))}
         >
-          <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-            {fields.map((def) => (
+          <div className="flex items-center gap-3 pb-1 border-b border-line text-xs font-medium text-fg-muted" aria-hidden="true">
+            <span className="w-4 shrink-0" />
+            <span className="w-5 shrink-0" />
+            <span className="flex-1">Field</span>
+            <span className="w-20 shrink-0">Type</span>
+            <span className="shrink-0">Show</span>
+          </div>
+          {q && visibleFields.length === 0 && <p className="text-sm text-fg-muted py-3">No fields match “{query.trim()}”.</p>}
+          <SortableContext items={visibleFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+            {visibleFields.map((def) => (
               <FieldRow
                 key={def.id}
                 def={def}
                 editing={editingId === def.id}
-                dragDisabled={editingId !== null}
+                // A filtered list is not the whole order, so a drag in it could not say where a field goes.
+                dragDisabled={editingId !== null || q !== ""}
+                show={<TierControl def={def} tier={tierOf(def)} blockedReason={(t) => tierBlockedReason(def, t)} onChange={(t) => void setTier(def, t)} />}
                 onEdit={() => startEdit(def)}
                 onDelete={() => setDeleteTarget(def)}
               >
@@ -464,26 +590,26 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
         </div>
       )}
 
-      {fields.length > 0 && editingId === null && (
-        <div className="pt-3 flex items-center gap-3">
-          {fields.length >= FIELD_CAP ? (
-            <button disabled className="text-xs px-3 py-1.5 rounded border border-line-strong bg-surface text-fg-muted disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
-              + Add field
-            </button>
-          ) : (
-            <button data-add-field onClick={startAdd} className="text-xs px-3 py-1.5 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
-              + Add field
-            </button>
-          )}
-          {fields.length >= FIELD_CAP - 2 && fields.length < FIELD_CAP && (
-            <span className="text-xs text-warning">{FIELD_CAP - fields.length} field{FIELD_CAP - fields.length === 1 ? "" : "s"} left on this board.</span>
-          )}
-        </div>
+      {fields.length > 0 && editingId === null && fields.length >= FIELD_CAP - 2 && fields.length < FIELD_CAP && (
+        <p className="pt-3 text-xs text-warning">{FIELD_CAP - fields.length} field{FIELD_CAP - fields.length === 1 ? "" : "s"} left on this board.</p>
       )}
       {fields.length >= FIELD_CAP && editingId === null && (
         <p className="text-xs text-fg-muted mt-2">
           This board has reached its {FIELD_CAP}-field limit. Delete a field to add a new one.
         </p>
+      )}
+
+      {fields.length > 0 && (
+        <>
+          <p className="flex items-center gap-1.5 mt-3 text-xs text-fg-secondary">
+            <svg aria-hidden="true" className="w-3.5 h-3.5 text-success shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8.5l3 3 7-7" /></svg>
+            Every field can be searched and used in filters, whatever its Show setting.
+          </p>
+          <p className="mt-1 text-xs text-fg-muted">
+            Hidden fields are left off the band and out of the details count. They are listed last in the lane details, under Hidden on band, and stay in filters and exports. Admin-only fields stay visible to admins only.
+          </p>
+          <TierPreview board={board} fields={fields} tierOf={tierOf} />
+        </>
       )}
 
       {deleteTarget && (
@@ -553,8 +679,72 @@ function EmptyState({ isAdmin, onAdd }: { isAdmin: boolean; onAdd?: () => void }
   );
 }
 
+/**
+ * The segmented Band | Details | Hidden control on each field row (#2439). A blocked option
+ * stays focusable (`aria-disabled`) so its reason, in the tooltip and the accessible
+ * description, can be reached; choosing it does nothing.
+ */
+function TierControl({ def, tier, blockedReason, onChange }: {
+  def: SwimlaneCustomFieldDefinition; tier: LaneTier; blockedReason: (t: LaneTier) => string | null; onChange: (t: LaneTier) => void;
+}) {
+  const reasonId = useId();
+  const reasons = (["band", "details", "hidden"] as LaneTier[]).map((t) => blockedReason(t)).filter((r): r is string => !!r);
+  return (
+    <span role="radiogroup" aria-label={`Show ${def.name}`} className="inline-flex rounded border border-line-strong overflow-hidden" data-testid={`swimlane-tier-${def.id}`}>
+      {(["band", "details", "hidden"] as LaneTier[]).map((t) => {
+        const reason = blockedReason(t);
+        const checked = tier === t;
+        return (
+          <button
+            key={t}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            aria-disabled={reason ? true : undefined}
+            aria-describedby={reason ? reasonId : undefined}
+            title={reason ?? undefined}
+            onClick={() => { if (!reason) onChange(t); }}
+            className={`min-h-6 px-2 py-0.5 text-xs border-l first:border-l-0 border-line-strong focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${checked ? "bg-primary-soft text-fg font-semibold" : "bg-surface text-fg-secondary hover:bg-surface-hover"} ${reason ? "opacity-40 cursor-not-allowed" : ""}`}
+          >
+            {TIER_LABEL[t]}
+          </button>
+        );
+      })}
+      {reasons.length > 0 && <span id={reasonId} className="sr-only">{reasons[0]}</span>}
+    </span>
+  );
+}
+
+/** A live band built from the current settings (#2439): the name, the Band fields and "Show N more". */
+function TierPreview({ board, fields, tierOf }: {
+  board: BoardFull; fields: SwimlaneCustomFieldDefinition[]; tierOf: (f: SwimlaneCustomFieldDefinition) => LaneTier;
+}) {
+  const lane = board.swimlanes?.[0];
+  const values = new Map((lane?.custom_field_values ?? []).map((v) => [v.field_definition, v.value]));
+  const band = fields.filter((f) => tierOf(f) === "band");
+  const details = fields.filter((f) => tierOf(f) === "details");
+  const hidden = fields.filter((f) => tierOf(f) === "hidden");
+  const more = details.length + hidden.length;
+  return (
+    <div className="mt-3" data-testid="swimlane-tier-preview">
+      <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1">Preview</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded border border-line bg-surface px-3 py-2 text-sm">
+        <span className="font-semibold text-fg">{lane?.name ?? "Lane"}</span>
+        {band.map((f) => (
+          <span key={f.id} className="text-fg-secondary">{f.name} <span className="text-fg font-medium">{values.get(f.id) || "—"}</span></span>
+        ))}
+        {more > 0 && <span className="text-xs text-fg-secondary">Show {more} more</span>}
+      </div>
+      <p className="mt-1 text-xs text-fg-muted">Details: {details.length ? details.map((f) => f.name).join(", ") : "none"}</p>
+      <p className="text-xs text-fg-muted">Hidden on band: {hidden.length ? hidden.map((f) => f.name).join(", ") : "none"}</p>
+    </div>
+  );
+}
+
 interface FieldRowProps {
   def: SwimlaneCustomFieldDefinition;
+  /** The row's Show control (#2439). */
+  show?: React.ReactNode;
   editing: boolean;
   dragDisabled: boolean;
   onEdit: () => void;
@@ -562,7 +752,7 @@ interface FieldRowProps {
   children?: React.ReactNode;
 }
 
-function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, children }: FieldRowProps) {
+function FieldRow({ def, editing, dragDisabled, show, onEdit, onDelete, children }: FieldRowProps) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: def.id, disabled: dragDisabled });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -596,6 +786,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, children }: Fi
             <AdminOnlyFieldGlyph />
           </span>
         )}
+        {show}
         <span className="flex items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition shrink-0">
           <button type="button" onClick={onEdit} className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" title={`Edit ${def.name}`} aria-label={`Edit ${def.name}`}>✎</button>
           <button type="button" onClick={onDelete} className="text-xs text-fg-tertiary hover:text-danger focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded" title={`Delete ${def.name}`} aria-label={`Delete ${def.name}`}>✕</button>

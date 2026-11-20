@@ -1,4 +1,4 @@
-import LaneFieldGrid from "./LaneFieldGrid";
+import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
 import { useState, useId, useRef, useEffect, useCallback } from "react";
 import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -10,7 +10,7 @@ import EditColumnModal from "./EditColumnModal";
 import ActiveMark from "../Common/ActiveMark";
 import type { BoardColor } from "../../utils/boardColors";
 import type { LimitFlags } from "../../utils/placementLimits";
-import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
+import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
 import { laneRollup } from "../../utils/laneRollup";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
@@ -53,6 +53,8 @@ interface Props {
   customFieldDefinitions?: CustomFieldDefinition[];
   /** Editing surfaces (#2277): the same gates and modals as the grid, so phones lose no controls. */
   isAdmin?: boolean;
+  /** #2439 — `Board.lane_details_cap`; only a board with a null tier row on a tiered board reads it. */
+  laneDetailsCap?: number;
   allColumns?: Column[];
   /** Admin shortcut from the open field grid to Board settings -> Swimlane fields, as on the grid band. */
   onEditFieldOrder?: () => void;
@@ -167,7 +169,7 @@ export default function PhoneBoard({
   selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onOpenCardMenu,
   contextTargetCardId, onCardUpdated, density, userTimezone, currentUserId, userDateFormat,
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
-  isAdmin = false, allColumns, onEditFieldOrder, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
+  isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
@@ -471,11 +473,17 @@ export default function PhoneBoard({
           // same helpers, so a lane reads the same at every width.
           const fields = laneBandFields(lane, swimlaneFieldDefinitions);
           const gridFields = laneGridFields(lane, swimlaneFieldDefinitions, !!isAdmin);
-          const showFieldToggle = gridFields.length > INLINE_FIELD_COUNT; // constant, so every lane shows the toggle or none does
+          // #2439: a board with tiers shows its Band fields, and "Show N more" opens Details plus
+          // Hidden on band. Null (a legacy board) keeps the pre-#2439 band exactly. A missing
+          // role is a non-admin (`!!isAdmin`), so admin-only fields stay out of every count.
+          const tiers = laneTierFields(lane, swimlaneFieldDefinitions, !!isAdmin, laneDetailsCap);
+          const moreCount = tiers ? tiers.details.length + tiers.hidden.length : gridFields.length;
+          const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > INLINE_FIELD_COUNT; // per board, so every lane shows the toggle or none does
+          const bandFields = tiers ? tiers.band : fields.inline;
           const fieldsOpen = showFieldToggle && openFieldLanes.has(lane.id);
           const laneLimit = laneBandLimit(lane, allColumns ?? columns, allLane, limitFlags ?? NO_FLAGS, collapsed);
           const rollup = laneRollup(lane.id, rollupField, allColumns ?? columns, allLane);
-          const hasSecondLine = fields.inline.length > 0 || showFieldToggle || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
+          const hasSecondLine = bandFields.length > 0 || showFieldToggle || overdue > 0 || stale > 0 || laneLimit !== null || rollup !== null;
           const extraId = `${uid}-lane-${lane.id}-fields`;
           // #2384: Edit, Field order, Focus and the lane reorder pair live behind "Lane actions"; Add card
           // and health stay at rest. That is the implementer's call, not the owner's: #2384 lists per-lane Add card among
@@ -520,15 +528,16 @@ export default function PhoneBoard({
                         onClick={() => toggleLaneFields(lane.id)}
                         aria-expanded={fieldsOpen}
                         aria-controls={fieldsOpen ? extraId : undefined}
-                        aria-label={`${gridFields.length} fields: show all field values for ${lane.name}`}
+                        aria-label={tiers ? (fieldsOpen ? `Hide details for ${lane.name}` : `Show ${moreCount} more fields for ${lane.name}`) : `${gridFields.length} fields: show all field values for ${lane.name}`}
                         data-testid="phone-lane-fields-toggle"
                         className={`inline-flex items-center gap-1 min-h-11 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg"}`}
                       >
-                        {gridFields.length} fields
-                        <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+                        {tiers ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
+                        <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
                       </button>
                     )}
-                    {!fieldsOpen && fields.inline.map(renderField)}
+                    {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
+                    {(tiers || !fieldsOpen) && bandFields.map(renderField)}
                     {overdue > 0 && <span className="font-semibold text-danger-on-tint whitespace-nowrap">{overdue} {STATUS_LABEL.overdue}</span>}
                     {stale > 0 && <span className="font-semibold text-warning-on-tint whitespace-nowrap">{stale} {STATUS_LABEL.stale}</span>}
                     {laneLimit !== null && (
@@ -541,7 +550,10 @@ export default function PhoneBoard({
                         <span className="sr-only">{rollup.fieldName}: </span>{rollup.text} open
                       </span>
                     )}
-                    {fieldsOpen && (
+                    {fieldsOpen && tiers && (
+                      <LaneTierDetails id={extraId} laneColor={lane.color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onEditFieldOrder : undefined} touch />
+                    )}
+                    {fieldsOpen && !tiers && (
                       <>
                         <LaneFieldGrid id={extraId} laneName={lane.name} laneColor={lane.color} fields={gridFields} userDateFormat={userDateFormat} />
                         {isAdmin && onEditFieldOrder && (

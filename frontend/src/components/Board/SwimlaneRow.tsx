@@ -21,8 +21,8 @@ import type { LimitFlags, TrippedLimit } from "../../utils/placementLimits";
 import { isImeComposing } from "../../utils/imeComposition";
 import { laneRollup } from "../../utils/laneRollup";
 import { splitCellBySubColumn, stageSubColumns } from "../../utils/stages";
-import { INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, type LaneBandField } from "../../utils/laneBand";
-import LaneFieldGrid from "./LaneFieldGrid";
+import { DEFAULT_LANE_DETAILS_CAP, INLINE_FIELD_COUNT, laneBandFields, laneBandLimit, laneGridFields, laneTierFields, type LaneBandField } from "../../utils/laneBand";
+import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
 import SwimlaneLimitStat from "./SwimlaneLimitStat";
 import ActiveUnderline from "../Common/ActiveUnderline";
 import { BAND_MAX_WIDTH, boardGridTemplate, clampColumnWidth, measureTrackLeftOf, resizedColumnWidth, startInsertGesture } from "./boardGrid";
@@ -35,6 +35,8 @@ interface Props {
   cards: Card[];
   boardId: number;
   isAdmin: boolean;
+  /** #2439 — `Board.lane_details_cap`, for `resolveLaneTiers`. */
+  laneDetailsCap?: number;
   canEdit: boolean;
   closeEditorOnEnter: boolean;
   collapsedColumnIds: Set<number>;
@@ -160,7 +162,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -182,7 +184,13 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   const { inline: inlineFields } = laneBandFields(swimlane, swimlaneFieldDefinitions);
   const gridFields = laneGridFields(swimlane, swimlaneFieldDefinitions, isAdmin);
   // Until the band slots (#2356) land, K is the inline fields shown today.
-  const showFieldToggle = gridFields.length > INLINE_FIELD_COUNT; // constant, so every lane shows the toggle or none does
+  // #2439: on a board with tiers the band shows its Band fields, and "Show N more" opens the
+  // Details grid plus Hidden on band (N = details + hidden the viewer may see). Null is a
+  // legacy board, which keeps the band above exactly until an admin sets a tier.
+  const tiers = laneTierFields(swimlane, swimlaneFieldDefinitions, isAdmin, laneDetailsCap);
+  const moreCount = tiers ? tiers.details.length + tiers.hidden.length : gridFields.length;
+  const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > INLINE_FIELD_COUNT; // per board, so every lane shows the toggle or none does
+  const bandFields = tiers ? tiers.band : inlineFields;
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
   const doneColumnIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
@@ -505,17 +513,18 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               aria-expanded={fieldsOpen}
               aria-controls={fieldsOpen ? extraFieldsId : undefined}
               // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
-              aria-label={`${gridFields.length} fields: show all field values for ${swimlane.name}`}
+              aria-label={tiers ? (fieldsOpen ? `Hide details for ${swimlane.name}` : `Show ${moreCount} more fields for ${swimlane.name}`) : `${gridFields.length} fields: show all field values for ${swimlane.name}`}
               data-testid="swimlane-fields-toggle"
               className={`inline-flex items-center gap-1 min-h-6 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
             >
-              {gridFields.length} fields
-              <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
+              {tiers ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
+              <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
             </button>
           )}
           {/* The first two lane fields as "Label value". They stay in the band when the lane
               is collapsed (the band is the collapsed lane's header). */}
-          {!(showFieldToggle && fieldsOpen) && inlineFields.map(renderField)}
+          {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
+          {(tiers || !(showFieldToggle && fieldsOpen)) && bandFields.map(renderField)}
 
           <div className="flex-1 min-w-0" />
 
@@ -546,7 +555,10 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           )}
 
           {/* The aligned field grid: last in the band, on its own line (#2354). */}
-          {showFieldToggle && fieldsOpen && (
+          {showFieldToggle && fieldsOpen && tiers && (
+            <LaneTierDetails id={extraFieldsId} laneColor={color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onEditFieldOrder : undefined} />
+          )}
+          {showFieldToggle && fieldsOpen && !tiers && (
             <>
               <LaneFieldGrid id={extraFieldsId} laneName={swimlane.name} laneColor={color} fields={gridFields} userDateFormat={userDateFormat} />
               {isAdmin && onEditFieldOrder && (

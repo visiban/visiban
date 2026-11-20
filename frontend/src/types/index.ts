@@ -660,8 +660,19 @@ export interface SwimlaneCustomFieldDefinition {
    * `{}` when none is set; a choice with no entry renders with its automatic dot.
    */
   choice_colors: Record<string, string>;
+  /**
+   * Where the field shows on a lane band (#2439): `null` = derived from position (every
+   * pre-1.3 row). Read it through `resolveLaneTiers`, never directly: a board whose rows are
+   * all `null` keeps the pre-1.3 band, and a `null` row on a tiered board is never Band.
+   * Optional only so that a payload from a pre-#2439 server (mid rolling deploy) still types;
+   * absent reads exactly like `null`. The serializer always sends it.
+   */
+  band_visibility?: LaneTier | null;
   created_at: string;
 }
+
+/** A swimlane field's tier on the lane band (#2439). */
+export type LaneTier = "band" | "details" | "hidden";
 
 /**
  * One swimlane's value for one row-field definition (#1140). Same string
@@ -1169,6 +1180,8 @@ export interface Board {
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;
+  /** #2439 — the most swimlane fields a lane's "Show N more" details hold (4, 6, 9, 12 or 16; default 6). */
+  lane_details_cap: number;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
   is_starred: boolean;
@@ -1370,6 +1383,8 @@ export interface BoardFull {
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;
+  /** #2439 — the most swimlane fields a lane's "Show N more" details hold (4, 6, 9, 12 or 16; default 6). */
+  lane_details_cap: number;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
   is_starred: boolean;

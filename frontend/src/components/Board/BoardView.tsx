@@ -3461,6 +3461,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               boardColors={boardColors}
               limitFlags={board}
               swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              laneDetailsCap={board.lane_details_cap}
               intakeColumnId={intakeColumnId}
               onCardAdded={onCardAdded}
               onColumnUpdated={handleColumnUpdated}
@@ -3630,6 +3631,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
+              laneDetailsCap={board.lane_details_cap}
                       hideRowChipFieldNames={board.show_row_chip_field_names === false}
                       onEditFieldOrder={canEditSwimlaneFieldOrder(isAdmin, board.swimlane_custom_field_definitions.length) ? openSwimlaneFieldOrder : undefined}
                       onCardUpdated={onCardUpdated}

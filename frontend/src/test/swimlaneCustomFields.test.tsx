@@ -472,7 +472,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
     members: [], custom_field_definitions: [], swimlane_custom_field_definitions: defs,
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
-    export_min_role: 'viewer', card_density: 'standard', show_wip_at_limit: false, show_row_chip_field_names: true,
+    export_min_role: 'viewer', card_density: 'standard', show_wip_at_limit: false, show_row_chip_field_names: true, lane_details_cap: 6,
     created_at: '', updated_at: '', current_user_role: 'admin', is_starred: false,
     share_token: null, share_token_expires_at: null, share_link_active: false,
     // Fully typed, no `as unknown as` escape hatch: the double cast would
@@ -521,7 +521,8 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(handle.tagName).toBe('BUTTON')
     expect(handle).toHaveAttribute('type', 'button')
     expect(handle).toHaveClass('focus:opacity-100', 'focus:ring-2', 'focus:ring-primary-emphasis')
-    await user.tab()
+    // #2439 put "+ Add field" and the tier controls in the tab order too; the handle is still a stop.
+    for (let i = 0; i < 10 && document.activeElement !== handle; i++) await user.tab()
     expect(handle).toHaveFocus()
   })
 
@@ -657,11 +658,11 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
 })
 
 describe('BoardSettingsSwimlaneFieldsTab — header count hint (#2271)', () => {
-  it('says the header shows the first two values and any beyond them are behind the N fields toggle', () => {
+  it('says each field can be placed on the band (#2439 replaced the order-only hint)', () => {
     render(
       <BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />
     )
-    expect(screen.getByText('The swimlane header shows the first two field values in the order below; any beyond the first two are behind the N fields toggle.')).toBeInTheDocument()
+    expect(screen.getByText('Choose where each field appears on the lane band. Drag to reorder.')).toBeInTheDocument()
   })
 })
 
@@ -675,8 +676,9 @@ describe('BoardSettingsSwimlaneFieldsTab — row-chip field names setting (#1418
     const toggle = screen.getByRole('switch', { name: NAME })
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     expect(toggle).toHaveAccessibleDescription(/Turn off to show values only\. Names stay available on hover and in the row's field list\. Checkbox fields always show their name\./)
-    const header = screen.getByText('Swimlane fields')
-    expect(toggle.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // #2439 artboard: the tab header comes first, then this toggle, then the summary bar and list.
+    const summary = screen.getByTestId('swimlane-tier-summary')
+    expect(toggle.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('reflects a board that has names hidden', () => {
@@ -819,7 +821,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
       // Editor closes and the saved field is listed.
       expect(screen.queryByPlaceholderText(NAME)).not.toBeInTheDocument()
-      expect(screen.getByText('Region')).toBeInTheDocument()
+      expect(screen.getAllByText('Region')[0]).toBeInTheDocument()
     })
 
     it('builds a dropdown from typed, pasted and removed choices, with help text and public', async () => {
@@ -1041,7 +1043,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
       )
       expect(screen.queryByText('B')).not.toBeInTheDocument()
       rerender(<BoardSettingsSwimlaneFieldsTab board={makeBoard([defA, defB])} isAdmin onFieldsUpdated={vi.fn()} />)
-      expect(screen.getByText('B')).toBeInTheDocument()
+      expect(screen.getAllByText('B')[0]).toBeInTheDocument()
     })
   })
 
@@ -1582,5 +1584,102 @@ describe('BoardSettingsSwimlaneFieldsTab — choice colors (#1391)', () => {
     const badge = container.querySelector('.cf-choice-badge')
     expect(badge).not.toBeNull()
     expect(badge).toHaveTextContent('Gold')
+  })
+})
+
+// ── #2439: Band / Details / Hidden tiers ─────────────────────────────────────
+describe('lane field tiers (#2439)', () => {
+  const tiered = () => [
+    makeDef({ id: 1, name: 'Owner', position: 0, band_visibility: 'band' }),
+    makeDef({ id: 2, name: 'Region', position: 1, band_visibility: 'details' }),
+    makeDef({ id: 3, name: 'Notes', position: 2, band_visibility: 'hidden' }),
+    makeDef({ id: 4, name: 'Secret', position: 3, band_visibility: 'hidden', is_admin_only: true }),
+  ]
+  const lane = () => makeSwimlane({ custom_field_values: [
+    { field_definition: 1, value: 'Diane' }, { field_definition: 3, value: 'Renewal soon' }, { field_definition: 4, value: 'Top' },
+  ] })
+
+  it('shows Band fields, "Show N more", then details, Hidden on band and the footer', async () => {
+    const onEditFieldOrder = vi.fn()
+    renderRow(lane(), tiered(), false, { onEditFieldOrder })
+    expect(screen.getByText('Diane')).toBeInTheDocument()
+    const toggle = screen.getByTestId('swimlane-fields-toggle')
+    expect(toggle).toHaveTextContent('Show 3 more')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveTextContent('Hide details')
+    expect(screen.getByText('Diane')).toBeInTheDocument()
+    const group = screen.getByTestId('swimlane-hidden-group')
+    expect(group).toHaveAccessibleName('Hidden on band')
+    expect(within(group).getByText('Renewal soon')).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 2 hidden on band')
+    await userEvent.click(screen.getByRole('button', { name: 'Manage swimlane fields' }))
+    expect(onEditFieldOrder).toHaveBeenCalled()
+  })
+
+  it('a non-admin reads a Hidden field, without admin-only fields in any count or the manage link', async () => {
+    renderRow(lane(), tiered(), false, { isAdmin: false, onEditFieldOrder: vi.fn() })
+    const toggle = screen.getByTestId('swimlane-fields-toggle')
+    expect(toggle).toHaveTextContent('Show 2 more')
+    await userEvent.click(toggle)
+    expect(within(screen.getByTestId('swimlane-hidden-group')).getByText('Renewal soon')).toBeInTheDocument()
+    expect(screen.queryByText('Secret')).not.toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 1 hidden on band')
+    expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).not.toBeInTheDocument()
+  })
+
+  it('a legacy board (every tier null) keeps the pre-#2439 band', () => {
+    const defs = [0, 1, 2].map((i) => makeDef({ id: i + 1, name: `F${i}`, position: i, band_visibility: null }))
+    renderRow(makeSwimlane(), defs)
+    expect(screen.getByTestId('swimlane-fields-toggle')).toHaveTextContent('3 fields')
+  })
+})
+
+describe('BoardSettingsSwimlaneFieldsTab tiers (#2439)', () => {
+  const legacy = () => [0, 1, 2, 3].map((i) => makeDef({ id: i + 1, name: `F${i}`, position: i, band_visibility: null }))
+
+  it('shows derived tiers and counters on a legacy board, with the filters and help lines and the preview', () => {
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(legacy())} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
+    expect(screen.getByText('Choose where each field appears on the lane band. Drag to reorder.')).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-band-counter')).toHaveTextContent('2 / 2')
+    expect(screen.getByTestId('swimlane-details-counter')).toHaveTextContent('2 / 6')
+    expect(within(screen.getByRole('radiogroup', { name: 'Show F2' })).getByRole('radio', { name: 'Band' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/Every field can be searched and used in filters/)).toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-tier-preview')).toHaveTextContent('Show 2 more')
+  })
+
+  it('a tier change materializes locally and PATCHes band_visibility', async () => {
+    const onFieldsUpdated = vi.fn()
+    mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(makeDef({ id: 3, name: 'F2', position: 2, band_visibility: 'hidden' }))
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(legacy())} isAdmin onFieldsUpdated={onFieldsUpdated} onUpdateBoardSettings={vi.fn()} />)
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Show F2' })).getByRole('radio', { name: 'Hidden' }))
+    expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 3, { band_visibility: 'hidden' })
+    const last = onFieldsUpdated.mock.calls.at(-1)![0] as SwimlaneCustomFieldDefinition[]
+    expect(last.map((f) => f.band_visibility)).toEqual(['band', 'band', 'hidden', 'details'])
+  })
+
+  it('a blocked option does nothing; a server 400 reverts and shows the reason', async () => {
+    const defs = [makeDef({ id: 1, name: 'A', position: 0, band_visibility: 'band' }), makeDef({ id: 2, name: 'B', position: 1, band_visibility: 'band' }), makeDef({ id: 3, name: 'C', position: 2, band_visibility: 'details' })]
+    mockApi.updateSwimlaneCustomFieldDefinition.mockReset()
+    mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue({ response: { data: { band_visibility: ['Lane details hold 6 fields. Move one to Hidden first, or raise the limit.'] } } })
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={vi.fn()} />)
+    const band = within(screen.getByRole('radiogroup', { name: 'Show C' })).getByRole('radio', { name: 'Band' })
+    expect(band).toHaveAttribute('title', 'The band holds 2 fields. Move one to Details first.')
+    await userEvent.click(band)
+    expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Show A' })).getByRole('radio', { name: 'Details' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Lane details hold 6 fields')
+    expect(within(screen.getByRole('radiogroup', { name: 'Show A' })).getByRole('radio', { name: 'Band' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('the cap select PATCHes the board and disables caps below the details count; Find narrows the list', async () => {
+    const onUpdateBoardSettings = vi.fn()
+    const defs = Array.from({ length: 7 }, (_, i) => makeDef({ id: i + 1, name: `Field ${i}`, position: i, band_visibility: i < 2 ? 'band' : 'details' }))
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />)
+    const select = screen.getByLabelText('up to')
+    expect(within(select).getByRole('option', { name: '4' })).toBeDisabled()
+    await userEvent.selectOptions(select, '9')
+    expect(onUpdateBoardSettings).toHaveBeenCalledWith({ lane_details_cap: 9 })
+    await userEvent.type(screen.getByPlaceholderText('Find a field'), 'Field 3')
+    expect(screen.getAllByRole('radiogroup')).toHaveLength(1)
   })
 })
