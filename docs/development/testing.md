@@ -358,7 +358,12 @@ Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` an
 ## CI
 
 - Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
-  - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). Refresh it occasionally, e.g. after a large batch of new tests: `cd backend && pytest --store-durations --durations-path .test_durations`, then commit the file. A stale file only degrades balance, never correctness.
+  - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). A stale file only degrades balance, never correctness. Tests missing from it get the average duration.
+  - **Refresh it from CI's own timings** at each dot-release close (a `/release` pre-flight item) or after a large batch of new tests (#2422). From the repo root, with `glab` authenticated and `backend/.venv` set up, run `python3 scripts/refresh_test_durations.py --pipeline latest --collect --output backend/.test_durations`, then commit the file on a `chore/` branch.
+    - **What it does:** reads the newest green `main` push pipeline's test report, which holds every shard's JUnit per-test times, and maps each row to a pytest node id from a local `pytest --collect-only -q`. It drops rows whose test no longer collects. It leaves out collected tests with no CI timing, so pytest-split gives them the average. Repeated rows for one node id (reruns, subtests) are summed.
+    - **Why not `pytest --store-durations`:** that needs a full single-process run, and local SQLite timings do not match CI's Postgres runners. The file it left behind in 2026 covered 6,314 tests and 12.7 minutes, against ~11,800 tests and ~105 CI job-minutes, so shard estimates were off ~5x.
+    - **Expiry:** the JUnit reports expire with the shards' artifacts after 1 day, so use a recent pipeline. `--pipeline <id>` picks a specific one. `--test-report <file>` (from `glab api projects/:id/pipelines/<id>/test_report`), `--junit junit-*.xml` and `--collected <file>` work offline.
+    - **Test:** `bash scripts/tests/refresh_test_durations.test.sh` (in the `script-tests` job).
 - The change-feed clients (`clients/python`, `clients/typescript`, #1178) have three CI jobs, all triggered by `clients/**`:
     - `clients-python-unit` runs the stdlib `unittest` suite with `coverage` and fails below 80%.
     - `clients-typescript-unit` runs `tsc`, `vitest` (80% threshold) and the build. `clients-typescript-sast` runs eslint with the security plugin.

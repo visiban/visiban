@@ -767,9 +767,10 @@ backend-lint:
 # Balancing uses the committed backend/.test_durations file. Shards must NOT
 # pass --store-durations: every shard would write only its own slice and the
 # last one to push a cache would win, leaving the file stale. Regenerate it
-# with `pytest --store-durations --durations-path .test_durations` (see
-# docs/development/testing.md); tests missing from the file get the average
-# duration, so a stale file degrades balance but never correctness.
+# from these shards' own JUnit times with
+# `python3 scripts/refresh_test_durations.py --pipeline latest --collect --output backend/.test_durations`
+# (#2422, see docs/development/testing.md); tests missing from the file get the
+# average duration, so a stale file degrades balance but never correctness.
 
 backend-test:
   extends: .pip-cache
@@ -2883,6 +2884,7 @@ script-tests:
     - bash scripts/tests/resolve-docs-version.test.sh
     - bash scripts/tests/wt-doctor-drift.test.sh
     - bash scripts/tests/ci-interruptible.test.sh
+    - bash scripts/tests/refresh_test_durations.test.sh
   allow_failure: false
 
 # wt-forge-timeout.test.sh needs glibc/Debian userland (perl alarm and process-group
