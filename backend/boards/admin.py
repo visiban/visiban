@@ -506,6 +506,9 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                 # them here too or they stay empty once the card is deleted.
                 CardMovement.objects.filter(card=obj, card_uid="").update(card_uid=obj.uid)
                 CardMovement.objects.filter(card=obj, card_title="").update(card_title=obj.title)
+                # Activity rows are retained the same way (#1799).
+                CardActivity.objects.filter(card=obj, card_uid="").update(card_uid=obj.uid)
+                CardActivity.objects.filter(card=obj, card_title="").update(card_title=obj.title)
         board = obj.board
         event = _broadcast.EVT_CARD_UPDATED if change else _broadcast.EVT_CARD_CREATED
         card_data = _refetched_card_data_or_none(obj, request, board)

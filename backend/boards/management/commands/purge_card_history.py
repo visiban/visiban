@@ -359,9 +359,9 @@ class Command(BaseCommand):
             rows = rows.filter(board_id=board.pk)
             blocks = blocks.filter(board_id=board.pk)
             gates = gates.filter(board_id=board.pk)
-            # A live card's rows written by bulk_create (services, commands)
-            # carry no board until the card is deleted (#1799), so a live
-            # card's rows are also found through the card.
+            # A live card's row an older release wrote with bulk_create
+            # carries no board until the card is deleted (#1799; every writer
+            # sets it now), so a live card's rows are also found through the card.
             activities = activities.filter(
                 Q(board_id=board.pk) | Q(board__isnull=True, card__board_id=board.pk)
             )
@@ -408,11 +408,15 @@ class Command(BaseCommand):
                 )
                 .count()
             )
+            # A live activity row an older release wrote has no board yet
+            # (#1799); it counts under its card's board, as the --board filter
+            # above finds it, not as a phantom NULL board.
             boards = (
                 rows.order_by().values("board_id")
                 .union(
                     blocks.order_by().values("board_id"), gates.order_by().values("board_id"),
-                    activities.order_by().values("board_id"),
+                    activities.annotate(_board=Coalesce(F("board_id"), F("card__board_id")))
+                    .order_by().values("_board"),
                 )
                 .count()
             )

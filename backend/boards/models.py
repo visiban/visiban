@@ -1295,6 +1295,60 @@ class CardComment(models.Model):
         ]
 
 
+def fill_activity_snapshots(activities):
+    """Set ``board`` and the card snapshot on unsaved ``CardActivity`` rows.
+
+    Every writer must record them (#1799): a row with no board is not moved
+    with its card by the admin's board move (``exclude(board_id=...)`` matches
+    NULL), and once it has a board the delete-time repair
+    (``set_null_keeping_board``, which only looks at rows with no board) skips
+    it, leaving ``card_uid`` empty so ``purge_card_history --card`` and the
+    export cannot name it. ``save()`` and ``bulk_create`` both call this, so a
+    future writer cannot forget. Rows built with ``card=`` read the cached
+    instance (no query, so hot-path query budgets do not move); rows built
+    with only ``card_id=`` are resolved in one query for the whole batch.
+    Fields a caller set (an imported retained row) are left as they are.
+    """
+    card_field = CardActivity._meta.get_field("card")
+    pending = [
+        act for act in activities
+        if act.card_id is not None
+        and (act.board_id is None or not act.card_uid or not act.card_title)
+    ]
+    uncached = {act.card_id for act in pending if not card_field.is_cached(act)}
+    fetched = (
+        {
+            row["pk"]: row
+            for row in Card.objects.filter(pk__in=uncached).values("pk", "board_id", "uid", "title")
+        }
+        if uncached else {}
+    )
+    for act in pending:
+        if card_field.is_cached(act):
+            card = act.card
+            board_id, uid, title = card.board_id, card.uid, card.title
+        else:
+            row = fetched.get(act.card_id)
+            if row is None:
+                continue  # the insert's FK check reports a missing card
+            board_id, uid, title = row["board_id"], row["uid"], row["title"]
+        if act.board_id is None:
+            act.board_id = board_id
+        if not act.card_uid:
+            act.card_uid = uid
+        if not act.card_title:
+            act.card_title = title
+
+
+class CardActivityManager(models.Manager):
+    """``bulk_create`` skips ``save()``, so it fills the snapshots itself (#1799)."""
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        fill_activity_snapshots(objs)
+        return super().bulk_create(objs, *args, **kwargs)
+
+
 class CardActivity(models.Model):
     """Immutable audit log entry for a field change or action on a card.
 
@@ -1424,6 +1478,8 @@ class CardActivity(models.Model):
         blank=True,  # pragma: no mutate -- schema constant (migration-check)
     )
 
+    objects = CardActivityManager()
+
     class Meta:
         db_table = "card_activities"
         ordering = ["-created_at"]
@@ -1446,22 +1502,14 @@ class CardActivity(models.Model):
 
         On insert, fill the board and card snapshots from the card when the
         caller did not; callers pass the card instance, so this reads the
-        cached object. ``bulk_create`` skips ``save()``; a row it writes
-        without them is filled when its card is deleted
-        (``set_null_keeping_board``).
+        cached object. ``bulk_create`` skips ``save()``, so the manager's
+        ``bulk_create`` fills them the same way (``fill_activity_snapshots``).
         """
         if self.pk is not None or not self._state.adding:
             raise AppendOnlyViolation(
                 "CardActivity rows are append-only; an existing activity cannot be changed."
             )
-        if self.card_id is not None:
-            card = self.card
-            if self.board_id is None:
-                self.board_id = card.board_id
-            if not self.card_uid:
-                self.card_uid = card.uid
-            if not self.card_title:
-                self.card_title = card.title
+        fill_activity_snapshots([self])
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):

@@ -40,6 +40,12 @@ class _Fixture(_BoardFixture):
         kw.setdefault("event_type", CardActivity.EventType.TITLE_CHANGE)
         return CardActivity.objects.create(card=card, actor=self.owner, **kw)
 
+    def _legacy_row(self, card):
+        """A row an older release wrote with bulk_create: no board, empty snapshot."""
+        act = CardActivity.objects.create(card=card, event_type="title_change")
+        CardActivity.objects.filter(pk=act.pk).update(board=None, card_uid="", card_title="")
+        return act
+
     def _export(self):
         resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/", {"format": "json"})
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -62,11 +68,11 @@ class ActivityRetentionTests(_Fixture):
         self.assertIsNone(act.card_id)
         self.assertEqual((act.board_id, act.card_title, act.to_value), (self.board.pk, "Gone", "b"))
 
-    def test_bulk_created_row_without_board_is_filled_on_card_delete(self):
-        # bulk_create skips save(): set_null_keeping_board fills the row.
+    def test_legacy_row_without_board_is_filled_on_card_delete(self):
+        # A row an older release wrote: set_null_keeping_board fills it.
         card = self._card("Bulk")
         uid = card.uid
-        CardActivity.objects.bulk_create([CardActivity(card=card, event_type="title_change")])
+        self._legacy_row(card)
         self.assertTrue(CardActivity.objects.filter(card=card, board__isnull=True).exists())
         self._delete_card(card)
         act = CardActivity.objects.get(card__isnull=True)
@@ -98,7 +104,7 @@ class ActivityRetentionTests(_Fixture):
         gone, live = self._card("Gone"), self._card("Live")
         self._activity(gone)
         self._activity(live)
-        CardActivity.objects.bulk_create([CardActivity(card=live, event_type="title_change")])
+        self._legacy_row(live)
         self._delete_card(gone)
         resp = self.client.delete(f"/api/v1/boards/{self.board.pk}/")
         self.assertEqual(resp.status_code, 204, resp.content)
@@ -120,9 +126,8 @@ class ActivityRetentionTests(_Fixture):
 
     def test_migration_0118_backfills_rows_in_batches(self):
         card = self._card("Old")
-        CardActivity.objects.bulk_create(
-            [CardActivity(card=card, event_type="title_change") for _ in range(3)]
-        )
+        for _ in range(3):
+            self._legacy_row(card)
         with patch.object(_migration_0118, "BATCH_SIZE", 2):
             _migration_0118.backfill(django_apps(), None)
         self.assertFalse(CardActivity.objects.filter(board__isnull=True).exists())
@@ -130,7 +135,7 @@ class ActivityRetentionTests(_Fixture):
 
     def test_purge_by_board_with_live_cards_finds_rows_without_a_board(self):
         live = self._card("Live")
-        CardActivity.objects.bulk_create([CardActivity(card=live, event_type="title_change")])
+        self._legacy_row(live)
         User.objects.create_superuser(username="root", password="pw-1799-x!")
         call_command(
             "purge_card_history", "--board", str(self.board.pk), "--include-live-cards",
@@ -152,6 +157,143 @@ class ActivityRetentionTests(_Fixture):
         self.assertIn("deleted 1 activity row(s)", out.getvalue())
         self.assertFalse(CardActivity.objects.filter(card_uid=uid).exists())
         self.assertTrue(CardActivity.objects.filter(card=live).exists())
+
+
+class EveryActivityWriterRecordsSnapshotsTests(_Fixture):
+    """Every writer sets board, card_uid and card_title at write time (#1799).
+
+    A row without them is not moved by the admin's board move and, once it
+    has a board, is skipped by the delete-time repair, so ``purge_card_history
+    --card`` could not find it. Each case writes through a production path,
+    checks the live row, hard-deletes the card, and purges it by UID.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.root = User.objects.create_superuser(username="root1799w", password="pw-1799-x!")
+
+    def _assert_recorded_and_purgeable(self, card, event_type):
+        uid, title = card.uid, card.title
+        rows = CardActivity.objects.filter(card=card, event_type=event_type)
+        self.assertTrue(rows.exists())
+        self.assertEqual(
+            set(rows.values_list("board_id", "card_uid", "card_title")),
+            {(card.board_id, uid, title)},
+        )
+        self._delete_card(card)
+        self.assertFalse(CardActivity.objects.filter(card__isnull=True, card_uid="").exists())
+        out = io.StringIO()
+        call_command(
+            "purge_card_history", "--card", uid, "--actor", self.root.username, "--yes", stdout=out,
+        )
+        self.assertFalse(CardActivity.objects.filter(card_uid=uid).exists())
+        self.assertFalse(CardActivity.objects.exists(), "a row escaped the purge by UID")
+
+    def test_card_update_service_path(self):
+        # services/cards.py update_card: the label / due-date / field bulk_create.
+        card = self._card("Patched")
+        resp = self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/cards/{card.pk}/",
+            {"due_date": "2026-12-01", "priority": "high"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self._assert_recorded_and_purgeable(card, CardActivity.EventType.DUE_DATE_CHANGE)
+
+    def test_custom_field_service_path(self):
+        from boards.models import CustomFieldDefinition
+        from boards.services.custom_fields import apply_custom_field_values
+
+        card = self._card("Fielded")
+        definition = CustomFieldDefinition.objects.create(
+            board=self.board, name="Region", field_type=CustomFieldDefinition.FieldType.TEXT,
+        )
+        apply_custom_field_values(card=card, pairs=[(definition, "EMEA")], actor=self.owner)
+        self._assert_recorded_and_purgeable(card, CardActivity.EventType.CUSTOM_FIELD_CHANGED)
+
+    def test_clear_viewer_assignees_command(self):
+        from boards.models import BoardMembership, CardChecklist
+
+        viewer = User.objects.create_user(username="viewer1799", password="pw-1799-x!")
+        BoardMembership.objects.create(board=self.board, user=viewer, role="viewer")
+        card = self._card("Cleared")
+        Card = type(card)
+        Card.objects.filter(pk=card.pk).update(assignee=viewer)
+        card.refresh_from_db()
+        # A checklist row exercises the card_id=-only branch (one lookup query).
+        CardChecklist.objects.create(card=card, text="to-do", position=0, assignee=viewer)
+        with patch("boards.broadcast.broadcast_board_event"), \
+                self.captureOnCommitCallbacks(execute=True):
+            call_command("clear_viewer_assignees", stdout=io.StringIO())
+        self.assertEqual(
+            CardActivity.objects.filter(card=card, event_type__in=[
+                CardActivity.EventType.ASSIGNEE_CHANGE,
+                CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED,
+            ]).count(), 2,
+        )
+        self._assert_recorded_and_purgeable(card, CardActivity.EventType.CHECKLIST_ITEM_ASSIGNED)
+
+    def test_bulk_create_with_card_id_only_resolves_cards_in_one_query(self):
+        a, b = self._card("A"), self._card("B")
+        objs = [
+            CardActivity(card_id=a.pk, event_type="title_change"),
+            CardActivity(card_id=b.pk, event_type="title_change"),
+        ]
+        with self.assertNumQueries(2):  # one card lookup, one INSERT
+            CardActivity.objects.bulk_create(objs)
+        self.assertEqual(
+            set(CardActivity.objects.values_list("board_id", "card_uid", "card_title")),
+            {(self.board.pk, a.uid, "A"), (self.board.pk, b.uid, "B")},
+        )
+
+    def test_bulk_create_with_cached_card_costs_no_extra_query(self):
+        card = self._card("Cached")
+        with self.assertNumQueries(1):
+            CardActivity.objects.bulk_create([CardActivity(card=card, event_type="title_change")])
+
+    def test_admin_board_move_fills_legacy_activity_snapshot(self):
+        from django.contrib.admin.sites import AdminSite
+
+        from boards.admin import CardAdmin
+        from boards.models import BoardMembership, Card, Column, Swimlane
+        from boards.tests.test_admin_broadcast import _DummyForm
+
+        card = self._card("Travels")
+        uid = card.uid
+        self._legacy_row(card)
+        b2 = Board.objects.create(name="B2", owner=self.owner)
+        BoardMembership.objects.create(board=b2, user=self.owner, role="admin")
+        col2 = Column.objects.create(board=b2, name="X", position=0)
+        swim2 = Swimlane.objects.create(board=b2, name="Y", position=0)
+        request = RequestFactory().post("/admin/")
+        request.user = self.root
+        card.board, card.column, card.swimlane = b2, col2, swim2
+        with self.captureOnCommitCallbacks(execute=True):
+            CardAdmin(Card, AdminSite()).save_model(request, card, _DummyForm(), change=True)
+        self.assertEqual(
+            list(CardActivity.objects.filter(card=card).values_list("board_id", "card_uid", "card_title")),
+            [(b2.pk, uid, "Travels")],
+        )
+        resp = self.client.delete(f"/api/v1/boards/{b2.pk}/cards/{card.pk}/")
+        self.assertEqual(resp.status_code, 204, resp.content)
+        call_command(
+            "purge_card_history", "--card", uid, "--actor", self.root.username, "--yes",
+            stdout=io.StringIO(),
+        )
+        self.assertFalse(CardActivity.objects.exists())
+
+    def test_purge_dry_run_counts_a_legacy_live_row_under_its_cards_board(self):
+        # With --include-live-cards a live row with no board is matched through
+        # its card; the dry run counts that board, not a phantom NULL one.
+        live = self._card("Live")
+        self._activity(live)
+        self._legacy_row(live)
+        out = io.StringIO()
+        call_command(
+            "purge_card_history", "--board", str(self.board.pk), "--include-live-cards",
+            "--actor", self.root.username, stdout=out,
+        )
+        self.assertIn("2 activity row(s)", out.getvalue())
+        self.assertIn("(1 card(s), 1 board(s))", out.getvalue())
 
 
 def django_apps():

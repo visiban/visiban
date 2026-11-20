@@ -312,7 +312,11 @@ def _deleted_card_history_export(board):
     ``(board, ...)`` index), no per-card query.
 
     Not in the CSV export: a CSV row is a card, and the CSV importer creates a
-    card from every row, so a deleted card there would come back to life.
+    card from every row, so a deleted card there would come back to life
+    (whether the CSV should carry it in another form: #2414).
+
+    Movements and activities only: a deleted card's retained ``CardBlock`` and
+    ``CardGateTransition`` rows are not exported or imported yet (#2413).
     """
     movements = (
         CardMovement.objects.filter(board=board, card__isnull=True)
@@ -1458,10 +1462,9 @@ _IMPORT_WRITE_ERRORS = (DataError, IntegrityError, DjangoValidationError, ValueE
 def _fill_activity_snapshots(activities, cards_by_pk=None):
     """Set ``board`` and the card snapshot on activity rows before ``bulk_create``.
 
-    ``bulk_create`` skips ``CardActivity.save()``, which fills them on every
-    other path (#1799). A row left without them would still be filled when its
-    card is deleted (``set_null_keeping_board``), but writing them here keeps
-    imported rows like every other row. ``cards_by_pk`` maps ``card_id`` to the
+    The manager's ``bulk_create`` fills them too (``fill_activity_snapshots``,
+    #1799), but only on rows that lack them; setting them here from
+    ``cards_by_pk`` costs no query for rows built with ``card_id=``. ``cards_by_pk`` maps ``card_id`` to the
     card for rows built with ``card_id=``; rows built with ``card=`` read the
     cached instance.
     """
