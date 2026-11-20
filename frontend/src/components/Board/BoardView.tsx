@@ -3485,7 +3485,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           ) : (
           <div style={{ minWidth: gridMinWidth }} data-testid="board-grid" data-track-floors={gridTrackFloors}>
           {/* Header row — sticky to the top of the scroll container */}
-          <div className="grid sticky top-0 z-20 border-b border-line bg-sunken py-1.5" style={{ gridTemplateColumns: gridTemplate }} data-testid="board-header-row">
+          <div className="grid sticky top-0 z-20 border-b border-line bg-sunken py-1" style={{ gridTemplateColumns: gridTemplate }} data-testid="board-header-row">
             {/* Far-left separator: click inserts column at pos 0 (nothing to its left resizes) */}
             <ColumnSeparator
               isAdmin={isAdmin}
