@@ -37,6 +37,16 @@ _INT64 = {"type": "integer", "format": "int64"}
 _DATE = {"type": "string", "format": "date"}
 _OFFSET = {"type": "integer", "minimum": 0, "maximum": MAX_OFFSET}
 
+# Answers shaped ``{"results": [...]}`` that are one bounded list, not a page of
+# a larger set: there is no next page to reach, so no paging parameter exists.
+# Anything else with a ``results`` array must declare how to fetch the next page.
+_BOUNDED_RESULTS_ENVELOPES = {
+    # #1104: the parent-tier boards the caller can link to; a handful, ordered by name.
+    "/api/v1/boards/{id}/parent-boards/",
+    # #1104: capped at 20 rows server-side (a debounced search, not a browse).
+    "/api/v1/boards/{board_pk}/cards/{id}/parent-candidates/",
+}
+
 
 class QueryParameterSchemaTests(TestCase):
     @classmethod
@@ -209,7 +219,7 @@ class QueryParameterSchemaTests(TestCase):
             body = content.get("application/json", {}).get("schema", {})
             if "$ref" in body:
                 body = components[body["$ref"].rsplit("/", 1)[-1]]
-            if "results" not in body.get("properties", {}):
+            if "results" not in body.get("properties", {}) or path in _BOUNDED_RESULTS_ENVELOPES:
                 continue
             declared = {p["name"] for p in operation.get("parameters", []) if p["in"] == "query"}
             if not declared & {"offset", "cursor", "after"}:
