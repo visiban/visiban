@@ -104,10 +104,11 @@ class GroupInviteRegistrationTests(_GroupInviteFixture, TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 self._register("bcast@example.com", raw)
         user = User.objects.get(email="bcast@example.com")
-        bcast.assert_called_once()
-        gid, event, data = bcast.call_args.args
+        # Only member.added frames: subgroups would also get member.updated (#2235).
+        added = [c for c in bcast.call_args_list if c.args[1] == EVT_MEMBER_ADDED]
+        self.assertEqual(len(added), 1)
+        gid, event, data = added[0].args
         self.assertEqual(gid, self.group.pk)
-        self.assertEqual(event, EVT_MEMBER_ADDED)
         self.assertEqual(data["user"]["id"], user.pk)
         self.assertEqual(data["role"], GroupMembership.Role.VIEWER)
 

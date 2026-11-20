@@ -11,12 +11,16 @@ membership) get nothing. The removal side is ``test_member_removed_subtree_2168`
 import json
 from unittest.mock import patch
 
+from django.contrib.admin import site
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework import status
 from rest_framework.renderers import JSONRenderer
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from groups.admin import GroupAdmin
 from groups.broadcast import broadcast_member_inherited_rows
 from groups.invite_registration import _grant_membership
 from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH, Group, GroupInviteLink, GroupMembership
@@ -185,15 +189,38 @@ class AddFanOutTests(_Tree):
 
 
 class HelperTests(_Tree):
-    def test_cost_is_constant_in_the_subtree_size(self):
-        GroupMembership.objects.create(group=self.root, user=self.member, role="member")
-        for i in range(6):
-            Group.objects.create(name=f"Leaf {i}", owner=self.owner, parent=self.great)
+    def _count_queries(self):
         with patch("groups.broadcast.broadcast_group_event") as send:
-            # descendants with their ancestor chain + the user's memberships + the user.
-            with self.assertNumQueries(3):
+            with CaptureQueriesContext(connection) as ctx:
                 broadcast_member_inherited_rows(self.root.pk, self.member.pk)
-        self.assertEqual(send.call_count, 4 + 6)
+        return len(ctx.captured_queries), send.call_count
+
+    def test_cost_is_bounded_by_depth_not_breadth(self):
+        GroupMembership.objects.create(group=self.root, user=self.member, role="member")
+        for i in range(3):
+            Group.objects.create(name=f"Leaf {i}", owner=self.owner, parent=self.great)
+        queries, frames = self._count_queries()
+        # Four subtree levels plus the empty fifth, the memberships, the name, the user.
+        self.assertEqual(queries, 5 + 3)
+        self.assertLessEqual(queries, _GROUP_TRAVERSAL_MAX_DEPTH + 4)
+        self.assertEqual(frames, 4 + 3)
+        for i in range(10):
+            Group.objects.create(name=f"Wide {i}", owner=self.owner, parent=self.child)
+            Group.objects.create(name=f"Wider {i}", owner=self.owner, parent=self.great)
+        more_queries, more_frames = self._count_queries()
+        self.assertEqual(more_queries, queries)
+        self.assertEqual(more_frames, frames + 20)
+
+    def test_fan_out_is_capped_and_logged(self):
+        GroupMembership.objects.create(group=self.root, user=self.member, role="member")
+        with patch("groups.broadcast.INHERITED_ROW_FANOUT_MAX", 2), \
+             patch("groups.broadcast.broadcast_group_event") as send, \
+             self.assertLogs("groups.broadcast", level="WARNING") as logs:
+            broadcast_member_inherited_rows(self.root.pk, self.member.pk)
+        # The lowest ids first: child, then grandchild (created in that order).
+        self.assertEqual([c.args[0] for c in send.call_args_list], [self.child.pk, self.grandchild.pk])
+        self.assertIn("capped", "\n".join(logs.output))
+        self.assertNotIn(self.member.username, "\n".join(logs.output))
 
     def test_no_subgroups_costs_one_query(self):
         GroupMembership.objects.create(group=self.unrelated, user=self.member, role="member")
@@ -252,3 +279,47 @@ class HelperTests(_Tree):
             broadcast_member_inherited_rows(self.root.pk, self.member.pk)
         send.assert_not_called()
         self.assertIn("RuntimeError", "\n".join(logs.output))
+
+
+class OwnershipTransferFanOutTests(_Tree):
+    """A transfer re-roles the new and previous owner on the group (both admins after it)."""
+
+    def setUp(self):
+        super().setUp()
+        GroupMembership.objects.create(group=self.root, user=self.member, role="admin")
+
+    def _frames_all(self, send):
+        # Several frames can share one channel here (one per user), so keep them all.
+        return [(c.args[0], c.args[2]) for c in send.call_args_list if c.args[1] == "member.updated"]
+
+    def test_api_transfer_reaches_the_inheriting_subgroups(self):
+        with patch("groups.broadcast.broadcast_group_event") as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self.client.post(
+                    f"/api/v1/groups/{self.root.pk}/transfer-ownership/",
+                    {"new_owner_id": self.member.pk, "confirmation": "Root"}, format="json",
+                )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        by_user = {}
+        for gid, payload in self._frames_all(send):
+            self.assertIsNone(payload["id"])
+            self.assertEqual(payload["role"], "admin")
+            by_user.setdefault(payload["user"]["id"], set()).add(gid)
+        self.assertEqual(
+            by_user[self.member.pk], {self.child.pk, self.grandchild.pk, self.great.pk, self.sibling.pk}
+        )
+        # The previous owner's direct Child row shields Child's subtree.
+        self.assertEqual(by_user[self.owner.pk], {self.sibling.pk})
+
+    def test_django_admin_transfer_reaches_the_inheriting_subgroups(self):
+        with patch("groups.broadcast.broadcast_group_event") as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                GroupAdmin(Group, site)._broadcast_after_commit(
+                    self.root.pk, actor_id=self.owner.pk, member_ids=(self.member.pk,),
+                )
+        events = [c.args[1] for c in send.call_args_list]
+        self.assertEqual(events[0], "group.updated")
+        self.assertEqual(
+            {gid for gid, _ in self._frames_all(send)},
+            {self.child.pk, self.grandchild.pk, self.great.pk, self.sibling.pk},
+        )

@@ -129,7 +129,10 @@ class GroupAdmin(admin.ModelAdmin):
                         require_admin_role=False,
                         require_active=True,
                     )
-                    self._broadcast_after_commit(updated.pk, actor_id=request.user.pk)
+                    self._broadcast_after_commit(
+                        updated.pk, actor_id=request.user.pk,
+                        member_ids=(new_owner.pk, int(request.POST["expected_owner"])),
+                    )
                     # Privilege-relevant: leave a trail in the admin log.
                     self.log_change(
                         request,
@@ -158,8 +161,12 @@ class GroupAdmin(admin.ModelAdmin):
             request, "admin/groups/group/transfer_ownership.html", context
         )
 
-    def _broadcast_after_commit(self, group_id, *, actor_id=None):
+    def _broadcast_after_commit(self, group_id, *, actor_id=None, member_ids=()):
         """Send the same ``group.updated`` event the API transfer sends.
+
+        Like the API transfer, also sends ``member.updated`` to the subgroups
+        that inherit ``member_ids``' rows (the new and previous owner, both
+        admins after the transfer; #2235).
 
         Queued with ``transaction.on_commit`` so clients never see an owner the
         database does not have. ``is_starred`` is a constant ``False`` here (no
@@ -178,9 +185,11 @@ class GroupAdmin(admin.ModelAdmin):
         # viewer here, and without ``group_access`` the serializer withholds.
         data = GroupSerializer(group, context={"group_access": full_group_access}).data
 
-        def _send(gid=group_id, payload=data, aid=actor_id):
+        def _send(gid=group_id, payload=data, aid=actor_id, uids=tuple(member_ids)):
             group_broadcast.broadcast_group_event(
                 gid, group_broadcast.EVT_GROUP_UPDATED, payload, actor_id=aid
             )
+            for uid in uids:
+                group_broadcast.broadcast_member_inherited_rows(gid, uid, actor_id=aid)
 
         transaction.on_commit(_send)

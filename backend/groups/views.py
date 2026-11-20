@@ -1850,9 +1850,16 @@ class GroupViewSet(viewsets.ModelViewSet):
                 annotated, context={"request": request, "group_access": full_group_access},
             ).data
 
-            def _broadcast_transfer(gid=group.pk, data=group_data, aid=request.user.id):
-                from .broadcast import broadcast_group_event
+            def _broadcast_transfer(
+                gid=group.pk, data=group_data, aid=request.user.id, uids=(new_owner_id, request.user.id),
+            ):
+                from .broadcast import broadcast_group_event, broadcast_member_inherited_rows
                 broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data, actor_id=aid)
+                # The transfer makes the new owner, and keeps the previous
+                # one, an admin of this group: a role change (or none) for
+                # each, which subgroups inheriting their rows must see (#2235).
+                for uid in uids:
+                    broadcast_member_inherited_rows(gid, uid, actor_id=aid)
 
             transaction.on_commit(_broadcast_transfer)
 
