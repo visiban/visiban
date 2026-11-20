@@ -2780,6 +2780,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-apiv1boardsboard_idcolumnscolumn_idstage-card-counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{board_id}/columns/{column_id}/stage-card-counts/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#card-activity-custom_field_changed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6960,11 +6971,17 @@ affects the card's own due date, urgency or staleness.</p>
 <a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="p">}</span>
 </code></pre></div>
 <ul>
-<li><code>sub_columns</code>: <code>[]</code> (a plain column) or 2 to 4 entries. An entry with an <code>id</code> keeps and may rename that sub-column; one without is new. Kept sub-columns cannot be reordered. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a <code>stage_edited</code> gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in <code>remapped</code> with its new <code>gates_passed</code> and bumped <code>version</code>.</li>
+<li><code>sub_columns</code>: <code>[]</code> (a plain column) or 2 to 4 entries. An entry with an <code>id</code> keeps and may rename that sub-column; one without is new. The list order is the new order: kept sub-columns may be reordered (#2368), but not in the same request that removes one: that returns <code>400</code> with <code>Reorder and remove sub-columns in separate saves</code>. A reordered sub-column keeps its cards: each card follows its own sub-column to its new index, passes no gate and writes no history, and appears in <code>remapped</code>. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a <code>stage_edited</code> gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in <code>remapped</code> with its new <code>gates_passed</code> and bumped <code>version</code>.</li>
 <li><code>tracks</code>: ordered ids of the board's dimension fields. Removing a track unbinds it only; the field and every card's value stay.</li>
 <li><code>not_applicable</code>: replaces the lane exceptions for this stage's tracks.</li>
 </ul>
 <p>Response: <code>{"column": &lt;Column&gt;, "remapped": [{"id", "gates_passed", "version"}]}</code>. The same <code>remapped</code> list rides the <code>column_updated</code> WebSocket event; changed lanes emit <code>swimlane_updated</code>.</p>
+<p>Archived cards in the column are remapped too, since they keep <code>gates_passed</code>. The remap writes its gate transitions in one insert and its cards in one update per target sub-column (at most four), so a save runs a constant number of queries however many cards the stage holds (#2362).</p>
+<h3 id="get-apiv1boardsboard_idcolumnscolumn_idstage-card-counts"><code>GET /api/v1/boards/{board_id}/columns/{column_id}/stage-card-counts/</code><a class="headerlink" href="#get-apiv1boardsboard_idcolumnscolumn_idstage-card-counts" title="Permanent link">&para;</a></h3>
+<p>Board admins only (<code>403</code> for members, <code>404</code> for callers without board access or an unknown column). New in 1.3 (#2368). The Stage settings panel reads it for its "N cards will move" summary, because a stage save also remaps archived cards, which the board payload does not carry.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="p">{</span><span class="nt">"sub_columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}]}</span>
+</code></pre></div>
+<p>One entry per sub-column, in order: <code>cards</code> counts active cards and <code>archived_cards</code> archived ones. A card whose <code>gates_passed</code> is past the last sub-column counts in the last. A plain column returns <code>[]</code>.</p>
 <h3 id="card-activity-custom_field_changed">Card activity: <code>custom_field_changed</code><a class="headerlink" href="#card-activity-custom_field_changed" title="Permanent link">&para;</a></h3>
 <p>Every custom field value set, changed or cleared, on any transport, writes a card activity row with <code>event_type</code> <code>custom_field_changed</code>, <code>from_value</code> / <code>to_value</code> (<code>""</code> = no value), the actor, and <code>item_text</code> = the field's name at the time.</p>
 
