@@ -21,7 +21,7 @@ from unittest import mock, skipUnless
 
 from django.contrib import admin as django_admin
 from django.db import OperationalError, connection, connections, transaction
-from django.test import RequestFactory, TransactionTestCase
+from django.test import RequestFactory, TestCase, TransactionTestCase
 
 from boards.admin import CardAdmin
 from boards.models import Board, Card, CardActivity, CardParentLink, Column
@@ -193,3 +193,24 @@ class PeerReadUnderLockTests(_LinkFixture, TransactionTestCase):
         with mock.patch.object(card_links, "link_peer_pks") as spy:
             card_links.lock_card_and_link_peers(self.child.pk)
         spy.assert_not_called()
+
+
+class AdminFormLinksChangedTests(_LinkFixture, TestCase):
+    """The admin change form answers an exhausted peer-lock retry as a form
+    error, not a 500 (#2409). Runs on any database: the helper is stubbed."""
+
+    def test_links_changed_is_a_form_error(self):
+        from boards.tests.test_admin_card_cell_entry_race import _admin_post_data
+
+        self._setup_boards()
+        type(self.owner).objects.filter(pk=self.owner.pk).update(is_superuser=True, is_staff=True)
+        self.owner.refresh_from_db()
+        request = RequestFactory().post("/")
+        request.user = self.owner
+        model_admin = CardAdmin(Card, django_admin.site)
+        child = Card.objects.get(pk=self.child.pk)
+        data = _admin_post_data(child, title="Renamed 2409", mentioned_user_ids="[]")
+        with mock.patch("boards.admin.lock_card_and_link_peers", side_effect=LinksChanged()):
+            form = model_admin.get_form(request, obj=child)(data, instance=child)
+            self.assertFalse(form.is_valid())
+        self.assertIn(LinksChanged.detail, form.non_field_errors())
