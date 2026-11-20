@@ -27,11 +27,11 @@ export default function CardAddChildSection({ board, cardId }: Props) {
           ref={buttonRef}
           type="button"
           onClick={() => { setAdded(null); setOpen(true); }}
-          className="self-start min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-primary-text border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="self-start min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-info border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Add child
         </button>
-        <p role="status" aria-live="polite" className="text-xs text-fg-muted">{added}</p>
+        <p role="status" aria-live="polite" className={added ? "text-xs text-fg-muted" : "sr-only"}>{added}</p>
       </div>
       {open && (
         <AddChildDialog

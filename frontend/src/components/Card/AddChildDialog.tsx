@@ -148,7 +148,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
 
           {!fixedHidden && (offerDefault ? (
             <label className="flex min-h-11 items-center gap-2 text-sm text-fg-secondary">
-              <input type="checkbox" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} />
+              <input type="checkbox" className="h-4 w-4 accent-primary focus:ring-2 focus:ring-primary-emphasis" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} />
               Use {chosenBoard?.name} as the default for {boardName}
             </label>
           ) : (!hasDefault && !fixedVisible && !options.can_set_default && options.boards.length > 0 && (
@@ -177,14 +177,14 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
               type="button"
               onClick={onClose}
               disabled={submitting}
-              className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!ready}
-              className="bg-primary-bg hover:bg-primary-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm px-4 py-1.5 max-sm:min-h-11 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {submitting ? "Adding…" : targetName ? `Add to ${targetName}` : "Add child"}
             </button>

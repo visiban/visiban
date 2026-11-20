@@ -570,20 +570,6 @@ class BoardViewSet(
 
     @extend_schema(
         responses={200: OpenApiResponse(description=(
-            "`{child_cards, parent_cards, default_of}`: cards here that are children "
-            "of other cards, cards here that have children, and the boards whose "
-            "default child board this is (`{hidden: true}` for a board the caller "
-            "cannot open, else `{hidden: false, id, name, can_change}`)."
-        ))},
-        description=(
-            "What stands in the way of turning `cards_can_have_children` on or off "
-            "(#2208, since 1.3). Turning it on is refused while `child_cards` > 0 or "
-            "`default_of` is not empty; turning it off is refused while "
-            "`parent_cards` > 0. Minimum role: board admin."
-        ),
-    )
-    @extend_schema(
-        responses={200: OpenApiResponse(description=(
             "`{child_cards, parent_boards, hidden_parent_boards, parent_cards}` for the "
             "delete confirm: `parent_boards` names only boards the caller can open."
         ))},
@@ -600,6 +586,20 @@ class BoardViewSet(
             raise PermissionDenied
         return Response(card_links.board_delete_impact_for_viewer(board, request.user))
 
+    @extend_schema(
+        responses={200: OpenApiResponse(description=(
+            "`{child_cards, parent_cards, default_of}`: cards here that are children "
+            "of other cards, cards here that have children, and the boards whose "
+            "default child board this is (`{hidden: true}` for a board the caller "
+            "cannot open, else `{hidden: false, id, name, can_change}`)."
+        ))},
+        description=(
+            "What stands in the way of turning `cards_can_have_children` on or off "
+            "(#2208, since 1.3). Turning it on is refused while `child_cards` > 0 or "
+            "`default_of` is not empty; turning it off is refused while "
+            "`parent_cards` > 0. Minimum role: board admin."
+        ),
+    )
     @action(detail=True, methods=["get"], url_path="children-setting-blockers")
     def children_setting_blockers(self, request, pk=None):
         """The reasons the Rules switch is blocked, for a board admin (#2208)."""
@@ -607,6 +607,15 @@ class BoardViewSet(
         self._require_board_settings_admin(board)
         return Response(card_links.default_child_blockers_for_viewer(board, request.user))
 
+    @extend_schema(
+        responses={200: OpenApiResponse(description=(
+            "`{boards: [{id, name}]}`: qualifying boards where the caller is admin."
+        ))},
+        description=(
+            "Boards the caller may choose as this board's default child board "
+            "(#2208, since 1.3). Minimum role: board admin."
+        ),
+    )
     @action(detail=True, methods=["get"], url_path="default-child-board-options")
     def default_child_board_options(self, request, pk=None):
         """Boards this admin may choose as the default child board (#2208)."""

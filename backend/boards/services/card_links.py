@@ -162,7 +162,8 @@ def default_child_blockers_for_viewer(board, user):
     child board this is (blocks ON). Each ``default_of`` entry is
     ``{"id", "name", "can_change"}`` when ``user`` can open that board, else
     ``{"hidden": True}``: no name or id for a board the viewer cannot open
-    (Rule 8). The caller has already checked ADMIN on ``board``.
+    (Rule 8). The caller has already checked ADMIN on ``board``. No user
+    fails closed to every source hidden (#1075).
     """
     child_cards = CardParentLink.objects.filter(child__board_id=board.pk).count()
     parent_cards = (
@@ -172,7 +173,8 @@ def default_child_blockers_for_viewer(board, user):
     sources = list(
         boards_defaulting_to(board).select_related(GROUP_ANCESTOR_SELECT_RELATED).order_by(Lower("name"), "pk")
     )
-    roles = get_board_roles(user, sources) if sources else {}
+    viewer = user is not None and getattr(user, "is_authenticated", False)
+    roles = get_board_roles(user, sources) if sources and viewer else {}
     default_of = []
     for b in sources:
         role = roles.get(b.pk)
@@ -544,6 +546,14 @@ def create_child(*, user, parent, parent_role, board_id, make_card):
             locked = Card.objects.filter(pk=parent.pk).values_list("board_id", flat=True).first()
         if locked != parent.board_id:
             raise NotFound()
+        # The roles were read before the locks: re-derive them now, so a member
+        # removed or demoted in that window cannot still put a card on the board.
+        roles = get_board_roles(user, [parent.board, child_board])
+        if roles.get(parent.board_id) not in LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        if roles.get(child_board.pk) not in LINK_WRITE_ROLES:
+            raise NotFound()
+        child_role = roles[child_board.pk]
         _check_link_rules_under_lock(parent, child_board)
         column, lane = first_column_and_lane(child_board)
         if column is None or lane is None or not column.allow_card_creation:
@@ -823,13 +833,13 @@ def boards_losing_default(board_pks):
     (:func:`announce_default_cleared`), so their clients drop it and Add child
     falls back to the chooser.
 
-    Deliberately takes no lock on the referencing boards. A write that sets a
-    default locks the target board (FOR NO KEY UPDATE, pk order with its own
-    board), and this delete already holds that row's lock before it reads
-    here: a default PATCH either committed first, so this read sees it, or it
-    waits for the delete and then finds the target gone. Locking the sources
-    here would take them after the target, against the PATCH's pk order, and
-    risk a deadlock for no extra safety.
+    The REST delete locks the referencing boards with the deleted one
+    (``lock_container_cascade``), so a default PATCH cannot slip in between
+    this read and the delete. The Django admin and ``delete_boards_locked``
+    lock only the deleted boards: there, a PATCH that commits in that window
+    still has its default cleared by ``SET_NULL``, and the only loss is that
+    its ``board.updated`` is not announced (a client sees the cleared default
+    on its next read).
     """
     return list(
         Board.objects.filter(default_child_board_id__in=board_pks)
@@ -861,7 +871,8 @@ def board_delete_impact_for_viewer(board, user):
     whether any parent is on a board ``user`` cannot open (named nowhere, and
     no count per board: decision E, warn only, discloses nothing about a
     board the deleter cannot open); ``parent_cards`` how many of this board's
-    cards have children elsewhere. The caller holds the delete gate.
+    cards have children elsewhere. The caller holds the delete gate. No user
+    fails closed to every parent board hidden (#1075).
     """
     child_cards = CardParentLink.objects.filter(child__board_id=board.pk).exclude(parent__board_id=board.pk)
     parent_board_ids = set(child_cards.values_list("parent__board_id", flat=True))
@@ -873,7 +884,8 @@ def board_delete_impact_for_viewer(board, user):
         Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
         .filter(pk__in=parent_board_ids).order_by(Lower("name"), "pk")
     )
-    roles = get_board_roles(user, boards) if boards else {}
+    viewer = user is not None and getattr(user, "is_authenticated", False)
+    roles = get_board_roles(user, boards) if boards and viewer else {}
     visible = [{"id": b.pk, "name": b.name} for b in boards if roles.get(b.pk) is not None]
     return {
         "child_cards": child_cards.count(),

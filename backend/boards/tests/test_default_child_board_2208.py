@@ -657,3 +657,44 @@ class AddChildSchemaTests(TestCase):
         self.assertIn("requestBody", post)
         self.assertTrue({"201", "400", "403", "404"} <= set(post["responses"]))
         self.assertIn("get", schema["paths"][path])
+
+
+class AbsentViewerGuardTests(DefaultChildBoardFixture):
+    """#1075: a read built without its viewer names nothing and never raises."""
+
+    def test_blockers_with_no_viewer_hide_every_source(self):
+        self.set_default()
+        out = card_links.default_child_blockers_for_viewer(self.child, None)
+        self.assertEqual(out["default_of"], [{"hidden": True}])
+
+    def test_delete_impact_with_no_viewer_names_no_board(self):
+        lane = Swimlane.objects.get(board=self.parent)
+        p = Card.objects.create(board=self.parent, column=self.parent.columns.first(), swimlane=lane, title="P")
+        clane = Swimlane.objects.get(board=self.child)
+        c = Card.objects.create(board=self.child, column=self.child.columns.first(), swimlane=clane, title="C")
+        CardParentLink.objects.create(parent=p, child=c, created_by=self.admin)
+        out = card_links.board_delete_impact_for_viewer(self.child, None)
+        self.assertEqual(out["parent_boards"], [])
+        self.assertTrue(out["hidden_parent_boards"])
+
+    def test_add_child_rechecks_the_target_role_under_the_lock(self):
+        """A member demoted below member between the lookup and the lock creates nothing."""
+        from rest_framework.exceptions import NotFound
+
+        member = self.user_with("rl", parent=Role.MEMBER, child=Role.MEMBER)
+        lane = Swimlane.objects.get(board=self.parent)
+        p = Card.objects.create(board=self.parent, column=self.parent.columns.first(), swimlane=lane, title="P")
+        original = card_links.resolve_child_board
+
+        def resolve_then_demote(*a, **k):
+            out = original(*a, **k)
+            BoardMembership.objects.filter(board=self.child, user=member).update(role=Role.VIEWER)
+            return out
+
+        with patch.object(card_links, "resolve_child_board", resolve_then_demote):
+            with self.assertRaises(NotFound):
+                card_links.create_child(
+                    user=member, parent=p, parent_role=Role.MEMBER, board_id=self.child.pk,
+                    make_card=lambda **kw: self.fail("must not create"),
+                )
+        self.assertFalse(Card.objects.filter(board=self.child).exists())

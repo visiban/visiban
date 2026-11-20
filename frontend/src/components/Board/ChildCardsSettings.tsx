@@ -115,7 +115,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
         aria-describedby={`${helpId} ${statusId}${blocked ? ` ${reasonsId}` : ""}`}
         onClick={activate}
         data-testid="children-switch"
-        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${blocked ? "cursor-not-allowed" : ""}`}
+        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${blocked ? "cursor-not-allowed" : ""}`}
       >
         <span className="min-w-0 flex-1">
           <span id={labelId} className="block text-sm text-fg-secondary">Cards on this board can have children</span>
@@ -130,10 +130,10 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
           <span className={`inline-block h-5 w-5 rounded-full bg-fg shadow transition-transform ${checked ? "translate-x-[21px]" : "translate-x-[3px]"}`} />
         </span>
       </button>
-      <p id={statusId} data-testid="children-status" className="text-xs text-fg-muted" role="status" aria-live="polite">
+      <p id={statusId} data-testid="children-status" className="text-xs text-fg-muted">
         {checked ? "On." : "Off."}
         {blocked && (
-          <span className="text-warning-text">
+          <span className="text-warning-on-tint">
             {" "}{checked ? "Can't be turned off" : "Can't be turned on"}: {plural(reasons.length, "reason", "reasons")} below.
           </span>
         )}
@@ -147,7 +147,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
           role="group"
           tabIndex={-1}
           aria-labelledby={`${reasonsId}-title`}
-          className="rounded border border-line bg-surface-raised p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+          className="rounded border border-line bg-surface-raised p-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <p id={`${reasonsId}-title`} className="text-sm font-medium text-fg">
             {checked ? "Cards here already have children" : "A child can't also have children"}
@@ -165,7 +165,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
                 {r.change && (
                   <a
                     href={`/boards/${r.change.id}`}
-                    className="mt-1 inline-flex min-h-11 items-center text-primary-text underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
+                    className="mt-1 inline-flex min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                   >
                     Change on {r.change.name}
                   </a>
