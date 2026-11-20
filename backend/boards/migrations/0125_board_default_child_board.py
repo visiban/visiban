@@ -10,7 +10,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0123_cardactivity_board_created_idx"),
+        ("boards", "0124_swimlane_field_band_visibility"),
     ]
 
     operations = [

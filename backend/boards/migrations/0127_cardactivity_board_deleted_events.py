@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0125_board_default_child_idx'),
+        ('boards', '0126_board_default_child_idx'),
     ]
 
     operations = [

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0124_board_default_child_board"),
+        ("boards", "0125_board_default_child_board"),
     ]
 
     operations = [

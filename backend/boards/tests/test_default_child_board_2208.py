@@ -29,7 +29,7 @@ def make_board(owner, name, *, parent_tier=False, first_column_creates=True):
 
 class DefaultChildBoardModelTests(TestCase):
     def test_add_field_is_nullable_set_null_without_an_inline_index(self):
-        m = importlib.import_module("boards.migrations.0124_board_default_child_board")
+        m = importlib.import_module("boards.migrations.0125_board_default_child_board")
         ops = m.Migration.operations
         self.assertEqual([op.__class__.__name__ for op in ops], ["AddField"])
         field = ops[0].field
@@ -37,7 +37,7 @@ class DefaultChildBoardModelTests(TestCase):
         self.assertFalse(field.db_index)
 
     def test_index_migration_is_alone_and_non_atomic(self):
-        m = importlib.import_module("boards.migrations.0125_board_default_child_idx")
+        m = importlib.import_module("boards.migrations.0126_board_default_child_idx")
         self.assertIs(m.Migration.atomic, False)
         self.assertEqual([op.__class__.__name__ for op in m.Migration.operations], ["AddIndexConcurrently"])
 
