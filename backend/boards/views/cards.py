@@ -2929,7 +2929,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 description=(
                     "Every 400 is the coded "
                     '`{"detail": ..., "code": "invalid_query_param"}`: `board` missing, '
-                    "not an integer, or negative (also keyed `board`); `search` over 200 "
+                    "not an integer, negative, or longer than 18 digits (also keyed `board`); `search` over 200 "
                     "characters (also keyed `search`); or `search` containing a NUL "
                     "(0x00) character (`detail` and `code` only)."
                 ),
