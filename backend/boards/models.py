@@ -2138,6 +2138,13 @@ class CustomFieldDefinition(models.Model):
     # entries for choices that no longer exist and clears the map when the
     # field is retyped away from a choice type. ``db_default`` keeps a database
     # DEFAULT so pre-0066 code still running mid-deploy can INSERT.
+    #
+    # Superseded in part 2026-11-20 (#2096, "custom colors everywhere"): a
+    # value may also be a custom ``#RRGGBB`` hex, stored upper-cased. The
+    # frontend now derives a legible light/dark pair for any hex through its
+    # contrast helper, so "palette keys, never hex" no longer protects contrast.
+    # Palette keys still render as before; the column and its shape are
+    # unchanged (no migration), only the accepted values widened.
     choice_colors = models.JSONField(
         default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
     )
@@ -2350,8 +2357,8 @@ class SwimlaneCustomFieldDefinition(models.Model):
     number_prefix = models.CharField(max_length=10, blank=True, default="", db_default="")
     number_suffix = models.CharField(max_length=10, blank=True, default="", db_default="")
     number_decimals = models.PositiveSmallIntegerField(null=True, blank=True)
-    # Per-choice display color (#1391) — same column and same rules as
-    # CustomFieldDefinition.choice_colors; see the notes there.
+    # Per-choice display color (#1391; hex since #2096) — same column and same
+    # rules as CustomFieldDefinition.choice_colors; see the notes there.
     choice_colors = models.JSONField(
         default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
     )

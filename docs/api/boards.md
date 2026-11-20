@@ -2182,7 +2182,7 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
-| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: color}` map, each color a palette key or a `#RRGGBB` hex (*hex since 1.3*); `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `threshold_direction` | string | no | *Since 1.3.* `""` (default, off), `"above"` or `"below"`. `"number"` and `"date"` fields only — see [Threshold marking](#threshold-marking) |
 | `threshold_warn` | number \| null | no | *Since 1.3.* Warning threshold; `null` (default) for none. `"number"` fields only |
 | `threshold_alert` | number \| null | no | *Since 1.3.* Alert threshold; `null` (default) for none. `"number"` fields only |
@@ -2368,20 +2368,25 @@ Optional, **display-only** thresholds on a card custom field of type `"number"` 
 
 #### Choice colors
 
-> **Added in 1.2**
+> **Added in 1.2** · **Changed in 1.3:** a value may also be a custom `#RRGGBB` hex (#2096).
 
 An optional, **display-only** color per choice on a `"dropdown"` or `"multi_select"` definition, on card and swimlane custom fields alike. `choices` stays a plain list of strings; the colors live in a separate map keyed by choice text. Values are never touched.
 
 ```json
-{ "name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"], "choice_colors": { "High": "red" } }
+{ "name": "Severity", "field_type": "dropdown", "choices": ["Low", "High"], "choice_colors": { "High": "red", "Low": "#2F855A" } }
 ```
 
 - **Shape.** An object mapping a choice (its text, exactly as in `choices`) to a palette
-  key. Default `{}`. A choice with no entry has no explicit color; the web UI renders it
+  key or a hex color. Default `{}`. A choice with no entry has no explicit color; the web UI renders it
   with its automatic dot, the same as before 1.2.
-- **Palette keys only, never hex:** `slate`, `blue`, `green`, `amber`, `red`, `violet`,
-  `pink`, `teal`. The client owns how each key looks in light and dark themes and
-  guarantees its contrast; a hex or CSS color is refused.
+- **A palette key or a hex color.** The palette keys are `slate`, `blue`, `green`,
+  `amber`, `red`, `violet`, `pink`, `teal` (case-sensitive: `RED` is refused); the client
+  owns how each key looks in light and dark themes. *Since 1.3*, a value may instead be a
+  custom `#RRGGBB` hex. The server accepts either case and **stores and returns it
+  upper-case** (`#2f855a` reads back as `#2F855A`), so every response matches the schema
+  pattern `^#[0-9A-F]{6}$`. `#RGB`, CSS names and `rgb()` are refused. The web UI derives
+  a legible text and tint pair for any hex in both themes, so a near-white or near-black
+  custom color stays readable.
 - **Optional** on create and `PATCH`; omitted, the map keeps its default (or current
   value). Sending `{}` is always accepted, for every `field_type`.
 - **Stale keys are pruned, not refused.** On every write, entries whose key is not one of
@@ -2403,16 +2408,24 @@ An optional, **display-only** color per choice on a `"dropdown"` or `"multi_sele
     | `null` | `This field may not be null.` |
     | More than 100 entries (the per-field choice cap) | `At most 100 choice colors are allowed.` |
     | A key containing NUL (`\u0000`) | `Choice color keys must be choice names without NUL (0x00) characters.` |
-    | A value that is not one of the palette keys (including hex, other case, or a non-string) | `Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal.` |
+    | A value that is neither a palette key nor a `#RRGGBB` hex (other case of a key, `#RGB`, a CSS name, a non-string) | `Choice colors must be one of: slate, blue, green, amber, red, violet, pink, teal, or a hex color as #RRGGBB.` |
 
 - **Rendering (the web UI's rule, recommended for other clients):** a value whose choice
-  has a known color key renders as a tinted badge **with its text label** — color never
-  carries meaning alone. A value that is no longer a choice (an orphan), or a key the
-  client does not recognize (one added by a newer server), renders neutral, label shown.
+  has a known color key or a hex renders as a tinted badge **with its text label** — color
+  never carries meaning alone. A value that is no longer a choice (an orphan), or a value
+  the client does not recognize (a key added by a newer server), renders neutral, label
+  shown. A client built before 1.3 that only knows palette keys renders a hex choice
+  neutral the same way.
 - **Export.** The JSON export's `custom_fields` and `swimlane_custom_fields` entries carry
   `choice_colors` (additive — `schema_version` is unchanged; `choices` is unchanged). Card
   and swimlane values are unchanged in JSON and CSV. A non-admin exporter does not receive
-  an `is_admin_only` swimlane definition at all, colors included.
+  an `is_admin_only` swimlane definition at all, colors included. Exports from before 1.3
+  import into 1.3 unchanged. An export that carries a hex choice color, imported into a
+  server older than 1.3, is refused with a `400` for the **whole import** (that server
+  validates `choice_colors` as palette keys only); remove the hex entries, or upgrade the
+  target server first. During a rolling upgrade to 1.3, a pre-1.3 server process that
+  handles a write to a definition holding a hex color drops that entry (it re-filters the
+  stored map against palette keys); re-pick the color once the upgrade completes.
 - **Events.** `custom_field.created` / `custom_field.updated` and
   `swimlane_custom_field.created` / `swimlane_custom_field.updated` carry the full
   definition, so `choice_colors` arrives with them (an additive field).
@@ -2465,7 +2478,7 @@ Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin 
 - `400 Bad Request` for a [number format](#number-formatting) option on a non-number field
   (judged against the stored `field_type` when the body does not change it), or out of
   range.
-- `400 Bad Request` with a `choice_colors` key for a malformed map, an unknown palette key,
+- `400 Bad Request` with a `choice_colors` key for a malformed map, a value that is neither a palette key nor `#RRGGBB` hex,
   or a non-empty map on a type without choices — see [Choice colors](#choice-colors).
   Renaming or removing a choice prunes its color; retyping away from a choice type clears
   the map.
@@ -2522,7 +2535,7 @@ model docstring for the reasoning; do not assume they track each other.
 | `number_prefix` | string | no | *Since 1.2.* Display-only text before a number value; `""` (default) for none. `"number"` fields only — see [Number formatting](#number-formatting) |
 | `number_suffix` | string | no | *Since 1.2.* Display-only text after a number value; `""` (default) for none. `"number"` fields only |
 | `number_decimals` | integer \| null | no | *Since 1.2.* Fixed decimal places (0–10) for display; `null` (default) shows the number as typed. `"number"` fields only |
-| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: palette_key}` map; `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
+| `choice_colors` | object | no | *Since 1.2.* Display-only `{choice: color}` map, each color a palette key or a `#RRGGBB` hex (*hex since 1.3*); `{}` (default) for none. `"dropdown"` and `"multi_select"` fields only — see [Choice colors](#choice-colors) |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
 
 ### `GET /api/v1/boards/{id}/swimlane-custom-fields/`
@@ -2574,7 +2587,7 @@ Update a definition. Requires board admin. *(1.3+, #2009)* A caller below admin 
 - `400 Bad Request` keyed by the offending field for a [number format](#number-formatting)
   option on a non-number field, or out of range. Retyping a definition away from
   `"number"` clears its format options.
-- `400 Bad Request` with a `choice_colors` key for a malformed map, an unknown palette key,
+- `400 Bad Request` with a `choice_colors` key for a malformed map, a value that is neither a palette key nor `#RRGGBB` hex,
   or a non-empty map on a type without choices — see [Choice colors](#choice-colors).
   Renaming or removing a choice prunes its color; retyping away from a choice type clears
   the map.

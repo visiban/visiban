@@ -10,9 +10,14 @@ import {
   CHOICE_COLOR_KEYS,
   CHOICE_COLORS,
   choiceBadgeStyle,
+  choiceColorBase,
+  choiceColorLabel,
   choiceColorName,
   isChoiceColorKey,
+  resolveChoiceColor,
 } from "../constants/choiceColors";
+import { colorChipStyle } from "../utils/colorContrast";
+import { hasOpenDismissLayer } from "../utils/dismissLayer";
 import { PALETTE_COLORS } from "../constants/colors";
 import {
   choiceColor,
@@ -372,6 +377,17 @@ describe("ChoiceColorPicker (#1391)", () => {
     expect(onChange).toHaveBeenLastCalledWith("teal");
   });
 
+  it("text buttons lift to 44px on phones and coarse pointers (#2096)", async () => {
+    const user = userEvent.setup();
+    render(<ChoiceColorPicker choice="High" colorKey="red" onChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: /Color for High/ }));
+    for (const name of ["Custom color", "Reset to automatic"]) {
+      const cls = screen.getByRole("button", { name }).className;
+      expect(cls).toContain("max-sm:min-h-11");
+      expect(cls).toContain("[@media(pointer:coarse)]:min-h-11");
+    }
+  });
+
   it("Reset to automatic clears the color", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -398,6 +414,8 @@ describe("ChoiceColorPicker (#1391)", () => {
     render(<div><ChoiceColorPicker choice="Low" colorKey={undefined} onChange={onChange} /><input aria-label="next" /></div>);
     await user.click(screen.getByRole("button", { name: /Color for Low/ }));
     expect(screen.getByRole("radio", { name: "Slate" })).toHaveFocus();
+    await user.tab(); // + Custom (#2096) — still inside
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     await user.tab(); // Reset to automatic — still inside
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await user.tab(); // out of the wrapper
@@ -733,5 +751,162 @@ describe("CustomFieldValueDisplay — chip truncation, other field types (#1413)
     a.unmount();
     const b = render(<CustomFieldValueDisplay definition={msShape} value='["web"]' variant="chip" />);
     expect((b.container.firstElementChild as HTMLElement).className).toContain("min-w-[4rem]");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Custom hex choice colors (#2096)
+// ---------------------------------------------------------------------------
+
+describe("custom hex choice colors (#2096): the resolver", () => {
+  it("resolves a palette key as is and a 6-digit hex upper-cased; anything else is null", () => {
+    expect(resolveChoiceColor("teal")).toBe("teal");
+    expect(resolveChoiceColor("#a1b2c3")).toBe("#A1B2C3");
+    expect(resolveChoiceColor("#A1B2C3")).toBe("#A1B2C3");
+    for (const bad of ["RED", "#FFF", "#FF00001", "FF0000", " #FF0000", "rgb(1, 2, 3)", "", "magenta", undefined, null, 3]) {
+      expect(resolveChoiceColor(bad)).toBeNull();
+    }
+  });
+
+  it("gives a hex its own base, label and contrast-derived badge pair; keys are unchanged", () => {
+    expect(choiceColorBase("#123456")).toBe("#123456");
+    expect(choiceColorBase("red")).toBe(CHOICE_COLORS.red.base);
+    expect(choiceColorLabel("#123456")).toBe("Custom color");
+    expect(choiceColorLabel("violet")).toBe("Violet");
+    expect(choiceBadgeStyle("#FAFAFA")).toEqual(colorChipStyle("#FAFAFA"));
+    expect(choiceBadgeStyle("red")).not.toHaveProperty("--cf-border-light");
+  });
+
+  it("explicitChoiceColor and choiceColorsPayload keep hex (a settings save must not erase it)", () => {
+    expect(explicitChoiceColor(shape({ choice_colors: { High: "#00ff88" } }), "High")).toBe("#00FF88");
+    expect(explicitChoiceColor(shape({ choices: ["Low"], choice_colors: { High: "#00FF88" } }), "High")).toBeNull();
+    expect(choiceColorsPayload(["Low", "High", "Mid"], { Low: "#00ff88", High: "red", Mid: "#FFF" }))
+      .toEqual({ Low: "#00FF88", High: "red" });
+  });
+
+  it.each(["chip", "row-chip", "detail"] as const)("%s: a hex choice renders a badge through the contrast helper", (variant) => {
+    const { container } = render(
+      <CustomFieldValueDisplay definition={shape({ choice_colors: { High: "#FAFAFA" } })} value="High" variant={variant} />,
+    );
+    const badge = badgeIn(container);
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveAttribute("data-choice-color", "#FAFAFA");
+    // Near-white still gets a dark legible fg in light theme, never the raw hex as text.
+    expect(badge!.style.getPropertyValue("--cf-fg-light")).toBe(String(colorChipStyle("#FAFAFA")["--cf-fg-light" as keyof object]));
+    expect(badge!.style.getPropertyValue("--cf-fg-light")).not.toBe("#FAFAFA");
+    expect(container).toHaveTextContent("High");
+  });
+
+  it("a multi-select entry with a hex renders a badge", () => {
+    const def = shape({ field_type: "multi_select", choices: ["web", "ios"], choice_colors: { ios: "#336699" } });
+    const { container } = render(<MultiSelectChips entries={["web", "ios"]} definition={def} />);
+    expect(container.querySelectorAll(".cf-choice-badge")).toHaveLength(1);
+    expect(container.querySelector(".cf-choice-badge")).toHaveTextContent("ios");
+  });
+});
+
+describe("ChoiceColorPicker — custom colors (#2096)", () => {
+  function setHex(value: string) {
+    fireEvent.input(screen.getByRole("textbox", { name: "Hex value" }), { target: { value } });
+  }
+
+  it("offers + Custom as its own tab stop under the palette, then Reset", async () => {
+    const user = userEvent.setup();
+    render(<ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Color for Low: Automatic" }));
+    const dialog = screen.getByRole("dialog", { name: "Color for Low" });
+    const custom = within(dialog).getByRole("button", { name: "Custom color" });
+    expect(custom).toHaveTextContent("+ Custom");
+    const buttons = within(dialog).getAllByRole("button");
+    expect(buttons.indexOf(custom)).toBe(buttons.findIndex((b) => b.textContent === "Reset to automatic") - 1);
+    expect(custom.tabIndex).toBe(0);
+    // Opts in to one-press-one-layer, so a backdrop press inside Board Settings closes only this.
+    expect(hasOpenDismissLayer(document.body)).toBe(true);
+  });
+
+  it("+ Custom swaps the grid for the panel; Apply saves upper-case hex, closes, and focuses the swatch", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ChoiceColorPicker choice="Low" colorKey="blue" onChange={onChange} />);
+    const trigger = screen.getByRole("button", { name: "Color for Low: Blue" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Custom color" }));
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset to automatic" })).not.toBeInTheDocument();
+    setHex("#a1b2c3");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onChange).toHaveBeenCalledWith("#A1B2C3");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("Cancel and Escape go back to the grid with focus on + Custom, without a change", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ChoiceColorPicker choice="Low" colorKey={undefined} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: "Color for Low: Automatic" }));
+    await user.click(screen.getByRole("button", { name: "Custom color" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("radiogroup", { name: "Palette" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Custom color" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Custom color" }));
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Color for Low" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Custom color" })).toHaveFocus();
+    // A second Escape closes the popover itself.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("a custom value fills the swatch, checks no radio, and opens focused on + Custom", async () => {
+    const user = userEvent.setup();
+    render(<ChoiceColorPicker choice="High" colorKey="#336699" onChange={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "Color for High: Custom color" });
+    const swatch = trigger.querySelector("[data-swatch]") as HTMLElement;
+    expect(swatch).toHaveAttribute("data-swatch", "custom");
+    expect(swatch.style.backgroundColor).toBe("rgb(51, 102, 153)");
+    await user.click(trigger);
+    expect(screen.getAllByRole("radio").every((r) => r.getAttribute("aria-checked") === "false")).toBe(true);
+    const custom = screen.getByRole("button", { name: "Custom color, selected" });
+    expect(custom).toHaveFocus();
+    expect(custom).toHaveTextContent("Custom");
+    // The panel seeds from the stored hex.
+    await user.click(custom);
+    expect(screen.getByRole("textbox", { name: "Hex value" })).toHaveValue("#336699");
+  });
+
+  it("re-measures the flip for the taller custom body", async () => {
+    const user = userEvent.setup();
+    render(<ChoiceColorPicker choice="Low" colorKey={undefined} onChange={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "Color for Low: Automatic" });
+    // 300px below the trigger: room for the grid (200), not for the custom body.
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({ bottom: window.innerHeight - 300 } as DOMRect);
+    await user.click(trigger);
+    expect(screen.getByRole("dialog")).toHaveClass("top-full");
+    await user.click(screen.getByRole("button", { name: "Custom color" }));
+    expect(screen.getByRole("dialog")).toHaveClass("bottom-full");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog")).toHaveClass("top-full");
+  });
+});
+
+describe("BoardSettingsFieldsTab — custom choice colors (#2096)", () => {
+  it("saves a stored hex untouched and a newly applied hex with the field", async () => {
+    const user = userEvent.setup();
+    const def = makeDefinition({ choice_colors: { Low: "#00FF88" } });
+    vi.mocked(boardsApi.updateCustomFieldDefinition).mockResolvedValue(def);
+    render(<BoardSettingsFieldsTab board={makeBoard([def])} isAdmin onFieldsUpdated={vi.fn()} />);
+    await user.click(screen.getByLabelText("Edit Severity"));
+    expect(screen.getByText("Renaming a choice resets its color.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Color for High: Automatic" }));
+    await user.click(screen.getByRole("button", { name: "Custom color" }));
+    fireEvent.input(screen.getByRole("textbox", { name: "Hex value" }), { target: { value: "#123abc" } });
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(boardsApi.updateCustomFieldDefinition).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save field" }));
+    await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 1, expect.objectContaining({
+      choice_colors: { Low: "#00FF88", High: "#123ABC" },
+    })));
   });
 });

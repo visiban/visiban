@@ -57,6 +57,14 @@ describe('CustomColorPanel', () => {
     expect(screen.queryByRole('slider', { name: 'Color' })).toBeNull()
   })
 
+  it('lifts Cancel and Apply to 44px on phones and coarse pointers (#2096)', () => {
+    renderPanel()
+    for (const el of [screen.getByRole('button', { name: 'Cancel' }), applyButton()]) {
+      expect(el.className).toContain('max-sm:min-h-11')
+      expect(el.className).toContain('[@media(pointer:coarse)]:min-h-11')
+    }
+  })
+
   it('seeds the draft from a valid value, else from the fallback', () => {
     const { unmount } = render(<CustomColorPanel value="#abc" fallbackColor="#6B7280" onChange={vi.fn()} onCancel={vi.fn()} />)
     expect(channel('Red').value).toBe('170')
