@@ -608,7 +608,8 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
 # turns a cap off. Only new rows are refused (a card already over a cap keeps
 # what it has). Enforced under the card row lock in CardViewSet.comments and
 # CardViewSet.checklist, so two concurrent creates cannot both take the last
-# slot. Board import is not capped: it fills a board it is creating.
+# slot. Board import is not capped: it fills a board it is creating, and
+# Django admin adds are not capped either (site admins only).
 COMMENT_MAX_PER_CARD = env.int("COMMENT_MAX_PER_CARD", default=1000)
 CHECKLIST_MAX_ITEMS_PER_CARD = env.int("CHECKLIST_MAX_ITEMS_PER_CARD", default=500)
 if COMMENT_MAX_PER_CARD < 0 or CHECKLIST_MAX_ITEMS_PER_CARD < 0:

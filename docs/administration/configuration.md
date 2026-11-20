@@ -371,8 +371,10 @@ the card.
   a card's last slot cannot both succeed.
 - Board import (Visiban JSON and Trello) is not capped: it fills a board it is
   creating, bounded by the import size limit.
+- Django admin adds of comments and checklist items are not capped (site
+  admins only).
 - There is no per-board or instance-wide byte budget for comments, checklist
-  items or descriptions yet.
+  items or descriptions yet (tracked in #2418).
 
 ## Card link write limit
 

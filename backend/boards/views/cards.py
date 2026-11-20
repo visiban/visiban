@@ -55,7 +55,7 @@ from ..serializers import (
 )
 from ._helpers import (
     BoundedIdFilter, get_board_for_user, _can_modify_others_content, _refetched_card_data,
-    fetch_page_and_total, validate_full_reorder_order,
+    fetch_page_and_total, validate_full_reorder_order, LINKS_CHANGED_409,
 )
 
 logger = logging.getLogger(__name__)
@@ -731,6 +731,7 @@ def _record_checklist_assign_due(card, item, actor, *, old_assignee, old_due):
     ),
     update=_CARD_UPDATE_SCHEMA,
     partial_update=_CARD_UPDATE_SCHEMA,
+    destroy=extend_schema(responses={204: None, 409: LINKS_CHANGED_409}),
 )
 class CardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""

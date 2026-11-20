@@ -338,7 +338,7 @@ A non-object value (other than `null`) returns
 > `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
-Delete a card. Requires member or above. Returns `404 Not Found` if the card was deleted or archived concurrently; the request has no effect.
+Delete a card. Requires member or above. Returns `404 Not Found` if the card was deleted or archived concurrently; the request has no effect. Returns `409 Conflict` with `{"code": "links_changed", "detail": ...}` if the card's parent/child links kept changing while it was being deleted; nothing is deleted, retry the request (#2409).
 
 > **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 

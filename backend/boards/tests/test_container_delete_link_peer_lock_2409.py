@@ -93,12 +93,64 @@ class ContainerDeleteLinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
         self._assert_waits_on_peer_without_holding_card(delete)
         self.assertFalse(Card.objects.filter(pk=self.child.pk).exists())
 
+    def _admin_container_delete(self, kind, mode):
+        """Run one Django-admin container or user delete behind the peer lock."""
+        from accounts.models import User
+
+        staff = User.objects.create_superuser(
+            username="staff2409", password="pass", email="s2409@example.com"
+        )
+        target = {
+            "column": self.col_c, "swimlane": self.lane_c,
+            "board": self.cboard, "user": self.owner,
+        }[kind]
+        model_admin = django_admin.site._registry[type(target)]
+
+        def delete():
+            request = RequestFactory().post("/")
+            request.user = staff
+            # The user-delete guard (#1616) refuses a board owner; this test is
+            # about lock order, so it is stubbed for the user kind only.
+            guard = (
+                mock.patch("accounts.admin.user_deletion_refusals", return_value=[])
+                if kind == "user" else mock.MagicMock()
+            )
+            with guard:
+                if mode == "model":
+                    model_admin.delete_model(request, type(target).objects.get(pk=target.pk))
+                else:
+                    model_admin.delete_queryset(
+                        request, type(target).objects.filter(pk=target.pk)
+                    )
+
+        self._assert_waits_on_peer_without_holding_card(delete)
+        self.assertFalse(type(target).objects.filter(pk=target.pk).exists())
+        self.assertFalse(Card.objects.filter(pk=self.child.pk).exists())
+
     def test_seed_wipe_delete_boards_locked(self):
         self._assert_waits_on_peer_without_holding_card(
             lambda: card_services.delete_boards_locked(Board.objects.filter(pk=self.cboard.pk))
         )
         self.assertFalse(Board.objects.filter(pk=self.cboard.pk).exists())
         self.assertTrue(Card.objects.filter(pk=self.parent.pk).exists())
+
+
+def _admin_delete_test(kind, mode):
+    def test(self):
+        self._admin_container_delete(kind, mode)
+
+    return test
+
+
+# One generated test per admin caller (column, swimlane, board and user, each
+# through delete_model and delete_queryset), each on a fresh fixture.
+for _kind in ("column", "swimlane", "board", "user"):
+    for _mode in ("model", "queryset"):
+        setattr(
+            ContainerDeleteLinkPeerLockOrderTests,
+            f"test_django_admin_{_kind}_delete_{_mode}",
+            _admin_delete_test(_kind, _mode),
+        )
 
 
 @skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
