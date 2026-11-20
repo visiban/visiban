@@ -211,6 +211,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
   };
   const setCap = (next: number) => {
     if (!onUpdateBoardSettings || next === cap) return;
+    setTierError(null);
     // A cap change materializes a legacy board on the server too, so mirror it here.
     if (legacy) commit(materializeLocal(fields, next));
     onUpdateBoardSettings({ lane_details_cap: next });
@@ -490,7 +491,7 @@ export default function BoardSettingsSwimlaneFieldsTab({ board, isAdmin, onField
               id="swimlane-field-find"
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setTierError(null); }}
               placeholder="Find a field"
               className="w-full sm:w-44 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted"
             />
@@ -688,9 +689,19 @@ function TierControl({ def, tier, blockedReason, onChange }: {
   def: SwimlaneCustomFieldDefinition; tier: LaneTier; blockedReason: (t: LaneTier) => string | null; onChange: (t: LaneTier) => void;
 }) {
   const reasonId = useId();
-  const reasons = (["band", "details", "hidden"] as LaneTier[]).map((t) => blockedReason(t)).filter((r): r is string => !!r);
+  const order: LaneTier[] = ["band", "details", "hidden"];
+  // Roving tabindex: one Tab stop per row; Left/Right move focus between options (a blocked
+  // one included, so its reason can be heard), Space/Enter chooses.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button[role=radio]"));
+    const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const next = buttons[(i + (e.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length];
+    next?.focus();
+  };
   return (
-    <span role="radiogroup" aria-label={`Show ${def.name}`} className="inline-flex rounded border border-line-strong overflow-hidden" data-testid={`swimlane-tier-${def.id}`}>
+    <span role="radiogroup" onKeyDown={onKeyDown} aria-label={`Show ${def.name}`} className="inline-flex rounded border border-line-strong overflow-hidden" data-testid={`swimlane-tier-${def.id}`}>
       {(["band", "details", "hidden"] as LaneTier[]).map((t) => {
         const reason = blockedReason(t);
         const checked = tier === t;
@@ -701,7 +712,8 @@ function TierControl({ def, tier, blockedReason, onChange }: {
             role="radio"
             aria-checked={checked}
             aria-disabled={reason ? true : undefined}
-            aria-describedby={reason ? reasonId : undefined}
+            aria-describedby={reason ? `${reasonId}-${t}` : undefined}
+            tabIndex={checked ? 0 : -1}
             title={reason ?? undefined}
             onClick={() => { if (!reason) onChange(t); }}
             className={`min-h-6 px-2 py-0.5 text-xs border-l first:border-l-0 border-line-strong focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${checked ? "bg-primary-soft text-fg font-semibold" : "bg-surface text-fg-secondary hover:bg-surface-hover"} ${reason ? "opacity-40 cursor-not-allowed" : ""}`}
@@ -710,7 +722,7 @@ function TierControl({ def, tier, blockedReason, onChange }: {
           </button>
         );
       })}
-      {reasons.length > 0 && <span id={reasonId} className="sr-only">{reasons[0]}</span>}
+      {order.map((t) => { const r = blockedReason(t); return r ? <span key={t} id={`${reasonId}-${t}`} className="sr-only">{r}</span> : null; })}
     </span>
   );
 }

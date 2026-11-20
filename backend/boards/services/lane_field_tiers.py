@@ -152,9 +152,8 @@ def assert_band_tiers(board, *, instance, band_visibility) -> None:
     against a pre-lock snapshot) and the viewset's locked recheck (exact). The
     board's rows are projected as if materialized, then *instance* (None for a
     create) takes *band_visibility*. A NULL *band_visibility* is the derived
-    tier, so it can never break the rule by itself; it is still projected, to
-    catch a board already over (which a pre-#2439 board can be after a cap
-    change elsewhere).
+    tier, which is never Band and fills Details only while there is room, so it
+    cannot break the rule and is not checked.
 
     *board* is required: a caller without one cannot count, and this raises
     rather than passing (#1075).

@@ -527,7 +527,8 @@ def _validate_import_lane_tiers(swimlane_field_defs, raw_cap):
     allowed = [value for value, _label in Board.LANE_DETAILS_CAP_CHOICES]
     if raw_cap is None:
         cap = Board._meta.get_field("lane_details_cap").default
-    elif isinstance(raw_cap, bool) or raw_cap not in allowed:
+    elif not isinstance(raw_cap, int) or isinstance(raw_cap, bool) or raw_cap not in allowed:
+        # Strict int: 6.0 == 6 would otherwise pass and reach the column as a float.
         return None, f"'lane_details_cap' must be one of {allowed}."
     else:
         cap = raw_cap
