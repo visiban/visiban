@@ -55,12 +55,25 @@ class ExportFilenameTimestampTests(TestCase):
             )
 
     def test_invalid_timezone_falls_back_to_utc(self):
-        for bad in ("Not/AZone", '../etc"x\r\nX: y', "\x00"):
+        # NUL is excluded: PostgreSQL text columns reject it, so it can never be
+        # stored in User.timezone (the helper's ValueError branch is covered below).
+        for bad in ("Not/AZone", '../etc"x\r\nX: y'):
             for fmt in ("json", "csv"):
                 self.assertEqual(
                     self.disposition(fmt, bad),
                     f'attachment; filename="my-board-20261120-0230.{fmt}"',
                 )
+
+    def test_nul_timezone_falls_back_to_utc(self):
+        # Unsaved user: a NUL byte cannot round-trip through Postgres, but
+        # ZoneInfo raises ValueError on it and must still fall back to UTC.
+        from boards.views.import_export import _export_timestamp
+
+        self.user.timezone = "\x00"
+        with mock.patch(
+            "boards.views.import_export.django_timezone.now", return_value=PINNED
+        ):
+            self.assertEqual(_export_timestamp(self.user), "20261120-0230")
 
     def test_empty_slug_falls_back_to_board(self):
         self.board.name = "!!!"
