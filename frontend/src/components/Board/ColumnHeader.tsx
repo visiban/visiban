@@ -336,8 +336,10 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               the conditional-admin-only-elements rule — never a greyed-out control. */}
           {onAddCard && addCardLanes && addCardLanes.length > 1 ? (
             // Several lanes: ask which one (#2317). The wrapper keeps clicks off the header's
-            // rename/drag handlers, as the single-lane button below does.
-            <div className="shrink-0" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+            // rename/drag handlers, as the single-lane button below does. It is a pointer-only
+            // guard around a control that owns its own keyboard handling (Sonar S1082): the
+            // keyboard path lives in OverflowMenu's trigger, so role="presentation", not a keydown stop.
+            <div className="shrink-0" role="presentation" onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
               <OverflowMenu
                 align="left"
                 ariaLabel="Add card to which swimlane?"
