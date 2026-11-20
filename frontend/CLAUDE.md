@@ -277,7 +277,7 @@ The authenticated UI is framed by two horizontally-divided chrome rows and a mai
 | Row | Purpose | Surface | Height | Typography | Landmark |
 |---|---|---|---|---|---|
 | Row 1 | App header (logo, breadcrumb, star, utilities, account) | `bg-sunken border-b border-line` | `h-14` | `text-sm text-fg` | `<header role="banner">` |
-| Row 2 | Board chrome (view tabs, Filter / View / Activity buttons, overflow menu, connection status) | `bg-surface border-b border-line` | `min-h-10` (wraps) | `text-xs text-fg-tertiary` (default; active view tab keeps its own active styling) | `<nav aria-label="Board toolbar">` |
+| Row 2 | Board chrome (view tabs, Filter / View / Activity / Export / Settings buttons, overflow menu, connection status) | `bg-surface border-b border-line` | `min-h-10` (wraps) | `text-xs text-fg-tertiary` (default; active view tab keeps its own active styling) | `<nav aria-label="Board toolbar">` |
 | Filter row | Filter bar (search, scope, My cards, Blocked only, Lanes) and chips; shown from the Filter panel's footer or `F` | `bg-surface border-b border-line` | auto (single row, wraps) | inherits | `role="search" aria-label="Board filters"` on the wrapper (was "Card filters" before #2205 added lane filters) |
 | Main | Route content | inherits from route | `flex-1` | — | `<main role="main">` wraps `<AuthenticatedRoutes>` in `App.tsx` |
 

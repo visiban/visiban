@@ -4,6 +4,7 @@ import { render, screen, waitFor, act, fireEvent, within, cleanup } from '@testi
 import userEvent from '@testing-library/user-event'
 import { useState, type ComponentProps } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
+import { SETTINGS_INDEX, SECTION_LABELS, locateSettingTarget, findSettings, type SettingsSection } from '../components/Board/boardSettingsSections'
 import { recomputeBoardHealth } from '../api/boards'
 import { ToastContext } from '../contexts/useToast'
 import type { BoardFull, CustomFieldDefinition, User } from '../types'
@@ -4036,5 +4037,58 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'webhook')
       expect(screen.queryByRole('option')).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('BoardSettingsModal — Find a setting index (#2436)', () => {
+  const sections = Object.keys(SECTION_LABELS) as SettingsSection[]
+  const renderSection = (section: SettingsSection) =>
+    render(
+      <BoardSettingsModal
+        currentUserId={null}
+        board={{ ...fakeBoard, columns: [{ id: 1, uid: 'coluid000001', name: 'To Do', position: 0, wip_limit: null } as never], swimlanes: [{ id: 1, name: 'Lane', position: 0 } as never] }}
+        viewPrefs={{ hiddenColumnIds: [], hiddenSwimlaneIds: [] } as never}
+        onToggleHiddenColumn={vi.fn()}
+        onToggleHiddenSwimlane={vi.fn()}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab={section}
+        gitLensEnabled
+        cardDensityOverride="dense"
+        onSetCardDensityOverride={vi.fn()}
+        onBoardDeleted={vi.fn()}
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+
+  it('every index entry resolves to a control in its section, for an admin', async () => {
+    for (const section of sections) {
+      const entries = SETTINGS_INDEX.filter((e) => e.section === section && e.target)
+      const { unmount } = renderSection(section)
+      const panel = await screen.findByRole('tabpanel')
+      for (const e of entries) {
+        await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
+      }
+      unmount()
+    }
+  })
+
+  it('every section heading has an index entry', async () => {
+    for (const section of sections) {
+      const entries = SETTINGS_INDEX.filter((e) => e.section === section)
+      const { unmount } = renderSection(section)
+      const panel = await screen.findByRole('tabpanel')
+      if (panel.querySelectorAll('h3').length === 0) { unmount(); continue }
+      for (const h of Array.from(panel.querySelectorAll('h3'))) {
+        const text = (h.textContent ?? '').trim().toLowerCase()
+        const covered = entries.some((e) => (e.target ?? e.label).toLowerCase().startsWith(text) || text.startsWith((e.target ?? e.label).toLowerCase()))
+        expect(covered, `${section}: heading "${text}" has no SETTINGS_INDEX entry`).toBe(true)
+      }
+      unmount()
+    }
+  })
+
+  it('finds Column policies by policy', () => {
+    expect(findSettings('policies', new Set<SettingsSection>(['rules'])).some((e) => e.label === 'Column policies')).toBe(true)
   })
 })

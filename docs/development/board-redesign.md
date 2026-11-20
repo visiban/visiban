@@ -351,7 +351,7 @@ Decided in #2275: the lane WIP limit reuses #1150's `Swimlane.wip_limit`, and th
 
 For `ux-review` and `completeness-check` on the implementing MRs:
 
-- [ ] Toolbar holds only the four tabs, Filter, View, Activity, the overflow menu and the connection status
+- [ ] Toolbar holds only the four tabs, Filter, View, Activity, Export, Settings, the overflow menu and the connection status
 - [ ] One grid template drives headers, cells and collapsed strips; a split stage is double width
 - [ ] Column names wrap and never truncate; the count line matches [Column headers](#column-headers)
 - [ ] The lane band replaces the label panel and wraps without sideways scroll
