@@ -131,6 +131,17 @@ class ValidationAndMaterializationTests(_Base):
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data["band_visibility"], "hidden")
 
+    def test_create_with_an_explicit_tier_materializes_a_legacy_board(self):
+        # Without the materialize call on create, the other rows stay NULL (a
+        # mixed board) and the two fields shown on the band drop to Details.
+        for i in range(3):
+            _defn(self.board, f"F{i}", i)
+        r = self.client.post(
+            self.url, {"name": "New", "field_type": "text", "band_visibility": "hidden"}, format="json"
+        )
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(self._tiers(), ["band", "band", "details", "hidden"])
+
     def test_create_with_an_explicit_tier_that_breaks_the_rule_is_a_400(self):
         _defn(self.board, "A", 0, "band")
         _defn(self.board, "B", 1, "band")

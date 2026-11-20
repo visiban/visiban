@@ -110,7 +110,7 @@ function renderRow(
       columns={columns}
       cards={extra.cards ?? ([] as Card[])}
       boardId={1}
-      isAdmin={extra.isAdmin ?? true}
+      isAdmin={('isAdmin' in extra ? extra.isAdmin : true) as boolean}
       canEdit
       closeEditorOnEnter={false}
       collapsedColumnIds={new Set()}
@@ -1626,6 +1626,17 @@ describe('lane field tiers (#2439)', () => {
     expect(screen.queryByText('Secret')).not.toBeInTheDocument()
     expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 1 hidden on band')
     expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).not.toBeInTheDocument()
+  })
+
+  it('with isAdmin absent, treats the viewer as a non-admin: an admin-only field is not shown, counted or listed (#1075)', async () => {
+    renderRow(lane(), tiered(), false, { isAdmin: undefined })
+    const toggle = screen.getByTestId('swimlane-fields-toggle')
+    expect(toggle).toHaveTextContent('Show 2 more')
+    await userEvent.click(toggle)
+    expect(within(screen.getByTestId('swimlane-hidden-group')).getByText('Renewal soon')).toBeInTheDocument()
+    expect(screen.queryByText('Secret')).not.toBeInTheDocument()
+    expect(screen.queryByText('Top')).not.toBeInTheDocument()
+    expect(screen.getByTestId('swimlane-lane-details-footer')).toHaveTextContent('1 in details · 1 hidden on band')
   })
 
   it('a legacy board (every tier null) keeps the pre-#2439 band', () => {

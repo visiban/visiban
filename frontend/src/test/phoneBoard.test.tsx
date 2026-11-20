@@ -779,6 +779,22 @@ describe('PhoneBoard lane band tiers (#2439)', () => {
     expect(within(screen.getByTestId('swimlane-hidden-group')).getByText('Secret code')).toBeInTheDocument()
   })
 
+  it('with isAdmin absent, treats the viewer as a non-admin: no admin-only field is shown, counted or listed (#1075)', async () => {
+    const user = userEvent.setup()
+    setup({ swimlanes: [tiered], swimlaneFieldDefinitions: defs })
+    // Region (details) and Site (hidden) count; the admin-only Secret code does not.
+    const more = screen.getByRole('button', { name: /^Show 2 more fields for North/ })
+    expect(more).toHaveTextContent('Show 2 more')
+    await user.click(more)
+    const open = screen.getByTestId('swimlane-lane-details')
+    expect(open).toHaveTextContent('1 in details · 1 hidden on band')
+    const hidden = within(open).getByTestId('swimlane-hidden-group')
+    expect(within(hidden).getByText('Site')).toBeInTheDocument()
+    expect(screen.queryByText('Secret code')).toBeNull()
+    expect(screen.queryByText('S3CRET')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Manage swimlane fields/ })).toBeNull()
+  })
+
   it('offers "Manage swimlane fields" to an admin even with one field; never to a non-admin', async () => {
     const user = userEvent.setup()
     const one = [tdef(3, 'Site', 'hidden')]
