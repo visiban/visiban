@@ -16,8 +16,8 @@ Swimlane groups are dated (#2334): a sample counts under the swimlane the card
 was in at the moment the sample is dated by, read from the movement history
 already loaded (``CardFlow.lane_at``). Counts dated by an instant (a
 completion, now) read the swimlane at that instant; a dwell visit, which is
-time, reads the swimlane the time was spent in (``CardFlow.lane_before`` its
-end). Labels and custom fields keep each card's current value, since their
+time, reads the swimlane the card was in when it left the column
+(``CardFlow.lane_before`` the visit's end), counting the whole stay there. Labels and custom fields keep each card's current value, since their
 history is not recorded (#1909).
 """
 
@@ -176,7 +176,7 @@ class GroupedFlow:
     ``anchor`` is the moment the endpoint's samples are dated by, which picks
     a card's swimlane group (#2334). Under ``VISIT_END`` a card that changed
     swimlane can sit in several slots, each holding a copy of the card with
-    only the visits spent in that swimlane (``lane_before`` each end).
+    only the visits that ended from that swimlane (``lane_before`` each end).
     """
 
     def __init__(self, flow, flow_range, grouping, anchor=CURRENT):
@@ -237,11 +237,12 @@ class GroupedFlow:
                 self.slots[index].cards.append(card)
 
     def _split_visits(self, card):
-        """Put each of the card's visits in the slot of the swimlane it was spent in (#2334).
+        """Put each of the card's visits in the slot of the swimlane the card left the column from (#2334).
 
         A closed visit reads ``lane_before`` its end: the swimlane the card left
         the column from, even when the move that ended the visit also changed
-        swimlane, since the stay was spent in the first one.
+        swimlane, since the stay counts under the first one. A swimlane change during
+        the stay moves the whole stay to the later swimlane.
 
         Dwell reads only a card's uid, reopens and visits, so a copy holding a
         subset of the visits measures exactly those. An open visit ends now,

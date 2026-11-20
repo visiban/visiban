@@ -3,8 +3,8 @@
 A sample counts under the swimlane the card was in at the moment the sample is
 dated by: completion for cycle time, throughput and the Swimlanes view's
 finished numbers; now for WIP age and ``in_progress``; for dwell, the swimlane
-the card left the column from (just before the visit's end); each second for
-blocked share. Counts follow the instant, time follows where it was spent. The ``swimlane_id`` filter, the summary
+the card left the column from (just before the visit's end, the whole stay); each second for
+blocked share, split by time. Counts follow the instant. The ``swimlane_id`` filter, the summary
 rollup, the heatmap and the card directory stay on the current swimlane
 (decisions.md, ADR #1532 "Filters", dated #2334 note).
 """
@@ -153,7 +153,7 @@ class VisitEndAnchorTests(EventTimeFixture):
         self.assertEqual(sum(g["sample_size"] for g in body["grouping"]["groups"]), body["sample_size"])
 
     def test_diagonal_move_out_of_a_column_counts_the_stay_under_the_lane_it_left(self):
-        """One movement that changes column and swimlane ends a stay spent in the first (#2334).
+        """One movement that changes column and swimlane ends a stay that counts under the first (#2334).
 
         The Doing stay was all in lane; the move that ended it is the row that
         took the card to other_lane, so reading that row's destination would
@@ -202,13 +202,28 @@ class BlockedShareTests(EventTimeFixture):
         self.assertAlmostEqual(other["blocked_share"], 0.8, places=4)
         self.assertEqual((lane["in_progress"], other["in_progress"]), (0, 1))
 
+    def test_card_created_in_a_column_then_moved_diagonally_ranks_the_lane_it_left(self):
+        """Pins the ranking call site (``_is_active``): lane is active only through its visit's end (#2334).
+
+        Created straight in Doing in lane, so the only visit closing in lane is
+        the Doing stay, which ends with the move that also changes swimlane.
+        Reading the swimlane at the visit end (other_lane) would leave lane unlisted.
+        """
+        self.history((self.doing, 20, self.lane), (self.review, 10, self.other_lane))
+        body = self.get_at_now("dwell", group_by="swimlane")
+        group = self.group(body, self.lane)
+        self.assertIsNotNone(group)
+        doing = next(c for c in group["columns"] if c["column_name"] == "Doing")
+        self.assertEqual(doing["sample_size"], 1)
+        self.assertEqual(body["grouping"]["excluded"], 0)
+
     def test_a_card_that_never_changed_lane_keeps_its_whole_window(self):
         card = self.history((self.backlog, 30, self.lane), (self.doing, 20, self.lane))
         CardBlock.objects.create(card=card, board=self.board, reason="Vendor", blocked_at=self.ago(12), unblocked_at=self.ago(2))
         self.assertAlmostEqual(self.comparison_row(self.comparison(), self.lane)["blocked_share"], 0.5, places=4)
 
     def test_diagonal_move_into_done_counts_finished_at_completion_and_blocked_time_where_spent(self):
-        """Counts follow the swimlane at their instant; time follows where it was spent (#2334).
+        """Counts follow the swimlane at their instant; blocked time follows where it was spent (#2334).
 
         In progress in lane for 12 days, blocked 4 of them, then one move into
         Done in other_lane: the finish is other_lane's, the blocked time lane's.
