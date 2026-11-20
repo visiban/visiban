@@ -4521,6 +4521,13 @@ job's:</p>
 </code></pre></div>
 <p>Observed 2026-11-19 on <code>gitlab-runner-nuc-2-visiban</code> (runner id 56787877): about 35 jobs failed
 and reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.</p>
+<p>Recurred 2026-11-20 on the same runner, reddening <code>frontend-lint</code> on !1961 and
+<code>frontend-license-check</code> on !1958. The host's <code>/root/.docker/config.json</code> held exactly one
+<code>auths</code> key, <code>gitlab.com:443</code>. After the runner was paused and that key removed, the runner was
+unpaused and a <code>node:22-alpine</code> job (<code>frontend-license-check</code>) started on it and got past the
+image pull. The recurrence means the stale entry is re-created by something on the host (a manual
+<code>docker login gitlab.com:443</code>, for example); if it returns, find what writes it rather than
+deleting it again.</p>
 <p><strong>Confirm it is one runner:</strong> the identical job passes when it lands on a different runner, and
 the failures cluster on one <code>runner.description</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/:id/jobs?scope[]=failed&amp;per_page=60"</span><span class="w"> </span><span class="se">\</span>
