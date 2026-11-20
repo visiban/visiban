@@ -4175,6 +4175,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#superseded-pipelines-end-canceled" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Superseded pipelines end canceled
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4746,6 +4757,11 @@ drill jobs, #1266) may be absent when the merge did not touch its paths.</p>
 <td>Retry the failed job in that <code>main</code> pipeline (or fix forward and cut a new tag). Once it is green, retry <code>release-main-pipeline-guard</code> in the tag pipeline. GitLab re-runs the publish jobs it had skipped.</td>
 </tr>
 <tr>
+<td><code>main pipeline N at &lt;sha&gt; is not green:</code> and the jobs read <code>canceled</code></td>
+<td>A newer merge to <code>main</code> landed while that pipeline ran and auto-canceled its interruptible jobs (#2421; see <a href="#superseded-pipelines-end-canceled">Superseded pipelines end <code>canceled</code></a>). The guard still judges the tagged commit, never a newer one</td>
+<td>Select <strong>Retry</strong> on that <code>main</code> pipeline, which re-runs its canceled jobs at the tagged commit. Once it is green, retry <code>release-main-pipeline-guard</code> in the tag pipeline.</td>
+</tr>
+<tr>
 <td><code>&lt;job&gt;: not in the main pipeline, but it runs on every main pipeline</code></td>
 <td>An <code>ALWAYS_REQUIRED</code> job was renamed or removed, or its <code>rules:</code> were narrowed in a way <code>--check-ci-file</code> could not detect</td>
 <td>Fix the list in <code>scripts/wait-for-main-pipeline.py</code> on a branch, and <strong>cut a new tag</strong> once it merges. The guard reads its lists from the tagged commit, so retrying it on the old tag can never pass. The same applies to a refusal over a new <code>manual</code> job missing from <code>EXEMPT_JOBS</code>. On an MR, <code>--check-ci-file</code> catches both drifts: a renamed <code>ALWAYS_REQUIRED</code> job, or one whose main rule gained <code>changes:</code> or <code>when: manual</code>, and a job that can be <code>manual</code> on main without being exempt.</td>
@@ -4789,6 +4805,30 @@ the code), add it to <code>EXEMPT_JOBS</code> with its reason on a branch, so th
 <p><code>scripts/release.sh</code> still checks the merge commit's pipeline before it tags. That check runs
 on the maintainer's machine and reads the aggregate status. The guard runs in CI, so it also
 covers tags pushed by hand.</p>
+<h2 id="superseded-pipelines-end-canceled">Superseded pipelines end <code>canceled</code><a class="headerlink" href="#superseded-pipelines-end-canceled" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> an MR or <code>main</code> pipeline shows <code>canceled</code>, with most lint/test/security jobs
+<code>canceled</code> and nobody having pressed Cancel. A newer pipeline on the same ref exists.</p>
+<p><strong>Cause:</strong> this is intended (#2419, #2421). <code>default: interruptible: true</code> plus
+<code>workflow: auto_cancel: on_new_commit: interruptible</code> in <code>.gitlab-ci.yml</code> means a newer
+commit on the same ref cancels the older pipeline's read-only jobs. On an MR that is a new
+push to the branch. On <code>main</code> it is the next merge. Main is linear, so the newest <code>main</code>
+pipeline tests a superset of the canceled one. The trade-off: during a merge burst a failure is
+reported against the newest commit, not the merge that introduced it.</p>
+<p>Jobs with an external side effect are <code>interruptible: false</code> and are never canceled once they
+start: image, manifest and attestation pushes, <code>helm-publish</code>, <code>github-release</code>,
+<code>docs-deploy</code>, <code>pages</code>, <code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code>,
+<code>sonar:scan</code>, plus <code>release-main-pipeline-guard</code> (seconds on <code>main</code>; it is <code>docs-deploy</code>'s
+only need), the kind/Compose drills, and the scheduled-only long jobs (<code>backend-mutation</code>,
+<code>backend-mutation-report</code>, <code>nightly-load-test</code>, <code>backend-schema-fuzz-deep</code>).
+<code>scripts/tests/ci-interruptible.test.sh</code> enforces the list. A non-interruptible job whose
+<code>needs:</code> were canceled is skipped. For the <code>main</code> image pushes, that means a superseded
+commit gets no <code>:&lt;short-sha&gt;</code> image, and the newer pipeline moves <code>:main</code> forward. Tag
+pipelines are unique refs and are never superseded. A newer commit never cancels a
+scheduled pipeline (<code>workflow:rules</code> sets <code>on_new_commit: none</code> on it).</p>
+<p><strong>What to do:</strong> nothing for an MR. For <code>main</code>, read the <strong>newest</strong> <code>main</code> push pipeline's
+required jobs, not "every <code>main</code> pipeline is green". <code>/mass_merge</code>'s post-merge gate does that.
+For a release, the guard judges the tagged commit's own pipeline, so retry the canceled jobs
+there (see the <code>release-main-pipeline-guard</code> table above).</p>
 <h2 id="tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign">Tool download <code>504 Gateway Time-out</code> (kind, kubectl, helm, yq, kubeconform, gitleaks, cosign, ...)<a class="headerlink" href="#tool-download-504-gateway-time-out-kind-kubectl-helm-yq-kubeconform-gitleaks-cosign" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job that installs a third-party binary (<code>helm-template</code>, <code>helm-install</code>,
 <code>helm-netpol</code>, <code>dep-scan-osv</code>, <code>gitleaks-*</code>, the manifest/attest/publish jobs) fails with a
