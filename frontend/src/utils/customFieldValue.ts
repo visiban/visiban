@@ -382,8 +382,10 @@ const NUMBER_LOCALE = "en-US";
  *   raw text, unchanged — the §5b "always show *something*" contract.
  * - All options at their defaults: the raw text, unchanged — exactly the
  *   pre-#1391 rendering, with no grouping added.
- * - `decimals` null: the number as typed. Set: exactly that many decimal
- *   places, rounded, with thousands grouping.
+ * - `decimals` null: the number's digits as typed, with thousands grouping
+ *   added to a plain decimal (`33000` → `$33,000`, #2387; exponent forms such
+ *   as `1e3` stay as typed). Set: exactly that many decimal places, rounded,
+ *   with thousands grouping.
  * - `prefix`/`suffix` are added verbatim (spaces included). A minus sign goes
  *   before the prefix — `-$5.00`, not `$-5.00` — and is dropped when the value
  *   rounds to zero, so `-0.001` at 2 decimals shows `$0.00`, not `-$0.00`.
@@ -404,7 +406,7 @@ export function formatNumberValue(raw: string, options: NumberFormatOptions = {}
   let body: string;
   if (decimals === null) {
     negative = trimmed.startsWith("-");
-    body = negative ? trimmed.slice(1) : trimmed;
+    body = groupTypedDecimal(negative ? trimmed.slice(1) : trimmed);
   } else {
     const places = Math.min(Math.max(Math.trunc(decimals), 0), NUMBER_DECIMALS_MAX);
     const magnitude = Math.abs(n);
@@ -416,6 +418,38 @@ export function formatNumberValue(raw: string, options: NumberFormatOptions = {}
     }).format(magnitude);
   }
   return `${negative ? "-" : ""}${prefix}${body}${suffix}`;
+}
+
+/** `1234567.891` → `1,234,567.891`; anything but a plain decimal is returned as is. */
+function groupTypedDecimal(body: string): string {
+  const m = /^(\d+)(\.\d*)?$/.exec(body);
+  if (!m) return body;
+  return m[1].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (m[2] ?? "");
+}
+
+/**
+ * The card-face form of a formatted number (#2387): at 1,000 and above, compact
+ * notation with at most one decimal (`$33k`, `$1.3M`), so a pinned money or
+ * count field fits a narrow card without an ellipsis. Below 1,000, and for a
+ * field with no format option set, it is exactly `formatNumberValue`. The
+ * chip's `title` and every other surface keep the full `formatNumberValue`
+ * text. `k` is lower case to match the reference design; M, B and T are not.
+ */
+export function formatNumberCompact(raw: string, options: NumberFormatOptions = {}): string {
+  const prefix = options.prefix ?? "";
+  const suffix = options.suffix ?? "";
+  const decimals = options.decimals ?? null;
+  const n = Number(raw.trim());
+  const unformatted = prefix === "" && suffix === "" && decimals === null;
+  if (raw.trim() === "" || !Number.isFinite(n) || Math.abs(n) < 1000 || unformatted) {
+    return formatNumberValue(raw, options);
+  }
+  const body = new Intl.NumberFormat(NUMBER_LOCALE, {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(Math.abs(n)).replace(/K$/, "k");
+  return `${n < 0 ? "-" : ""}${prefix}${body}${suffix}`;
 }
 
 /**

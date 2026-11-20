@@ -183,7 +183,7 @@ Shift+click, Shift+Enter, the card-face Show summary button or the card menu's S
 - **History:** the card's moves, newest first;
 - actions: Open card (primary), Move.
 
-Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card). **Deviation (#2358):** the canvas opens the peek on a plain click; shipped, a plain click or Enter opens the detail panel and the peek is opt-in, because editing is the more frequent reason to click a card. Focus lands on Open card; a never-moved card reads "Never moved".
+Placement, focus return and Escape follow § Card detail sheet placement. Clicking another card swaps the peek (§ Swapping the open card). **Deviation (#2358):** the canvas opens the peek on a plain click; shipped, a plain click or Enter opens the detail panel and the peek is opt-in, because editing is the more frequent reason to click a card. Focus lands on Open card; a never-moved card reads "Never moved". **Deviation (#2391, owner decision 2026-11-19):** the sheet's field list carries a Labels row after Due date ("None" when the card has none), and the hover peek gains Due date and Labels rows too, because the Dense face draws no labels and the Comfortable face draws no on-track due date (#2399).
 
 ## Activity drawer
 

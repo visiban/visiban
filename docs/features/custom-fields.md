@@ -134,11 +134,12 @@ A number field can show a unit and fixed decimals (`$1,234.50`, `8 h`, `-$5.00`)
 |---|---|---|
 | **Prefix** | Text shown before the number, e.g. `$`. Up to 10 characters; spaces are kept, so `$ ` shows `$ 5`. | none |
 | **Suffix** | Text shown after the number, e.g. ` h` or ` USD`. Up to 10 characters; spaces are kept. | none |
-| **Decimals** | Show exactly this many decimal places (0–10), rounding as needed, with thousands separators (`1,234.50`). Leave it empty to show the number exactly as typed — no separators, and written the way it was entered (`+5` shows `$+5`, `1e3` shows `$1e3`). | empty (as typed) |
+| **Decimals** | Show exactly this many decimal places (0–10), rounding as needed, with thousands separators (`1,234.50`). Leave it empty to show the digits as typed, with thousands separators added (`33000` shows `$33,000`, `1234.5` shows `$1,234.5`; *changed in 1.3*, #2387: before, no separators). A value written another way stays as entered (`+5` shows `$+5`, `1e3` shows `$1e3`). | empty (as typed) |
 
 A **Preview** line shows how `1234.5` will look. A decimals value outside 0–10 shows *Enter 0 to 10.* and blocks saving until fixed.
 
 - **Display only:** formatting changes how a value **looks** on the card face, in the card detail panel, in the hover peek, on swimlane row chips, and in the filter bar's active-filter chip. The stored value never changes: editing still uses a plain number box, with the prefix and suffix beside it as non-editable labels.
+- **Short form on the card face:** a pinned number of 1,000 or more shows in short form on the card, with at most one decimal (`$33k`, `$1.2M`), so it fits a narrow card without being cut off. Only the field name shortens to make room; the number stays whole unless it alone is wider than the chip (a long prefix or suffix with many decimals), and then it ends in an ellipsis. Hover the chip to see the full value (`Deal value: $33,000`); every other place shows the full value (*new in 1.3*, #2387). A number field with no format option set shows as typed everywhere.
 - **Very large numbers:** with Decimals set, a number beyond about 9 quadrillion (2^53) can show rounded digits. Only the display is affected; the stored value keeps every digit.
 - **Negative numbers:** the minus sign goes before the prefix (`-$5.00`, not `$-5.00`). A negative value that rounds to zero shows without a sign (`$0.00`).
 - **Separators:** grouping and the decimal point use US conventions (`1,234.50`) for every viewer. The **Number format** preference in your profile settings does not apply to custom field values. There is no currency model or conversion: `$` is just text.

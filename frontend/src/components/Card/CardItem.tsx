@@ -11,14 +11,14 @@ import Avatar from "../Common/Avatar";
 import { formatDueDate } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
 import AgingCue from "./AgingCue";
-import UrgencyGlyph, { type UrgencyGlyphKind } from "./UrgencyGlyph";
+import UrgencyGlyph from "./UrgencyGlyph";
 import { buildCardStatusLine, type CardStatusKind } from "../../utils/cardStatusLine";
 import { classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
 import MultiSelectChips from "./MultiSelectChips";
-import { chipValueText, explicitChoiceColor, formatCustomFieldValue, isValidForType, parseMultiSelect, thresholdLevel, thresholdPhrase, withCustomFieldValue } from "../../utils/customFieldValue";
+import { chipValueText, explicitChoiceColor, formatCustomFieldValue, formatNumberCompact, isValidForType, parseMultiSelect, thresholdLevel, thresholdPhrase, withCustomFieldValue } from "../../utils/customFieldValue";
 import ThresholdMark from "./ThresholdMark";
 import { ChoiceBadge, ChoiceDot } from "./ChoiceValue";
 import { updateCard } from "../../api/cards";
@@ -489,7 +489,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const AvatarWrap: React.ElementType = avatarInRow ? "div" : Fragment;
   // The overdue rule (#2313): finished work (a Done column, or archived) is never overdue.
   const cardClosed = inDoneColumn || !!card.archived_at;
-  const isOverdueCard = classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null })?.kind === "overdue";
+  // One clock reading for every classification in this render (#2393): the
+  // badge, the status line and the border must classify the same instant, so a
+  // midnight or due-soon boundary can never fall between two calls.
+  const urgencyNow = Date.now();
+  const isOverdueCard = classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null }, urgencyNow)?.kind === "overdue";
   const priorityColor = colorForPriority(card.priority);
   const borderColor = isOverdueCard ? "rgb(var(--danger-emphasis))" : undefined;
   // Urgency now owns the border, so priority (otherwise read from its hue) goes
@@ -507,13 +511,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     ? null
     : classifyCardUrgency(
         { due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
+        urgencyNow,
       );
   // The status line (#2272) is the one place the status shows,
   // at every density: a text line under the metadata at Comfortable, inline in
   // the row at Standard, a short form at Dense. The compact layout keeps the
   // AgingCue glyph and has no status line.
   const statusUrgency = !compact
-    ? classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null })
+    ? classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null }, urgencyNow)
     : null;
   const status = statusUrgency && (statusUrgency.kind === "overdue" || statusUrgency.kind === "due-soon" || statusUrgency.kind === "stale")
     ? buildCardStatusLine({
@@ -525,9 +530,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     : null;
   const statusInline = status !== null && density !== "comfortable";
   const statusRow = status !== null && density === "comfortable";
-  // With a status line the badge only remains for the calm "Just moved" cue.
-  const urgencyBadge = status ? null : urgency;
-  const dueAlreadyInUrgency = urgency?.kind === "overdue" || urgency?.kind === "due-soon" || status?.kind === "overdue" || status?.kind === "due-soon";
+  // The badge is only ever the calm "Just moved" cue (#2393). `urgency` and
+  // `statusUrgency` classify the same inputs at the same instant and differ only
+  // in `last_moved_at`, which decides nothing but the lowest-priority "recent"
+  // kind, so whenever `urgency` is overdue, due soon or stale the status line
+  // already shows that kind. `cardUrgencyAgreement.test.ts` pins this.
+  const justMovedBadge = !status && urgency?.kind === "recent" ? urgency : null;
+  const dueAlreadyInUrgency = status?.kind === "overdue" || status?.kind === "due-soon";
   // The one-row Dense face draws none of these, so each is carried as words for
   // assistive technology (visible: the hover peek / peek panel).
   const denseSrText = (() => {
@@ -539,44 +548,32 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     if (card.weight > 1) parts.push(`Weight ${card.weight}`);
     // The Dense status text is only "Overdue" or "Due soon" (no date), so the date
     // is always spoken here whatever the status kind is.
-    if (dueInfo) parts.push(`Due ${dueInfo.label}`);
+    // `dueInfo.label` already starts with "Due" ("Due tomorrow", "Due 01/15/2099").
+    if (dueInfo) parts.push(dueInfo.label);
     if (externalRef) parts.push(`${PROVIDER_LABELS[externalRef.provider] ?? externalRef.provider} ${externalRef.ref}`);
     return parts.length > 0 ? `, ${parts.join(". ")}` : "";
   })();
-  // Standalone due pill (dense, and standard outside the urgency window): a
-  // late or due-soon date carries the same glyph as the badge so urgency is
-  // never hue-only (#871). Overdue follows the user's-timezone verdict that
-  // `formatDueDate` already gives the pill's red text.
-  // Known divergence: two clocks decide this pill. "Overdue" uses the user-timezone
-  // date (`formatDueDate`), while the badge, border and Show chips use
-  // `classifyCardUrgency`, which follows the server's overdue rule in the instance
-  // time zone (#2313). A date that is past in one zone and today in the other renders
-  // due soon here. Open question 6 on #871 owns aligning the pill's label clock.
-  const duePillGlyph: UrgencyGlyphKind | null = !dueInfo || cardClosed
-    ? null
-    : dueInfo.overdue
-    ? "overdue"
-    : ["overdue", "due-soon"].includes(classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null })?.kind ?? "")
-    ? // Overdue in the instance zone while formatDueDate (user's timezone) still
-      // calls it today, or due within the window: due soon.
-      "due-soon"
-    : null;
+  // Comfortable draws no on-track due date (the status line carries only an
+  // overdue or due-soon one), so the date is spoken here instead (#2399, owner
+  // decision): the face stays calm and the hover peek shows it visibly.
+  const comfortableDueSrText = !compact && density === "comfortable" && dueInfo && !dueAlreadyInUrgency
+    ? `, ${dueInfo.label}`
+    : "";
+  // The standalone due pill (Standard, outside the status line) is always a
+  // plain, on-track date (#2393). Any date `formatDueDate` calls past (the
+  // user's zone) is overdue or due soon under `classifyCardUrgency` (the
+  // instance zone), whose status line then carries the date and hides the pill,
+  // so the pill never needs an urgency glyph or tone.
+
   // Suppress the recently-moved dot when urgency is already showing "Just moved".
   const recentAlreadyInUrgency = urgency?.kind === "recent";
   // The badge sits on the card's aging tint whenever one is shown, so its text
   // uses an on-tint token that clears 4.5:1 on that stage (#1550, #1841).
-  const urgencyToneClass = !urgency
-    ? ""
-    : urgency.kind === "stale"
-    ? staleBadgeToneClass(aging.stage)
-    : urgencyBadgeToneClass(urgency.tone, aging.stage);
-  // "Stale · 41d" — the server decides whether the badge shows (is_stale); the
-  // label adds the idle days so the stage is never conveyed by color alone.
-  const staleLabel = aging.stage !== "none" ? `Stale · ${aging.idleDays}d` : "Stale";
+  const justMovedToneClass = justMovedBadge ? urgencyBadgeToneClass(justMovedBadge.tone, aging.stage) : "";
   // Wherever that badge is not on the card face, the title carries the
   // AgingCue stage glyph instead, so an aging tint (including the yellow
   // warning stage, which never gets the badge) is never color-only (#1843, #1863).
-  const staleBadgeShown = !compact && (urgency?.kind === "stale" || status?.kind === "stale");
+  const staleBadgeShown = status?.kind === "stale";
 
   // Pinned custom fields (#371, Direction A). Quick-edit is only wired when
   // the caller opted in by passing both boardId and onCardUpdated — the
@@ -671,7 +668,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       (showAttachments && card.attachment_count > 0) ||
       (showDueDatePill && !!dueInfo && !dueAlreadyInUrgency) ||
       (showWeight && card.weight > 1) ||
-      !!urgencyBadge ||
+      !!justMovedBadge ||
       statusInline ||
       hasVisibleCustomFieldChips ||
       !!externalRef
@@ -1029,46 +1026,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   );
                 })()}
 
-                {/* Worst-offender urgency badge (#961). Replaces the stacked
-                    overdue / due-soon / stale / moved-recently signals at lower
-                    densities. Tint matches the design system's danger / warning /
-                    info tones — no filled background. For date-based kinds the
-                    badge carries the formatted date (flag or stopwatch SVG
-                    glyph, #871, then e.g. ``Due 10/30/2026``, ``Due tomorrow``) instead of the generic ``Overdue`` label,
-                    so the date isn't lost when the standalone date pill is
-                    suppressed. */}
+                {/* The status line (#2272) carries overdue, due soon and stale;
+                    the one badge left is the calm "Just moved" cue (#961, #2393). */}
                 {statusInline && statusNode}
-                {urgency && urgencyBadge && (
-                  <span
-                    className={`text-xs font-semibold shrink-0 ${urgencyToneClass}`}
-                    title={
-                      urgency.kind === "overdue" || urgency.kind === "due-soon"
-                        ? `Due ${card.due_date}`
-                        : urgency.kind === "stale"
-                        ? agingTooltip ?? staleLabel
-                        : urgency.label
-                    }
-                  >
-                    {urgency.kind === "overdue" && dueInfo ? (
-                      // The SVG is aria-hidden, so the word the flag stood for
-                      // goes to screen readers as text; "Due 10/30/2026" alone
-                      // would not say the date has passed.
-                      <span className="inline-flex items-center gap-1">
-                        <UrgencyGlyph kind="overdue" />
-                        <span className="sr-only">Overdue: </span>
-                        {dueInfo.label}
-                      </span>
-                    ) : urgency.kind === "due-soon" && dueInfo ? (
-                      // "Due tomorrow" / "Due in 2 days" already says it all.
-                      <span className="inline-flex items-center gap-1">
-                        <UrgencyGlyph kind="due-soon" />
-                        {dueInfo.label}
-                      </span>
-                    ) : urgency.kind === "stale" ? (
-                      staleLabel
-                    ) : (
-                      urgency.label
-                    )}
+                {justMovedBadge && (
+                  <span className={`text-xs font-semibold shrink-0 ${justMovedToneClass}`} title={justMovedBadge.label}>
+                    {justMovedBadge.label}
                   </span>
                 )}
 
@@ -1152,6 +1115,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   const value = entry!.value;
                   const valid = isValidForType(def, value);
                   const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
+                  // #2387: a number reads in compact form on the face ($33k); the
+                  // title keeps the full value ($33,000). Its value span is
+                  // `shrink-0 max-w-full`: flexbox shrinks every shrinkable item at
+                  // once (by shrink factor x base size), so a shrinkable value would
+                  // lose width alongside the name ("$3…"). Pinned, the name is the
+                  // only item that shrinks (down to nothing, ellipsizing as it goes);
+                  // the value ellipsizes only when it alone is wider than the chip.
+                  const isNumber = valid && def.field_type === "number";
+                  const faceText = isNumber
+                    ? formatNumberCompact(value, { prefix: def.number_prefix, suffix: def.number_suffix, decimals: def.number_decimals })
+                    : displayText;
                   const multiEntries = valid && def.field_type === "multi_select" ? parseMultiSelect(value) : null;
                   // #1391: explicit choice color → tinted badge (no dot);
                   // otherwise the automatic hash dot, exactly as before.
@@ -1228,9 +1202,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                       ) : (
                         <>
                           <ThresholdMark level={level} direction={def.threshold_direction ?? ""} />
-                          <span className={`truncate min-w-0 ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
-                            {chipValueText(def, displayText, 16)}
+                          <span
+                            className={`truncate ${isNumber ? "shrink-0 max-w-full" : "min-w-0"} ${level === "none" ? "text-fg-secondary" : "font-semibold text-fg"} ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}
+                            data-testid={isNumber ? "card-field-number" : undefined}
+                            // A compacted number ($33k) is spoken in full ($33,000) by
+                            // the sr-only twin below; `title` alone never reaches
+                            // keyboard, touch or most screen readers (#2387).
+                            aria-hidden={faceText !== displayText ? true : undefined}
+                          >
+                            {chipValueText(def, faceText, 16)}
                           </span>
+                          {faceText !== displayText && <span className="sr-only" data-testid="card-field-number-sr">{displayText}</span>}
                         </>
                       )}
                       {phrase && <span className="sr-only">, {phrase}</span>}
@@ -1283,25 +1265,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   </span>
                 )}
 
-                {/* Due date — only at Standard / Dense, and only when not
-                    already carried by the urgency badge. At Comfortable the
-                    urgency badge is the single date signal. */}
+                {/* Due date — Standard only, and only when the status line does
+                    not already carry it. At Comfortable the face draws no
+                    on-track date (sr-only text below carries it, #2399). */}
                 {!denseRow && showDueDatePill && dueInfo && !dueAlreadyInUrgency && (
-                  <span
-                    className={`text-xs font-medium shrink-0 ${
-                      duePillGlyph ? urgencyBadgeToneClass(duePillGlyph === "overdue" ? "danger" : "warning", aging.stage) : "text-fg-tertiary"
-                    }`}
-                    title={`Due ${card.due_date}`}
-                  >
-                    {duePillGlyph ? (
-                      <span className="inline-flex items-center gap-1">
-                        <UrgencyGlyph kind={duePillGlyph} />
-                        {duePillGlyph === "overdue" && <span className="sr-only">Overdue: </span>}
-                        {dueInfo.label}
-                      </span>
-                    ) : (
-                      dueInfo.label
-                    )}
+                  <span className="text-xs font-medium shrink-0 text-fg-tertiary" title={`Due ${card.due_date}`}>
+                    {dueInfo.label}
                   </span>
                 )}
 
@@ -1359,6 +1328,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             card's accessible name stays whole (frontend/CLAUDE.md § Cards, calm-face
             omission rule). */}
         {denseSrText && <span className="sr-only" data-testid="card-dense-sr">{denseSrText}</span>}
+        {comfortableDueSrText && <span className="sr-only" data-testid="card-due-sr">{comfortableDueSrText}</span>}
         {/* The priority suffix closes the card's accessible content (#2279). */}
         {prioritySuffix && <span className="sr-only" data-testid="card-priority-sr">{prioritySuffix}</span>}
       </div>

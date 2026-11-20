@@ -1518,7 +1518,7 @@ describe('BoardSettingsSwimlaneFieldsTab — number format (#1391)', () => {
     expect(screen.getByLabelText('Prefix')).toHaveValue('$')
     expect(screen.getByText('Preview: $1,234.50')).toBeInTheDocument()
     await user.clear(screen.getByLabelText('Decimals'))
-    expect(screen.getByText('Preview: $1234.5')).toBeInTheDocument()
+    expect(screen.getByText('Preview: $1,234.5')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save field' }))
     await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 3, expect.objectContaining({
       number_prefix: '$', number_suffix: '', number_decimals: null,

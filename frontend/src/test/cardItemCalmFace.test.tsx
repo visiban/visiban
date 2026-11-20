@@ -194,6 +194,47 @@ describe('CardItem — omitted metadata stays in the accessible name (#2279)', (
     expect(overdue.container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? '').toContain('Due ')
   })
 
+  it('Dense speaks the due date once, not "Due Due"', () => {
+    const { container } = render(<CardItem card={makeCard({ due_date: '2099-01-15' })} density="dense" />)
+    const sr = container.querySelector('[data-testid="card-dense-sr"]')?.textContent ?? ''
+    expect(sr).toContain('Due 01/15/2099')
+    expect(sr).not.toContain('Due Due')
+  })
+
+  it('Comfortable speaks an on-track due date the face does not draw (#2399)', () => {
+    const { container } = render(<CardItem card={makeCard({ due_date: '2099-01-15' })} density="comfortable" />)
+    const sr = container.querySelector('[data-testid="card-due-sr"]') as HTMLElement
+    expect(sr).toHaveClass('sr-only')
+    expect(sr.textContent).toBe(', Due 01/15/2099')
+    // The face stays calm: no visible date and no status line.
+    expect(container.querySelector('[data-testid="card-status-line"]')).toBeNull()
+    expect(screen.queryByText('Due 01/15/2099')).toBeNull()
+    // It precedes the priority suffix, which stays the last sr-only text.
+    const priority = container.querySelector('[data-testid="card-priority-sr"]') as HTMLElement
+    expect(sr.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('Comfortable adds no due sr text when the status line carries the date, or there is no date', () => {
+    for (const o of [{ due_date: FIVE_DAYS_AGO }, { due_date: TWO_DAYS_FROM_NOW }, { due_date: null }] as Partial<Card>[]) {
+      const { container, unmount } = render(<CardItem card={makeCard(o)} density="comfortable" />)
+      expect(container.querySelector('[data-testid="card-due-sr"]')).toBeNull()
+      unmount()
+    }
+    // Standard draws the on-track date visibly, and Dense speaks it in card-dense-sr.
+    for (const density of ['standard', 'dense'] as const) {
+      const { container, unmount } = render(<CardItem card={makeCard({ due_date: '2099-01-15' })} density={density} />)
+      expect(container.querySelector('[data-testid="card-due-sr"]')).toBeNull()
+      unmount()
+    }
+  })
+
+  it('Standard draws an on-track due date as a plain tertiary pill with no urgency glyph (#2393)', () => {
+    render(<CardItem card={makeCard({ due_date: '2099-01-15' })} density="standard" />)
+    const pill = screen.getByText('Due 01/15/2099')
+    expect(pill).toHaveClass('text-fg-tertiary')
+    expect(pill.querySelector('svg')).toBeNull()
+  })
+
   it('Dense on a bare card adds no sr-only metadata text', () => {
     const { container } = render(
       <CardItem card={makeCard({ labels: [], weight: 1, attachment_count: 0, checklist_total: 0, checklist_done: 0 })} density="dense" />,

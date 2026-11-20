@@ -19,6 +19,7 @@ import {
 } from "../../utils/cardPeek";
 import CardPeekHistory from "./CardPeekHistory";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
+import { colorChipStyle } from "../../utils/colorContrast";
 import Avatar from "../Common/Avatar";
 
 const OUTSIDE_CONTROL_SELECTOR = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
@@ -218,6 +219,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   );
   const totalMs = dwell.reduce((s, d) => s + d.ms, 0);
   const lane = board.swimlanes.find((s) => s.id === card.swimlane);
+  // A card payload that omits labels (older server, partial socket update) still opens the sheet (#2391).
+  const labels = card.labels ?? [];
   const overdue = isOverdue(card.due_date, !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
   const idleDays = card.last_moved_at
     ? Math.floor((Date.now() - new Date(card.last_moved_at).getTime()) / 86_400_000)
@@ -432,6 +435,27 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             <div className="flex justify-between gap-3">
               <dt className="text-fg-secondary">Due date</dt>
               <dd className={card.due_date ? "text-fg" : "text-fg-tertiary"}>{card.due_date ? formatDateStr(card.due_date, userDateFormat) : "Not set"}</dd>
+            </div>
+            {/* Labels (#2391, owner decision): at Dense the face draws none, so
+                the peek sheet lists them beside the due date. */}
+            <div className="flex justify-between gap-3">
+              <dt className="text-fg-secondary">Labels</dt>
+              <dd className={labels.length > 0 ? "min-w-0" : "text-fg-tertiary"}>
+                {labels.length > 0 ? (
+                  <ul className="flex flex-wrap justify-end gap-1" aria-label="Labels" data-testid="card-peek-sheet-labels">
+                    {labels.map((label) => (
+                      <li
+                        key={label.id}
+                        className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none max-w-full truncate"
+                        style={colorChipStyle(label.color)}
+                        title={label.name}
+                      >
+                        {label.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : "None"}
+              </dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-fg-secondary">Last moved</dt>

@@ -25,13 +25,17 @@ test.describe('Threshold marks on number fields (#1122)', () => {
     const chip = page.locator('[data-threshold-level="alert"]').first()
     await expect(chip).toBeVisible()
     await expect(chip.locator('svg[aria-hidden="true"]')).toHaveCount(1)
-    await expect(chip.locator('.sr-only')).toContainText('Alert: at or above $6000')
-    await expect(chip).toHaveAttribute('title', /Alert: at or above \$6000/)
+    // Two sr-only spans: the compacted value's full-text twin ($6.5k on the face, #2387)
+    // and the threshold phrase.
+    await expect(chip.getByTestId('card-field-number')).toHaveText('$6.5k')
+    await expect(chip.getByTestId('card-field-number-sr')).toHaveText('$6,500')
+    await expect(chip.locator('.sr-only').filter({ hasText: 'Alert:' })).toHaveText(', Alert: at or above $6,000')
+    await expect(chip).toHaveAttribute('title', /Alert: at or above \$6,000/)
 
     await page.getByText(CARD.title).first().hover()
     const peek = page.getByRole('tooltip').filter({ hasText: CARD.description })
     await expect(peek).toBeVisible({ timeout: 3_000 })
-    await expect(peek.getByTestId('card-peek-thresholds')).toContainText('Alert: at or above $6000')
+    await expect(peek.getByTestId('card-peek-thresholds')).toContainText('Alert: at or above $6,000')
   })
 
   test('configuring a threshold in Card fields sends it and marks the chip', async ({ page }) => {

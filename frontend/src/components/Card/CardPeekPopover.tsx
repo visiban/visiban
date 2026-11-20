@@ -1,7 +1,8 @@
 import { useRef } from "react";
 import type { Card, CustomFieldDefinition } from "../../types";
 import { colorForPriority } from "../../constants/colors";
-import { formatRelativeTime } from "../../utils/date";
+import { formatDueDate, formatRelativeTime } from "../../utils/date";
+import { colorChipStyle } from "../../utils/colorContrast";
 import { formatCustomFieldValue, isValidForType, thresholdLevel, thresholdPhrase } from "../../utils/customFieldValue";
 import ThresholdMark from "./ThresholdMark";
 import { PROVIDER_LABELS } from "../../utils/externalRef";
@@ -64,6 +65,9 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
   };
 
   const priorityColor = colorForPriority(card.priority);
+  // A summary payload from an older server or a partial socket update may omit
+  // labels; the peek must still open (#2391).
+  const labels = card.labels ?? [];
 
   // Build checklist items from checklist_total / checklist_done counts.
   // The card summary only carries counts, not the individual item list, so we
@@ -108,6 +112,30 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         <p className="text-xs text-fg-secondary mt-2 leading-relaxed line-clamp-3">
           {card.description}
         </p>
+      )}
+
+      {/* Due date and labels (#2391, #2399, owner decision): the calm face draws
+          no on-track due date at Comfortable and no labels at Dense, so the
+          peek is where a hover reader sees them. Words only, no urgency tone:
+          the face's status line owns overdue and due soon. */}
+      {card.due_date && (
+        <p className="mt-2 text-xs text-fg-secondary" data-testid="card-peek-due">
+          {formatDueDate(card.due_date, userTimezone, userDateFormat).label}
+        </p>
+      )}
+      {labels.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1" aria-label="Labels" data-testid="card-peek-labels">
+          {labels.map((label) => (
+            <li
+              key={label.id}
+              className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none max-w-full truncate"
+              style={colorChipStyle(label.color)}
+              title={label.name}
+            >
+              {label.name}
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* Checklist progress */}

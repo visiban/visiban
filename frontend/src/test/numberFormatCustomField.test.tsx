@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act, cleanup } from "@testing-library/react"
 import CustomFieldValueInput from "../components/Card/CustomFieldValueInput";
 import CustomFieldValueDisplay from "../components/Card/CustomFieldValueDisplay";
 import {
-  chipValueText, formatCustomFieldValue, formatNumberValue, numberFormatPayload, parseDecimalsInput,
+  chipValueText, formatCustomFieldValue, formatNumberCompact, formatNumberValue, numberFormatPayload, parseDecimalsInput,
 } from "../utils/customFieldValue";
 import type { FieldDefinitionShape } from "../types";
 
@@ -33,8 +33,13 @@ describe("formatNumberValue", () => {
     }
   });
 
-  it("keeps the number as typed (no grouping) when decimals is null", () => {
-    expect(formatNumberValue("1234.5", { prefix: "$" })).toBe("$1234.5");
+  it("keeps the digits as typed and adds grouping when decimals is null (#2387)", () => {
+    expect(formatNumberValue("1234.5", { prefix: "$" })).toBe("$1,234.5");
+    expect(formatNumberValue("33000", { prefix: "$" })).toBe("$33,000");
+    expect(formatNumberValue("1234567.891", { suffix: " h" })).toBe("1,234,567.891 h");
+    expect(formatNumberValue("0.10", { suffix: "%" })).toBe("0.10%");
+    expect(formatNumberValue("999", { prefix: "$" })).toBe("$999");
+    // An exponent form is not a plain decimal, so it stays as typed.
     expect(formatNumberValue("1e3", { suffix: " h" })).toBe("1e3 h");
   });
 
@@ -53,6 +58,7 @@ describe("formatNumberValue", () => {
   it("puts the minus sign before the prefix", () => {
     expect(formatNumberValue("-5", { prefix: "$", decimals: 2 })).toBe("-$5.00");
     expect(formatNumberValue("-5", { prefix: "$" })).toBe("-$5");
+    expect(formatNumberValue("-12500", { prefix: "$" })).toBe("-$12,500");
     expect(formatNumberValue("-1234.5", { prefix: "€", suffix: "k", decimals: 1 })).toBe("-€1,234.5k");
   });
 
@@ -69,6 +75,28 @@ describe("formatNumberValue", () => {
     expect(formatNumberValue("abc", { prefix: "$", decimals: 2 })).toBe("abc");
     expect(formatNumberValue("Infinity", { prefix: "$", decimals: 2 })).toBe("Infinity");
     expect(formatNumberValue("", { prefix: "$", decimals: 2 })).toBe("");
+  });
+});
+
+describe("formatNumberCompact (#2387)", () => {
+  it("compacts 1,000 and above with at most one decimal and a lower-case k", () => {
+    expect(formatNumberCompact("33000", { prefix: "$" })).toBe("$33k");
+    expect(formatNumberCompact("33450", { prefix: "$" })).toBe("$33.5k");
+    expect(formatNumberCompact("1250000", { prefix: "$", decimals: 2 })).toBe("$1.3M");
+    expect(formatNumberCompact("1000", { suffix: " seats" })).toBe("1k seats");
+    expect(formatNumberCompact("-12500", { prefix: "€" })).toBe("-€12.5k");
+  });
+
+  it("is exactly formatNumberValue below 1,000", () => {
+    expect(formatNumberCompact("25", { suffix: "%" })).toBe("25%");
+    expect(formatNumberCompact("999.5", { prefix: "$", decimals: 2 })).toBe("$999.50");
+    expect(formatNumberCompact("-5", { prefix: "$" })).toBe("-$5");
+  });
+
+  it("leaves an unformatted field, a non-number and an empty value as formatNumberValue does", () => {
+    expect(formatNumberCompact("33000", {})).toBe("33000");
+    expect(formatNumberCompact("abc", { prefix: "$" })).toBe("abc");
+    expect(formatNumberCompact("", { prefix: "$" })).toBe("");
   });
 });
 

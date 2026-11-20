@@ -519,9 +519,57 @@ describe("CardItem — formatted number chips (#1391)", () => {
         customFieldDefinitions={[makeDefinition({ name: "Budget", field_type: "number", number_prefix: "$", number_suffix: " USD", number_decimals: 2 })]}
       />
     );
-    // 17 characters: the old 16-character slice would have cut " USD" to " US…".
-    expect(screen.getByText("$1,234,567.50 USD")).toHaveClass("truncate");
+    // The face shows the compact form (#2387), suffix whole; the title keeps the full value.
+    expect(screen.getByText("$1.2M USD")).toHaveClass("truncate", "shrink-0", "max-w-full");
     expect(screen.getByTitle("Budget: $1,234,567.50 USD")).toBeInTheDocument();
+  });
+
+  it("shows a pinned currency field in compact form, the value pinned so only the name shrinks (#2387)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "33000" }, { field_definition: 6, value: "25" }] })}
+        customFieldDefinitions={[
+          makeDefinition({ id: 5, name: "Deal value", field_type: "number", number_prefix: "$" }),
+          makeDefinition({ id: 6, name: "Probability", field_type: "number", number_suffix: "%", position: 1 }),
+        ]}
+      />
+    );
+    const values = screen.getAllByTestId("card-field-number").map((el) => el.textContent);
+    expect(values).toEqual(["$33k", "25%"]);
+    for (const el of screen.getAllByTestId("card-field-number")) {
+      // Flexbox shrinks every shrinkable item at once, so a shrinkable value would lose
+      // width alongside the name ("$3…"). shrink-0 leaves the name as the only item that
+      // shrinks; max-w-full + truncate ellipsize the value only when it alone is wider
+      // than the chip. jsdom has no layout: e2e/card-number-chip-compact.spec.ts measures it.
+      expect(el).toHaveClass("truncate", "shrink-0", "max-w-full");
+      expect(el).not.toHaveClass("min-w-0");
+    }
+    // The name is the item that yields width; the full grouped value stays in the title.
+    expect(screen.getByText("Deal value:")).toHaveClass("truncate", "min-w-0");
+    expect(screen.getByTitle("Deal value: $33,000")).toBeInTheDocument();
+    // The compact text is hidden from assistive tech, which hears the full value instead;
+    // an uncompacted value ("25%") has no sr-only twin.
+    expect(screen.getByText("$33k")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getAllByTestId("card-field-number-sr").map((el) => el.textContent)).toEqual(["$33,000"]);
+    expect(screen.getAllByTestId("card-field-number-sr")[0]).toHaveClass("sr-only");
+    expect(screen.getByText("25%")).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("ellipsizes a long uncompacted value only when it alone is wider than the chip, full text in the title (#2387)", () => {
+    render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: "999.123456789" }] })}
+        customFieldDefinitions={[makeDefinition({ name: "Rate", field_type: "number", number_prefix: "USD ", number_suffix: " per month", number_decimals: 10 })]}
+      />
+    );
+    const value = screen.getByTestId("card-field-number");
+    // Not character-sliced: the value is never shrunk by flex, but max-w-full caps it at
+    // the chip's width, where truncate ellipsizes it (the name has shrunk to nothing).
+    expect(value).toHaveTextContent("USD 999.1234567890 per month");
+    expect(value).toHaveClass("truncate", "shrink-0", "max-w-full");
+    expect(value).not.toHaveClass("min-w-0", "shrink-[3]");
+    expect(screen.getByText("Rate:")).toHaveClass("truncate", "min-w-0", "shrink-[3]");
+    expect(screen.getByTitle("Rate: USD 999.1234567890 per month")).toBeInTheDocument();
   });
 
   it("still slices an unformatted long number at 16 characters, as before", () => {
@@ -792,7 +840,8 @@ describe("CardItem — threshold marks (#1122)", () => {
     const mark = chip.querySelector("svg[data-threshold-mark]");
     expect(mark).toHaveAttribute("aria-hidden", "true");
     expect(mark).toHaveAttribute("data-threshold-mark", "alert");
-    expect(screen.getByText("$6,100")).toHaveClass("font-semibold", "text-fg");
+    // Compact on the face (#2387); the title above keeps the full value.
+    expect(screen.getByText("$6.1k")).toHaveClass("font-semibold", "text-fg");
     expect(screen.getByText(", Alert: at or above $6,000")).toHaveClass("sr-only");
     expect(chip.className).not.toMatch(/text-(danger|warning)|bg-(danger|warning)|cursor-pointer/);
   });

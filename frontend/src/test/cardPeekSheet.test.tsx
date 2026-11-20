@@ -31,7 +31,7 @@ const board = {
 const card = {
   id: 9, column: 2, swimlane: 5, title: 'Sakura Electronics', description: '<p>100-Seat Board</p>', due_date: null, assignee: null,
   is_stale: true, last_moved_at: iso(39), version: 3, created_at: iso(53),
-  custom_field_values: [{ field_definition: 1, value: '$52,000' }],
+  custom_field_values: [{ field_definition: 1, value: '$52,000' }], labels: [],
 } as unknown as Card
 
 const movements = [
@@ -499,5 +499,28 @@ describe('CardPeekSheet on a gated stage (#2278)', () => {
     expect(items[0]).toHaveClass('bg-primary-emphasis/15')
     expect(items[1]).not.toHaveAttribute('aria-current')
     expect(list).not.toHaveTextContent('(current)')
+  })
+})
+
+// #2391 (owner decision): labels have a visible carrier at Dense, beside the due date.
+describe('CardPeekSheet — labels row', () => {
+  it('lists the card\'s labels by name', () => {
+    setup({ card: { ...card, labels: [{ id: 1, uid: 'l1', name: 'Renewal', color: '#10B981' }, { id: 2, uid: 'l2', name: 'Expansion', color: '#8B5CF6' }] } as Card })
+    const list = screen.getByTestId('card-peek-sheet-labels')
+    expect(within(list).getAllByRole('listitem').map((i) => i.textContent)).toEqual(['Renewal', 'Expansion'])
+  })
+
+  it('says None when the card has no labels', () => {
+    setup({ card: { ...card, labels: [] } as Card })
+    expect(screen.getByText('Labels').nextElementSibling).toHaveTextContent('None')
+  })
+})
+
+describe('CardPeekSheet — a card payload without labels (#2391)', () => {
+  it('still opens and says None', () => {
+    const { labels: _omit, ...noLabels } = { ...card, labels: [] } as Card
+    setup({ card: noLabels as Card })
+    expect(screen.getByTestId('card-peek-sheet')).toBeInTheDocument()
+    expect(screen.getByText('Labels').nextElementSibling).toHaveTextContent('None')
   })
 })

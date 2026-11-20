@@ -83,7 +83,7 @@ export const AGING_STAGE_CLASSES: Record<AgingStage, { overlayClass: string | nu
  * movement at all (for example one imported from Trello or CSV) — its
  * creation time. This mirrors the server's `is_stale` fallback
  * (`_annotate_is_stale`), so an imported board's never-moved cards get the
- * same ramp, tooltip and `Stale · Nd` badge as moved ones (#1841).
+ * same ramp, tooltip and stale status line as moved ones (#1841, #2272).
  */
 export function agingReference(card: { last_moved_at: string | null; created_at: string }): string | null {
   return card.last_moved_at ?? card.created_at ?? null;
@@ -183,7 +183,7 @@ export type UrgencyTone = "danger" | "warning" | "info";
  * a tint the on-tint token of the badge's hue applies (#1550), except that on
  * the red 2x/3x stages amber `warning-on-tint` drops to 4.38:1 / 3.94:1 in
  * light mode, so a warning-toned badge (due-soon) takes `danger-on-tint`
- * there; its stopwatch glyph and date text still tell it apart from an overdue flag.
+ * there; its status-line text ("Due soon" / the date) still tells it apart from an overdue one.
  * Literal class names so Tailwind's JIT sees them.
  */
 export function urgencyBadgeToneClass(tone: UrgencyTone, stage: AgingStage): string {
