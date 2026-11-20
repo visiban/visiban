@@ -5120,7 +5120,7 @@ the status filter and the uniform response, not scope.</p>
 <tr>
 <td>JSON import</td>
 <td><code>boards/views/import_export.py</code> <code>BoardImportExportMixin._import_json</code></td>
-<td><code>_resolve_import_users</code> (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions) and comments use the importer plus <code>_imported_from_username</code></td>
+<td><code>_resolve_import_users</code> (assignee, checklist assignee); history rows (movements, activities, blocks and, since #1102, gate transitions), since #1796 the retained <code>deleted_card_history</code> movements and activities, and comments use the importer plus <code>_imported_from_username</code></td>
 </tr>
 <tr>
 <td>CSV import</td>
