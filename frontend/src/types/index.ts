@@ -2237,6 +2237,10 @@ export interface FlowCycleTimeSample {
   reopened: boolean;
   /** With `group_by` only: the card's group keys, empty when it has none. */
   group_keys?: string[];
+  /** Time in gated stages' last sub-columns during the cycle (#2360); 0 when none. Absent from older servers. */
+  wait_days?: number | null;
+  /** `value_days` minus `wait_days` (#2360). Absent from older servers. */
+  work_days?: number | null;
 }
 
 export interface FlowCycleTime {
@@ -2349,6 +2353,9 @@ export interface FlowDwellColumn {
   column_name: string;
   sample_size: number;
   percentiles: FlowPercentiles;
+  /** Gated stages only (#2360): work and wait percentiles; null for a stage with no sub-columns. */
+  work_percentiles?: FlowPercentiles | null;
+  wait_percentiles?: FlowPercentiles | null;
 }
 
 export interface FlowDwell {

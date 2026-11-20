@@ -1209,6 +1209,15 @@ class CardMovement(models.Model):
                 fields=["board", "-moved_at"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
+            # The same read with its "-id" tie-break (#2400): ending the index
+            # at moved_at made PostgreSQL add an Incremental Sort above the
+            # joins, three times slower at a deep offset. Built concurrently in
+            # migration 0116. movement_board_moved_idx is now a prefix of this
+            # one; it is dropped in a later release (#2408), never with the add.
+            models.Index(
+                fields=["board", "-moved_at", "-id"],  # pragma: no mutate -- schema constant (migration-check)
+                name="movement_board_moved_id_idx",  # pragma: no mutate -- schema constant (migration-check)
+            ),
         ]
 
     def save(self, *args, **kwargs):

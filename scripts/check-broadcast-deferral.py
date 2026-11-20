@@ -222,6 +222,16 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "sends that board's channel frame plus its group channel frame, so it is "
         "a one-iteration loop, not a per-row storm. Deferred with on_commit."
     ),
+    "backend/boards/views/custom_fields.py::CustomFieldDefinitionViewSet._broadcast_tracks_removed": (
+        "One column.updated per column that lost a stage track, then one "
+        "swimlane.updated per lane that lost a track exception, when a "
+        "dimension field is deleted (#2361). All frames go to the one board "
+        "channel, but each carries that column's or lane's own serializer "
+        "payload, so they cannot be collapsed into one (same shape as "
+        "services/stages.py::_broadcast_stage). record_board_event() defers "
+        "each publish with on_commit. Bounded by the columns and lanes that "
+        "referenced the one deleted field."
+    ),
     "backend/groups/views.py::_announce": (
         "One invite_link.revoked per revoked link, fired from the commit hook in "
         "_revoke_lapsed_admin_invite_links. A lapsed creator's links span groups "

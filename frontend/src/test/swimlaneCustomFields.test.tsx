@@ -395,6 +395,14 @@ describe('mergeSwimlaneFromBroadcast (#1140)', () => {
   const adminOnly = makeDef({ id: 1, name: 'ARR', is_admin_only: true })
   const publicDef = makeDef({ id: 2, uid: 'sfuid0000002', name: 'Region', is_admin_only: false })
 
+  it('takes the exception list from the broadcast, so a deleted field clears it (#2361)', () => {
+    const prior = makeSwimlane({ not_applicable_field_ids: [7, 8] })
+    const broadcast = makeSwimlane({ not_applicable_field_ids: [8] })
+    expect(mergeSwimlaneFromBroadcast([prior], broadcast, []).not_applicable_field_ids).toEqual([8])
+    const cleared = makeSwimlane({ not_applicable_field_ids: [] })
+    expect(mergeSwimlaneFromBroadcast([prior], cleared, []).not_applicable_field_ids).toEqual([])
+  })
+
   it('keeps an admin-only value the public broadcast could not carry', () => {
     const prior = makeSwimlane({
       custom_field_values: [

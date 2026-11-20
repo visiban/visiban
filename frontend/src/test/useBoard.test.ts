@@ -3,7 +3,7 @@ import { renderHook, waitFor, act, render, screen } from '@testing-library/react
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard, reorderWithinCellOptimistically } from '../hooks/useBoard'
-import { swimlaneForRole } from '../utils/swimlaneMerge'
+import { mergeSwimlaneFromBroadcast, swimlaneForRole } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
 const mockNavigate = vi.fn()
@@ -477,6 +477,24 @@ describe('useBoard', () => {
     const updated = { ...result.current.board!.columns[0], name: 'Renamed' }
     act(() => { result.current.updateColumn(updated) })
     expect(result.current.board!.columns[0].name).toBe('Renamed')
+  })
+
+  // A deleted dimension field (#2361): the server broadcasts the stage's
+  // column.updated without its track, and another client must drop it.
+  it('a column.updated without a track removes that track from the board (#2361)', async () => {
+    const board = makeBoard()
+    const tracks = [
+      { id: 1, field_id: 7, field_uid: 'fielduid0007', name: 'Design', position: 0 },
+      { id: 2, field_id: 8, field_uid: 'fielduid0008', name: 'Legal', position: 1 },
+    ]
+    board.columns[0] = { ...board.columns[0], tracks }
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    expect(result.current.board!.columns[0].tracks).toHaveLength(2)
+
+    act(() => { result.current.updateColumn({ ...result.current.board!.columns[0], tracks: [tracks[1]] }) })
+    expect(result.current.board!.columns[0].tracks).toEqual([tracks[1]])
   })
 
   it('addLabel adds label to board', async () => {
@@ -1475,6 +1493,26 @@ describe('useBoard', () => {
       result.current.updateSwimlane((b) => ({ ...b.swimlanes.find((s) => s.id === existing.id)!, name: 'Resolved' }))
     })
     expect(result.current.board!.swimlanes.find((s) => s.id === existing.id)!.name).toBe('Resolved')
+  })
+
+  // The lane's exception for a deleted dimension field (#2361) arrives as a
+  // swimlane.updated, applied through the same merge BoardView uses.
+  it('a swimlane.updated without an exception clears not_applicable_field_ids (#2361)', async () => {
+    const board = makeBoard()
+    board.swimlanes[0] = { ...board.swimlanes[0], not_applicable_field_ids: [7] }
+    mockGetBoardFull.mockResolvedValue(board)
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const lane = result.current.board!.swimlanes[0]
+    expect(lane.not_applicable_field_ids).toEqual([7])
+
+    const frame = { ...lane, not_applicable_field_ids: [] }
+    act(() => {
+      result.current.updateSwimlane((b) => mergeSwimlaneFromBroadcast(
+        b.swimlanes, frame, b.swimlane_custom_field_definitions,
+      ))
+    })
+    expect(result.current.board!.swimlanes[0].not_applicable_field_ids).toEqual([])
   })
 
   it('applyColumnOrder and applySwimlaneOrder replace the board arrays wholesale', async () => {

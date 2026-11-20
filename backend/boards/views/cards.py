@@ -1743,7 +1743,9 @@ class CardViewSet(viewsets.ModelViewSet):
             movements_qs = (
                 CardMovement.objects.filter(card=card)
                 .select_related("moved_by")
-                .order_by("-moved_at")
+                # Tie-broken (#2400): each page re-reads rows 0..fetch_cap, so
+                # same-instant rows must come back in the same order every time.
+                .order_by("-moved_at", "-id")
             )
             capped_movements, move_count = fetch_page_and_total(movements_qs, 0, fetch_cap)
         else:
@@ -1754,7 +1756,7 @@ class CardViewSet(viewsets.ModelViewSet):
             activities_qs = (
                 CardActivity.objects.filter(card=card, event_type__in=activity_event_types)
                 .select_related("actor")
-                .order_by("-created_at")
+                .order_by("-created_at", "-id")
             )
             capped_activities, activity_count = fetch_page_and_total(activities_qs, 0, fetch_cap)
         else:
