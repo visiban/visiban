@@ -632,20 +632,29 @@ _ID_SEARCH_MAX_DIGITS = 18
 def resolve_parent_board(user, child_board, parent_board_id):
     """The parent board for the picker, or ``NotFound`` (P3, step 5).
 
-    A missing board, one the user has no role on or only a viewer/collaborator
-    role, a child-tier board and ``child_board`` itself all raise the SAME
-    ``NotFound``, decided from one lookup and one role batch, so the answer
-    is not an oracle for which boards exist (Rule 7).
+    The board is looked up in the same accessible-board set as
+    :func:`parent_boards_for_viewer` (P2). A board outside that set, one on
+    which the user holds only a viewer/collaborator role, a child-tier board
+    and ``child_board`` itself all raise the SAME ``NotFound`` (Rule 7).
+
+    Every path runs one lookup and one role batch: when the lookup finds no
+    board, the batch runs on ``child_board`` instead, so the refusal is decided
+    the same way whatever the reason.
     """
     parent_board = (
-        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
-        .filter(pk=parent_board_id, cards_can_have_children=True)
-        .exclude(pk=child_board.pk)
+        _accessible_boards(user)
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk=parent_board_id)
         .first()
     )
-    if parent_board is None:
-        raise NotFound()
-    if get_board_roles(user, [parent_board])[parent_board.pk] not in LINK_WRITE_ROLES:
+    subject = parent_board if parent_board is not None else child_board
+    role = get_board_roles(user, [subject])[subject.pk]
+    if (
+        parent_board is None
+        or parent_board.pk == child_board.pk
+        or not parent_board.cards_can_have_children
+        or role not in LINK_WRITE_ROLES
+    ):
         raise NotFound()
     return parent_board
 

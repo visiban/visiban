@@ -2929,7 +2929,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 "No access to this board or card, or `board` is not a parent board "
                 "the caller may link to (one body for every case)."
             )),
-            429: OpenApiResponse(description="Rate limit exceeded (`card_query` scope, shared with `/cards/query/`)."),
+            429: OpenApiResponse(description="Rate limit exceeded (`card_query` scope, shared with `GET /api/v1/cards/`)."),
         },
         description=(
             "Up to 20 cards on `board` that this card could be linked to as its "

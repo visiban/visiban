@@ -1193,8 +1193,8 @@ Each row: `{id, title, column_id, column_name, swimlane_id, swimlane_name,
 assignee, disabled_reason, children_board_name}`. `disabled_reason` is
 `children_on_other_board`, `children_limit` or `null`, the same codes as the link
 write's `400`. `children_board_name` is that other board's name only when you can
-open it. Rate-limited by the `card_query` scope (`120/min`), shared with
-`/cards/query/`: debounce the picker's search.
+open it. Rate-limited by the `card_query` scope (`120/min`), shared with the
+cross-board card query `GET /api/v1/cards/`: debounce the picker's search.
 
 ### History and real-time
 

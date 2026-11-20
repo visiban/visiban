@@ -13,8 +13,9 @@ from unittest import mock, skipUnless
 
 from django.contrib import admin as django_admin
 from django.core.cache import cache
-from django.db import transaction
-from django.test import RequestFactory, TestCase
+from django.db import connection, transaction
+from django.test import RequestFactory, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from boards.admin import CardAdmin
@@ -148,6 +149,28 @@ class ParentEventScopingTests(_ParentFixture, TestCase):
         rendered = json.dumps(serialize_feed_rows(self.cboard.pk, feed, role="viewer", reader_id=None))
         self.assertNotIn("SECRET-P", rendered)
         self.assertNotIn('"parent"', rendered)
+        # A real webhook delivery of the same rows carries no parent either.
+        from webhooks import dispatch
+        from webhooks.tests.base import ENABLED, make_subscription, resolving
+
+        make_subscription(self.cboard, self.owner)
+        posted = []
+
+        def record(url, body, headers, **kwargs):
+            posted.append(body)
+            return 200
+
+        with ENABLED, override_settings(NOTIFICATION_EMAIL_ASYNC=False), resolving(), \
+                mock.patch("visiban.egress.guarded_post", record), \
+                self.captureOnCommitCallbacks(execute=True):
+            dispatch.run_once()
+        delivered = [json.loads(b) for b in posted]
+        self.assertTrue(
+            {"card.updated", "card.moved"} <= {d["event"] for d in delivered}, delivered,
+        )
+        for d in delivered:
+            self.assertNotIn("parent", d["data"])
+            self.assertNotIn("SECRET-P", json.dumps(d))
 
     def test_rename_pings_the_child_board_ids_only(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -310,11 +333,17 @@ class ParentCandidatesTests(_LinkFixture, TestCase):
         plain = _make_board(self.owner, name="Plain")
         BoardMembership.objects.create(board=plain, user=self.member, role=Role.ADMIN)
         bodies = set()
+        counts = {}
         for board_id in (999999, no_role.pk, viewer_only.pk, plain.pk, self.cboard.pk):
-            res = self._get(board=board_id, search="Init")
+            with CaptureQueriesContext(connection) as ctx:
+                res = self._get(board=board_id, search="Init")
             self.assertEqual(res.status_code, 404, board_id)
             bodies.add(res.content)
+            counts[board_id] = len(ctx.captured_queries)
         self.assertEqual(len(bodies), 1, bodies)
+        # Every case takes the same path: one lookup in the accessible-board
+        # set and one role batch, as parent-boards/ does.
+        self.assertEqual(len(set(counts.values())), 1, counts)
 
     def test_board_param_is_validated_after_access(self):
         outsider = self._client(_make_user("pc_out"))
