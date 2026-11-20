@@ -128,7 +128,7 @@ function hasChoices(t: CustomFieldType): boolean {
 // so the `show_on_row` pin flag no longer changes anything on the board. The field
 // stays in the API and the TypeScript type (1.0 contract); this tab never sends it,
 // so a saved pin is left as it was.
-const FIELD_CAP = 15;
+const FIELD_CAP = 30; // 15 until #2438
 
 interface FormState {
   name: string;

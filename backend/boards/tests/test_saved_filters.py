@@ -721,6 +721,25 @@ class SavedFilterLaneFilterStateTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(r.data["state_json"], state)
 
+    def test_checkbox_and_multi_select_rules_round_trip_unchanged(self):
+        # #2438 — the server checks the rule's shape, not the field's type, so
+        # a checkbox "is true" and a multi-select "is" / "is_not" entry save
+        # exactly as sent, with no new keys. A presence operator stays rejected
+        # on a custom field.
+        lane_filter = {
+            "items": [
+                _lane_rule(1, field=20, value="true"),
+                _lane_rule(2, join="or", field=21, value="web"),
+                _lane_rule(3, join="and", field=21, op="is_not", value="APAC"),
+            ]
+        }
+        state = {**EMPTY_FILTER_STATE, "laneFilter": lane_filter}
+        r = self._post(state)
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(r.data["state_json"], state)
+        self._assert_400({"items": [_lane_rule(1, field=20, op="is_set")]})
+        self._assert_400({"items": [_lane_rule(1, field=21, op="is_empty")]})
+
     def test_hide_unmatched_round_trips(self):
         # #2214 — an optional bool beside items; with no rules it keeps items: [].
         for lane_filter in ({"items": [_lane_rule(1)], "hideUnmatched": True}, {"items": [], "hideUnmatched": True}, {"items": [_lane_rule(1)], "hideUnmatched": False}):

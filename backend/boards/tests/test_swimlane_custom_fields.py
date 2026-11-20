@@ -490,19 +490,38 @@ class SwimlaneCustomFieldCapTests(SwimlaneCustomFieldTestBase):
         r = self.client.post(self.url, {"name": "OneTooMany"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_the_cap_is_lower_than_the_card_cap_and_deliberately_so(self):
-        """Guards the re-derivation, not the literal.
+    def test_the_cap_is_30_at_card_parity_since_2438(self):
+        """Pins the literal: 15 until #2438, raised on the benchmark's numbers.
 
-        The issue explicitly required this cap to be re-derived for swimlane
-        cardinality rather than copied from the card model; a later edit that
-        "aligns" the two would silently undo that.
+        A change to this number needs the same measurement (``benchmark
+        --swimlane-fields``): the /full/ query count must stay flat in N.
         """
         from boards.models import CustomFieldDefinition
 
-        self.assertLess(
+        self.assertEqual(SwimlaneCustomFieldDefinition.MAX_PER_BOARD, 30)
+        self.assertEqual(
             SwimlaneCustomFieldDefinition.MAX_PER_BOARD,
             CustomFieldDefinition.MAX_PER_BOARD,
         )
+
+    def test_the_30th_field_is_created_and_the_31st_is_rejected(self):
+        for i in range(29):
+            _definition(self.board, name=f"F{i}", position=i)
+        r = self.client.post(self.url, {"name": "Thirtieth"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        self.assertEqual(SwimlaneCustomFieldDefinition.objects.filter(board=self.board).count(), 30)
+        r = self.client.post(self.url, {"name": "Thirty first"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(SwimlaneCustomFieldDefinition.objects.filter(board=self.board).count(), 30)
+
+    def test_a_lane_write_carries_30_values_and_rejects_31(self):
+        definitions = [_definition(self.board, name=f"F{i}", position=i) for i in range(30)]
+        payload = [{"field_definition": d.id, "value": "x"} for d in definitions]
+        r = self.client.patch(self.lane_url, {"custom_field_values": payload}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        too_many = payload + [{"field_definition": definitions[0].id, "value": "y"}]
+        r = self.client.patch(self.lane_url, {"custom_field_values": too_many}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_the_pin_cap_is_enforced(self):
         for i in range(SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD):

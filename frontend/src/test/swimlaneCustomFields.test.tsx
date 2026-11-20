@@ -485,7 +485,7 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[], swimlanes: Swimlane[] 
 describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   it('shows the swimlane caps, not the card caps', () => {
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard([makeDef()])} isAdmin onFieldsUpdated={vi.fn()} />)
-    expect(screen.getByText('1 of 15')).toBeInTheDocument()
+    expect(screen.getByText('1 of 30')).toBeInTheDocument()
   })
 
   it('warns when every field is admin-only, since members then see nothing', () => {
@@ -601,8 +601,8 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
 
   it('after a delete that leaves the board at the cap, focus falls back to the tab heading (#2204)', async () => {
     const user = userEvent.setup()
-    const defs = Array.from({ length: 16 }, (_, i) =>
-      makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
+    const defs = Array.from({ length: 31 }, (_, i) =>
+      makeDef({ id: i + 1, uid: `sfuid${String(i).padStart(7, '0')}`, name: `F${i}`, position: i, show_on_row: false })
     )
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
     await user.click(screen.getByTitle('Delete F0'))
@@ -616,17 +616,17 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
   })
 
   it('disables Add field at the cap', () => {
-    const defs = Array.from({ length: 15 }, (_, i) =>
-      makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
+    const defs = Array.from({ length: 30 }, (_, i) =>
+      makeDef({ id: i + 1, uid: `sfuid${String(i).padStart(7, '0')}`, name: `F${i}`, position: i, show_on_row: false })
     )
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
     expect(screen.getByRole('button', { name: '+ Add field' })).toBeDisabled()
-    expect(screen.getByText(/reached its 15-field limit/)).toBeInTheDocument()
+    expect(screen.getByText(/reached its 30-field limit/)).toBeInTheDocument()
   })
 
   it('warns two fields before the cap', () => {
-    const defs = Array.from({ length: 13 }, (_, i) =>
-      makeDef({ id: i + 1, uid: `sfuid000000${i}`, name: `F${i}`, position: i, show_on_row: false })
+    const defs = Array.from({ length: 28 }, (_, i) =>
+      makeDef({ id: i + 1, uid: `sfuid${String(i).padStart(7, '0')}`, name: `F${i}`, position: i, show_on_row: false })
     )
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
     expect(screen.getByText('2 fields left on this board.')).toBeInTheDocument()
@@ -641,7 +641,7 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
       makeDef({ id: 9, uid: 'sfuid0000009', name: 'D', position: 8, show_on_row: false }),
     ]
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
-    expect(screen.getByText('9 of 15')).toBeInTheDocument()
+    expect(screen.getByText('9 of 30')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull()
     expect(screen.queryByText(/pinned/i)).toBeNull()
     expect(screen.queryByText(/The row header shows/)).toBeNull()

@@ -27,7 +27,7 @@ GALLERY = [
         "order": 2,
         "highlights": (
             "Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. "
-            "Uses every custom field type and all 15 swimlane fields. One account is partly covered "
+            "Uses every custom field type and 15 swimlane fields. One account is partly covered "
             "and one has no overlay coverage"
         ),
     },

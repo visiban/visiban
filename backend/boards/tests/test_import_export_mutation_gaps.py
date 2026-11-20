@@ -1744,6 +1744,7 @@ class ExportJsonShapeTests(ExportBase):
                 "schema_version",
                 "name",
                 "description",
+                "lane_details_cap",  # #2439
                 "columns",
                 "swimlanes",
                 "labels",
@@ -2274,6 +2275,7 @@ class ExportJsonShapeTests(ExportBase):
                 "number_suffix",
                 "number_decimals",
                 "choice_colors",
+                "band_visibility",  # #2439
             ],
         )
         self.assertEqual(

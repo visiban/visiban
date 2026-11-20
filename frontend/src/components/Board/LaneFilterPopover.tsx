@@ -352,7 +352,21 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
         ) : (
           <span className="text-sm text-fg-tertiary w-40">{t ? OP_LABELS[ops[0]] : ""}</span>
         )}
-        {(t === "dropdown" || t === "enum") && def && !isPresenceOp(r.op) && (
+        {t === "checkbox" && def && (
+          <div className="flex-1 min-w-[10rem]">
+            <SingleSelectDropdown<string>
+              label="Choose Yes or No"
+              onOpenChange={(o) => trackMenu(`${r.id}:value`, o)}
+              ariaLabel={`Filter ${n} value`}
+              className="w-full justify-between"
+              escapePriority={INNER_ESCAPE_PRIORITY}
+              options={[{ value: "true", label: "Yes" }, { value: "false", label: "No" }]}
+              selected={r.value === "true" || r.value === "false" ? r.value : null}
+              onChange={(v) => updateRule(r.id, { value: v ?? "" })}
+            />
+          </div>
+        )}
+        {(t === "dropdown" || t === "enum" || t === "multi_select") && def && !isPresenceOp(r.op) && (
           <div className="flex-1 min-w-[10rem]">
             <SingleSelectDropdown<string>
               label="Choose a value"
@@ -361,7 +375,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
               className="w-full justify-between"
               labelClassName="truncate"
               escapePriority={INNER_ESCAPE_PRIORITY}
-              options={def.choices.map((c) => ({ value: c, label: laneValueLabel(def, c, fmt) }))}
+              options={def.choices.map((c) => ({ value: c, label: t === "multi_select" ? c : laneValueLabel(def, c, fmt) }))}
               selected={r.value ? r.value : null}
               onChange={(v) => updateRule(r.id, { value: v ?? "" })}
             />

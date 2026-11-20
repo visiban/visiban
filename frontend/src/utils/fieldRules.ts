@@ -17,6 +17,7 @@
  */
 
 import { wildcardMatch } from "./textMatch";
+import { parseMultiSelect } from "./customFieldValue";
 
 export type FieldRuleJoin = "and" | "or";
 /** Additive-only: the backend validates against the same enum. */
@@ -24,10 +25,13 @@ export type FieldRuleOp = "is" | "is_not" | "between" | "contains" | "not_contai
 /**
  * The field types a rule can target (text and url since #2226). `enum` (#2247)
  * is a fixed set of values supplied by a built-in field, e.g. lane health.
+ * `checkbox` and `multi_select` (#2438) match the stored value the way the card
+ * filters do (#1848, #1391) but keep the one-value rule shape, so a saved lane
+ * filter never changes shape; an older client drops such a rule as unusable.
  */
-export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url" | "enum";
+export type RuleFieldType = "dropdown" | "number" | "date" | "text" | "url" | "enum" | "checkbox" | "multi_select";
 
-export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date", "text", "url", "enum"];
+export const RULE_FIELD_TYPES: readonly RuleFieldType[] = ["dropdown", "number", "date", "text", "url", "enum", "checkbox", "multi_select"];
 
 /** Presence operators (#2247): they take no operand. */
 export function isPresenceOp(op: FieldRuleOp): op is "is_set" | "is_empty" {
@@ -61,7 +65,9 @@ export function isRuleFieldType(t: string): t is RuleFieldType {
 
 /** The operators a field type offers, in menu order. */
 export function opsForFieldType(t: RuleFieldType): FieldRuleOp[] {
-  if (t === "dropdown") return ["is", "is_not"];
+  if (t === "dropdown" || t === "multi_select") return ["is", "is_not"];
+  // Checkbox: Yes or No only. No presence operators: the backend rejects them on custom fields.
+  if (t === "checkbox") return ["is"];
   if (t === "enum") return ["is", "is_not", "is_set", "is_empty"];
   if (isTextRuleType(t)) return ["is", "is_not", "contains", "not_contains", "wildcard"];
   return ["between"];
@@ -111,7 +117,8 @@ export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null
   if (rule.field === null || !t) return false;
   if (!opsForFieldType(t).includes(rule.op)) return false;
   if (t === "enum" && isPresenceOp(rule.op)) return true;
-  if (t === "dropdown" || t === "enum") return typeof rule.value === "string" && rule.value !== "";
+  if (t === "checkbox") return rule.value === "true" || rule.value === "false";
+  if (t === "dropdown" || t === "enum" || t === "multi_select") return typeof rule.value === "string" && rule.value !== "";
   // A blank or whitespace-only operand (an empty `contains` box) is incomplete.
   if (isTextRuleType(t)) return normalizeText(rule.value) !== null;
   return normalizeFor(t, rule.min) !== null || normalizeFor(t, rule.max) !== null;
@@ -123,6 +130,17 @@ export function isRuleComplete(rule: FieldRule<unknown>, t: RuleFieldType | null
  * unparsable one) fails `is`, `contains`, `wildcard` and `between`, and passes `is_not` and `not_contains`.
  */
 export function matchRule(rule: FieldRule<unknown>, t: RuleFieldType, raw: string | undefined): boolean {
+  if (t === "checkbox") {
+    // #1848: a checkbox row is stored only when set, so a missing row is "false".
+    return (raw === undefined ? "false" : raw) === rule.value;
+  }
+  if (t === "multi_select") {
+    // #1391: exact membership in the parsed entries, never a substring test on
+    // the JSON text. An empty or unparseable value has no entries, so it fails
+    // `is` and passes `is_not`.
+    const has = parseMultiSelect(raw).includes(rule.value ?? "");
+    return rule.op === "is_not" ? !has : has;
+  }
   if (t === "dropdown" || t === "enum") {
     const has = typeof raw === "string" && raw !== "";
     if (rule.op === "is_set") return has;
@@ -197,6 +215,9 @@ const TEXT_OP_WORDS: Partial<Record<FieldRuleOp, string>> = {
 export function ruleText(rule: FieldRule<unknown>, t: RuleFieldType, label: string, fmt: (raw: string) => string): string {
   if (t === "enum" && isPresenceOp(rule.op)) return `${label} ${rule.op === "is_set" ? "is set" : "is empty"}`;
   if (t === "enum") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${fmt(rule.value ?? "")}`;
+  // Chips read "PCI in scope: Yes" and "Pricing regions: EMEA" (#2438), like the card chips.
+  if (t === "checkbox") return `${label}: ${rule.value === "true" ? "Yes" : "No"}`;
+  if (t === "multi_select") return rule.op === "is_not" ? `${label}: not ${rule.value ?? ""}` : `${label}: ${rule.value ?? ""}`;
   if (t === "dropdown") return `${label} ${rule.op === "is_not" ? "is not" : "is"} ${rule.value ?? ""}`;
   if (isTextRuleType(t)) {
     const word = TEXT_OP_WORDS[rule.op] ?? "is";

@@ -297,14 +297,16 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
             ]
             self.assertLessEqual(max(stamps), anchor - datetime.timedelta(days=1), path.name)
 
-    def test_sales_overlay_uses_every_card_field_type_and_the_row_field_maximum(self):
+    def test_sales_overlay_uses_every_card_field_type_and_fifteen_row_fields(self):
         data = _load(SAMPLE_DIR / "sales_overlay.json")
         self.assertEqual(
             {f["field_type"] for f in data["custom_fields"]},
             {t.value for t in CustomFieldDefinition.FieldType},
         )
         lane_fields = data["swimlane_custom_fields"]
-        self.assertEqual(len(lane_fields), SwimlaneCustomFieldDefinition.MAX_PER_BOARD)
+        # 15 was the per-board maximum until #2438 raised it to 30; the board stays at 15.
+        self.assertEqual(len(lane_fields), 15)
+        self.assertLessEqual(len(lane_fields), SwimlaneCustomFieldDefinition.MAX_PER_BOARD)
         self.assertEqual(
             sum(f["show_on_row"] for f in lane_fields), SwimlaneCustomFieldDefinition.MAX_PINNED_PER_BOARD,
         )

@@ -13,7 +13,7 @@ In the app, open **Import** on the Dashboard and pick a board under **Start from
 | File | Board | Swimlane = | Cards | Highlights |
 |------|-------|-----------|------:|-----------|
 | `software_development.json` | Software Development | Squad | 79 | Story points, issue type, release, environments, merge request links, on-call per squad |
-| `sales_overlay.json` | Sales Overlay | Account | 42 | Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. Uses every custom field type and all 15 swimlane fields. One account is partly covered and one has no overlay coverage |
+| `sales_overlay.json` | Sales Overlay | Account | 42 | Enterprise overlay coverage: AD, AE, SA, overlay AE/SA pods and services lead per account. Uses every custom field type and 15 swimlane fields. One account is partly covered and one has no overlay coverage |
 | `simple_kanban.json` | Simple Kanban | Team | 113 | Story points, sprint, GitLab merge request links |
 | `sales_pipeline.json` | Sales Pipeline | Region | 114 | Deal value, forecast category, win probability, competitors |
 | `product_roadmap.json` | Product Roadmap | Product area | 119 | RICE score, target quarter, platforms, GitHub issue links |

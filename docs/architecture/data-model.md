@@ -118,7 +118,7 @@ Board
  ├── Swimlane  (uid, position, color, is_collapsed)
  ├── Label  (uid, name, color)
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required, is_dimension + choice_resolutions 1.3+ — max 30/board)
- ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 15/board)
+ ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 30/board (15 before 1.3))
  ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
  └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
       └── BoardInviteRedemption → User  (role_granted, membership_created, via — join | registration; unique per invite+user)

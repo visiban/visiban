@@ -31,7 +31,10 @@ exit code 1) regardless of ``--fail-on-budget`` — a rejected request makes the
 query count meaningless, so it must never be reported as "✅ OK" (#1330).
 Running with DEBUG off is likewise a hard failure (#1341).
 """
+import json
 import secrets
+import statistics
+import time
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -42,6 +45,7 @@ from django.test import RequestFactory, override_settings
 from boards.models import (
     Board, BoardMembership, Column, Swimlane, Label,
     Card, CardMovement, CardAttachment, CardChecklist,
+    SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 
 User = get_user_model()
@@ -102,6 +106,24 @@ class Command(BaseCommand):
             default=False,
             help="Exit non-zero if any endpoint exceeds its query budget.",
         )
+        parser.add_argument(
+            "--swimlane-fields",
+            type=int,
+            default=0,
+            metavar="N",
+            help=(
+                "Seed N swimlane field definitions (cycling the seven types) and a value "
+                "for every field on every lane (#2438). Runs cards, full and summary only, "
+                "and reports the /full/ payload size and p50/p95 latency."
+            ),
+        )
+        parser.add_argument(
+            "--swimlanes",
+            type=int,
+            default=SWIMLANES,
+            metavar="N",
+            help="Number of swimlanes to seed (default %(default)s; 100 is the import ceiling).",
+        )
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
@@ -117,7 +139,12 @@ class Command(BaseCommand):
         self.stdout.write("  Visiban Query-Count Benchmark")
         self.stdout.write("═" * 60 + "\n")
 
-        user, board = self._seed()
+        field_count = options["swimlane_fields"]
+        if field_count < 0 or field_count > SwimlaneCustomFieldDefinition.MAX_PER_BOARD:
+            raise CommandError(
+                f"--swimlane-fields must be 0..{SwimlaneCustomFieldDefinition.MAX_PER_BOARD}."
+            )
+        user, board = self._seed(options["swimlanes"], field_count)
         factory = RequestFactory()
 
         results = []
@@ -125,8 +152,11 @@ class Command(BaseCommand):
             results.append(self._bench_cards(factory, user, board))
             results.append(self._bench_full(factory, user, board))
             results.append(self._bench_summary(factory, user, board))
-            for name, path, budget in _HISTORY_ENDPOINTS:
-                results.append(self._bench_history_endpoint(user, board, name, path, budget))
+            if field_count:
+                self._bench_full_latency(user, board, field_count)
+            else:
+                for name, path, budget in _HISTORY_ENDPOINTS:
+                    results.append(self._bench_history_endpoint(user, board, name, path, budget))
         finally:
             # No announce_cards_removal: the board and its cards are this
             # command's own throwaway fixture, never linked to another card.
@@ -203,6 +233,33 @@ class Command(BaseCommand):
         self._dump_queries(name, count, budget)
         return name, count, budget
 
+    def _bench_full_latency(self, user, board, field_count, runs=20):
+        """Payload bytes and p50/p95 of GET /full/ over ``runs`` warm requests (#2438).
+
+        The first request (counted above) warms connections; these are the
+        steady-state numbers. The query count is re-read per run so a count that
+        grows with the data would show here too.
+        """
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
+        times, counts, size = [], set(), 0
+        with override_settings(ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, _BENCH_HOST]):
+            for _ in range(runs):
+                reset_queries()
+                t0 = time.perf_counter()
+                response = client.get(f"/api/v1/boards/{board.pk}/full/")
+                times.append((time.perf_counter() - t0) * 1000)
+                counts.add(len(connection.queries))
+                size = len(response.content)
+        times.sort()
+        p95 = times[min(len(times) - 1, int(round(0.95 * len(times))) - 1)]
+        self.stdout.write(
+            f"  full/ with {field_count} swimlane fields: {size} bytes, "
+            f"p50 {statistics.median(times):.1f} ms, p95 {p95:.1f} ms over {runs} runs, "
+            f"queries per run {sorted(counts)}"
+        )
+
     def _bench_summary(self, factory, user, board):
         name = "GET /api/boards/{id}/summary/"
         # Equals SummaryQueryCountTests.BUDGET in test_query_counts.py (asserted
@@ -262,8 +319,36 @@ class Command(BaseCommand):
                 sql = q["sql"][:120].replace("\n", " ")
                 self.stdout.write(f"     [{i}] {q['time']}s  {sql}")
 
-    def _seed(self):
-        """Create a throw-away board with COLUMNS × SWIMLANES × CARDS_PER_CELL cards."""
+    def _seed_swimlane_fields(self, board, swimlanes, field_count):
+        """``field_count`` swimlane field definitions, every one valued on every lane (#2438).
+
+        Cycles the seven types so the payload carries realistic value shapes; the
+        tiers stay NULL (a legacy board), which the /full/ query count does not read.
+        """
+        shapes = [
+            ("text", [], "Acme Corp"),
+            ("number", [], "125000"),
+            ("date", [], "2026-06-30"),
+            ("dropdown", ["Gold", "Silver"], "Gold"),
+            ("checkbox", [], "true"),
+            ("url", [], "https://example.com/accounts/1234"),
+            ("multi_select", ["EMEA", "APAC", "AMER"], json.dumps(["EMEA", "APAC"])),
+        ]
+        definitions = []
+        for i in range(field_count):
+            field_type, choices, _ = shapes[i % len(shapes)]
+            definitions.append(SwimlaneCustomFieldDefinition.objects.create(
+                board=board, name=f"Field {i}", field_type=field_type, position=i,
+                choices_json=choices,
+            ))
+        SwimlaneCustomFieldValue.objects.bulk_create([
+            SwimlaneCustomFieldValue(swimlane=sw, field_definition=d, value=shapes[i % len(shapes)][2])
+            for sw in swimlanes
+            for i, d in enumerate(definitions)
+        ])
+
+    def _seed(self, swimlane_count=SWIMLANES, field_count=0):
+        """Create a throw-away board with COLUMNS × swimlanes × CARDS_PER_CELL cards."""
         # Clean up any leftover state from a previous interrupted run before creating.
         User.objects.filter(username="bench_user").delete()
         user = User.objects.create_user(
@@ -281,8 +366,10 @@ class Command(BaseCommand):
         ]
         swimlanes = [
             Swimlane.objects.create(board=board, name=f"Lane {i}", position=i)
-            for i in range(SWIMLANES)
+            for i in range(swimlane_count)
         ]
+        if field_count:
+            self._seed_swimlane_fields(board, swimlanes, field_count)
         label = Label.objects.create(board=board, name="bug", color="#ff0000")
 
         cards = []
@@ -305,8 +392,8 @@ class Command(BaseCommand):
                     cards.append(card)
 
         self.stdout.write(
-            f"  Seeded: {COLUMNS} cols × {SWIMLANES} lanes × {CARDS_PER_CELL} cards/cell "
-            f"= {len(cards)} cards\n"
+            f"  Seeded: {COLUMNS} cols × {swimlane_count} lanes × {CARDS_PER_CELL} cards/cell "
+            f"= {len(cards)} cards, {field_count} swimlane fields\n"
         )
         return user, board
 

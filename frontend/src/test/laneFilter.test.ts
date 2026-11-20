@@ -216,11 +216,11 @@ describe('fieldRules — text and url (#2226)', () => {
 })
 
 describe('laneFilter', () => {
-  it('offers dropdown/number/date/text/url fields, admin-only ones to admins only', () => {
+  it('offers dropdown/number/date/text/url/checkbox/multi-select fields, admin-only ones to admins only', () => {
     const defs = [SECRET, NOTES, DEAL, AE, SIGNED, SITE, OWNER]
     // #2336 — the built-ins come first; Contact email to admins only.
-    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual(['name', 'health_status', 1, 3, 6, 8])
-    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual(['name', 'contact_email', 'health_status', 1, 3, 5, 6, 8, 9])
+    expect(laneFilterFields(defs, false).map((f) => f.id)).toEqual(['name', 'health_status', 1, 3, 6, 7, 8])
+    expect(laneFilterFields(defs, true).map((f) => f.id)).toEqual(['name', 'contact_email', 'health_status', 1, 3, 5, 6, 7, 8, 9])
   })
 
   it('collects the lanes\' distinct text values, trimmed, case-folded and sorted', () => {
@@ -334,7 +334,7 @@ describe('laneFilter', () => {
         rule(2, DEAL.id, 'between', { min: 'abc', max: '9' }),
         rule(3, AE.id, 'between', { min: '1' }),
         rule(4, null, 'is'),
-        { kind: 'group', id: 5, join: 'or', rules: [rule(6, SIGNED.id, 'is', { value: 'x' })] },
+        { kind: 'group', id: 5, join: 'or', rules: [rule(6, 99, 'is', { value: 'x' })] },
       ],
     }
     const pruned = pruneLaneFilter(f, laneFilterFields([AE, DEAL, SECRET, SIGNED], false))!
@@ -684,5 +684,87 @@ describe('laneFilter — health built-in (#2247)', () => {
     const f = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'health_status', op: 'is_empty' }] } as never
     expect(isLaneFilterActive(f)).toBe(true)
     expect(pruneLaneFilter(f, fields)).toBe(f)
+  })
+})
+
+
+describe('laneFilter — checkbox and multi-select (#2438)', () => {
+  const PCI = field(20, 'PCI in scope', 'checkbox')
+  const REGIONS = field(21, 'Pricing regions', 'multi_select', { choices: ['web', 'EMEA', 'APAC'] })
+  const SECRET_FLAG = field(22, 'Audit flag', 'checkbox', { is_admin_only: true })
+  const SECRET_MULTI = field(23, 'Internal tags', 'multi_select', { is_admin_only: true })
+  const defs = [PCI, REGIONS, SECRET_FLAG, SECRET_MULTI]
+  const fields = laneFilterFields(defs, true)
+  const run = (items: LaneRule[], lanes: ReturnType<typeof lane>[]) =>
+    laneIdsHiddenByFilter(lanes, { items }, fields)
+
+  it('offers both types, admin-only ones to admins only, and treats an absent viewer as non-admin (#1075)', () => {
+    const ids = (a: boolean | undefined) => laneFilterFields(defs, a).map((f) => f.id).filter((i) => typeof i === 'number')
+    expect(ids(true)).toEqual([20, 21, 22, 23])
+    expect(ids(false)).toEqual([20, 21])
+    expect(ids(undefined)).toEqual([20, 21])
+  })
+
+  it('offers only the operators the backend accepts, never presence operators', () => {
+    expect(opsForFieldType('checkbox')).toEqual(['is'])
+    expect(opsForFieldType('multi_select')).toEqual(['is', 'is_not'])
+  })
+
+  it('checkbox: Yes matches a stored true, No matches false and a missing row', () => {
+    const lanes = [lane({ 20: 'true' }, 1), lane({ 20: 'false' }, 2), lane({}, 3)]
+    expect([...run([rule(1, 20, 'is', { value: 'true' })], lanes)].sort()).toEqual([2, 3])
+    expect([...run([rule(1, 20, 'is', { value: 'false' })], lanes)].sort()).toEqual([1])
+  })
+
+  it('checkbox: a rule without Yes or No yet is incomplete and filters nothing', () => {
+    expect(isRuleComplete(rule(1, 20, 'is'), 'checkbox')).toBe(false)
+    expect(isRuleComplete(rule(1, 20, 'is', { value: 'maybe' }), 'checkbox')).toBe(false)
+    expect(run([rule(1, 20, 'is')], [lane({}, 1)]).size).toBe(0)
+  })
+
+  it('multi-select: matches whole entries, never JSON punctuation or substrings', () => {
+    const lanes = [lane({ 21: '["web","EMEA"]' }, 1), lane({ 21: '["webhooks"]' }, 2), lane({}, 3), lane({ 21: 'not json' }, 4)]
+    expect([...run([rule(1, 21, 'is', { value: 'web' })], lanes)].sort()).toEqual([2, 3, 4])
+    expect([...run([rule(1, 21, 'is', { value: '"' })], lanes)].sort()).toEqual([1, 2, 3, 4])
+    expect([...run([rule(1, 21, 'is', { value: 'EM' })], lanes)].sort()).toEqual([1, 2, 3, 4])
+  })
+
+  it('multi-select: is not passes lanes without the entry or without a value', () => {
+    const lanes = [lane({ 21: '["web","EMEA"]' }, 1), lane({ 21: '["APAC"]' }, 2), lane({}, 3)]
+    expect([...run([rule(1, 21, 'is_not', { value: 'web' })], lanes)]).toEqual([1])
+  })
+
+  it('multi-select any-of is an Or chain of single entries', () => {
+    const lanes = [lane({ 21: '["web"]' }, 1), lane({ 21: '["EMEA"]' }, 2), lane({ 21: '["APAC"]' }, 3)]
+    const items = [rule(1, 21, 'is', { value: 'web' }), { ...rule(2, 21, 'is', { value: 'EMEA' }), join: 'or' as const }]
+    expect([...run(items, lanes)]).toEqual([3])
+  })
+
+  it('chips read like the card chips, and the chain says or', () => {
+    const items = [rule(1, 20, 'is', { value: 'true' }), { ...rule(2, 21, 'is', { value: 'web' }), join: 'or' as const }, rule(3, 21, 'is_not', { value: 'APAC' })]
+    const chips = laneFilterChipItems({ items }, fields, fmt)
+    expect(chips.map((c) => c.label)).toEqual(['PCI in scope: Yes', 'Pricing regions: web', 'Pricing regions: not APAC'])
+    expect(summarizeLaneFilter({ items: items.slice(0, 2) }, fields, fmt).readsAs).toBe('Reads as: PCI in scope: Yes or Pricing regions: web')
+    expect(ruleText(rule(1, 20, 'is', { value: 'false' }), 'checkbox', 'PCI in scope', (r) => r)).toBe('PCI in scope: No')
+  })
+
+  it('round-trips a saved filter with the new rule types, shape unchanged', () => {
+    const f = sanitizeLaneFilter({
+      items: [
+        { kind: 'rule', id: 1, field: 20, op: 'is', value: 'true' },
+        { kind: 'rule', id: 2, join: 'or', field: 21, op: 'is_not', value: 'web' },
+      ],
+    })
+    expect(f?.items).toHaveLength(2)
+    expect(Object.keys(f!.items[0]).sort()).toEqual(['field', 'id', 'join', 'kind', 'op', 'value'])
+    expect(parseLaneFilterParam(serializeLaneFilterParam(f))).toEqual(f)
+    expect(pruneLaneFilter(f, fields)).toBe(f)
+  })
+
+  it('prunes the rules a non-admin cannot use, and ones an older type map does not know', () => {
+    const f = { items: [rule(1, 22, 'is', { value: 'true' }), rule(2, 20, 'is', { value: 'true' })] }
+    const pruned = pruneLaneFilter(f, laneFilterFields(defs, false))!
+    expect(pruned.items.map((i) => i.id)).toEqual([2])
+    expect(compileLaneFilter({ items: [rule(1, 20, 'is', { value: 'true' })] }, [])).toBeNull()
   })
 })
