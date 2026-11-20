@@ -228,3 +228,310 @@ class BoardQualifiesTests(TestCase):
     def test_absent_board_fails_closed(self):
         from boards.services.card_links import board_qualifies_as_child
         self.assertFalse(board_qualifies_as_child(None))
+
+
+import threading  # noqa: E402
+from unittest import skipUnless  # noqa: E402
+
+from django.db import connection, connections  # noqa: E402
+from django.test import TransactionTestCase  # noqa: E402
+
+from boards.models import CardActivity  # noqa: E402
+from boards.services import card_links  # noqa: E402
+from boards.tests.lock_wait import assert_blocked_on_lock  # noqa: E402
+
+
+def add_card(board, title="Card"):
+    return Card.objects.create(
+        board=board, column=board.columns.order_by("position").first(),
+        swimlane=board.swimlanes.first(), title=title,
+    )
+
+
+class AddChildFixture(DefaultChildBoardFixture):
+    def setUp(self):
+        super().setUp()
+        self.parent_card = add_card(self.parent, "Opportunity")
+        self.member = self.user_with("mem", parent=Role.MEMBER, child=Role.MEMBER)
+
+    def children_url(self, card=None):
+        card = card or self.parent_card
+        return f"/api/v1/boards/{card.board_id}/cards/{card.pk}/children/"
+
+    def add_child(self, user, board_id=None, title="Task"):
+        body = {"board_id": self.child.pk if board_id is None else board_id, "title": title}
+        with patch(PATCH_BROADCAST):
+            return client_for(user).post(self.children_url(), body, format="json")
+
+
+class AddChildTests(AddChildFixture):
+    def test_creates_the_card_in_the_first_column_and_lane_and_links_it(self):
+        r = self.add_child(self.member)
+        self.assertEqual(r.status_code, 201, r.content)
+        child = Card.objects.get(pk=r.json()["id"])
+        self.assertEqual(child.board_id, self.child.pk)
+        self.assertEqual(child.column.position, 0)
+        self.assertEqual(child.title, "Task")
+        self.assertTrue(CardParentLink.objects.filter(parent=self.parent_card, child=child).exists())
+        types = set(CardActivity.objects.filter(card__in=[child, self.parent_card]).values_list("event_type", flat=True))
+        self.assertLessEqual({"parent_linked", "child_linked"}, types)
+
+    def test_announces_ids_only_on_commit(self):
+        with patch(PATCH_BROADCAST) as bc, self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.member).post(self.children_url(), {"board_id": self.child.pk, "title": "T"}, format="json")
+        self.assertEqual(r.status_code, 201)
+        events = {(c.args[0], c.args[1]) for c in bc.call_args_list}
+        self.assertIn((self.child.pk, "card.created"), events)
+        self.assertIn((self.parent.pk, "card.children_changed"), events)
+        self.assertIn((self.child.pk, "card.parent_changed"), events)
+        for c in bc.call_args_list:
+            if c.args[1] == "card.children_changed":
+                self.assertEqual(c.args[2], {"parent_id": self.parent_card.pk})
+
+    def test_every_unusable_target_is_one_404(self):
+        viewer_on_target = self.user_with("vt", parent=Role.MEMBER, child=Role.VIEWER)
+        no_access = self.user_with("nt", parent=Role.MEMBER)
+        no_create = make_board(self.admin, "Locked", first_column_creates=False)
+        BoardMembership.objects.create(board=no_create, user=self.member, role=Role.MEMBER)
+        cases = [
+            (viewer_on_target, self.child.pk), (no_access, self.child.pk), (self.member, 999999),
+            (self.member, no_create.pk), (self.member, self.parent.pk), (self.member, "x"),
+            (self.member, True), (self.member, -1),
+        ]
+        bodies = set()
+        for user, board_id in cases:
+            with self.subTest(board_id=board_id):
+                r = self.add_child(user, board_id=board_id)
+                self.assertEqual(r.status_code, 404)
+                bodies.add(r.content)
+        self.assertEqual(len(bodies), 1)
+        self.assertEqual(Card.objects.filter(board=self.child).count(), 0)
+
+    def test_viewer_on_the_parent_board_is_403_before_the_body(self):
+        viewer = self.user_with("vp", parent=Role.VIEWER, child=Role.MEMBER)
+        with patch(PATCH_BROADCAST):
+            r = client_for(viewer).post(self.children_url(), {"title": ""}, format="json")
+        self.assertEqual(r.status_code, 403)
+
+    def test_blank_or_missing_title_is_400(self):
+        for title in ("", "   ", None, 5):
+            with self.subTest(title=title):
+                self.assertEqual(self.add_child(self.member, title=title).status_code, 400)
+
+    def test_never_splits_a_parent_across_boards(self):
+        other = make_board(self.admin, "Onboarding")
+        BoardMembership.objects.create(board=other, user=self.member, role=Role.MEMBER)
+        self.assertEqual(self.add_child(self.member).status_code, 201)
+        r = self.add_child(self.member, board_id=other.pk)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "children_on_other_board")
+        self.assertEqual(Card.objects.filter(board=other).count(), 0)
+
+    def test_parent_board_flag_off_is_refused_and_creates_nothing(self):
+        Board.objects.filter(pk=self.parent.pk).update(cards_can_have_children=False)
+        r = self.add_child(self.member)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "link_not_allowed")
+        self.assertEqual(Card.objects.filter(board=self.child).count(), 0)
+
+    def test_limit_is_enforced(self):
+        lane = self.child.swimlanes.first()
+        col = self.child.columns.order_by("position").first()
+        kids = Card.objects.bulk_create([
+            Card(board=self.child, column=col, swimlane=lane, title=f"k{i}", position=i)
+            for i in range(card_links.CHILDREN_PER_PARENT_LIMIT)
+        ])
+        CardParentLink.objects.bulk_create([CardParentLink(parent=self.parent_card, child=k) for k in kids])
+        r = self.add_child(self.member)
+        self.assertEqual(r.json()["code"], "children_limit")
+
+    def test_hard_wip_limit_of_the_first_column_applies(self):
+        col = self.child.columns.order_by("position").first()
+        col.wip_limit = 0
+        col.save(update_fields=["wip_limit"])
+        Board.objects.filter(pk=self.child.pk).update(enforce_wip_limits=True, enforce_wip_hard=True)
+        r = self.add_child(self.member)
+        self.assertNotEqual(r.status_code, 201)
+        self.assertFalse(CardParentLink.objects.exists())
+
+    def test_create_child_without_a_user_fails_closed(self):
+        """#1075: no caller resolves no board."""
+        from rest_framework.exceptions import NotFound
+        with self.assertRaises(NotFound):
+            card_links.resolve_child_board(None, self.parent, self.child.pk)
+
+
+class ChildBoardOptionsTests(AddChildFixture):
+    def options(self, user, card=None):
+        card = card or self.parent_card
+        return client_for(user).get(f"/api/v1/boards/{card.board_id}/cards/{card.pk}/child-board-options/").json()
+
+    def test_member_sees_qualifying_boards_only(self):
+        make_board(self.admin, "Locked", first_column_creates=False)
+        viewer_only = make_board(self.admin, "Viewer only")
+        BoardMembership.objects.create(board=viewer_only, user=self.member, role=Role.VIEWER)
+        other_parent = make_board(self.admin, "Parent 2", parent_tier=True)
+        BoardMembership.objects.create(board=other_parent, user=self.member, role=Role.MEMBER)
+        out = self.options(self.member)
+        self.assertEqual(out, {
+            "fixed_board": None, "default": None, "can_set_default": False,
+            "boards": [{"id": self.child.pk, "name": "Delivery", "can_set_default": False}],
+        })
+
+    def test_admin_of_both_can_set_default_and_sees_it(self):
+        self.set_default()
+        out = self.options(self.admin)
+        self.assertEqual(out["default"], {"id": self.child.pk, "name": "Delivery"})
+        self.assertTrue(out["can_set_default"])
+        self.assertEqual(out["boards"][0]["can_set_default"], True)
+
+    def test_default_hidden_from_a_viewer_who_cannot_add_there(self):
+        self.set_default()
+        u = self.user_with("dv", parent=Role.MEMBER, child=Role.VIEWER)
+        out = self.options(u)
+        self.assertIsNone(out["default"])
+        self.assertEqual(out["boards"], [])
+
+    def test_default_that_stopped_qualifying_is_not_offered(self):
+        self.set_default()
+        Column.objects.filter(board=self.child, position=0).update(allow_card_creation=False)
+        self.assertIsNone(self.options(self.admin)["default"])
+
+    def test_fixed_board_is_hidden_when_the_viewer_cannot_open_it(self):
+        CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child), created_by=self.admin)
+        self.assertEqual(self.options(self.admin)["fixed_board"], {"hidden": False, "id": self.child.pk, "name": "Delivery"})
+        u = self.user_with("fh", parent=Role.MEMBER)
+        self.assertEqual(self.options(u)["fixed_board"], {"hidden": True})
+
+    def test_absent_user_fails_closed(self):
+        self.assertEqual(card_links.child_board_options_for_viewer(self.parent_card, None)["boards"], [])
+
+    def test_outsider_gets_404(self):
+        u = self.user_with("out")
+        r = client_for(u).get(f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/")
+        self.assertEqual(r.status_code, 404)
+
+
+HOLD = 10
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class ConcurrentAddChildTests(TransactionTestCase):
+    """Add child's rules are decided under its board and parent-card locks."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="dcbc_admin", password="pass")
+        self.parent = make_board(self.admin, "Pipeline", parent_tier=True)
+        self.child = make_board(self.admin, "Delivery")
+        for b in (self.parent, self.child):
+            BoardMembership.objects.create(board=b, user=self.admin, role=Role.ADMIN)
+        self.parent_card = add_card(self.parent, "P")
+
+    def _thread(self, name, fn, results):
+        def run():
+            try:
+                results[name] = fn()
+            except Exception as exc:  # surfaced by the assertions
+                results[name] = exc
+            finally:
+                connections.close_all()
+
+        t = threading.Thread(target=run, name=name)
+        t.start()
+        return t
+
+    def _add(self, board=None, card=None):
+        card = card or self.parent_card
+        return client_for(self.admin).post(
+            f"/api/v1/boards/{card.board_id}/cards/{card.pk}/children/",
+            {"board_id": (board or self.child).pk, "title": "T"}, format="json",
+        )
+
+    def _race(self, second_name, second_fn):
+        """Hold an Add child after its insert, prove ``second_fn`` waits, release."""
+        paused, release, results = threading.Event(), threading.Event(), {}
+        real = card_links._announce
+
+        def held(*args, **kwargs):
+            if threading.current_thread().name == "adder" and not paused.is_set():
+                paused.set()
+                release.wait(HOLD)
+            return real(*args, **kwargs)
+
+        with patch.object(card_links, "_announce", side_effect=held):
+            adder = self._thread("adder", self._add, results)
+            self.assertTrue(paused.wait(HOLD), "Add child never reached its hold")
+            second = self._thread(second_name, second_fn, results)
+            assert_blocked_on_lock(self, second, f"{second_name} did not wait for Add child")
+            release.set()
+            adder.join(HOLD)
+            second.join(HOLD)
+        for name in ("adder", second_name):
+            if isinstance(results.get(name), Exception):
+                self.fail(f"{name} raised {results[name]!r}")
+        self.assertEqual(results["adder"].status_code, 201)
+        return results[second_name]
+
+    def test_target_flag_on_waits_for_add_child_and_is_refused(self):
+        res = self._race("flipper", lambda: client_for(self.admin).patch(
+            f"/api/v1/boards/{self.child.pk}/", {"cards_can_have_children": True}, format="json",
+        ))
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(Board.objects.get(pk=self.child.pk).cards_can_have_children)
+
+    def test_two_add_childs_at_99_children_one_wins(self):
+        col, lane = self.child.columns.order_by("position").first(), self.child.swimlanes.first()
+        kids = Card.objects.bulk_create([
+            Card(board=self.child, column=col, swimlane=lane, title=f"k{i}", position=i)
+            for i in range(card_links.CHILDREN_PER_PARENT_LIMIT - 1)
+        ])
+        CardParentLink.objects.bulk_create([CardParentLink(parent=self.parent_card, child=k) for k in kids])
+        res = self._race("second", self._add)
+        self.assertEqual(res.json()["code"], "children_limit")
+        self.assertEqual(CardParentLink.objects.filter(parent=self.parent_card).count(), card_links.CHILDREN_PER_PARENT_LIMIT)
+
+    def test_add_child_racing_a_link_to_another_board_never_splits(self):
+        other = make_board(self.admin, "Onboarding")
+        BoardMembership.objects.create(board=other, user=self.admin, role=Role.ADMIN)
+        other_card = add_card(other, "O")
+        res = self._race("linker", lambda: client_for(self.admin).post(
+            f"/api/v1/boards/{other.pk}/cards/{other_card.pk}/parent/",
+            {"parent_id": self.parent_card.pk}, format="json",
+        ))
+        self.assertEqual(res.json()["code"], "children_on_other_board")
+        self.assertEqual(
+            set(CardParentLink.objects.filter(parent=self.parent_card).values_list("child__board_id", flat=True)),
+            {self.child.pk},
+        )
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class ConcurrentDefaultWriteTests(ConcurrentAddChildTests):
+    """The default PATCH locks the target, so the target's flag flip serializes with it."""
+
+    def test_default_write_and_target_flag_on_serialize(self):
+        paused, release, results = threading.Event(), threading.Event(), {}
+        from boards.serializers import BoardSerializer as BS
+        real = BS.recheck_default_child_board_under_lock
+
+        def held(ser, board):
+            if threading.current_thread().name == "setter" and not paused.is_set():
+                paused.set()
+                release.wait(HOLD)
+            return real(ser, board)
+
+        with patch.object(BS, "recheck_default_child_board_under_lock", held):
+            setter = self._thread("setter", lambda: client_for(self.admin).patch(
+                f"/api/v1/boards/{self.parent.pk}/", {"default_child_board": self.child.pk}, format="json",
+            ), results)
+            self.assertTrue(paused.wait(HOLD))
+            flipper = self._thread("flipper", lambda: client_for(self.admin).patch(
+                f"/api/v1/boards/{self.child.pk}/", {"cards_can_have_children": True}, format="json",
+            ), results)
+            assert_blocked_on_lock(self, flipper, "the flip did not wait for the default write")
+            release.set()
+            setter.join(HOLD)
+            flipper.join(HOLD)
+        self.assertEqual(results["setter"].status_code, 200)
+        self.assertEqual(results["flipper"].status_code, 400)
+        self.assertFalse(Board.objects.get(pk=self.child.pk).cards_can_have_children)

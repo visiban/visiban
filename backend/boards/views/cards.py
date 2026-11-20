@@ -113,10 +113,13 @@ class CardLinkWriteThrottle(UserRateThrottle):
 
 
 def _is_link_write(view, request):
-    """True for the three card-link writes the ``card_link_write`` scope counts."""
+    """True for the card-link writes the ``card_link_write`` scope counts."""
     action = getattr(view, "action", None)
     if action == "parent":
         return request.method in ("POST", "DELETE")
+    # Add child (#2208) creates a card AND a link: it counts as a link write.
+    if action == "children":
+        return request.method == "POST"
     return action == "child_detail" and request.method == "DELETE"
 
 
@@ -2896,14 +2899,82 @@ class CardViewSet(viewsets.ModelViewSet):
             "returned only when the caller can open it."
         ),
     )
-    @action(detail=True, methods=["get"], url_path="children")
+    @action(detail=True, methods=["get", "post"], url_path="children")
     def children(self, request, board_pk=None, pk=None):
-        """List this parent card's children, as the caller may see them."""
-        board, _role = self._board_and_role()
-        card = get_object_or_404(Card, pk=pk, board=board)
+        """List this parent card's children, or Add child (POST, #2208)."""
+        board, role = self._board_and_role()
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        if request.method == "POST":
+            return self._add_child(request, card, role)
         return Response(card_links.children_for_viewer(
             card, request.user, offset=parse_offset(request), limit=CHILDREN_PAGE_SIZE,
         ))
+
+    def _add_child(self, request, parent, role):
+        """``POST .../children/ {board_id, title}``: create a child card and link it (#2208).
+
+        Check order: access (404) and the card on this board (IDOR) above,
+        then role here (403) before the body, then the body (400), then the
+        target board, whose every failure is one 404 (Rule 7), then the link
+        rules under the locks (400, the link write's codes).
+        """
+        if role not in card_links.LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        body = require_json_object(request)
+        title = body.get("title")
+        if not isinstance(title, str) or not title.strip():
+            raise serializers.ValidationError({"title": ["This field may not be blank."]})
+        title = title.strip()
+        max_len = Card._meta.get_field("title").max_length
+        if len(title) > max_len or "\x00" in title:
+            raise serializers.ValidationError({"title": [f"Ensure this field has no more than {max_len} characters and no NUL character."]})
+
+        def make_card(*, board, role, column, swimlane):
+            def render(card):
+                return _refetched_card_data(
+                    card, request, board,
+                    member_ids=_get_effective_member_ids(board),
+                    assignable_ids=_get_assignable_member_ids(board),
+                    labels_qs=board.labels.all(),
+                )
+
+            return card_services.create_card(
+                actor=request.user, board=board, role=role,
+                column_id=column.pk, swimlane_id=swimlane.pk,
+                save=lambda position: Card.objects.create(
+                    board=board, column=column, swimlane=swimlane, title=title,
+                    created_by=request.user, position=position,
+                ),
+                render=render,
+            )
+
+        result = card_links.create_child(
+            user=request.user, parent=parent, parent_role=role,
+            board_id=body.get("board_id"), make_card=make_card,
+        )
+        return Response(result.payload, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        responses={200: OpenApiResponse(description=(
+            "`{fixed_board, default, boards, can_set_default}`, computed for the caller. "
+            "`fixed_board` is the board this card's children are already on "
+            "(`{hidden: true}` when the caller cannot open it), `default` the board's "
+            "default child board when the caller can add cards there, `boards` every "
+            "board the caller may add the child to, each with `can_set_default`."
+        ))},
+        description=(
+            "The Add child chooser's options for this card (#2208, since 1.3). Minimum "
+            "role: any role on this card's board; `boards` lists only boards where the "
+            "caller is member or higher, whose cards cannot have children and whose "
+            "first column allows card creation."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="child-board-options")
+    def child_board_options(self, request, board_pk=None, pk=None):
+        """Where Add child may put a new child of this card, for the caller (#2208)."""
+        board, _role = self._board_and_role()
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        return Response(card_links.child_board_options_for_viewer(card, request.user))
 
     @extend_schema(
         operation_id="api_v1_boards_cards_parent_candidates_list",
