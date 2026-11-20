@@ -269,7 +269,8 @@ The screenshots use literal colors. Build with the tokens.
 | Card, column header, lane band, sheet, menu | `bg-surface` (`bg-surface` with `shadow-xl` for sheets and menus) |
 | Chip fill, kbd hint, bar track | `bg-surface-hover` with `text-fg-secondary` |
 | Panel and card border | `border-line` |
-| Control border, hover border, dashed dividers | `border-line-strong` |
+| Control border, hover border | `border-line-strong` |
+| Sole-separator boundary (sub-column divider, open chip, phone switcher) | `border-line-boundary` |
 | Primary text, card title | `text-fg` |
 | Subtitle, values, secondary text | `text-fg-secondary` |
 | Field labels, captions, "Not set", sub-column notes | `text-fg-tertiary` (never `fg-muted` on the card face) |
