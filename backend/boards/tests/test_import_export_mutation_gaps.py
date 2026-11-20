@@ -1709,10 +1709,9 @@ class ExportJsonShapeTests(ExportBase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/json")
         self.assertEqual(resp["Cache-Control"], "no-store")
-        today = datetime.date.today().isoformat()
-        self.assertEqual(
+        self.assertRegex(
             resp["Content-Disposition"],
-            f'attachment; filename="export-me-{today}.json"',
+            r'^attachment; filename="export-me-\d{8}-\d{4}\.json"$',
         )
         body = resp.content.decode()
         # indent=2 and ensure_ascii=False are part of the file format.
@@ -1724,14 +1723,13 @@ class ExportJsonShapeTests(ExportBase):
     def test_filename_falls_back_to_board_when_name_has_no_slug(self):
         self.board.name = "!!!"
         self.board.save()
-        today = datetime.date.today().isoformat()
-        self.assertEqual(
+        self.assertRegex(
             self.export("json")["Content-Disposition"],
-            f'attachment; filename="board-{today}.json"',
+            r'^attachment; filename="board-\d{8}-\d{4}\.json"$',
         )
-        self.assertEqual(
+        self.assertRegex(
             self.export("csv")["Content-Disposition"],
-            f'attachment; filename="board-{today}.csv"',
+            r'^attachment; filename="board-\d{8}-\d{4}\.csv"$',
         )
 
     def test_non_ascii_is_not_escaped(self):
