@@ -30,11 +30,11 @@ from boards.models import (
 from boards.tests.test_card_movement_retention import _BoardFixture
 from boards.tests.test_import_history_attribution import URL as IMPORT_URL, _file
 
-_migration_0119 = importlib.import_module(
-    "boards.migrations.0119_backfill_cardactivity_board_snapshots"
-)
 _migration_0120 = importlib.import_module(
-    "boards.migrations.0120_cardactivity_board_fk_not_valid"
+    "boards.migrations.0120_backfill_cardactivity_board_snapshots"
+)
+_migration_0121 = importlib.import_module(
+    "boards.migrations.0121_cardactivity_board_fk_not_valid"
 )
 
 
@@ -127,34 +127,34 @@ class ActivityRetentionTests(_Fixture):
         )
         self.assertNotIn(CardActivity._meta.verbose_name, perms_needed)
 
-    def test_migration_0119_backfills_rows_in_batches(self):
+    def test_migration_0120_backfills_rows_in_batches(self):
         card = self._card("Old")
         for _ in range(3):
             self._legacy_row(card)
-        with patch.object(_migration_0119, "BATCH_SIZE", 2):
-            _migration_0119.backfill(django_apps(), None)
+        with patch.object(_migration_0120, "BATCH_SIZE", 2):
+            _migration_0120.backfill(django_apps(), None)
         self.assertFalse(CardActivity.objects.filter(board__isnull=True).exists())
         self.assertEqual(set(CardActivity.objects.values_list("card_uid", flat=True)), {card.uid})
 
-    def test_migration_0120_board_fk_is_postgresql_only(self):
+    def test_migration_0121_board_fk_is_postgresql_only(self):
         """Off PostgreSQL 0118's db_constraint=False column gets no constraint (and
-        0121's VALIDATE is a no-op), so the hand-written step must emit nothing."""
+        0122's VALIDATE is a no-op), so the hand-written step must emit nothing."""
         editor = MagicMock()
         editor.connection.vendor = "sqlite"
-        _migration_0120.add_not_valid(django_apps(), editor)
-        _migration_0120.drop_not_valid(django_apps(), editor)
+        _migration_0121.add_not_valid(django_apps(), editor)
+        _migration_0121.drop_not_valid(django_apps(), editor)
         editor.execute.assert_not_called()
 
     def test_board_fk_added_not_valid_is_validated_after_the_backfill(self):
-        """On PostgreSQL the migrated schema carries the FK 0120 added NOT VALID,
-        and 0121 has validated it (``convalidated``): no row escapes the check."""
+        """On PostgreSQL the migrated schema carries the FK 0121 added NOT VALID,
+        and 0122 has validated it (``convalidated``): no row escapes the check."""
         if connection.vendor != "postgresql":
             self.skipTest("pg_constraint is PostgreSQL-only")
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT convalidated, confrelid::regclass::text FROM pg_constraint "
                 "WHERE conname = %s AND contype = 'f'",
-                [_migration_0120.CONSTRAINT],
+                [_migration_0121.CONSTRAINT],
             )
             row = cursor.fetchone()
         self.assertEqual(row, (True, "boards"))

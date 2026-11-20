@@ -9,12 +9,12 @@
 #   ADD CONSTRAINT ... FOREIGN KEY, which validates the column against
 #   ``boards`` under a lock on both tables -- quick while every row is NULL,
 #   but its cost tracks the size of card_activities, the largest append-only
-#   table. The constraint is added NOT VALID in 0120 and validated once,
-#   after the 0119 backfill, in 0121 (docs/development/database-migrations.md,
+#   table. The constraint is added NOT VALID in 0121 and validated once,
+#   after the 0120 backfill, in 0122 (docs/development/database-migrations.md,
 #   "A foreign key on a column that already holds data"). ``db_index=False``
 #   keeps Django from building the implicit FK index here under ACCESS
 #   EXCLUSIVE; the composite (board, -created_at) index is built concurrently
-#   in 0122.
+#   in 0123.
 # - ``card_uid`` / ``card_title`` carry ``db_default=""`` (a constant default
 #   is metadata-only on PostgreSQL 11+), which also keeps an INSERT from an
 #   older release, which does not know these columns, working mid-upgrade.
@@ -59,7 +59,7 @@ class DropNotNullKeepingForeignKey(migrations.AlterField):
             cursor.execute(f"SELECT 1 FROM {qn(table)} WHERE {qn(column)} IS NULL LIMIT 1")
             if cursor.fetchone() is not None:
                 raise RuntimeError(
-                    f"Cannot reverse boards.0118: {table} holds activity history of "
+                    f"Cannot reverse boards.0119: {table} holds activity history of "
                     f"hard-deleted cards ({column} IS NULL). Restoring NOT NULL would "
                     f"require deleting that history. If that is intended, run "
                     f"DELETE FROM {table} WHERE {column} IS NULL; and migrate again."
@@ -74,7 +74,7 @@ class DropNotNullKeepingForeignKey(migrations.AlterField):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0117_remove_cardmovement_board_moved_idx"),
+        ("boards", "0118_notification_mention_source"),
     ]
 
     operations = [
@@ -83,7 +83,7 @@ class Migration(migrations.Migration):
             name="board",
             field=models.ForeignKey(
                 blank=True,
-                # No FOREIGN KEY clause here; 0120 adds it NOT VALID and 0121
+                # No FOREIGN KEY clause here; 0121 adds it NOT VALID and 0122
                 # validates it and flips this back to db_constraint=True.
                 db_constraint=False,
                 db_index=False,

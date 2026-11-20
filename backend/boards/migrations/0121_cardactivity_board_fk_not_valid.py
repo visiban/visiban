@@ -1,11 +1,11 @@
 # #1799 step 3 of 5: the board foreign key on card_activities, added NOT VALID.
 #
-# 0118 added the ``board`` column with ``db_constraint=False`` so Django emitted
+# 0119 added the ``board`` column with ``db_constraint=False`` so Django emitted
 # no FOREIGN KEY clause. This adds the constraint by hand as NOT VALID, which is
 # catalog-only: it takes ACCESS EXCLUSIVE on card_activities (and SHARE ROW
 # EXCLUSIVE on boards) only long enough to write the constraint, not to scan
 # the table. New and updated rows are checked from this point on; the existing
-# rows, including those 0119 backfilled, are checked once by 0121's VALIDATE
+# rows, including those 0120 backfilled, are checked once by 0122's VALIDATE
 # under a weaker lock. Hand-written because there is no AddConstraintNotValid
 # for a ForeignKey (docs/development/database-migrations.md, "A foreign key on
 # a column that already holds data"); the constraint name follows Django's
@@ -40,7 +40,7 @@ def drop_not_valid(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0119_backfill_cardactivity_board_snapshots"),
+        ("boards", "0120_backfill_cardactivity_board_snapshots"),
     ]
 
     operations = [

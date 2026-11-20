@@ -294,9 +294,9 @@ target table under a lock on both — a scan that finds nothing to check, but on
 tracks the table's size. On a small table (the two precedents above) that is fine. **On a
 large table — `cards`, `card_movements`, `card_activities`, anything append-only — use the
 [`NOT VALID` then `VALIDATE` recipe](#a-foreign-key-on-a-column-that-already-holds-data) below
-even when the column starts all `NULL`.** `boards/0118`–`0121` (#1799) is the in-tree
-precedent: `0118` adds `card_activities.board` with `db_constraint=False, db_index=False`,
-`0119` backfills it in batches, `0120` adds the constraint `NOT VALID`, and `0121` validates
+even when the column starts all `NULL`.** `boards/0119`–`0122` (#1799) is the in-tree
+precedent: `0119` adds `card_activities.board` with `db_constraint=False, db_index=False`,
+`0120` backfills it in batches, `0121` adds the constraint `NOT VALID`, and `0122` validates
 it once, after the backfill. [Known gaps](#known-gaps-in-the-11-to-12-migrations) below
 records the two shipped migrations that did not.
 
@@ -753,7 +753,7 @@ installs have already run them; these are documented instead.
   no such equivalent and has shipped, so it is documented here rather than edited. For a
   future FK on a large table, use the [`NOT VALID` then `VALIDATE`
   recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
-  `NULL` — `boards/0118`–`0121` (`card_activities.board`, #1799) does. No checker enforces
+  `NULL` — `boards/0119`–`0122` (`card_activities.board`, #1799) does. No checker enforces
   this today: `check_migration_concurrency` does not inspect foreign-key validation (see
   above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
   considered (#1894) and declined for now: a lint cannot tell a large table from a small
