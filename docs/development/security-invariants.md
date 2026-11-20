@@ -371,7 +371,7 @@ depend on whether a board id exists.
 | Board detail | `boards/views/boards.py` `BoardViewSet.get_queryset` | Queryset scoped to accessible boards (`get_accessible_boards_queryset`; a board is in it exactly when `get_board_role` returns a role), so `retrieve`, update, destroy and `star` answer `404` |
 | Media | `boards/views/media.py` `ServeMediaView` | `404` for a non-member |
 | MCP | `mcp_server/tools.py` | `404`-equivalent not-found result for inaccessible boards |
-| Cross-board card links (#1104) | `boards/services/card_links.py` `resolve_card_for_user`; `boards/views/cards.py` `CardViewSet.child_detail` | A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same `NotFound`, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same `404` for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. The parent picker (`CardViewSet.parent_candidates`, `card_links.resolve_parent_board`) answers one `404` body for a `board` that is missing, has no role or only a viewer/collaborator role for the caller, is not a parent board, or is the card's own board, decided from one lookup and one role batch. Tests: `boards/tests/test_card_parent_links.py` `test_missing_and_inaccessible_parent_ids_answer_identically`, `test_parent_side_unlink_without_child_board_role_is_the_missing_id_404`; `test_card_parent_field_1104.py` `test_every_unlinkable_board_is_the_same_404` |
+| Cross-board card links (#1104) | `boards/services/card_links.py` `resolve_card_for_user`; `boards/views/cards.py` `CardViewSet.child_detail` | A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same `NotFound`, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same `404` for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. The parent picker (`CardViewSet.parent_candidates`, `card_links.resolve_parent_board`) answers one `404` body for a `board` that does not exist, has no role or only a viewer/collaborator role for the caller, is not a parent board, or is the card's own board, decided from one lookup and one role batch. Tests: `boards/tests/test_card_parent_links.py` `test_missing_and_inaccessible_parent_ids_answer_identically`, `test_parent_side_unlink_without_child_board_role_is_the_missing_id_404`; `test_card_parent_field_1104.py` `test_every_unlinkable_board_is_the_same_404` |
 
 ## Rule 8: Per-recipient event fields are gated on every broadcast and replay surface
 
@@ -439,7 +439,7 @@ each surface that delivers them:
   (`card.parent_changed` is also sent for those parent writes, from
   `card_links.announce_parent_changed` in `update_card`, the move, `archive_card`,
   `unarchive_card` and `CardAdmin.save_model`; never for a board, column or lane
-  rename). The child's own `parent` field (REST only) is resolved by
+  rename, so a child's `parent` names stay stale until the next read: #2416). The child's own `parent` field (REST only) is resolved by
   `card_links.parents_for_viewer`, per request, and is `{"hidden": true}` with
   no other key when the reader has no role on the parent's board; it is omitted
   from every frame, feed row and webhook (`CardParentField` raises `SkipField`

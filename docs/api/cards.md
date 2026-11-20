@@ -1167,9 +1167,10 @@ A read-only key on the card object, resolved for the caller:
   "column_name", "swimlane_id", "swimlane_name", "archived"}`. An archived parent
   is shown with `archived: true`.
 
-`parent` is **present** on `GET .../full/`, the card list, `GET .../cards/{id}/`
-and `GET .../cards/archived/`. It is **absent** (the key is left out, not `null`)
-from write responses and from every event payload, change-feed row and webhook,
+`parent` is **present** on `GET .../full/`, the per-board card list
+`GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and
+`GET .../cards/archived/`. It is **absent** (the key is left out, not `null`)
+from the cross-board `GET /api/v1/cards/` query, write responses, and every event payload, change-feed row and webhook,
 because those are not computed for one reader. Keep the last value read: the
 board store replaces a card wholesale on `card.updated`, so a client must carry
 `parent` over from its previous copy, or every edit of a child blanks its parent
@@ -1179,10 +1180,11 @@ line. Refetch on `card.parent_changed`.
 
 Since 1.3 (same stability note). Up to 20 cards on the parent board `board` that
 this card could be linked to, for the parent picker. `member` or higher on both
-boards (403 on this board below it). `board` is required and must be an integer
-(400); a `board` that is missing, that you have no role or only a viewer or
+boards (403 on this board below it); `404` when the card is not on `{board_id}`
+or you cannot open that board. `board` is required and must be an integer (`400` when absent or not an integer); a `board` that
+does not exist, that you have no role or only a viewer or
 collaborator role on, that is not a parent board, or that is this card's own
-board answers one identical `404`. `search` (at most 200 characters) matches the
+board answers one identical `404`. `search` (at most 200 characters, else `400`) matches the
 title; fewer than 2 characters returns `{"results": []}`, unless it is all
 digits, which also matches the card id exactly and lists that card first.
 Archived cards are not listed. A card on a parent board gets `{"results": []}`.
