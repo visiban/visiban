@@ -980,26 +980,52 @@ test.describe('phone board settings modal (#2404)', () => {
   })
 })
 
-// #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so any modal's controls
-// are at least 44px at 390px. This sweeps the modal reachable without extra fixtures.
+// #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
+// lifted to 44px at 390px through it. Swept here, one test per modal, from the existing mocked routes: Keyboard shortcuts,
+// Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board. NOT swept per modal: Move board,
+// Export, Import, Trello import, Edit/Add field modals inside Board settings (Board settings is swept in #2404), Lens
+// connection, Policy confirm, Create group, invite link and the Admin page modals.
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-  test('keyboard shortcuts overlay controls are at least 44px, with the title clear of Close', async ({ page }) => {
-    await routeAuth(page)
-    await routeBoard(page)
-    await page.goto(`/boards/${BOARD_FULL.id}`)
-    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+  const openers: Array<[string, string, (page: Page) => Promise<void>]> = [
+    ['Keyboard shortcuts', 'Keyboard shortcuts', async (page) => { await page.keyboard.press('?') }],
+    ['Add Column', 'Add Column', async (page) => { await page.getByRole('button', { name: '+ Add column' }).dispatchEvent('click') }],
+    ['Add Swimlane', 'Add Swimlane', async (page) => { await page.getByRole('button', { name: '+ Add swimlane' }).dispatchEvent('click') }],
+    ['Edit Column', 'Edit Column', async (page) => {
+      await page.getByTestId('phone-column-actions-toggle').dispatchEvent('click')
+      await page.getByTestId('phone-column-actions').dispatchEvent('click')
+    }],
+    ['Edit Swimlane', 'Edit Swimlane', async (page) => {
+      await page.getByRole('button', { name: /^Lane actions for / }).first().dispatchEvent('click')
+      await page.getByRole('button', { name: /^Edit swimlane/ }).first().dispatchEvent('click')
+    }],
+    ['Delete card confirm', '', async (page) => {
+      await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+      await page.getByRole('button', { name: 'Delete card', exact: true }).dispatchEvent('click')
+    }],
+    ['New Board', 'New Board', async (page) => {
+      await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click')
+      await page.getByRole('button', { name: /^New board/ }).first().dispatchEvent('click')
+    }],
+  ]
 
-    await page.keyboard.press('?')
-    const shortcuts = page.getByRole('dialog', { name: 'Keyboard shortcuts' })
-    await expect(shortcuts).toBeVisible()
-    expect(await smallControls(page, ['[role="dialog"]']), 'keyboard shortcuts').toEqual([])
-    // The larger Close does not crowd the title: both stay inside the header row.
-    const title = (await shortcuts.getByRole('heading', { name: 'Keyboard shortcuts' }).boundingBox())!
-    const close = (await shortcuts.getByRole('button', { name: 'Close' }).boundingBox())!
-    expect(title.x + title.width).toBeLessThanOrEqual(close.x + 0.5)
-    await shortcuts.getByRole('button', { name: 'Close' }).dispatchEvent('click')
-    await expect(shortcuts).toBeHidden()
-  })
+  for (const [label, name, open] of openers) {
+    test(`${label}: controls are at least 44px and the title is clear of Close`, async ({ page }) => {
+      await routeAuth(page)
+      await routeBoard(page)
+      await page.goto(`/boards/${BOARD_FULL.id}`)
+      await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+      await open(page)
+      const dialog = name ? page.getByRole('dialog', { name, exact: true }) : page.getByRole('dialog').last()
+      await expect(dialog).toBeVisible()
+      expect(await smallControls(page, ['[role="dialog"]']), label).toEqual([])
+      const close = dialog.getByRole('button', { name: 'Close' })
+      if (await close.count()) {
+        const title = (await dialog.getByRole('heading').first().boundingBox())!
+        const cb = (await close.boundingBox())!
+        expect(title.x + title.width, `${label} title vs Close`).toBeLessThanOrEqual(cb.x + 0.5)
+      }
+    })
+  }
 })

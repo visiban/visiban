@@ -366,13 +366,16 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
           {/* Set as default board */}
           <div className="flex items-start gap-3">
-            <input
-              id="set-default-board"
-              type="checkbox"
-              checked={setAsDefault}
-              onChange={(e) => setSetAsDefault(e.target.checked)}
-              className="mt-0.5 accent-primary w-4 h-4 rounded border-line-strong bg-surface text-info focus:ring-primary-emphasis focus:ring-offset-sunken cursor-pointer flex-shrink-0"
-            />
+            {/* #2407: the checkbox sits in its own label so the 44px phone lift (a label row) has something to land on. */}
+            <label className="flex items-start justify-center max-sm:min-w-11 max-sm:items-center">
+              <input
+                id="set-default-board"
+                type="checkbox"
+                checked={setAsDefault}
+                onChange={(e) => setSetAsDefault(e.target.checked)}
+                className="mt-0.5 accent-primary w-4 h-4 rounded border-line-strong bg-surface text-info focus:ring-primary-emphasis focus:ring-offset-sunken cursor-pointer flex-shrink-0"
+              />
+            </label>
             <div>
               <label htmlFor="set-default-board" className="text-sm text-fg-secondary cursor-pointer">
                 Set as my default board
