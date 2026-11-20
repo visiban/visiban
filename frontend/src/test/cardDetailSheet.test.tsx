@@ -358,6 +358,8 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
   })
 
+  // Class-string check only: Tailwind classes are inert in jsdom, so this pins the wiring, not the layout.
+  // The real layout check is the Playwright test 'phone card detail header (#2401)' in e2e/board-phone.spec.ts.
   it('gives the title and breadcrumb their own full-width line on a phone, with the names keeping their 44px floor (#2401)', () => {
     setViewport(640)
     mountBoard()

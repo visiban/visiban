@@ -22,6 +22,14 @@ async function smallControls(page: Page, roots: string[]): Promise<string[]> {
   }, roots)
 }
 
+// Menu options (role=option) below the 44px floor; smallControls does not cover them.
+async function optionsBelowFloor(page: Page): Promise<string[]> {
+  return page.evaluate(() => Array.from(document.querySelectorAll('[role="option"], [role="menuitem"]'))
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 0 && r.height > 0 && Math.min(r.width, r.height) < 43.5)
+    .map(({ el, r }) => `${(el.textContent || '').trim().slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`))
+}
+
 // Pairs of header and toolbar controls whose boxes overlap (a control may not cover another).
 async function overlappingControls(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -911,6 +919,63 @@ test.describe('phone board settings modal (#2404)', () => {
       await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
       await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
       expect(await smallControls(page, ['[role="dialog"]']), `tab ${t}`).toEqual([])
+      // Reachable sub-states: an open SelectDropdown menu (its options are measured too).
+      const trigger = dialog.locator('[aria-haspopup="listbox"]:not([disabled])').first()
+      if (await trigger.count()) {
+        await trigger.dispatchEvent('click')
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+        expect(await smallControls(page, ['[role="dialog"]', '[role="listbox"]']), `tab ${t} open menu`).toEqual([])
+        expect(await optionsBelowFloor(page), `tab ${t} menu options`).toEqual([])
+        await trigger.dispatchEvent('click')
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      }
     }
+  })
+
+  test('add, invite, webhook and confirm sub-states are at least 44px', async ({ page }) => {
+    await routeAuth(page)
+    // A second, non-owner member so the remove-board-role confirm is reachable.
+    const other = { ...BOARD_FULL.members[0].user, id: 2, username: 'other', email: 'other@example.com', display_name: 'Other Member' }
+    await routeBoard(page, { ...BOARD_FULL, members: [...BOARD_FULL.members, { id: 2, user: other, role: 'member', is_moderator: false, joined_at: '2026-01-02T00:00:00Z' }] } as unknown as typeof BOARD_FULL)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
+    await page.keyboard.press('Control+,')
+    const dialog = page.getByRole('dialog', { name: 'Board Settings' })
+    await expect(dialog).toBeVisible()
+    const openTab = async (t: string) => {
+      await dialog.getByRole('button', { name: new RegExp(`^${t}`) }).dispatchEvent('click')
+      await expect(dialog.getByRole('button', { name: new RegExp(`^${t}`) })).toHaveAttribute('aria-current', 'true')
+    }
+
+    // Members: the Add member form (typing opens the search and the staged-invite controls) and the remove confirm.
+    await openTab('Members')
+    const search = dialog.getByPlaceholder(/search/i).first()
+    await search.fill('a')
+    expect(await smallControls(page, ['[role="dialog"]']), 'Add member typed').toEqual([])
+    await search.fill('')
+    const remove = dialog.getByRole('button', { name: /^Remove (direct )?board role for/ }).first()
+    await expect(remove, 'a removable member row is reachable').toBeVisible()
+    await remove.dispatchEvent('click')
+    await expect(dialog.getByText(/from this board\?|Remove this board role\?/).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'member remove confirm').toEqual([])
+
+    // Rules: the hard WIP confirm.
+    await openTab('Rules')
+    const hard = dialog.getByRole('switch', { name: 'Hard mode (no admin override)' })
+    await expect(hard, 'hard WIP toggle is reachable').toBeVisible()
+    if ((await hard.getAttribute('aria-checked')) !== 'true') await hard.dispatchEvent('click')
+    await expect(dialog.getByRole('button', { name: 'Confirm' }).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'hard WIP confirm').toEqual([])
+
+    // Webhooks: the create form.
+    // An empty list is enough to reach the create form; routed after routeBoard so it wins.
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/webhooks/`, (route) => route.fulfill({ json: [] }))
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/webhooks/status/`, (route) => route.fulfill({
+      json: { enabled: true, dispatcher_last_run_at: null, dispatcher_stale: false, subscribable_event_types: ['card.created', 'card.moved'], disable_after_failures: 10, test_timeout_seconds: 5 },
+    }))
+    await openTab('Webhooks')
+    await dialog.getByRole('button', { name: 'Add webhook' }).first().dispatchEvent('click')
+    await expect(dialog.getByRole('button', { name: /^Back|^Cancel/ }).first()).toBeVisible()
+    expect(await smallControls(page, ['[role="dialog"]']), 'create webhook form').toEqual([])
   })
 })

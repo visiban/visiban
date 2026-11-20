@@ -183,14 +183,9 @@ export function isDimensionField(def: Pick<CustomFieldDefinition, "is_dimension"
 }
 
 /**
- * Header count lines for a split stage: "Doing: 5 working", "Ready: 3 waiting".
+ * Per-sub-column counts for a split stage's header summary (#2386): "Doing" working, "Ready" waiting.
  * The last sub-column is counted as waiting (spec § Sub-columns and tracks).
  */
-export function subColumnCountLines(column: Column, cards: Pick<Card, "column" | "gates_passed">[]): string[] {
-  return subColumnCounts(column, cards).map((s) => `${s.name}: ${s.count} ${s.state}`);
-}
-
-/** The same counts as structured cells, for the header's two-column summary (#2386). */
 export function subColumnCounts(column: Column, cards: Pick<Card, "column" | "gates_passed">[]): { name: string; count: number; state: "working" | "waiting" }[] {
   const subs = stageSubColumns(column);
   if (subs.length === 0) return [];
