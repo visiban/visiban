@@ -1,7 +1,8 @@
-# #1799 step 3 of 3: index for a deleted card's retained activity rows, read by
+# #1799 step 5 of 5: index for a deleted card's retained activity rows, read by
 # board (the JSON export's deleted_card_history, #1796), and for the
 # board-delete cascade's DELETE ... WHERE board_id IN (...). Built after the
-# 0118 backfill so that full-table UPDATE does not churn it.
+# 0119 backfill so that full-table UPDATE does not churn it, and after the
+# 0121 VALIDATE so the two table scans do not overlap.
 # Kept alone in its own non-atomic migration (docs/development/database-migrations.md).
 from django.db import migrations, models
 
@@ -13,7 +14,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0118_backfill_cardactivity_board_snapshots"),
+        ("boards", "0121_cardactivity_board_fk_validate"),
     ]
 
     operations = [

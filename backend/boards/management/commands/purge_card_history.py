@@ -15,8 +15,9 @@ erases both.
 
 Since #1799 card activity rows are retained the same way: a ``CardActivity``
 keeps the card's title snapshot and the changed values (a
-``description_change`` row holds the old and new description), so every
-selector also matches them (``--since`` / ``--before`` by ``created_at``).
+``description_change`` row records only that the description changed, never
+its text), so every selector also matches them (``--since`` / ``--before`` by
+``created_at``).
 Comments are card content and go with the card, so there is nothing to purge.
 
 It deliberately breaks the append-only rule. ``CardMovement.delete()`` refuses
@@ -313,8 +314,8 @@ class Command(BaseCommand):
         # reason, so they leave with the card's other history.
         gates = CardGateTransition.objects.all()
         # Activity rows (#1799) keep the card snapshot plus field values (a
-        # description_change row holds the old and new description), so they
-        # leave with the card's other history too.
+        # description_change row records only that the description changed,
+        # not its text), so they leave with the card's other history too.
         activities = CardActivity.objects.all()
         if not include_live:
             rows = rows.filter(card__isnull=True)

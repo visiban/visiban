@@ -283,11 +283,22 @@ table in one plain `AddField`, no `NOT VALID` split needed.
 `db_index=False` is the part worth not skipping. `ForeignKey` builds a b-tree index on the
 column by default — same as an explicit `db_index=True` on any other field — and that index
 build *does* scan the whole table under `ACCESS EXCLUSIVE`, whether the new column's values
-are `NULL` or not; only the constraint validation is free for a new column, not the index
-build. `accounts/0031` splits it out for exactly this reason: `db_index=False` here, then a
-separate `AddIndexConcurrently` in `accounts/0032_user_pending_email_addr_idx`. Follow that
-shape for new work — `boards/0044` predates the split and left its default index inline,
-which was only harmless because `cardchecklist` was small at the time.
+are `NULL` or not. `accounts/0031` splits it out for exactly this reason: `db_index=False`
+here, then a separate `AddIndexConcurrently` in `accounts/0032_user_pending_email_addr_idx`.
+Follow that shape for new work — `boards/0044` predates the split and left its default index
+inline, which was only harmless because `cardchecklist` was small at the time.
+
+The constraint half is cheap for a new column, not free. Even with every row `NULL`,
+PostgreSQL still emits `ADD CONSTRAINT ... FOREIGN KEY` and validates the column against the
+target table under a lock on both — a scan that finds nothing to check, but one whose length
+tracks the table's size. On a small table (the two precedents above) that is fine. **On a
+large table — `cards`, `card_movements`, `card_activities`, anything append-only — use the
+[`NOT VALID` then `VALIDATE` recipe](#a-foreign-key-on-a-column-that-already-holds-data) below
+even when the column starts all `NULL`.** `boards/0118`–`0121` (#1799) is the in-tree
+precedent: `0118` adds `card_activities.board` with `db_constraint=False, db_index=False`,
+`0119` backfills it in batches, `0120` adds the constraint `NOT VALID`, and `0121` validates
+it once, after the backfill. [Known gaps](#known-gaps-in-the-11-to-12-migrations) below
+records the two shipped migrations that did not.
 
 ### A foreign key on a column that already holds data
 
@@ -742,7 +753,7 @@ installs have already run them; these are documented instead.
   no such equivalent and has shipped, so it is documented here rather than edited. For a
   future FK on a large table, use the [`NOT VALID` then `VALIDATE`
   recipe](#a-foreign-key-on-a-column-that-already-holds-data) even if the column starts all
-  `NULL`. No checker enforces this today: `check_migration_concurrency` does not inspect
+  `NULL` — `boards/0118`–`0121` (`card_activities.board`, #1799) does. No checker enforces this today: `check_migration_concurrency` does not inspect
   foreign-key validation (see above), so it is a review rule, not a CI gate. A CI lint for future FK adds was
   considered (#1894) and declined for now: a lint cannot tell a large table from a small
   one, so it would either flag every FK on a small table or miss the ones that matter.

@@ -1,12 +1,20 @@
-# #1799 step 1 of 3: CardActivity survives a card hard delete, like
-# CardMovement since #1469 (migrations 0078-0081, whose pattern this follows).
+# #1799 step 1 of 5: CardActivity survives a card hard delete, like
+# CardMovement since #1469 (migrations 0078-0081, whose pattern this follows
+# for everything but the foreign key, see below).
 #
 # PostgreSQL locking: every operation here is catalog-only.
-# - ``board`` is a new nullable column, so the FK Django adds inline with
-#   ADD COLUMN ... REFERENCES has nothing to validate. ``db_index=False``
+# - ``board`` is a new nullable column added with ``db_constraint=False``, so
+#   this is a bare ADD COLUMN: no FOREIGN KEY clause, nothing to scan.
+#   A plain FK AddField (what 0078 did on card_movements) emits
+#   ADD CONSTRAINT ... FOREIGN KEY, which validates the column against
+#   ``boards`` under a lock on both tables -- quick while every row is NULL,
+#   but its cost tracks the size of card_activities, the largest append-only
+#   table. The constraint is added NOT VALID in 0120 and validated once,
+#   after the 0119 backfill, in 0121 (docs/development/database-migrations.md,
+#   "A foreign key on a column that already holds data"). ``db_index=False``
 #   keeps Django from building the implicit FK index here under ACCESS
 #   EXCLUSIVE; the composite (board, -created_at) index is built concurrently
-#   in 0119, after the 0118 backfill.
+#   in 0122.
 # - ``card_uid`` / ``card_title`` carry ``db_default=""`` (a constant default
 #   is metadata-only on PostgreSQL 11+), which also keeps an INSERT from an
 #   older release, which does not know these columns, working mid-upgrade.
@@ -51,7 +59,7 @@ class DropNotNullKeepingForeignKey(migrations.AlterField):
             cursor.execute(f"SELECT 1 FROM {qn(table)} WHERE {qn(column)} IS NULL LIMIT 1")
             if cursor.fetchone() is not None:
                 raise RuntimeError(
-                    f"Cannot reverse boards.0117: {table} holds activity history of "
+                    f"Cannot reverse boards.0118: {table} holds activity history of "
                     f"hard-deleted cards ({column} IS NULL). Restoring NOT NULL would "
                     f"require deleting that history. If that is intended, run "
                     f"DELETE FROM {table} WHERE {column} IS NULL; and migrate again."
@@ -66,7 +74,7 @@ class DropNotNullKeepingForeignKey(migrations.AlterField):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("boards", "0116_cardmovement_board_moved_id_idx"),
+        ("boards", "0117_remove_cardmovement_board_moved_idx"),
     ]
 
     operations = [
@@ -75,6 +83,9 @@ class Migration(migrations.Migration):
             name="board",
             field=models.ForeignKey(
                 blank=True,
+                # No FOREIGN KEY clause here; 0120 adds it NOT VALID and 0121
+                # validates it and flips this back to db_constraint=True.
+                db_constraint=False,
                 db_index=False,
                 null=True,
                 on_delete=django.db.models.deletion.CASCADE,

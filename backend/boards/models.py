@@ -980,9 +980,10 @@ def set_null_keeping_board(collector, field, sub_objs, using):
     """``on_delete`` for ``CardMovement.card`` and ``CardActivity.card``: SET_NULL
     that keeps the row reachable (#1469, #1799).
 
-    A movement written by an older release during a rolling upgrade has no
-    ``board`` or card snapshot yet, and neither has an activity row written by
-    a ``bulk_create`` path that does not set them (which skips ``save()``).
+    A movement or activity row written by an older release during a rolling
+    upgrade has no ``board`` or card snapshot yet. (Every writer in this
+    release fills them, ``save()`` and ``CardActivityManager.bulk_create``
+    alike, so after the upgrade only such older rows lack them.)
     Plain SET_NULL would leave such a row with neither a card nor a board:
     hidden from the board's History and never removed with the board. So, before the card goes, fill ``board`` and the
     snapshot on exactly those rows, from the card being deleted, then defer to
@@ -1428,8 +1429,10 @@ class CardActivity(models.Model):
     )
     # Captured at write time (#1799, as CardMovement.board, #1469): what ties a
     # deleted card's activities to its board, and what removes them with it.
-    # Nullable because rows predating migration 0118's backfill, and rows an
-    # older release writes during a rolling upgrade, do not carry it yet.
+    # Nullable because rows predating migration 0119's backfill, and rows an
+    # older release writes during a rolling upgrade, do not carry it yet. The
+    # FK constraint was added NOT VALID (0120) and validated after the backfill
+    # (0121) so card_activities was never scanned under ACCESS EXCLUSIVE.
     board = models.ForeignKey(
         Board,
         on_delete=models.CASCADE,
@@ -1490,7 +1493,7 @@ class CardActivity(models.Model):
             models.Index(fields=["card", "-created_at"], name="activity_card_created_idx"),
             # A deleted card's retained rows, read by board (export, #1796), and
             # the board-delete cascade's DELETE ... WHERE board_id IN (...).
-            # Built concurrently in migration 0119, after the 0118 backfill.
+            # Built concurrently in migration 0122, after the 0119 backfill.
             models.Index(
                 fields=["board", "-created_at"],  # pragma: no mutate -- schema constant (migration-check)
                 name="activity_board_created_idx",  # pragma: no mutate -- schema constant (migration-check)

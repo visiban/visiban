@@ -1,4 +1,4 @@
-# #1799 step 2 of 3: backfill CardActivity.board / card_uid / card_title on
+# #1799 step 2 of 5: backfill CardActivity.board / card_uid / card_title on
 # existing rows.
 #
 # ``atomic = False`` so each batch commits on its own: card_activities can be
@@ -11,7 +11,11 @@
 # ``card_title`` is the card's title at backfill time; rows written from this
 # release on capture the title at the time of the activity.
 #
-# Reverse is a no-op: the columns are dropped by reversing 0117.
+# Runs before the board FK exists (0120 adds it NOT VALID, 0121 validates
+# it), so the UPDATE is not FK-checked row by row; 0121's single VALIDATE
+# scan covers every row this wrote.
+#
+# Reverse is a no-op: the columns are dropped by reversing 0118.
 
 from django.db import migrations
 from django.db.models import OuterRef, Subquery
@@ -56,7 +60,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0117_cardactivity_retention"),
+        ("boards", "0118_cardactivity_retention"),
     ]
 
     operations = [
