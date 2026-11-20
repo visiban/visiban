@@ -203,6 +203,14 @@ ERROR: Job failed: failed to pull image ...
 Observed 2026-11-19 on `gitlab-runner-nuc-2-visiban` (runner id 56787877): about 35 jobs failed
 and reddened !1950, !1951 and !1952 (#2406). The same jobs passed on retry on another runner.
 
+Recurred 2026-11-20 on the same runner, reddening `frontend-lint` on !1961 and
+`frontend-license-check` on !1958. The host's `/root/.docker/config.json` held exactly one
+`auths` key, `gitlab.com:443`. After the runner was paused and that key removed, the runner was
+unpaused and a `node:22-alpine` job (`frontend-license-check`) started on it and got past the
+image pull. The recurrence means the stale entry is re-created by something on the host (a manual
+`docker login gitlab.com:443`, for example); if it returns, find what writes it rather than
+deleting it again.
+
 **Confirm it is one runner:** the identical job passes when it lands on a different runner, and
 the failures cluster on one `runner.description`:
 
