@@ -318,7 +318,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
       <div
         ref={setNodeRef}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
-        className="relative py-1"
+        className="relative py-0.5"
         // #2205 — lets the lane-filter notice know which lane holds keyboard focus.
         data-swimlane-id={swimlane.id}
         onMouseEnter={onHoverEnter}
@@ -333,7 +333,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
             the window the cap equals the band's own width and nothing moves. The
             cells below are not part of the band, so column alignment is untouched. */}
         <div
-          className={`group sticky left-4 mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2.5 ${color ? "" : "bg-surface border-line"}`}
+          className={`group sticky left-4 mx-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 ${color ? "" : "bg-surface border-line"}`}
           style={{
             maxWidth: BAND_MAX_WIDTH,
             ...(color ? { backgroundColor: `color-mix(in srgb, ${color} 12%, rgb(var(--surface)))`, borderColor: `color-mix(in srgb, ${color} 45%, rgb(var(--border)))` } : {}),

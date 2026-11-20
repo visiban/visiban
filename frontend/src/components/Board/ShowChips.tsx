@@ -52,7 +52,7 @@ export default function ShowChips({ active, counts, onChange, columnCount, laneC
       role="group"
       aria-label="Show"
       data-testid="show-chips"
-      className={`px-3 py-1.5 bg-sunken shrink-0 flex items-center gap-2 ${phone ? "flex-nowrap overflow-x-auto" : "flex-wrap"}`}
+      className={`px-3 py-1 bg-sunken shrink-0 flex items-center gap-2 ${phone ? "flex-nowrap overflow-x-auto" : "flex-wrap"}`}
     >
       <span className="text-xs text-fg-secondary" aria-hidden="true">Show</span>
       {SHOW_CHIP_ORDER.map((key) => {

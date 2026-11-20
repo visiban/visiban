@@ -58,6 +58,8 @@ describe('CardItem — calm face (#2272)', () => {
     const { container } = render(<CardItem card={makeCard({ title: 'Sakura Electronics -- 100-Seat Engineering Board' })} density="comfortable" />)
     expect(screen.getByText('Sakura Electronics').closest('p')).toHaveClass('font-semibold')
     expect(screen.getByTestId('card-subtitle')).toHaveTextContent('100-Seat Engineering Board')
+    // #2434: the subtitle is one line; the full text stays in the peek.
+    expect(screen.getByTestId('card-subtitle')).toHaveClass('line-clamp-1')
     expect(container.querySelector('p.font-semibold')?.textContent).not.toContain('100-Seat')
   })
 

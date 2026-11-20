@@ -886,7 +886,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
         {/* #2272: the text after " -- " is the subtitle (Comfortable only; Standard and Dense keep the title to one line). */}
         {showSubtitle && splitTitle && (
-          <p data-testid="card-subtitle" className="mt-0.5 text-xs leading-snug text-fg-secondary line-clamp-2">{splitTitle.rest}</p>
+          <p data-testid="card-subtitle" className="mt-0.5 text-xs leading-snug text-fg-secondary line-clamp-1">{splitTitle.rest}</p>
         )}
 
         {/* #1920 spec § Cards row 2: track chips, only in a column that has tracks; #1102 gate progress when sub-columns are hidden. */}
