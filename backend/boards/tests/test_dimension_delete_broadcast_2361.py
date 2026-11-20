@@ -16,7 +16,7 @@ from accounts.models import User
 from boards.models import (
     BoardEvent, Column, CustomFieldDefinition, StageTrack, SubColumn, Swimlane, SwimlaneTrackException,
 )
-from boards.tests.conftest import _make_board
+from boards.tests.conftest import _make_board, _make_membership
 
 
 class DimensionDeleteBroadcastTests(TestCase):
@@ -62,6 +62,8 @@ class DimensionDeleteBroadcastTests(TestCase):
         self.assertEqual([t["field_id"] for t in columns[0]["tracks"]], [self.security.pk])
         # The full column payload, the same a stage save sends.
         self.assertEqual([s["name"] for s in columns[0]["sub_columns"]], ["Doing", "Ready"])
+        # Same shape as the stage-save frame, which always carries ``remapped``.
+        self.assertEqual(columns[0]["remapped"], [])
         lanes = self._sent("swimlane.updated")
         self.assertEqual([lane["id"] for lane in lanes], [self.lane.pk])
         self.assertEqual(lanes[0]["not_applicable_field_ids"], [])
@@ -86,3 +88,24 @@ class DimensionDeleteBroadcastTests(TestCase):
             self.client.delete(url)
         self.broadcast.assert_not_called()
         self.assertTrue(callbacks)
+
+    def test_non_admin_member_cannot_delete_and_nothing_is_sent(self):
+        member = User.objects.create_user(username="member2361", password="pw")
+        _make_membership(self.board, member, "member")
+        client = APIClient()
+        client.force_authenticate(member)
+        events_before = BoardEvent.objects.filter(board_id=self.board.pk).count()
+        url = f"/api/v1/boards/{self.board.pk}/custom-fields/{self.docs.pk}/"
+        with self.captureOnCommitCallbacks(execute=True):
+            resp = client.delete(url)
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(CustomFieldDefinition.objects.filter(pk=self.docs.pk).exists())
+        self.broadcast.assert_not_called()
+        self.assertEqual(BoardEvent.objects.filter(board_id=self.board.pk).count(), events_before)
+
+    def test_frames_do_not_carry_contact_email_or_notes(self):
+        # Pins the public serializers: these frames go to every board member.
+        self._delete(self.docs)
+        for payload in self._sent("column.updated") + self._sent("swimlane.updated"):
+            self.assertNotIn("contact_email", payload)
+            self.assertNotIn("notes", payload)

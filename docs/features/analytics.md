@@ -195,6 +195,8 @@ Four charts built from the movement log, so you can see how long work takes and 
 - each dwell sample carries `wait_days` and `work_days`, and each dwell column carries `work_percentiles` and `wait_percentiles`; all four are null for a stage with no sub-columns;
 - each heatmap swimlane carries `throughput_wait_avg_days_per_column` (In period) and `age_wait_avg_days_per_column` (Age), keyed only by gated stages.
 
+Cycle-time samples carry the same two fields: `wait_days` is 0 and `work_days` equals `value_days` when the card crossed no gated stage. The gate history is read for the board's cards and is not limited to the selected date range, so its load grows with the board's gate-transition history.
+
 Blocked time is not subtracted from work time: like cycle time, it is reported as its own metric. Which sub-column is "last" is read from the stage as it is now. Editing a stage's sub-columns moves its cards with recorded gate changes, but time a card spent before the edit is judged against today's last sub-column.
 
 **See the cards behind a number.** Click a point or a day, or use the table, to open a drawer with the card's owner and transitions, or the list of cards behind that week or day. From an aging dot the drawer also shows days in progress, the 85th percentile, blocked time, and time per column, counted from when the card's age started so the columns add up to the days in progress. **Open card** opens the card; an archived card has no **Open card**.

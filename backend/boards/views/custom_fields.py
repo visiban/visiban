@@ -257,7 +257,9 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
         )
         for column in columns:
             _broadcast.record_board_event(
-                board_id, _broadcast.EVT_COLUMN_UPDATED, ColumnSerializer(column).data, actor_id=actor_id,
+                board_id, _broadcast.EVT_COLUMN_UPDATED,
+                # Same shape as the stage-save frame (services/stages.py): consumers read ``remapped``.
+                {**ColumnSerializer(column).data, "remapped": []}, actor_id=actor_id,
             )
         lanes = (
             Swimlane.objects.filter(pk__in=lane_ids, board_id=board_id)
