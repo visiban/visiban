@@ -14,8 +14,11 @@ reads each card's group keys.
 
 Swimlane groups are dated (#2334): a sample counts under the swimlane the card
 was in at the moment the sample is dated by, read from the movement history
-already loaded (``CardFlow.lane_at``). Labels and custom fields keep each
-card's current value, since their history is not recorded (#1909).
+already loaded (``CardFlow.lane_at``). Counts dated by an instant (a
+completion, now) read the swimlane at that instant; a dwell visit, which is
+time, reads the swimlane the time was spent in (``CardFlow.lane_before`` its
+end). Labels and custom fields keep each card's current value, since their
+history is not recorded (#1909).
 """
 
 import dataclasses
@@ -34,8 +37,8 @@ MAX_NAMED_GROUPS = 5
 # How a checkbox value is stored. "true" sorts first on a tie.
 _CHECKBOX_KEYS = ("true", "false")
 # The moment a swimlane group is read at (#2334), one per kind of sample:
-# completion for cycle time and throughput, now for WIP age, and each visit's
-# end for dwell. Other groupings read the card's current value at every anchor.
+# completion for cycle time and throughput, now for WIP age, and for dwell the
+# swimlane each visit was spent in, just before its end. Other groupings read the card's current value at every anchor.
 COMPLETION = "completion"
 CURRENT = "current"
 VISIT_END = "visit_end"
@@ -119,8 +122,9 @@ def _is_active(flow, flow_range, card, lanes=None):
 
     ``lanes`` (a set, swimlane grouping only, #2334) collects every swimlane
     the card is active in, each read at the moment its endpoint dates the
-    sample: now while in progress, the completion, and each closed visit's
-    end. A card that finished in one swimlane and moved on ranks both.
+    sample: now while in progress, the completion, and, for each closed
+    visit, the swimlane it left the column from (``lane_before`` its end). A
+    card that finished in one swimlane and moved on ranks both.
     """
     active = False
     # Started and not yet done: a never-started backlog card is a sample on no
@@ -146,7 +150,7 @@ def _is_active(flow, flow_range, card, lanes=None):
             if lanes is None:
                 return True
             active = True
-            lanes.add(card.lane_at(visit.end))
+            lanes.add(card.lane_before(visit.end))
     return active
 
 
@@ -172,7 +176,7 @@ class GroupedFlow:
     ``anchor`` is the moment the endpoint's samples are dated by, which picks
     a card's swimlane group (#2334). Under ``VISIT_END`` a card that changed
     swimlane can sit in several slots, each holding a copy of the card with
-    only the visits that ended in that swimlane.
+    only the visits spent in that swimlane (``lane_before`` each end).
     """
 
     def __init__(self, flow, flow_range, grouping, anchor=CURRENT):
@@ -233,7 +237,11 @@ class GroupedFlow:
                 self.slots[index].cards.append(card)
 
     def _split_visits(self, card):
-        """Put each of the card's visits in the slot of the swimlane it ended in (#2334).
+        """Put each of the card's visits in the slot of the swimlane it was spent in (#2334).
+
+        A closed visit reads ``lane_before`` its end: the swimlane the card left
+        the column from, even when the move that ended the visit also changed
+        swimlane, since the stay was spent in the first one.
 
         Dwell reads only a card's uid, reopens and visits, so a copy holding a
         subset of the visits measures exactly those. An open visit ends now,
@@ -242,7 +250,7 @@ class GroupedFlow:
         """
         by_slot, keys = {}, set()
         for visit in card.visits:
-            key = self.grouping.lane_key(card.lane_at(visit.end))
+            key = self.grouping.lane_key(card.lane_before(visit.end))
             index = self.slot_of_key.get(key)
             if index is not None:
                 keys.add(key)

@@ -398,6 +398,23 @@ class CardFlow:
         index = bisect.bisect_right(self.lanes, moment, key=_lane_moment) - 1
         return self.lanes[max(index, 0)][1]
 
+    def lane_before(self, moment):
+        """The swimlane the card was in just before ``moment``, for a closed visit (#2334).
+
+        A visit ends at the movement that took the card out of the column, and
+        that one row can also change the swimlane (a drag into another column
+        in another swimlane). ``lane_at`` reads that row's destination, but the
+        stay was spent in the swimlane the card left the column from, so a
+        visit's end reads the row before it: a change dated exactly at
+        ``moment`` is not yet in effect. The fallbacks are ``lane_at``'s: the
+        current swimlane without a timeline or a moment (#1075), and the
+        earliest known one before the first row.
+        """
+        if not self.lanes or moment is None:
+            return self.swimlane_id
+        index = bisect.bisect_left(self.lanes, moment, key=_lane_moment) - 1
+        return self.lanes[max(index, 0)][1]
+
     def lane_spans(self):
         """``(begin or None, end or None, swimlane id or None)`` covering all time (#2334).
 
@@ -2057,6 +2074,9 @@ def swimlane_comparison(flow, flow_range, swimlanes, group_definition=None):
     Attribution is at event time (#2334): a finished card counts under the
     swimlane it completed in, ``in_progress`` under the one it is in now. A
     completion in a since-deleted swimlane is in the board numbers and in no row.
+    Counts follow the swimlane at their instant and blocked share follows where
+    the time was spent, so a card dragged into done from another swimlane is
+    finished in the one it was dropped in and blocked in the one it left.
 
     Blocked share is the lane's blocked seconds over its in-progress seconds,
     both counted only while each card was in progress inside the range: from

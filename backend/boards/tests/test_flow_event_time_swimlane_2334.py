@@ -2,8 +2,9 @@
 
 A sample counts under the swimlane the card was in at the moment the sample is
 dated by: completion for cycle time, throughput and the Swimlanes view's
-finished numbers; now for WIP age and ``in_progress``; each visit's end for
-dwell; each second for blocked share. The ``swimlane_id`` filter, the summary
+finished numbers; now for WIP age and ``in_progress``; for dwell, the swimlane
+the card left the column from (just before the visit's end); each second for
+blocked share. Counts follow the instant, time follows where it was spent. The ``swimlane_id`` filter, the summary
 rollup, the heatmap and the card directory stay on the current swimlane
 (decisions.md, ADR #1532 "Filters", dated #2334 note).
 """
@@ -151,6 +152,43 @@ class VisitEndAnchorTests(EventTimeFixture):
         self.assertEqual(body["grouping"]["excluded"], 0)
         self.assertEqual(sum(g["sample_size"] for g in body["grouping"]["groups"]), body["sample_size"])
 
+    def test_diagonal_move_out_of_a_column_counts_the_stay_under_the_lane_it_left(self):
+        """One movement that changes column and swimlane ends a stay spent in the first (#2334).
+
+        The Doing stay was all in lane; the move that ended it is the row that
+        took the card to other_lane, so reading that row's destination would
+        move all 10 days to other_lane. Five cards, so the median is reported.
+        """
+        for _ in range(5):
+            self.history((self.backlog, 30, self.lane), (self.doing, 20, self.lane), (self.review, 10, self.other_lane))
+        body = self.get_at_now("dwell", group_by="swimlane")
+
+        def doing(lane):
+            group = self.group(body, lane)
+            return next((c for c in group["columns"] if c["column_name"] == "Doing"), None) if group else None
+
+        self.assertEqual(doing(self.lane)["sample_size"], 5)
+        self.assertEqual(doing(self.lane)["percentiles"]["p50"], 10.0)
+        other = doing(self.other_lane)
+        self.assertEqual(other["sample_size"] if other else 0, 0)
+        self.assertEqual(body["grouping"]["excluded"], 0)
+
+    def test_lane_before_reads_the_row_before_a_moment_and_falls_back_to_current(self):
+        """``lane_before`` excludes a change dated at the moment; absent input is the current lane (#1075)."""
+        flow = fm.CardFlow(
+            id=1, uid="x", title="x", swimlane_id=7, assignee_id=None, created_at=self.now,
+            archived_at=None, blocked_at=None, column_uid="c",
+        )
+        self.assertEqual((flow.lane_before(self.now), flow.lane_before(None)), (7, 7))
+        card = self.history((self.backlog, 20, self.lane), (self.doing, 10, self.other_lane))
+        loaded = next(c for c in self.flow().cards if c.id == card.id)
+        self.assertEqual(loaded.lane_before(self.ago(25)), self.lane.id)
+        self.assertEqual(loaded.lane_before(self.ago(20)), self.lane.id)
+        self.assertEqual(loaded.lane_before(self.ago(10)), self.lane.id)
+        self.assertEqual(loaded.lane_at(self.ago(10)), self.other_lane.id)
+        self.assertEqual(loaded.lane_before(self.ago(5)), self.other_lane.id)
+        self.assertEqual(loaded.lane_before(None), self.other_lane.id)
+
 
 class BlockedShareTests(EventTimeFixture):
     def test_blocked_share_splits_across_a_lane_change(self):
@@ -168,6 +206,29 @@ class BlockedShareTests(EventTimeFixture):
         card = self.history((self.backlog, 30, self.lane), (self.doing, 20, self.lane))
         CardBlock.objects.create(card=card, board=self.board, reason="Vendor", blocked_at=self.ago(12), unblocked_at=self.ago(2))
         self.assertAlmostEqual(self.comparison_row(self.comparison(), self.lane)["blocked_share"], 0.5, places=4)
+
+    def test_diagonal_move_into_done_counts_finished_at_completion_and_blocked_time_where_spent(self):
+        """Counts follow the swimlane at their instant; time follows where it was spent (#2334).
+
+        In progress in lane for 12 days, blocked 4 of them, then one move into
+        Done in other_lane: the finish is other_lane's, the blocked time lane's.
+        """
+        card = self.history((self.backlog, 20, self.lane), (self.doing, 15, self.lane), (self.done, 3, self.other_lane))
+        CardBlock.objects.create(card=card, board=self.board, reason="Vendor", blocked_at=self.ago(11), unblocked_at=self.ago(7))
+        body = self.comparison()
+        lane, other = self.comparison_row(body, self.lane), self.comparison_row(body, self.other_lane)
+        self.assertEqual((other["finished"], other["blocked_share"]), (1, None))
+        self.assertEqual(lane["finished"], 0)
+        self.assertAlmostEqual(lane["blocked_share"], 0.3333, places=4)
+        self.assertEqual(body["board"]["finished"], 1)
+        # The Doing stay is dwell time, so it is lane's too.
+        dwell = self.get_at_now("dwell", group_by="swimlane")
+
+        def doing_size(lane):
+            group = self.group(dwell, lane)
+            return next((c["sample_size"] for c in group["columns"] if c["column_name"] == "Doing"), 0) if group else 0
+
+        self.assertEqual((doing_size(self.lane), doing_size(self.other_lane)), (1, 0))
 
 
 class RankingAndOverlapTests(EventTimeFixture):

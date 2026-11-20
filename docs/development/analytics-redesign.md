@@ -188,7 +188,7 @@ A breakdown colors marks by group, using the five categorical chart colors.
 - **Labels:** a card with several labels counts once in each group; the legend's note says so.
 - **More than five groups** collapse to the five largest plus "Other", drawn in a neutral color.
 - **Custom fields:** card fields of type dropdown or checkbox only. Cards with no value are left out, and the note says so.
-- Filters use each card's current swimlane and labels. Breakdowns use each card's current labels and field values; a swimlane breakdown counts each sample under the swimlane the card was in when the sample is dated (completion, a visit's end, or now for work in progress), and so does the Swimlanes tab (#2334; ADR #1532 "Filters", dated note).
+- Filters use each card's current swimlane and labels. Breakdowns use each card's current labels and field values; a swimlane breakdown counts each sample under the swimlane the card was in when the sample is dated (completion, or now for work in progress), a dwell visit under the swimlane the card was in when it left the column, and blocked time under the swimlane it was spent in, and so does the Swimlanes tab (#2334; ADR #1532 "Filters", dated note).
 
 ## Swimlanes tab (#458)
 
