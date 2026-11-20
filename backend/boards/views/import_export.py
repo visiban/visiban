@@ -15,6 +15,7 @@ import os
 import re
 import reprlib
 import traceback
+import zoneinfo
 
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
@@ -72,6 +73,22 @@ _EXPORT_ROLE_RANK = {
     BoardMembershipModel.Role.MEMBER: 2,
     BoardMembershipModel.Role.ADMIN: 3,
 }
+
+
+def _export_timestamp(user):
+    """Return ``YYYYMMDD-HHMM`` for an export filename (#2440).
+
+    Uses the exporting user's profile timezone so the stamp matches their wall
+    clock. ``User.timezone`` is free-form text, so a blank or unknown value
+    falls back to UTC instead of failing the download. The date and time come
+    from one aware ``now`` so they cannot straddle midnight. No colon: browsers
+    and Windows mangle it in filenames.
+    """
+    try:
+        tz = zoneinfo.ZoneInfo(getattr(user, "timezone", "") or "UTC")
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError, OSError):
+        tz = datetime.timezone.utc
+    return django_timezone.now().astimezone(tz).strftime("%Y%m%d-%H%M")
 
 
 def _role_at_export(board, user, role):
@@ -3507,8 +3524,8 @@ class BoardImportExportMixin:
                 status=status.HTTP_403_FORBIDDEN,
             )
         export_format = request.query_params.get("format", "csv")
-        today = datetime.date.today().isoformat()
         safe_name = slugify(board.name) or "board"
+        stamp = _export_timestamp(request.user)
 
         cards = list(
             Card.objects.filter(board=board)
@@ -3884,7 +3901,7 @@ class BoardImportExportMixin:
 
             content = json.dumps(payload, indent=2, ensure_ascii=False)
             response = HttpResponse(content, content_type="application/json")
-            response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.json"'
+            response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.json"'
             response["Cache-Control"] = "no-store"
             # #842: audit-log the successful export after the response body is
             # assembled. Not wrapped in a transaction — a failure during the
@@ -4001,7 +4018,7 @@ class BoardImportExportMixin:
             ])
 
         response = HttpResponse(buf.getvalue(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.csv"'
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}-{stamp}.csv"'
         response["Cache-Control"] = "no-store"
         # #842: audit-log the successful export (see note in JSON branch).
         BoardExportLog.objects.create(

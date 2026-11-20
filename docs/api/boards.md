@@ -973,6 +973,8 @@ Export the board. CSV is the default; append `?format=json` for a JSON dump. `?f
 
 Both formats are file downloads (`Content-Disposition: attachment`): CSV as `text/csv`, JSON as `application/json`.
 
+The suggested filename is `<board-slug>-<YYYYMMDD>-<HHMM>.<csv|json>`, for example `my-board-20261120-1430.json` (`board` when the name has no slug characters). The date and time are the moment of export in the caller's profile timezone, or UTC when the profile has none or it is not a valid zone. Before this change the name carried only the server date (`my-board-2026-11-20.json`); do not parse it, since the filename is a suggestion for the browser.
+
 **Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
 
 Requires board membership; a caller with no access gets `404 Not Found`, as for a missing board. A member whose role is below the board's `export_min_role` gets `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
