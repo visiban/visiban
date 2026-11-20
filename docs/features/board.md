@@ -1100,20 +1100,19 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 
 **Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the card detail panel. Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
 
-**Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings).
+**Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings). On a phone, the column's actions row has a **Stage settings** button.
 
-- **Sub-columns, in order:** rename, add (up to 4) or remove them. Sub-columns can't be reordered. Removing one moves its cards back to the sub-column before it.
-- **Tracks, any order:** **Add track** creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Removing a track only takes it off this stage; the field and its values stay.
+- **Sub-columns, in order:** rename, add (up to 4), remove or reorder them. Use the ↑ and ↓ buttons beside a sub-column to move it. Its cards move with it and stay in that sub-column, and the move is not recorded as a card passing or reopening a step. Removing a sub-column moves its cards back to the sub-column before it (in the order before your change).
+- **Tracks, any order:** **Add track** creates a dropdown field with the choices "Done" and "Not applicable". You can also add a track field that already exists. Edit a track's name in place to rename it: this renames its field everywhere it is used, and every card's value and swimlane exception for it stay. A track name can't be empty or match another track or field on the board. Removing a track only takes it off this stage; the field and its values stay.
 - **Swimlane exceptions:** mark a track not applicable for every card in a swimlane, for example "APAC: Business is not applicable". The card's own value is kept. On the card, such a track reads "not applicable for this swimlane".
-- Before you save, the tab lists what happens to cards in a sub-column you removed, for example "3 cards will move from Review back to Doing."
-- **Save stage** saves all three groups at once. It saves only the Stage tab and closes the dialog, so save Settings or Policy changes first; the tab warns you when you have some. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
+- Before you save, the tab lists what happens to cards in a sub-column you removed, for example "3 cards will move from Review back to Doing." The count comes from the server and includes archived cards, which move too ("3 cards (1 archived) will move…").
+- **Save stage** saves all three groups at once. It saves only the Stage tab. With no unsaved Settings or Policy changes it closes the dialog. With some, the dialog stays open and says "Stage saved", so you can save those changes from their tab or cancel them. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
 
 Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column (#1102, #1920).
 
 **Known limits.**
 
 - A move between sub-columns of the same stage is not shown in the card's **History** yet (#2365). A move to another column is.
-- Sub-columns can't be reordered; rename them instead (#2368).
 
 ### Filtering by sub-column and track state
 

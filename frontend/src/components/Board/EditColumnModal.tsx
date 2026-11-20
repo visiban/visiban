@@ -13,6 +13,7 @@ import ColumnPolicyEditor from "./ColumnPolicyEditor";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { useColumnPolicyDraft } from "../../hooks/useColumnPolicyDraft";
 import { isImeComposing } from "../../utils/imeComposition";
+import type { StageRemap } from "../../hooks/useBoard";
 
 export type EditColumnTab = "settings" | "policy" | "stage";
 
@@ -20,7 +21,8 @@ interface Props {
   boardId: number;
   column: Column;
   cardCount: number;
-  onUpdated: (column: Column) => void;
+  /** A stage save adds `remapped` (#1102); the board applies it with `applyStageRemap`. */
+  onUpdated: (column: Column & { remapped?: StageRemap[] }) => void;
   onRequestDelete: (column: Column) => void;
   onClose: () => void;
   /** Open on this tab (#1101: "Add policy…" and the popover's "Edit policy"
@@ -68,7 +70,15 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   const { entry, done, mode, setEntry, setDone, setMode, nextKey, dirty: policyChanged, toPolicy } = useColumnPolicyDraft(column);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Save stage closes the modal, so it says when Settings or Policy edits would be lost.
+  // A stage saved while Settings or Policy drafts are unsaved (#2368): the
+  // modal stays open so those drafts are not lost, and the saved column (with
+  // every `remapped` entry so far) reaches the board when the modal closes or
+  // the Settings save lands. The Stage panel remounts on it (`stageKey`), so
+  // a second Save stage sends the new sub-column ids, not the old rows.
+  const [pendingStage, setPendingStage] = useState<(Column & { remapped?: StageRemap[] }) | null>(null);
+  const [stageKey, setStageKey] = useState(0);
+  const [stageSavedNote, setStageSavedNote] = useState("");
+  // Save stage closes the modal only when no Settings or Policy edit is unsaved.
   const otherTabsDirty = name !== column.name || color !== column.color
     || wipLimit !== (column.wip_limit?.toString() ?? "") || weightLimit !== (column.weight_limit?.toString() ?? "")
     || allowCardCreation !== column.allow_card_creation || isDone !== column.is_done || policyChanged;
@@ -114,6 +124,23 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
     tabRefs.current.get(id)?.focus();
   };
 
+  // Every way out of the modal hands a pending stage save to the board first.
+  const close = () => {
+    if (pendingStage) onUpdated(pendingStage);
+    onClose();
+  };
+
+  const onStageSaved = (saved: Column & { remapped?: StageRemap[] }) => {
+    if (!otherTabsDirty) {
+      onUpdated(pendingStage ? { ...saved, remapped: [...(pendingStage.remapped ?? []), ...(saved.remapped ?? [])] } : saved);
+      onClose();
+      return;
+    }
+    setPendingStage((prev) => ({ ...saved, remapped: [...(prev?.remapped ?? []), ...(saved.remapped ?? [])] }));
+    setStageKey((k) => k + 1);
+    setStageSavedNote("Stage saved. Your Settings and Policy changes are not saved yet.");
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
@@ -128,7 +155,8 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         is_done: isDone,
         ...(policyChanged ? { policy: toPolicy() } : {}),
       });
-      onUpdated(updated);
+      // The PATCH response already carries the saved stage; keep its remap.
+      onUpdated(pendingStage ? { ...updated, remapped: pendingStage.remapped } : updated);
       onClose();
     } catch {
       setError("Failed to save column. Please try again.");
@@ -140,7 +168,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
   return (
     <ModalWrapper
       open={true}
-      onClose={onClose}
+      onClose={close}
       title="Edit Column"
       maxWidth="max-w-md"
       labelId="edit-column-title"
@@ -266,7 +294,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 </p>
                 <button
                   type="button"
-                  onClick={() => { onClose(); onRequestDelete(column); }}
+                  onClick={() => { close(); onRequestDelete(column); }}
                   disabled={cardCount > 0}
                   className="w-full px-3 py-1.5 max-sm:min-h-11 text-sm font-medium bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
                 >
@@ -292,13 +320,14 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             <div hidden={tab !== "stage"}>
               <StageTab
                 boardId={boardId}
-                column={column}
                 swimlanes={swimlanes}
                 definitions={customFieldDefinitions}
                 cards={cards}
                 footerTarget={tab === "stage" ? stageFooter : null}
-                onSaved={(saved) => { onUpdated(saved); onClose(); }}
-                onCancel={onClose}
+                key={stageKey}
+                column={pendingStage ?? column}
+                onSaved={onStageSaved}
+                onCancel={close}
               />
             </div>
           )}
@@ -314,9 +343,11 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
       {tab === "stage" && (
         <div className="flex flex-col gap-2 px-6 py-3 border-t border-line shrink-0" data-testid="stage-footer">
           <p className="text-xs text-fg-tertiary">
-            Save stage saves this tab only and closes.
-            {otherTabsDirty && <span className="text-warning"> Your unsaved Settings and Policy changes will be lost, so save those first.</span>}
+            {otherTabsDirty
+              ? <>Save stage saves this tab only. <span className="text-warning">The dialog stays open so you can save your Settings and Policy changes after.</span></>
+              : "Save stage saves this tab only and closes."}
           </p>
+          <p className="text-xs text-success-on-tint" role="status" aria-live="polite" aria-atomic="true" data-testid="stage-saved-note">{stageSavedNote}</p>
           <div ref={setStageFooter} className="flex items-center gap-2" />
         </div>
       )}
@@ -326,7 +357,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <p id={`${tabsId}-status`} className="text-xs h-4 flex-1" role="status" aria-live="polite" aria-atomic="true">
           <span className="text-danger">{error ?? (name.trim() ? "" : "Name is required.")}</span>
         </p>
-        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+        <button onClick={close} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
@@ -353,7 +384,7 @@ function StageTab({ boardId, column, swimlanes, definitions, cards, footerTarget
   definitions?: CustomFieldDefinition[];
   cards?: Pick<Card, "column" | "gates_passed">[];
   footerTarget: HTMLElement | null;
-  onSaved: (c: Column) => void;
+  onSaved: (c: Column & { remapped?: StageRemap[] }) => void;
   onCancel: () => void;
 }) {
   const board = useOptionalBoardContext()?.board;

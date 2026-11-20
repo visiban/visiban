@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Card, Column, CustomFieldDefinition, Swimlane } from "../../types";
-import { createCustomFieldDefinition, saveColumnStage, type StageSettingsBody } from "../../api/boards";
+import { createCustomFieldDefinition, getStageCardCounts, saveColumnStage, updateCustomFieldDefinition, type StageSettingsBody, type StageSubColumnCardCount } from "../../api/boards";
 import { cardSubColumnIndex, stageSubColumns } from "../../utils/stages";
 import { NEW_TRACK_RESOLUTIONS, NEW_TRACK_CHOICES, SUB_COLUMN_MAX, SUB_COLUMN_MIN, stageErrorMessage } from "../../utils/stageSettings";
 
@@ -18,10 +18,17 @@ import { NEW_TRACK_RESOLUTIONS, NEW_TRACK_CHOICES, SUB_COLUMN_MAX, SUB_COLUMN_MI
  *
  * Phase 1 is warn-and-record (#1102): the "Every track must be done" rule is
  * deferred, so there is no rule checkbox here.
+ *
+ * Sub-columns can be reordered with ↑ / ↓ (#2368). The server moves each card
+ * with its own sub-column, so a reorder alone moves no card out of the
+ * sub-column it is in and needs no consequence line. A track's name is its
+ * dimension field's name (#2382): renaming one PATCHes the field before the
+ * stage save, so card values and lane exceptions, keyed by field id, keep.
  */
 
 interface SubRow { key: string; id?: number; name: string }
-interface TrackRow { key: string; fieldId?: number; name: string }
+/** `savedName` is the field's name on the server; a row whose `name` differs is renamed on Save (#2382). */
+interface TrackRow { key: string; fieldId?: number; name: string; savedName?: string }
 interface ExceptionRow { swimlaneId: number; fieldKey: string }
 
 interface Props {
@@ -53,7 +60,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const initialSubs = useMemo(() => stageSubColumns(column), [column]);
   const [subs, setSubs] = useState<SubRow[]>(() => initialSubs.map((s) => ({ key: nextKey(), id: s.id, name: s.name })));
   const [tracks, setTracks] = useState<TrackRow[]>(() =>
-    [...(column.tracks ?? [])].sort((a, b) => a.position - b.position).map((t) => ({ key: `f-${t.field_id}`, fieldId: t.field_id, name: t.name })));
+    [...(column.tracks ?? [])].sort((a, b) => a.position - b.position).map((t) => ({ key: `f-${t.field_id}`, fieldId: t.field_id, name: t.name, savedName: t.name })));
   const initialTrackIds = useMemo(() => new Set((column.tracks ?? []).map((t) => t.field_id)), [column.tracks]);
   const [exceptions, setExceptions] = useState<ExceptionRow[]>(() =>
     swimlanes.flatMap((l) => (l.not_applicable_field_ids ?? [])
@@ -65,6 +72,22 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const [exTrack, setExTrack] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  // The server's per-sub-column counts, archived cards included (#2368): a
+  // save remaps archived cards too, and the board payload has none of them.
+  // Until they load, or if the request fails, the summary falls back to the
+  // cards the caller passed.
+  const [serverCounts, setServerCounts] = useState<StageSubColumnCardCount[] | null>(null);
+  useEffect(() => {
+    if (initialSubs.length === 0) return;
+    let live = true;
+    // Promise.resolve().then so a missing client function also lands in catch.
+    Promise.resolve()
+      .then(() => getStageCardCounts(boardId, column.id))
+      .then((counts) => { if (live && Array.isArray(counts)) setServerCounts(counts); })
+      .catch(() => { /* keep the client-side counts */ });
+    return () => { live = false; };
+  }, [boardId, column.id, initialSubs]);
 
   // Focus after add / remove (G4): an element id, applied once the row exists.
   const [focusTarget, setFocusTarget] = useState<string | null>(null);
@@ -91,6 +114,25 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     definitions.some((d) => d.name.trim().toLowerCase() === typedTrack)
   );
 
+  // Track names are field names, unique per board (#2382). Compare against the
+  // other tracks and against every field that is not one of these tracks.
+  const trackFieldIds = new Set(tracks.map((t) => t.fieldId).filter((id) => id !== undefined));
+  const otherFieldNames = new Set(definitions.filter((d) => !trackFieldIds.has(d.id)).map((d) => d.name.trim().toLowerCase()));
+  const trackNameCounts = new Map<string, number>();
+  for (const t of tracks) {
+    const k = t.name.trim().toLowerCase();
+    trackNameCounts.set(k, (trackNameCounts.get(k) ?? 0) + 1);
+  }
+  const trackInvalid = (t: TrackRow) => {
+    const k = t.name.trim().toLowerCase();
+    return k === "" || (trackNameCounts.get(k) ?? 0) > 1 || otherFieldNames.has(k);
+  };
+  const trackError = tracks.some((t) => !t.name.trim())
+    ? "Every track needs a name."
+    : tracks.some(trackInvalid)
+      ? "Track names must be different from each other and from the board's other fields."
+      : null;
+
   const atMax = subs.length >= SUB_COLUMN_MAX;
   const atMin = subs.length <= SUB_COLUMN_MIN;
 
@@ -116,6 +158,19 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     setFocusTarget(neighbor ? `sub-remove-${neighbor.key}` : "sub-add");
   };
 
+  // Reorder (#2368): ↑ / ↓ swap with the neighbor. The ends are aria-disabled,
+  // not disabled, so a row moved to an end keeps focus on its button.
+  const moveSub = (key: string, dir: -1 | 1) => {
+    const i = subs.findIndex((r) => r.key === key);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= subs.length) return;
+    const next = [...subs];
+    [next[i], next[j]] = [next[j], next[i]];
+    setSubs(next);
+    setFocusTarget(`sub-${dir < 0 ? "up" : "down"}-${key}`);
+    setAnnouncement(`${subs[i].name.trim() || `Sub-column ${i + 1}`} moved to position ${j + 1} of ${subs.length}.`);
+  };
+
   const addNewTrack = () => {
     const name = newTrackName.trim();
     if (!name || trackNameTaken) return;
@@ -125,7 +180,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   const addExistingTrack = () => {
     const def = definitions.find((d) => String(d.id) === existingPick);
     if (!def) return;
-    setTracks((prev) => [...prev, { key: `f-${def.id}`, fieldId: def.id, name: def.name }]);
+    setTracks((prev) => [...prev, { key: `f-${def.id}`, fieldId: def.id, name: def.name, savedName: def.name }]);
     setExistingPick("");
   };
   const removeTrack = (key: string) => {
@@ -158,10 +213,20 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   // back to the nearest kept one before it, else the first; removing every
   // sub-column makes the column plain.
   const consequences = useMemo(() => {
-    if (initialSubs.length === 0 || !cards) return [];
     const keptIds = new Set(subs.filter((s) => s.id !== undefined).map((s) => s.id));
+    if (initialSubs.length === 0) return [];
+    // Server counts first (archived included, #2368); else the caller's cards.
+    const byId = new Map((serverCounts ?? []).map((c) => [c.id, c]));
     const counts = initialSubs.map(() => 0);
-    for (const c of cards) if (c.column === column.id) counts[cardSubColumnIndex(c, column)] += 1;
+    const archived = initialSubs.map(() => 0);
+    if (serverCounts) {
+      initialSubs.forEach((sub, i) => {
+        counts[i] = (byId.get(sub.id)?.cards ?? 0) + (byId.get(sub.id)?.archived_cards ?? 0);
+        archived[i] = byId.get(sub.id)?.archived_cards ?? 0;
+      });
+    } else if (cards) {
+      for (const c of cards) if (c.column === column.id) counts[cardSubColumnIndex(c, column)] += 1;
+    }
     const lines: string[] = [];
     initialSubs.forEach((sub, i) => {
       if (keptIds.has(sub.id) || counts[i] === 0) return;
@@ -173,12 +238,14 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
         const row = before ? subs.find((r) => r.id === before.id) : subs[0];
         target = row?.name.trim() || "the first sub-column";
       }
-      lines.push(`${counts[i]} ${counts[i] === 1 ? "card" : "cards"} will move from ${sub.name} back to ${target}.`);
+      const noun = counts[i] === 1 ? "card" : "cards";
+      const arch = archived[i] > 0 ? ` (${archived[i]} archived)` : "";
+      lines.push(`${counts[i]} ${noun}${arch} will move from ${sub.name} back to ${target}.`);
     });
     return lines;
-  }, [cards, column, initialSubs, subs]);
+  }, [cards, column, initialSubs, subs, serverCounts]);
 
-  const canSave = subError === null && !saving;
+  const canSave = subError === null && trackError === null && !saving;
   // The fieldset and Save are disabled while saving, which drops focus to the body; after a failed
   // save put it back on Save so the error is read in place and a retry is one key away (WCAG 3.2/4.1.3).
   useEffect(() => {
@@ -190,12 +257,22 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
     setSaving(true);
     setError(null);
     try {
+      // Renamed tracks PATCH their field first (#2382): values and lane
+      // exceptions are keyed by field id, so a rename keeps every state.
+      const renamed = new Map<string, string>();
+      for (const t of tracks) {
+        if (t.fieldId === undefined || t.name.trim() === t.savedName) continue;
+        await updateCustomFieldDefinition(boardId, t.fieldId, { name: t.name.trim() });
+        renamed.set(t.key, t.name.trim());
+      }
+      // A retry after a later failure does not PATCH the same rename again.
+      if (renamed.size) setTracks((prev) => prev.map((t) => (renamed.has(t.key) ? { ...t, savedName: renamed.get(t.key) } : t)));
       // New tracks become dimension dropdowns first (#1921); the stage then binds them by id.
       const ids = new Map<string, number>();
       for (const t of tracks) {
         if (t.fieldId !== undefined) { ids.set(t.key, t.fieldId); continue; }
         const def = await createCustomFieldDefinition(boardId, {
-          name: t.name,
+          name: t.name.trim(),
           field_type: "dropdown",
           choices: [...NEW_TRACK_CHOICES],
           is_dimension: true,
@@ -204,7 +281,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
         ids.set(t.key, def.id);
       }
       // Rows created above keep their new id, so a retry after a later failure does not create them twice.
-      setTracks((prev) => prev.map((t) => (t.fieldId === undefined && ids.has(t.key) ? { ...t, fieldId: ids.get(t.key) } : t)));
+      setTracks((prev) => prev.map((t) => (t.fieldId === undefined && ids.has(t.key) ? { ...t, fieldId: ids.get(t.key), savedName: t.name.trim() } : t)));
       const body: StageSettingsBody = {
         sub_columns: subs.map((s) => (s.id !== undefined ? { id: s.id, name: s.name.trim() } : { name: s.name.trim() })),
         tracks: tracks.map((t) => ids.get(t.key)!).filter((v) => v !== undefined),
@@ -223,6 +300,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
 
   const INPUT = "w-full max-sm:min-h-11 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted disabled:opacity-60";
   const LINK_BUTTON = "text-sm text-info px-1 py-1 max-sm:min-h-11 max-sm:px-2 hover:underline disabled:text-fg-muted disabled:no-underline disabled:cursor-not-allowed aria-disabled:text-fg-muted aria-disabled:no-underline aria-disabled:cursor-not-allowed rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+  const ARROW = "shrink-0 h-8 w-8 max-sm:h-11 max-sm:w-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
   const REMOVE = "shrink-0 h-8 max-sm:h-11 px-2 text-xs text-fg-secondary hover:text-danger hover:bg-surface-hover rounded disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
   const laneName = (id: number) => swimlanes.find((l) => l.id === id)?.name ?? "Deleted swimlane";
   const trackName = (key: string) => tracks.find((t) => t.key === key)?.name ?? "";
@@ -266,6 +344,22 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
                 />
                 <button
                   type="button"
+                  className={ARROW}
+                  data-focus-key={`sub-up-${s.key}`}
+                  aria-label={`Move sub-column ${s.name || i + 1} up`}
+                  aria-disabled={i === 0 || undefined}
+                  onClick={() => moveSub(s.key, -1)}
+                ><span aria-hidden="true">↑</span></button>
+                <button
+                  type="button"
+                  className={ARROW}
+                  data-focus-key={`sub-down-${s.key}`}
+                  aria-label={`Move sub-column ${s.name || i + 1} down`}
+                  aria-disabled={i === subs.length - 1 || undefined}
+                  onClick={() => moveSub(s.key, 1)}
+                ><span aria-hidden="true">↓</span></button>
+                <button
+                  type="button"
                   className={REMOVE}
                   data-focus-key={`sub-remove-${s.key}`}
                   aria-label={`Remove sub-column ${s.name || i + 1}`}
@@ -295,7 +389,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           </div>
           {atMax && <p id={`${uid}-max`} className="mt-1 text-xs text-fg-tertiary">A stage has at most four sub-columns.</p>}
           {subs.length > 0 && atMin && <p id={`${uid}-min`} className="mt-1 text-xs text-fg-tertiary">A stage needs at least two sub-columns, or none. Use Remove all sub-columns to make it a plain column.</p>}
-          {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it. Sub-columns can't be reordered.</p>}
+          {subs.length > 0 && <p className="mt-1 text-xs text-fg-tertiary">Removing a sub-column moves its cards back to the one before it. Moving a sub-column takes its cards with it.</p>}
           {consequences.length > 0 && (
             <ul data-testid="stage-consequences" className="mt-2 rounded border border-line bg-surface-sunken px-3 py-2 text-xs text-fg-secondary">
               {consequences.map((line) => <li key={line}>{line}</li>)}
@@ -308,13 +402,24 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           <h3 id={`${uid}-tracks`} className="text-sm font-semibold text-fg">Tracks, any order</h3>
           <p className="mt-0.5 text-xs text-fg-tertiary">Each track is open, done or not applicable and shows as a chip on the card.</p>
           <ul className="mt-2 flex flex-col gap-1.5">
-            {tracks.map((t) => (
+            {tracks.map((t, i) => (
               <li key={t.key} className="flex items-center gap-2">
-                <span className="flex-1 truncate text-sm text-fg-secondary">{t.name}{t.fieldId === undefined && <span className="ml-1 text-xs text-fg-tertiary">(new)</span>}</span>
-                <button type="button" className={REMOVE} data-focus-key={`track-remove-${t.key}`} aria-label={`Remove track ${t.name}`} onClick={() => removeTrack(t.key)}>Remove</button>
+                <input
+                  aria-label={`Track ${i + 1} name${t.fieldId === undefined ? " (new)" : ""}`}
+                  data-focus-key={`track-input-${t.key}`}
+                  value={t.name}
+                  maxLength={100}
+                  aria-invalid={trackInvalid(t) || undefined}
+                  aria-describedby={trackInvalid(t) && trackError ? `${uid}-trackerr` : undefined}
+                  onChange={(e) => setTracks((prev) => prev.map((r) => (r.key === t.key ? { ...r, name: e.target.value } : r)))}
+                  className={INPUT}
+                />
+                {t.fieldId === undefined && <span className="shrink-0 text-xs text-fg-tertiary">New</span>}
+                <button type="button" className={REMOVE} data-focus-key={`track-remove-${t.key}`} aria-label={`Remove track ${t.name.trim() || i + 1}`} onClick={() => removeTrack(t.key)}>Remove</button>
               </li>
             ))}
           </ul>
+          {trackError && <p id={`${uid}-trackerr`} className="mt-1 text-xs text-danger" role="alert">{trackError}</p>}
           <div className="mt-2 flex items-center gap-2">
             <input
               aria-label="New track name"
@@ -344,7 +449,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
               <button type="button" className={`${LINK_BUTTON} shrink-0`} disabled={!existingPick} onClick={addExistingTrack}>Add</button>
             </div>
           )}
-          <p className="mt-1 text-xs text-fg-tertiary">Removing a track only takes it off this stage. The field and its values stay.</p>
+          <p className="mt-1 text-xs text-fg-tertiary">Removing a track only takes it off this stage. The field and its values stay. Renaming a track renames its field everywhere it is used.</p>
         </section>
 
         {tracks.length > 0 && (
@@ -379,6 +484,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           </section>
         )}
       </fieldset>
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
 
       {footerTarget === undefined
         ? <div className="flex justify-end">{footer}</div>

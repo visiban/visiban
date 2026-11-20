@@ -181,7 +181,7 @@ export default function PhoneBoard({
   const [addError, setAddError] = useState<string | null>(null);
   const [editingLane, setEditingLane] = useState<number | null>(null);
   // Which tab EditColumnModal opens on, or null when closed; "policy" comes from the policy popover's Edit.
-  const [editTab, setEditTab] = useState<"settings" | "policy" | null>(null);
+  const [editTab, setEditTab] = useState<"settings" | "policy" | "stage" | null>(null);
   const [policyRect, setPolicyRect] = useState<DOMRect | null>(null);
   const policyTriggerRef = useRef<HTMLButtonElement>(null);
   const closePolicy = useCallback(() => setPolicyRect(null), []);
@@ -426,7 +426,7 @@ export default function PhoneBoard({
         </div>
       )}
       {isAdmin && columnActionsOpen && (
-        // One more column action (e.g. Stage settings) slots in here as another ACTION_BTN.
+        // Column actions: Edit column, and a direct way to Stage settings (#2368), the Edit column modal's Stage tab.
         <div id={`${uid}-column-actions`} className="flex flex-wrap gap-2" data-testid="phone-column-actions-menu">
           <button
             type="button"
@@ -436,6 +436,16 @@ export default function PhoneBoard({
             className={ACTION_BTN}
           >
             Edit column
+          </button>
+          <button
+            type="button"
+            data-testid="phone-column-stage-settings"
+            aria-label={`Stage settings for ${column.name}`}
+            aria-haspopup="dialog"
+            onClick={() => setEditTab("stage")}
+            className={ACTION_BTN}
+          >
+            Stage settings
           </button>
           {canReorderColumns && (
             <>
@@ -703,7 +713,7 @@ export default function PhoneBoard({
           swimlanes={allSwimlanes}
           customFieldDefinitions={customFieldDefinitions}
           cards={columnCards}
-          initialTab={editTab === "policy" ? "policy" : undefined}
+          initialTab={editTab === "settings" ? undefined : editTab}
           onUpdated={(updated) => { onColumnUpdated(updated); setEditTab(null); }}
           onRequestDelete={onRequestDeleteColumn}
           onClose={() => setEditTab(null)}

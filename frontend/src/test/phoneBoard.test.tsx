@@ -354,6 +354,21 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
     expect(screen.getByTestId('col-tab')).toHaveTextContent('policy')
   })
 
+  it('opens Stage settings straight from the column actions for admins only (#2368)', async () => {
+    const user = userEvent.setup()
+    setup({ isAdmin: true, onColumnUpdated: vi.fn(), onRequestDeleteColumn: vi.fn(), columns: [col(1, 'Prospect')], swimlanes: lanes })
+    const btn = screen.getByTestId('phone-column-stage-settings')
+    expect(btn).toHaveAccessibleName('Stage settings for Prospect')
+    expect(btn.className).toContain('min-h-11')
+    await user.click(btn)
+    expect(screen.getByTestId('col-tab')).toHaveTextContent('stage')
+  })
+
+  it('offers no Stage settings shortcut to non-admins (#2368)', () => {
+    setup({ isAdmin: false, columns: [col(1, 'Prospect')], swimlanes: lanes })
+    expect(screen.queryByTestId('phone-column-stage-settings')).not.toBeInTheDocument()
+  })
+
   it('shows the weight budget when over it and the hard-limit glyph on an over hard limit', async () => {
     const user = userEvent.setup()
     setup({
