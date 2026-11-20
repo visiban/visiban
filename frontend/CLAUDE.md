@@ -1944,3 +1944,9 @@ A parent card's children all live on **one** board, and no UI path may split the
 - **A refusal is the server's `children_on_other_board` code**, rendered as its message; the client never pre-filters it away silently.
 - **Different parents on one board may use different child boards** (#2206 decision D): the rule is per parent, not per board.
 
+
+### Tokens must exist in `tailwind.config.js` (#2208)
+
+An unknown utility such as `text-warning-text`, `text-primary-text` or `bg-primary-bg` compiles to nothing: no build error, no test failure, and the control silently loses its color or fill. Before using a semantic token in new code, confirm it is in `tailwind.config.js` `theme.extend.colors`. Warning text on a tint is `text-warning-on-tint`; link text is `text-info`; a primary fill is `bg-button-primary hover:bg-button-primary-hover`.
+
+A full-screen phone sheet's footer buttons and text inputs carry `max-sm:min-h-11`; the desktop `py-1.5` size is not enough below 640px.
