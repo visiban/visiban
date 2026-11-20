@@ -1086,6 +1086,8 @@ def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=N
     def rest(card_id, history):
         created_at, archived_at, column_uid = cards.pop(card_id)
         live, _ = _live_rows(history, now)
+        # Only created_at, archived_at and column_uid are real: they are all
+        # _replay_placements reads (RangeNarrowingEquivalenceTests pins it).
         stub = CardFlow(
             id=card_id, uid="", title="", swimlane_id=0, assignee_id=None, created_at=created_at,
             archived_at=archived_at, blocked_at=None, column_uid=column_uid,

@@ -194,3 +194,22 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
             fm.cumulative_flow(narrowed, flow_range),
             fm.cumulative_flow(fm.load_board_flow(self.board, now=self.now), flow_range),
         )
+
+    def test_another_boards_cards_stay_out_of_both_loads(self):
+        """The range load and the folded skipped cards read only this board's cards."""
+        from boards.models import Board, Swimlane
+
+        self.path(self.backlog, 300, self.doing, 200, self.done, 150, archived=140)
+        other = Board.objects.create(name="Other", owner=self.user)
+        other_done = Column.objects.create(board=other, name="Done", position=0, is_done=True)
+        other_lane = Swimlane.objects.create(board=other, name="L", position=0)
+        for days in (3, 300):
+            card = Card.objects.create(
+                board=other, column=other_done, swimlane=other_lane, title="x", created_by=self.user, position=0,
+            )
+            Card.objects.filter(pk=card.pk).update(created_at=self.ago(days), archived_at=self.ago(days - 1))
+            self.row(card, None, other_done, days)
+        flow_range = fm.rolling_range(30, now=self.now)
+        flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
+        self.assertEqual(flow.cards, [])
+        self.assertEqual(flow.settled_placements, {self.done.uid: 1})

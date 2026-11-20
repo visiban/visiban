@@ -1250,7 +1250,7 @@ class BoardAnalyticsMixin:
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
         # Load cards within the analysis window and their movements in two
-        # queries (cards + prefetch), then group by swimlane to avoid
+        # queries (cards + buffered movements), then group by swimlane to avoid
         # O(swimlanes) extra card+movement queries.
         # Include cards archived within the window so their dwell-time data
         # contributes to the heatmap.  Cards archived before the window would
@@ -1259,10 +1259,10 @@ class BoardAnalyticsMixin:
         # regardless of the period window, so we load the union.
         #
         # Three per-card movement aggregates are annotated at the SQL level so
-        # the movement prefetch can be scoped to a bounded window without losing
+        # the movement query can be scoped to a bounded window without losing
         # velocity and stall-detection data that may predate the window. All
         # three are correlated subqueries compiled into the main SELECT — no
-        # extra round-trips to the database (still 2 queries: cards + prefetch).
+        # extra round-trips to the database (still 2 queries: cards + movements).
         buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
         _last_mv_qs = _mv_qs.order_by("-moved_at", "-id")
@@ -1280,14 +1280,14 @@ class BoardAnalyticsMixin:
                 # Most-recent movement timestamp — used for stall detection.
                 _last_moved_at=Subquery(_last_mv_qs.values("moved_at")[:1]),
                 # Most-recent movement destination — mirrors movements[-1].to_column_id
-                # so stall detection works even for cards stalled before the prefetch window.
+                # so stall detection works even for cards stalled before the movement buffer.
                 _last_col_id=Subquery(_last_mv_qs.values("to_column_id")[:1]),
                 # First-ever movement timestamp — used for velocity so cycle time is
                 # measured from origin rather than from the window start.
                 _first_moved_at=Subquery(
                     _mv_qs.order_by("moved_at").values("moved_at")[:1]
                 ),
-                # The column the card was in when the movement prefetch window opens
+                # The column the card was in when the movement buffer opens
                 # (its last movement before the buffer). Seeds the frozen clamped
                 # dwell for a column entered before the buffer (#2295). NULL when
                 # the card had no earlier movement.
@@ -1335,7 +1335,7 @@ class BoardAnalyticsMixin:
 
             for card in cards:
                 # The card's buffer movements from the query above, already
-                # ordered by moved_at at the DB level. The prefetch is scoped to a 2× window
+                # ordered by moved_at at the DB level. The query is scoped to a 2× window
                 # buffer — movements contains only entries from period_cutoff - days onward.
                 movements = card._analytics_movements
 
