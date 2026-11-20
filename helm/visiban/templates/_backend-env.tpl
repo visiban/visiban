@@ -142,6 +142,11 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   value: {{ (hasKey $ctx.Values.backend.settings "attachmentMaxPerCard" | ternary $ctx.Values.backend.settings.attachmentMaxPerCard 100) | int64 | quote }}
 - name: ATTACHMENT_MAX_BYTES_PER_CARD
   value: {{ (hasKey $ctx.Values.backend.settings "attachmentMaxBytesPerCard" | ternary $ctx.Values.backend.settings.attachmentMaxBytesPerCard 1073741824) | int64 | quote }}
+- name: COMMENT_MAX_PER_CARD
+  {{- /* #2376. hasKey, not `default`, as for the attachment quotas: 0 (no limit) is a real value. */}}
+  value: {{ (hasKey $ctx.Values.backend.settings "commentMaxPerCard" | ternary $ctx.Values.backend.settings.commentMaxPerCard 1000) | int64 | quote }}
+- name: CHECKLIST_MAX_ITEMS_PER_CARD
+  value: {{ (hasKey $ctx.Values.backend.settings "checklistMaxItemsPerCard" | ternary $ctx.Values.backend.settings.checklistMaxItemsPerCard 500) | int64 | quote }}
 {{- with $ctx.Values.backend.settings.attachmentUploadRate }}
 - name: ATTACHMENT_THROTTLE_UPLOAD_RATE
   value: {{ . | quote }}

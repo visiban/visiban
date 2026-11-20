@@ -1669,25 +1669,44 @@ def lock_cards_for_cascade(cards, *, entry_columns=None, boards=None):
     changes between attempts. No path takes a board-row lock after a card or
     column lock (``docs/architecture/service-layer.md`` lists the order).
 
+    Link peers (#2409). The delete then records the unlink on each surviving
+    parent/child link peer (``card_links.announce_cards_removal``), whose
+    history insert takes a key-share lock on the peer card, while a link
+    write holds both its cards in pk order. Holding the container's cards
+    first and a peer second deadlocked against a link write naming the pair
+    the other way round. So the card statement locks the container's cards
+    **and** their link peers (``card_links.link_peer_pks``) together, in the
+    one pk-ordered statement, the order every link write and
+    ``lock_card_and_link_peers`` take. The peers are read before the lock, so
+    the re-read after the locks checks them too: a link committed in between
+    is a mismatch, rolled back and retried like a card that entered. Once
+    the container's cards are held no new link can name one of them. With no
+    links the statement is the plain card lock, unchanged.
+
     The retry needs a transaction to roll back into, so with
     ``entry_columns`` or ``boards`` the helper refuses to run outside one
     (``RuntimeError``) rather than silently committing its locks away.
+    Without them and outside a transaction (where the locks end with the
+    statement anyway) the cards and peers are locked once, without the
+    re-read.
     """
-    if (entry_columns is not None or boards is not None) and not (
-        transaction.get_connection().in_atomic_block
-    ):
+    in_atomic = transaction.get_connection().in_atomic_block
+    if (entry_columns is not None or boards is not None) and not in_atomic:
         raise RuntimeError("lock_cards_for_cascade must run inside transaction.atomic()")
     if boards is not None:
         _lock_cascade_boards(boards)
-    if entry_columns is None:
+    if not in_atomic:
         _lock_cascade_cards(cards)
         return
+    from .card_links import link_peer_pks
+
     for _attempt in range(_CASCADE_LOCK_ATTEMPTS):
         try:
             with transaction.atomic():
                 locked = _lock_cascade_cards(cards)
-                _lock_entry_columns(entry_columns)
-                if not _cascade_card_pks(cards) <= locked:
+                if entry_columns is not None:
+                    _lock_entry_columns(entry_columns)
+                if not (_cascade_card_pks(cards) | link_peer_pks(cards)) <= locked:
                     raise _ContainerGainedCard()
             return
         except _ContainerGainedCard:
@@ -1750,7 +1769,20 @@ def _lock_cascade_boards(boards):
 
 
 def _lock_cascade_cards(cards):
-    """The card-row statement of ``lock_cards_for_cascade``; returns the pks."""
+    """The card-row statement of ``lock_cards_for_cascade``; returns the pks.
+
+    The container's cards and their link peers in one statement (#2409); a
+    container with no links runs the plain statement on ``cards``.
+    """
+    from .card_links import link_peer_pks
+
+    peers = link_peer_pks(cards)
+    if peers:
+        # One materialized pk list, not ``pk IN (subquery) OR pk IN (list)``,
+        # which PostgreSQL cannot drive from the pk index (a scan of the whole
+        # card table under FOR UPDATE). A card that enters the container after
+        # this read is caught by the caller's re-read and retry.
+        cards = Card.objects.filter(pk__in=sorted(_cascade_card_pks(cards) | peers))
     return frozenset(
         cards.order_by("pk").select_for_update(of=("self",)).values_list("pk", flat=True)
     )

@@ -30,6 +30,7 @@ from .services.cards import (
 from .services.card_links import announce_cards_removal, lock_card_and_link_peers
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
+    LinksChanged,
     LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
     SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded, WipHardBlocked, WipLimitExceeded,
 )
@@ -229,7 +230,12 @@ class CardAdminForm(forms.ModelForm):
             # Its parent/child link peers go first, in pk order with the card
             # (#2383): a move to another board unlinks them in save_model, and
             # a link write holds both cards in pk order.
-            lock_card_and_link_peers(original.pk)
+            try:
+                lock_card_and_link_peers(original.pk)
+            except LinksChanged as exc:
+                # Its links kept changing through every bounded retry (#2409):
+                # a form error to resubmit, not a 500.
+                raise ValidationError(exc.detail) from None
             current = lock_card_row(original.pk)
             if current is None:
                 raise ValidationError("This card was deleted while you were editing it.")
@@ -360,7 +366,7 @@ class CardAdminForm(forms.ModelForm):
 
 
 @admin.register(Card)
-class CardAdmin(admin.ModelAdmin):
+class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
     """Admin for Card that broadcasts mutations to connected WebSocket clients.
 
     Mutations made through the admin site bypass the REST viewset and its

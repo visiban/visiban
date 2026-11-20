@@ -14,7 +14,7 @@ from unittest import mock, skipUnless
 from django.conf import settings
 from django.contrib import admin as django_admin
 from django.core.cache import cache
-from django.db import connection, connections, transaction
+from django.db import OperationalError, connection, connections, transaction
 from django.test import RequestFactory, TestCase, TransactionTestCase
 from rest_framework.throttling import UserRateThrottle
 
@@ -221,7 +221,8 @@ class LinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
         self.assertFalse(CardParentLink.objects.exists())
 
     def test_card_without_links_locks_only_itself(self):
-        """No peers: the helper takes nothing, and the parent stays free."""
+        """No peers: the helper takes the card itself (#2409, so no link can
+        name it before the caller's own lock), and the parent stays free."""
         CardParentLink.objects.all().delete()
         from boards.services.card_links import lock_card_and_link_peers
 
@@ -230,12 +231,20 @@ class LinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
             results = {}
 
             def probe():
-                with transaction.atomic():
-                    return list(
-                        Card.objects.select_for_update(nowait=True)
-                        .filter(pk__in=[self.parent.pk, self.child.pk]).values_list("pk", flat=True)
-                    )
+                got = {}
+                for pk in (self.parent.pk, self.child.pk):
+                    try:
+                        with transaction.atomic():
+                            got[pk] = list(
+                                Card.objects.select_for_update(nowait=True)
+                                .filter(pk=pk).values_list("pk", flat=True)
+                            )
+                    except OperationalError:
+                        got[pk] = "locked"
+                return got
 
             t = self._run("probe", probe, results)
             t.join(HOLD_TIMEOUT)
-        self.assertEqual(sorted(results["probe"]), [self.parent.pk, self.child.pk])
+        self.assertEqual(
+            results["probe"], {self.parent.pk: [self.parent.pk], self.child.pk: "locked"},
+        )

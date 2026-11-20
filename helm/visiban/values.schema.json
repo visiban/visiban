@@ -156,6 +156,16 @@
               "type": "integer",
               "minimum": 0
             },
+            "commentMaxPerCard": {
+              "description": "COMMENT_MAX_PER_CARD — most comments one card may hold (#2376). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "checklistMaxItemsPerCard": {
+              "description": "CHECKLIST_MAX_ITEMS_PER_CARD — most checklist items one card may hold (#2376). 0 = no limit.",
+              "type": "integer",
+              "minimum": 0
+            },
             "attachmentUploadRate": {
               "description": "ATTACHMENT_THROTTLE_UPLOAD_RATE — per-user attachment upload rate, <n>/<second|minute|hour|day> (#2007). Empty = the backend default, 120/hour.",
               "type": "string",

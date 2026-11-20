@@ -277,7 +277,9 @@ class RestContainerDeleteVsCardEntryTests(_EntryRaceBase, TransactionTestCase):
     def test_column_lock_shape_cards_then_columns(self):
         """Board row FOR NO KEY UPDATE, then cards in one pk-ordered FOR
         UPDATE, then the entry columns in one pk-ordered FOR NO KEY UPDATE,
-        then a plain re-read: board -> card -> column, the documented order."""
+        then a plain re-read: board -> card -> column, the documented order.
+        The two unlocked link-peer reads (#2409) bracket the card lock: one
+        decides which peers join the card statement, one re-checks them."""
         with transaction.atomic(), CaptureQueriesContext(connection) as ctx:
             card_services.lock_cards_for_cascade(
                 Card.objects.filter(board=self.board),
@@ -288,8 +290,11 @@ class RestContainerDeleteVsCardEntryTests(_EntryRaceBase, TransactionTestCase):
             q["sql"] for q in ctx.captured_queries
             if not q["sql"].upper().startswith(("SAVEPOINT", "RELEASE"))
         ]
-        self.assertEqual(len(sqls), 4, sqls)
-        boards_sql, cards_sql, columns_sql, reread_sql = sqls
+        self.assertEqual(len(sqls), 6, sqls)
+        boards_sql, peers_sql, cards_sql, columns_sql, reread_sql, peers_reread_sql = sqls
+        for peer_read in (peers_sql, peers_reread_sql):
+            self.assertIn('FROM "card_parent_links"', peer_read)
+            self.assertNotIn(" FOR ", peer_read)
         # Board row first, FOR NO KEY UPDATE: conflicts with column create and
         # reorder, but not with the FOR KEY SHARE a card insert needs (#1602).
         self.assertIn('FROM "boards"', boards_sql)

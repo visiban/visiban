@@ -600,6 +600,23 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
         "ATTACHMENT_MAX_PER_CARD and ATTACHMENT_MAX_BYTES_PER_CARD must be 0 (no limit) or a positive number."
     )
 
+# Per-card caps on comments and checklist items (#2376), the follow-up to the
+# attachment quotas above: without them one member (or a leaked token) could
+# grow a single card's comments or checklist without bound, and with it the
+# card detail response and every change-feed row that copies the card. The
+# defaults are far above normal use so an existing install keeps working; 0
+# turns a cap off. Only new rows are refused (a card already over a cap keeps
+# what it has). Enforced under the card row lock in CardViewSet.comments and
+# CardViewSet.checklist, so two concurrent creates cannot both take the last
+# slot. Board import is not capped: it fills a board it is creating, and
+# Django admin adds are not capped either (site admins only).
+COMMENT_MAX_PER_CARD = env.int("COMMENT_MAX_PER_CARD", default=1000)
+CHECKLIST_MAX_ITEMS_PER_CARD = env.int("CHECKLIST_MAX_ITEMS_PER_CARD", default=500)
+if COMMENT_MAX_PER_CARD < 0 or CHECKLIST_MAX_ITEMS_PER_CARD < 0:
+    raise ImproperlyConfigured(
+        "COMMENT_MAX_PER_CARD and CHECKLIST_MAX_ITEMS_PER_CARD must be 0 (no limit) or a positive number."
+    )
+
 # Rate of the `attachment_upload` throttle scope (#2007): attachment uploads per
 # user, on top of the general `user` scope. Empty keeps the built-in default
 # (120/hour, or the DEBUG ceiling in development). Parsed strictly at startup,
@@ -1591,9 +1608,14 @@ SERIALIZER_FALLBACK_GUARD = "raise" if _TESTING else ("warn" if DEBUG else "off"
 
 # Enterprise settings include — the enterprise package may override or extend
 # any setting defined above (e.g. INSTALLED_APPS, MIDDLEWARE, REST_FRAMEWORK,
-# AUTHENTICATION_BACKENDS). If the enterprise package is not installed, this
-# block is silently skipped and the OSS defaults are used as-is.
+# AUTHENTICATION_BACKENDS). If the enterprise package (or its settings
+# module) is not installed, this block is skipped and the OSS defaults are
+# used as-is. A broken enterprise install (a missing dependency, a bad import)
+# is re-raised, not skipped, so its settings cannot vanish silently (#1753).
+from visiban.enterprise_imports import enterprise_module_missing  # noqa: E402
+
 try:
     from enterprise.settings import *  # type: ignore[import]  # noqa: F401,F403
-except ImportError:
-    pass
+except ModuleNotFoundError as exc:
+    if not enterprise_module_missing(exc, "enterprise.settings"):
+        raise

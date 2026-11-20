@@ -84,6 +84,23 @@ CONTAINER_CHANGED_409 = OpenApiResponse(
 )
 
 
+# The 409 a card DELETE answers when lock_card_and_link_peers exhausts its
+# retries because the card's parent/child links kept changing (#2409).
+LINKS_CHANGED_409 = OpenApiResponse(
+    description=(
+        "`links_changed` — the card's parent/child links kept changing while "
+        "it was being deleted. Nothing was deleted; retry."
+    ),
+    response=inline_serializer(
+        name="LinksChangedConflict",
+        fields={
+            "code": _drf_serializers.CharField(),
+            "detail": _drf_serializers.CharField(),
+        },
+    ),
+)
+
+
 def missing_limit_columns(board_id, column_ids):
     """The ids in a swimlane's ``limit_column_ids`` that are no longer columns
     of the board (#1150), read now.

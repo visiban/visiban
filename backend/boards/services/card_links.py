@@ -34,6 +34,7 @@ from visiban.exceptions import CodedValidationError
 from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Card, CardActivity, CardParentLink
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
+from .errors import LinksChanged
 
 #: Hard cap on the children of one parent (threat model: write amplification
 #: and rollup cost). Enforced under the parent card's row lock.
@@ -180,23 +181,71 @@ def lock_card_and_link_peers(card_id):
     Taken here first, the caller's later lock on its own card is one it
     already holds, so it queues behind a link write in the same order.
 
-    Call it before the caller's own card lock, inside its transaction. A card
-    with no links locks nothing here (the caller's own lock follows). The peer
-    set is read before the lock, so a link committed in the moment between
-    that read and the lock is not covered; the remaining residual is
-    recorded in ``docs/development/security-invariants.md`` (Rule 8).
+    Call it before the caller's own card lock, inside its transaction. The
+    card itself is always locked, links or not, so no link can be created on
+    it before the caller's own lock follows.
+
+    The peer set is read before the lock (a lock statement cannot name rows
+    it has not read), so a link committed between that read and the lock
+    would leave a peer unlocked (#2409). Once the card is held no new link can
+    name it (a link write locks both cards), so the peers are re-read under
+    the lock; if one is not among the rows locked, the attempt is rolled back
+    to a savepoint, which releases its row locks, and repeated, the shape of
+    ``services.cards.lock_cards_for_cascade``. Locking the newcomer in a
+    second statement instead would take a lower pk after a higher one. A card
+    whose links change on every one of ``_PEER_LOCK_ATTEMPTS`` attempts raises
+    ``LinksChanged`` (409) with nothing written. Outside a transaction the
+    locks would end with their own statement, so the helper refuses to run
+    (``RuntimeError``) rather than silently taking nothing (#1075).
     No-op on SQLite, as in :func:`_lock_endpoints`.
     """
     if not connection.features.has_select_for_update:
         return
-    pks = {card_id}
+    if not transaction.get_connection().in_atomic_block:
+        raise RuntimeError("lock_card_and_link_peers must run inside transaction.atomic()")
+    for _attempt in range(_PEER_LOCK_ATTEMPTS):
+        try:
+            with transaction.atomic():
+                locked = _lock_cards_in_pk_order({card_id} | link_peer_pks([card_id]))
+                if not link_peer_pks([card_id]) <= locked:
+                    raise _PeerSetChanged()
+            return
+        except _PeerSetChanged:
+            continue
+    raise LinksChanged()
+
+
+# How many times lock_card_and_link_peers re-takes its locks when a link
+# committed between its peer read and its lock (#2409). One retry covers the
+# ordinary race; the bound only exists so a card under constant relinking
+# ends in a 409, not a loop.
+_PEER_LOCK_ATTEMPTS = 3
+
+
+class _PeerSetChanged(Exception):
+    """Internal: a link to the card committed before its lock was granted."""
+
+
+def link_peer_pks(cards):
+    """The pks of both ends of every link that names a card in ``cards``.
+
+    ``cards`` is a ``Card`` queryset or an iterable of pks. Read without a
+    lock; the lock takers (:func:`lock_card_and_link_peers` and
+    ``services.cards.lock_cards_for_cascade``) call it once to decide what to
+    lock and again under the lock to check nothing was missed (#2409). The
+    result includes the linked cards of ``cards`` themselves.
+    """
+    pks = set()
     for parent_id, child_id in CardParentLink.objects.filter(
-        Q(parent_id=card_id) | Q(child_id=card_id)
+        Q(parent_id__in=cards) | Q(child_id__in=cards)
     ).values_list("parent_id", "child_id"):
         pks.update((parent_id, child_id))
-    if len(pks) == 1:
-        return
-    list(
+    return pks
+
+
+def _lock_cards_in_pk_order(pks):
+    """Lock ``pks`` ``FOR UPDATE`` in one pk-ordered statement; return the pks locked."""
+    return frozenset(
         Card.objects.select_for_update()
         .filter(pk__in=sorted(pks))
         .order_by("pk")
@@ -389,11 +438,10 @@ def announce_cards_removal(cards, *, actor=None):
     Django-admin ``delete_model``) takes the card and its peers in pk order
     first, with :func:`lock_card_and_link_peers`, so that key-share lock is
     covered by a lock it already holds. A container delete (column, swimlane,
-    board, the admin bulk deletes, the seed ``--wipe``) still holds its own
-    cards first and then touches the peers: against a concurrent unlink taking
-    the opposite order, PostgreSQL aborts one of the two transactions with a
-    deadlock error and neither commits a partial state. That is the remaining
-    named residual in ``docs/development/security-invariants.md``.
+    board, the admin bulk deletes, the seed ``--wipe``) takes its cards and
+    their link peers in one pk-ordered statement in
+    ``services.cards.lock_cards_for_cascade`` (#2409), so it holds every peer
+    too before this runs.
     """
     actor_id = getattr(actor, "id", None)
     links = list(
