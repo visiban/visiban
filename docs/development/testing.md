@@ -51,7 +51,7 @@ Mock API calls at the module boundary with Vitest (`vi.mock('../api/boards')`). 
 
 ## End-to-end tests (Playwright)
 
-E2E tests verify complete user flows against the real Vite dev server. All API calls are intercepted with `page.route()` so no Django backend or database is required — tests run anywhere Node and Chromium can.
+E2E tests verify complete user flows against a real Vite server: the dev server locally, and a `vite preview` production build in CI. All API calls are intercepted with `page.route()` so no Django backend or database is required — tests run anywhere Node and Chromium can.
 
 ### Running locally
 
