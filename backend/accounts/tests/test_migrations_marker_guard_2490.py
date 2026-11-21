@@ -44,7 +44,9 @@ class GuardWiringTests(SimpleTestCase):
     MARKED_FILE = "boards/tests/test_migration_0043_dedupe_1986.py"
 
     def _run(self, marker_expr):
-        env = {k: v for k, v in os.environ.items() if k != "DATABASE_URL"}
+        # Keep DATABASE_URL: settings.py requires it at import, and CI has no backend/.env to
+        # fall back on. No test runs in either case (usage error / all deselected), so no DB is touched.
+        env = dict(os.environ)
         return subprocess.run(  # noqa: S603 - fixed argv, no shell
             [sys.executable, "-m", "pytest", self.MARKED_FILE, "--nomigrations", "-m", marker_expr,
              "-p", "no:cacheprovider", "-q", "--no-header"],
