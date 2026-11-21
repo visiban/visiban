@@ -92,7 +92,7 @@ For any changed write operation (create, update, delete, move):
 Determine which suites to run based on what was touched:
 ```bash
 # Backend — run the specific app(s) touched
-docker compose exec backend python manage.py test <app> --verbosity=2
+docker compose exec backend pytest <app> -q
 
 # Frontend — run all (Vitest is fast; isolation is cheap)
 cd frontend && npx vitest run
