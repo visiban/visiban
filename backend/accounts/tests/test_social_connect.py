@@ -235,6 +235,17 @@ class EmailCollisionRoutingTests(TestCase):
         ]
         self.assertIsNone(pre_social_login(request, sociallogin))
 
+    def test_first_verified_address_selection_parses_flag_strictly(self):
+        """With no primary, the first address whose flag is a boolean True is used."""
+        User.objects.create_user(username="finn", email="finn@example.com", password="testpassword123")
+        request = _request()
+        sociallogin = _sociallogin(request, "unused@example.com")
+        sociallogin.email_addresses = [
+            EmailAddress(email="finn@example.com", verified="false", primary=False),
+            EmailAddress(email="fresh@example.com", verified=True, primary=False),
+        ]
+        self.assertIsNone(pre_social_login(request, sociallogin))
+
     def test_deactivated_account_is_not_revealed(self):
         User.objects.create_user(
             username="gone", email="gone@example.com", password="testpassword123", is_active=False
