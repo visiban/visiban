@@ -437,6 +437,34 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.getByRole('switch', { name: 'Hard mode (no admin override)' })).toHaveFocus()
   })
 
+  it('Confirm on the hard WIP prompt enables hard mode and closes the prompt (#2503)', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+
+    await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+    expect(onUpdate).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenCalledWith({ enforce_wip_hard: true })
+    expect(screen.queryByText(/^Enable hard mode\?/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
+  it('switching hard mode off sends enforce_wip_hard: false without a prompt (#2503)', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    const hardBoard: BoardFull = { ...fakeBoard, enforce_wip_hard: true }
+    render(<BoardSettingsModal currentUserId={null} board={hardBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+
+    await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenCalledWith({ enforce_wip_hard: false })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
   it('shows empty state "No members yet." when members=[]', () => {
     const emptyBoard: BoardFull = { ...fakeBoard, members: [] }
     render(<BoardSettingsModal currentUserId={null} board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)
