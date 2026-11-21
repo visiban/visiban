@@ -4412,9 +4412,9 @@
 <td>120 uploads/hour per user, alongside <code>user</code> <em>(since 1.3)</em>; <code>ATTACHMENT_THROTTLE_UPLOAD_RATE</code> changes it</td>
 </tr>
 <tr>
-<td><code>POST</code>/<code>DELETE /api/v1/boards/{board_id}/cards/{id}/parent/</code>, <code>DELETE .../cards/{id}/children/{child_id}/</code></td>
+<td><code>POST</code>/<code>DELETE /api/v1/boards/{board_id}/cards/{id}/parent/</code>, <code>POST .../cards/{id}/children/</code> (Add child), <code>DELETE .../cards/{id}/children/{child_id}/</code></td>
 <td><code>card_link_write</code></td>
-<td>300 link writes/hour per user, shared by the three, alongside <code>user</code> <em>(since 1.3)</em>; <code>CARD_LINK_THROTTLE_WRITE_RATE</code> changes it</td>
+<td>300 link writes/hour per user, shared by the four, alongside <code>user</code> <em>(since 1.3)</em>; <code>CARD_LINK_THROTTLE_WRITE_RATE</code> changes it</td>
 </tr>
 </tbody>
 </table>

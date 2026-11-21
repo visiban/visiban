@@ -2636,6 +2636,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-apiv1boardsboard_idcardsidchildren" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{board_id}/cards/{id}/children/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsboard_idcardsidchild-board-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{board_id}/cards/{id}/child-board-options/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6220,7 +6242,7 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 <tr>
 <td><code>system</code></td>
-<td><code>archived</code>, <code>reactivated</code>, and since 1.3 <code>parent_linked</code>, <code>parent_unlinked</code>, <code>child_linked</code>, <code>child_unlinked</code> (#1104)</td>
+<td><code>archived</code>, <code>reactivated</code>, and since 1.3 <code>parent_linked</code>, <code>parent_unlinked</code>, <code>child_linked</code>, <code>child_unlinked</code> (#1104), <code>children_removed_board_deleted</code>, <code>parent_removed_board_deleted</code> (#2208)</td>
 </tr>
 </tbody>
 </table>
@@ -6736,8 +6758,8 @@ one. The rules:</p>
   Deleting either card deletes the link.</li>
 <li>Links are not exported or imported, and the <a href="../boards/">public share link</a>
   shows none of this.</li>
-<li><strong>Rate limit.</strong> The three link writes below (link, child-side unlink,
-  parent-side unlink) share a per-user limit, the <code>card_link_write</code> throttle
+<li><strong>Rate limit.</strong> The four link writes below (link, Add child, child-side
+  unlink, parent-side unlink) share a per-user limit, the <code>card_link_write</code> throttle
   scope (default 300 per hour, <code>CARD_LINK_THROTTLE_WRITE_RATE</code>), on top of the
   general per-user API limit. Over it, a write gets <code>429 Too Many Requests</code>
   with a <code>Retry-After</code> header and changes nothing. Reading children does not
@@ -6796,6 +6818,54 @@ Query: <code>offset</code> (pages of 50).</p>
 </code></pre></div>
 <p>When you cannot open the child board, <code>visible</code> is <code>false</code>, <code>results</code> is empty
 and only <code>count</code> is given: no title, board, column or id.</p>
+<h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
+<p><strong>Add child</strong> (#2208): create a new card on another board and link it under
+this card, in one request and one transaction. Body:
+<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;"}</code>. The card goes in that board's first
+column (which must allow card creation) and first lane, and that cell's WIP
+and weight limits apply as for any create. <code>201</code> returns the new card, as
+<code>POST .../cards/</code> does.</p>
+<ul>
+<li><strong>Roles:</strong> <code>member</code> or higher on both boards. A viewer or collaborator on
+  this card's board gets <code>403</code> before the body is read.</li>
+<li><strong>Target:</strong> a <code>board_id</code> that does not exist, one you cannot open, one where
+  you are below <code>member</code>, one whose cards can have children, one whose first
+  column does not allow card creation, and this card's own board all answer the
+  same <code>404</code>.</li>
+<li><strong>Rules:</strong> the same <code>400</code> codes as linking (<code>link_not_allowed</code>,
+  <code>parent_is_child</code>, <code>children_on_other_board</code>, <code>children_limit</code>), decided
+  under the same locks. A parent's children always stay on one board, so once
+  it has a child, Add child only accepts that board. A blank or missing
+  <code>title</code> is <code>400</code> (keyed <code>title</code>). Nothing is created when it is refused.</li>
+<li><strong>Limits:</strong> a hard WIP or weight limit on the target cell answers <code>409</code>
+  (<code>wip_hard_blocked</code>, <code>wip_limit_exceeded</code>, <code>weight_limit_exceeded</code>, and the
+  <code>swimlane_*</code> forms), with the same body as <code>POST .../cards/</code>.</li>
+<li><strong>Events:</strong> <code>card.created</code> on the child's board, plus the same ids-only
+  <code>card.children_changed</code> and <code>card.parent_changed</code> pings as a link.</li>
+</ul>
+<h3 id="get-apiv1boardsboard_idcardsidchild-board-options"><code>GET /api/v1/boards/{board_id}/cards/{id}/child-board-options/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidchild-board-options" title="Permanent link">&para;</a></h3>
+<p>Where Add child may put a new child of this card, computed for you (#2208).
+Any role on this card's board.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="p">{</span><span class="nt">"fixed_board"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a><span class="w"> </span><span class="nt">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">},</span>
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a><span class="w"> </span><span class="nt">"boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}]}</span>
+</code></pre></div>
+<ul>
+<li><code>fixed_board</code>: the board this card's children are already on, as
+  <code>{"hidden": false, "id", "name", "can_add"}</code>, or <code>{"hidden": true}</code> when you
+  cannot open it (Add child is then unavailable to you). <code>can_add</code> is false when
+  you are below <code>member</code> there or its first column no longer allows card
+  creation: Add child would be refused, so the dialog disables it. <code>null</code> when it has no children.</li>
+<li><code>default</code>: the board's <a href="../boards/"><code>default_child_board</code></a>, only when you are
+  <code>member</code> or higher there and it still qualifies; otherwise <code>null</code>, and the
+  client asks which board to use.</li>
+<li><code>boards</code>: every board where you are <code>member</code> or higher whose cards cannot
+  have children and whose first column allows card creation, by name.
+  <code>can_set_default</code> is true when you administer both boards.</li>
+<li><code>can_set_default</code> (top level): you administer this card's board.</li>
+</ul>
+<p>Empty lists and <code>null</code>s when this card's board cannot have children.</p>
 <h3 id="delete-apiv1boardsboard_idcardsidchildrenchild_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" title="Permanent link">&para;</a></h3>
 <p>Unlink one child from this parent. <code>member</code> or higher on the parent's board,
 and a role on the child's board. A child id that is not linked to this parent,
@@ -6848,7 +6918,12 @@ with <code>detail</code> and <code>code: "invalid_query_param"</code>:</p>
 <h3 id="history-and-real-time">History and real-time<a class="headerlink" href="#history-and-real-time" title="Permanent link">&para;</a></h3>
 <p>Both cards record <code>parent_linked</code> / <code>child_linked</code> (and <code>parent_unlinked</code> /
 <code>child_unlinked</code>) in their <a href="#history">history</a>, with <code>from_value</code> and
-<code>to_value</code> blank: a history row never names the other card, not even by id. Each link change publishes <code>card.children_changed {parent_id}</code> on the
+<code>to_value</code> blank: a history row never names the other card, not even by id.
+When the other end's whole board is deleted, the surviving card records
+<code>children_removed_board_deleted</code> instead (on a parent; <code>to_value</code> is how many
+children it lost, as a number) or <code>parent_removed_board_deleted</code> (on a child,
+values blank). Neither stores the deleted board's name, so every reader sees
+"N children removed: their board was deleted" (#2208). Each link change publishes <code>card.children_changed {parent_id}</code> on the
 parent's board and <code>card.parent_changed {card_ids}</code> on the child's board, both
 ids only. <code>card.parent_changed</code> is also sent when a parent is renamed, moved to
 another column or lane, archived or restored. See <a href="../websockets/">WebSockets</a>.</p>
@@ -6879,7 +6954,7 @@ affects the card's own due date, urgency or staleness.</p>
 <p>Add a checklist item. <strong>Minimum role: Collaborator.</strong> Returns <code>404 Not Found</code> if the card was deleted concurrently; nothing is saved.</p>
 <p><strong>Request</strong> <code>{ "text": "Write tests" }</code></p>
 <p><strong>Error response (card checklist cap reached)</strong> — <code>400 Bad Request</code> <em>(since 1.3)</em>. A card holds at most <code>CHECKLIST_MAX_ITEMS_PER_CARD</code> checklist items (default 500, operator-configurable; see <a href="../../administration/configuration/#comment-and-checklist-limits">Comment and checklist limits</a>). The item that would go past it is refused and nothing is stored; deleting an item makes room.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"checklist_quota_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This card already has the maximum of 500 checklist items. Delete one to add another."</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"checklist_quota_exceeded"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This card already has the maximum of 500 checklist items. Delete one to add another."</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="patch-apiv1boardsboard_idcardsidchecklistitem_id"><code>PATCH /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/</code><a class="headerlink" href="#patch-apiv1boardsboard_idcardsidchecklistitem_id" title="Permanent link">&para;</a></h3>
 <p>Update an item (e.g. check/uncheck). <strong>Minimum role: Collaborator.</strong></p>
@@ -6948,15 +7023,15 @@ affects the card's own due date, urgency or staleness.</p>
 </tbody>
 </table>
 <p><strong>Example response</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="p">{</span>
-<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">,</span>
-<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="w">  </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span>
-<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="w">  </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a><span class="w">  </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bob Jones"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a><span class="w">  </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-02"</span><span class="p">,</span>
-<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="p">{</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">,</span>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="w">  </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="w">  </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="w">  </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bob Jones"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="w">  </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-02"</span><span class="p">,</span>
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="w">  </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span><span class="w"> </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="gated-stages-and-gate-transitions-13-1102">Gated stages and gate transitions (1.3, #1102)<a class="headerlink" href="#gated-stages-and-gate-transitions-13-1102" title="Permanent link">&para;</a></h2>
 <p><strong>Stability:</strong> new in 1.3. The fields below are additive; the <code>stage</code> action is a first-release surface and may gain optional keys in a minor release, but no existing key will change meaning.</p>
@@ -6984,7 +7059,7 @@ affects the card's own due date, urgency or staleness.</p>
 </tbody>
 </table>
 <p>An invalid value (a boolean, a non-integer, a negative number, past the column's last sub-column, or above <code>0</code> on a column with no sub-columns) is a <code>400</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_gates_passed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gates_passed must be between 0 and 2 for this column."</span><span class="p">,</span><span class="w"> </span><span class="nt">"max_gates_passed"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"invalid_gates_passed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gates_passed must be between 0 and 2 for this column."</span><span class="p">,</span><span class="w"> </span><span class="nt">"max_gates_passed"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">}</span>
 </code></pre></div>
 <p>A non-integer omits <code>max_gates_passed</code>. Every gate change bumps the card's <code>version</code>. When a move crosses a gate the response (and the <code>card_moved</code> WebSocket event, and the MCP <code>move_card</code> result) carries <code>gate_transitions</code>, a list of:</p>
 <table>
@@ -7038,11 +7113,11 @@ affects the card's own due date, urgency or staleness.</p>
 </ul>
 <h3 id="put-apiv1boardsboard_idcolumnscolumn_idstage"><code>PUT /api/v1/boards/{board_id}/columns/{column_id}/stage/</code><a class="headerlink" href="#put-apiv1boardsboard_idcolumnscolumn_idstage" title="Permanent link">&para;</a></h3>
 <p>Board admins only (<code>403</code> for members, <code>404</code> for callers without board access). Saves sub-columns, tracks and lane exceptions in one transaction. Every key is optional; an omitted key is unchanged.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="p">{</span>
-<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a><span class="w">  </span><span class="nt">"sub_columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Ready to pull"</span><span class="p">}],</span>
-<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a><span class="w">  </span><span class="nt">"tracks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">41</span><span class="p">,</span><span class="w"> </span><span class="mi">42</span><span class="p">],</span>
-<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a><span class="w">  </span><span class="nt">"not_applicable"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"swimlane_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">}]</span>
-<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="p">{</span>
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a><span class="w">  </span><span class="nt">"sub_columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Doing"</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Ready to pull"</span><span class="p">}],</span>
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a><span class="w">  </span><span class="nt">"tracks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">41</span><span class="p">,</span><span class="w"> </span><span class="mi">42</span><span class="p">],</span>
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a><span class="w">  </span><span class="nt">"not_applicable"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"swimlane_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">}]</span>
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><code>sub_columns</code>: <code>[]</code> (a plain column) or 2 to 4 entries. An entry with an <code>id</code> keeps and may rename that sub-column; one without is new. The list order is the new order: kept sub-columns may be reordered (#2368), but not in the same request that removes one: that returns <code>400</code> with <code>Reorder and remove sub-columns in separate saves</code>. A reordered sub-column keeps its cards: each card follows its own sub-column to its new index, passes no gate and writes no history, and appears in <code>remapped</code>. Removing a sub-column moves each card in it back to the nearest kept sub-column before it (or the first) and records a <code>stage_edited</code> gate transition for that card. A card that is only re-indexed, because a sub-column was inserted or removed ahead of the one it is in, keeps its sub-column, passes no gate and writes no history; it still appears in <code>remapped</code> with its new <code>gates_passed</code> and bumped <code>version</code>.</li>
@@ -7053,7 +7128,7 @@ affects the card's own due date, urgency or staleness.</p>
 <p>Archived cards in the column are remapped too, since they keep <code>gates_passed</code>. The remap writes its gate transitions in one insert and its cards in one update per target sub-column (at most four), so a save runs a constant number of queries however many cards the stage holds (#2362).</p>
 <h3 id="get-apiv1boardsboard_idcolumnscolumn_idstage-card-counts"><code>GET /api/v1/boards/{board_id}/columns/{column_id}/stage-card-counts/</code><a class="headerlink" href="#get-apiv1boardsboard_idcolumnscolumn_idstage-card-counts" title="Permanent link">&para;</a></h3>
 <p>Board admins only (<code>403</code> for members, <code>404</code> for callers without board access or an unknown column). New in 1.3 (#2368). The Stage settings panel reads it for its "N cards will move" summary, because a stage save also remaps archived cards, which the board payload does not carry.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="p">{</span><span class="nt">"sub_columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}]}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="p">{</span><span class="nt">"sub_columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span><span class="p">,</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"archived_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}]}</span>
 </code></pre></div>
 <p>One entry per sub-column, in order: <code>cards</code> counts active cards and <code>archived_cards</code> archived ones. A card whose <code>gates_passed</code> is past the last sub-column counts in the last. A plain column returns <code>[]</code>.</p>
 <h3 id="card-activity-custom_field_changed">Card activity: <code>custom_field_changed</code><a class="headerlink" href="#card-activity-custom_field_changed" title="Permanent link">&para;</a></h3>

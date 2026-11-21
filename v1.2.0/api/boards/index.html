@@ -3406,6 +3406,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Color values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#children-setting-blockers-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Children setting blockers (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-child-board-options-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default child board options (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-impact-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Delete impact (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -5928,14 +5967,19 @@
 <tr>
 <td><code>cards_can_have_children</code></td>
 <td>boolean</td>
-<td>Whether cards on this board can have child cards on another board: <code>true</code> for a parent-tier board, <code>false</code> (the default) for a child-tier board. The two-tier card hierarchy never lets a board be both. Readable by every board member; admin-only when writing (a non-admin <code>PATCH</code> is <code>403</code>). A change that would invalidate existing <a href="../cards/#parent-and-children-since-13">parent/child card links</a> is refused with <code>400</code> (keyed <code>cards_can_have_children</code>), here and in the Django admin (#1104). On the board payloads and <code>/full/</code> (read-only there), and on the <code>board.updated</code> <a href="../websockets/">WebSocket event</a> and change feed; not on the public share-link payload. Added in 1.3 (#2208).</td>
+<td>Whether cards on this board can have child cards on another board: <code>true</code> for a parent-tier board, <code>false</code> (the default) for a child-tier board. The two-tier card hierarchy never lets a board be both. Readable by every board member; admin-only when writing (a non-admin <code>PATCH</code> is <code>403</code>). A change that would invalidate existing <a href="../cards/#parent-and-children-since-13">parent/child card links</a> is refused with <code>400</code> (keyed <code>cards_can_have_children</code>), here and in the Django admin (#1104). Turning it on is also refused while another board names this one as its <code>default_child_board</code>, and turning it off clears this board's own <code>default_child_board</code> in the same write. <a href="#children-setting-blockers-since-13"><code>GET /boards/{id}/children-setting-blockers/</code></a> lists the reasons. On the board payloads and <code>/full/</code> (read-only there), and on the <code>board.updated</code> <a href="../websockets/">WebSocket event</a> and change feed; not on the public share-link payload. Added in 1.3 (#2208).</td>
+</tr>
+<tr>
+<td><code>default_child_board</code></td>
+<td>integer | null</td>
+<td>Id of the board where <strong>Add child</strong> on this board's cards creates the new child card, in that board's first column and first lane; <code>null</code> (the default) asks each time. A preference, not a link: setting, changing or clearing it never touches an existing parent/child link, and a parent whose children are already on another board keeps them there (one child board per parent). <strong>Setting</strong> it needs board admin on both boards, this board's <code>cards_can_have_children</code> on, and a target whose <code>cards_can_have_children</code> is off and whose first column allows card creation; an unknown id, a board you cannot open or do not administer, and a board that does not qualify all get the same <code>400</code> (<code>{"default_child_board": ["Unknown board, or not a board you administer that can take child cards."]}</code>). Re-sending the current value is a no-op, and <strong>clearing</strong> it (<code>null</code>) needs admin on this board only. Refused on <code>POST /boards/</code> (set it after creating the board). When the target board is deleted it becomes <code>null</code>. Id only, never a name. On the board payloads and <code>/full/</code> (read-only there), and on <code>board.updated</code>; not on the public share-link payload. Read-only in the Django admin. Added in 1.3 (#2208).</td>
 </tr>
 </tbody>
 </table>
 <p>The health fields are on every board payload: list, retrieve, create and update responses, <code>/full/</code>, <a href="../groups/#get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code></a>, <code>descendant-boards/</code> and its paged form, and the <code>board.created</code> / <code>board.updated</code> <a href="../websockets/">WebSocket events</a>. A list resolves every row's inherited value from one ancestor lookup for the whole page.</p>
 <h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Update board fields. <code>PUT</code> and <code>PATCH</code> are both accepted, and every field is optional in either. Requires board admin. <em>(1.3+, #2009)</em> A caller below admin gets <code>403</code> before the body is validated, so an invalid body no longer answers <code>400</code> with the field errors for them; a caller with no access to the board still gets <code>404</code>.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>lane_details_cap</code> (1.3+), <code>health_status</code> (1.3+), <code>health_review_days</code> (1.3+), <code>default_preset</code> (1.3+), <code>swimlane_rollup_field</code> (1.3+), <code>commitment_column_uid</code> (1.3+), <code>cards_can_have_children</code> (1.3+), <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>lane_details_cap</code> (1.3+), <code>health_status</code> (1.3+), <code>health_review_days</code> (1.3+), <code>default_preset</code> (1.3+), <code>swimlane_rollup_field</code> (1.3+), <code>commitment_column_uid</code> (1.3+), <code>cards_can_have_children</code> (1.3+), <code>default_child_board</code> (1.3+), <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
 <p><strong><code>group</code> on update:</strong> <a href="#post-apiv1boardsidmove-group"><code>POST /api/v1/boards/{id}/move-group/</code></a> is the preferred way to change it. Since 1.2, setting <code>group</code> to a different group requires admin of that group or of one of its ancestor groups (or a site admin with all-content access). Otherwise, or if the group does not exist, the request returns <code>400</code> with <code>{"group": ["Unknown group, or you are not an admin of it."]}</code> and changes nothing. The check runs against the board's group when the update is applied. Sending the current <code>group</code> unchanged (for example in an echoing <code>PUT</code>) or <code>null</code> (detach to a personal board) needs only board admin. Since 1.2, a <code>group</code> change made this way sends the same <a href="../websockets/#group-channel-since-11">group-channel events</a> as move-group: <code>board.deleted</code> to the old group and <code>board.created</code> to the new one.</p>
 <h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Delete a board. Requires the board owner or a user with <code>can_access_all_content</code> (the <code>site_admin</code> role). A board admin who is not the owner gets <code>403 Forbidden</code>; see the <a href="../../features/rbac/roles/">role matrix</a>. Deletes every card, <strong>including archived cards</strong> (see <code>archived_card_count</code> above).</p>
@@ -10015,6 +10059,37 @@ ordered by name, uncapped. <code>member</code> or higher on this board (<code>40
 <li>Board templates and Trello imports apply the same rule and fall back to the default.</li>
 <li>The Django admin forms for columns, swimlanes, and labels (superuser-only) apply the same rule: a non-hex color is refused with a field error, and an unchanged legacy value still saves.</li>
 </ul>
+<h3 id="children-setting-blockers-since-13">Children setting blockers (since 1.3)<a class="headerlink" href="#children-setting-blockers-since-13" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/v1/boards/{id}/children-setting-blockers/</code> — what stands in the way of changing <code>cards_can_have_children</code>, for the Board settings Rules page (#2208). <strong>Minimum role:</strong> board admin (or site admin); a member gets <code>403</code>, a user who cannot open the board <code>404</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="p">{</span>
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a><span class="w">  </span><span class="nt">"child_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a><span class="w">  </span><span class="nt">"parent_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a><span class="w">  </span><span class="nt">"default_of"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a><span class="w">    </span><span class="p">{</span><span class="nt">"hidden"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pipeline"</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_change"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">},</span>
+<a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a><span class="w">    </span><span class="p">{</span><span class="nt">"hidden"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+<a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>child_cards</code>: cards on this board that are children of cards on another board. Turning the setting <strong>on</strong> is refused while this is above 0.</li>
+<li><code>parent_cards</code>: cards on this board that have children. Turning the setting <strong>off</strong> is refused while this is above 0.</li>
+<li><code>default_of</code>: the boards whose <code>default_child_board</code> is this board. Turning the setting <strong>on</strong> is refused while it is not empty. A board you cannot open is <code>{"hidden": true}</code>, with no id or name; <code>can_change</code> is true when you administer that board.</li>
+</ul>
+<h3 id="default-child-board-options-since-13">Default child board options (since 1.3)<a class="headerlink" href="#default-child-board-options-since-13" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/v1/boards/{id}/default-child-board-options/</code> — the boards you may pick as this board's <code>default_child_board</code>, for the Board settings Rules select (#2208). <strong>Minimum role:</strong> board admin (or site admin); a member gets <code>403</code>, a user who cannot open the board <code>404</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="p">{</span><span class="nt">"boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">}]}</span>
+</code></pre></div>
+<p>Only boards where you are admin, whose cards cannot have children and whose first column allows card creation are listed: the same rule the <code>PATCH</code> applies, so the select never offers a board the write would refuse.</p>
+<h3 id="delete-impact-since-13">Delete impact (since 1.3)<a class="headerlink" href="#delete-impact-since-13" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/v1/boards/{id}/delete-impact/</code> — what deleting this board does to <a href="../cards/#parent-and-children-since-13">parent/child card links</a> on other boards, for the delete confirm (#2208). <strong>Minimum role:</strong> the delete's own gate, the board owner or a site admin; anyone else gets <code>403</code> (or <code>404</code> without access).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="p">{</span><span class="nt">"child_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent_boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pipeline"</span><span class="p">}],</span><span class="w"> </span><span class="nt">"hidden_parent_boards"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent_cards"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>child_cards</code>: this board's cards that are children of cards on other boards. Their parents lose them, and each parent records one <code>children_removed_board_deleted</code> history row whose <code>to_value</code> is how many it lost.</li>
+<li><code>parent_boards</code>: the boards those parents are on that you can open, by name. <code>hidden_parent_boards</code> is true when some are on boards you cannot open; those are never named or counted per board.</li>
+<li><code>parent_cards</code>: this board's cards that have children on other boards. The children stay as ordinary cards and record <code>parent_removed_board_deleted</code>.</li>
+</ul>
+<p>Deleting a board also clears <code>default_child_board</code> on every board that named it, and each of those boards gets a <code>board.updated</code> event.</p>
 
 
 

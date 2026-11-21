@@ -5299,7 +5299,7 @@ depend on whether a board id exists.</p>
 <tr>
 <td>Cross-board card links (#1104)</td>
 <td><code>boards/services/card_links.py</code> <code>resolve_card_for_user</code>; <code>boards/views/cards.py</code> <code>CardViewSet.child_detail</code></td>
-<td>A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same <code>NotFound</code>, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same <code>404</code> for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. The parent picker (<code>CardViewSet.parent_candidates</code>, <code>card_links.resolve_parent_board</code>) answers one <code>404</code> body for a <code>board</code> that does not exist, has no role or only a viewer/collaborator role for the caller, is not a parent board, or is the card's own board. It resolves the board through the same accessible-board set as <code>parent-boards/</code>, and every one of those cases runs the same one lookup and one role batch. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>test_missing_and_inaccessible_parent_ids_answer_identically</code>, <code>test_parent_side_unlink_without_child_board_role_is_the_missing_id_404</code>; <code>test_card_parent_field_1104.py</code> <code>test_every_unlinkable_board_is_the_same_404</code></td>
+<td>A card id from a request body that is missing, malformed, or on a board the caller has no role on raises the same <code>NotFound</code>, so the link lookup is not an oracle for cards on other boards. The parent-side unlink answers the same <code>404</code> for a child id not linked to the parent and for a child on a board the caller has no role on, and unlinks nothing. The parent picker (<code>CardViewSet.parent_candidates</code>, <code>card_links.resolve_parent_board</code>) answers one <code>404</code> body for a <code>board</code> that does not exist, has no role or only a viewer/collaborator role for the caller, is not a parent board, or is the card's own board. It resolves the board through the same accessible-board set as <code>parent-boards/</code>, and every one of those cases runs the same one lookup and one role batch. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>test_missing_and_inaccessible_parent_ids_answer_identically</code>, <code>test_parent_side_unlink_without_child_board_role_is_the_missing_id_404</code>; <code>test_card_parent_field_1104.py</code> <code>test_every_unlinkable_board_is_the_same_404</code>. Add child and the default child board (#2208) use the same shape: <code>card_links.resolve_child_board</code> (<code>CardViewSet.children</code> POST) answers one identical <code>404</code> for a <code>board_id</code> that is missing, unopenable, below <code>member</code>, not a qualifying child tier, or the card's own board; <code>CardViewSet.child_board_options</code> (<code>child-board-options/</code>) lists only boards the caller can open at <code>member</code> or higher and says nothing about the rest; and the <code>default_child_board</code> write refuses an unknown board and a board the caller does not administer with the single message <code>DEFAULT_CHILD_BOARD_NOT_ALLOWED_MSG</code>, so the refusal is not an oracle for a board's existence. Tests: <code>boards/tests/test_default_child_board_2208.py</code></td>
 </tr>
 </tbody>
 </table>
@@ -5377,7 +5377,8 @@ each surface that delivers them:</p>
   <code>test_absent_input_guards_1075.py</code> <code>CardParentAbsentInputTests</code>). To be
   re-decided (gated per recipient, or closed) by that date; #2210 (the
   parent/child progress rollup UI) is its open tracker. The threat model's other
-  three controls for these links are built (#2383): link writes have their own
+  three controls for these links are built (#2383): the four link writes (link,
+  Add child, both unlinks) have their own
   per-user throttle scope, <code>card_link_write</code> (<code>boards/views/cards.py</code>
   <code>CardLinkWriteThrottle</code>, <code>boards/tests/test_card_link_hardening_2383.py</code>),
   the children read has a query-count case at the 100-child cap
@@ -5980,6 +5981,11 @@ check.</p>
 <td>REST create</td>
 <td><code>boards/views/cards.py</code> <code>CardViewSet.create</code></td>
 <td><code>create_card</code>: <code>enforce_column_limits(..., swimlane=swimlane, lock=False)</code> after the column lock, inside the create transaction (a refusal rolls the insert back)</td>
+</tr>
+<tr>
+<td>REST Add child (#2208)</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.children</code> (POST)</td>
+<td><code>create_card</code> into the target board's first column and first lane: the same <code>enforce_column_limits</code> call as REST create, so a hard WIP limit answers <code>409</code> <code>wip_hard_blocked</code> and a soft one <code>409</code> for every role (no <code>force</code> on this endpoint); the link is written in the same transaction. Test: <code>boards/tests/test_default_child_board_2208.py</code> <code>test_hard_wip_limit_of_the_first_column_applies</code></td>
 </tr>
 <tr>
 <td>REST restore</td>
