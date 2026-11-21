@@ -220,8 +220,9 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 - **Keyboard:** the board is one Tab stop. Arrow keys move between cards (Left and Right skip columns with none of this card's children), Home and End go to the first or last card in the column, Enter opens the card on its own board, and Escape returns to the tab list.
 - **A child board you can't open:** the tab shows only "N children on a board you can't open". No title, board or column is shown.
 - **Archived children** leave the tab and its counts, and return when restored.
+- **Live updates:** when a child moves, is blocked or unblocked, archived, restored, linked or unlinked by someone else, the open tab re-reads its children. A screen reader hears the change once: "Pen-test scoping call moved to Doing. 3 of 5 done." for one move, "Children updated. 3 of 5 done." for anything else. The update itself names no card; the tab re-reads what you may see, so losing access to the child board turns the tab into the count-only line with nothing announced.
 
-Not yet built (follow-ups of #2209): the Parent filter on the child board (so **Open on Delivery** is not yet filtered to this parent), "Movement history of these children", the "Back to <parent>" header on a child opened from the tab, "Work moved 1d ago", and the remote-change announcement.
+Not yet built (follow-ups of #2209): "Movement history of these children", the "Back to <parent>" header on a child opened from the tab, and "Work moved 1d ago".
 
 ## Extension sections in card details
 

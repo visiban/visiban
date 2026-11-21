@@ -9,7 +9,7 @@ import { isImeComposing } from "../../utils/imeComposition";
 import Avatar from "../Common/Avatar";
 import AddChildDialog from "./AddChildDialog";
 import ChildCardPicker from "./ChildCardPicker";
-import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, type ChildrenState } from "./cardChildren";
+import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, describeChildrenChange, type ChildrenState } from "./cardChildren";
 
 type Segment = "done" | "doing" | "blocked" | "todo";
 
@@ -60,6 +60,11 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const [actionError, setActionError] = useState<string | null>(null);
   // After a write unmounts the focused control, focus goes back to the card (or Add child) once the re-read lands.
   const pendingFocus = useRef<number | "add" | null>(null);
+  // A re-read after this tab's own write is announced by that write; any other re-read (a
+  // `card.children_changed` ping, #2209 row 13) announces what changed, once.
+  const localWrite = useRef(false);
+  const prevData = useRef(data);
+  const reloadAfterWrite = () => { localWrite.current = true; reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -118,7 +123,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
       setAnnouncement(`Unlinked ${child.title}.`);
       const list = byColumn(child.column_id).filter((c) => c.id !== child.id);
       pendingFocus.current = list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add";
-      reload();
+      reloadAfterWrite();
     } catch {
       setActionError(`Couldn't unlink ${child.title}. Try again.`);
     }
@@ -137,7 +142,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
       setActiveId(child.id);
       pendingFocus.current = child.id;
       focusCard(child.id);
-      reload();
+      reloadAfterWrite();
     } catch (err) {
       const detail = axios.isAxiosError(err) ? (err.response?.data as { detail?: unknown } | undefined)?.detail : undefined;
       setMoveError(typeof detail === "string" ? detail : `Couldn't move ${child.title}. Try again.`);
@@ -173,6 +178,18 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const rovingId = children.some((c) => c.id === activeId && shownColumns.some((s) => s.id === c.column_id))
     ? activeId
     : shownColumns.flatMap((c) => byColumn(c.id))[0]?.id ?? null;
+
+  useEffect(() => {
+    const prev = prevData.current;
+    prevData.current = data;
+    if (localWrite.current) { localWrite.current = false; return; }
+    // Access to the child board lost: drop any title the live region still holds.
+    if (data && !data.visible) { setAnnouncement(""); return; }
+    const msg = describeChildrenChange(prev, data);
+    if (msg) setAnnouncement(msg);
+  }, [data]);
+  // A failed re-read leaves the data as it was; the next change is someone else's.
+  useEffect(() => { if (error) localWrite.current = false; }, [error]);
 
   useEffect(() => {
     const target = pendingFocus.current;
@@ -416,7 +433,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
             // Visible as well as announced: the default-not-set notice is the only word the user gets
             // that the checkbox's second write failed (#2208).
             setAnnouncement(`Added "${title}" to ${b}${defaultNotSet ? "; the default was not changed" : ""}.`);
-            reload();
+            reloadAfterWrite();
             queueMicrotask(() => addRef.current?.focus());
           }}
         />
@@ -431,7 +448,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           onLinked={(child) => {
             setLinkBoards(null);
             setAnnouncement(`Linked ${child.title}.`);
-            reload();
+            reloadAfterWrite();
             queueMicrotask(() => linkRef.current?.focus());
           }}
         />

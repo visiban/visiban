@@ -77,3 +77,30 @@ export function childrenCount(d: CardChildrenRead | null): number | undefined {
   return n > 0 ? n : undefined;
 }
 
+
+/**
+ * What to announce, politely and once, when the children re-read after a change made elsewhere (#2209 row 13,
+ * spec "Announcements"): one move reads "<title> moved to <column>. N of M done."; any other change, or several,
+ * reads "Children updated. N of M done.". Empty when nothing changed, on the first read, or when either read is
+ * not visible: a board the viewer cannot open never yields a title, column or state, only what the tab already
+ * shows (the `card.children_changed` frame itself carries ids only and is never read for content).
+ */
+export function describeChildrenChange(prev: CardChildrenRead | null, next: CardChildrenRead | null): string {
+  if (!prev?.visible || !next?.visible) return "";
+  const columns = next.board?.columns ?? [];
+  const before = new Map(prev.results.map((r) => [r.id, r]));
+  const nextIds = new Set(next.results.map((r) => r.id));
+  const moved = next.results.filter((r) => before.has(r.id) && before.get(r.id)!.column_id !== r.column_id);
+  const other =
+    next.results.some((r) => !before.has(r.id) || before.get(r.id)!.blocked !== r.blocked || before.get(r.id)!.title !== r.title)
+    || prev.results.some((r) => !nextIds.has(r.id));
+  if (moved.length === 0 && !other) return "";
+  const doneIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
+  const done = next.results.filter((r) => doneIds.has(r.column_id)).length;
+  const tally = `${done} of ${next.results.length} done.`;
+  if (moved.length === 1 && !other) {
+    const m = moved[0];
+    return `${m.title} moved to ${columns.find((c) => c.id === m.column_id)?.name ?? m.column_name}. ${tally}`;
+  }
+  return `Children updated. ${tally}`;
+}

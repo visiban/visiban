@@ -869,7 +869,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       else if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
     } else if (event.event === "card.children_changed") {
       const parentId = (d as { parent_id?: unknown }).parent_id;
-      if (typeof parentId === "number") refetchChildrenRollup(parentId);
+      if (typeof parentId === "number") {
+        refetchChildrenRollup(parentId);
+        // An ids-only ping (#2209 row 13): the open parent's Children tab re-reads over REST, where the
+        // server resolves what this viewer may see. Nothing from the frame is shown.
+        if (selectedCardIdRef.current === parentId) setChildrenRefreshTick((t) => t + 1);
+      }
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -1173,6 +1178,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
   const [cardDetailRefreshTick, setCardDetailRefreshTick] = useState(0);
+  // Bumped by a `card.children_changed` ping for the open card, so only its Children tab re-reads (#2209).
+  const [childrenRefreshTick, setChildrenRefreshTick] = useState(0);
   // Mirrors selectedCard's id into a ref so handleSocketEvent (defined above,
   // before selectedCard exists) can consult it without joining the callback's
   // dependency array — the same forward-reference pattern focusedSwimlaneIdRef
@@ -3124,6 +3131,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
           />
@@ -3974,6 +3982,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
           />

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
-import { childrenCount, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
+import { childrenCount, describeChildrenChange, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
 import ChildCardPicker from '../components/Card/ChildCardPicker'
 import { childCandidateReason } from '../components/Card/cardParent'
 import {
@@ -339,5 +339,58 @@ describe('useCardChildren (#2209)', () => {
     vi.mocked(getCardChildren).mockClear()
     renderHook(() => useCardChildren(1, 5, false))
     expect(getCardChildren).not.toHaveBeenCalled()
+  })
+})
+
+describe('remote changes (#2209 row 13)', () => {
+  const hidden = { count: 3, visible: false, offset: 0, limit: 50, results: [] }
+  const movedKids = kids.map((k) => (k.id === 10 ? { ...k, column_id: 101, column_name: 'Doing' } : k))
+
+  it('describes one move, any other change, and nothing for a first, unchanged or hidden read', () => {
+    expect(describeChildrenChange(null, read(kids))).toBe('')
+    expect(describeChildrenChange(read(kids), read(kids))).toBe('')
+    expect(describeChildrenChange(read(kids), read(movedKids))).toBe('Pen-test scoping call moved to Doing. 1 of 3 done.')
+    expect(describeChildrenChange(read(kids), read([...kids, row({ id: 13, title: 'New' })]))).toBe('Children updated. 1 of 4 done.')
+    expect(describeChildrenChange(read(kids), read(kids.slice(1)))).toBe('Children updated. 1 of 2 done.')
+    expect(describeChildrenChange(read(kids), read(kids.map((k) => (k.id === 10 ? { ...k, blocked: true } : k))))).toBe('Children updated. 1 of 3 done.')
+    // A board the viewer cannot open never yields a title, column or tally, before or after.
+    expect(describeChildrenChange(read(kids), hidden)).toBe('')
+    expect(describeChildrenChange(hidden, read(movedKids))).toBe('')
+    expect(describeChildrenChange(hidden, hidden)).toBe('')
+  })
+
+  it('announces a re-read from elsewhere once, politely; a hidden re-read announces nothing', () => {
+    const { rerender } = renderTab(state({ data: read(kids) }))
+    const status = () => document.querySelector('[role="status"][aria-live="polite"]')!
+    expect(status()).toHaveTextContent('')
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(movedKids) })} onExitToTabs={vi.fn()} />)
+    expect(status()).toHaveTextContent('Pen-test scoping call moved to Doing. 1 of 3 done.')
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: hidden })} onExitToTabs={vi.fn()} />)
+    expect(screen.queryByText(/Pen-test scoping call/)).toBeNull()
+  })
+
+  it("a re-read after this tab's own write keeps that write's announcement", async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids.slice(1)), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Unlinked Pen-test scoping call.')).toBeInTheDocument()
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    // The next re-read is someone else's again.
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids.slice(2)), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Children updated. 1 of 1 done.')).toBeInTheDocument()
+  })
+
+  it('a failed re-read after a write does not swallow the next remote change', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids), error: true, reload })} onExitToTabs={vi.fn()} />)
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(movedKids), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Pen-test scoping call moved to Doing. 1 of 3 done.')).toBeInTheDocument()
   })
 })
