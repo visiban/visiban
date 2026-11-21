@@ -29,6 +29,7 @@ class Migration(migrations.Migration):
                 'ordering': ['id'],
             },
         ),
+        # constraint-safe: many-to-many through a table created in this migration; adds no column to swimlanes
         migrations.AddField(
             model_name='swimlane',
             name='default_team',
