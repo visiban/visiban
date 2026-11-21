@@ -180,7 +180,6 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
     pendingFocus.current = null;
     if (target === "add") addRef.current?.focus();
     else focusCard(target);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per re-read; focusCard is recreated every render
   }, [data]);
 
   const onColumnButtonsKeyDown = (e: React.KeyboardEvent) => {
