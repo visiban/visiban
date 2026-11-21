@@ -85,3 +85,34 @@ test.describe('child board settings at 390px', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
 })
+
+for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390px', width: 390, height: 844 }]) {
+  test.describe(`Add child chooser (${size.name})`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } })
+    test('a failed boards read shows Retry, which recovers', async ({ page }) => {
+      const board = { ...BOARD_FULL, current_user_role: 'admin', cards_can_have_children: true }
+      await routeAuth(page)
+      await routeBoard(page, board)
+      await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/children/`, (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, visible: true, offset: 0, limit: 50, results: [] }) }))
+      let reads = 0
+      await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/child-board-options/`, (route) => {
+        reads += 1
+        // The Children tab reads once for its button label; the dialog's own read is the next one.
+        if (reads === 2) return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ boards: [{ id: 12, name: 'Pipeline' }], default: { id: 12, name: 'Pipeline' }, fixed_board: null }) })
+      })
+      await page.goto(`/boards/${board.id}`)
+      await page.getByText(CARD.title).first().click()
+      await page.getByRole('tab', { name: /^Children/ }).click()
+      await page.getByRole('button', { name: /^Add child/ }).first().click()
+      const dialog = page.getByRole('dialog', { name: /^Add child/ })
+      await expect(dialog.getByRole('alert')).toContainText("Couldn't load the boards")
+      const retry = dialog.getByRole('button', { name: 'Retry' })
+      expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+      await retry.click()
+      await expect(dialog.getByLabel('Title')).toBeVisible()
+      expect(reads).toBe(3)
+    })
+  })
+}
