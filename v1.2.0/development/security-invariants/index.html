@@ -5383,22 +5383,34 @@ each surface that delivers them:</p>
   code change, to be re-decided or closed by that date;</li>
 <li>the cross-board link events <code>card.children_changed</code> (parent's board) and
   <code>card.parent_changed</code> (child's board) (#1104) carry ids only (<code>parent_id</code>,
-  <code>card_ids</code>), so there is nothing in them to filter per recipient, and the
-  child's own card events are never fanned out to the parent's board. Every
-  other detail of the other board is read over REST, through
-  <code>boards/services/card_links.py</code> <code>children_for_viewer</code>, which resolves the
-  reader's role on the child board on every request and returns a count only
-  when it resolves to none. Accepted residual (#2383; owner sign-off
-  2026-11-17, epic #2206 decision H, expires 2027-05-31): the <em>timing</em> of these
+  <code>card_ids</code>, and <code>reload</code> for a large container rename, #2416), so there is
+  nothing in them to filter per recipient, and the child's own card events are
+  never fanned out to the parent's board. Every other detail of the other board
+  is read over REST, through <code>boards/services/card_links.py</code>
+  <code>children_for_viewer</code> and, for the card-face progress chip,
+  <code>rollups_for_viewer</code> (#2210), which resolve the reader's role on the child
+  board on every request and return a count only when it resolves to none. The
+  rollup (<code>Card.children_rollup</code>) is opt-in per read like <code>parent</code> and is never
+  in a frame, feed row, webhook or <code>PublicBoardSerializer</code>. Accepted residual
+  (#2383; owner sign-off 2026-11-17, epic #2206 decision H; the progress
+  rollup that consumes both pings now exists server-side and in the card-face
+  UI (#2210), and the residual stays accepted as recorded: the ping is how the
+  UI knows to re-read, so it is the design, not a gap. Expires 2027-05-31, and
+  #2210, which stays open, is its tracker): the <em>timing</em> of these
   pings reaches every subscriber, change-feed reader and webhook of the
   receiving board, including readers who cannot open the other board, so a
-  parent-board reader learns when a parent's children changed and a
+  parent-board reader learns when a parent's children changed (since #2210,
+  including when a child moved between columns, was archived or restored, was
+  blocked or unblocked, or gained or lost an open <code>blocks</code> relation, among
+  them by its blocker being archived, restored or deleted) and a
   child-board reader learns when a card's parent link changed, or when its
   parent was renamed, moved between columns or lanes, archived or restored
   (<code>card.parent_changed</code> is also sent for those parent writes, from
   <code>card_links.announce_parent_changed</code> in <code>update_card</code>, the move, <code>archive_card</code>,
-  <code>unarchive_card</code> and <code>CardAdmin.save_model</code>; never for a board, column or lane
-  rename, so a child's <code>parent</code> names stay stale until the next read: #2416). The child's own <code>parent</code> field (REST only) is resolved by
+  <code>unarchive_card</code> and <code>CardAdmin.save_model</code>, and once per child board for a
+  REST board, column or lane rename, <code>announce_parent_container_renamed</code>, #2416;
+  a Django-admin container rename still sends nothing, so those names stay
+  stale until the next read). The child's own <code>parent</code> field (REST only) is resolved by
   <code>card_links.parents_for_viewer</code>, per request, and is <code>{"hidden": true}</code> with
   no other key when the reader has no role on the parent's board; it is omitted
   from every frame, feed row and webhook (<code>CardParentField</code> raises <code>SkipField</code>
@@ -5406,15 +5418,16 @@ each surface that delivers them:</p>
   retrieve and <code>archived</code> set; <code>boards/tests/test_card_parent_field_1104.py</code>,
   <code>test_absent_input_guards_1075.py</code> <code>CardParentAbsentInputTests</code>). To be
   re-decided (gated per recipient, or closed) by that date; #2210 (the
-  parent/child progress rollup UI) is its open tracker. The threat model's other
+  parent/child progress rollup) is its open tracker. The threat model's other
   three controls for these links are built (#2383): the four link writes (link,
   Add child, both unlinks) have their own
   per-user throttle scope, <code>card_link_write</code> (<code>boards/views/cards.py</code>
   <code>CardLinkWriteThrottle</code>, <code>boards/tests/test_card_link_hardening_2383.py</code>),
   the children read has a query-count case at the 100-child cap
   (<code>boards/tests/test_query_counts.py</code> <code>CardChildrenQueryCountTests</code>; the
-  rollup bench case is deferred to #2210, since no server-side rollup exists
-  yet), and the
+  server-side rollup (<code>rollups_for_viewer</code>) exists now, and its cost is pinned
+  by a query-count test in <code>boards/tests/test_card_children_rollup_2210.py</code>,
+  while the perf-bench case stays deferred to #2210), and the
   MCP/export parity test pins Rule 10
   (<code>boards/tests/test_card_link_transport_parity.py</code>);</li>
 <li>card-link lock order (recorded here beside the link-event residual, since
@@ -5488,7 +5501,7 @@ one surface only leaves the same field readable through another.</p>
 <tr>
 <td>REST board and members</td>
 <td><code>boards/serializers.py</code> <code>BoardFullSerializer.get_members</code>, <code>get_swimlanes</code>; <code>BoardMembershipSerializer.to_representation</code></td>
-<td><code>moderator_field_visible</code>, <code>site_admin_field_visible</code> (on <code>/full/</code>, also <code>site_admin_roster_visible</code>, Rule 5); <code>SwimlaneAdminSerializer</code> for admin and site_admin only. <code>BoardMembershipSerializer</code> strips both flags when no role can be resolved (#1075); the two <code>member.*</code> payload writers that want the unfiltered row (<code>boards/invites.py</code> <code>redeem</code>, <code>boards/admin.py</code> <code>BoardMembershipAdmin._payload</code>) opt in with <code>BROADCAST_PAYLOAD_CONTEXT_KEY</code>, and the consumer and feed rows above filter it. Pinned by <code>boards/tests/test_absent_input_guards_1075.py</code>. A card's <code>parent</code> (#1104) is resolved per request by <code>card_links.parents_for_viewer</code>, for the reader the view names with <code>CARD_PARENTS_CONTEXT_KEY</code>; <code>CardParentField</code> raises <code>SkipField</code> when that key is absent, so the field is omitted from every WebSocket frame, feed row and webhook payload, and from the public share-link serializers (<code>boards/tests/test_card_parent_field_1104.py</code>, <code>boards/tests/test_card_link_transport_parity.py</code>)</td>
+<td><code>moderator_field_visible</code>, <code>site_admin_field_visible</code> (on <code>/full/</code>, also <code>site_admin_roster_visible</code>, Rule 5); <code>SwimlaneAdminSerializer</code> for admin and site_admin only. <code>BoardMembershipSerializer</code> strips both flags when no role can be resolved (#1075); the two <code>member.*</code> payload writers that want the unfiltered row (<code>boards/invites.py</code> <code>redeem</code>, <code>boards/admin.py</code> <code>BoardMembershipAdmin._payload</code>) opt in with <code>BROADCAST_PAYLOAD_CONTEXT_KEY</code>, and the consumer and feed rows above filter it. Pinned by <code>boards/tests/test_absent_input_guards_1075.py</code>. A card's <code>parent</code> (#1104) is resolved per request by <code>card_links.parents_for_viewer</code>, for the reader the view names with <code>CARD_PARENTS_CONTEXT_KEY</code>; <code>CardParentField</code> raises <code>SkipField</code> when that key is absent, so the field is omitted from every WebSocket frame, feed row and webhook payload, and from the public share-link serializers (<code>boards/tests/test_card_parent_field_1104.py</code>, <code>boards/tests/test_card_link_transport_parity.py</code>). A parent's <code>children_rollup</code> (#2210) is the same shape: <code>CardChildrenRollupField</code> raises <code>SkipField</code> without <code>CARD_CHILDREN_ROLLUP_CONTEXT_KEY</code>, which only <code>/full/</code> and the card list and retrieve set on a parent-tier board (not <code>archived</code>, the write responses, a frame, a feed row, a webhook or the share-link serializers); it is computed per reader by <code>card_links.rollups_for_viewer</code>, and the <code>card.children_changed</code> and <code>card.parent_changed</code> pings that tell the client to re-read it carry ids only (<code>boards/tests/test_card_children_rollup_2210.py</code> <code>RollupAbsentSurfaceTests</code>, <code>RollupReadTests</code>)</td>
 </tr>
 <tr>
 <td>REST flow metrics</td>
@@ -5725,7 +5738,7 @@ fails closed.</p>
 <tr>
 <td>Cross-board card links: children read (#1104)</td>
 <td><code>boards/services/card_links.py</code> <code>children_for_viewer</code></td>
-<td>The one children read: REST <code>GET .../cards/{id}/children/</code> calls it, and any other transport (MCP, export, the #2212 extension slot) must call it rather than query <code>CardParentLink</code>. It resolves the reader's role on the child board with <code>get_board_roles</code> on every call and returns a count only when there is none. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>ChildrenReadTests</code></td>
+<td>The children read: REST <code>GET .../cards/{id}/children/</code> calls it, and any other transport (MCP, export, the #2212 extension slot) must call it, or <code>rollups_for_viewer</code> for counts only, rather than query <code>CardParentLink</code>. <code>rollups_for_viewer</code> (#2210, the card-face progress rollup) does query <code>CardParentLink</code> directly, which is allowed because it applies <code>get_board_roles</code> per viewer itself on every call and returns the count-only shape when the reader has no role on the child board (and for a missing or anonymous viewer); a new reader that queries the link table without doing the same is a violation. <code>children_for_viewer</code> resolves the reader's role on the child board with <code>get_board_roles</code> on every call and returns a count only when there is none. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>ChildrenReadTests</code></td>
 </tr>
 <tr>
 <td>Cross-board card links on MCP and export (#1104)</td>

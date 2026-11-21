@@ -5170,13 +5170,13 @@ written is absent from that row on every later read (#1677).</p>
 </tr>
 <tr>
 <td><code>card.children_changed</code></td>
-<td>Since 1.3 (#1104): a child was linked to or unlinked from a parent card on this board (including a child moved off its board in the Django admin). Sent on the <strong>parent's</strong> board only</td>
-<td><code>{ "parent_id": &lt;int&gt; }</code>, ids only. Refetch <a href="../cards/#parent-and-children-since-13"><code>GET .../cards/{parent_id}/children/</code></a>, which answers for the reader. It never carries a count, title or board from the child board</td>
+<td>Since 1.3 (#1104): a child was linked to or unlinked from a parent card on this board (including a child moved off its board in the Django admin), deleted, or (since #2210) moved to another column, archived or restored, blocked or unblocked, or gained or lost an open <code>blocks</code> relation (including by its blocker being archived, restored or deleted). Sent on the <strong>parent's</strong> board only, one per parent</td>
+<td><code>{ "parent_id": &lt;int&gt; }</code>, ids only. Refetch the parent card (<code>GET .../cards/{parent_id}/</code>, whose <a href="../cards/#children_rollup-since-13"><code>children_rollup</code></a> is computed for the reader) or <a href="../cards/#parent-and-children-since-13"><code>GET .../cards/{parent_id}/children/</code></a>. It never carries a count, state, title or board from the child board</td>
 </tr>
 <tr>
 <td><code>card.parent_changed</code></td>
-<td>Since 1.3 (#1104): these cards' parent link was made or removed, or their parent was renamed, moved to another column or lane, archived or restored (not sent for a reorder within one cell, or for a board, column or lane rename, tracked as #2416). Sent on the <strong>child's</strong> board only; refetch the cards to read the new <code>parent</code></td>
-<td><code>{ "card_ids": [&lt;int&gt;, ...] }</code>, ids only. It never carries the parent's title, board or column</td>
+<td>Since 1.3 (#1104): these cards' parent link was made or removed, or their parent was renamed, moved to another column or lane, archived or restored (not sent for a reorder within one cell), or (since #2416) the parent's board, column or lane was renamed. A rename sends <strong>one</strong> frame per child board, however many parents it touches. Sent on the <strong>child's</strong> board only; refetch the cards to read the new <code>parent</code></td>
+<td><code>{ "card_ids": [&lt;int&gt;, ...] }</code>, ids only. A rename that touches more than 100 children on one board sends <code>{ "card_ids": [], "reload": true }</code> instead: re-read the board. <code>reload</code> is present only then. It never carries the parent's title, board or column</td>
 </tr>
 </tbody>
 </table>
