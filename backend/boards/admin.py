@@ -708,7 +708,12 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
             announce_cards_removal(Card.objects.filter(column_id=obj.pk), actor=request.user)
+            # First-column delete re-buckets the next column's children (#2500).
+            from .services.card_links import announce_column_rollup_changed, column_rollup_state
+
+            rollup_before = column_rollup_state(obj.board)
             super().delete_model(request, obj)
+            announce_column_rollup_changed(obj.board, rollup_before, actor_id=request.user.pk)
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=request.user.pk
             )
@@ -729,7 +734,15 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
             announce_cards_removal(Card.objects.filter(column__in=queryset.values("pk")), actor=request.user)
+            # One snapshot per distinct board: deleting a board's first column
+            # re-buckets the next column's children (#2500).
+            from .services.card_links import announce_column_rollup_changed, column_rollup_state
+
+            rollup_boards = list(Board.objects.filter(pk__in={b for b, _uid in deleted}).order_by("pk"))
+            rollup_before = {b.pk: column_rollup_state(b) for b in rollup_boards}
             super().delete_queryset(request, queryset)
+            for b in rollup_boards:
+                announce_column_rollup_changed(b, rollup_before[b.pk], actor_id=request.user.pk)
             for board_id, column_uid in deleted:
                 _broadcast.record_board_event(
                     board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=request.user.pk

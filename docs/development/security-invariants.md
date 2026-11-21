@@ -448,8 +448,8 @@ each surface that delivers them:
   when a Django-admin card edit changes a child's column or archived state,
   from `CardAdmin.save_model`, and, as one bounded `card.children_bulk_changed`
   per parent board from `card_links.announce_columns_children_changed`, when a
-  child-board column's `is_done` is toggled or the first column changes, from
-  the REST column update and reorder and the Django-admin `ColumnAdmin` save) and a
+  child-board column's `is_done` is toggled or the first column changes or is deleted, from
+  the REST column update, reorder and delete and the Django-admin `ColumnAdmin` save and delete) and a
   child-board reader learns when a card's parent link changed, or when its
   parent was renamed, moved between columns or lanes, archived or restored
   (`card.parent_changed` is also sent for those parent writes, from

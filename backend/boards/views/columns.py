@@ -206,7 +206,12 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
             announce_cards_removal(Card.objects.filter(column_id=instance.pk), actor=self.request.user)
+            # Deleting the first column promotes the next one, and its live
+            # children re-bucket into "to do" with no card write to ping on
+            # (#2500). Snapshot under the locks, diff after the delete.
+            rollup_before = column_rollup_state(board)
             instance.delete()
+            announce_column_rollup_changed(board, rollup_before, actor_id=self.request.user.id)
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
             publish_blocked_peers(peers, self.request, boards=[board])
 

@@ -2063,6 +2063,8 @@ Delete a column. Requires board admin.
 
 Since 1.2, if cards keep being created in, or moved into, the column during the delete, or the cards' link peers keep changing, it gives up after a bounded number of internal retries and returns `409 Conflict` with `{"code": "container_changed", "detail": "Cards were added while this was being deleted. Please try again."}`. Nothing is deleted; retry (#1602). A create or move targeting the column mid-delete waits for the delete, then returns `404`.
 
+*(1.3+, #2500)* Deleting the first column also sends `card.children_bulk_changed` to each parent board whose cards have live children in the column that becomes first (the deleted column's own children are deleted with it); deleting any other column sends none. See [WebSockets](websockets.md).
+
 ### `POST /api/v1/boards/{id}/columns/reorder/`
 Reorder columns. Requires board admin.
 

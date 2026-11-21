@@ -746,3 +746,94 @@ class ColumnBulkPingTests(_RollupFixture, TestCase):
                 )
             self.assertEqual((patched.status_code, reordered.status_code), (403, 403), role)
         self.assertEqual(self._pings(), [])
+
+
+class ColumnDeleteBulkPingTests(_RollupFixture, TestCase):
+    """#2500: deleting a child board's FIRST column promotes the next one.
+
+    The next column's live children re-bucket into "to do" with no card write
+    to ping on, so the delete sends one ``card.children_bulk_changed``. The
+    deleted column's own children are gone by cascade, so only the promoted
+    column's parents are named. Deleting any other column sends nothing.
+    """
+
+    EVT = "card.children_bulk_changed"
+
+    def setUp(self):
+        self._setup_rollup()
+        self.client = self._client(self.owner)
+
+    def _pings(self):
+        return list(BoardEvent.objects.filter(event=self.EVT).order_by("pk").values_list("board_id", "data"))
+
+    def _delete(self, column, board=None):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.delete(f"/api/v1/boards/{(board or self.cboard).pk}/columns/{column.pk}/")
+        self.assertEqual(res.status_code, 204, res.content)
+
+    def _admin(self):
+        from django.contrib import admin as django_admin
+        from django.test import RequestFactory
+
+        from boards.admin import ColumnAdmin
+        from boards.models import Column
+
+        request = RequestFactory().post("/")
+        request.user = self.owner
+        return request, ColumnAdmin(Column, django_admin.site)
+
+    def test_deleting_the_first_column_pings_the_promoted_columns_parents_once(self):
+        self._delete(self.col_c)
+        self.assertEqual(self._pings(), [(self.pboard.pk, {"parent_ids": [self.parent.pk]})])
+
+    def test_deleting_a_middle_or_last_column_pings_nothing(self):
+        self._delete(self.col_doing)
+        self._delete(self.col_done)
+        self.assertEqual(self._pings(), [])
+
+    def test_no_links_ping_nothing(self):
+        other_board, other_card = _board_with_card(self.owner, parent_tier=False, name="Solo", title="s")
+        second = _make_column(other_board, name="Second", order=50)
+        _make_card(second, other_card.swimlane, title="kid")
+        self._delete(other_card.column, board=other_board)
+        self.assertEqual(self._pings(), [])
+
+    def test_rollback_sends_nothing(self):
+        from boards.services import card_links
+
+        with mock.patch("boards.broadcast.broadcast_board_event") as sent:
+            with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError):
+                with transaction.atomic():
+                    before = card_links.column_rollup_state(self.cboard)
+                    self.col_c.delete()
+                    card_links.announce_column_rollup_changed(self.cboard, before, actor_id=None)
+                    raise RuntimeError
+            sent.assert_not_called()
+        self.assertEqual(self._pings(), [])
+
+    def test_admin_delete_pings_for_the_first_column_only(self):
+        from boards.models import Column
+
+        request, model_admin = self._admin()
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            model_admin.delete_model(request, Column.objects.get(pk=self.col_doing.pk))
+        self.assertEqual(self._pings(), [])
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            model_admin.delete_model(request, Column.objects.get(pk=self.col_c.pk))
+        # col_doing is gone, so col_done is promoted: its live child re-buckets.
+        self.assertEqual(self._pings(), [(self.pboard.pk, {"parent_ids": [self.parent.pk]})])
+
+    def test_admin_bulk_delete_snapshots_each_board_once(self):
+        from boards.models import Column
+
+        other_board, other_card = _board_with_card(self.owner, parent_tier=False, name="Solo", title="s")
+        request, model_admin = self._admin()
+        qs = Column.objects.filter(pk__in=[self.col_c.pk, other_card.column_id])
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            model_admin.delete_queryset(request, qs)
+        self.assertEqual(self._pings(), [(self.pboard.pk, {"parent_ids": [self.parent.pk]})])
+        BoardEvent.objects.filter(event=self.EVT).delete()
+        # A middle column alone sends nothing.
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            model_admin.delete_queryset(request, Column.objects.filter(pk=self.col_done.pk))
+        self.assertEqual(self._pings(), [])
