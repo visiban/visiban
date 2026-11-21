@@ -107,7 +107,7 @@ Many errors carry a machine-readable `code` next to the human-readable `detail`:
 This covers:
 
 - `GET /boards/{id}/analytics/`: `days`, `stalled_days`, `swimlane_id` and `label_id`, including a swimlane or label that is not on this board
-- `GET /boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/` and `.../swimlanes/`: `days`, `from_date`, `to_date` and `label_id` (and `swimlane_id` on all but `swimlanes`), including a swimlane or label that is not on this board; `period` on `throughput`; `date` on `cumulative-flow`; `group_by_field_id` on `swimlanes` (a swimlane field that is missing, on another board, not a dropdown or checkbox, or admin-only for a non-admin)
+- `GET /boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/`, `.../swimlanes/` and `.../overview/`: `days`, `from_date`, `to_date` and `label_id` (and `swimlane_id` on all but `swimlanes`), including a swimlane or label that is not on this board; `period` on `throughput` and `overview`; `date` on `cumulative-flow`; `group_by_field_id` on `swimlanes` (a swimlane field that is missing, on another board, not a dropdown or checkbox, or admin-only for a non-admin)
 - `GET /boards/{id}/cards/`: `limit`
 - `GET /boards/{id}/movements/`: `moved_after`, `moved_before`, `swimlane_id`, `to_column_id` and `moved_by_id`
 - `GET /boards/{id}/events/`: `after` and `limit`
