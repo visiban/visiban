@@ -452,6 +452,16 @@ Three different numbers apply. They measure different things; see
 
 **Watch out:** Raise a threshold when the aggregate has stayed comfortably above it. Never lower one to make a pipeline pass.
 
+### Backend coverage core (#2491)
+
+**Why it matters:** Every backend test job runs under `coverage run`. coverage.py's default core is a C tracer that pays a callback on every line event. On Python 3.12+ the `sysmon` core uses PEP 669 `sys.monitoring`, which disables each line after its first hit, so a long test run costs far less.
+
+`backend/.coveragerc` sets `core = sysmon` under `[run]`, so it applies to every coverage run of the backend suite, in CI and locally, with no per-job variable to drift. The setting lives in `.coveragerc`, not `backend/setup.cfg`: coverage.py reads `.coveragerc` first and ignores `setup.cfg` when it exists.
+
+**Yes, but:** On Python 3.12 and 3.13, `sysmon` has no branch coverage and no dynamic contexts. The backend config sets neither `branch` nor `dynamic_context`. Don't add `branch = true` without moving off `sysmon` (or to Python 3.14+). To compare against the old core locally, run with `COVERAGE_CORE=ctrace`, which overrides the config.
+
+**Watch out:** If aggregate coverage drops by more than 0.1 percentage points after a change to this setting, lines have gone unmeasured. Treat it as a blocker, not rounding.
+
 ### Diff coverage (#1076)
 
 **Why it matters:** `backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate* coverage of the whole codebase. That number moves slowly: a large, well-tested codebase can absorb a fully untested new feature and barely notice.
