@@ -61,7 +61,10 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
         if (focusSwitchAfterRetry.current) {
           focusSwitchAfterRetry.current = false;
           // After the commit that removes Retry, so the focus is not lost with it.
-          window.setTimeout(() => switchRef.current?.focus(), 0);
+          // Only when focus fell with Retry: a slow read must not pull it from where the user moved.
+          window.setTimeout(() => {
+            if (!document.activeElement || document.activeElement === document.body) switchRef.current?.focus();
+          }, 0);
         }
       })
       .catch(() => { if (live) { setBlockers(null); setBlockersFailed(true); focusSwitchAfterRetry.current = false; } });
