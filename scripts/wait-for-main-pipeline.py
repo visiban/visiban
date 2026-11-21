@@ -685,6 +685,10 @@ def _main_outcome(blocks: dict[str, list[str]], name: str) -> str:
             # pipeline may be push or web) with a non-manual `when`: it may or may not
             # match, but it can never make the job manual, so it reads like a
             # `changes:` rule and evaluation falls through to the next item (#2460).
+            # A possibly-true `when: never` rule is the exception: it may stop the job
+            # from running, so a later unconditional rule must not make it read "always".
+            if effective_when == "never":
+                return "conditional"
             continue
         if conditional:
             continue
@@ -1099,6 +1103,18 @@ def _self_test() -> int:
     check("a possibly-true manual rule reads as manual-possible",
           _main_outcome(push_only, "push-manual") == "manual-possible", _main_outcome(push_only, "push-manual"))
 
+    # 15c. A possibly-true `when: never` rule may stop the job running, so a later
+    # unconditional rule must not make it read "always" (#2460).
+    never_shapes = _all_blocks(
+        "never-a:\n  script: [x]\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"push\"'\n      when: never\n"
+        "    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'\n"
+        "never-b:\n  script: [x]\n  rules:\n    - if: '$FOO == \"1\"'\n      when: never\n"
+        "    - when: on_success\n"
+    )
+    for nm in ("never-a", "never-b"):
+        check(f"a possibly-true when: never rule ({nm}) does not read as always",
+              _main_outcome(never_shapes, nm) != "always", _main_outcome(never_shapes, nm))
+
     # 16. --check-ci-file on fixtures
     with tempfile.TemporaryDirectory(prefix="wfmp-1154-") as tmp:
         good = os.path.join(tmp, "good.yml")
@@ -1116,6 +1132,16 @@ def _self_test() -> int:
         kw = dict(always=("always-a", "lint:colon-name"), warn={"warn-a": ""}, exempt={"exempt-a": ""},
                   publish=("pub-inline", "pub-list"), readonly={}, guard="guard")
         check("--check-ci-file passes a consistent fixture", check_ci_file(good, **kw) == [], check_ci_file(good, **kw))
+        nev = os.path.join(tmp, "never.yml")
+        with open(nev, "w", encoding="utf-8") as fh:
+            fh.write(
+                "guard:\n  rules:\n    - if: '$CI_COMMIT_TAG'\n"
+                "always-a:\n  script: [x]\n  rules:\n    - if: '$FOO == \"1\"'\n      when: never\n"
+                "    - when: on_success\n"
+            )
+        p = check_ci_file(nev, always=("always-a",), warn={}, exempt={}, publish=(), readonly={}, guard="guard")
+        check("--check-ci-file fails an ALWAYS_REQUIRED job with a possibly-true when: never rule",
+              any("ALWAYS_REQUIRED" in x and "always-a" in x for x in p), p)
         p = check_ci_file(good, **dict(kw, always=("always-a", "renamed-job")))
         check("--check-ci-file flags a listed job missing from the CI file", any("renamed-job" in x for x in p), p)
         p = check_ci_file(good, **dict(kw, exempt={"always-a": ""}))
