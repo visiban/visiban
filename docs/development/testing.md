@@ -454,11 +454,13 @@ Three different numbers apply. They measure different things; see
 
 ### Backend coverage core (#2491)
 
-**Why it matters:** Every backend test job runs under `coverage run`. coverage.py's default core is a C tracer that pays a callback on every line event. On Python 3.12+ the `sysmon` core uses PEP 669 `sys.monitoring`, which disables each line after its first hit, so a long test run costs far less.
+**Why it matters:** Every backend test job runs under `coverage run`. coverage.py's default core is a C tracer that pays a callback on every line event. On Python 3.12+ the `sysmon` core uses PEP 669 `sys.monitoring`, which disables each line after its first hit, so it has lower overhead. One local A/B on `boards/tests/test_views_cards.py` measured 35.5 s on the C tracer against 30.1 s on `sysmon`; that is a single run, not a benchmark.
 
 `backend/.coveragerc` sets `core = sysmon` under `[run]`, so it applies to every coverage run of the backend suite, in CI and locally, with no per-job variable to drift. The setting lives in `.coveragerc`, not `backend/setup.cfg`: coverage.py reads `.coveragerc` first and ignores `setup.cfg` when it exists.
 
-**Yes, but:** On Python 3.12 and 3.13, `sysmon` has no branch coverage and no dynamic contexts. The backend config sets neither `branch` nor `dynamic_context`. Don't add `branch = true` without moving off `sysmon` (or to Python 3.14+). To compare against the old core locally, run with `COVERAGE_CORE=ctrace`, which overrides the config.
+**Yes, but:** On Python 3.12 and 3.13, `sysmon` has no branch coverage and no dynamic contexts. The backend config sets neither `branch` nor `dynamic_context`. Don't add `branch = true` without moving off `sysmon` (or to Python 3.14+, the first version where `sysmon` supports branch measurement). To compare against the old core locally, run with `COVERAGE_CORE=ctrace`, which overrides the config.
+
+If `sysmon` can't be used (Python older than 3.12, `branch = true`, or dynamic contexts), coverage.py warns `Can't use core=sysmon` and falls back to the C tracer, so a run there loses the speedup but still measures correctly.
 
 **Watch out:** If aggregate coverage drops by more than 0.1 percentage points after a change to this setting, lines have gone unmeasured. Treat it as a blocker, not rounding.
 

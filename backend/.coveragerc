@@ -2,7 +2,10 @@
 source = .
 # Measure with the PEP 669 sys.monitoring core (#2491). coverage.py's default C
 # tracer pays a callback on every line event; sysmon disables each line after its
-# first hit, so a long test run costs far less. Needs Python 3.12+ (CI's python:3.12).
+# first hit, so it has lower overhead. Needs Python 3.12+ (CI's python:3.12).
+# If sysmon can't be used (Python older than 3.12, `branch = true`, dynamic contexts),
+# coverage.py warns `Can't use core=sysmon` and falls back to the C tracer, so a run
+# there loses the speedup but still measures correctly.
 # Its 3.12/3.13 gaps (no branch coverage, no dynamic contexts) don't apply: this
 # config sets neither `branch` nor `dynamic_context`. Do NOT enable `branch = true`
 # without moving off sysmon. Lives here, not in setup.cfg: coverage reads
