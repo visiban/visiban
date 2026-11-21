@@ -364,7 +364,8 @@ default:
 # Deliberately NOT moved to uv: anything that verifies hashes or audits the
 # environment (pip-audit, the pip-licenses step of license-check, the
 # uv-requirements --require-hashes install itself), lock regeneration (already
-# uv), and the single-tool installs (ruff, coverage, diff-cover, bandit,
+# uv), clients-contract (Debian python in a venv, not the image's system
+# python), and the single-tool installs (ruff, coverage, diff-cover, bandit,
 # mutmut, requests, docs) where installing uv first would cost more than it
 # saves. Each job runs .pip-floor before this.
 .uv-install:
@@ -1852,14 +1853,12 @@ clients-contract:
     # job, not skip every live test and leave it green.
     VISIBAN_CONTRACT_REQUIRED: "1"
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
-    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
-    UV_LINK_MODE: "copy"
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
     - key:
         prefix: "pip-clients-contract"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/, .cache/uv/]
+      paths: [.cache/pip/]
       policy: pull-push
     - key:
         prefix: "npm-clients-ts"
@@ -1871,8 +1870,9 @@ clients-contract:
     - python3 -m venv /tmp/venv
     - . /tmp/venv/bin/activate
     - !reference [.pip-floor, script]
-    - !reference [.uv-install, script]
-    - uv pip install --system --quiet -r backend/requirements.txt
+    # Stays on pip (#2496): this job installs into a Debian-python venv on a
+    # node image, where uv's --system would target /usr instead of the venv.
+    - pip install --quiet -r backend/requirements.txt
     - cd backend
     - python manage.py migrate --noinput
     - python manage.py seed_demo_data --force

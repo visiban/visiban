@@ -40,6 +40,7 @@ Map the failure to one of the known CI jobs:
 | test | `frontend-test` | Failing Vitest tests or coverage threshold |
 | test | `backend-docker-build` | Dockerfile syntax or dependency install failure |
 | test | `frontend-docker-build` | Dockerfile syntax, Vite build error, or TS compile error |
+| test | `backend-docker-build-prod` / `frontend-docker-build-prod` | Same, for `Dockerfile.prod` (compose-prod-drill's image, #2492); also a registry push/auth failure to `ci/` |
 | security | `backend-dep-scan` | New dependency with known CVE |
 | security | `frontend-dep-scan` | npm audit high/critical vulnerability |
 | security | `backend-license-check` | GPL-licensed dependency added |

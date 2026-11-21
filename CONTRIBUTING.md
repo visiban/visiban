@@ -104,8 +104,8 @@ Every push triggers a GitLab CI pipeline that builds and validates the project. 
 | **test** | `backend-test-migrations` | Applies the full migration graph and runs `-m migrations` tests (blocking) |
 | **test** | `frontend-test` | Vitest test suite |
 | **test** | `migration-check` | Verifies all model changes have corresponding migrations |
-| **test** | `backend-docker-build` | Kaniko image build verification (MR only) |
-| **test** | `frontend-docker-build` | Kaniko image build verification (MR only) |
+| **test** | `backend-docker-build` | Kaniko image build; pushes the per-commit image to the CI-only `ci/` registry path for the helm drills (#2492) |
+| **test** | `frontend-docker-build` | Kaniko image build; pushes the per-commit image to the CI-only `ci/` registry path for the helm drills (#2492) |
 | **security** | `backend-dep-scan` | pip-audit against the OSV vulnerability database (MR only) |
 | **security** | `frontend-dep-scan` | npm audit for HIGH/CRITICAL CVEs (MR only) |
 | **security** | `secret-detection` | detect-secrets scan for accidentally committed credentials (MR only) |
