@@ -525,6 +525,36 @@ describe('PhoneBoard controls kept from the grid (#2277 fix round)', () => {
 })
 
 
+describe('PhoneBoard lane actions inside the band (#2498)', () => {
+  it('puts health, Add card and Lane actions inside the lane band, outside the collapse button', () => {
+    setup({ isAdmin: true, onFocusLane: () => {} })
+    for (const section of screen.getAllByTestId('phone-lane')) {
+      const band = within(section).getByTestId('phone-lane-band')
+      const actions = within(section).getByTestId('phone-lane-actions')
+      expect(band).toContainElement(actions)
+      expect(within(band).getByTestId('phone-lane-footer')).toContainElement(actions)
+      expect(within(actions).getByRole('button', { name: /Add card/ })).toBeInTheDocument()
+      expect(within(actions).getByTestId('phone-lane-actions-toggle')).toBeInTheDocument()
+      expect(within(band).getByRole('button', { name: /^(Collapse|Expand) lane/ })).not.toContainElement(actions)
+    }
+  })
+
+  it('keeps the open Lane actions menu inside the band', async () => {
+    const user = userEvent.setup()
+    setup({ isAdmin: true })
+    await user.click(screen.getAllByTestId('phone-lane-actions-toggle')[0])
+    const section = screen.getAllByTestId('phone-lane')[0]
+    expect(within(section).getByTestId('phone-lane-band')).toContainElement(within(section).getByTestId('phone-lane-actions-menu'))
+  })
+
+  it('renders no footer when a lane has nothing to act on', () => {
+    setup({ canEdit: false })
+    expect(screen.getAllByTestId('phone-lane')).toHaveLength(2)
+    expect(screen.queryByTestId('phone-lane-footer')).toBeNull()
+    expect(screen.queryByTestId('phone-lane-actions')).toBeNull()
+  })
+})
+
 describe('PhoneBoard lane band second line (#2329)', () => {
   const fdef = (id: number, name: string, field_type = 'text', position = id) =>
     ({ id, uid: `sf${id}`, name, field_type, choices: [], position, show_on_row: false, is_admin_only: false }) as unknown as SwimlaneCustomFieldDefinition
