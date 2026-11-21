@@ -10,6 +10,9 @@ so there is no separate job to find.
 
 - A violation whose rule id is not in the `BASELINE` map for that state.
 - A baselined rule that now affects more nodes than its recorded `maxNodes`.
+- A baselined rule that now affects fewer nodes than its `maxNodes`. The message says
+  `lower maxNodes for <rule> in "<state>" to N`: set the count to N. `maxNodes` is an exact
+  count, so the baseline shrinks one node at a time, not only when a whole rule is fixed.
 - A baselined rule that no longer reproduces. Delete its entry: the list only shrinks.
 
 ## Reading a failure
@@ -36,6 +39,17 @@ in the spec, each tied to an open issue: #2466 (color-contrast), #2467
 (label-content-name-mismatch), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
 issue, then remove the matching entries. Never add an entry for a regression you just introduced;
 fix the regression. A new entry needs an open tracking issue.
+
+Each entry names its issue only as a `// SUPPRESSED-UNTIL(#N)` comment on the same line:
+
+```ts
+'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+```
+
+`suppressions-check` scans `frontend/e2e`, so once that issue closes with the entry still in
+place the job fails and names the line (see [Suppressions](suppressions.md)). Closing an issue
+therefore means deleting its entries, or re-pointing them at a new open issue if the fix was
+partial.
 
 ## Adding a state
 

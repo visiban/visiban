@@ -7,9 +7,11 @@ import { BOARD_FULL, CARD } from './fixtures/board'
 // #1423 — axe-core scans of the states users actually live in, at WCAG 2.1 AA.
 // A new violation fails the job. Violations that already existed when the gate
 // landed are listed in BASELINE below: each entry names the state, the axe rule
-// id, and the OPEN issue that tracks the fix. The list may only shrink — a
-// baseline entry that no longer reproduces also fails, so fixing a violation
-// forces its entry to be deleted. See docs/development/a11y-axe.md.
+// id, the exact number of offending nodes, and the OPEN issue that tracks the
+// fix. The list may only shrink — an entry that no longer reproduces, or
+// reproduces on fewer nodes than recorded, also fails, so fixing a violation
+// forces its entry to be deleted or its count lowered. See
+// docs/development/a11y-axe.md.
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
 
@@ -22,49 +24,52 @@ type StateName =
   | 'member management modal'
   | 'mobile navigation'
 
-// state -> axe rule id -> { tracking issue (must be open), max affected nodes }.
-// maxNodes stops a baselined rule from silently absorbing NEW offending nodes.
-const BASELINE: Partial<Record<StateName, Record<string, { issue: string; maxNodes: number }>>> = {
+// state -> axe rule id -> { affected nodes }, with the tracking issue as a
+// SUPPRESSED-UNTIL(#N) marker on the same line. The marker is the only place the
+// issue is named, so CI's suppressions-check (scripts/check-suppression-issues.sh
+// scans frontend/e2e) fails once that issue closes while the entry remains.
+// maxNodes is exact: more nodes is a new violation, fewer means lower the count.
+const BASELINE: Partial<Record<StateName, Record<string, { maxNodes: number }>>> = {
   'board view': {
-    'aria-toggle-field-name': { issue: '#2468', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 4 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 4 },
-    'nested-interactive': { issue: '#2469', maxNodes: 1 },
+    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
+    'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'card detail dialog': {
-    'button-name': { issue: '#2468', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 5 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 5 },
-    'label': { issue: '#2468', maxNodes: 1 },
+    'button-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
+    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
+    'label': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
   },
   'command palette': {
-    'aria-required-attr': { issue: '#2469', maxNodes: 1 },
-    'aria-toggle-field-name': { issue: '#2468', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 4 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 4 },
-    'nested-interactive': { issue: '#2469', maxNodes: 1 },
+    'aria-required-attr': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
+    'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'filter bar expanded': {
-    'aria-toggle-field-name': { issue: '#2468', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 5 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 5 },
-    'nested-interactive': { issue: '#2469', maxNodes: 1 },
+    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
+    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'settings page': {
-    'button-name': { issue: '#2468', maxNodes: 4 },
-    'color-contrast': { issue: '#2466', maxNodes: 1 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 2 },
+    'button-name': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2468)
+    'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2467)
   },
   'member management modal': {
-    'aria-toggle-field-name': { issue: '#2468', maxNodes: 1 },
-    'aria-valid-attr-value': { issue: '#2469', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 5 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 4 },
-    'nested-interactive': { issue: '#2469', maxNodes: 1 },
+    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
+    'aria-valid-attr-value': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'mobile navigation': {
-    'color-contrast': { issue: '#2466', maxNodes: 2 },
-    'label-content-name-mismatch': { issue: '#2467', maxNodes: 1 },
+    'color-contrast': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2466)
+    'label-content-name-mismatch': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2467)
   },
 }
 
@@ -100,6 +105,13 @@ async function scan(page: Page, state: StateName): Promise<void> {
     stale,
     `Baseline entries no longer reproduce in "${state}" — delete them from BASELINE: ${stale.join(', ')}`,
   ).toEqual([])
+
+  // Shrunk = a baselined rule now on fewer nodes than recorded, so the baseline
+  // ratchets down per node, not only when a whole rule disappears.
+  const shrunk = results.violations
+    .filter((v) => v.id in baseline && v.nodes.length < baseline[v.id].maxNodes)
+    .map((v) => `lower maxNodes for ${v.id} in "${state}" to ${v.nodes.length}`)
+  expect(shrunk, shrunk.join('\n')).toEqual([])
 }
 
 async function mockCardEndpoints(page: Page): Promise<void> {

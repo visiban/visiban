@@ -84,7 +84,7 @@ The CI job runs `--self-test` immediately before the real invocation, on the sam
 
 ## Scope
 
-The marker convention and this check apply to `frontend/src` (eslint-disable) and `backend/` (pytest `skip`/`skipif`/`xfail`), plus the `pending_budget` and `pending_memory_budget` entries in `backend/nightly-load-test-baseline.json` described above.
+The marker convention and this check apply to `frontend/src` (eslint-disable), `frontend/e2e` (the axe `BASELINE` entries in `a11y.spec.ts`, one marker per entry; see [Accessibility scans](a11y-axe.md)) and `backend/` (pytest `skip`/`skipif`/`xfail`), plus the `pending_budget` and `pending_memory_budget` entries in `backend/nightly-load-test-baseline.json` described above.
 
 **Yes, but:** Coverage `omit` entries in `backend/.coveragerc` are plain path globs. `configparser` (the INI format `.coveragerc` uses) has no syntax for an inline trailing comment on a list item, only a full-line `#` comment above it, so `SUPPRESSED-UNTIL(#N)` doesn't read naturally there and `check-suppression-issues.sh` doesn't scan this file today. A genuinely temporary `omit` entry should still get a plain `#` comment on the line above citing the tracking issue, for a human reader. Extending the automated check to `.coveragerc` is a reasonable follow-up if these entries start accumulating the way the `eslint-disable` sites did.
 

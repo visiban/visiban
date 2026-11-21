@@ -69,11 +69,13 @@ cd "$REPO_ROOT"
 source "${REPO_ROOT}/scripts/lib/gitlab-issues.sh"
 
 # Paths this gate scans for the marker. Kept in sync with the areas #1092
-# audited: frontend eslint-disable sites and backend pytest skip/xfail sites.
+# audited: frontend eslint-disable sites and backend pytest skip/xfail sites,
+# plus frontend/e2e, where each axe BASELINE entry in a11y.spec.ts carries the
+# marker for its tracking issue (#1423).
 # (Coverage `omit` entries in backend/.coveragerc are plain path globs with no
 # room for an inline comment/reason, so they are out of scope for this
 # marker — see docs/development/suppressions.md.)
-SCAN_PATHS="frontend/src backend"
+SCAN_PATHS="frontend/src frontend/e2e backend"
 
 # The marker pattern, as a POSIX basic regular expression (no -E needed):
 # parentheses are literal in BRE, so no escaping is required either. Still
@@ -351,6 +353,17 @@ EOF
     ok=0
   fi
 
+  # An axe BASELINE entry in frontend/e2e/a11y.spec.ts (#1423): the marker is a
+  # trailing comment on an object-literal line, not an eslint-disable.
+  mkdir -p "$fixture_dir/a11y-baseline"
+  cat > "$fixture_dir/a11y-baseline/a11y.spec.ts" <<'EOF'
+    'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#9999)
+EOF
+  if CHECK_SUPPRESSION_MOCK_CLOSED="9999" run_scan "$fixture_dir/a11y-baseline" 2>/dev/null; then
+    echo "check-suppression-issues --self-test: FAIL — an a11y BASELINE entry citing a closed issue did not block." >&2
+    ok=0
+  fi
+
   mkdir -p "$fixture_dir/pending"
   cat > "$fixture_dir/pending/baseline.json" <<'EOF'
 {"endpoints": {"a": {"budget_p95_ms": null, "pending_budget": "#9999"}, "b": {"budget_p95_ms": 50}}}
@@ -368,7 +381,7 @@ EOF
   trap - EXIT
 
   if [ "$ok" -eq 1 ]; then
-    echo "check-suppression-issues --self-test: OK — fires on a closed-issue marker, passes an open-issue marker, ignores a plain reason, dedupes repeated citations, gates pending_budget on its issue's state."
+    echo "check-suppression-issues --self-test: OK — fires on a closed-issue marker, passes an open-issue marker, ignores a plain reason, dedupes repeated citations, blocks an a11y BASELINE entry, gates pending_budget on its issue's state."
     return 0
   fi
   return 1
@@ -382,7 +395,7 @@ main() {
 
   # Run both scans before deciding, so one run reports every finding.
   local rc=0
-  # shellcheck disable=SC2086  # SCAN_PATHS is intentionally word-split (two bare paths, no globs/spaces).
+  # shellcheck disable=SC2086  # SCAN_PATHS is intentionally word-split (bare paths, no globs/spaces).
   if run_scan $SCAN_PATHS; then
     echo "check-suppression-issues: OK — no SUPPRESSED-UNTIL(#N) marker cites a closed or unresolvable issue."
   else
