@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 // All API calls in tests are intercepted via page.route() so no real backend
-// is required.  The webServer below starts the Vite dev server and the tests
+// is required.  The webServer below starts Vite (preview in CI, dev locally) and the tests
 // set VITE_API_URL so requests target localhost:8000, which is then mocked.
 //
 // PORT is overridable via WT_E2E_PORT so parallel `scripts/wt` worktrees each
@@ -18,9 +18,12 @@ export default defineConfig({
   timeout: 30_000,
   // Retry on CI to tolerate transient timing issues; no retries locally.
   retries: process.env.CI ? 2 : 0,
-  // Run tests serially in CI to stay within the 2 GB runner memory budget
-  // (one Chromium instance + Vite dev server already consumes ~1 GB).
-  workers: process.env.CI ? 1 : undefined,
+  // CI runs 2 workers (#2485). The 2 GB runner budget used to force 1 worker
+  // because the Vite dev server alone cost ~400 MB; CI now serves a prebuilt
+  // bundle with `vite preview` (a static file server, far lighter), which
+  // leaves room for a second Chromium (~500 MB each). Local runs keep
+  // Playwright's default worker count.
+  workers: process.env.CI ? 2 : undefined,
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list', {}],
@@ -34,12 +37,18 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    // Use vite dev (not vite preview) to avoid a build step prerequisite.
-    // VITE_API_URL tells the axios client where to send API requests; all
-    // those requests are intercepted by page.route() so the backend never
-    // actually receives them. --strictPort makes Vite fail fast instead of
-    // silently picking a different port when PORT is already taken.
-    command: `VITE_API_URL=http://localhost:8000 npm run dev -- --port ${PORT} --strictPort`,
+    // CI (#2485): serve the production build with `vite preview`. The build
+    // is a separate explicit job step (`VITE_API_URL=http://localhost:8000
+    // npm run build`, see .gitlab-ci.yml) because preview cannot inject
+    // VITE_API_URL; it must be baked in at build time.
+    // Local: vite dev, so the dev loop needs no build step. VITE_API_URL tells
+    // the axios client where to send API requests; all those requests are
+    // intercepted by page.route() so the backend never receives them.
+    // --strictPort makes Vite fail fast instead of silently picking a
+    // different port when PORT is already taken.
+    command: process.env.CI
+      ? `npx vite preview --port ${PORT} --strictPort`
+      : `VITE_API_URL=http://localhost:8000 npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
