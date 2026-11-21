@@ -121,6 +121,20 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 
 The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones. *Changed in 1.3 (#2275): the line matches the column header's `n / limit over` format and warning color; before, an over-limit row read `⚠ Over WIP · 5/4` in red with a red line across the top of the band.*
 
+### Swimlane default team
+
+> **Added in 1.3** (#2211)
+
+A swimlane can carry a **default team**: the board members who work that row, for example the people on one customer account. New cards created in the swimlane, and new children created from its cards with **Add child**, are pre-assigned to the team.
+
+Set it in the **Edit Swimlane** modal (board admins), under **Default team**. Each person is a row with a **Remove** button; **Add a member** lists the board's members who can be assigned cards (viewers are not listed).
+
+- **At creation only.** Changing the team later does not change any existing card.
+- **One assignee for now.** A card has one assignee, so the first person on the team who can be assigned is the one pre-assigned.
+- **Children follow the parent's lane.** A child gets the team of the lane its *parent* is in; the child board's own lanes are not consulted. A team member who is not a member of the child board (or is only a viewer there) is skipped; they are never given access to the child board.
+- **Leaving the board.** Removing someone from the board removes them from every lane team on it. Someone who loses access another way (a group change, or becoming a viewer) stays listed until the next save of the lane, and is skipped until then.
+- **Explicit choices win.** A card created with an assignee keeps that assignee, and one created explicitly unassigned stays unassigned.
+
 ### Swimlane rollup
 
 *Added in 1.3 (#2275).* A board can show, in every swimlane band, the total of one card [number field](custom-fields.md) over the lane's open cards, for example `$413k open` on a sales board whose cards carry a deal amount. "Open" means every card in the lane that is not in a column marked done; archived cards never count. Cards without a value add nothing. The total uses the field's prefix, suffix and decimal places, so a field with prefix `$` and suffix `k` reads `$413k open`. It sits after the WIP line in the band and updates live as cards are created, moved, edited and archived.

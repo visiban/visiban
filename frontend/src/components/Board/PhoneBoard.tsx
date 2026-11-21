@@ -2,7 +2,7 @@ import LaneFieldGrid, { LaneTierDetails } from "./LaneFieldGrid";
 import { useState, useId, useRef, useEffect, useCallback } from "react";
 import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils/stages";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
+import type { Card, CardDensity, Column, CustomFieldDefinition, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { createCard } from "../../api/cards";
 import { limitBlockedMessage } from "./moveBlockedMessages";
 import EditSwimlaneModal from "./EditSwimlaneModal";
@@ -62,6 +62,8 @@ interface Props {
   onManageSwimlaneFields?: () => void;
   boardColors?: BoardColor[];
   limitFlags?: LimitFlags;
+  /** Board members, for Edit swimlane's Default team (#2211). */
+  members?: EffectiveBoardMember[];
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
   intakeColumnId?: number | null;
   onCardAdded?: (card: Card) => void;
@@ -171,7 +173,7 @@ export default function PhoneBoard({
   selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onOpenCardMenu,
   contextTargetCardId, onCardUpdated, density, userTimezone, currentUserId, userDateFormat,
   staleness_threshold_days, stale_warning_pct, customFieldDefinitions,
-  isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, onManageSwimlaneFields, boardColors, limitFlags, swimlaneFieldDefinitions, intakeColumnId = null,
+  isAdmin = false, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, allColumns, onEditFieldOrder, onManageSwimlaneFields, boardColors, limitFlags, members, swimlaneFieldDefinitions, intakeColumnId = null,
   onCardAdded, onColumnUpdated, onRequestDeleteColumn, onSwimlaneUpdated, onSwimlaneDeleted,
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
@@ -697,6 +699,7 @@ export default function PhoneBoard({
           laneCards={cards.filter((c) => c.swimlane === editLane.id)}
           boardColors={boardColors}
           limitFlags={limitFlags}
+          members={members}
           onUpdated={(updated) => { onSwimlaneUpdated(updated); setEditingLane(null); }}
           onDeleted={(id) => { onSwimlaneDeleted(id); setEditingLane(null); }}
           onClose={() => setEditingLane(null)}

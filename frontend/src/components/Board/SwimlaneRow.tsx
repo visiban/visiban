@@ -4,7 +4,7 @@ import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
+import type { Card, CardDensity, Column, CustomFieldDefinition, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { patchSwimlane, updateSwimlane } from "../../api/boards";
 import HealthStatusControl from "../Common/HealthStatusControl";
 import type { HealthStatus } from "../../constants/healthStatus";
@@ -132,6 +132,8 @@ interface Props {
    * Swimlane modal's enforcement choice. Omitted, the row reads as unenforced.
    */
   limitFlags?: LimitFlags;
+  /** Board members, for Edit swimlane's Default team (#2211). */
+  members?: EffectiveBoardMember[];
   /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
   boardColors?: BoardColor[];
   /** The board's `show_wip_at_limit` (#973): whether the "at limit" state shows. */
@@ -164,7 +166,7 @@ function lanePillVisible(lane: Swimlane, autoEnabled: boolean): boolean {
   return autoEnabled && !!lane.health_computed_at;
 }
 
-export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
+export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, columns, cards, boardId, isAdmin, laneDetailsCap = DEFAULT_LANE_DETAILS_CAP, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, noMatch = false, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onOpenCardMenu, contextTargetCardId, showSubColumns = true, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, gridTemplate, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, currentUserId, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, hideRowChipFieldNames, onEditFieldOrder, onManageSwimlaneFields, onCardUpdated, overlayCells, overlayLabel, limitFlags = NO_FLAGS, members, boardColors, getDropVerdict, getEntryCriteria, showWipAtLimit = false, rollupField = null }: Props) {
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -773,6 +775,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           laneCards={cards}
           boardColors={boardColors}
           limitFlags={limitFlags}
+          members={members}
           onUpdated={(s) => { onSwimlaneUpdated(s); setEditing(false); }}
           onDeleted={(id) => { onSwimlaneDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}

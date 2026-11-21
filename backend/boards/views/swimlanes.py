@@ -27,6 +27,7 @@ from ..serializers import (
 )
 from ..services.card_links import announce_cards_removal
 from ..services.custom_fields import apply_swimlane_custom_field_values
+from ..services.swimlane_team import eligible_ids, set_team
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
     lock_board_row_or_404, lock_container_cascade, missing_limit_columns, publish_blocked_peers,
@@ -46,7 +47,7 @@ def _refetch_swimlane(swimlane):
     """
     return (
         Swimlane.objects.filter(pk=swimlane.pk)
-        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
         .first()
         or swimlane
     )
@@ -209,7 +210,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Swimlane.objects.none()  # schema generation (#1788)
         return Swimlane.objects.filter(board=self._board()).prefetch_related(
-            _swimlane_custom_field_prefetch(), "track_exceptions"
+            _swimlane_custom_field_prefetch(), "track_exceptions", "team_members"
         )
 
     def create(self, request, *args, **kwargs):
@@ -233,6 +234,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         # Not a model field — pop before save() so ModelSerializer.create() does
         # not try to pass it to Swimlane.objects.create().
         field_pairs = serializer.validated_data.pop("custom_field_values", None)
+        # Applied below by the team service (#2211), not by ModelSerializer.
+        team_ids = serializer.validated_data.pop("default_team", None)
         try:
             # Lock the board row for the same reason as ColumnViewSet.perform_create —
             # concurrent swimlane creation could race on Max(position).
@@ -250,6 +253,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 _max = board.swimlanes.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 swimlane = serializer.save(board=board, position=max_pos)
+                if team_ids:
+                    set_team(swimlane, team_ids, eligible_ids(board))
                 if field_pairs:
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
@@ -293,6 +298,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         field_pairs = serializer.validated_data.pop("custom_field_values", None)
+        team_ids = serializer.validated_data.pop("default_team", None)
         try:
             with transaction.atomic():
                 # Board row, then the swimlane (#1602; see
@@ -307,6 +313,14 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 _require_live_swimlane_definitions(field_pairs)
                 _require_live_limit_columns(board, serializer.validated_data)
                 swimlane = serializer.save()
+                if team_ids is not None:
+                    # Re-checked under the board lock: a member removed while
+                    # this request queued is not written back (#2211).
+                    set_team(swimlane, team_ids, eligible_ids(board))
+                    # The response body reads team_members; drop the stale
+                    # prefetch from get_queryset() (DRF resets it only after
+                    # perform_update returns, and the body is built after that).
+                    getattr(swimlane, "_prefetched_objects_cache", {}).pop("team_members", None)
                 if field_pairs:
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
@@ -497,7 +511,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
             lanes_data = SwimlaneSerializer(
                 board.swimlanes.order_by("position").prefetch_related(
-                    _swimlane_custom_field_prefetch(), "track_exceptions"
+                    _swimlane_custom_field_prefetch(), "track_exceptions", "team_members"
                 ),
                 many=True,
             ).data

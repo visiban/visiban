@@ -866,6 +866,19 @@ class Swimlane(models.Model):
     )
     health_computed_at = models.DateTimeField(null=True, blank=True)
     health_computed_counts = models.JSONField(null=True, blank=True, default=None)
+    # Default team (#2211): the board members who work this row. They are
+    # pre-assigned to new cards created in the lane and to new children of
+    # its cards, at creation only (an edit of the team never rewrites a
+    # card). A join table rather than a column, so the swimlanes table is
+    # not altered; the order of the rows (``SwimlaneTeamMember.id``) is the
+    # order the team was built in, which decides who is assigned while
+    # ``Card.assignee`` holds one person (#2206 decision G).
+    default_team = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="SwimlaneTeamMember",
+        blank=True,
+        related_name="default_team_swimlanes",
+    )
 
     class Meta:
         db_table = "swimlanes"
@@ -884,6 +897,34 @@ class Swimlane(models.Model):
             # import validate it). Fail closed: every column counts.
             return True
         return column.pk in self.limit_column_ids
+
+
+class SwimlaneTeamMember(models.Model):
+    """One person on a swimlane's default team (#2211).
+
+    Limited to the board's assignable members when written (the serializer)
+    and again when applied (``boards.services.swimlane_team``), because a
+    member can lose access between the two by a group or role change that
+    does not touch this row. Removing a member from the board deletes their
+    rows on that board's lanes (``BoardViewSet.remove_member``).
+    """
+
+    swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="swimlane_team_memberships",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "swimlane_team_members"
+        # Insertion order is the team's order (see Swimlane.default_team).
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["swimlane", "user"], name="swimlane_team_member_uniq"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} on {self.swimlane_id}"
 
 
 class Label(models.Model):

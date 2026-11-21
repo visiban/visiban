@@ -263,7 +263,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             )
         lanes = (
             Swimlane.objects.filter(pk__in=lane_ids, board_id=board_id)
-            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
             .order_by("position", "pk")
         )
         for lane in lanes:

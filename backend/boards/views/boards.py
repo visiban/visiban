@@ -695,7 +695,7 @@ class BoardViewSet(
         # fixed number of queries however many the board has.
         lanes = (
             Swimlane.objects.filter(board_id=board.pk)
-            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
             .order_by("position", "pk")
         )
         return Response({
@@ -1855,6 +1855,11 @@ class BoardViewSet(
             # gone instead of persisting an event row for it.
             lock_board_row_or_404(board, no_key=True)
             BoardMembership.objects.filter(board=board, user=target_user).delete()
+            # Off every lane team on this board too (#2211). The swimlane
+            # payloads are not re-broadcast: clients drop a removed member
+            # from lane teams on member_removed, and the next read agrees.
+            from ..services.swimlane_team import remove_from_board_teams
+            remove_from_board_teams(board, removed_user_id)
             _broadcast.record_board_event(board_id, _broadcast.EVT_MEMBER_REMOVED, {"user_id": removed_user_id}, actor_id=request.user.id)
             # A removed admin stops holding a share link they enabled, unless
             # still an admin another way (#1865).
