@@ -437,6 +437,34 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.getByRole('switch', { name: 'Hard mode (no admin override)' })).toHaveFocus()
   })
 
+  it('Confirm on the hard WIP prompt enables hard mode and closes the prompt (#2503)', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+
+    await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+    expect(onUpdate).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenCalledWith({ enforce_wip_hard: true })
+    expect(screen.queryByText(/^Enable hard mode\?/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
+  it('switching hard mode off sends enforce_wip_hard: false without a prompt (#2503)', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    const hardBoard: BoardFull = { ...fakeBoard, enforce_wip_hard: true }
+    render(<BoardSettingsModal currentUserId={null} board={hardBoard} isAdmin={true} onClose={vi.fn()} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+
+    await user.click(screen.getByRole('switch', { name: 'Hard mode (no admin override)' }))
+
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+    expect(onUpdate).toHaveBeenCalledWith({ enforce_wip_hard: false })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
   it('shows empty state "No members yet." when members=[]', () => {
     const emptyBoard: BoardFull = { ...fakeBoard, members: [] }
     render(<BoardSettingsModal currentUserId={null} board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)
@@ -1943,6 +1971,18 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     await waitFor(() => expect(screen.getByTestId('children-error')).toHaveTextContent('Failed to change the Child cards setting. Please try again.'))
     await user.click(sw)
     await waitFor(() => expect(screen.queryByTestId('children-error')).toBeNull())
+  })
+
+  it('rolls back a parent-name edit and shows the error when the save fails (#2503)', async () => {
+    const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { parent_name_singular: ['Name is too long.'] } } })
+    const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true, parent_name_singular: 'Epic', parent_name_plural: 'Epics' }, onUpdate)
+    const singular = await screen.findByLabelText('Singular')
+    await user.clear(singular)
+    await user.type(singular, 'Initiative')
+    await user.tab()
+    await waitFor(() => expect(screen.getByTestId('parent-name-error')).toHaveTextContent('Name is too long.'))
+    expect(onUpdate).toHaveBeenCalledWith({ parent_name_singular: 'Initiative' })
+    expect(singular).toHaveValue('Epic')
   })
 
   it('toggling sends cards_can_have_children', async () => {
@@ -4183,6 +4223,23 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       mount()
       await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
       await user.click(screen.getByRole('option', { name: /Export board/ }))
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('activates a result from the keyboard on the option itself (#2503)', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
+      fireEvent.keyDown(screen.getByRole('option', { name: /Export board/ }), { key: 'Enter' })
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('activates a result with Space on the option and prevents the page scroll (#2503)', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
+      // fireEvent returns false when the handler called preventDefault.
+      expect(fireEvent.keyDown(screen.getByRole('option', { name: /Export board/ }), { key: ' ' })).toBe(false)
       expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
     })
 

@@ -96,4 +96,26 @@ if python3 "$SCRIPT" --test-report "$WORK/report.json" --collected "$WORK/collec
 if python3 "$SCRIPT" --collected "$WORK/collected.txt" >/dev/null 2>&1; then
   bad "no timing input is refused"; else ok "no timing input is refused"; fi
 
+# #2503: the collection interpreter is a fixed repo path, not an argv value.
+err=$(python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /bin/sh 2>&1 >/dev/null) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "unrecognized arguments" <<<"$err"; then
+  ok "--python is no longer accepted"; else bad "--python is no longer accepted"; fi
+err=$(python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /no/such/python 2>&1 >/dev/null) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "unrecognized arguments" <<<"$err"; then
+  ok "--python with a nonexistent path is rejected by argparse"; else bad "--python with a nonexistent path is rejected by argparse"; fi
+
+# #2503: collect() fails with a clear message when the backend venv interpreter is missing.
+err=$(python3 - "$SCRIPT" <<'PY' 2>&1 >/dev/null
+import importlib.util, pathlib, sys
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+spec = importlib.util.spec_from_file_location("rtd", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+mod.BACKEND_PYTHON = pathlib.Path("/no/such/venv/bin/python")
+mod.collect()
+PY
+) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "/no/such/venv/bin/python not found" <<<"$err"; then
+  ok "collect() refuses a missing backend venv interpreter"; else bad "collect() refuses a missing backend venv interpreter"; fi
+
 exit "$fail"
