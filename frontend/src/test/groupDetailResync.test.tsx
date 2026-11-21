@@ -171,6 +171,11 @@ function openSettings() { fireEvent.click(screen.getAllByRole('button', { name: 
 function reconnect() { act(() => { capturedOnReconnected?.() }) }
 function frame(evt: BoardEvent) { act(() => { capturedOnEvent?.(evt) }) }
 
+// The #2473 shell header renders its own h1 for the last breadcrumb crumb (the group name),
+// so page headings are queried inside <main> to stay unambiguous. Revisit with #2478.
+const pageHeadingNow = (opts: Parameters<typeof screen.getByRole>[1]) =>
+  within(screen.getByRole('main')).getByRole('heading', opts)
+
 describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -394,9 +399,9 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     const input = screen.getByDisplayValue('Engineering')
     fireEvent.change(input, { target: { value: 'Renamed' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Renamed')
+    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Renamed')
     await reread.answer(fakeGroup)
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Renamed')
+    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Renamed')
     await act(async () => { finishSave() })
   })
 
@@ -412,7 +417,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await act(async () => { failSave(new Error('no')) })
     await reread.answer(fakeGroup)
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Engineering')
+    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Engineering')
   })
 
   it('lets a descendant-boards re-read supersede the toggle load it races', async () => {
