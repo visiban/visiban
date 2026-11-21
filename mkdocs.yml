@@ -133,6 +133,7 @@ nav:
     - Field Enforcement: architecture/field-enforcement.md
     - Technology Decisions: architecture/decisions.md
     - Testing: development/testing.md
+    - Accessibility Scans (axe-core): development/a11y-axe.md
     - Mutation Testing Baseline: development/mutation-testing.md
     - Database Migrations: development/database-migrations.md
     - Upgrade Drills & PostgreSQL Matrix: development/upgrade-drills.md
@@ -177,6 +178,7 @@ nav:
     - maintainers/index.md
     - CI Runners: maintainers/ci-runners.md
     - Tokens and Rotation: maintainers/tokens-and-rotation.md
+    - Renovate: maintainers/renovate.md
     - Known CI Failures: maintainers/known-ci-failures.md
     - Hosted Demo: maintainers/demo-deploy.md
     - SonarCloud Runbook: maintainers/sonarcloud.md

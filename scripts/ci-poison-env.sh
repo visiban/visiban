@@ -29,6 +29,7 @@ CI_POISON_VARS="
   KAIZEN_API_TOKEN
   FUZZ_DEEP_API_TOKEN
   ISSUES_API_TOKEN
+  RENOVATE_TOKEN
 "
 
 # Not poisoned, each with a reason, one `NAME:reason` per line (never grows silently:

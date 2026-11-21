@@ -3161,6 +3161,31 @@ frontend-lint:
     - npx tsc -p tsconfig.app.json --noEmit
     - npx tsc -p tsconfig.e2e.json --noEmit
 
+# Validates renovate.json (#2464). Its own job, not a frontend-lint step: it runs
+# only when renovate.json or this file changes, and on node 24 because
+# renovate@44.165.3 declares engines.node ^24.11.0 (frontend-lint is on node 22).
+# Fetched with npx so the validator adds no repo dependency; the pin matches the
+# `renovate` job's image tag below. --strict fails on warnings too. The re2
+# "cannot find module" notice npx prints is harmless: the validator falls back
+# to the JS regex engine.
+renovate-config-check:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/node:24-alpine
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - renovate.json
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - renovate.json
+        - .gitlab-ci.yml
+  script:
+    - npx --yes --package renovate@44.165.3 renovate-config-validator --strict
+
 # Meta-gate for #1093's house rule: every bespoke gate script under scripts/
 # referenced from this file must ship a --self-test mode AND have it actually
 # invoked here — a script that CAN self-test but whose job never calls it
@@ -3901,6 +3926,38 @@ kaizen-yield-watch:
     expire_in: 30 days
     paths:
       - kaizen-yield-state.json
+
+# ─── Renovate (#2464) ─────────────────────────────────────────────────────────
+#
+# Self-hosted Renovate opens the dependency-bump MRs that the scanners
+# (backend-dep-scan, frontend-dep-scan, dep-scan-osv, trivy-scan) only report.
+# Inert unless ALL hold: the pipeline is the Nightly schedule (the one that
+# sets CVE_SCAN=true, like check-release-attestations; never the load-test or
+# mutation schedules) AND the masked/protected RENOVATE_TOKEN variable exists.
+# Without the token (forks, a fresh install, every MR pipeline) the job is
+# simply not created. Renovate never automerges:
+# policy lives in renovate.json. Setup: docs/maintainers/renovate.md.
+# Keep the image tag in step with the renovate-config-validator pin in
+# renovate-config-check.
+renovate:
+  stage: deploy
+  needs: []
+  interruptible: false  # opens branches and MRs on GitLab
+  image:
+    name: ${DOCKERHUB_MIRROR}/renovate/renovate:44.165.3
+    entrypoint: [""]
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true" && $RENOVATE_TOKEN'
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: ${CI_API_V4_URL}
+    RENOVATE_REPOSITORIES: ${CI_PROJECT_PATH}
+    RENOVATE_ONBOARDING: "false"
+    RENOVATE_REQUIRE_CONFIG: required
+    RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate-bot@visiban.invalid>"
+  script:
+    - renovate --token "$RENOVATE_TOKEN"
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
 #

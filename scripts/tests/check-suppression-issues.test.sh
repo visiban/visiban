@@ -69,7 +69,7 @@ cat > "$TMP/backend-style/test_thing.py" <<'EOF'
         pass
 EOF
 
-# The gate always scans SCAN_PATHS ("frontend/src backend"), not an arbitrary
+# The gate always scans SCAN_PATHS ("frontend/src frontend/e2e backend"), not an arbitrary
 # directory, so to test it against small fixture trees instead of the whole
 # real repo we source its function definitions (run_scan, resolve_issue_state)
 # and call run_scan directly. The gate is bash; the only wrinkle is its
@@ -153,6 +153,12 @@ check "a missing scan path blocks (exit 1), not a false-green clean scan" \
   "$([ "$CASE_RC" -eq 1 ] && echo 0 || echo 1)"
 check "a missing scan path names itself in the failure" \
   "$(echo "$CASE_OUT" | grep -q "does not exist" && echo 0 || echo 1)"
+
+# --- frontend/e2e is scanned: the axe BASELINE markers live there (#1423) ---
+check "SCAN_PATHS includes frontend/e2e (a11y.spec.ts BASELINE markers)" \
+  "$(grep -qE '^SCAN_PATHS=".*frontend/e2e' "$GATE" && echo 0 || echo 1)"
+check "frontend/e2e/a11y.spec.ts carries SUPPRESSED-UNTIL markers for the gate to find" \
+  "$(grep -q 'SUPPRESSED-UNTIL(#' "$(dirname "$GATE")/../frontend/e2e/a11y.spec.ts" && echo 0 || echo 1)"
 
 # --- The gate's own --self-test mode passes as a subprocess (no network) ---
 set +e

@@ -12,6 +12,7 @@ belong here, committed and versioned, not in a private notes file.
 |---|---|
 | [CI Runners](ci-runners.md) | Self-hosted runner inventory, which jobs need them and why, the untagged-fallthrough trap |
 | [Tokens and Rotation](tokens-and-rotation.md) | Every PAT and CI credential: scope, owner, storage, expiry, and how to rotate it |
+| [Renovate](renovate.md) | Automated dependency-bump MRs: what it covers, the policy, and the one-time bot account, `RENOVATE_TOKEN` and schedule setup |
 | [Known CI Failures](known-ci-failures.md) | Failure signature → root cause → fix, so the next person greps instead of re-deriving |
 | [Hosted Demo](demo-deploy.md) | try.visiban.com: where it runs, the out-of-band preconditions CI cannot check, install, tunnel, and the deployment record |
 | [SonarCloud Runbook](sonarcloud.md) | The nightly `sonar:scan`: `SONAR_TOKEN`, the pipeline schedule, what to do when it is yellow, and the hotspot-review rule |
