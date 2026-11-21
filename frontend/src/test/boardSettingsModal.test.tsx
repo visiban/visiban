@@ -1945,6 +1945,18 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     await waitFor(() => expect(screen.queryByTestId('children-error')).toBeNull())
   })
 
+  it('rolls back a parent-name edit and shows the error when the save fails (#2503)', async () => {
+    const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { parent_name_singular: ['Name is too long.'] } } })
+    const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true, parent_name_singular: 'Epic', parent_name_plural: 'Epics' }, onUpdate)
+    const singular = await screen.findByLabelText('Singular')
+    await user.clear(singular)
+    await user.type(singular, 'Initiative')
+    await user.tab()
+    await waitFor(() => expect(screen.getByTestId('parent-name-error')).toHaveTextContent('Name is too long.'))
+    expect(onUpdate).toHaveBeenCalledWith({ parent_name_singular: 'Initiative' })
+    expect(singular).toHaveValue('Epic')
+  })
+
   it('toggling sends cards_can_have_children', async () => {
     const { user, onUpdate } = await openRules(fakeBoard)
     await user.click(await screen.findByRole('switch', { name: SWITCH }))
@@ -4191,6 +4203,15 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       mount()
       await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
       fireEvent.keyDown(screen.getByRole('option', { name: /Export board/ }), { key: 'Enter' })
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('activates a result with Space on the option and prevents the page scroll (#2503)', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
+      // fireEvent returns false when the handler called preventDefault.
+      expect(fireEvent.keyDown(screen.getByRole('option', { name: /Export board/ }), { key: ' ' })).toBe(false)
       expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
     })
 

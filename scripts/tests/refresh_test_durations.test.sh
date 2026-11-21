@@ -97,7 +97,11 @@ if python3 "$SCRIPT" --collected "$WORK/collected.txt" >/dev/null 2>&1; then
   bad "no timing input is refused"; else ok "no timing input is refused"; fi
 
 # #2503: the collection interpreter is a fixed repo path, not an argv value.
-if python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /bin/sh >/dev/null 2>&1; then
-  bad "--python is no longer accepted"; else ok "--python is no longer accepted"; fi
+err=$(python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /bin/sh 2>&1 >/dev/null) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "unrecognized arguments" <<<"$err"; then
+  ok "--python is no longer accepted"; else bad "--python is no longer accepted"; fi
+err=$(python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /no/such/python 2>&1 >/dev/null) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && grep -q "unrecognized arguments" <<<"$err"; then
+  ok "--python with a nonexistent path is rejected by argparse"; else bad "--python with a nonexistent path is rejected by argparse"; fi
 
 exit "$fail"
