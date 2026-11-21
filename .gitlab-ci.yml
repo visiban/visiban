@@ -2559,6 +2559,7 @@ oidc-smoke:
       changes:
         - helm/**/*
         - scripts/helm-structure-check.sh
+        - scripts/tests/helm-structure-check.test.sh
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
@@ -2571,6 +2572,7 @@ oidc-smoke:
       changes:
         - helm/**/*
         - scripts/helm-structure-check.sh
+        - scripts/tests/helm-structure-check.test.sh
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
@@ -2658,7 +2660,8 @@ helm-template:
     # a false-positive FAIL, not a real chart defect (#1211, !1096).
     YQ_VERSION: "4.53.3"
   before_script:
-    - apk add --no-cache bash curl tar findutils grep sed
+    # python3: scripts/ci-hermetic-run.sh's API canary (#2461).
+    - apk add --no-cache bash curl tar findutils grep sed python3
     # Tool downloads fail on HTTP errors (-f) and retry transient ones, and each
     # step is its own script line so errexit stops the job AT the download — a
     # 504 must not save an HTML error page as the binary (#2160).
@@ -2727,6 +2730,10 @@ helm-template:
     # a chart that no longer holds the contract, so "it passed" is not evidence
     # that it can still fail. The fixtures replay the #1038 shapes.
     - bash scripts/helm-structure-check.sh --lint-tmp
+    # #2493: the targeted self-test's own section selection (unknown or empty
+    # section fails, a section that misses its defect fails) — needs helm+yq,
+    # so it runs here rather than in script-tests.
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/helm-structure-check.test.sh  # #2461: poisoned + canary
     - bash scripts/helm-structure-check.sh --self-test helm/visiban
     - bash scripts/helm-structure-check.sh helm/visiban
 
