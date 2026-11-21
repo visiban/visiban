@@ -987,9 +987,11 @@ test.describe('phone board settings modal (#2404)', () => {
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
 // lifted to 44px at 390px through it. Swept here, one test per modal, from the existing mocked routes: Keyboard shortcuts,
 // Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board, Export Board and
-// Import board (dashboard). Not swept yet (they need group, Lens or force-change server state the mocks do not serve): Move
-// board, Trello import, Create group, Lens connection, Policy confirm, Add child, Connect provider, Force password and
-// username changes, the Edit/Add field modals inside Board settings, and the Admin page modals (#2407 stays open for them).
+// Import board (dashboard). Not swept yet: Add child; BoardView "Delete column?"; CardDetail "Delete/Archive this card?";
+// Move board; Trello import; Policy confirm; Lens connection; the two "Delete field?" dialogs (Board settings Fields and
+// Swimlane fields tabs); Profile; Force password change; Force username rename; Connect provider; BoardSelector
+// "Delete board?"; Create group (2 sites); Group detail "Transfer ownership" and "Delete group"; Dashboard "Join a
+// group" and "Delete board?"; Admin "Add User" and "Transfer boards & deactivate". #2407 stays open and is the tracker.
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 

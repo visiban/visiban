@@ -178,8 +178,13 @@ test.describe('board redesign baseline', () => {
   // Board states (#2394): loading, filter matches nothing, offline, load error and view only. The
   // empty state is `board-state-empty.png` above. Each is held in place by a request or socket that
   // never answers, or by a fixed URL param, so the frame is stable. components.png and
-  // stages-settings.png are not board states (a component sheet and a settings panel), so they are
-  // covered by their own component tests, not by a board baseline.
+  // stages-settings.png are not captured here because they are a component sheet and a settings panel,
+  // not board states. The Stage settings visual match to stages-settings.png stays open under #2278;
+  // components.png has no capture yet.
+  // These baselines pin renderings known to diverge from the reference. Column-header mid-word
+  // wrapping and the collapse chevron are #2389; the other divergences (`...` menu contents, view-only
+  // star and status pill, offline banner color, non-bold lead-ins, Filter panel active filters, no-match
+  // panel) are #2450. A baseline update after those land is expected, not a regression.
   test.describe('desktop 1440 board states', () => {
     test.use({ viewport: { width: 1440, height: 900 } })
 
