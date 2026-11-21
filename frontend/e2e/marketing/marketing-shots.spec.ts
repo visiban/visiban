@@ -237,12 +237,8 @@ test.describe('Marketing snapshots', () => {
   test('04 — Group settings', async ({ page }) => {
     await page.goto('/groups/1?tab=settings')
     await expect(page.getByRole('heading', { name: 'Client Delivery' }).first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText(/Defaults for boards created in this group/)).toBeVisible()
-    // Scroll the Members section to the top so the frame ends on the Invite links
-    // card instead of cutting through it.
-    await page.getByRole('heading', { name: 'Members' }).evaluate((el) => {
-      el.closest('main')!.scrollTop = el.getBoundingClientRect().top - 60
-    })
+    // Group settings shows one section per view (#2478); with no `section` it opens Members.
+    await expect(page.getByText('Manage who has access to this group and their roles.')).toBeVisible()
     await shoot(page, '04-group-settings')
   })
 

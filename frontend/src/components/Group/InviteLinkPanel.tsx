@@ -16,6 +16,8 @@ import EmailInviteForm from "../Common/EmailInviteForm";
 import type { EmailInviteFormHandle, EmailInvitePayload } from "../Common/EmailInviteForm";
 import SelectDropdown from "../Common/SelectDropdown";
 import { ToggleField } from "../Common/Toggle";
+import { Button, EmptyState, InlineConfirm, ListRow, ListWell, PageHeading, SettingSwitchRow, SettingsCard, StatusPill } from "../Page";
+import type { StatusTone } from "../Page";
 import Spinner from "../Common/Spinner";
 import { INVITE_ROLE_LABELS, INVITE_STATUS_STYLES } from "../../constants/invites";
 
@@ -830,125 +832,188 @@ export default function InviteLinkPanel({
     );
   }
 
+  // Group scope (#2478): the Site admin invite-links layout (#2476) — a section heading with New
+  // link, a form card, a one-time reveal as role="status", ListWell rows and an InlineConfirm
+  // revoke under the row. The board scope keeps its own embedded layout above.
+  const groupStatusTone: Record<string, StatusTone> = { pending: "pending", used: "on_track", expired: "at_risk", revoked: "off_track" };
+  const groupHeading = (
+    <PageHeading
+      level="h3"
+      title="Invite links"
+      description="Shareable links and emailed invites that let people join this group."
+      headingRef={headingRef}
+      actions={allowShareableLinks && !atLimit && !showForm ? (
+        <Button variant="primary" buttonRef={newLinkButtonRef} onClick={() => { setShowForm(true); setPendingFocus("name"); }}>New link</Button>
+      ) : undefined}
+    />
+  );
+  const revealedLink = links.find((l) => l.id === revealId && l.token);
+
   return (
-    <div className={`${variant === "card" ? "bg-surface border border-line rounded-lg p-4" : ""} flex flex-col gap-4 ${className}`.trim()}>
+    <div className={`flex flex-col gap-4 ${className}`.trim()}>
       {revokeAnnouncement}
-      <div className="flex items-center justify-between">
-        <h3 ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-fg-secondary focus:outline-none">Invite links</h3>
-        {newLinkButton}
-      </div>
+      {groupHeading}
 
       {emailForm}
+
+      {allowShareableLinks && showForm && (
+        <SettingsCard title="New invite link" headingAs="h4">
+          <form
+            onSubmit={(e) => { e.preventDefault(); void handleCreate(); }}
+            className="flex flex-col gap-4 max-w-sm"
+          >
+            <div className="flex flex-col gap-1">
+              <label htmlFor={`invite-link-name-${kind}-${scopeId}`} className="text-sm font-medium text-fg-secondary">Name (optional)</label>
+              <input
+                ref={nameInputRef}
+                id={`invite-link-name-${kind}-${scopeId}`}
+                type="text"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="e.g. Engineering onboarding"
+                maxLength={100}
+                className="w-full h-9 max-sm:h-11 bg-surface border border-line-strong text-fg rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder:text-fg-muted"
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-sm font-medium text-fg-secondary">Role</span>
+                <SelectDropdown value={formRole} onChange={(v) => setFormRole(v as LinkRole)} ariaLabel="Role" options={LINK_ROLE_OPTIONS} />
+              </div>
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-sm font-medium text-fg-secondary">Expires</span>
+                <SelectDropdown
+                  value={String(formExpiry)}
+                  onChange={(v) => setFormExpiry(Number(v) as LinkExpiryDays)}
+                  ariaLabel="Expires"
+                  options={EXPIRY_OPTIONS.map((opt) => ({ value: String(opt.value), label: opt.label }))}
+                />
+              </div>
+            </div>
+            <SettingSwitchRow
+              label="Single use"
+              description="Link expires after one person joins."
+              checked={formSingleUse}
+              onChange={setFormSingleUse}
+            />
+            <p className="text-xs text-fg-secondary">{GROUP_LINK_ADMIN_HINT}</p>
+            {/* Reserved error slot, always mounted (a live region announces a failure). */}
+            <p role="status" aria-live="polite" aria-atomic="true" className="text-sm text-danger min-h-5">{createError}</p>
+            <div className="flex gap-2">
+              <Button variant="primary" type="submit" disabled={creating}>{creating ? "Creating…" : "Create link"}</Button>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  setShowForm(false);
+                  setCreateError(null);
+                  setFormSingleUse(false);
+                  setPendingFocus("newLink");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SettingsCard>
+      )}
+
+      {/* One-time token reveal: the raw token exists only in this session. */}
+      {revealedLink && (
+        <div role="status" className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
+          <p className="text-sm text-warning-on-tint">Copy this link now — it won't be shown again.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              title={`${window.location.origin}/join/${revealedLink.token}`}
+              className="flex-1 min-w-0 font-mono text-xs text-fg bg-surface border border-line rounded px-2 py-2 truncate"
+            >
+              {`${window.location.origin}/join/${revealedLink.token}`}
+            </span>
+            <Button variant="primary" buttonRef={copyButtonRef} onClick={() => void handleCopy(revealedLink)}>
+              {copyErrorId === revealedLink.id ? "Failed — try again" : copiedId === revealedLink.id ? "Copied!" : "Copy"}
+            </Button>
+            <Button variant="quiet" onClick={() => handleDismissReveal(revealedLink.id)}>Done</Button>
+          </div>
+        </div>
+      )}
 
       {showSpinner ? (
         <Spinner />
       ) : loadError ? (
         <div className="text-center py-2">
-          <p role="alert" className="text-xs text-danger mb-2">Failed to load invite links.</p>
-          <button
-            onClick={() => void fetchLinks()}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Try again
-          </button>
+          <p role="alert" className="text-sm text-danger mb-2">Failed to load invite links.</p>
+          <Button variant="quiet" onClick={() => void fetchLinks()}>Try again</Button>
         </div>
       ) : links.length === 0 ? (
-        <p className="text-xs text-fg-muted">No invite links.</p>
+        <EmptyState title="No invite links." description="Create one to let people join this group." headingLevel="h3" />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ListWell as="ul" label="Invite links">
           {links.map((link) => {
-            const isRevealing = revealId === link.id && link.token;
             const linkStatus = effectiveStatus(link);
-            const isTerminal = linkStatus === "used" || linkStatus === "revoked";
-
-            const rowClasses = (() => {
-              if (isRevealing) return "border-warning/50 bg-sunken";
-              if (linkStatus === "revoked") return "border-line bg-sunken";
-              if (linkStatus === "used") return "border-line bg-sunken";
-              if (linkStatus === "expired") return "border-danger/40 bg-sunken";
-              // pending
-              if (link.single_use ?? false) return "border-warning/40 bg-sunken";
-              return "border-line bg-sunken";
-            })();
-
+            const isConfirming = confirmRevokeId === link.id;
+            const inFlight = revokingId === link.id;
+            const failed = revokeError?.id === link.id ? revokeError.message : null;
             return (
-              <li
-                key={link.id}
-                className={`flex flex-col gap-1.5 p-3 rounded-lg border transition-all duration-150 ${rowClasses}`}
-              >
-                {/* Row 1 — name + badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-fg truncate flex-1">
-                    {link.name || "Default"}
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}
-                  >
-                    {INVITE_ROLE_LABELS[link.role] ?? link.role}
-                  </span>
-
-                  {/* Emailed links are single-use and never reveal a token (#731). */}
-                  {link.delivery === "email" && (
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-surface-hover text-fg-secondary">
-                      Emailed
-                    </span>
-                  )}
-
-                  {/* Status badge — shown for non-pending states */}
-                  {linkStatus !== "pending" && (
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[linkStatus]}`}
-                    >
-                      {STATUS_LABELS[linkStatus]}
-                    </span>
-                  )}
-
-                  {/* Expiry text — replaced by used_at when consumed */}
-                  {linkStatus !== "used" && (
-                    <span
-                      className={`text-xs ${link.is_expired ? "text-danger font-semibold" : "text-fg-muted"}`}
-                    >
-                      {formatExpiry(link)}
-                    </span>
-                  )}
-
-                  {/* Used-at date — only when consumed */}
-                  {linkStatus === "used" && link.used_at && (
-                    <span className="text-xs text-fg-muted">
-                      Used {formatUsedAt(link.used_at)}
-                    </span>
-                  )}
-
-                  {/* 1-use indicator — only for live single-use links */}
-                  {linkStatus === "pending" && (link.single_use ?? false) && (
-                    <span className="text-xs text-warning">1-use</span>
-                  )}
-                </div>
-
-                {/* Row 2 — token reveal or prefix + revoke (hidden for terminal states) */}
-                {isRevealing ? (
-                  tokenReveal(link)
-                ) : !isTerminal ? (
-                  /* Normal display — prefix only + revoke */
-                  <div className="flex flex-wrap gap-2">
-                    <div className="flex-1 text-xs bg-surface border border-line rounded px-2 py-1 text-fg-tertiary truncate font-mono">
-                      {link.prefix}…
+              <li key={link.id}>
+                <ListRow as="div">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-fg truncate">{link.name || "Default"}</span>
+                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${ROLE_COLORS[link.role] ?? ROLE_COLORS.member}`}>
+                        {INVITE_ROLE_LABELS[link.role] ?? link.role}
+                      </span>
+                      {link.delivery === "email" && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">Emailed</span>
+                      )}
+                      {linkStatus === "pending" && (link.single_use ?? false) && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">1-use</span>
+                      )}
                     </div>
-                    {revokeControls(link)}
+                    <p className="text-xs text-fg-secondary mt-0.5">
+                      <span className="font-mono">{link.prefix}…</span>
+                      {metaLine(link) && ` · ${metaLine(link)}`}
+                      {linkStatus === "used" && link.used_at
+                        ? ` · Used ${formatUsedAt(link.used_at)}`
+                        : ` · ${link.is_expired ? "Expired" : `Expires ${formatExpiry(link)}`}`}
+                    </p>
                   </div>
-                ) : null}
-                {revokeError?.id === link.id && revokeError.message === ALREADY_USED_REVOKE_ERROR && (
-                  <p className="text-xs text-danger mt-1">{revokeError.message}</p>
+                  {linkStatus !== "pending" && (
+                    <span className={linkStatus === "revoked" ? "line-through" : undefined}>
+                      <StatusPill tone={groupStatusTone[linkStatus] ?? "pending"} label={STATUS_LABELS[linkStatus] ?? linkStatus} />
+                    </span>
+                  )}
+                  {linkStatus !== "used" && linkStatus !== "revoked" && !isConfirming && (
+                    <Button
+                      variant="quiet"
+                      buttonRef={revokeTriggerRef(link.id)}
+                      onClick={() => { setRevokeError(null); setConfirmRevokeId(link.id); }}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </ListRow>
+                {isConfirming && (
+                  <div className="px-3 pb-2">
+                    <InlineConfirm
+                      message="Revoke this invite link? Anyone holding it will no longer be able to join."
+                      actionLabel="Revoke link"
+                      busyLabel="Revoking…"
+                      busy={inFlight}
+                      onConfirm={() => void handleRevoke(link.id)}
+                      onCancel={() => { if (inFlight) return; setConfirmRevokeId(null); setRevokeError(null); }}
+                    />
+                  </div>
                 )}
+                {/* Failure slot only: the question is announced by useConfirmAnnouncement. */}
+                <p role="status" aria-live="polite" aria-atomic="true" className={failed === GENERIC_REVOKE_ERROR || failed === ALREADY_USED_REVOKE_ERROR ? "px-3 pb-2 text-xs text-danger" : "sr-only"}>
+                  {failed === GENERIC_REVOKE_ERROR || failed === ALREADY_USED_REVOKE_ERROR ? failed : ""}
+                </p>
               </li>
             );
           })}
-        </ul>
+        </ListWell>
       )}
 
       {capWarning}
-
-      {allowShareableLinks && showForm && createForm}
     </div>
   );
 }

@@ -44,7 +44,7 @@ vi.mock('../api/auth', () => ({
   getSiteConfig: vi.fn().mockResolvedValue({ registration_open: true, registration_mode: 'open', demo_mode: false, demo_login: null, invite_email_available: false }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, createGroupBoard, deleteGroup, updateGroup } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, createGroupBoard, deleteGroup, updateGroup, transferGroupOwnership } from '../api/groups'
 import { deleteBoard } from '../api/boards'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
@@ -54,6 +54,7 @@ const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
 const mockCreateGroupBoard = createGroupBoard as ReturnType<typeof vi.fn>
 const mockDeleteGroup = deleteGroup as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
+const mockTransfer = transferGroupOwnership as ReturnType<typeof vi.fn>
 const mockDeleteBoard = deleteBoard as ReturnType<typeof vi.fn>
 
 const mkUser = (id: number, name: string): User => ({
@@ -413,6 +414,63 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
       await h2('Engineering')
       expect(screen.queryByText('No boards yet.')).not.toBeInTheDocument()
       expect(screen.queryByText('No subgroups yet')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('inline transfer, members disclosure and status line (#2478 completeness)', () => {
+    it('Transfer ownership opens an inline panel (no dialog), gates on the typed name, and Cancel returns focus', async () => {
+      mockTransfer.mockResolvedValue({ ...baseGroup, owner: member })
+      renderPage(setup({ owner: admin }, admin), '/groups/1?tab=settings&section=danger-zone')
+      const opener = await screen.findByRole('button', { name: 'Transfer ownership' })
+      fireEvent.click(opener)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(opener).toHaveAttribute('aria-expanded', 'true')
+      const panel = screen.getByRole('group', { name: 'Transfer ownership details' })
+      // The submit stays inert until an admin and the group name are given.
+      const submit = within(panel).getByRole('button', { name: 'Transfer ownership' })
+      expect(submit).toHaveAttribute('aria-disabled', 'true')
+      fireEvent.click(submit)
+      expect(mockTransfer).not.toHaveBeenCalled()
+      fireEvent.click(within(panel).getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('group', { name: 'Transfer ownership details' })).not.toBeInTheDocument()
+      expect(opener).toHaveFocus()
+    })
+
+    it('Escape closes the inline transfer panel and refocuses its opener', async () => {
+      renderPage(setup({ owner: admin }, admin), '/groups/1?tab=settings&section=danger-zone')
+      const opener = await screen.findByRole('button', { name: 'Transfer ownership' })
+      fireEvent.click(opener)
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('group', { name: 'Transfer ownership details' })).not.toBeInTheDocument()
+      expect(opener).toHaveFocus()
+    })
+
+    it('the Members card has a phone disclosure that starts collapsed', async () => {
+      renderPage(setup({}, member))
+      await h2('Engineering')
+      const toggle = await screen.findByTestId('group-members-disclosure')
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      expect(toggle.className).toContain('h-11')
+      expect(document.getElementById('group-members-list')!.className).toContain('max-sm:hidden')
+      fireEvent.click(toggle)
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      expect(document.getElementById('group-members-list')!.className).not.toContain('max-sm:hidden')
+    })
+
+    it('the meta line says who set the status and when, for a status set on this group', async () => {
+      const setter = { id: 1, username: 'priya', display_name: 'Priya', avatar_url: '' }
+      renderPage(setup({
+        health_status: 'on_track', effective_health_status: 'on_track',
+        health_status_changed_at: new Date().toISOString(), health_status_changed_by: setter,
+      } as Partial<Group>, member))
+      await h2('Engineering')
+      expect(await screen.findByTestId('group-status-set-line')).toHaveTextContent(/^Status set .* by Priya$/)
+    })
+
+    it('shows no status line when no status is set', async () => {
+      renderPage(setup({}, member))
+      await h2('Engineering')
+      expect(screen.queryByTestId('group-status-set-line')).not.toBeInTheDocument()
     })
   })
 })

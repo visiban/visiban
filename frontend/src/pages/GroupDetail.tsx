@@ -24,6 +24,7 @@ import InviteLinkPanel from "../components/Group/InviteLinkPanel";
 import { useJoinedToast } from "../components/Common/useJoinedToast";
 import BoardGroupPath from "../components/Group/BoardGroupPath";
 import HealthStatusControl from "../components/Common/HealthStatusControl";
+import { healthSetLine } from "../utils/healthStatus";
 import { HealthListingPill } from "../components/Common/HealthStatusPill";
 import HealthReviewDaysInput from "../components/Common/HealthReviewDaysInput";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
@@ -170,7 +171,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   useJoinedToast(joinedTitle);
 
   useEscapeStack(() => {
-    if (showTransferModal) { setShowTransferModal(false); return; }
+    if (showTransfer) { closeTransfer(); return; }
     if (confirmDeleteGroup) { setConfirmDeleteGroup(false); return; }
     // Inline confirms (#1238): Escape cancels the prompt instead of reaching the
     // priority-0 handler below, which would navigate away from the page.
@@ -219,11 +220,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Cleared 200ms after mount so re-renders don't replay the animation.
   const [animateBoardIds, setAnimateBoardIds] = useState<Set<number>>(new Set());
 
-  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [transferNewOwnerId, setTransferNewOwnerId] = useState<number | "">("");
   const [transferConfirmation, setTransferConfirmation] = useState("");
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferring, setTransferring] = useState(false);
+  // Phone: the Members list below the content starts collapsed (#2478); from `sm` it is always open.
+  const [membersOpenPhone, setMembersOpenPhone] = useState(false);
+  const transferTriggerRef = useRef<HTMLButtonElement>(null);
+  // Cancel, Escape and a finished transfer all collapse the inline panel and give focus back to
+  // the button that opened it (the panel's controls unmount with it, #2478).
+  const closeTransfer = () => {
+    setShowTransfer(false);
+    setTransferConfirmation("");
+    setTransferNewOwnerId("");
+    setTransferError(null);
+    transferTriggerRef.current?.focus();
+  };
 
   const [isStarred, setIsStarredState] = useState(false);
   // Bumped on every star write (frame, toggle, rollback) so a group re-read that
@@ -999,9 +1012,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       const updated = await transferGroupOwnership(groupId, transferNewOwnerId, transferConfirmation);
       // Only the owner changes, so a replay over a newer answer cannot revert other fields.
       writeGroup((prev) => (prev ? { ...prev, owner: updated.owner } : prev));
-      setShowTransferModal(false);
+      // The owner now is someone else, so the opener button is gone: land on the section heading.
+      setShowTransfer(false);
       setTransferNewOwnerId("");
       setTransferConfirmation("");
+      sectionHeadingRef.current?.focus();
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setTransferError(detail ?? "Transfer failed. Please try again.");
@@ -1225,6 +1240,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     ] : []),
   ];
 
+  const statusSetLine = group.health_status !== null && group.health_status !== undefined
+    ? healthSetLine(group.health_status_changed_at ?? null, group.health_status_changed_by ?? null)
+    : "";
+  const statusMeta = statusSetLine ? `Status ${statusSetLine.charAt(0).toLowerCase()}${statusSetLine.slice(1)}` : "";
+
   const nameNode = isAdmin && renaming ? (
     <input
       autoFocus
@@ -1370,6 +1390,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             {group.board_count} board{group.board_count !== 1 ? "s" : ""}
             {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
           </span>
+        )}
+        {/* "Status set <time> by <name>" (#2242). Only for a status set on this group: an inherited
+            one is attributed to its source group in the control's caption. */}
+        {!group.navigation_only && statusMeta && (
+          <span data-testid="group-status-set-line">{statusMeta}</span>
         )}
         <ConnectionStatus
           status={socketStatus}
@@ -1538,12 +1563,27 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     <section aria-labelledby="group-members-heading" className="bg-surface border border-line rounded-[10px] p-[18px]" data-testid="group-members-card">
       <div className="flex items-center justify-between gap-2">
         <CardHeading as="h3" id="group-members-heading">Members · {members.length}</CardHeading>
-        {isAdmin && <Button variant="quiet" onClick={() => openSettings("members")}>Manage</Button>}
+        <div className="flex items-center gap-1">
+          {isAdmin && <Button variant="quiet" onClick={() => openSettings("members")}>Manage</Button>}
+          <button
+            type="button"
+            onClick={() => setMembersOpenPhone((v) => !v)}
+            aria-expanded={membersOpenPhone}
+            aria-controls="group-members-list"
+            aria-label={membersOpenPhone ? "Hide members" : "Show members"}
+            data-testid="group-members-disclosure"
+            className="sm:hidden h-11 w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 transition-transform ${membersOpenPhone ? "rotate-180" : ""}`}>
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
       </div>
       {members.length === 0 ? (
-        <p className="mt-2 text-sm text-fg-secondary">No members yet.</p>
+        <p id="group-members-list" className={`mt-2 text-sm text-fg-secondary ${membersOpenPhone ? "" : "max-sm:hidden"}`}>No members yet.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-2">
+        <ul id="group-members-list" className={`mt-3 flex flex-col gap-2 ${membersOpenPhone ? "" : "max-sm:hidden"}`}>
           {members.map((m) => (
             <li key={m.user.id} className="flex items-center gap-2 min-w-0">
               <Avatar user={m.user} size="sm" />
@@ -1821,8 +1861,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <div className="flex flex-col gap-1">
               <Button
                 variant="secondary"
+                buttonRef={transferTriggerRef}
+                aria-expanded={showTransfer}
                 className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
-                onClick={() => { setTransferError(null); setShowTransferModal(true); }}
+                onClick={() => { setTransferError(null); setShowTransfer((v) => !v); }}
               >
                 Transfer ownership
               </Button>
@@ -1839,6 +1881,66 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </Button>
           )}
         </div>
+        {showTransfer && group.owner.id === user.id && (
+          <div role="group" aria-label="Transfer ownership details" className="mt-4 flex flex-col gap-4 max-w-md rounded-[10px] border border-danger/40 bg-danger/10 p-3">
+            <p className="text-sm text-fg">
+              Transfer ownership of <span className="font-medium">{group.name}</span> to another admin.
+              You will remain as an admin after the transfer.
+            </p>
+            <div>
+              <label htmlFor="group-transfer-owner" className="text-sm font-medium text-fg-secondary block mb-1">New owner</label>
+              {adminMembers.length === 0 ? (
+                <p className="text-fg-secondary text-sm">No other admins found. Promote a member to admin first.</p>
+              ) : (
+                <SelectDropdown
+                  id="group-transfer-owner"
+                  ariaLabel="New owner"
+                  value={String(transferNewOwnerId)}
+                  onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
+                  options={[
+                    { value: "", label: "Select an admin…" },
+                    ...adminMembers.map((m) => ({
+                      value: String(m.user.id),
+                      label: m.user.display_name || m.user.username,
+                    })),
+                  ]}
+                  className="w-full"
+                />
+              )}
+              <p className="text-fg-secondary text-xs mt-1">The new owner must already be a group admin.</p>
+            </div>
+            <div>
+              <label htmlFor="group-transfer-confirm" className="text-sm font-medium text-fg-secondary block mb-1">
+                Type the group name to confirm: <span className="text-fg font-medium">{group.name}</span>
+              </label>
+              <input
+                id="group-transfer-confirm"
+                type="text"
+                autoComplete="off"
+                value={transferConfirmation}
+                onChange={(e) => setTransferConfirmation(e.target.value)}
+                placeholder={group.name}
+                className="w-full h-9 max-sm:h-11 bg-surface border border-line-strong text-fg text-sm rounded px-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted"
+              />
+            </div>
+            {/* Reserved error slot: always rendered so an error does not shift the buttons, and the
+                alert is the slot itself so the failure is announced (#1437). */}
+            <p role="alert" aria-atomic="true" className="text-sm text-danger min-h-5" data-testid="group-transfer-error">
+              {transferError}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="quiet" onClick={closeTransfer}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={() => { void handleTransferOwnership(); }}
+                aria-disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group.name || undefined}
+                className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+              >
+                {transferring ? "Transferring…" : "Transfer ownership"}
+              </Button>
+            </div>
+          </div>
+        )}
         {/* Same wording shape as Board Settings' note (#2034): the server
             allows only the owner or all-content access to delete. */}
         {!userCanDeleteGroup && (
@@ -1994,78 +2096,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           >
             Delete
           </Button>
-        </div>
-      </ModalWrapper>
-
-      <ModalWrapper
-        open={showTransferModal}
-        onClose={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-        title="Transfer ownership"
-        maxWidth="max-w-md"
-      >
-        <p className="text-fg-tertiary text-sm mb-5">
-          Transfer ownership of <span className="text-fg font-medium">{group?.name}</span> to another admin.
-          You will remain as an admin after the transfer.
-        </p>
-
-        <div className="flex flex-col gap-4">
-          <div>
-            <label htmlFor="group-transfer-owner" className="text-fg-tertiary text-sm block mb-1">New owner</label>
-            {adminMembers.length === 0 ? (
-              <p className="text-fg-muted text-sm">No other admins found. Promote a member to admin first.</p>
-            ) : (
-              <SelectDropdown
-                id="group-transfer-owner"
-                ariaLabel="New owner"
-                value={String(transferNewOwnerId)}
-                onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
-                options={[
-                  { value: "", label: "Select an admin…" },
-                  ...adminMembers.map((m) => ({
-                    value: String(m.user.id),
-                    label: m.user.display_name || m.user.username,
-                  })),
-                ]}
-                className="w-full"
-              />
-            )}
-            <p className="text-fg-secondary text-xs mt-1">The new owner must already be a group admin.</p>
-          </div>
-
-          <div>
-            <label htmlFor="group-transfer-confirm" className="text-fg-tertiary text-sm block mb-1">
-              Type the group name to confirm: <span className="text-fg font-medium">{group?.name}</span>
-            </label>
-            <input
-              id="group-transfer-confirm"
-              type="text"
-              autoComplete="off"
-              value={transferConfirmation}
-              onChange={(e) => setTransferConfirmation(e.target.value)}
-              placeholder={group?.name}
-              className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-            />
-          </div>
-
-          {/* Reserved error slot: always rendered so an error does not shift the buttons, and the
-              alert is the slot itself so the failure is announced (#1437). */}
-          <p role="alert" aria-atomic="true" className="text-sm text-danger min-h-5" data-testid="group-transfer-error">
-            {transferError}
-          </p>
-
-          <div className="flex gap-3 justify-end pt-1">
-            <Button variant="quiet" onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleTransferOwnership}
-              aria-disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name || undefined}
-              className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
-            >
-              {transferring ? "Transferring…" : "Transfer ownership"}
-            </Button>
-          </div>
         </div>
       </ModalWrapper>
 

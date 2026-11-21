@@ -4,7 +4,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 import type { GroupInviteLink } from '../types'
-import { INVITE_STATUS_STYLES } from '../constants/invites'
 
 vi.mock('../api/groups', () => ({
   listInviteLinks: vi.fn(),
@@ -273,7 +272,7 @@ describe('InviteLinkPanel', () => {
     // Click Revoke to enter confirm mode, then confirm
     await user.click(screen.getByRole('button', { name: 'Revoke' }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Revoke link' }))
     // The row should still be visible showing the Revoked badge
     expect(await screen.findByText('Revoked')).toBeInTheDocument()
     expect(screen.getByText('Existing link')).toBeInTheDocument()
@@ -579,32 +578,19 @@ describe('InviteLinkPanel', () => {
     expect(expiredLabels.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('expired badge uses the /20 tint token, not the low-contrast /60', async () => {
-    mockListInviteLinks.mockResolvedValue([fakeExpiredLink])
-    render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
-    await screen.findByText('Expired link')
-    const badge = screen
-      .getAllByText('Expired')
-      .find((el) => el.className.includes('bg-danger'))
-    expect(badge).toBeDefined()
-    expect(badge!.className).toContain('bg-danger/20')
-    expect(badge!.className).not.toContain('bg-danger/60')
-  })
-
+  // The group list renders status through the shared StatusPill (#2478), whose on-tint /15 pairs
+  // pageParts.test.tsx pins; here the tone mapping is what matters.
   it.each([
-    ['used', 'Used', fakeUsedLink],
-    ['revoked', 'Revoked', { ...fakeUsedLink, id: 5, name: 'Revoked link', status: 'revoked' as const }],
-  ] as const)('%s badge renders the shared INVITE_STATUS_STYLES tone', async (status, label, link) => {
+    ['expired', 'Expired', fakeExpiredLink, 'at_risk'],
+    ['used', 'Used', fakeUsedLink, 'on_track'],
+    ['revoked', 'Revoked', { ...fakeUsedLink, id: 5, name: 'Revoked link', status: 'revoked' as const }, 'off_track'],
+  ] as const)('%s badge renders the shared StatusPill tone', async (_status, label, link, tone) => {
     mockListInviteLinks.mockResolvedValue([link as GroupInviteLink])
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText(link.name)
-    const badge = screen
-      .getAllByText(label)
-      .find((el) => el.className.includes('font-semibold'))
-    expect(badge).toBeDefined()
-    for (const cls of INVITE_STATUS_STYLES[status].split(' ')) {
-      expect(badge!.className).toContain(cls)
-    }
+    const badge = screen.getAllByText(label).map((el) => el.closest('[data-tone]')).find(Boolean)
+    expect(badge).toBeTruthy()
+    expect(badge).toHaveAttribute('data-tone', tone)
   })
 
   it('expired link shows the Expired status badge in the UI', async () => {
