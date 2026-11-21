@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, cloneElement } from "react";
+import { useState, useEffect, useCallback, useRef, cloneElement, Fragment } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -1000,64 +1000,77 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
       ) : tokens.length === 0 ? (
         <p className="text-sm text-fg-secondary" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
-        <div className="flex flex-col gap-1" data-testid="token-list">
-          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_88px_88px_72px] gap-x-4 px-3 py-1.5 text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
-            <span>Name</span>
-            <span>Created</span>
-            <span>Expires</span>
-            <span className="sr-only">Actions</span>
-          </div>
-          {tokens.map((token) => (
-            <div
-              key={token.id}
-              className="flex flex-col gap-2 px-3 py-2 rounded hover:bg-surface-hover sm:grid sm:grid-cols-[minmax(0,1fr)_88px_88px_72px] sm:gap-x-4 sm:items-center"
-              data-testid={`token-row-${token.id}`}
-            >
-              <div className="flex flex-col gap-1 min-w-0">
-                <span className="text-sm text-fg truncate">{token.name}</span>
-                <span className="font-mono text-xs text-fg-tertiary">{token.prefix}…</span>
-                <span className="flex flex-wrap gap-1" data-testid={`token-scopes-${token.id}`}>
-                  {token.scopes === null
-                    ? <span className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover text-xs text-fg-secondary">Legacy: full REST access</span>
-                    : token.scopes.map((sc) => (
-                        <span key={sc} className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover font-mono text-xs text-fg-secondary">{sc}</span>
-                      ))}
-                </span>
-              </div>
-              <span className="text-xs text-fg-secondary sm:whitespace-nowrap"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</span>
-              <span className="text-xs text-fg-secondary sm:whitespace-nowrap"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</span>
-              <div className="flex items-center gap-2">
-                {confirmRevokeId !== token.id && (
-                  <Button
-                    buttonRef={revokeTriggerRef(token.id)}
-                    variant="quiet"
-                    className="max-sm:w-full"
-                    onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
-                    aria-label={`Revoke ${token.name}`}
-                    data-testid={`revoke-${token.id}`}
-                  >
-                    Revoke
-                  </Button>
+        // A real table from `sm` (column headers for assistive tech too); on phones each row is a
+        // stacked card and the header row is visually hidden but still read (#2477).
+        <table className="w-full text-left border-collapse max-sm:block" data-testid="token-list">
+          <caption className="sr-only">Access tokens</caption>
+          <thead className="max-sm:sr-only">
+            <tr className="text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
+              <th scope="col" className="px-3 py-1.5 font-normal">Name</th>
+              <th scope="col" className="px-3 py-1.5 font-normal">Scopes</th>
+              <th scope="col" className="px-3 py-1.5 font-normal w-24">Created</th>
+              <th scope="col" className="px-3 py-1.5 font-normal w-24">Expires</th>
+              <th scope="col" className="px-3 py-1.5 font-normal w-20"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody className="max-sm:block">
+            {tokens.map((token) => (
+              <Fragment key={token.id}>
+                <tr
+                  className="hover:bg-surface-hover max-sm:flex max-sm:flex-col max-sm:gap-2 max-sm:px-3 max-sm:py-2 max-sm:rounded"
+                  data-testid={`token-row-${token.id}`}
+                >
+                  <td className="px-3 py-2 align-top min-w-0 max-sm:p-0 max-sm:block">
+                    <span className="block text-sm text-fg truncate">{token.name}</span>
+                    <span className="block font-mono text-xs text-fg-tertiary">{token.prefix}…</span>
+                  </td>
+                  <td className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                    <span className="flex flex-wrap gap-1" data-testid={`token-scopes-${token.id}`}>
+                      {token.scopes === null
+                        ? <span className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover text-xs text-fg-secondary">Legacy: full REST access</span>
+                        : token.scopes.map((sc) => (
+                            <span key={sc} className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover font-mono text-xs text-fg-secondary">{sc}</span>
+                          ))}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</td>
+                  <td className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</td>
+                  <td className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                    {confirmRevokeId !== token.id && (
+                      <Button
+                        buttonRef={revokeTriggerRef(token.id)}
+                        variant="quiet"
+                        className="max-sm:w-full"
+                        onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
+                        aria-label={`Revoke ${token.name}`}
+                        data-testid={`revoke-${token.id}`}
+                      >
+                        Revoke
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+                {confirmRevokeId === token.id && (
+                  <tr className="max-sm:block">
+                    <td colSpan={5} className="px-3 pb-2 max-sm:block">
+                      <InlineConfirm
+                        message={<>Revoke <span className="font-medium">{token.name}</span>? Anything using this token will lose access.
+                          {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                          {" "}<span role="alert" className={revokeError ? "text-danger text-xs" : "sr-only"}>{revokeError}</span></>}
+                        actionLabel="Revoke"
+                        busy={revokingId === token.id}
+                        busyLabel="Revoking…"
+                        actionTestId={`confirm-revoke-${token.id}`}
+                        onConfirm={() => { if (revokingId === null) void handleRevoke(token.id); }}
+                        onCancel={() => setConfirmRevokeId(null)}
+                      />
+                    </td>
+                  </tr>
                 )}
-              </div>
-              {confirmRevokeId === token.id && (
-                <div className="sm:col-span-full">
-                  <InlineConfirm
-                    message={<>Revoke <span className="font-medium">{token.name}</span>? Anything using this token will lose access.
-                      {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
-                      {" "}<span role="alert" className={revokeError ? "text-danger text-xs" : "sr-only"}>{revokeError}</span></>}
-                    actionLabel="Revoke"
-                    busy={revokingId === token.id}
-                    busyLabel="Revoking…"
-                    actionTestId={`confirm-revoke-${token.id}`}
-                    onConfirm={() => { if (revokingId === null) void handleRevoke(token.id); }}
-                    onCancel={() => setConfirmRevokeId(null)}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       )}
       </SettingsCard>
     </div>
