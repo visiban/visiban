@@ -2336,6 +2336,28 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     })
   }
 
+  it('a snapshot racing a newer frame fills the parent the kept copy lacks', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    const snapParent = { hidden: true as const }
+    const fetch = startFetch(result)
+    // The frame is newer and carries no `parent`.
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: snapParent }), card(2, 1)] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: snapParent })
+  })
+
+  it('a snapshot parent replaces an older read the kept copy carried (#1104)', async () => {
+    const parentA = { hidden: true as const }
+    const parentB = { id: 9, title: 'Parent B' } as unknown as NonNullable<Card['parent']>
+    const { result } = await renderBoard([card(1, 1, { parent: parentA })])
+    const fetch = startFetch(result)
+    // The frame carries no `parent`, so the kept copy carries A forward.
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    expect(byId(result.current.board, 1)?.parent).toEqual(parentA)
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: parentB })] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: parentB })
+  })
+
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {
     const { result } = await renderBoard([card(1, 2)])
     const fetch = startFetch(result)
@@ -3443,5 +3465,71 @@ describe('useBoard — column_entered_at across a move (#459)', () => {
     mockMoveCard.mockReturnValueOnce(new Promise(() => {}))
     act(() => { void result.current.forceMoveCardTo(id, 12, swimlane, 0) })
     expect(result.current.board!.cards[0].column_entered_at).toBeNull()
+  })
+})
+
+// #1104: `parent` is computed per reader, so frames and write responses leave
+// it out. The store keeps the last read value and only card.parent_changed
+// re-reads it.
+describe('useBoard — per-reader card parent (#1104)', () => {
+  const parent = { hidden: false as const, id: 41, title: 'Initech', board_id: 12, board_name: 'Pipeline', column_id: 3, column_name: 'Qualify', swimlane_id: 4, swimlane_name: 'Initech', archived: false }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updateCard carries parent over when the incoming copy has no parent key', async () => {
+    const base = makeBoard()
+    mockGetBoardFull.mockResolvedValue({ ...base, cards: base.cards.map((c) => ({ ...c, parent })) })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const stored = result.current.board!.cards[0]
+    const { parent: _drop, ...frame } = stored
+    act(() => { result.current.updateCard({ ...frame, title: 'Renamed' } as Card) })
+    expect(result.current.board!.cards[0].title).toBe('Renamed')
+    expect(result.current.board!.cards[0].parent).toEqual(parent)
+  })
+
+  it('applyCardParents sets only parent, skips unknown ids, and is a no-op when empty', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const before = result.current.board!
+    act(() => { result.current.applyCardParents(new Map()) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardParents(new Map([[999999, null]])) })
+    expect(result.current.board).toBe(before)
+    const id = before.cards[0].id
+    act(() => { result.current.applyCardParents(new Map([[id, { hidden: true }]])) })
+    expect(result.current.board!.cards[0]).toEqual({ ...before.cards[0], parent: { hidden: true } })
+  })
+
+  it('updateBoardSettings resolves null on success and with the error on failure', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    mockPatchBoard.mockResolvedValueOnce(undefined)
+    let out: unknown
+    await act(async () => { out = await result.current.updateBoardSettings({ cards_can_have_children: true }) })
+    expect(out).toBeNull()
+    const err = { response: { status: 400, data: { cards_can_have_children: ['no'] } } }
+    mockPatchBoard.mockRejectedValueOnce(err)
+    await act(async () => { out = await result.current.updateBoardSettings({ cards_can_have_children: false }) })
+    expect(out).toBe(err)
+  })
+})
+
+describe('useBoard — parent survives a wholesale replace (#1104 regression-check)', () => {
+  it('a move response without the parent key keeps the stored parent', async () => {
+    const base = makeBoard()
+    const parent = { hidden: true as const }
+    mockGetBoardFull.mockResolvedValue({ ...base, cards: base.cards.map((c) => ({ ...c, parent })) })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const stored = result.current.board!.cards[0]
+    const { parent: _drop, ...moved } = stored
+    mockMoveCard.mockResolvedValueOnce({ card: { ...moved, version: stored.version + 1 }, movement: null })
+    await act(async () => { await result.current.moveCard(stored.id, stored.column, stored.swimlane, 0) })
+    expect(result.current.board!.cards[0].parent).toEqual(parent)
   })
 })

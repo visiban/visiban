@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
-import type { BoardFull, BoardMembership, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 export interface BoardContextType {
   board: BoardFull | null;
@@ -55,11 +55,14 @@ export interface BoardContextType {
   reorderSwimlanes: (orderedIds: number[]) => Promise<void>;
   updateSwimlane: (swimlane: Swimlane | ((board: BoardFull) => Swimlane)) => void;
   removeSwimlane: (swimlaneId: number) => Promise<void>;
-  updateBoardSettings: (patch: Record<string, unknown>) => Promise<void>;
+  /** Resolves with the error on failure, null on success (#1104). */
+  updateBoardSettings: (patch: Record<string, unknown>) => Promise<unknown>;
   evictColumn: (columnUid: string) => void;
   evictSwimlane: (swimlaneUid: string) => void;
   evictCardByUid: (cardUid: string) => void;
   mergeBoardState: (patch: Partial<BoardFull>) => void;
+  /** Set only `parent` on the given cards: the `card.parent_changed` re-read (#1104). */
+  applyCardParents: (parents: ReadonlyMap<number, CardParent | null>) => void;
 }
 
 const BoardContext = createContext<BoardContextType | null>(null);

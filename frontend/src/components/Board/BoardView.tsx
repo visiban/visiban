@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
-import { getCardStatus } from "../../api/cards";
+import { getCardParent, getCardStatus } from "../../api/cards";
+import { CARD_PARENT_REFETCH_EVENT } from "../Card/cardParent";
 import { resetTour } from "../../api/auth";
 import { getGroup } from "../../api/groups";
 import { useLocation, useSearchParams } from "react-router-dom";
@@ -27,7 +28,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, CardMovedEventPayload, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User, WebhookChangedPayload } from "../../types";
+import type { BoardMembership, Card, CardMovedEventPayload, CardParent, Column, CustomFieldDefinition, Label, ShareLinkUpdatedPayload, Swimlane, SwimlaneCustomFieldDefinition, User, WebhookChangedPayload } from "../../types";
 import { userDisplayName } from "../../types";
 import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { placementVerdict, trippedLimitSentence } from "../../utils/placementLimits";
@@ -364,6 +365,9 @@ const MEMBER_ECHO_MS = 2000;
 const FIRST_OPEN_RESYNC_MS = 1000;
 
 
+/** Above this many ids, a `card.parent_changed` re-reads the board, not each card (#1104). */
+const PARENT_REFETCH_MAX_CARDS = 20;
+
 /** Coalescing key of the "Card archived" toast. */
 const ARCHIVE_TOAST_KEY = "archive";
 const CARD_NOT_FOUND_TOAST_KEY = "card-not-found";
@@ -407,6 +411,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     evictSwimlane,
     evictCardByUid,
     mergeBoardState,
+    applyCardParents,
     silentReload,
     getLastFullFetchAt,
   } = useBoardContext();
@@ -536,7 +541,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // reads (#1289) — so they are distinct handlers.
   const onCardDeleted = removeCard;
   const onCardArchived = archiveCard;
-  const onCardUnarchived = unarchiveCard;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   // While the instance is in maintenance mode (#783) every write this user
   // could attempt would come back 503, so fold it into the existing per-board
@@ -759,6 +763,51 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     cardEventListeners.current.add(listener);
     return () => { cardEventListeners.current.delete(listener); };
   }, []);
+  // `card.parent_changed {card_ids}` (#1104) carries ids only: `parent` is
+  // computed per reader, so each card is re-read. A long list (a parent with
+  // many children was renamed) re-reads the board instead of N cards. The
+  // card detail's own link and unlink ask for the same refetch through the
+  // `visiban:card-parent-refetch` window event.
+  const parentReadSeqRef = useRef(new Map<number, number>());
+  const refetchCardParents = useCallback((ids: readonly number[]) => {
+    const boardId = boardRef.current?.id;
+    if (boardId === undefined || ids.length === 0) return;
+    if (ids.length > PARENT_REFETCH_MAX_CARDS) {
+      silentReload();
+      return;
+    }
+    // Reads race: a link then a quick unlink, or two pings close together, can
+    // land out of order. Each read takes a per-card sequence number and only
+    // the latest one for that card is applied, like silentReload's fetchSeqRef.
+    const seqs = parentReadSeqRef.current;
+    const issued = ids.map((id) => {
+      const n = (seqs.get(id) ?? 0) + 1;
+      seqs.set(id, n);
+      return n;
+    });
+    void Promise.allSettled(ids.map((id) => getCardParent(boardId, id))).then((results) => {
+      const parents = new Map<number, CardParent | null>();
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled" && seqs.get(ids[i]) === issued[i]) parents.set(ids[i], r.value);
+      });
+      if (parents.size > 0) applyCardParents(parents);
+    });
+  }, [applyCardParents, silentReload]);
+  // An unarchived card is appended with no `parent` (frames and write
+  // responses never carry it) and applyCardParents skips ids not yet on the
+  // board, so read it once the append is queued (#1104).
+  const onCardUnarchived = useCallback((card: Card) => {
+    unarchiveCard(card);
+    refetchCardParents([card.id]);
+  }, [unarchiveCard, refetchCardParents]);
+  useEffect(() => {
+    const onRefetch = (e: Event) => {
+      const ids = (e as CustomEvent<{ cardIds?: number[] }>).detail?.cardIds;
+      if (Array.isArray(ids)) refetchCardParents(ids.filter((id) => typeof id === "number"));
+    };
+    window.addEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
+    return () => window.removeEventListener(CARD_PARENT_REFETCH_EVENT, onRefetch);
+  }, [refetchCardParents]);
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     // Order matters: notify the archived panel BEFORE the branches below evict
@@ -788,6 +837,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (selectedCardIdRef.current === updatedCard.id) {
         setCardDetailRefreshTick((t) => t + 1);
       }
+    } else if (event.event === "card.parent_changed") {
+      const ids = (d as { card_ids?: unknown }).card_ids;
+      if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -948,7 +1000,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.

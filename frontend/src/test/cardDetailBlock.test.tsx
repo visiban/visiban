@@ -8,6 +8,9 @@ vi.mock('../api/cards', () => ({
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
   getCardBlocks: vi.fn().mockResolvedValue([]),
+  // Parent row (#1104): a card whose parent was never read triggers one read.
+  getCardParent: vi.fn().mockResolvedValue(null),
+  getParentBoards: vi.fn().mockResolvedValue([]),
   deleteCard: vi.fn(),
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),

@@ -165,7 +165,19 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 
 *Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board is either a parent board, whose cards can have child cards on another board, or a child board, which can only hold children. A board never plays both roles.
 
-A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards can have child cards** switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. Linking cards is not available yet; this setting is the prerequisite for it. Once links exist, the switch cannot be changed while links depend on it.
+A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards can have child cards** switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line. While cards are linked across boards, the switch cannot be changed: the change is refused and the reason is shown under the switch. Unlink those cards first.
+
+## Parent card (child side)
+
+*Added in 1.3 (#1104).* On a child board, a card can be linked to one **parent** card on a parent board. The parent's own columns and this card's columns stay independent: moving one never moves the other.
+
+- **Link a parent.** Open the card. The **Parent** row at the top of the details reads "Not linked" with a **Link a parent** button. It appears only for members and admins, and only when there is at least one parent board you are a member or admin of. The picker lists those boards in a **Board** select; search the chosen board by title or card number, then choose **Link to** *card*. Up and Down move through the matches and Enter links the highlighted one. Cards that can't be chosen stay listed with the reason, such as "Its children are on Onboarding" (a parent's children all live on one board) or "Has 100 children (the limit)". A card you can't open is never listed, and a search that finds nothing reads "No matching cards", whatever the reason.
+- **On the card face.** A linked card shows one line above its title with the parent's title. The compact card layout shows no parent line, and no lock for a hidden parent.
+- **A parent you can't open.** When the parent is on a board you don't have access to, the card face and the Parent row show only "Linked card you can't open", with a lock. No title, board or column is shown.
+- **Unlink.** The **Unlink** button on the Parent row removes the link at once, without asking. It changes nothing else about the card, and you can link it again from the picker. Both cards record the link and the unlink in their history.
+- **Live.** When someone links, unlinks, renames or moves a parent, the parent line updates for everyone viewing the child board.
+
+Public share links show no parent line. On a phone the picker opens as a full-screen sheet with **‹ Card** and **Close**, and the sheet shrinks to the space above the on-screen keyboard, so the keyboard never covers the list, and Cancel and Link stay pinned at the bottom. Showing a parent's children is not available yet (#2209).
 
 ## Collapsed columns
 

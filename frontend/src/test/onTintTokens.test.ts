@@ -254,7 +254,7 @@ describe('warning-action button (#2169)', () => {
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
-const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark', 'TrackChips']
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark', 'TrackChips', 'LockGlyph']
 // `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
 const NOT_COLOR = new Set([
   'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
@@ -279,6 +279,8 @@ describe('card metadata on an aging tint (#1844)', () => {
   const META = ['fg-secondary', 'fg-tertiary', 'fg-muted', 'fg-faint', 'info', 'danger', 'success']
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
   // Sibling components CardItem imports that never render inside the row: they are portaled.
+  // Plain .ts modules CardItem imports values from: no markup, so no text color to scan (#1104).
+  const NO_MARKUP = ['cardParent'] // cardParent.ts: the hidden-parent copy and the re-read event name
   const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover', 'CardContextMenu'] // CardContextMenu: type-only import in CardItem; the menu itself is portaled (#2059)
   const themes = [
     ['dark', darkBlock],
@@ -370,7 +372,7 @@ describe('card metadata on an aging tint (#1844)', () => {
     for (const f of CARD_FACE_FILES) {
       const src = readFileSync(`src/components/Card/${f}.tsx`, 'utf8')
       for (const m of src.matchAll(/from "\.\/([A-Za-z]+)"/g)) {
-        expect(CARD_FACE_FILES.includes(m[1]) || PORTALED.includes(m[1]), `${f}.tsx imports ./${m[1]}`).toBe(true)
+        expect(CARD_FACE_FILES.includes(m[1]) || PORTALED.includes(m[1]) || NO_MARKUP.includes(m[1]), `${f}.tsx imports ./${m[1]}`).toBe(true)
       }
     }
   })

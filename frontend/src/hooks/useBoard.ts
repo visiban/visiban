@@ -7,7 +7,7 @@ import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "..
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
-import type { BoardFull, BoardMembership, Card, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
 export type MoveOutcome = { ok: true } | { ok: false; error: unknown };
@@ -167,11 +167,25 @@ function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership, o
  * apply the same rule, but only to cards written while they were in flight;
  * see mergeFullSnapshot (#2038).
  */
+/**
+ * `incoming` with `previous.parent` carried over when `incoming` has no
+ * `parent` key (#1104). The key is computed for one reader, so write responses
+ * and every `card.*` frame leave it out; replacing the card wholesale would
+ * blank the parent line on every edit of a child. `card.parent_changed` is
+ * what refreshes it (applyCardParents).
+ */
+export function carryParent(incoming: Card, previous: Card | undefined): Card {
+  if (incoming.parent !== undefined || previous?.parent === undefined) return incoming;
+  return { ...incoming, parent: previous.parent };
+}
+
 function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
   const i = cards.findIndex((c) => c.id === incoming.id);
   if (i === -1 || isStaleCard(incoming, cards[i])) return cards;
   const next = cards.slice();
-  next[i] = prepare(incoming);
+  // Every wholesale replace (frames, move/forced-move/add/unarchive responses)
+  // keeps the per-reader `parent` the incoming copy leaves out (#1104).
+  next[i] = prepare(carryParent(incoming, cards[i]));
   return next;
 }
 
@@ -365,7 +379,10 @@ function mergeSnapshotCards(prev: BoardFull, snapshot: BoardFull, touches: Fetch
       continue;
     }
     if (touches.written.has(card.id) && isStaleCard(card, mine)) {
-      cards.push(mine);
+      // The kept copy came from a frame or write response, which never
+      // carries `parent` (a copy that has one only carried an older read
+      // forward); the snapshot's is the newest read, so it always wins (#1104).
+      cards.push(card.parent !== undefined ? { ...mine, parent: card.parent } : mine);
       changed = true;
     } else if (
       touches.siblingPositions.has(card.id) && card.version === mine.version && card.position !== mine.position
@@ -1194,7 +1211,7 @@ export function useBoard() {
       const cardStale = isStaleCard(card, stored);
       const keepPosition = stored !== undefined && newerThanFrame(card.id);
       let cards = replaceCardUnlessStale(b.cards, card, (c) => {
-        const prepared = dropUnknownLabels(c, b.labels);
+        const prepared = carryParent(dropUnknownLabels(c, b.labels), stored);
         return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
       });
       if (!cardStale) record(card.id);
@@ -1470,6 +1487,22 @@ export function useBoard() {
     });
   }, []);
 
+  // `card.parent_changed` refetch results (#1104): sets only `parent`, so a
+  // read that raced a newer edit cannot revert any other field. Ids no longer
+  // on the board are skipped.
+  const applyCardParents = useCallback((parents: ReadonlyMap<number, CardParent | null>) => {
+    if (parents.size === 0) return;
+    writeBoard((b) => {
+      let changed = false;
+      const cards = b.cards.map((c) => {
+        if (!parents.has(c.id)) return c;
+        changed = true;
+        return { ...c, parent: parents.get(c.id) ?? null };
+      });
+      return changed ? { ...b, cards } : b;
+    });
+  }, [writeBoard]);
+
   const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
     // archived_card_count is deliberately NOT merged (#1289). board.updated
     // payloads are full BoardSerializer snapshots taken at emit time, so one
@@ -1498,18 +1531,22 @@ export function useBoard() {
     });
   }, [writeBoard]);
 
-  const updateBoardSettings = useCallback(async (patch: Record<string, unknown>) => {
-    if (!boardRef.current) return;
+  // Resolves with the error on failure, null on success, so a settings control
+  // can say why the server refused (the Child cards switch, #1104).
+  const updateBoardSettings = useCallback(async (patch: Record<string, unknown>): Promise<unknown> => {
+    if (!boardRef.current) return null;
     // Recorded although optimistic: a failure reloads, superseding any fetch
     // this was recorded for (#2130).
     writeBoard((b) => ({ ...b, ...patch }));
     try {
       await apiPatchBoard(boardId, patch);
-    } catch {
+      return null;
+    } catch (err) {
       // Reload fresh state on failure
       load();
+      return err;
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents };
 }

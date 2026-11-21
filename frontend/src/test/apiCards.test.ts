@@ -211,3 +211,40 @@ describe('cards API', () => {
     })
   })
 })
+
+describe('cards API — parent link, child side (#1104)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('reads a card and its per-reader parent', async () => {
+    const { getCard, getCardParent } = await import('../api/cards')
+    mockClient.get.mockResolvedValue({ data: { id: 5, parent: { hidden: true } } })
+    expect(await getCard(3, 5)).toEqual({ id: 5, parent: { hidden: true } })
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/3/cards/5/')
+    expect(await getCardParent(3, 5)).toEqual({ hidden: true })
+    mockClient.get.mockResolvedValue({ data: { id: 5 } })
+    expect(await getCardParent(3, 5)).toBeNull()
+  })
+
+  it('links and unlinks a parent', async () => {
+    const { linkCardParent, unlinkCardParent } = await import('../api/cards')
+    mockClient.post.mockResolvedValue({ data: { parent_id: 9, child_id: 5 } })
+    expect(await linkCardParent(3, 5, 9)).toEqual({ parent_id: 9, child_id: 5 })
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/3/cards/5/parent/', { parent_id: 9 })
+    mockClient.delete.mockResolvedValue({})
+    await unlinkCardParent(3, 5)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/3/cards/5/parent/')
+  })
+
+  it('reads parent boards and candidates', async () => {
+    const { getParentBoards, getParentCandidates } = await import('../api/cards')
+    mockClient.get.mockResolvedValue({ data: { results: [{ id: 12, name: 'Pipeline' }] } })
+    expect(await getParentBoards(3)).toEqual([{ id: 12, name: 'Pipeline' }])
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/3/parent-boards/')
+    mockClient.get.mockResolvedValue({ data: { results: [] } })
+    const signal = new AbortController().signal
+    expect(await getParentCandidates(3, 5, 12, 'Ini', signal)).toEqual([])
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/3/cards/5/parent-candidates/', { params: { board: 12, search: 'Ini' }, signal })
+  })
+})

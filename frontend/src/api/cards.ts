@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
+import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -152,6 +152,45 @@ export const addCardRelation = (
 // unlink it. `relationId` is the id returned by getCardRelations().
 export const deleteCardRelation = (boardId: number, cardId: number, relationId: number) =>
   client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/relations/${relationId}/`);
+
+// Parent link, child side (#1104). The card read carries `parent` resolved
+// for the viewer; write responses and socket frames never do, so a link
+// change is followed by a read of the card (see BoardView's parent refetch).
+export const getCard = (boardId: number, cardId: number) =>
+  client.get<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/`).then((r) => r.data);
+
+/** Read `parent` for one card: `null` (none), hidden, or the visible parent. */
+export const getCardParent = (boardId: number, cardId: number): Promise<CardParent | null> =>
+  getCard(boardId, cardId).then((c) => c.parent ?? null);
+
+export const linkCardParent = (boardId: number, cardId: number, parentId: number) =>
+  client
+    .post<{ parent_id: number; child_id: number }>(`/api/v1/boards/${boardId}/cards/${cardId}/parent/`, { parent_id: parentId })
+    .then((r) => r.data);
+
+export const unlinkCardParent = (boardId: number, cardId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/parent/`);
+
+/** Parent boards the viewer is member+ on; empty on a parent board (#1104). */
+export const getParentBoards = (boardId: number) =>
+  client
+    .get<{ results: ParentBoardOption[] }>(`/api/v1/boards/${boardId}/parent-boards/`)
+    .then((r) => r.data.results);
+
+/** Up to 20 link candidates on parent board `parentBoardId` (#1104). */
+export const getParentCandidates = (
+  boardId: number,
+  cardId: number,
+  parentBoardId: number,
+  search: string,
+  signal?: AbortSignal,
+) =>
+  client
+    .get<{ results: ParentCandidate[] }>(`/api/v1/boards/${boardId}/cards/${cardId}/parent-candidates/`, {
+      params: { board: parentBoardId, search },
+      signal,
+    })
+    .then((r) => r.data.results);
 
 export const searchCards = (boardId: number, query: string, signal?: AbortSignal): Promise<Card[]> =>
   client.get<Card[]>(`/api/v1/boards/${boardId}/cards/`, { params: { search: query }, signal })

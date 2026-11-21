@@ -1898,8 +1898,38 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     await openRules(fakeBoard)
     const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
     expect(sw).toHaveAttribute('aria-checked', 'false')
-    expect(sw).toHaveAttribute('aria-describedby', 'cards-can-have-children-help')
+    expect(sw).toHaveAttribute('aria-describedby', 'cards-can-have-children-help cards-can-have-children-error')
     expect(document.getElementById('cards-can-have-children-help')).toHaveTextContent('Cards on this board can have child cards on another board')
+    // #1104: the help names the existing-links rule.
+    expect(document.getElementById('cards-can-have-children-help')).toHaveTextContent("While cards are linked across boards, this can't be changed: unlink them first.")
+  })
+
+  it('shows the server refusal inline when live links block the flip (#1104)', async () => {
+    const msg = 'Cannot change this setting while 2 card link(s) depend on it. Remove those links first.'
+    const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { cards_can_have_children: [msg] } } })
+    const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true }, onUpdate)
+    const slot = document.getElementById('cards-can-have-children-error')!
+    expect(slot).toHaveAttribute('role', 'status')
+    expect(slot).toHaveTextContent('')
+    await user.click(screen.getByRole('switch', { name: 'Cards can have child cards' }))
+    expect(await screen.findByText(msg)).toBe(slot)
+    expect(slot).toHaveClass('text-danger')
+  })
+
+  it('falls back to detail, then to generic copy, and clears on success (#1104)', async () => {
+    const onUpdate = vi.fn()
+      .mockResolvedValueOnce({ response: { status: 400, data: { detail: 'Refused.' } } })
+      .mockResolvedValueOnce(new Error('network'))
+      .mockResolvedValueOnce(null)
+    const { user } = await openRules(fakeBoard, onUpdate)
+    const sw = screen.getByRole('switch', { name: 'Cards can have child cards' })
+    const slot = document.getElementById('cards-can-have-children-error')!
+    await user.click(sw)
+    await waitFor(() => expect(slot).toHaveTextContent('Refused.'))
+    await user.click(sw)
+    await waitFor(() => expect(slot).toHaveTextContent('Failed to change the Child cards setting. Please try again.'))
+    await user.click(sw)
+    await waitFor(() => expect(slot).toHaveTextContent(''))
   })
 
   it('toggling sends cards_can_have_children', async () => {
