@@ -17,8 +17,12 @@ opt back in with ``@override_settings(PASSWORD_HASHERS=[...])`` -- see
 import pytest
 
 # Test-only hasher: never reachable from a production settings module.
+# PBKDF2 stays second so a fixture carrying a real production hash still verifies
+# (Django checks a stored hash with whichever listed hasher matches its prefix);
+# new hashes are always MD5, the first entry.
 FAST_TEST_PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
 ]
 
 
