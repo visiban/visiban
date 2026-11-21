@@ -871,7 +871,15 @@ backend-test-migrations:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  rules: *backend-test-rules
+  # Same rules as backend-test, spelled out rather than `*backend-test-rules`:
+  # scripts/wait-for-main-pipeline.py --check-ci-file reads rules as text and
+  # fails closed on an aliased rules value (it cannot rule out `manual` on main).
+  rules:
+    - changes:
+        - backend/**/*
+        - requirements*.txt
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services: *backend-test-services
   variables: *backend-test-variables
   cache: *backend-test-cache
