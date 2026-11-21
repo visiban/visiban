@@ -94,6 +94,18 @@ class EmailCollisionRoutingTests(TestCase):
 
         self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
 
+    def test_non_boolean_verified_flag_is_parsed_as_unverified(self):
+        """The verified flag is parsed strictly: only a boolean True counts."""
+        user = User.objects.create_user(username="carol", email="carol@example.com")
+        user.set_unusable_password()
+        user.save()
+        SocialAccount.objects.create(user=user, provider="google", uid="g-9", extra_data={})
+        for value in ("false", "False", "true", "0", ""):
+            with self.subTest(value=value):
+                request = _request()
+                _, params = self._run(request, _sociallogin(request, "carol@example.com", verified=value))
+                self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
+
     def test_collision_stashes_pending_connect_for_the_matched_account(self):
         alice = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         request = _request()
@@ -220,6 +232,17 @@ class EmailCollisionRoutingTests(TestCase):
         sociallogin.email_addresses = [
             EmailAddress(email="dora@example.com", verified=False, primary=False),
             EmailAddress(email="new-primary@example.com", verified=True, primary=True),
+        ]
+        self.assertIsNone(pre_social_login(request, sociallogin))
+
+    def test_first_verified_address_selection_parses_flag_strictly(self):
+        """With no primary, the first address whose flag is a boolean True is used."""
+        User.objects.create_user(username="finn", email="finn@example.com", password="testpassword123")
+        request = _request()
+        sociallogin = _sociallogin(request, "unused@example.com")
+        sociallogin.email_addresses = [
+            EmailAddress(email="finn@example.com", verified="false", primary=False),
+            EmailAddress(email="fresh@example.com", verified=True, primary=False),
         ]
         self.assertIsNone(pre_social_login(request, sociallogin))
 
