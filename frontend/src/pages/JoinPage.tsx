@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import type { BoardInviteRole } from "../api/boards";
 import { BOARD_INVITE, GROUP_INVITE, inviteKindOf, joinInvite } from "../api/inviteKinds";
-import { getAuthProviders } from "../api/auth";
+import { getAuthProviders, logout } from "../api/auth";
 import type { User } from "../types";
 import { providerLoginUrl } from "../utils/oauth";
-import { ProviderIcon } from "../components/Common/ProviderIcons";
+import ProviderButtons from "../components/Auth/ProviderButtons";
+import { enabledProviders, type AuthProviders } from "../components/Auth/providers";
+import { Button, CenteredHeader, CenteredLayout, OrDivider, StatusCard, buttonClasses } from "../components/Page";
 
 interface Props {
   user: User | null;
@@ -53,6 +55,8 @@ export default function JoinPage({ user }: Props) {
   const [groupName, setGroupName] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
   const [boardRole, setBoardRole] = useState<BoardInviteRole | null>(null);
+  // Group invites: the preview's advisory role, when the backend returns one (#2479).
+  const [groupRole, setGroupRole] = useState<string | null>(null);
   const [boardGone, setBoardGone] = useState<BoardGoneCode>("revoked");
   const titleRef = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +69,9 @@ export default function JoinPage({ user }: Props) {
   // switches to the sign-in-only view; undefined (older backend) keeps the
   // original layout.
   const [canRegister, setCanRegister] = useState<boolean | undefined>();
-  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
+  // The join failed because the invite names another address (#1678): offer to switch account (#2479).
+  const [mismatch, setMismatch] = useState(false);
   // Prevent double-firing auto-join in React StrictMode.
   const autoJoinFired = useRef(false);
 
@@ -108,6 +114,7 @@ export default function JoinPage({ user }: Props) {
       .then((data) => {
         setGroupName(data.group_name);
         setGroupId(data.group_id);
+        setGroupRole(data.role ?? null);
         setCanRegister(data.can_register);
       })
       .catch((err) => {
@@ -154,6 +161,7 @@ export default function JoinPage({ user }: Props) {
           setBoardGone(code);
           setInvalid(true);
         } else {
+          setMismatch(recipientMismatchDetail(err) !== null);
           setJoinError(
             recipientMismatchDetail(err)
               ?? `Couldn't join ${groupName}. The invite may have expired or been used.`,
@@ -173,6 +181,7 @@ export default function JoinPage({ user }: Props) {
     joinInvite(token)
       .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch((err) => {
+        setMismatch(recipientMismatchDetail(err) !== null);
         setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
       });
@@ -191,6 +200,7 @@ export default function JoinPage({ user }: Props) {
     joinInvite(token)
       .then((outcome) => navigate(outcome.path, { state: outcome.state }))
       .catch((err) => {
+        setMismatch(recipientMismatchDetail(err) !== null);
         setJoinError(recipientMismatchDetail(err) ?? "Failed to join group. The invite may have expired.");
         setJoining(false);
       });
@@ -220,192 +230,135 @@ export default function JoinPage({ user }: Props) {
     window.location.href = `${providerLoginUrl(provider)}&invite_token=${encodeURIComponent(token!)}`;
   };
 
+  // Signs out and reloads this invite signed out, so the visitor can sign in with the invited
+  // account (#2479). A full reload, not navigate(): App holds the signed-in user in state.
+  const handleSwitchAccount = () => {
+    void logout()
+      .catch(() => undefined)
+      .finally(() => window.location.assign(`/join/${token}`));
+  };
+
+  const groupRoleLabel = groupRole ? groupRole.charAt(0).toUpperCase() + groupRole.slice(1) : null;
+  const roleLabel = boardRole ? boardRole.charAt(0).toUpperCase() + boardRole.slice(1) : null;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-sunken flex items-center justify-center">
-        <span className="text-fg-tertiary">Checking invite…</span>
-      </div>
+      <CenteredLayout testId="join-page">
+        <h1 className="sr-only">Checking invite</h1>
+        <p role="status" className="text-center text-sm text-fg-secondary">Checking invite…</p>
+      </CenteredLayout>
     );
   }
 
   if (invalid) {
+    // Today's wording per link kind (#2479), in the status-card part.
+    const [title, body] = isBoardInvite
+      ? boardGone === "used"
+        ? ["This invite has already been used", "This invite could only be used once. Ask a board admin to send you a new one."]
+        : boardGone === "expired"
+          ? ["This invite has expired", "Ask a board admin for a new invite."]
+          : ["This invite is no longer valid", "It may have been revoked. Ask a board admin for a new one."]
+      : invalidReason === "already_used"
+        ? ["This link has already been used", "This was a single-use invite link. Ask a group admin for a new one."]
+        : ["Invalid or expired invite link", "This link may have been revoked or has expired."];
     return (
-      <div className="min-h-screen bg-sunken flex items-center justify-center">
-        <div className="text-center">
-          {isBoardInvite ? (
-            boardGone === "used" ? (
-              <>
-                <p ref={titleRef} tabIndex={-1} className="text-fg-tertiary text-lg font-medium mb-2 focus:outline-none">This invite has already been used</p>
-                <p className="text-fg-muted text-sm">This invite could only be used once. Ask a board admin to send you a new one.</p>
-              </>
-            ) : boardGone === "expired" ? (
-              <>
-                <p ref={titleRef} tabIndex={-1} className="text-danger text-lg font-medium mb-2 focus:outline-none">This invite has expired</p>
-                <p className="text-fg-muted text-sm">Ask a board admin for a new invite.</p>
-              </>
-            ) : (
-              <>
-                <p ref={titleRef} tabIndex={-1} className="text-danger text-lg font-medium mb-2 focus:outline-none">This invite is no longer valid</p>
-                <p className="text-fg-muted text-sm">It may have been revoked. Ask a board admin for a new one.</p>
-              </>
-            )
-          ) : invalidReason === "already_used" ? (
-            <>
-              <p className="text-fg-tertiary text-lg font-medium mb-2">This link has already been used</p>
-              <p className="text-fg-muted text-sm">This was a single-use invite link. Ask a group admin for a new one.</p>
-            </>
-          ) : (
-            <>
-              <p className="text-danger text-lg font-medium mb-2">Invalid or expired invite link</p>
-              <p className="text-fg-muted text-sm">This link may have been revoked or has expired.</p>
-            </>
-          )}
-          <p className="text-fg-muted text-xs mt-3">
-            Redirecting to dashboard in {countdown}s…
-          </p>
-        </div>
-      </div>
+      <CenteredLayout testId="join-page">
+        <StatusCard
+          title={title}
+          // A used link is a spent one-shot, not a fault; the rest are.
+          tone={(isBoardInvite ? boardGone === "used" : invalidReason === "already_used") ? "neutral" : "danger"}
+          headingRef={isBoardInvite ? titleRef : undefined}
+          actions={
+            <a href="/" className={buttonClasses("primary", { size: "lg", fullWidth: true })}>
+              {user ? "Go to Home" : "Go to sign in"}
+            </a>
+          }
+        >
+          <p>{body}</p>
+          <p className="mt-2 text-xs text-fg-tertiary">Redirecting to {user ? "Home" : "sign in"} in {countdown}s…</p>
+        </StatusCard>
+      </CenteredLayout>
     );
   }
 
-  const hasOAuth = providers && (providers.google || providers.github || providers.gitlab || providers.oidc);
+  const hasOAuth = enabledProviders(providers).length > 0;
   // The link cannot create an account here (CLOSED site, shareable link,
   // non-admin sender, or email invites off — deliberately not said which), so
   // steer the visitor to sign in before they fill in a form that would 400.
   const registerBlocked = canRegister === false;
 
   return (
-    <div className="min-h-screen bg-sunken flex items-center justify-center">
-      <div className="bg-surface rounded-2xl shadow-2xl p-10 w-full max-w-sm text-center">
-        <div className="flex flex-col items-center mb-6">
-          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-32 mb-6" />
-          <h1 ref={titleRef} tabIndex={-1} className="text-2xl font-bold text-fg mb-2 focus:outline-none">You're invited</h1>
-          {isBoardInvite && boardRole ? (
+    <CenteredLayout testId="join-page">
+      {/* Only what the anonymous preview returns: name, role and can_register (#2479). */}
+      <CenteredHeader
+        title="You're invited"
+        headingRef={titleRef}
+        subtitle={
+          isBoardInvite && roleLabel ? (
             <>
-              <p className="text-fg-tertiary text-sm">
-                Join <span className="text-fg font-semibold break-words">{groupName}</span> as a {boardRole}
-              </p>
-              <p className="text-xs text-fg-muted mt-1">{BOARD_CAPABILITY[boardRole]}</p>
+              <p>Join the board <span className="text-fg font-semibold break-words">{groupName}</span> as a {roleLabel}</p>
+              <p className="mt-1 text-xs text-fg-tertiary">{BOARD_CAPABILITY[boardRole!]}</p>
             </>
           ) : (
-            <p className="text-fg-tertiary text-sm">
-              Join <span className="text-fg font-semibold">{groupName}</span>
+            <p>
+              Join the group <span className="text-fg font-semibold break-words">{groupName}</span>
+              {groupRoleLabel ? ` as ${/^[AEIOU]/.test(groupRoleLabel) ? "an" : "a"} ${groupRoleLabel}` : ""}
             </p>
+          )
+        }
+      />
+
+      {user ? (
+        <div className="flex flex-col items-center gap-3 min-h-[4rem] justify-center text-center">
+          {joining ? (
+            <div role="status" className="flex items-center gap-2">
+              <span aria-hidden="true" className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-fg-secondary text-sm truncate max-w-full">Joining…</p>
+            </div>
+          ) : joinError ? (
+            <>
+              <p role="alert" className="text-danger text-sm break-words">{joinError}</p>
+              {mismatch ? (
+                <Button variant="primary" size="lg" fullWidth onClick={handleSwitchAccount}>Sign out and switch account</Button>
+              ) : (
+                <Button variant="primary" size="lg" fullWidth onClick={handleRetry}>Try again</Button>
+              )}
+            </>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {registerBlocked ? (
+            <>
+              <p className="text-fg-secondary text-sm text-center">
+                This invite link can't be used to create a new account. Sign in with an existing account to join.
+              </p>
+              <Button variant="primary" size="lg" fullWidth onClick={() => handleAuthRedirect("login")} aria-label={`Sign in to join ${groupName}`}>
+                Sign in
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-fg-secondary text-sm text-center">
+                To accept this invitation you need a Visiban account.
+              </p>
+              <Button variant="primary" size="lg" fullWidth onClick={() => handleAuthRedirect("register")}>
+                Create account and join
+              </Button>
+              <Button variant="secondary" size="lg" fullWidth onClick={() => handleAuthRedirect("login")}>
+                I already have an account
+              </Button>
+            </>
+          )}
+
+          {hasOAuth && (
+            <>
+              <OrDivider label="or continue with" />
+              <ProviderButtons providers={providers} onSelect={handleOAuthRedirect} />
+            </>
           )}
         </div>
-
-        {user ? (
-          <div className="flex flex-col items-center gap-3 min-h-[4rem] justify-center">
-            {joining ? (
-              <>
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-fg-tertiary text-sm truncate max-w-full">Joining {groupName}…</p>
-              </>
-            ) : joinError ? (
-              <>
-                <p role="alert" className="text-danger text-sm break-words">{joinError}</p>
-                <button
-                  onClick={handleRetry}
-                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-                >
-                  Try again
-                </button>
-              </>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {registerBlocked ? (
-              <>
-                <p className="text-fg-tertiary text-sm mb-1">
-                  This invite link can't be used to create a new account. Sign in with an existing account to join.
-                </p>
-
-                <button
-                  onClick={() => handleAuthRedirect("login")}
-                  aria-label={`Sign in to join ${groupName}`}
-                  className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Sign in
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-fg-tertiary text-sm mb-1">
-                  To accept this invitation you need a Visiban account.
-                </p>
-
-                <button
-                  onClick={() => handleAuthRedirect("register")}
-                  className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Create an account
-                </button>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-surface-hover" />
-                  <span className="text-xs text-fg-muted">already have an account?</span>
-                  <div className="flex-1 h-px bg-surface-hover" />
-                </div>
-
-                <button
-                  onClick={() => handleAuthRedirect("login")}
-                  className="w-full bg-surface-hover hover:bg-surface-active text-fg font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Sign in
-                </button>
-              </>
-            )}
-
-            {hasOAuth && (
-              <>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-surface-hover" />
-                  <span className="text-xs text-fg-muted">or continue with</span>
-                  <div className="flex-1 h-px bg-surface-hover" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  {providers.google && (
-                    <button
-                      onClick={() => handleOAuthRedirect("google")}
-                      className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      <ProviderIcon id="google" className="w-5 h-5" />
-                      Continue with Google
-                    </button>
-                  )}
-                  {providers.github && (
-                    <button
-                      onClick={() => handleOAuthRedirect("github")}
-                      className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      <ProviderIcon id="github" className="w-5 h-5" />
-                      Continue with GitHub
-                    </button>
-                  )}
-                  {providers.gitlab && (
-                    <button
-                      onClick={() => handleOAuthRedirect("gitlab")}
-                      className="flex items-center justify-center gap-3 bg-warning-bg text-on-warning font-medium py-2.5 px-4 rounded hover:bg-warning-bg-hover transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      <ProviderIcon id="gitlab" className="w-5 h-5" />
-                      Continue with GitLab
-                    </button>
-                  )}
-                  {providers.oidc && (
-                    <button
-                      onClick={() => handleOAuthRedirect("oidc")}
-                      className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      Continue with {providers.oidc_name ?? "SSO"}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </CenteredLayout>
   );
 }

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { requestPasswordReset } from "../api/auth";
+import { Button, CenteredHeader, CenteredLayout, Field, StatusCard, buttonClasses } from "../components/Page";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [submittedEmail, setSubmittedEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +20,6 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setSubmittedEmail(email);
     setSubmitting(true);
     try {
       await requestPasswordReset(email);
@@ -33,83 +32,40 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-sunken flex items-center justify-center">
-      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
-        </div>
-
-        {submitted ? (
-          <>
-            <h1
-              ref={confirmHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
-            >
-              Check your email
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              If an account exists for{" "}
-              <span className="font-medium text-fg-secondary break-all">{submittedEmail}</span>
-              , you'll receive a link to reset your password shortly. Check your
-              spam folder if it doesn't arrive within a few minutes.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Back to sign in
+    <CenteredLayout testId="forgot-password-page">
+      {submitted ? (
+        // Never says whether an account uses the address (#2479).
+        <StatusCard
+          title="Check your email"
+          tone="success"
+          headingRef={confirmHeadingRef}
+          actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Back to sign in</Button>}
+        >
+          <p>If an account uses that address, a reset link is on its way.</p>
+          <p className="mt-2">Check your spam folder if it doesn&apos;t arrive within a few minutes.</p>
+        </StatusCard>
+      ) : (
+        <>
+          <CenteredHeader title="Reset your password" subtitle={<p>Enter your account&apos;s email and we&apos;ll send a reset link.</p>} />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <Field
+              id="fp-email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              required
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            {error && <p className="text-xs text-danger" role="alert">{error}</p>}
+            <button type="submit" disabled={submitting} className={buttonClasses("primary", { size: "lg", fullWidth: true })}>
+              {submitting ? "Sending…" : "Send reset link"}
             </button>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-semibold text-fg mt-6 mb-2">
-              Reset your password
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              Enter your email address and we'll send you a link to reset your
-              password.
-            </p>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div>
-                <label htmlFor="fp-email" className="block text-fg-tertiary text-xs mb-1">
-                  Email address
-                </label>
-                <input
-                  id="fp-email"
-                  type="email"
-                  required
-                  autoFocus
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-                />
-              </div>
-              <p className="text-xs h-4">
-                {error && <span className="text-danger" role="alert">{error}</span>}
-              </p>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                {submitting ? "Sending…" : "Send reset link"}
-              </button>
-              <p className="text-center text-xs text-fg-tertiary mt-1">
-                <button
-                  type="button"
-                  onClick={() => navigate("/")}
-                  className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
-                >
-                  ← Back to sign in
-                </button>
-              </p>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            <Button variant="quiet" size="lg" fullWidth onClick={() => navigate("/")}>Back to sign in</Button>
+          </form>
+        </>
+      )}
+    </CenteredLayout>
   );
 }

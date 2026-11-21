@@ -4,7 +4,8 @@ import { getPublicBoard } from "../api/boards";
 import type { BoardPublic, PublicCard, PublicColumn, PublicSwimlane, Label } from "../types";
 import { colorForPriority } from "../constants/colors";
 import ShareBoardHeader from "../components/Board/ShareBoardHeader";
-import Spinner from "../components/Common/Spinner";
+import { useIsPhoneViewport } from "../hooks/useIsPhoneViewport";
+import { EmptyState, buttonClasses } from "../components/Page";
 import { colorChipStyle } from "../utils/colorContrast";
 import { cardSubColumnIndex, splitCellBySubColumn, stageSubColumns } from "../utils/stages";
 
@@ -27,14 +28,13 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
 
   return (
     <div
-      className="bg-surface rounded-md border relative cursor-default select-none"
-      style={{
-        borderColor: color,
-        boxShadow: "0 2px 0 rgba(0,0,0,0.45), 0 1px 6px rgba(0,0,0,0.25)",
-      }}
+      className="bg-surface rounded-lg border border-line border-l-4 shadow-sm relative cursor-default select-none"
+      // The priority stripe on the left edge (#2480); its color is data, so it stays inline.
+      style={{ borderLeftColor: color }}
       data-testid="share-card"
     >
       <div className="px-2.5 py-2">
+        <span className="sr-only">{`Priority: ${card.priority}. `}</span>
         <p className="text-sm text-fg leading-snug line-clamp-2">{card.title}</p>
         {/* Metadata row */}
         {(cardLabels.length > 0 || card.due_date || card.assignee || card.checklist_total > 0 || card.weight > 1) && (
@@ -102,23 +102,12 @@ function StaticSwimlaneSidebar({ swimlane }: { swimlane: PublicSwimlane }) {
 // Static column header
 // ---------------------------------------------------------------------------
 
-/**
- * A split stage (#1102) shows its sub-columns under the name, each with its
- * own count, and its tracks (#1921) by name. The anonymous payload carries the
- * track definitions but no per-card track state (that would widen the public
- * serializer), so the chips here name the tracks a card on this stage carries
- * and never claim a state. Read-only: nothing here is interactive.
- */
-function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn; cardCount: number; cards: PublicCard[] }) {
+/** Sub-columns with counts and track names for a split stage; shared by the grid header and the phone view. */
+function StageDetail({ column, cards }: { column: PublicColumn; cards: PublicCard[] }) {
   const subs = stageSubColumns(column);
   const tracks = [...(column.tracks ?? [])].sort((a, b) => a.position - b.position);
   return (
-    <div className="bg-surface min-w-0">
-      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
-        <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-        <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
-        <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
-      </div>
+    <>
       {subs.length > 0 && (
         <ul
           data-testid="share-sub-columns"
@@ -151,6 +140,26 @@ function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn
           ))}
         </ul>
       )}
+    </>
+  );
+}
+
+/**
+ * A split stage (#1102) shows its sub-columns under the name, each with its
+ * own count, and its tracks (#1921) by name. The anonymous payload carries the
+ * track definitions but no per-card track state (that would widen the public
+ * serializer), so the chips here name the tracks a card on this stage carries
+ * and never claim a state. Read-only: nothing here is interactive.
+ */
+function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn; cardCount: number; cards: PublicCard[] }) {
+  return (
+    <div className="bg-surface min-w-0">
+      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
+        <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
+        <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
+      </div>
+      <StageDetail column={column} cards={cards} />
     </div>
   );
 }
@@ -176,7 +185,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
   const labelW = 160;
 
   return (
-    <div className="overflow-auto flex-1">
+    <div className="overflow-auto flex-1 bg-page">
       <div
         style={{
           display: "grid",
@@ -185,9 +194,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
         }}
       >
         {/* Top-left corner */}
-        <div className="bg-surface border-b border-r border-line-subtle px-2 py-1 text-xs text-fg-muted">
-          {swimlanes.length} lane{swimlanes.length !== 1 ? "s" : ""} · {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
-        </div>
+        <div className="bg-surface border-b border-r border-line-subtle px-2 py-1 text-xs text-fg-tertiary">Lanes</div>
 
         {/* Column headers */}
         {columns.map((col) => (
@@ -262,19 +269,38 @@ export default function ShareBoardPage() {
   const [board, setBoard] = useState<BoardPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
+  // Only a 404/410 means the link is gone; any other failure is retryable (#2480 ux-review).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const isPhone = useIsPhoneViewport();
 
   useEffect(() => {
     if (!token) return;
     getPublicBoard(token)
       .then(setBoard)
-      .catch(() => setExpired(true))
+      .catch((err) => {
+        const status = (err as { response?: { status?: number } }).response?.status;
+        if (status === 404 || status === 410) setExpired(true);
+        else setLoadFailed(true);
+      })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, attempt]);
 
   if (loading) {
+    return <ShareBoardSkeleton />;
+  }
+
+  if (loadFailed) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <Spinner size="lg" />
+      <div className="min-h-screen bg-page flex flex-col" data-testid="share-load-error">
+        <main className="flex-1 flex items-center justify-center">
+          <EmptyState
+            headingLevel="h1"
+            title="The board didn't load"
+            description="Check your connection and try again."
+            action={<button type="button" onClick={() => { setLoadFailed(false); setLoading(true); setAttempt((a) => a + 1); }} className={buttonClasses("primary")}>Try again</button>}
+          />
+        </main>
       </div>
     );
   }
@@ -283,10 +309,92 @@ export default function ShareBoardPage() {
     return <ShareExpiredPage />;
   }
 
+  const laneCount = board.swimlanes.length;
+  const cardCount = board.cards.length;
   return (
-    <div className="flex flex-col min-h-screen bg-canvas" data-testid="share-board-page">
+    <div className="flex flex-col min-h-screen bg-page" data-testid="share-board-page">
       <ShareBoardHeader boardName={board.name} />
-      <StaticBoardGrid board={board} />
+      <p data-testid="share-board-summary" className="px-4 py-2 text-sm text-fg-secondary border-b border-line">
+        {laneCount} lane{laneCount !== 1 ? "s" : ""} · {cardCount} card{cardCount !== 1 ? "s" : ""}. A read-only snapshot of this board. Cards
+        can&apos;t be opened or moved here. Reload to see the latest.
+      </p>
+      <main className="flex-1 flex flex-col min-h-0">
+        {isPhone ? <PhoneBoard board={board} /> : <StaticBoardGrid board={board} />}
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Phones (#2480): one column at a time, chosen with a select ("Lead (3)"), lanes stacked with
+ * their counts, full-width cards — the board redesign's phone pattern (#2277).
+ */
+function PhoneBoard({ board }: { board: BoardPublic }) {
+  const columns = [...board.columns].sort((a, b) => a.position - b.position);
+  const swimlanes = [...board.swimlanes].sort((a, b) => a.position - b.position);
+  const [columnId, setColumnId] = useState<number | undefined>(columns[0]?.id);
+  const column = columns.find((c) => c.id === columnId) ?? columns[0];
+  if (!column) return null;
+  const inColumn = board.cards.filter((c) => c.column === column.id);
+  return (
+    <div className="flex-1 p-4 flex flex-col gap-4" data-testid="share-phone-board">
+      <div>
+        <label htmlFor="share-phone-column" className="mb-1 block text-sm font-medium text-fg-secondary">Column</label>
+        <select
+          id="share-phone-column"
+          value={column.id}
+          onChange={(e) => setColumnId(Number(e.target.value))}
+          className="w-full h-11 bg-surface border border-line-strong text-fg rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          {columns.map((c) => (
+            <option key={c.id} value={c.id}>{`${c.name} (${board.cards.filter((card) => card.column === c.id).length})`}</option>
+          ))}
+        </select>
+      </div>
+      {(stageSubColumns(column).length > 0 || (column.tracks ?? []).length > 0) && (
+        <div className="rounded-lg bg-surface" data-testid="share-phone-stage">
+          <StageDetail column={column} cards={inColumn} />
+        </div>
+      )}
+      {swimlanes.map((lane) => {
+        const cards = inColumn.filter((c) => c.swimlane === lane.id).sort((a, b) => a.position - b.position);
+        return (
+          <section key={lane.id} aria-label={lane.name} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 rounded-lg bg-surface px-3 py-2" style={{ borderLeft: `4px solid ${lane.color}` }}>
+              <h2 className="flex-1 min-w-0 truncate text-sm font-semibold text-fg">{lane.name}</h2>
+              <span className="text-xs text-fg-secondary">{cards.length}</span>
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg bg-canvas p-2">
+              {cards.length === 0 ? (
+                <p className="text-xs text-fg-muted">No cards here</p>
+              ) : (
+                cards.map((card) => <StaticCardItem key={card.uid} card={card} labels={board.labels} />)
+              )}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Loading (#2480): a skeleton of the grid, never a spinner (§ Empty states, board states). */
+function ShareBoardSkeleton() {
+  return (
+    <div className="flex flex-col min-h-screen bg-page" role="status" aria-busy="true" data-testid="share-board-skeleton">
+      <div aria-hidden="true" className="h-14 bg-sunken border-b border-line" />
+      <main className="flex flex-col gap-3 p-4 overflow-hidden">
+        <h1 className="sr-only">Loading board</h1>
+        <div aria-hidden="true" className="flex gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="w-[220px] shrink-0 flex flex-col gap-2">
+            <div className="h-9 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
+            <div className="h-24 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
+            <div className="h-16 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
+          </div>
+        ))}
+        </div>
+      </main>
     </div>
   );
 }
@@ -301,22 +409,20 @@ export default function ShareBoardPage() {
  */
 function ShareExpiredPage() {
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center" data-testid="share-expired-page">
-      <div className="flex flex-col items-center gap-4 max-w-sm text-center px-4">
-        <svg className="w-12 h-12 text-fg-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75H3.75a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75z" />
-        </svg>
-        <h1 className="text-xl font-semibold text-fg">This board is no longer shared</h1>
-        <p className="text-sm text-fg-tertiary">
-          The share link has been revoked or the board has been deleted.
-        </p>
-        <a
-          href="/"
-          className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          Sign in to Visiban
-        </a>
-      </div>
+    <div className="min-h-screen bg-page flex flex-col" data-testid="share-expired-page">
+      <main className="flex-1 flex items-center justify-center">
+        <EmptyState
+          headingLevel="h1"
+          title="This board is no longer shared"
+          description="The share link has been revoked or the board has been deleted."
+          action={<a href="/" className={buttonClasses("primary")}>Sign in to Visiban</a>}
+          icon={
+            <svg className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75H3.75a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75z" />
+            </svg>
+          }
+        />
+      </main>
     </div>
   );
 }

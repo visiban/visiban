@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -126,10 +126,20 @@ describe('BoardPage unavailable state (#2041)', () => {
     const h1 = screen.getByRole('heading', { level: 1, name: "This board isn't available" })
     expect(h1).toHaveFocus()
     expect(document.title).toBe('Not available – Visiban')
-    expect(screen.getByText(/It may have been deleted, or you may not have access to it/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/')
+    expect(screen.getByText(/It may have been deleted, or you don.t have access to it/)).toHaveTextContent('ask them to add you to the board or its group.')
+    // #2480: never says which reason applies, and offers search beside Home.
+    expect(screen.queryByText(/was deleted|no access|revoked/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /Search boards/ })).toHaveAttribute('aria-keyshortcuts', 'Meta+K Control+K')
+    expect(screen.getByRole('link', { name: 'Go to Home' })).toHaveAttribute('href', '/')
     expect(screen.queryByTestId('board-view')).toBeNull()
     expect(screen.queryByTestId('dashboard')).toBeNull()
+  })
+
+  it('Search boards actually opens the palette on the board variant (the shell palette is off on board routes)', () => {
+    renderBoardPage({ unavailable: true })
+    expect(screen.queryByLabelText('Command palette search')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Search boards/ }))
+    expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
   })
 
   it('swaps a loaded board for the same page when access is lost mid-session', () => {

@@ -1,17 +1,24 @@
 /**
- * #484: every Cancel button (modal footers and inline Confirm/Cancel prompts) uses the
- * secondary variant, which includes the `hover:bg-surface-hover` fill and `rounded`
- * (frontend/CLAUDE.md § Buttons). The fill was dropped on dozens of Cancel buttons one at a
+ * #484, #2475: every Cancel button (modal footers and inline Confirm/Cancel prompts) uses the
+ * Quiet variant (bare text, `hover:bg-surface-hover` fill, `rounded`; frontend/CLAUDE.md
+ * § Buttons). Quiet is the variant that was called "Secondary" before #2475; Secondary is now
+ * the bordered style, which a Cancel never uses. The fill was dropped on dozens of Cancel buttons one at a
  * time, so this source scan covers every `.tsx` file under `src/` rather than a list of
  * modals: a new Cancel button without the fill fails here.
  *
  * The scan resolves `className="..."` literals and `className={CONST}` /
  * `className={`${CONST} ...`}` references to a string constant in the same file. A Cancel
  * whose classes are built some other way is reported as unresolved so it gets looked at.
+ * `className={buttonClasses("<variant>"…)}` resolves to that variant's classes from
+ * `components/Page/buttonClasses.ts`, and a shared `<Button>` labeled Cancel must pass
+ * `variant="quiet"`.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
+import { BUTTON_VARIANT_CLASSES, buttonClasses, type ButtonVariant } from '../components/Page/buttonClasses'
+
+const variantClasses = (v: string): string | null => (v in BUTTON_VARIANT_CLASSES ? buttonClasses(v as ButtonVariant) : null)
 
 const SRC = resolve(__dirname, '..')
 
@@ -44,14 +51,30 @@ function cancelButtons(): CancelButton[] {
       if (!/>\s*Cancel\s*$|"Cancel"/.test(body)) continue
       const where = `${relative(SRC, file)}:${src.slice(0, at).split('\n').length}`
       const literal = /className="([^"]*)"/.exec(body)
+      const helper = /className=\{buttonClasses\("(\w+)"/.exec(body)
       const ref = /className=\{`?\$?\{?([A-Za-z_]\w*)/.exec(body)
-      found.push({ where, classes: literal ? literal[1] : ref ? constant(ref[1]) : null })
+      found.push({
+        where,
+        classes: literal ? literal[1]
+          : helper ? variantClasses(helper[1])
+          : ref ? constant(ref[1]) : null,
+      })
+    }
+    // The shared <Button> part: its classes come from the variant prop.
+    for (let at = src.indexOf('<Button'); at !== -1; at = src.indexOf('<Button', at + 1)) {
+      const end = src.indexOf('</Button>', at)
+      if (end === -1) break
+      const body = src.slice(at, end)
+      if (!/>\s*Cancel\s*$|"Cancel"/.test(body)) continue
+      const where = `${relative(SRC, file)}:${src.slice(0, at).split('\n').length}`
+      const variant = /variant="(\w+)"/.exec(body)
+      found.push({ where, classes: variant ? variantClasses(variant[1]) : null })
     }
   }
   return found
 }
 
-describe('Cancel buttons use the secondary variant hover fill (#484)', () => {
+describe('Cancel buttons use the Quiet variant (#484, #2475)', () => {
   const buttons = cancelButtons()
 
   it('scans a Cancel label that is the first branch of a ternary (HealthStatusPopover)', () => {
@@ -69,14 +92,23 @@ describe('Cancel buttons use the secondary variant hover fill (#484)', () => {
     expect(bad).toEqual([])
   })
 
-  it('every Cancel button carries the secondary text color and its hover:text-fg', () => {
+  it('scans the shared <Button> part (InlineConfirm passes variant="quiet")', () => {
+    expect(buttons.some((b) => b.where.startsWith('components/Page/parts.tsx') && b.classes === buttonClasses('quiet'))).toBe(true)
+  })
+
+  it('no Cancel button uses the bordered Secondary variant', () => {
+    const bordered = buttons.filter((b) => b.classes !== null && /(^|\s)border-line-strong(\s|$)/.test(b.classes)).map((b) => b.where)
+    expect(bordered).toEqual([])
+  })
+
+  it('every Cancel button carries the Quiet text color and its hover:text-fg', () => {
     const bad = buttons
       .filter((b) => b.classes !== null && (!/(^|\s)text-fg-secondary(\s|$)/.test(b.classes) || !/(^|\s)hover:text-fg(\s|$)/.test(b.classes)))
       .map((b) => `${b.where} ${b.classes}`)
     expect(bad).toEqual([])
   })
 
-  it('no Cancel button uses the tertiary text color instead of the secondary variant', () => {
+  it('no Cancel button uses the tertiary text color instead of the Quiet variant', () => {
     const tertiary = buttons
       .filter((b) => b.classes !== null && /(^|\s)text-fg-tertiary(\s|$)/.test(b.classes))
       .map((b) => b.where)

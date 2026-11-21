@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { confirmPasswordReset } from "../api/auth";
+import { Button, CenteredHeader, CenteredLayout, Field, StatusCard, buttonClasses } from "../components/Page";
 
 export default function ResetPasswordPage() {
   const { uid, token } = useParams<{ uid: string; token: string }>();
@@ -78,123 +79,63 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-sunken flex items-center justify-center">
-      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
-        </div>
-
-        {success ? (
-          <>
-            <h1
-              ref={successHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
-            >
-              Password updated
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              Your password has been reset. You can now sign in with your new
-              password.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Sign in
+    <CenteredLayout testId="reset-password-page">
+      {success ? (
+        <StatusCard
+          title="Password updated"
+          tone="success"
+          headingRef={successHeadingRef}
+          actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Sign in</Button>}
+        >
+          <p>Your password has been reset. You can now sign in with your new password.</p>
+          <p className="mt-2 text-xs text-fg-tertiary">Redirecting in {countdown}s…</p>
+        </StatusCard>
+      ) : tokenInvalid ? (
+        <StatusCard
+          title="Link expired or invalid"
+          tone="danger"
+          headingRef={tokenErrorHeadingRef}
+          actions={
+            <>
+              <Button variant="primary" size="lg" fullWidth onClick={() => navigate("/forgot-password")}>Request a new link</Button>
+              <Button variant="quiet" size="lg" fullWidth onClick={() => navigate("/")}>← Back to sign in</Button>
+            </>
+          }
+        >
+          <p>This password reset link has expired or has already been used. Reset links are valid for 3 days and can only be used once.</p>
+        </StatusCard>
+      ) : (
+        <>
+          <CenteredHeader title="Choose a new password" />
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <Field
+              id="rp-password"
+              label="New password"
+              type="password"
+              autoComplete="new-password"
+              required
+              autoFocus
+              hint="Must be at least 12 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Field
+              id="rp-confirm"
+              label="Confirm new password"
+              type="password"
+              autoComplete="new-password"
+              required
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            {error && <p className="text-xs text-danger" role="alert">{error}</p>}
+            <button type="submit" disabled={submitting} className={buttonClasses("primary", { size: "lg", fullWidth: true })}>
+              {submitting ? "Resetting…" : "Set new password"}
             </button>
-            <p className="text-xs text-fg-muted mt-3 text-center">
-              Redirecting in {countdown}s…
-            </p>
-          </>
-        ) : tokenInvalid ? (
-          <>
-            <h1
-              ref={tokenErrorHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
-            >
-              Link expired or invalid
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              This password reset link has expired or has already been used.
-              Reset links are valid for 3 days and can only be used once.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/forgot-password")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Request a new link
-            </button>
-            <p className="text-center text-xs text-fg-tertiary mt-3">
-              <button
-                type="button"
-                onClick={() => navigate("/")}
-                className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
-              >
-                ← Back to sign in
-              </button>
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-semibold text-fg mt-6 mb-6">
-              Set a new password
-            </h1>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div>
-                <label htmlFor="rp-password" className="block text-fg-tertiary text-xs mb-1">
-                  New password
-                </label>
-                <input
-                  id="rp-password"
-                  type="password"
-                  required
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-                />
-                <p className="text-xs text-fg-muted mt-1">Must be at least 12 characters</p>
-              </div>
-              <div>
-                <label htmlFor="rp-confirm" className="block text-fg-tertiary text-xs mb-1">
-                  Confirm new password
-                </label>
-                <input
-                  id="rp-confirm"
-                  type="password"
-                  required
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-                />
-              </div>
-              <p className="text-xs h-4">
-                {error && <span className="text-danger" role="alert">{error}</span>}
-              </p>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                {submitting ? "Resetting…" : "Set new password"}
-              </button>
-              <p className="text-center text-xs text-fg-tertiary mt-1">
-                <button
-                  type="button"
-                  onClick={() => navigate("/")}
-                  className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
-                >
-                  ← Back to sign in
-                </button>
-              </p>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            <Button variant="quiet" size="lg" fullWidth onClick={() => navigate("/")}>← Back to sign in</Button>
+          </form>
+        </>
+      )}
+    </CenteredLayout>
   );
 }

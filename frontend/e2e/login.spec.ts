@@ -40,11 +40,11 @@ test.describe('login flow', () => {
 
   test('shows the login form when unauthenticated', async ({ page }) => {
     await page.goto('/')
-    // LoginPage has no heading element — use the submit button as the page-load signal.
+    // The submit button is the page-load signal.
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 10_000 })
-    // Inputs are identified by placeholder; the form has no <label> elements.
-    await expect(page.getByPlaceholder('Username or email')).toBeVisible()
-    await expect(page.getByPlaceholder('Password')).toBeVisible()
+    // Inputs are identified by their visible label (#2479).
+    await expect(page.getByLabel('Username or email', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
   })
 
   test('logs in with valid credentials and reaches the dashboard', async ({ page }) => {
@@ -64,8 +64,8 @@ test.describe('login flow', () => {
     })
 
     await page.goto('/')
-    await page.getByPlaceholder('Username or email').fill('testuser')
-    await page.getByPlaceholder('Password').fill('testpass123')
+    await page.getByLabel('Username or email', { exact: true }).fill('testuser')
+    await page.getByLabel('Password', { exact: true }).fill('testpass123')
     await page.getByRole('button', { name: 'Sign in' }).click()
 
     // Assert the actual login POST body (api/auth.ts login) rather than only
@@ -92,8 +92,8 @@ test.describe('login flow', () => {
       }),
     )
     await page.goto('/')
-    await page.getByPlaceholder('Username or email').fill('testuser')
-    await page.getByPlaceholder('Password').fill('wrongpassword')
+    await page.getByLabel('Username or email', { exact: true }).fill('testuser')
+    await page.getByLabel('Password', { exact: true }).fill('wrongpassword')
     await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText(/unable to log in|invalid credentials|incorrect/i)).toBeVisible({ timeout: 5_000 })
   })

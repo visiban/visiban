@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { verifyEmail } from "../api/auth";
+import { BrandTile, Button, CenteredLayout, StatusCard } from "../components/Page";
 
 /**
  * `isAuthenticated` only changes the "address already in use" next step
@@ -57,94 +58,63 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
   }, [status, navigate]);
 
   return (
-    <div className="min-h-screen bg-sunken flex items-center justify-center">
-      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
+    <CenteredLayout testId="confirm-email-page">
+      {status === "loading" && (
+        <div role="status" className="flex flex-col items-center gap-3 py-4">
+          <h1 className="sr-only">Verifying your email</h1>
+          <BrandTile />
+          <span aria-hidden="true" className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-fg-secondary">Verifying your email…</p>
         </div>
+      )}
 
-        {status === "loading" && (
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-fg-tertiary">Verifying your email…</p>
-          </div>
-        )}
+      {status === "success" && (
+        <StatusCard
+          title="Email verified"
+          tone="success"
+          headingRef={successHeadingRef}
+          actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Sign in</Button>}
+        >
+          <p>Your email address has been confirmed. You can now sign in.</p>
+          <p className="mt-2 text-xs text-fg-tertiary">Redirecting in {countdown}s…</p>
+        </StatusCard>
+      )}
 
-        {status === "success" && (
-          <>
-            <h1
-              ref={successHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
-            >
-              Email verified
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              Your email address has been confirmed. You can now sign in.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Sign in
-            </button>
-            <p className="text-xs text-fg-muted mt-3 text-center">
-              Redirecting in {countdown}s…
-            </p>
-          </>
-        )}
+      {status === "error" && (
+        <StatusCard
+          title="Link expired or invalid"
+          tone="danger"
+          headingRef={errorHeadingRef}
+          actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Go to sign in</Button>}
+        >
+          <p>
+            This confirmation link has expired or has already been used.
+            Ask your admin to resend the invitation, or sign in if your
+            account is already active.
+          </p>
+        </StatusCard>
+      )}
 
-        {status === "error" && (
-          <>
-            <h1
-              ref={errorHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
-            >
-              Link expired or invalid
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              This confirmation link has expired or has already been used.
-              Ask your admin to resend the invitation, or sign in if your
-              account is already active.
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate("/")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Go to sign in
-            </button>
-          </>
-        )}
-
-        {status === "in_use" && (
-          <>
-            <h1
-              ref={inUseHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
-            >
-              Email address already in use
-            </h1>
-            <p className="text-sm text-fg-tertiary mb-6">
-              This email address already belongs to another account, so it
-              can't be confirmed for this one.{" "}
-              {isAuthenticated
-                ? "If you were changing your email address, go to Settings → Profile to cancel the change or choose a different address."
-                : "If you were signing up, sign up again with a different email address, or sign in to the account that already uses this one."}
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate(isAuthenticated ? "/settings" : "/")}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
+      {status === "in_use" && (
+        <StatusCard
+          title="Email address already in use"
+          tone="danger"
+          headingRef={inUseHeadingRef}
+          actions={
+            <Button variant="primary" size="lg" fullWidth onClick={() => navigate(isAuthenticated ? "/settings" : "/")}>
               {isAuthenticated ? "Go to Settings" : "Go to sign in"}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+            </Button>
+          }
+        >
+          <p>
+            This email address already belongs to another account, so it
+            can&apos;t be confirmed for this one.{" "}
+            {isAuthenticated
+              ? "If you were changing your email address, go to Settings → Profile to cancel the change or choose a different address."
+              : "If you were signing up, sign up again with a different email address, or sign in to the account that already uses this one."}
+          </p>
+        </StatusCard>
+      )}
+    </CenteredLayout>
   );
 }

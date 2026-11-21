@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ShareBoardPage from '../pages/ShareBoardPage'
 import type { BoardPublic } from '../types'
@@ -67,9 +67,9 @@ describe('ShareBoardPage — valid token', () => {
     expect(screen.getByText('My Shared Board')).toBeInTheDocument()
   })
 
-  it('renders the "View only" badge', async () => {
+  it('renders the "Shared view, read-only" pill', async () => {
     renderSharePage()
-    await waitFor(() => expect(screen.getByText('View only')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Shared view, read-only')).toBeInTheDocument())
   })
 
   it('renders a card from the board', async () => {
@@ -131,7 +131,7 @@ describe('ShareBoardPage — valid token', () => {
 describe('ShareBoardPage — expired/invalid token', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetPublicBoard.mockRejectedValue(new Error('404'))
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
   })
 
   it('renders the expired page on 404', async () => {
@@ -193,7 +193,7 @@ describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
     renderSharePage()
     const cells = await screen.findAllByTestId('share-sub-column-cell')
     expect(cells).toHaveLength(2)
-    expect(Array.from(cells[0].querySelectorAll('[data-testid="share-card"]')).map((c) => c.textContent)).toEqual(['a-doing-1', 'a-doing-2'])
+    expect(Array.from(cells[0].querySelectorAll('[data-testid="share-card"]')).map((c) => c.querySelector('p')?.textContent)).toEqual(['a-doing-1', 'a-doing-2'])
     expect(cells[1]).toHaveTextContent('b-ready')
   })
 
@@ -202,6 +202,26 @@ describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
     const chips = await screen.findByTestId('share-track-chips')
     expect(Array.from(chips.querySelectorAll('li')).map((li) => li.textContent)).toEqual(['Technical', 'Business'])
     expect(chips.querySelector('[data-track-state]')).toBeNull()
+  })
+
+  it('shows sub-columns and track chips on phones too', async () => {
+    const original = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: true, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      renderSharePage()
+      const stage = await screen.findByTestId('share-phone-stage')
+      const headers = stage.querySelectorAll('[data-testid="share-sub-column-header"]')
+      expect(Array.from(headers).map((h) => h.textContent)).toEqual(['Doing2, 2 cards', 'Ready1, 1 card'])
+      const chips = stage.querySelector('[data-testid="share-track-chips"]')!
+      expect(Array.from(chips.querySelectorAll('li')).map((li) => li.textContent)).toEqual(['Technical', 'Business'])
+      fireEvent.change(screen.getByLabelText('Column'), { target: { value: '2' } })
+      expect(screen.queryByTestId('share-phone-stage')).toBeNull()
+    } finally {
+      window.matchMedia = original
+    }
   })
 
   it('renders a plain column with no sub-column or track chrome', async () => {
@@ -217,5 +237,82 @@ describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
     renderSharePage()
     const list = await screen.findByTestId('share-sub-columns')
     expect(list.querySelectorAll('button, input, a')).toHaveLength(0)
+  })
+})
+
+describe('ShareBoardPage on the shared look (#2480)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('says what the snapshot is, with lane and card counts', async () => {
+    mockGetPublicBoard.mockResolvedValue(fakeBoard)
+    renderSharePage()
+    expect(await screen.findByTestId('share-board-summary')).toHaveTextContent(
+      "1 lane · 1 card. A read-only snapshot of this board. Cards can't be opened or moved here. Reload to see the latest.",
+    )
+  })
+
+  it('names the priority for screen readers on the card face', async () => {
+    mockGetPublicBoard.mockResolvedValue(fakeBoard)
+    renderSharePage()
+    const card = await screen.findByTestId('share-card')
+    expect(card).toHaveTextContent('Priority: high.')
+    expect(card.className).toContain('border-l-4')
+  })
+
+  it('shows a grid skeleton, not a spinner, while loading', () => {
+    mockGetPublicBoard.mockReturnValue(new Promise(() => {}))
+    renderSharePage()
+    const skeleton = screen.getByTestId('share-board-skeleton')
+    expect(skeleton).toHaveAttribute('role', 'status')
+    expect(skeleton).toHaveAttribute('aria-busy', 'true')
+    expect(skeleton).toHaveTextContent('Loading board')
+    expect(screen.getByRole('heading', { level: 1, name: 'Loading board' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toBeInTheDocument()
+  })
+
+  it('the revoked state is the empty-state part with an h1 and Sign in to Visiban', async () => {
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
+    renderSharePage()
+    expect(await screen.findByRole('heading', { level: 1, name: 'This board is no longer shared' })).toBeInTheDocument()
+    expect(screen.getByText('The share link has been revoked or the board has been deleted.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Sign in to Visiban' })).toHaveAttribute('href', '/')
+  })
+
+  it('on phones shows one column at a time, chosen with a select, lanes stacked with counts', async () => {
+    const original = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: true, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      mockGetPublicBoard.mockResolvedValue(fakeBoard)
+      renderSharePage()
+      const select = await screen.findByLabelText('Column')
+      expect(screen.getByTestId('share-phone-board')).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Todo (1)' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: 'Done (0)' })).toBeInTheDocument()
+      expect(screen.getByRole('region', { name: 'Customer A' })).toHaveTextContent('Fix login bug')
+      fireEvent.change(select, { target: { value: '2' } })
+      expect(screen.getByRole('region', { name: 'Customer A' })).toHaveTextContent('No cards here')
+    } finally {
+      window.matchMedia = original
+    }
+  })
+  it('a transient failure is retryable, not the revoked message', async () => {
+    mockGetPublicBoard.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } })).mockResolvedValueOnce(fakeBoard)
+    renderSharePage()
+    expect(await screen.findByRole('heading', { level: 1, name: "The board didn't load" })).toBeInTheDocument()
+    expect(screen.queryByText('This board is no longer shared')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByTestId('share-board-page')).toBeInTheDocument()
+    expect(screen.getByRole('main')).toBeInTheDocument()
+  })
+
+  it('a 404 is the revoked state', async () => {
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
+    renderSharePage()
+    expect(await screen.findByTestId('share-expired-page')).toBeInTheDocument()
   })
 })

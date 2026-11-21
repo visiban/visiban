@@ -50,6 +50,8 @@ interface Props {
 
 const SECONDARY_BTN =
   "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded border border-line-strong transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40";
+// Every Cancel is the Quiet variant, never the bordered Secondary (frontend/CLAUDE.md § Buttons, #2475).
+const QUIET_BTN = "px-3 py-1.5 text-xs rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
 const PRIMARY_BTN =
   "text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium disabled:opacity-40";
 const DANGER_BTN =
@@ -354,7 +356,7 @@ export default function WebhookDetail(props: Props) {
               {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
               <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={SECONDARY_BTN}>
+                <button type="button" onClick={() => onConfirmChange(null)} disabled={busy("reenable")} className={QUIET_BTN}>
                   Cancel
                 </button>
                 <button ref={turnOnConfirmRef} type="button" onClick={confirmReenable} disabled={busy("reenable")} className={PRIMARY_BTN}>
@@ -404,7 +406,7 @@ export default function WebhookDetail(props: Props) {
               </p>
               <div className="flex gap-2">
                 <button type="submit" disabled={busy("address")} className={PRIMARY_BTN}>Save address</button>
-                <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); setFocusChangeAddress(true); }} className={SECONDARY_BTN}>
+                <button type="button" onClick={() => { setEditingAddress(false); setAddress(""); setAddressError(null); setFocusChangeAddress(true); }} className={QUIET_BTN}>
                   Cancel
                 </button>
               </div>
@@ -471,7 +473,7 @@ export default function WebhookDetail(props: Props) {
                 {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
                 <p role="alert" className={confirmError ? "text-xs text-danger" : "sr-only"}>{confirmError}</p>
                 <div className="flex flex-wrap justify-end gap-3">
-                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${SECONDARY_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
+                  <button type="button" onClick={() => { if (!rotating) onConfirmChange(null); }} aria-disabled={rotating || undefined} className={`${QUIET_BTN} ${INERT_WHEN_ARIA_DISABLED}`}>
                     Cancel
                   </button>
                   <button type="button" onClick={() => rotate("revoke")} aria-disabled={rotating || undefined} aria-describedby={`${uid}-rotate-revoke ${uid}-rotate-leak`} className={DANGER_BTN}>
