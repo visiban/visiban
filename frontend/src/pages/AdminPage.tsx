@@ -782,7 +782,7 @@ function GeneralSection() {
         ? "text-warning-on-tint"
         : "text-fg-secondary";
 
-  const heading = <PageHeading title="General" description="Switches save as soon as you change them." />;
+  const heading = <PageHeading title="General" description="Changes save automatically." />;
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
   if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} /></>;
@@ -1364,7 +1364,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
                             )}
                             {u.must_change_password && (
                               <span className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning-on-tint">
-                                Reset req.
+                                Reset required
                               </span>
                             )}
                           </div>
@@ -1498,6 +1498,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   // unknown and is filled by one load here, then kept current by the section that owns it.
   const [counts, setCounts] = useState<{ users?: number; links?: number; boardInvites?: number }>({});
   const setUsersCount = useCallback((n: number) => setCounts((c) => (c.users === n ? c : { ...c, users: n })), []);
+  const setBoardInvitesCount = useCallback((n: number) => setCounts((c) => ({ ...c, boardInvites: n })), []);
   const setLinksCount = useCallback((n: number) => setCounts((c) => (c.links === n ? c : { ...c, links: n })), []);
 
   // The pre-#2476 "Settings" tab id (`?tab=settings`) is now General.
@@ -1584,7 +1585,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
       group: "People",
       count: counts.boardInvites,
       keywords: ["board", "revoke", "pending"],
-      render: () => <BoardInvitesTab onPendingCount={(n) => setCounts((c) => ({ ...c, boardInvites: n }))} />,
+      render: () => <BoardInvitesTab onPendingCount={setBoardInvitesCount} />,
     },
   ];
 

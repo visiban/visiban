@@ -256,7 +256,7 @@ test.describe('Marketing snapshots', () => {
 
   test('06 — Admin', async ({ page }) => {
     await page.goto('/admin')
-    await page.getByRole('button', { name: 'Users' }).click()
+    await page.getByRole('button', { name: /^Users/ }).click()
     await expect(page.getByText('elena.sokolova@meridiancloud.example')).toBeVisible({ timeout: 15_000 })
     await shoot(page, '06-admin')
   })
