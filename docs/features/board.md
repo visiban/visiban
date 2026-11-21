@@ -187,6 +187,16 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 
 - **Who can set it:** an admin of both boards. In **Board settings → Rules & limits → Child cards**, the **Default child board** select appears while the switch is on and lists only boards you administer that qualify; choose **None (ask each time)** to clear it. Clearing needs admin on the parent board only. The same value is writable through the board PATCH API.
 - **Which boards qualify:** a board whose cards cannot have children and whose first column allows card creation. A board named as another board's default cannot turn on "cards can have children" until that default is cleared.
+
+### What a parent card is called
+
+*New in 1.3.* While **Cards on this board can have children** is on, a board admin can name the parent cards under **What do you call a parent card on this board?**: a **Singular** and a **Plural** field, for example "Initiative" and "Initiatives". Both start empty, so the board says "Parent". The **Opportunity**, **Initiative** and **Release** suggestions fill both fields; choosing the active one again clears them. Any text works, up to 24 characters.
+
+The name appears in two places: on a child card, the parent row is labeled with the parent board's singular name once a parent is linked; and in **Link a parent card**, the line under the Board picker reads, for example, "Pipeline calls these Initiatives". The word "Children", the Children tab, the rollup, the Parent filter and the public share link never change.
+
+### Extension sections in card details
+
+*New in 1.3, experimental.* An installed extension (for example an Enterprise module) can add a read-only section to a card's **Details** tab, after Weight. Each section has its own heading and shows plain label and value rows. Without an extension nothing is shown, and the tab looks as it always has.
 - **Turning children off** on the parent board clears its default.
 - **Deleting the child board** clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.
 

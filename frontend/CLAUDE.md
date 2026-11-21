@@ -1935,6 +1935,12 @@ A cue that appears in response to a user filter or setting change (for example "
 - **A split cell without its header row names each sub-column itself (#2366).** In a read-only grid such as the share view, give each sub-column cell `role="group"` and `aria-label="{stage}: {sub-column}"`, and fold the count into the header item's accessible name ("Doing, 3 cards"). Track chips on the anonymous share view name tracks only and never imply a state: the public payload carries no per-card track state.
 - **A filter that matches "any of" a card's child items says so (#2367).** The Track state row carries helper text ("Cards with at least one track in a chosen state") and its chip reads "Any track done".
 
+## Card-detail extension sections and parent-item naming (#2212)
+
+- **Extension sections** (`CardExtensionSections`) render plain text only, with no colors, badges or links of their own: label `text-xs font-semibold uppercase tracking-wide text-fg-muted`, value `text-sm text-fg-secondary`, an empty value as "Not set" in `text-fg-muted`, the same anatomy as the custom-field rows. Each section is a `<section role="region">` labeled by its own `<h3>` (`useId`, never the extension id in a DOM id) and renders its own trailing `border-t border-line`. While loading, after a failed fetch and with no sections they render **nothing**: no heading, skeleton, placeholder or reserved space. The payload goes through `parseCardExtensionSections` before rendering. Read-only in v1: no edit affordance.
+- **Parent-item name** appears in exactly two places in 1.3: the child-side parent row heading (`CardParentSection`) and the parent picker's "{board} calls these {plural}" helper line (omitted when the plural is empty). It goes only through `utils/parentItemNames.ts` (the "Parent" / "Parents" fallback lives there), and never on the public share. The word "Children", the Children tab, the rollup chip, the Parent filter and the picker title never change.
+- **Suggestion buttons** (`ParentNameSettings`): `aria-pressed` is derived from both fields (pressed only when both trimmed values equal the suggestion), never stored; each carries `ActiveMark`, a `border-line-boundary` border and is at least 44px tall.
+
 ## One child board per parent, never split (#2208, #2206)
 
 A parent card's children all live on **one** board, and no UI path may split them: not a link, not Add child, not a default-child-board change, not an admin move. Any surface that creates or links a child must honor it:
