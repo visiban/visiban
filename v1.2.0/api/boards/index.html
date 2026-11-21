@@ -7465,6 +7465,11 @@
 <td>string[]</td>
 <td><em>Added in 1.3</em> (#2367). Show only cards with at least one track on their own stage in one of these states: <code>done</code>, <code>open</code>, <code>not_applicable</code>. Absent means no track-state filter</td>
 </tr>
+<tr>
+<td><code>parentFilter</code></td>
+<td>string | integer</td>
+<td><em>Added in 1.3</em> (#2209). The Parent filter on a child board: <code>"any"</code> (cards with a parent), <code>"none"</code> (cards without one) or a parent card's id (a positive integer). The server checks the shape only; the client matches it on each card's <code>parent</code>, so an id that names a card the viewer cannot open matches nothing. Absent means any card</td>
+</tr>
 </tbody>
 </table>
 <p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB. String values (<code>search</code>, custom-field <code>query</code>, <code>equals</code>, <code>min</code>, <code>max</code> and <code>values</code> entries, and lane-rule <code>value</code>, <code>min</code>, and <code>max</code>) must not contain NUL (0x00) characters; they return <code>400</code>.</p>
