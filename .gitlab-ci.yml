@@ -394,10 +394,14 @@ cache-warm-pip:
   script:
     - !reference [.pip-floor, script]
     # pip still warms .cache/pip for the jobs that stay on pip (#2496), and
-    # the uv wheel itself lands there too; uv warms .cache/uv.
+    # the uv wheel itself lands there too. uv then installs into a THROWAWAY
+    # venv: against the environment pip just filled, uv would see everything
+    # installed and download nothing, leaving .cache/uv empty.
     - pip install --quiet -r backend/requirements.txt
     - !reference [.uv-install, script]
-    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv venv --quiet /tmp/uvw
+    - uv pip install --python /tmp/uvw/bin/python --quiet -r backend/requirements.txt
+    - du -sh .cache/uv
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -419,7 +423,11 @@ cache-warm-pip-test:
     - !reference [.pip-floor, script]
     - pip install --quiet -r backend/requirements-test.txt
     - !reference [.uv-install, script]
-    - uv pip install --system --quiet -r backend/requirements-test.txt
+    # Throwaway venv so uv must download and cache every wheel (see
+    # cache-warm-pip). Same file the jobs install: requirements-test.txt.
+    - uv venv --quiet /tmp/uvw
+    - uv pip install --python /tmp/uvw/bin/python --quiet -r backend/requirements-test.txt
+    - du -sh .cache/uv
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -4574,6 +4582,9 @@ sonar:rules-check:
   needs: []
   # Pushes the ci/ image and layer cache to the registry: an external side
   # effect, so it must not be auto-canceled mid-push (#2419 rule above).
+  # Cost, accepted: these jobs used to be interruptible at MR time, so a
+  # superseded push now runs its kaniko builds (~1-2 min) to completion.
+  # Drill interruptibility is tracked in #2495.
   interruptible: false
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
