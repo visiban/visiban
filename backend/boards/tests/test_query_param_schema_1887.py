@@ -45,6 +45,8 @@ _BOUNDED_RESULTS_ENVELOPES = {
     "/api/v1/boards/{id}/parent-boards/",
     # #1104: capped at 20 rows server-side (a debounced search, not a browse).
     "/api/v1/boards/{board_pk}/cards/{id}/parent-candidates/",
+    # #2209: Link existing, the same 20-row cap.
+    "/api/v1/boards/{board_pk}/cards/{id}/child-candidates/",
 }
 
 

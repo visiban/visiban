@@ -34,6 +34,10 @@ vi.mock('../api/cards', () => ({
   addCardRelation: vi.fn(),
   deleteCardRelation: vi.fn(),
   searchCards: vi.fn().mockResolvedValue([]),
+  // Children tab (#2209): read when the card is on a parent-tier board.
+  getCardChildren: vi.fn().mockResolvedValue({ count: 2, visible: false, offset: 0, limit: 50, results: [] }),
+  getChildBoardOptions: vi.fn().mockResolvedValue({ fixed_board: null, default: null, can_set_default: false, boards: [] }),
+  getChildCandidates: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../api/boards', () => ({
@@ -258,6 +262,23 @@ describe('CardDetail', () => {
       fireEvent.click(screen.getByRole('tab', { name: /^Details/ }))
       rerender(<CardDetail {...props} tabRequest={{ tab: 'history', n: 2 }} />)
       expect(screen.getByRole('tab', { name: /^History/ })).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('shows the Children tab, with its count, only on a parent-tier board (#2209)', async () => {
+      const { rerender } = render(<CardDetail {...defaultProps()} />)
+      expect(screen.queryByRole('tab', { name: /^Children/ })).not.toBeInTheDocument()
+      rerender(<CardDetail {...defaultProps()} board={makeBoard({ cards_can_have_children: true })} />)
+      expect(await screen.findByRole('tab', { name: 'Children, 2' })).toBeInTheDocument()
+      const names = screen.getAllByRole('tab').map((t) => t.textContent)
+      expect(names[0]).toMatch(/^Details/)
+      expect(names[1]).toMatch(/^Children/)
+    })
+
+    it('opens Details when a remembered Children tab has no tab on this board (#2209)', () => {
+      rememberCardDetailTab('children')
+      render(<CardDetail {...defaultProps()} />)
+      expect(screen.getByRole('tab', { name: /^Details/ })).toHaveAttribute('aria-selected', 'true')
+      rememberCardDetailTab('details')
     })
 
     it('pins the comment composer clear of the home indicator on narrow screens (#967)', () => {

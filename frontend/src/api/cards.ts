@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions } from "../types";
+import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -307,3 +307,26 @@ export const getChildBoardOptions = (boardId: number, cardId: number) =>
 /** `POST /boards/{b}/cards/{id}/children/`: create a card on `targetBoardId` and link it under this one. */
 export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string }) =>
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);
+
+/** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */
+export const getCardChildren = (boardId: number, cardId: number, offset = 0, signal?: AbortSignal) =>
+  client.get<CardChildrenRead>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, { params: offset ? { offset } : undefined, signal }).then((r) => r.data);
+
+/** Up to 20 cards on child board `childBoardId` that could be linked under this card: Link existing (#2209). */
+export const getChildCandidates = (
+  boardId: number,
+  cardId: number,
+  childBoardId: number,
+  search: string,
+  signal?: AbortSignal,
+) =>
+  client
+    .get<{ results: ChildCandidate[] }>(`/api/v1/boards/${boardId}/cards/${cardId}/child-candidates/`, {
+      params: { board: childBoardId, search },
+      signal,
+    })
+    .then((r) => r.data.results);
+
+/** `DELETE /boards/{b}/cards/{id}/children/{child}/`: unlink one child from the parent's end (#1104). */
+export const unlinkCardChild = (boardId: number, cardId: number, childId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/children/${childId}/`);

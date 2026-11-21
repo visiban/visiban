@@ -927,6 +927,61 @@ export interface ParentCandidate {
   children_board_name: string | null;
 }
 
+/** A row of `GET /boards/{b}/cards/{id}/child-candidates/`: Link existing (#2209). */
+export interface ChildCandidate {
+  id: number;
+  title: string;
+  column_id: number;
+  column_name: string;
+  swimlane_id: number;
+  swimlane_name: string;
+  assignee: BoardUser | null;
+  disabled_reason: "link_exists" | "already_has_parent" | "children_limit" | null;
+  /** For `already_has_parent`: that parent's title when the viewer can open its board, else null. */
+  parent_title: string | null;
+}
+
+/** One child in `GET /boards/{b}/cards/{id}/children/` when the viewer can open the child board (#1104, #2209). */
+export interface CardChildRow {
+  id: number;
+  title: string;
+  board_id: number;
+  column_id: number;
+  column_name: string;
+  swimlane_id: number;
+  swimlane_name: string;
+  archived: boolean;
+  position: number;
+  assignee: BoardUser | null;
+  blocked: boolean;
+  blocked_at: string | null;
+}
+
+/** A column of the child board, with the count of its whole column (#2209). */
+export interface CardChildrenColumn {
+  id: number;
+  name: string;
+  color: string;
+  wip_limit: number | null;
+  is_done: boolean;
+  card_count: number;
+}
+
+/** The children read (#1104). `board` is sent only when `visible` (#2209). */
+export interface CardChildrenRead {
+  count: number;
+  visible: boolean;
+  offset: number;
+  limit: number;
+  results: CardChildRow[];
+  board?: {
+    id: number;
+    name: string;
+    role: BoardRole | "site_admin";
+    columns: CardChildrenColumn[];
+  };
+}
+
 /** One manual block of a card, from `GET .../cards/{id}/blocks/` (#1149). */
 export interface CardBlock {
   id: number;

@@ -1144,11 +1144,24 @@ Query: `offset` (pages of 50).
 {"count": 2, "visible": true, "offset": 0, "limit": 50,
  "results": [{"id": 51, "title": "Pen-test scoping call", "board_id": 7,
               "column_id": 30, "column_name": "Doing", "swimlane_id": 12,
-              "swimlane_name": "General", "archived": false}]}
+              "swimlane_name": "General", "archived": false,
+              "position": 3, "assignee": null, "blocked": true,
+              "blocked_at": "2026-11-14T09:00:00+00:00"}],
+ "board": {"id": 7, "name": "Delivery", "role": "member",
+           "columns": [{"id": 30, "name": "Doing", "color": "#3B82F6",
+                        "wip_limit": 5, "is_done": false, "card_count": 4}]}}
 ```
 
 When you cannot open the child board, `visible` is `false`, `results` is empty
-and only `count` is given: no title, board, column or id.
+and only `count` is given: no title, board, column or id, and no `board` key.
+
+*Since 1.3 (#2209):* each row also carries `position`, `assignee` (or `null`),
+`blocked` (a manual block or an active same-board blocking relation, the card
+face's predicate) and `blocked_at` (the manual block's start, else `null`). On
+a visible read with children, `board` describes the child board for the
+Children tab: its `role` is **your** role there (it alone decides whether you
+may move a child), and each column's `card_count` counts the whole column,
+not just this parent's children. A parent with no children has no `board`.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/children/`
 
@@ -1305,6 +1318,34 @@ with `detail` and `code: "invalid_query_param"`:
   `{"detail": "search must not contain NUL (0x00) characters.", "code": "invalid_query_param"}`.
 
 Branch on `code`.
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/child-candidates/?board=&search=`
+
+*Since 1.3 (#2209).* **Link existing**: up to 20 cards on child board `board`
+that could be linked under this parent card. The parent-side mirror of
+`parent-candidates`, with the same parameters, the same `search` rules
+(two characters, or an all-digit card id, which sorts first), the same coded
+`400` bodies, and the same `card_query` rate limit. Minimum role: member on
+this card's board (`403` below it) and member on `board`.
+
+`board` must be a board you can open as a member or above, whose cards cannot
+have children, other than this card's board, and, once this card has
+children, the board they are on. Every other value is one `404`, identical to
+an unknown board.
+
+```json
+{"results": [{"id": 51, "title": "Pen-test scoping call", "column_id": 30,
+              "column_name": "To do", "swimlane_id": 12, "swimlane_name": "General",
+              "assignee": null, "disabled_reason": "already_has_parent",
+              "parent_title": null}]}
+```
+
+`disabled_reason` is `link_exists` (already this card's child),
+`already_has_parent` (another card's child) or `children_limit` (this card
+has 100 children), else `null`. `parent_title` names the other parent only
+when you can open its board. Link a row with `POST
+/api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}` on
+the child's board, so the child board's role authorizes it.
 
 ### History and real-time
 

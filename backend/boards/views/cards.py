@@ -50,7 +50,8 @@ from ..serializers import (
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
-    CardExtensionSectionListSerializer, CardTimelineEntrySerializer, ParentCandidateSerializer,
+    CardExtensionSectionListSerializer, CardTimelineEntrySerializer, ChildCandidateSerializer,
+    ParentCandidateSerializer,
     CARD_PARENTS_CONTEXT_KEY,
     _card_queryset,
 )
@@ -69,6 +70,26 @@ _PERM_DENIED = "You do not have permission to perform this action."
 # Page size of GET .../children/ (#1104). Half the per-parent cap, so a full
 # parent is two pages.
 CHILDREN_PAGE_SIZE = 50
+
+
+def _picker_params(request):
+    """``(search, board_id)`` for the two link pickers, or the coded 400 (#1104, #2209)."""
+    search = query_text(request, "search").strip()
+    raw_board = request.query_params.get("board", "")
+    if not raw_board.isascii() or not raw_board.isdigit() or len(raw_board) > 18:
+        raise serializers.ValidationError({
+            "board": ["A valid integer is required."],
+            "detail": "board: A valid integer is required.",
+            "code": INVALID_QUERY_PARAM,
+        })
+    if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
+        msg = f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."
+        raise serializers.ValidationError({
+            "search": [msg],
+            "detail": f"search: {msg}",
+            "code": INVALID_QUERY_PARAM,
+        })
+    return search, int(raw_board)
 _VIEWER_DENIED = "Viewers cannot perform this action."
 
 
@@ -864,7 +885,7 @@ class CardViewSet(viewsets.ModelViewSet):
             throttles.append(CardLinkWriteThrottle())
         # The parent picker search (#1104) shares the cross-board card query's
         # ``card_query`` budget: both search cards on boards beyond this one.
-        if getattr(self, "action", None) == "parent_candidates":
+        if getattr(self, "action", None) in ("parent_candidates", "child_candidates"):
             throttles.append(CardQueryRateThrottle())
         return throttles
 
@@ -3088,24 +3109,66 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
         if role not in card_links.LINK_WRITE_ROLES:
             raise PermissionDenied(_PERM_DENIED)
-        search = query_text(request, "search").strip()
-        raw_board = request.query_params.get("board", "")
-        if not raw_board.isascii() or not raw_board.isdigit() or len(raw_board) > 18:
-            raise serializers.ValidationError({
-                "board": ["A valid integer is required."],
-                "detail": "board: A valid integer is required.",
-                "code": INVALID_QUERY_PARAM,
-            })
-        if len(search) > card_links.PARENT_CANDIDATE_SEARCH_MAX:
-            msg = f"Ensure this field has no more than {card_links.PARENT_CANDIDATE_SEARCH_MAX} characters."
-            raise serializers.ValidationError({
-                "search": [msg],
-                "detail": f"search: {msg}",
-                "code": INVALID_QUERY_PARAM,
-            })
-        parent_board = card_links.resolve_parent_board(request.user, board, int(raw_board))
+        search, board_id = _picker_params(request)
+        parent_board = card_links.resolve_parent_board(request.user, board, board_id)
         return Response({"results": card_links.parent_candidates_for_viewer(
             request.user, card, parent_board, search,
+        )})
+
+    @extend_schema(
+        operation_id="api_v1_boards_cards_child_candidates_list",
+        parameters=[
+            OpenApiParameter(
+                "board", OpenApiTypes.INT, required=True,
+                description=(
+                    "The child board to search: the board this card's children are on, "
+                    "or, with none yet, one of `child-board-options`' `boards`."
+                ),
+            ),
+            OpenApiParameter(
+                "search", OpenApiTypes.STR, required=False,
+                description=(
+                    "Title text, or a card id (digits). Fewer than 2 characters that "
+                    "are not all digits returns no rows. At most 200 characters."
+                ),
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="ChildCandidateList",
+                fields={"results": ChildCandidateSerializer(many=True)},
+            ),
+            400: OpenApiResponse(
+                description="Same coded `invalid_query_param` bodies as `parent-candidates`.",
+                response=INVALID_QUERY_PARAM_SCHEMA,
+            ),
+            404: OpenApiResponse(description=(
+                "No access to this board or card, or `board` is not a child board "
+                "the caller may link from (one body for every case)."
+            )),
+            429: OpenApiResponse(description="Rate limit exceeded (`card_query` scope, shared with `GET /api/v1/cards/`)."),
+        },
+        description=(
+            "Up to 20 cards on `board` that could be linked under this card as "
+            "children: Link existing (#2209, since 1.3). `disabled_reason` marks a "
+            "card the link write would refuse. Minimum role: member on both boards. "
+            "Rate-limited by the `card_query` scope: debounce the search."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="child-candidates")
+    def child_candidates(self, request, board_pk=None, pk=None):
+        """Search the cards this parent card could take as children (#2209)."""
+        # Same check order as parent_candidates: access (404), the card on
+        # this board (IDOR), role (403), params (400), then the child board,
+        # whose every failure is one 404 (Rule 7).
+        board, role = self._board_and_role()
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        if role not in card_links.LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        search, board_id = _picker_params(request)
+        child_board = card_links.resolve_link_child_board(request.user, card, board_id)
+        return Response({"results": card_links.child_candidates_for_viewer(
+            request.user, card, child_board, search,
         )})
 
     @extend_schema(

@@ -55,6 +55,7 @@ from boards.serializers import (
     CardExtensionSectionSerializer,
     CardExtensionSectionListSerializer,
     ParentCandidateSerializer,
+    ChildCandidateSerializer,
     SavedFilterSerializer,
     SwimlaneAdminSerializer,
     SwimlaneCustomFieldDefinitionSerializer,
@@ -96,6 +97,8 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (CardExtensionSectionSerializer, "CardExtensionSection", set()),
     (CardExtensionSectionListSerializer, "CardExtensionSectionList", set()),
     (ParentCandidateSerializer, "ParentCandidate", set()),
+    # Link existing rows (#2209), pinned the same way in test_children_view_2209.py.
+    (ChildCandidateSerializer, "ChildCandidate", set()),
     (ColumnSerializer, "Column", set()),
     # Swimlane TS interface unions the Public and Admin shapes; contact_email
     # and notes are only on SwimlaneAdminSerializer but legitimately appear

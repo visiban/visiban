@@ -26,14 +26,14 @@ column or id.
 """
 
 from django.db import connection, transaction
-from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Lower
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from visiban.exceptions import CodedValidationError
 
 from .. import broadcast as _broadcast
-from ..models import Board, BoardMembership, Card, CardActivity, CardParentLink
+from ..models import Board, BoardMembership, Card, CardActivity, CardParentLink, CardRelation, Column
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from .errors import LinksChanged
 
@@ -931,12 +931,31 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
     child_board = (
         Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=child_board_id).first()
     )
-    if child_board is None or get_board_roles(user, [child_board])[child_board.pk] is None:
+    child_role = get_board_roles(user, [child_board])[child_board.pk] if child_board is not None else None
+    if child_role is None:
+        # The hidden branch has no rows to filter client-side, so the count
+        # itself must exclude archived children: they leave the tab and its
+        # counts (#2209). The visible branch keeps archived rows (flagged
+        # `archived`) because the client drops them and pages by this count.
+        out["count"] = links.filter(child__board_id=child_board_id, child__archived_at__isnull=True).count()
         return out
     out["visible"] = True
+    from accounts.serializers import BoardUserSerializer
+
     cards = (
         Card.objects.filter(parent_link__parent_id=parent.pk, board_id=child_board_id)
-        .select_related("column", "swimlane")
+        .select_related("column", "swimlane", "assignee")
+        # The blocked predicate the card face uses (#449, #1149): a manual
+        # block or an active same-board blocking relation, in one query.
+        .prefetch_related(Prefetch(
+            "incoming_relations",
+            queryset=CardRelation.objects.filter(
+                relation_type=CardRelation.Type.BLOCKS,
+                from_card__archived_at__isnull=True,
+                from_card__board_id=F("to_card__board_id"),
+            ).only("id", "to_card_id"),
+            to_attr="active_blockers",
+        ))
         .order_by("pk")[offset:offset + limit]
     )
     out["results"] = [
@@ -949,9 +968,37 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
             "swimlane_id": c.swimlane_id,
             "swimlane_name": c.swimlane.name,
             "archived": c.archived_at is not None,
+            # Since 1.3 (#2209): what the Children tab's scoped board draws.
+            "position": c.position,
+            "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
+            "blocked": c.blocked_at is not None or len(c.active_blockers) > 0,
+            "blocked_at": c.blocked_at.isoformat() if c.blocked_at else None,
         }
         for c in cards
     ]
+    # The child board as the lens draws it (#2209): its own columns, colors and
+    # limits, each with the count of the WHOLE column ("1 of 9 on Delivery"),
+    # and the viewer's role there, which alone decides Move and the link
+    # writes. Only on the visible branch: a viewer who cannot open the child
+    # board gets the count and nothing else (accepted disclosure, #1104).
+    columns = (
+        Column.objects.filter(board_id=child_board_id)
+        .annotate(card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
+        .order_by("position", "pk")
+    )
+    out["board"] = {
+        "id": child_board.pk,
+        "name": child_board.name,
+        "role": child_role,
+        "columns": [
+            {
+                "id": col.pk, "name": col.name, "color": col.color,
+                "wip_limit": col.wip_limit, "is_done": col.is_done,
+                "card_count": col.card_count,
+            }
+            for col in columns
+        ],
+    }
     return out
 
 
@@ -1164,6 +1211,113 @@ def parent_candidates_for_viewer(user, child, parent_board, search):
             "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
             "disabled_reason": reason,
             "children_board_name": board_name,
+        })
+    return rows
+
+
+CHILD_CANDIDATE_LIMIT = PARENT_CANDIDATE_LIMIT
+
+
+def resolve_link_child_board(user, parent, child_board_id):
+    """The child board Link existing searches, or ``NotFound`` (#2209).
+
+    The parent-side mirror of :func:`resolve_parent_board`. The board must be
+    one the user can open with MEMBER or higher, not a parent tier, not the
+    parent's own board, and, once the parent has children, the board they are
+    on (one child board per parent, #2206 decision A). Every refusal is the
+    same ``NotFound`` (Rule 7), decided after one lookup and one role batch.
+    """
+    child_board = (
+        _accessible_boards(user)
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk=child_board_id)
+        .first()
+    )
+    # Deliberate (Rule 7): a missing board still runs the role batch, on the
+    # parent's board, so every refusal costs the same queries. Do not
+    # short-circuit it.
+    subject = child_board if child_board is not None else parent.board
+    role = get_board_roles(user, [subject])[subject.pk]
+    fixed_id = (
+        CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
+        .values_list("child__board_id", flat=True).first()
+    )
+    if (
+        child_board is None
+        or child_board.pk == parent.board_id
+        or child_board.cards_can_have_children
+        or role not in LINK_WRITE_ROLES
+        or (fixed_id is not None and fixed_id != child_board.pk)
+    ):
+        raise NotFound()
+    return child_board
+
+
+def child_candidates_for_viewer(user, parent, child_board, search):
+    """Up to 20 cards on ``child_board`` that could be linked under ``parent`` (#2209).
+
+    The parent-side mirror of :func:`parent_candidates_for_viewer`, for Link
+    existing. ``child_board`` comes from :func:`resolve_link_child_board`.
+    ``disabled_reason`` uses :func:`create_link`'s codes: ``link_exists``
+    (already this parent's child), ``already_has_parent`` (another parent's),
+    ``children_limit`` (this parent is full). ``parent_title`` names that other
+    parent only when the viewer can open its board; otherwise it is ``null``
+    and the picker says "a card you can't open".
+    """
+    if not parent.board.cards_can_have_children:
+        return []
+    q = search
+    digits = q.isascii() and q.isdigit() and len(q) <= _ID_SEARCH_MAX_DIGITS
+    if len(q) < 2 and not digits:
+        return []
+    if digits:
+        match = Q(pk=int(q)) | Q(title__ci_contains=q)
+        exact = Case(When(pk=int(q), then=Value(0)), default=Value(1), output_field=IntegerField())
+    else:
+        match = Q(title__ci_contains=q)
+        exact = Value(1, output_field=IntegerField())
+    cards = list(
+        Card.objects.filter(match, board_id=child_board.pk, archived_at__isnull=True)
+        .select_related(
+            "column", "swimlane", "assignee",
+            f"parent_link__parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
+        )
+        .annotate(exact_rank=exact)
+        .order_by("exact_rank", Lower("title"), "pk")[:CHILD_CANDIDATE_LIMIT]
+    )
+    full = CardParentLink.objects.filter(parent_id=parent.pk).count() >= CHILDREN_PER_PARENT_LIMIT
+    other_parents = {}
+    for c in cards:
+        link = getattr(c, "parent_link", None)
+        if link is not None and link.parent_id != parent.pk:
+            other_parents[link.parent.board_id] = link.parent.board
+    roles = get_board_roles(user, other_parents.values()) if other_parents else {}
+
+    from accounts.serializers import BoardUserSerializer
+
+    rows = []
+    for c in cards:
+        link = getattr(c, "parent_link", None)
+        reason = None
+        parent_title = None
+        if link is not None and link.parent_id == parent.pk:
+            reason = "link_exists"
+        elif link is not None:
+            reason = "already_has_parent"
+            if roles.get(link.parent.board_id) is not None:
+                parent_title = link.parent.title
+        elif full:
+            reason = "children_limit"
+        rows.append({
+            "id": c.pk,
+            "title": c.title,
+            "column_id": c.column_id,
+            "column_name": c.column.name,
+            "swimlane_id": c.swimlane_id,
+            "swimlane_name": c.swimlane.name,
+            "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
+            "disabled_reason": reason,
+            "parent_title": parent_title,
         })
     return rows
 
