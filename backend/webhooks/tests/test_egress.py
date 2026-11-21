@@ -359,7 +359,7 @@ class DeadlineTests(SimpleTestCase):
         def respond():
             conn, _ = srv.accept()
             try:
-                conn.recv(4096)
+                _read_request(conn)
                 conn.sendall(b"HTTP/1.1 200 OK\r\nthis line has no colon\r\nContent-Length: 0\r\n\r\n")
             finally:
                 conn.close()
@@ -386,6 +386,36 @@ class DeadlineTests(SimpleTestCase):
             )
         self.assertEqual(status, 200)
         self.assertEqual([r for r in records if "s3cr3tpath" in r or "token=abc" in r], [])
+
+
+def _read_request(conn):
+    """Read one whole request (head and Content-Length body); return the head.
+
+    A test server must drain the body before it replies and closes. urllib3
+    sends the body in its own write after the head (its own record under TLS),
+    and closing a socket with unread bytes makes the kernel send RST instead of
+    FIN. On Linux the RST can discard the response before the client reads it,
+    so ``guarded_post`` intermittently raised ``connection_failed`` on a loaded
+    CI runner (MR !2005, backend-test 3/8).
+    """
+    data = b""
+    while b"\r\n\r\n" not in data:
+        chunk = conn.recv(4096)
+        if not chunk:
+            return data.decode("latin-1")
+        data += chunk
+    head, _, body = data.partition(b"\r\n\r\n")
+    length = 0
+    for line in head.split(b"\r\n")[1:]:
+        name, _, value = line.partition(b":")
+        if name.strip().lower() == b"content-length":
+            length = int(value.strip())
+    while len(body) < length:
+        chunk = conn.recv(4096)
+        if not chunk:
+            break
+        body += chunk
+    return head.decode("latin-1")
 
 
 # ─── Live sockets: pinning, TLS, redirects, rebinding ─────────────────────────
@@ -458,13 +488,7 @@ class _OneShotServer:
                 if self.ctx is not None:
                     conn = self.ctx.wrap_socket(conn, server_side=True)
                 conn.settimeout(5)
-                data = b""
-                while b"\r\n\r\n" not in data:
-                    chunk = conn.recv(4096)
-                    if not chunk:
-                        break
-                    data += chunk
-                self.heads.append(data.split(b"\r\n\r\n", 1)[0].decode("latin-1"))
+                self.heads.append(_read_request(conn))
                 conn.sendall(self.status_line + b"\r\nContent-Length: 0\r\n" + self.extra_headers + b"Connection: close\r\n\r\n")
             except (OSError, ssl.SSLError):
                 pass

@@ -54,12 +54,17 @@
 #      never fires, so the fail-closed path is asserted, not assumed;
 #   7. the stack survives `docker compose restart backend`.
 #
-# Images are BUILT FROM THE WORKING TREE with the exact production
-# Dockerfiles (backend/Dockerfile.prod, frontend/Dockerfile.prod) and
-# retagged as the ghcr.io/visiban/visiban/{backend,frontend}:${APP_VERSION}
-# references docker-compose.prod.yml resolves — same approach
-# scripts/helm-install-drill.sh already uses, and for the same reason: no
-# override compose file, no CI-only env var read by the prod file.
+# Images are THIS COMMIT's builds of the exact production Dockerfiles
+# (backend/Dockerfile.prod, frontend/Dockerfile.prod), retagged as the
+# ghcr.io/visiban/visiban/{backend,frontend}:${APP_VERSION} references
+# docker-compose.prod.yml resolves — same approach
+# scripts/helm-install-drill.sh uses, and for the same reason: no override
+# compose file, no CI-only env var read by the prod file. In CI they are the
+# per-commit kaniko images (backend-docker-build-prod /
+# frontend-docker-build-prod), pulled by digest and checked against
+# CI_COMMIT_SHA by scripts/drill-image.sh, never rebuilt in dind (#2492); run
+# locally, or in a CI project with no container registry, they are built from
+# the working tree.
 #
 # TLS is a PARAMETER (TLS_MODE=none, the default, or selfsigned — never
 # letsencrypt in CI: that profile needs a real domain and ACME reachability
@@ -170,14 +175,17 @@ teardown() {
 trap teardown EXIT
 
 # ---- 0. per-commit images under the names the prod file resolves ----------
-log "building ${BACKEND_IMAGE} from backend/Dockerfile.prod"
-docker build -q \
-  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
-  -t "${BACKEND_IMAGE}" -f backend/Dockerfile.prod backend >/dev/null
-log "building ${FRONTEND_IMAGE} from frontend/Dockerfile.prod"
-docker build -q \
-  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
-  -t "${FRONTEND_IMAGE}" -f frontend/Dockerfile.prod frontend >/dev/null
+# In CI: the per-commit kaniko build of Dockerfile.prod (DRILL_*_PROD_IMAGE,
+# digest-pinned, revision-checked against this commit). Locally: built from the
+# working tree. See scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. scripts/drill-image.sh
+log "${BACKEND_IMAGE} from backend/Dockerfile.prod"
+drill_image DRILL_BACKEND_PROD_IMAGE "${BACKEND_IMAGE}" backend/Dockerfile.prod backend \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}"
+log "${FRONTEND_IMAGE} from frontend/Dockerfile.prod"
+drill_image DRILL_FRONTEND_PROD_IMAGE "${FRONTEND_IMAGE}" frontend/Dockerfile.prod frontend \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}"
 
 # ---- fill .env the way installation.md's "Step 1" block says to --------
 # Every generated value below is created fresh, not hardcoded: a committed

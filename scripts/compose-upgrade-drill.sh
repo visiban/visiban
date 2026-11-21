@@ -21,9 +21,12 @@
 #      known password; snapshot board/card/movement/user counts.
 #   4. Upgrade the way the upgrade guide says: replace the compose file with
 #      HEAD's, set APP_VERSION to the HEAD image, `docker compose up -d`. The
-#      HEAD image is built here from backend/Dockerfile — the Dockerfile the
-#      release job publishes from, not Dockerfile.prod — because MR pipelines
-#      push no per-commit image and a fix only in Dockerfile.prod never ships.
+#      HEAD image is from backend/Dockerfile — the Dockerfile the release job
+#      publishes from, not Dockerfile.prod, because a fix only in
+#      Dockerfile.prod never ships. In CI it is THIS commit's per-commit
+#      kaniko image (backend-docker-build), pulled by digest and
+#      revision-checked by scripts/drill-image.sh, never rebuilt in dind
+#      (#2492); run locally, it is built from the working tree.
 #   5. Assert: backend-init (migrate) exited 0 on the HEAD image,
 #      `migrate --check` reports nothing unapplied, counts are unchanged,
 #      readiness is ok and the drill user can still log in.
@@ -144,7 +147,7 @@ FROM_TAG="${UPGRADE_FROM_TAG:-$(bash "${REPO_ROOT}/scripts/resolve-last-ga-tag.s
 [ -n "${FROM_TAG}" ] || fail "could not resolve the last GA tag"
 FROM_IMAGE="${IMAGE_REPO}:${FROM_TAG}"
 TO_IMAGE="${IMAGE_REPO}:${HEAD_TAG}"
-log "upgrade path: ${FROM_TAG} (published ${FROM_IMAGE}) -> HEAD $(git rev-parse --short HEAD) (built ${TO_IMAGE})"
+log "upgrade path: ${FROM_TAG} (published ${FROM_IMAGE}) -> HEAD $(git rev-parse --short HEAD) (${TO_IMAGE})"
 
 git archive "${FROM_TAG}" docker-compose.prod.yml .env.example | tar -x -C "${RUN_DIR}"
 cp "${RUN_DIR}/.env.example" "${RUN_DIR}/.env"
@@ -164,10 +167,16 @@ set_env DOMAIN "${DRILL_HOST}"
 set_env APP_VERSION "${FROM_TAG}"
 DRILL_PW="$(gen_secret)"
 
-# Build HEAD first: a broken HEAD image should fail before two boots.
-log "building ${TO_IMAGE} from backend/Dockerfile (the release Dockerfile)"
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
-  -t "${TO_IMAGE}" -f backend/Dockerfile backend >/dev/null
+# HEAD image first: a missing or broken HEAD image should fail before two
+# boots. CI: the per-commit kaniko image (DRILL_BACKEND_IMAGE from
+# backend-docker-build), pulled by digest and checked against CI_COMMIT_SHA;
+# locally: built from the working tree. See scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. "${REPO_ROOT}/scripts/drill-image.sh"
+log "${TO_IMAGE} from backend/Dockerfile (the release Dockerfile)"
+drill_image DRILL_BACKEND_IMAGE "${TO_IMAGE}" backend/Dockerfile backend \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || fail "HEAD backend image unavailable"
 
 log "pulling the published release image ${FROM_IMAGE}"
 docker pull -q "${FROM_IMAGE}" >/dev/null || fail "could not pull ${FROM_IMAGE} — was ${FROM_TAG} published?"

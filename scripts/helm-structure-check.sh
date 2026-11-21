@@ -29,7 +29,9 @@
 # This gate's failure mode is a GREEN pipeline over a chart that no longer holds
 # the contract, so "it passed" is not evidence that it can still fail. The
 # --self-test mode injects each defect class into a throwaway copy of the chart
-# and asserts the corresponding section rejects it.
+# and asserts the corresponding section rejects it. Each fixture names its
+# section(s) (the check_* function without the prefix) and only those run
+# against the damaged chart (#2493); the undamaged-chart control runs them all.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
 # is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11 (incl. 11d, 11e),
@@ -2546,179 +2548,214 @@ selftest_define_fixtures() {
     # existing hook is the cheapest faithful injection: it needs no newline in
     # the replacement, which matters because BSD and busybox sed disagree about
     # \n on the right-hand side and this file has to run on both.
-    "1 install-phase hook reintroduced|templates/tests/api-connection.yaml|s/helm.sh\/hook: test/helm.sh\/hook: pre-install/"
+    "migrate_placement demo_mode|1 install-phase hook reintroduced|templates/tests/api-connection.yaml|s/helm.sh\/hook: test/helm.sh\/hook: pre-install/"
     # 1b: nothing applies migrations any more.
-    "1 migrate init container has no command|templates/backend-deployment.yaml|/command: \[\"python\", \"manage.py\", \"migrate_with_lock\"\]/d"
+    "migrate_placement demo_mode|1 migrate init container has no command|templates/backend-deployment.yaml|/command: \[\"python\", \"manage.py\", \"migrate_with_lock\"\]/d"
     # 1c: migrate ordered AFTER the bootstrap init container, which needs the
     # tables migrate creates. Swapped via a temporary token so the two
     # substitutions cannot chase each other on the same line.
-    "1 migrate ordered after bootstrap|templates/backend-deployment.yaml|s/\"migrate_with_lock\"]/\"ZZSWAP\"]/; s/\"ensure_site_admin\"]/\"migrate_with_lock\"]/; s/\"ZZSWAP\"]/\"ensure_site_admin\"]/"
+    "migrate_placement demo_mode|1 migrate ordered after bootstrap|templates/backend-deployment.yaml|s/\"migrate_with_lock\"]/\"ZZSWAP\"]/; s/\"ensure_site_admin\"]/\"migrate_with_lock\"]/; s/\"ZZSWAP\"]/\"ensure_site_admin\"]/"
     # 2a: the backend pod stops reading the chart's own runtime Secret.
-    "2 backend reads a foreign Secret|templates/_backend-env.tpl|s/name: {{ \$secret }}/name: not-the-runtime-secret/"
+    "secret_rotation_reaches_migrate|2 backend reads a foreign Secret|templates/_backend-env.tpl|s/name: {{ \$secret }}/name: not-the-runtime-secret/"
     # 2b: the checksum is present but constant, so it forces no rollout and a
     # rotated secret never reaches a newly created pod.
-    "2 secret checksum frozen|templates/backend-deployment.yaml|s/| sha256sum }}/| trunc 0 }}/"
-    "3 env var name drift (#1038 blocker 1)|templates/_backend-env.tpl|s/- name: OIDC_CLIENT_SECRET/- name: OIDC_SECRET/"
-    "3 required env removed (#1038 blocker 3)|templates/_backend-env.tpl|/- name: EMAIL_BACKEND/,+1d"
-    "4 nginx upstream|templates/frontend-configmap.yaml|s|http://{{ include \"visiban.fullname\" . }}-backend|http://backend|g"
+    "secret_rotation_reaches_migrate demo_mode|2 secret checksum frozen|templates/backend-deployment.yaml|s/| sha256sum }}/| trunc 0 }}/"
+    "env_contract|3 env var name drift (#1038 blocker 1)|templates/_backend-env.tpl|s/- name: OIDC_CLIENT_SECRET/- name: OIDC_SECRET/"
+    "env_contract demo_mode email_password_wiring|3 required env removed (#1038 blocker 3)|templates/_backend-env.tpl|/- name: EMAIL_BACKEND/,+1d"
+    "nginx_upstream|4 nginx upstream|templates/frontend-configmap.yaml|s|http://{{ include \"visiban.fullname\" . }}-backend|http://backend|g"
     # 4b (#1633): a missing hashed asset falls back to index.html again.
-    "SPA assets fall back to index.html|templates/frontend-configmap.yaml|s/try_files \$uri =404;/try_files \$uri \$uri\/ \/index.html;/"
+    "spa_cache_policy|SPA assets fall back to index.html|templates/frontend-configmap.yaml|s/try_files \$uri =404;/try_files \$uri \$uri\/ \/index.html;/"
     # 4e (#1633): behavior-changing mutations that keep the words in place.
-    "SPA cache map keyed on request_uri|templates/frontend-configmap.yaml|s#map \$uri \$visiban_cache_control#map \$request_uri \$visiban_cache_control#"
-    "SPA cache map catch-all regex first|templates/frontend-configmap.yaml|s#~^/(index#~.* \"\";   ~^/(index#"
-    "SPA cache map entry re-prefixed|templates/frontend-configmap.yaml|s#~^/(index#~^/static/(index#"
+    "spa_cache_policy|SPA cache map keyed on request_uri|templates/frontend-configmap.yaml|s#map \$uri \$visiban_cache_control#map \$request_uri \$visiban_cache_control#"
+    "spa_cache_policy|SPA cache map catch-all regex first|templates/frontend-configmap.yaml|s#~^/(index#~.* \"\";   ~^/(index#"
+    "spa_cache_policy|SPA cache map entry re-prefixed|templates/frontend-configmap.yaml|s#~^/(index#~^/static/(index#"
     # 4d (#1633): theme-init.js falls out of the no-cache list.
-    "SPA theme-init.js not no-cache|templates/frontend-configmap.yaml|s/theme-init/theme-removed/"
+    "spa_cache_policy|SPA theme-init.js not no-cache|templates/frontend-configmap.yaml|s/theme-init/theme-removed/"
     # 4c (#1633): the cache header stops being emitted.
-    "SPA cache header not applied|templates/frontend-configmap.yaml|s/add_header Cache-Control \$visiban_cache_control;/add_header X-Cache-Policy-Removed 1;/"
+    "spa_cache_policy|SPA cache header not applied|templates/frontend-configmap.yaml|s/add_header Cache-Control \$visiban_cache_control;/add_header X-Cache-Policy-Removed 1;/"
     # 4f (#1952): the chart's frontend stops sending the CSP / reverts to SAMEORIGIN.
-    "frontend CSP header removed|templates/frontend-configmap.yaml|s/add_header Content-Security-Policy /add_header X-Policy-Removed /"
-    "frontend Referrer-Policy removed|templates/frontend-configmap.yaml|s/add_header Referrer-Policy /add_header X-Policy-Removed-RP /"
-    "frontend Referrer-Policy fallback map removed|templates/frontend-configmap.yaml|s/\"\"      \"same-origin\";/\"\"      \"\";/"
-    "frontend X-Content-Type-Options removed|templates/frontend-configmap.yaml|s/add_header X-Content-Type-Options    nosniff always;/add_header X-Nosniff-Removed 1;/"
-    "frontend X-Frame-Options weakened|templates/frontend-configmap.yaml|s/X-Frame-Options           DENY/X-Frame-Options           SAMEORIGIN/"
+    "frontend_security_headers|frontend CSP header removed|templates/frontend-configmap.yaml|s/add_header Content-Security-Policy /add_header X-Policy-Removed /"
+    "frontend_security_headers|frontend Referrer-Policy removed|templates/frontend-configmap.yaml|s/add_header Referrer-Policy /add_header X-Policy-Removed-RP /"
+    "frontend_security_headers|frontend Referrer-Policy fallback map removed|templates/frontend-configmap.yaml|s/\"\"      \"same-origin\";/\"\"      \"\";/"
+    "frontend_security_headers|frontend X-Content-Type-Options removed|templates/frontend-configmap.yaml|s/add_header X-Content-Type-Options    nosniff always;/add_header X-Nosniff-Removed 1;/"
+    "frontend_security_headers|frontend X-Frame-Options weakened|templates/frontend-configmap.yaml|s/X-Frame-Options           DENY/X-Frame-Options           SAMEORIGIN/"
     # 4g (#1952): CSP img-src widened; an add_header inside a location (drops the
     # inherited server-level headers); the `:*` (port) connect-src entry dropped.
-    "frontend CSP img-src widened|templates/frontend-configmap.yaml|s/img-src 'self' data: blob:/img-src 'self' data: blob: https:/"
-    "frontend add_header inside a location|templates/frontend-configmap.yaml|s/proxy_cache off;/add_header X-Location-Header 1;/"
-    "frontend connect-src port entry dropped|templates/frontend-configmap.yaml|s/printf \" wss:\/\/%s wss:\/\/%s:\*\" [$]h [$]h/printf \" wss:\/\/%s\" \$h/"
-    "6 transport limit below app cap|templates/frontend-configmap.yaml|s/client_max_body_size {{ include \"visiban.transportBodyLimitMB\" . }}M;/client_max_body_size 1M;/"
-    "8 renamed manage.py command|templates/backend-deployment.yaml|s/\"manage.py\", \"ensure_site_admin\"/\"manage.py\", \"ensure_admin_site\"/"
+    "frontend_security_headers|frontend CSP img-src widened|templates/frontend-configmap.yaml|s/img-src 'self' data: blob:/img-src 'self' data: blob: https:/"
+    "frontend_security_headers|frontend add_header inside a location|templates/frontend-configmap.yaml|s/proxy_cache off;/add_header X-Location-Header 1;/"
+    "frontend_security_headers|frontend connect-src port entry dropped|templates/frontend-configmap.yaml|s/printf \" wss:\/\/%s wss:\/\/%s:\*\" [$]h [$]h/printf \" wss:\/\/%s\" \$h/"
+    "transport_limits|6 transport limit below app cap|templates/frontend-configmap.yaml|s/client_max_body_size {{ include \"visiban.transportBodyLimitMB\" . }}M;/client_max_body_size 1M;/"
+    "migrate_placement manage_commands demo_mode|8 renamed manage.py command|templates/backend-deployment.yaml|s/\"manage.py\", \"ensure_site_admin\"/\"manage.py\", \"ensure_admin_site\"/"
     # 8b: a scheduled-job CronJob (#1157) names a command that does not exist —
     # every run fails, and nothing else connects the chart's string to the file.
-    "8 renamed scheduled-job command|templates/cronjobs.yaml|s/\"command\" \"prune_notifications\"/\"command\" \"prune_notification\"/"
+    "manage_commands|8 renamed scheduled-job command|templates/cronjobs.yaml|s/\"command\" \"prune_notifications\"/\"command\" \"prune_notification\"/"
     # 1 (#1180): the demo seed hook stops deleting itself on success, so a
     # completed Job outlives `helm uninstall`.
-    "1 demo seed hook kept after success|templates/demo-seed-job.yaml|s/before-hook-creation,hook-succeeded/before-hook-creation/"
+    "demo_mode|1 demo seed hook kept after success|templates/demo-seed-job.yaml|s/before-hook-creation,hook-succeeded/before-hook-creation/"
     # 9a: a demo object leaks into the default render.
-    "9 demo Secret renders with demo off|templates/demo-secret.yaml|s/{{- if include \"visiban.demoEnabled\" . }}/{{- if true }}/"
+    "demo_mode|9 demo Secret renders with demo off|templates/demo-secret.yaml|s/{{- if include \"visiban.demoEnabled\" . }}/{{- if true }}/"
     # 9b: the fence is not armed on the backend.
-    "9 DEMO_MODE not true|templates/_backend-env.tpl|/- name: DEMO_MODE/{n;s/\"true\"/\"false\"/;}"
+    "demo_mode|9 DEMO_MODE not true|templates/_backend-env.tpl|/- name: DEMO_MODE/{n;s/\"true\"/\"false\"/;}"
     # 9b: the countdown and the CronJob drift apart (TruePPM ADR-1197 D9).
-    "9 reset schedule not shared with the countdown|templates/demo-reset-cronjob.yaml|s/schedule: {{ \$schedule | quote }}/schedule: \"30 * * * *\"/"
+    "demo_mode|9 reset schedule not shared with the countdown|templates/demo-reset-cronjob.yaml|s/schedule: {{ \$schedule | quote }}/schedule: \"30 * * * *\"/"
     # 9b: the reset loses the whole-database wipe.
-    "9 reset command loses --reset-database|templates/_helpers.tpl|s/, \"--reset-database\"]/]/"
+    "demo_mode|9 reset command loses --reset-database|templates/_helpers.tpl|s/, \"--reset-database\"]/]/"
     # 9b + 7: the seed/reset pods fall off the datastore allow-list.
-    "9 demo-seed missing from the allow-list|templates/_helpers.tpl|s/ demo-seed{{ end }}/{{ end }}/"
+    "demo_mode|9 demo-seed missing from the allow-list|templates/_helpers.tpl|s/ demo-seed{{ end }}/{{ end }}/"
     # 9b: the egress policy opens the internet.
-    "9 egress policy opened to the internet|templates/networkpolicy.yaml|s|        - namespaceSelector: {}|        - ipBlock: {cidr: 0.0.0.0/0}|"
+    "demo_mode|9 egress policy opened to the internet|templates/networkpolicy.yaml|s|        - namespaceSelector: {}|        - ipBlock: {cidr: 0.0.0.0/0}|"
     # 9b: the helm test bypasses the frontend.
-    "9 demo helm test skips the frontend|templates/tests/demo-read-only.yaml|s/-frontend:{{ .Values.frontend.service.port }}/-backend:{{ .Values.backend.service.port }}/"
+    "demo_mode|9 demo helm test skips the frontend|templates/tests/demo-read-only.yaml|s/-frontend:{{ .Values.frontend.service.port }}/-backend:{{ .Values.backend.service.port }}/"
     # 10: the most dangerous guard stops firing.
-    "10 loginHint-without-demo guard removed|templates/_validate.tpl|s/{{- if and (or \$user \$pass) (not (include \"visiban.demoEnabled\" .)) -}}/{{- if false -}}/"
+    "demo_guards|10 loginHint-without-demo guard removed|templates/_validate.tpl|s/{{- if and (or \$user \$pass) (not (include \"visiban.demoEnabled\" .)) -}}/{{- if false -}}/"
     # 11 (#1200): the bundled Valkey loses its tag — the exact drift this issue
     # was, reintroduced in the template rather than in values.
-    "11 valkey image loses its tag|templates/valkey.yaml|s/image: \"{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}\"/image: \"{{ .Values.valkey.image.repository }}\"/"
+    "image_pins legacy_redis_alias|11 valkey image loses its tag|templates/valkey.yaml|s/image: \"{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}\"/image: \"{{ .Values.valkey.image.repository }}\"/"
     # 11: a floating `latest` through values, on the one datastore image whose
     # schema entry is a free string.
-    "11 postgresql image floats on latest|values.yaml|s/image: \"postgres:17\"/image: \"postgres:latest\"/"
+    "image_pins|11 postgresql image floats on latest|values.yaml|s/image: \"postgres:17\"/image: \"postgres:latest\"/"
     # 11 (#1211): the no-password-source guard stops firing, so auth.enabled
     # with no password renders a Valkey that refuses to start.
-    "11 valkey auth no-source guard removed|templates/_validate.tpl|s/{{- if and (eq \$pw \"\") (eq \$es \"\") -}}/{{- if false -}}/"
+    "image_pins|11 valkey auth no-source guard removed|templates/_validate.tpl|s/{{- if and (eq \$pw \"\") (eq \$es \"\") -}}/{{- if false -}}/"
     # 11b (#1211): the password leaks into the Valkey ConfigMap.
-    "11b valkey password written into the ConfigMap|templates/valkey.yaml|s/^    # (#1211), never written here: this file is a ConfigMap. Protected mode/    requirepass {{ .Values.valkey.auth.password }}/"
+    "valkey_auth|11b valkey password written into the ConfigMap|templates/valkey.yaml|s/^    # (#1211), never written here: this file is a ConfigMap. Protected mode/    requirepass {{ .Values.valkey.auth.password }}/"
     # 11b: the backend loses the password env (a rename settings.py never reads).
-    "11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
+    "valkey_auth external_redis_auth|11b backend loses REDIS_URL_PASSWORD|templates/_backend-env.tpl|s/- name: REDIS_URL_PASSWORD/- name: REDIS_PASSWORD/"
     # 11b: a crackable hash of the password comes back as a pod annotation.
-    "11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: .*/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
+    "valkey_auth|11b password sha256 in a pod annotation|templates/valkey.yaml|s/checksum\/config: .*/checksum\/config: {{ printf \"%v\" .Values.valkey.auth.password | sha256sum }}/"
     # 11b2 (#1130): the ceiling stops rendering, so Valkey grows until OOM-killed.
-    "11b2 valkey maxmemory line not rendered|templates/valkey.yaml|s/^    maxmemory {{ . }}/    # maxmemory removed {{ . }}/"
+    "valkey_maxmemory|11b2 valkey maxmemory line not rendered|templates/valkey.yaml|s/^    maxmemory {{ . }}/    # maxmemory removed {{ . }}/"
     # 11b2 (#1130): the eviction policy stops rendering.
-    "11b2 valkey maxmemory-policy line not rendered|templates/valkey.yaml|s/^    maxmemory-policy /    # policy-removed /"
+    "valkey_maxmemory|11b2 valkey maxmemory-policy line not rendered|templates/valkey.yaml|s/^    maxmemory-policy /    # policy-removed /"
     # 11b: the server starts without --requirepass while clients present one.
-    "11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
+    "valkey_auth|11b valkey server started without requirepass|templates/valkey.yaml|s/ --requirepass \"\$REDISCLI_AUTH\"'/'/"
     # 11c (#1361): one backend container loses the external password env.
-    "11c external REDIS_URL_PASSWORD not wired|templates/_backend-env.tpl|s/key: {{ include \"visiban.externalRedisAuthSecretKey\" \$ctx }}/key: wrong-key/"
+    "external_redis_auth|11c external REDIS_URL_PASSWORD not wired|templates/_backend-env.tpl|s/key: {{ include \"visiban.externalRedisAuthSecretKey\" \$ctx }}/key: wrong-key/"
     # 11c: the external password is emitted even without existingSecret,
     # which breaks every install that keeps its password in the URL.
-    "11c REDIS_URL_PASSWORD emitted without existingSecret|templates/_helpers.tpl|s/(dig \"existingSecret\" \"\" (.Values.externalRedis | default dict))/true/"
+    "external_redis_auth|11c REDIS_URL_PASSWORD emitted without existingSecret|templates/_helpers.tpl|s/(dig \"existingSecret\" \"\" (.Values.externalRedis | default dict))/true/"
     # 11c: the two-password-sources guard stops firing.
-    "11c URL-password-plus-existingSecret guard removed|templates/_validate.tpl|s/{{- if contains \":\" \$userinfo -}}/{{- if false -}}/"
+    "external_redis_auth|11c URL-password-plus-existingSecret guard removed|templates/_validate.tpl|s/{{- if contains \":\" \$userinfo -}}/{{- if false -}}/"
     # 11c: the bundled-Valkey-plus-existingSecret guard stops firing.
-    "11c existingSecret-with-bundled-Valkey guard removed|templates/_validate.tpl|/externalRedis.existingSecret is set, but valkey.enabled is true/d"
+    "external_redis_auth|11c existingSecret-with-bundled-Valkey guard removed|templates/_validate.tpl|/externalRedis.existingSecret is set, but valkey.enabled is true/d"
     # 11d (#2002): the redis.enabled alias is no longer read, so a 1.1 external-Redis
     # upgrade silently deploys the bundled Valkey again.
-    "11d redis.enabled alias ignored|templates/_helpers.tpl|s/dig \"enabled\" nil (.Values.redis/dig \"enabledX\" nil (.Values.redis/"
+    "legacy_redis_alias|11d redis.enabled alias ignored|templates/_helpers.tpl|s/dig \"enabled\" nil (.Values.redis/dig \"enabledX\" nil (.Values.redis/"
     # 11d (#2002): the NOTES.txt deprecation warning disappears.
-    "11d NOTES redis deprecation warning removed|templates/NOTES.txt|s/{{- if .Values.redis }}/{{- if false }}/"
+    "legacy_redis_alias|11d NOTES redis deprecation warning removed|templates/NOTES.txt|s/{{- if .Values.redis }}/{{- if false }}/"
     # 11d (#2002): leftover redis.* keys (auth, image, ...) are ignored again.
-    "11d legacy redis keys guard removed|templates/_validate.tpl|s/{{- if \$extra -}}/{{- if false -}}/"
+    "image_pins legacy_redis_alias|11d legacy redis keys guard removed|templates/_validate.tpl|s/{{- if \$extra -}}/{{- if false -}}/"
     # 11d (#2002): redis.enabled=true with valkey.enabled=false stops failing.
-    "11d redis-vs-valkey contradiction guard removed|templates/_validate.tpl|s/\$r.enabled (not .Values.valkey.enabled) -}}/false -}}/"
+    "image_pins|11d redis-vs-valkey contradiction guard removed|templates/_validate.tpl|s/\$r.enabled (not .Values.valkey.enabled) -}}/false -}}/"
     # 11e (#2016): the password gate goes back to backend=smtp only, so a 1.1
     # values file (host set, backend unset) silently loses SMTP auth again.
-    "11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
+    "email_password_wiring|11e email password gate ignores host|templates/_helpers.tpl|s/(and (eq \$b \"\") .Values.backend.email.host)/false/"
     # 16 (#1951): the ingress-enabled default stops being 2.
-    "16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
+    "num_proxies_default|16 ingress default changed|templates/_backend-env.tpl|s/  value: \"2\"/  value: \"1\"/"
     # 20 (#2067): the dispatcher egress policy stops excepting the internal
     # ranges, so "public egress" quietly includes the whole cluster.
-    "20 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
+    "dispatcher_egress_policy|20 dispatcher egress policy loses its except list|templates/webhook-dispatcher-networkpolicy.yaml|s/with \$np.denyCIDRs }}/with false }}/"
     # 20 (#2067): the policy renders without its own opt-in.
-    "20 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
+    "dispatcher_egress_policy|20 dispatcher egress policy ignores its opt-in|templates/webhook-dispatcher-networkpolicy.yaml|s/and \$dispatcher.enabled \$np.enabled/and \$dispatcher.enabled true/"
     # 20 (#1465 round 2): the policy renders in demo mode, on top of demo-egress.
-    "20 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
+    "dispatcher_egress_policy|20 dispatcher egress policy renders in demo mode|templates/webhook-dispatcher-networkpolicy.yaml|s/ (not \$demo)//"
     # 17 (#1835): the MCP flag is wired to the wrong variable name, so enabling it
     # in values never reaches the backend.
-    "17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
+    "feature_flags|17 mcpServerEnabled renders the wrong env name|templates/_backend-env.tpl|s/- name: MCP_SERVER_ENABLED/- name: MCP_SERVER_ENABLE/"
     # 17 (#1835): the Git Lens flag is dropped from the shared env block, so the
     # migrate init container (and CronJobs) no longer see it.
-    "17 gitLensEnabled not rendered|templates/_backend-env.tpl|s/{{- if \$ctx.Values.backend.settings.gitLensEnabled }}/{{- if false }}/"
+    "feature_flags|17 gitLensEnabled not rendered|templates/_backend-env.tpl|s/{{- if \$ctx.Values.backend.settings.gitLensEnabled }}/{{- if false }}/"
     # 17 (#1835): only the serving (daphne) container loses the flag; migrate and
     # CronJobs keep it, so only the backend-container assertion can catch this.
-    "17 backend container renames MCP_SERVER_ENABLED|templates/backend-deployment.yaml|/command: \\[\"daphne\"/,/visiban.backendEnv/ s/{{- include \"visiban.backendEnv\" . | nindent 12 }}/{{- include \"visiban.backendEnv\" . | replace \"MCP_SERVER_ENABLED\" \"MCP_SERVER_ENABLE\" | nindent 12 }}/"
-    "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
+    "feature_flags|17 backend container renames MCP_SERVER_ENABLED|templates/backend-deployment.yaml|/command: \\[\"daphne\"/,/visiban.backendEnv/ s/{{- include \"visiban.backendEnv\" . | nindent 12 }}/{{- include \"visiban.backendEnv\" . | replace \"MCP_SERVER_ENABLED\" \"MCP_SERVER_ENABLE\" | nindent 12 }}/"
+    "demo_guards|10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
     # 12 (#1210, #1224): every overridable hardened workload (backend,
     # postgresql, frontend) loses its capability drop through their shared
     # values.yaml default at once.
-    "12 capabilities.drop ALL removed from values|values.yaml|s/drop: \[\"ALL\"\]/drop: []/"
+    "pod_hardening|12 capabilities.drop ALL removed from values|values.yaml|s/drop: \[\"ALL\"\]/drop: []/"
     # 13: the credential helper stops encoding — the pre-fix behavior.
-    "13 database credentials spliced raw|templates/_helpers.tpl|s/{{- . | urlquery | replace \"+\" \"%20\" }}/{{- . }}/"
+    "database_url_encoding|13 database credentials spliced raw|templates/_helpers.tpl|s/{{- . | urlquery | replace \"+\" \"%20\" }}/{{- . }}/"
     # 13: the space rewrite is dropped, so a space decodes as a literal "+".
-    "13 space left as + in database-url|templates/_helpers.tpl|s/ | replace \"+\" \"%20\" }}/ }}/"
+    "database_url_encoding|13 space left as + in database-url|templates/_helpers.tpl|s/ | replace \"+\" \"%20\" }}/ }}/"
     # 14 (#1230): the localhost/127.0.0.1 widening comes back.
-    "14 ALLOWED_HOSTS widened with localhost|templates/_backend-env.tpl|s/value: {{ \$ctx.Values.backend.settings.allowedHosts | quote }}/value: {{ printf \"%s,127.0.0.1,localhost\" \$ctx.Values.backend.settings.allowedHosts | quote }}/"
+    "allowed_hosts_not_widened|14 ALLOWED_HOSTS widened with localhost|templates/_backend-env.tpl|s/value: {{ \$ctx.Values.backend.settings.allowedHosts | quote }}/value: {{ printf \"%s,127.0.0.1,localhost\" \$ctx.Values.backend.settings.allowedHosts | quote }}/"
     # 14: the probes send a Host ALLOWED_HOSTS does not accept.
-    "14 probe Host not in ALLOWED_HOSTS|templates/backend-deployment.yaml|s/value: {{ include \"visiban.probeHost\" . | quote }}/value: localhost/"
+    "allowed_hosts_not_widened|14 probe Host not in ALLOWED_HOSTS|templates/backend-deployment.yaml|s/value: {{ include \"visiban.probeHost\" . | quote }}/value: localhost/"
     # 14: the empty-allowedHosts render guard stops firing.
-    "14 empty allowedHosts guard removed|templates/_validate.tpl|s/{{- if eq (trim (toString .Values.backend.settings.allowedHosts)) \"\" }}/{{- if false }}/"
+    "allowed_hosts_not_widened|14 empty allowedHosts guard removed|templates/_validate.tpl|s/{{- if eq (trim (toString .Values.backend.settings.allowedHosts)) \"\" }}/{{- if false }}/"
     # 14 (#1360): the catch-all/loopback guard stops firing.
-    "14 unsafe allowedHosts guard removed|templates/_validate.tpl|s/{{- if and \$unsafeHosts (not .Values.backend.settings.allowUnsafeHosts) }}/{{- if false }}/"
+    "allowed_hosts_not_widened|14 unsafe allowedHosts guard removed|templates/_validate.tpl|s/{{- if and \$unsafeHosts (not .Values.backend.settings.allowUnsafeHosts) }}/{{- if false }}/"
     # 14: the guard degrades to a substring match ("localhost.example.com" refused).
-    "14 unsafe allowedHosts matched as substrings|templates/_helpers.tpl|s/{{- if and (or (has \$bare \$unsafe)/{{- if and (or (contains \"localhost\" \$bare) (has \$bare \$unsafe)/"
+    "allowed_hosts_not_widened|14 unsafe allowedHosts matched as substrings|templates/_helpers.tpl|s/{{- if and (or (has \$bare \$unsafe)/{{- if and (or (contains \"localhost\" \$bare) (has \$bare \$unsafe)/"
     # 14: leading dots no longer stripped, so ".127.0.0.1" (Django: matches 127.0.0.1) slips through.
-    "14 leading-dot form not normalized|templates/_helpers.tpl|s/regexReplaceAll \"^[^\"]*\" \$e \"\"/\$e/"
+    "allowed_hosts_not_widened|14 leading-dot form not normalized|templates/_helpers.tpl|s/regexReplaceAll \"^[^\"]*\" \$e \"\"/\$e/"
     # 14: the opt-in defaults to on, so the guard never fires on a default install.
-    "14 allowUnsafeHosts defaults to true|values.yaml|s/allowUnsafeHosts: false/allowUnsafeHosts: true/"
+    "demo_mode demo_guards image_pins pod_hardening allowed_hosts_not_widened dispatcher_egress_policy|14 allowUnsafeHosts defaults to true|values.yaml|s/allowUnsafeHosts: false/allowUnsafeHosts: true/"
     # 14 (#1360): the NOTES.txt opt-in warning disappears, so the opt-in is silent.
-    "14 NOTES opt-in warning removed|templates/NOTES.txt|s/{{- if and \$unsafeHosts .Values.backend.settings.allowUnsafeHosts }}/{{- if false }}/"
+    "allowed_hosts_not_widened|14 NOTES opt-in warning removed|templates/NOTES.txt|s/{{- if and \$unsafeHosts .Values.backend.settings.allowUnsafeHosts }}/{{- if false }}/"
     # 10 (#1360): the demo stops refusing the unsafe-hosts opt-in.
-    "10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
+    "demo_guards|10 demo unsafe-hosts opt-in guard removed|templates/_validate.tpl|s/{{- if .Values.backend.settings.allowUnsafeHosts -}}/{{- if false -}}/"
     # 15 (#1864): the guard stops covering postgresql.enabled, so the default
     # bundled StatefulSet accepts the placeholder password again.
-    "15 postgres password guard no longer keyed on postgresql.enabled|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) }}/{{- if and false (not .Values.postgresql.auth.existingSecret) }}/"
+    "postgres_password_guard|15 postgres password guard no longer keyed on postgresql.enabled|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (not .Values.postgresql.auth.existingSecret) }}/{{- if and false (not .Values.postgresql.auth.existingSecret) }}/"
     # 15 (#1911): postgresql.subchartEnabled=true is silently ignored again, so
     # on a release that runs the removed subchart `helm upgrade` fails partway
     # (immutable StatefulSet selector) after re-pointing the Service.
-    "15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
+    "postgres_password_guard|15 removed-subchart guard removed|templates/_validate.tpl|s/{{- if .Values.postgresql.subchartEnabled }}/{{- if false }}/"
     # 15 (#1911): an empty or null postgresql.image renders `image:` empty again.
-    "15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
+    "postgres_password_guard|15 empty postgresql.image guard removed|templates/_validate.tpl|s/{{- if and .Values.postgresql.enabled (eq (toString (.Values.postgresql.image | default \"\")) \"\") }}/{{- if false }}/"
     # 19 (#2119): the missing-key fallback is dropped, so --reuse-values from 1.2
     # silently loses the sweep CronJob.
-    "19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
+    "sweep_webhook_secrets_fallback|19 sweep fallback removed|templates/cronjobs.yaml|s/ | default \$job.fallback//"
   )
+}
+
+# The check sections a fixture may target (#2493): exactly the check_*
+# functions run_all_checks calls, without the prefix. Derived from
+# run_all_checks itself so a section added there is targetable at once, and a
+# section removed there makes every fixture still naming it FAIL.
+selftest_known_sections() {
+  declare -f run_all_checks | grep -oE 'check_[a-z0-9_]+' | sed 's/^check_//'
 }
 
 # One self-test case, run as its own process (#2420). Everything a fixture
 # touches is therefore per-worker by construction: the damaged chart copy, the
 # rendered manifest, and this process's own RUN_TMP (every `mktemp` and every
 # $RUN_TMP/helm-*-err.txt capture inside the checks). The orchestrator reads
-# back <resultdir>/<idx>.log (the lines to print) and <resultdir>/<idx>.status
+# back <resultdir>/<id>.log (the lines to print) and <resultdir>/<id>.status
 # (pass or fail). A worker that dies before writing .status counts as a
 # failure, never as a pass. Case "control" is the undamaged chart.
 selftest_worker() {
-  local resultdir="$1" idx="$2" tmp name file prog broken rc
-  tmp="$RUN_TMP/w"; mkdir -p "$tmp"
+  local resultdir="$1" idx="$2"
   selftest_define_fixtures
+  if [ "$idx" = "control" ]; then
+    selftest_run_case "$resultdir" control ""
+  else
+    selftest_run_case "$resultdir" "$idx" "${SELF_TEST_FIXTURES[$idx]}"
+  fi
+}
+
+# selftest_run_case <resultdir> <id> <fixture>
+# A fixture is "<sections>|<name>|<file>|<sed program>". <sections> is a
+# space-separated list of check sections (selftest_known_sections) that are
+# each expected to reject the damaged chart.
+#
+# Targeted, not whole-check (#2493): the damaged chart is rendered ONCE and
+# then only the named sections run against it. Running the entire check (~52
+# renders, ~94 yq calls) for every one of 76 fixtures was ~303 s of
+# helm-template. What a fixture proves is "THIS section catches THIS defect",
+# and that is what is asserted now, more strictly than before: EVERY named
+# section must reject the damage on its own, so a fixture whose defect is only
+# caught incidentally by some other section is reported, not scored a pass.
+# The undamaged-chart control still runs EVERY section, so a section that
+# fails on everything still cannot score a perfect self-test.
+#
+# A fixture naming no section, or a section run_all_checks does not run, is a
+# FAILURE, never a skip (absent-input rule, #1075): a typo there would
+# otherwise run nothing and look like a detection-free pass.
+selftest_run_case() {
+  local resultdir="$1" idx="$2" fixture="$3" tmp sections rest name file prog broken s known undetected=""
+  tmp="$RUN_TMP/w"; mkdir -p "$tmp"
   exec >"$resultdir/$idx.log" 2>&1
 
   if [ "$idx" = "control" ]; then
@@ -2726,9 +2763,32 @@ selftest_worker() {
     # check that fails on everything would score a perfect self-test.
     local control="$tmp/control" control_log="$tmp/control-run.log"
     cp -R "$CHART_DIR" "$control"
+    local alone_failed=""
+    # Fixtures run each section ALONE in a subshell, but run_all_checks runs
+    # them in one shell where an earlier section may set a global a later one
+    # needs. A section that errors standalone (unset global under set -u, a
+    # hidden dependency, an exit) would be scored "detected" for every fixture
+    # of that section, so the control must prove each section also PASSES alone
+    # on the undamaged chart, in the fixture's exact subshell form.
+    # SELF_TEST_STANDALONE_SABOTAGE=<section> is a test-only hook that makes one
+    # section fail standalone (scripts/tests/helm-structure-check.test.sh).
     if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
-      echo "  ✓ control: the undamaged chart passes"
+      RENDERED="$tmp/control.yaml"
+      for s in $(selftest_known_sections); do
+        if ! ( CHART_UNDER_TEST="$control"; FAILURES=0; [ "${SELF_TEST_STANDALONE_SABOTAGE:-}" != "$s" ] || exit 3; "check_$s" >>"$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
+          alone_failed="$alone_failed $s"
+        fi
+      done
+    else
+      alone_failed="(whole check)"
+    fi
+    if [ -z "$alone_failed" ]; then
+      echo "  ✓ control: the undamaged chart passes (whole check and each section alone)"
       echo pass > "$resultdir/$idx.status"
+    elif [ "$alone_failed" != "(whole check)" ]; then
+      echo "  ✗ SELF-TEST FAIL: section(s)${alone_failed} fail ALONE on the undamaged chart, so every fixture naming them would be scored detected without proving anything"
+      sed 's/^/      /' "$control_log"
+      echo fail > "$resultdir/$idx.status"
     else
       # Unlike every fixture, a control failure has no injected damage to
       # name — it means the undamaged chart itself trips one of the checks, so
@@ -2740,10 +2800,23 @@ selftest_worker() {
     return 0
   fi
 
-  local fixture="${SELF_TEST_FIXTURES[$idx]}"
-  name="${fixture%%|*}"
-  file="$(cut -d'|' -f2 <<< "$fixture")"
-  prog="$(cut -d'|' -f3- <<< "$fixture")"
+  sections="${fixture%%|*}"
+  rest="${fixture#*|}"
+  name="${rest%%|*}"
+  file="$(cut -d'|' -f2 <<< "$rest")"
+  prog="$(cut -d'|' -f3- <<< "$rest")"
+
+  if [ -z "${sections//[[:space:]]/}" ] || [ "$rest" = "$fixture" ]; then
+    echo "  ✗ SELF-TEST FAIL: fixture '$name' names no check section to run"
+    echo fail > "$resultdir/$idx.status"; return 0
+  fi
+  known=" $(selftest_known_sections | tr '\n' ' ') "
+  for s in $sections; do
+    if [[ "$known" != *" $s "* ]]; then
+      echo "  ✗ SELF-TEST FAIL: fixture '$name' names unknown check section '$s' (not run by run_all_checks)"
+      echo fail > "$resultdir/$idx.status"; return 0
+    fi
+  done
 
   broken="$tmp/fixture"
   rm -rf "$broken"
@@ -2775,14 +2848,19 @@ selftest_worker() {
 
   # CHART_UNDER_TEST must follow the DAMAGED copy: section 2 re-renders it to
   # prove the secret checksum varies, and pointing that re-render at the
-  # pristine chart would report a clean pass on a broken one.
-  rc=0
-  ( RENDERED="$tmp/rendered.yaml"; CHART_UNDER_TEST="$broken"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ) || rc=1
-  if [ "$rc" -eq 0 ]; then
-    echo "  ✗ SELF-TEST FAIL: '$name' was injected and the check still passed"
+  # pristine chart would report a clean pass on a broken one. Each section
+  # runs in its own subshell, so one section's globals cannot leak into the
+  # next and the result is exactly what that section alone decides.
+  for s in $sections; do
+    if ( RENDERED="$tmp/rendered.yaml"; CHART_UNDER_TEST="$broken"; FAILURES=0; "check_$s" >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ); then
+      undetected="$undetected $s"
+    fi
+  done
+  if [ -n "$undetected" ]; then
+    echo "  ✗ SELF-TEST FAIL: '$name' was injected and section(s)${undetected} still passed"
     echo fail > "$resultdir/$idx.status"
   else
-    echo "  ✓ '$name' is detected"
+    echo "  ✓ '$name' is detected ($sections)"
     echo pass > "$resultdir/$idx.status"
   fi
 }
@@ -2811,16 +2889,16 @@ self_test() {
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' RETURN
 
-  # Each fixture is (name, sed-program applied to a chart file, file).
-  # Run the FULL check against the damaged chart and require a non-zero exit —
-  # asserting on the exit code rather than on message text, so a reworded
+  # Each fixture is (sections, name, chart file, sed program). Run each named
+  # section against the damaged chart and require every one to fail (#2493) —
+  # asserting on the failure count rather than on message text, so a reworded
   # failure message does not silently disarm the fixture.
 
   selftest_define_fixtures
   local idx name jobs resultdir="$tmp/results" order=()
   mkdir -p "$resultdir"
   for idx in "${!SELF_TEST_FIXTURES[@]}"; do
-    name="${SELF_TEST_FIXTURES[$idx]%%|*}"
+    name="$(cut -d'|' -f2 <<< "${SELF_TEST_FIXTURES[$idx]}")"
     # SELF_TEST_ONLY=<regex> runs only the matching fixtures (and skips the
     # controls below) so a new fixture can be proven without the full run.
     # CI never sets it.
@@ -2977,6 +3055,16 @@ if [ "${1:-}" = "--self-test-worker" ]; then
   # Internal: one self-test case as its own process; see selftest_worker.
   CHART_DIR="${SELF_TEST_CHART_DIR:?}"
   selftest_worker "$2" "$3"
+  exit 0
+fi
+
+if [ "${1:-}" = "--self-test-case" ]; then
+  # Internal, for scripts/tests/helm-structure-check.test.sh (#2493): run ONE
+  # fixture spec given on the command line, exactly as a worker runs a table
+  # entry. It only writes <resultdir>/<id>.{log,status}; it cannot change what
+  # --self-test runs or reports.
+  CHART_DIR="${SELF_TEST_CHART_DIR:-helm/visiban}"
+  selftest_run_case "$2" "$3" "$4"
   exit 0
 fi
 

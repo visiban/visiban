@@ -94,7 +94,7 @@ class DisableThrottlingInProcessTests(SimpleTestCase):
     """Same branches, evaluated in-process so diff-cover can see them.
 
     Coverage does not follow the subprocess tests above, so the new settings.py
-    lines would read as 0% in CI's backend-diff-coverage. ``runpy.run_path``
+    lines would read as 0% in the diff gate of CI's backend-test-coverage. ``runpy.run_path``
     executes settings.py into a throwaway namespace: it re-creates the dicts but
     never touches the live ``django.conf.settings`` object or the runner's DB
     connection (the reason ``importlib.reload`` is avoided in this suite).

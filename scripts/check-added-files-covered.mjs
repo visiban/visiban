@@ -21,7 +21,7 @@
 // script cannot drift from backend/.coveragerc or frontend/vitest.config.ts:
 //   - backend/.coveragerc's [run] omit list (fnmatch patterns, relative to
 //     backend/), plus */migrations/* and manage.py — the same two patterns
-//     backend-diff-coverage passes to `diff-cover --exclude` (migrations
+//     backend-test-coverage's diff gate passes to `diff-cover --exclude` (migrations
 //     legitimately count toward the aggregate 90% per .coveragerc, but a
 //     diff-coverage miss on a migration is schema, not behavior).
 //   - frontend/vitest.config.ts's test.coverage.exclude list (glob patterns,

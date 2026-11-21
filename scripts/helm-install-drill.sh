@@ -64,11 +64,15 @@
 #      Ready and round-trips the cache and the Channels layer, `helm test`
 #      passes, and the password is in the Secret only.
 #
-# Images are BUILT FROM THE WORKING TREE and side-loaded into kind, not pulled
-# from a registry. The MR pipeline's image jobs are `--no-push`, so there is no
-# per-commit image to pull; and drilling the HEAD chart against the last released
-# image would mean a red here is version skew rather than a deploy regression —
-# which is the failure mode that makes a drill get ignored.
+# Images are THIS COMMIT's backend/Dockerfile and frontend/Dockerfile builds,
+# side-loaded into kind. In CI they are the per-commit kaniko images
+# (backend-docker-build / frontend-docker-build push them to
+# $CI_REGISTRY_IMAGE/ci/<name>), pulled by digest and checked against
+# CI_COMMIT_SHA by scripts/drill-image.sh, never rebuilt in dind (#2492); run
+# locally, or in a CI project with no container registry, they are built from
+# the working tree. Never the last RELEASED image: drilling the HEAD chart
+# against it would mean a red here is version skew rather than a deploy
+# regression — which is the failure mode that makes a drill get ignored.
 #
 # Requires: docker, kind, kubectl, helm.
 # Usage:   bash scripts/helm-install-drill.sh
@@ -262,12 +266,21 @@ for bin in docker kind kubectl helm; do
 done
 
 # ---------------------------------------------------------------------------
-step "Building images from the working tree (tag $TAG)"
+step "Product images for this commit (tag $TAG)"
 # ---------------------------------------------------------------------------
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$BACKEND_IMAGE"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
-ok "backend built"
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$FRONTEND_IMAGE" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
-ok "frontend built"
+# In CI: pull the per-commit kaniko image (DRILL_*_IMAGE, digest-pinned) and
+# assert it was built from this commit. Locally: build from the working tree.
+# See scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. "$REPO_ROOT/scripts/drill-image.sh"
+drill_image DRILL_BACKEND_IMAGE "$BACKEND_IMAGE" "$REPO_ROOT/backend/Dockerfile" "$REPO_ROOT/backend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || { echo "ERROR: backend image unavailable" >&2; exit 1; }
+ok "backend image ready"
+drill_image DRILL_FRONTEND_IMAGE "$FRONTEND_IMAGE" "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || { echo "ERROR: frontend image unavailable" >&2; exit 1; }
+ok "frontend image ready"
 
 # ---------------------------------------------------------------------------
 step "Pre-pulling cluster images through DOCKERHUB_MIRROR (#1198)"

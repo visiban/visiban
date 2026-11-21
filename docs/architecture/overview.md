@@ -91,8 +91,8 @@ GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vu
 │  │  frontend-test         (Vitest)                          │
 │  │  migration-check       (makemigrations --check + zero-   │
 │  │                         downtime schema checks)           │
-│  │  backend-docker-build  (kaniko --no-push, verification)  │
-│  │  frontend-docker-build (kaniko --no-push, verification)  │
+│  │  backend-docker-build  (kaniko, per-commit drill image)  │
+│  │  frontend-docker-build (kaniko, per-commit drill image)  │
 │  │  helm-lint / helm-template / helm-install / helm-netpol  │
 │                                                             │
 │  security                                                    │
@@ -120,7 +120,7 @@ GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vu
 
 Key design decisions:
 
-- **Test and build stages run in parallel** — Docker image builds (kaniko `--no-push` verification) don't depend on test results, so they share the `test` stage to avoid sequential waiting.
+- **Test and build stages run in parallel** — Docker image builds (kaniko; they verify the Dockerfiles and push a per-commit image under the CI-only `ci/` registry path for the deploy and upgrade drills, see [Per-commit drill images](../maintainers/ci-runners.md#per-commit-drill-images-2492)) don't depend on test results, so they share the `test` stage to avoid sequential waiting.
 - **Security scanners: most block, a few deliberately do not** — see [Which security jobs block a merge](#which-security-jobs-block-a-merge) below. A failing blocking job stops the merge because the GitLab project enforces `only_allow_merge_if_pipeline_succeeds`.
 - **Kaniko for amd64 Docker builds** — no Docker-in-Docker or privileged mode needed, runs on any runner. arm64 release images build on a dedicated Apple Silicon runner instead, since kaniko cannot cross-build — see [CI Runners](../maintainers/ci-runners.md).
 - **Auto-retry on infrastructure failures** — runner system failures and stuck pods are retried up to 2 times automatically.

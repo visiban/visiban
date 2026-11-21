@@ -331,17 +331,47 @@ default:
     policy: pull
 
 # PIP_CACHE_DIR stores downloaded wheels/sdists. pip honors this env var
-# automatically so no extra flags are needed in before_script.
+# automatically so no extra flags are needed in before_script. UV_CACHE_DIR is
+# the same for uv (#2496), which does not read PIP_CACHE_DIR; both live in the
+# one cache. UV_LINK_MODE=copy: the cache and site-packages are on different
+# filesystems in a job container, where uv's default hardlink mode only warns
+# and falls back to copying anyway.
 
 .pip-cache:
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip"
       files: [backend/requirements.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull
+
+# Install uv for the backend dependency installs (#2496): `uv pip install
+# --system -r <file>` installs the SAME requirements files pip did, in the
+# same order (one invocation per file, so each resolves against what the
+# previous one installed, exactly like the sequential pip calls it replaces),
+# in a few seconds warm instead of ~16 s.
+#
+# Obtained the way the lock job already gets it (#1378): pip, after the
+# .pip-floor upgrade, installs the hash-pinned uv wheel from
+# scripts/uv-requirements.txt with --require-hashes, so a swapped wheel on the
+# index fails the install. One pin file for every uv in CI; bump it together
+# with UV_VERSION in scripts/lock-backend-requirements.sh.
+#
+# Deliberately NOT moved to uv: anything that verifies hashes or audits the
+# environment (pip-audit, the pip-licenses step of license-check, the
+# uv-requirements --require-hashes install itself), lock regeneration (already
+# uv), clients-contract (Debian python in a venv, not the image's system
+# python), and the single-tool installs (ruff, coverage, diff-cover, bandit,
+# mutmut, requests, docs) where installing uv first would cost more than it
+# saves. Each job runs .pip-floor before this.
+.uv-install:
+  script:
+    - pip install --quiet --require-hashes -r scripts/uv-requirements.txt
+    - uv --version
 
 # Warm the caches on the default branch so feature-branch jobs can pull from
 # them without paying the push cost on every MR pipeline. Only one job per
@@ -353,15 +383,25 @@ cache-warm-pip:
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip"
       files: [backend/requirements.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull-push
   script:
     - !reference [.pip-floor, script]
+    # pip still warms .cache/pip for the jobs that stay on pip (#2496), and
+    # the uv wheel itself lands there too. uv then installs into a THROWAWAY
+    # venv: against the environment pip just filled, uv would see everything
+    # installed and download nothing, leaving .cache/uv empty.
     - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv venv --quiet /tmp/uvw
+    - uv pip install --python /tmp/uvw/bin/python --quiet -r backend/requirements.txt
+    - du -sh .cache/uv
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -371,15 +411,23 @@ cache-warm-pip-test:
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip-test"
       files: [backend/requirements-test.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull-push
   script:
     - !reference [.pip-floor, script]
     - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    # Throwaway venv so uv must download and cache every wheel (see
+    # cache-warm-pip). Same file the jobs install: requirements-test.txt.
+    - uv venv --quiet /tmp/uvw
+    - uv pip install --python /tmp/uvw/bin/python --quiet -r backend/requirements-test.txt
+    - du -sh .cache/uv
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -831,17 +879,18 @@ backend-test:
     - key:
         prefix: "pip"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
     - key:
         prefix: "pip-test"
         files: [backend/requirements-test.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
   before_script: &backend-test-before-script
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
@@ -912,9 +961,50 @@ backend-test-migrations:
 #
 # No postgres/redis services required — this job only runs coverage combine and
 # report, no Django or test execution.
+#
+# Diff coverage (MR only) — #1076 — runs in THIS job too (#2497). It used to be
+# a separate backend-diff-coverage job that `needs:`-chained on this one, which
+# put two runner waits (~35 s) in series on every backend MR for a second report
+# over the same data. Folding it in keeps both gates and both failure conditions:
+#
+# - Aggregate: `coverage report --fail-under=90` over the whole codebase.
+# - Diff: diff-cover over only the lines this MR adds or modifies, against the
+#   coverage.xml produced here — no test re-run. The aggregate has enough
+#   inertia (500+ backend test files) to absorb a fully untested new view and
+#   stay green, which is why the diff gate exists at all.
+#
+# Both gates always run and are reported; the job fails if EITHER fails, so a
+# red aggregate never hides the diff gate's uncovered-line list (or vice versa).
+# coverage.xml is written FIRST, with --fail-under=0, so the artifact, the MR
+# coverage widget and diff-cover all have it even when the aggregate is red.
+#
+# Diff threshold: 80% of changed lines, blocking. Escape hatch: an MR that
+# legitimately cannot meet it (a pure refactor with moved lines, a vendored
+# file) says so in its description and a reviewer overrides by approving with
+# the failing job acknowledged — see
+# docs/development/testing.md#diff-coverage-escape-hatch. The override is
+# always visible in the MR/job history, never silent. Because the two gates now
+# share a job, the log line "FAIL: diff coverage" vs "FAIL: aggregate coverage"
+# is what tells a reviewer which one they are acknowledging.
+#
+# migrations/ is excluded from the diff gate because .coveragerc does NOT omit
+# it from the aggregate run (backend-test-migrations, #2490, imports and applies
+# every migration to build its test DB, so migration lines legitimately count
+# toward the 90% number) — but a line
+# diff-cover would flag as "uncovered" in a migration is nearly always schema,
+# not behavior, and re-litigating that here would just train reviewers to
+# override the gate instead of reading it.
 backend-test-coverage:
   stage: test
-  needs: [backend-test, backend-test-migrations, backend-test-git-lens, backend-test-mcp]
+  # One producer per line so a new instrumented job is a one-line addition.
+  # Every producer of a backend/.coverage.* fragment MUST be here — see the
+  # comment above. backend-test-migrations (#2490) is also what keeps a
+  # migration that fails on apply from reaching deploy green.
+  needs:
+    - backend-test
+    - backend-test-migrations
+    - backend-test-git-lens
+    - backend-test-mcp
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
@@ -925,11 +1015,33 @@ backend-test-coverage:
   before_script:
     - !reference [.pip-floor, script]
     - pip install --quiet coverage
+    - |
+      # diff-cover needs git history and the MR target branch; only the MR
+      # leg runs the diff gate, so main/schedule pipelines skip this setup.
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        apt-get update -qq && apt-get install -y -qq git
+        pip install --quiet diff-cover
+        git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
+        # Deepen the MR head too: with more branch commits than GIT_DEPTH the
+        # shallow head never reaches the fetched base ("no merge base").
+        git fetch origin "$CI_COMMIT_SHA" --depth=100
+      fi
   script:
     - cd backend
     - coverage combine
-    - coverage report --fail-under=90
-    - coverage xml -o coverage.xml
+    - coverage xml --fail-under=0 -o coverage.xml
+    - |
+      rc=0
+      coverage report --fail-under=90 || { echo "FAIL: aggregate coverage is below 90%"; rc=1; }
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        diff-cover coverage.xml \
+          --compare-branch="origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
+          --fail-under=80 \
+          --show-uncovered \
+          --exclude "*/migrations/*" "manage.py" \
+          || { echo "FAIL: diff coverage is below 80% of changed lines"; rc=1; }
+      fi
+      exit "$rc"
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
   artifacts:
     reports:
@@ -974,7 +1086,8 @@ api-compat-check:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     # Self-test FIRST (#1093): prove the detector still fires before trusting
     # a green run over the real schema.
@@ -982,54 +1095,6 @@ api-compat-check:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-api-compat.test.sh  # #2461: poisoned + canary
     - python3 scripts/check-api-compat.py
   allow_failure: false
-
-# Diff coverage (MR only) — #1076.
-#
-# The aggregate --fail-under=90 above measures the whole codebase, not the
-# change. With 500+ backend test files already in the tree, that aggregate
-# has enough inertia to absorb a fully untested new view or method and stay
-# green. This job instead measures coverage of only the lines this MR adds
-# or modifies, using diff-cover against the coverage.xml produced above — no
-# test re-run, just a second report over the same data.
-#
-# Threshold starts at 80% of changed lines, blocking. Escape hatch: an MR
-# that legitimately cannot meet it (a pure refactor with moved lines, a
-# vendored file) says so in its description and a reviewer overrides by
-# approving with the failing job acknowledged — see
-# docs/development/testing.md#diff-coverage-escape-hatch. The override is
-# always visible in the MR/job history, never silent.
-#
-# migrations/ is excluded because .coveragerc does NOT omit it from the
-# aggregate run (Django imports every migration to build the test DB, so
-# migration lines legitimately count toward the 90% number) — but a line
-# diff-cover would flag as "uncovered" in a migration is nearly always
-# schema, not behavior, and re-litigating that here would just train
-# reviewers to override the gate instead of reading it.
-backend-diff-coverage:
-  extends: .pip-cache
-  stage: test
-  needs: [backend-test-coverage]
-  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - backend/**/*
-        - requirements*.txt
-        - .gitlab-ci.yml
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git
-    - !reference [.pip-floor, script]
-    - pip install --quiet diff-cover
-    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
-    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
-    - git fetch origin "$CI_COMMIT_SHA" --depth=100
-  script:
-    - cd backend
-    - diff-cover coverage.xml
-        --compare-branch=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
-        --fail-under=80
-        --show-uncovered
-        --exclude "*/migrations/*" "manage.py"
 
 # Checks that every model change has a corresponding migration file, that no
 # migration builds an index or constraint in a way that takes ACCESS EXCLUSIVE on a
@@ -1065,7 +1130,8 @@ migration-check:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py makemigrations --check --dry-run --verbosity=1
@@ -1130,8 +1196,10 @@ backend-test-pg-matrix:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    # uv like backend-test (#2496): the same requirements files, in order.
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - bash scripts/pg-matrix-check.sh --self-test
     - bash scripts/pg-matrix-check.sh
@@ -1234,7 +1302,8 @@ backend-schema-validate:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py spectacular --validate
@@ -1585,17 +1654,18 @@ backend-schema-fuzz:
     - key:
         prefix: "pip"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
     - key:
         prefix: "pip-test"
         files: [backend/requirements-test.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
     - cd backend
     - python manage.py migrate --noinput
     # Deterministic, git-diffable demo data — a real member's-eye view of a
@@ -1810,6 +1880,8 @@ clients-contract:
     - python3 -m venv /tmp/venv
     - . /tmp/venv/bin/activate
     - !reference [.pip-floor, script]
+    # Stays on pip (#2496): this job installs into a Debian-python venv on a
+    # node image, where uv's --system would target /usr instead of the venv.
     - pip install --quiet -r backend/requirements.txt
     - cd backend
     - python manage.py migrate --noinput
@@ -2121,8 +2193,9 @@ backend-mutation:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
     - pip install --quiet "mutmut==2.5.1"
   script:
     - cd backend
@@ -2212,8 +2285,9 @@ backend-test-git-lens:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     - python manage.py makemigrations --check --dry-run git_lens
@@ -2283,8 +2357,9 @@ backend-test-mcp:
     MCP_SERVER_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     # The app ships no models; assert that stays true so a future model addition
@@ -2404,7 +2479,8 @@ oidc-smoke:
       export OIDC_SERVER_URL="${KEYCLOAK_BASE}/realms/visiban-test"
       echo "keycloak reachable at ${KEYCLOAK_BASE} (IPv4)"
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt requests
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt requests
     # Provision Keycloak: waits for readiness, then creates realm/client/user.
     # 240s budget — Keycloak's JVM boot routinely exceeds the previous 120s when
     # sharing a single vCPU with postgres/redis/python on the small runner.
@@ -2477,6 +2553,7 @@ oidc-smoke:
         - scripts/helm-structure-check.sh
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
+        - scripts/drill-image.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *helm-paths
@@ -2492,6 +2569,7 @@ oidc-smoke:
       changes:
         - helm/**/*
         - scripts/helm-structure-check.sh
+        - scripts/tests/helm-structure-check.test.sh
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
@@ -2504,6 +2582,7 @@ oidc-smoke:
       changes:
         - helm/**/*
         - scripts/helm-structure-check.sh
+        - scripts/tests/helm-structure-check.test.sh
         - scripts/helm-install-drill.sh
         - scripts/helm-netpol-drill.sh
         - nginx/app.conf.template
@@ -2591,7 +2670,8 @@ helm-template:
     # a false-positive FAIL, not a real chart defect (#1211, !1096).
     YQ_VERSION: "4.53.3"
   before_script:
-    - apk add --no-cache bash curl tar findutils grep sed
+    # python3: scripts/ci-hermetic-run.sh's API canary (#2461).
+    - apk add --no-cache bash curl tar findutils grep sed python3
     # Tool downloads fail on HTTP errors (-f) and retry transient ones, and each
     # step is its own script line so errexit stops the job AT the download — a
     # 504 must not save an HTML error page as the binary (#2160).
@@ -2660,6 +2740,10 @@ helm-template:
     # a chart that no longer holds the contract, so "it passed" is not evidence
     # that it can still fail. The fixtures replay the #1038 shapes.
     - bash scripts/helm-structure-check.sh --lint-tmp
+    # #2493: the targeted self-test's own section selection (unknown or empty
+    # section fails, a section that misses its defect fails) — needs helm+yq,
+    # so it runs here rather than in script-tests.
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/helm-structure-check.test.sh  # #2461: poisoned + canary
     - bash scripts/helm-structure-check.sh --self-test helm/visiban
     - bash scripts/helm-structure-check.sh helm/visiban
 
@@ -2667,13 +2751,26 @@ helm-template:
 #
 # The half helm-template cannot reach: actually BOOT the chart (#1116).
 #
-# Both jobs build the backend and frontend images from the working tree and
-# side-load them into kind. They deliberately do NOT pull a published image:
-# the MR-time *-docker-build jobs run kaniko with --no-push, so there is no
-# per-commit image to pull, and drilling the HEAD chart against the last
-# RELEASED image would mean a red here is version skew rather than a deploy
-# regression — which is how a drill earns a reputation for crying wolf and
-# stops being read.
+# Both jobs boot the backend and frontend images built from THIS commit and
+# side-load them into kind. They deliberately do NOT pull a RELEASED image:
+# drilling the HEAD chart against the last release would mean a red here is
+# version skew rather than a deploy regression — which is how a drill earns a
+# reputation for crying wolf and stops being read.
+#
+# They also no longer BUILD those images (#2492). Rebuilding both in dind with
+# no layer cache cost helm-install ~170 s per run. Instead backend-docker-build
+# / frontend-docker-build (kaniko, registry layer cache) push the per-commit
+# image to $CI_REGISTRY_IMAGE/ci/<name> and hand its
+# digest-pinned reference over in a dotenv report (DRILL_BACKEND_IMAGE /
+# DRILL_FRONTEND_IMAGE). scripts/drill-image.sh pulls that digest, asserts the
+# image's org.opencontainers.image.revision label equals $CI_COMMIT_SHA and its
+# architecture matches the daemon, and FAILS (never rebuilds) if the variable
+# is missing in CI — except on a project with no container registry
+# (CI_REGISTRY_IMAGE empty, e.g. a fork with it disabled), where the build jobs
+# run --no-push and the drill builds locally with a warning. Run locally, the
+# scripts still build from the working tree. The build jobs' rules mirror
+# these drills' rules, so `needs:` always resolves. helm-upgrade-drill and
+# compose-upgrade-drill (#2463) take their HEAD images the same way.
 #
 # kind needs a Docker daemon, so these two are the only jobs in this file that
 # use docker:dind. That is not a reversal of the kaniko decision for image
@@ -2682,6 +2779,20 @@ helm-template:
 #
 # Not `interruptible`: a rebased push must not abort a half-provisioned cluster
 # and leak it into the dind daemon.
+
+# Log the drill's dind daemon in to the project registry so it can pull the
+# per-commit image (#2492). CI_REGISTRY_PASSWORD is the job's own short-lived
+# registry token (read and write access to this project's registry, expires with the
+# job); --password-stdin keeps it out of the process list. Skipped where the
+# project has no registry (CI_REGISTRY empty): the kaniko jobs then push
+# nothing (--no-push) and scripts/drill-image.sh, seeing CI_REGISTRY_IMAGE
+# empty, logs a warning and builds the image locally in this dind instead.
+.drill-registry-login:
+  script:
+    - |
+      if [ -n "${CI_REGISTRY:-}" ]; then
+        echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
+      fi
 
 .helm-drill-base: &helm-drill-base
   stage: test
@@ -2764,6 +2875,7 @@ helm-template:
       if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
         echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin
       fi
+    - !reference [.drill-registry-login, script]
 
 helm-install:
   # Boots the chart and asserts it SERVES. ONE `helm install --wait` of the
@@ -2783,12 +2895,17 @@ helm-install:
   # See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
-  # No upstream dependency: the drill boots its own cluster and does not consume
-  # helm-template's output. It used to wait on helm-template (a 5-8 min lint
-  # job), which put the two back-to-back on the critical path of every chart
-  # change. A chart that fails to render now fails both jobs instead of only
-  # helm-template — an acceptable cost for running them concurrently.
-  needs: []
+  # No dependency on helm-template: the drill boots its own cluster and does not
+  # consume helm-template's output. It used to wait on helm-template (a 5-8 min
+  # lint job), which put the two back-to-back on the critical path of every
+  # chart change. A chart that fails to render now fails both jobs instead of
+  # only helm-template — an acceptable cost for running them concurrently.
+  # It DOES need the per-commit images (#2492): see .helm-drill-base.
+  needs: &helm-drill-image-needs
+    - job: backend-docker-build
+      artifacts: true
+    - job: frontend-docker-build
+      artifacts: true
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
@@ -2834,7 +2951,7 @@ helm-netpol:
   <<: *helm-drill-base
   timeout: 45m
   # See helm-install above.
-  needs: []
+  needs: *helm-drill-image-needs
   rules:
     # Excludes the Sonar nightly (#1369) — see helm-install's identical note
     # above; this is a separate 45min cluster drill with nothing to do with a
@@ -2884,10 +3001,19 @@ helm-netpol:
       if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
         echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin
       fi
+    - !reference [.drill-registry-login, script]
 
 compose-prod-drill:
   <<: *compose-drill-base
   timeout: 20m
+  # The per-commit Dockerfile.prod images (#2492), pulled by digest and
+  # revision-checked by scripts/drill-image.sh instead of rebuilt in dind. This
+  # also stops the drill waiting for the whole lint stage (it had no needs:).
+  needs:
+    - job: backend-docker-build-prod
+      artifacts: true
+    - job: frontend-docker-build-prod
+      artifacts: true
   rules:
     # Blocking on MRs and the default branch, advisory on the nightly
     # schedule — the same posture as helm-install/helm-netpol. The drill went
@@ -2913,6 +3039,7 @@ compose-prod-drill:
         - frontend/Dockerfile.prod
         - nginx/**/*
         - scripts/prod-compose-drill.sh
+        - scripts/drill-image.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *compose-prod-paths
@@ -2923,8 +3050,9 @@ compose-prod-drill:
 #
 # The drills above install HEAD on an EMPTY database. These install the latest
 # GA tag (resolved by scripts/resolve-last-ga-tag.sh, never hardcoded) from its
-# PUBLISHED images, seed it, upgrade to HEAD images built here from the release
-# Dockerfiles, and assert migrate exit 0, seeded counts unchanged, readiness
+# PUBLISHED images, seed it, upgrade to THIS commit's images from the release
+# Dockerfiles (the per-commit kaniko images, #2492 — see the build jobs), and
+# assert migrate exit 0, seeded counts unchanged, readiness
 # and login. See docs/development/upgrade-drills.md.
 #
 # MRs: only the upgrade surface (migrations, chart, compose, Dockerfiles,
@@ -2952,6 +3080,7 @@ compose-upgrade-drill:
         - scripts/compose-upgrade-drill.sh
         - scripts/helm-upgrade-drill.sh
         - scripts/upgrade-drill-probe.py
+        - scripts/drill-image.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: &upgrade-drill-main-paths
         - .gitlab-ci.yml
@@ -2963,8 +3092,14 @@ compose-upgrade-drill:
         - scripts/compose-upgrade-drill.sh
         - scripts/helm-upgrade-drill.sh
         - scripts/upgrade-drill-probe.py
+        - scripts/drill-image.sh
   timeout: 30m
-  needs: []
+  # This commit's backend-docker-build image (release Dockerfile), pulled by
+  # digest and revision-checked by scripts/drill-image.sh instead of rebuilt
+  # in dind (#2492). The FROM (last GA) image is still pulled from ghcr.io.
+  needs:
+    - job: backend-docker-build
+      artifacts: true
   script:
     # git: the tag resolver and `git archive` of the release's compose file.
     - apk add --no-cache git tar curl
@@ -2986,7 +3121,10 @@ helm-upgrade-drill:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *upgrade-drill-main-paths
   timeout: 40m
-  needs: []
+  # The HEAD images: this commit's backend-docker-build / frontend-docker-build
+  # (release Dockerfiles), same as helm-install (#2492). The FROM (last GA)
+  # images are still pulled from ghcr.io.
+  needs: *helm-drill-image-needs
   script:
     - apk add --no-cache git tar openssl curl
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -3112,6 +3250,7 @@ script-tests:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-gate-selftest-parity.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-serializer-ts-parity.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-trivyignore-expiry.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/drill-image.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-ws-event-reachability.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/close-milestone-issues.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_fastpath_proposal.test.sh
@@ -3263,7 +3402,8 @@ serializer-ts-parity:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     # Self-test FIRST (#1093). This gate's failure mode is a GREEN pipeline over
     # a drifted contract, so prove the detection logic still fires before
@@ -3272,8 +3412,8 @@ serializer-ts-parity:
     - python3 scripts/check-serializer-ts-parity.py
   allow_failure: false
 
-# Diff coverage (MR only) — #1076. Same rationale as backend-diff-coverage
-# above: vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
+# Diff coverage (MR only) — #1076. Same rationale as the diff gate in
+# backend-test-coverage above (#2497 folded the backend one into that job): vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
 # the whole frontend and can absorb an untested new component. This job
 # reuses frontend-test's existing cobertura-coverage.xml — diff-cover reads
 # Cobertura XML natively, so no new vitest reporter (e.g. lcov) is needed.
@@ -3333,6 +3473,11 @@ added-files-coverage-check:
       artifacts: true
       optional: true
   image: ${DOCKERHUB_MIRROR}/node:22-alpine
+  # when: always (#2497): backend-test-coverage now also enforces the diff
+  # gate, so it fails when only that gate fails, and a needs: job is otherwise
+  # skipped after a failed need. This check must still run then (it used to);
+  # the coverage reports are uploaded when: always and the script's own
+  # "report not found" branch still fails loudly if one is missing.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3340,6 +3485,7 @@ added-files-coverage-check:
         - frontend/**/*
         - .gitlab-ci.yml
         - scripts/check-added-files-covered.mjs
+      when: always
   before_script:
     - apk add --no-cache git
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
@@ -4376,81 +4522,228 @@ sonar:rules-check:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
   allow_failure: true
 
-# ─── Build verification (MR only) ─────────────────────────────────────────────
+# ─── Build verification + per-commit drill images ────────────────────────────
 #
-# Verify Docker images build successfully before merging. Catches Dockerfile
-# drift early without pushing to any registry.
-# Uses kaniko instead of Docker-in-Docker — no privileged mode needed, works
-# out of the box on Kubernetes runners.
-# Runs in the test stage alongside tests — build doesn't depend on test
-# results, so running them in parallel saves a full stage of waiting.
+# Verify the Docker images build, and publish the per-commit build for the
+# drills that boot it (#2492). Uses kaniko instead of Docker-in-Docker — no
+# privileged mode needed, works out of the box on Kubernetes runners.
+#
+# Each job pushes to a CI-ONLY path, $CI_REGISTRY_IMAGE/ci/<name>, never to a
+# release path: nothing outside this pipeline's drills consumes it,
+# and the release push jobs (.kaniko-push-common) still build from scratch with
+# no cache, so a ci/ image or cache layer can never reach a published image.
+# Registry push over a --tar-path artifact because the backend image is several
+# hundred MB per pipeline as an artifact, while the registry deduplicates
+# layers across pipelines and is what kaniko's layer cache needs anyway. The
+# push uses the job's own CI_REGISTRY_* token (a fork MR pipeline runs in the
+# fork and pushes to the FORK's registry). Cleanup of ci/ tags and the cache
+# repo: docs/maintainers/ci-runners.md "Per-commit drill images".
+#
+# The digest kaniko pushed is handed to the drill as a dotenv report
+# (DRILL_*_IMAGE=<repo>@sha256:...), so the drill pulls exactly these bytes;
+# the revision label (org.opencontainers.image.revision=$CI_COMMIT_SHA) lets it
+# prove they came from its own commit. Because the drill pins the DIGEST, the
+# tag is only a handle: it is the branch slug, not the SHA, so each branch
+# overwrites one tag instead of minting one per commit. The superseded
+# manifest goes untagged and the registry's own garbage collection reclaims
+# it; a per-SHA tag would instead be retained by the cleanup policy for 90
+# days (keep_n 10 / older_than 90d, docs/administration/container-image-retention.md).
+#
+# Layer cache (--cache-repo .../ci/cache/<name>): a helm-only or CI-only change
+# reuses every layer, so the build is mostly pull-and-push of cached layers.
+#
+# Rules: each build job must exist whenever a drill that needs it exists, or
+# the pipeline fails to create. So each job's rules are the UNION of its old
+# MR-time verification rule and its drills' rules, in the drills' order. Keep
+# them in step with helm-install / helm-netpol / compose-prod-drill /
+# compose-upgrade-drill / helm-upgrade-drill (including whatever #2471 does to
+# the drills' schedule legs). backend-docker-build feeds helm-install,
+# helm-netpol, helm-upgrade-drill and compose-upgrade-drill (which upgrades to
+# the release Dockerfile's image, not Dockerfile.prod); frontend-docker-build
+# feeds the three helm drills; the -prod pair feeds compose-prod-drill only.
+#
+# No resource_group and needs: [] (#2492). They used to share the project-wide
+# `kaniko-build` resource_group and wait for the lint stage, to keep kaniko off
+# runners busy with lint. Now the drills wait on these jobs, and a project-wide
+# resource_group serializes kaniko across EVERY concurrent pipeline, which
+# would queue each drill behind other MRs' image builds. On DRILL pipelines net
+# RAM pressure goes down: each drill used to run two uncached `docker build`s
+# inside its own dind (up to nine concurrent builds with all five drills). On
+# non-drill (backend-only / frontend-only) MRs it goes the other way: kaniko
+# now starts at t=0 alongside lint and the test shards. Not redesigned here;
+# the first MR pipeline's shard timings are the check on that.
+#
+# --cache-ttl=24h: the Dockerfiles run unpinned `apt-get install`, so a layer
+# cached for kaniko's default 14 days could differ from the uncached release
+# build. 24h bounds that drift.
 
-backend-docker-build:
+.kaniko-ci-image:
   stage: test
-  # No needs: [] — let lint finish before kaniko starts so both don't compete
-  # for RAM on the same runner. resource_group serializes the two kaniko jobs
-  # so they don't overlap with each other either.
-  resource_group: kaniko-build
+  needs: []
+  # Pushes the ci/ image and layer cache to the registry: an external side
+  # effect, so it must not be auto-canceled mid-push (#2419 rule above).
+  # Cost, accepted: these jobs used to be interruptible at MR time, so a
+  # superseded push now runs its kaniko builds (~1-2 min) to completion.
+  # Drill interruptibility is tracked in #2495.
+  interruptible: false
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - |
+      # Auths: the project registry (push the ci/ image and its layer cache),
+      # the Dependency Proxy (the Dockerfile's FROM resolves through
+      # DOCKERHUB_MIRROR via --build-arg BASE_REGISTRY, #1198), and
+      # DOCKERHUB_USERNAME/TOKEN as a fallback in case a FROM line is ever
+      # pointed back at docker.io directly. CI_DEPENDENCY_PROXY_SERVER is empty
+      # on a project with no working group Dependency Proxy (e.g. a
+      # personal-namespace fork), and CI_REGISTRY on a project with its
+      # container registry disabled, hence the guards.
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS=""
+      add_auth() { [ -n "$AUTHS" ] && AUTHS="${AUTHS},"; AUTHS="${AUTHS}\"$1\":{\"auth\":\"$(b64 "$2" "$3")\"}"; }
+      if [ -n "${CI_REGISTRY:-}" ]; then
+        add_auth "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
+      fi
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        add_auth "${CI_DEPENDENCY_PROXY_SERVER}" "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}"
+      fi
+      if [ -n "${DOCKERHUB_USERNAME:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+        add_auth "https://index.docker.io/v1/" "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
+  script:
+    - |
+      set -eu
+      if [ -z "${CI_REGISTRY_IMAGE:-}" ]; then
+        # No container registry on this project (e.g. a fork with it
+        # disabled): GitLab leaves CI_REGISTRY_IMAGE undefined, so there is
+        # nowhere to push. Keep the build verification (as before #2492) and
+        # hand over no image; scripts/drill-image.sh then builds locally in
+        # the drill's dind, which it allows in CI ONLY in this case.
+        echo "NOTE: CI_REGISTRY_IMAGE is empty (no container registry on this project): building ${CI_IMAGE_NAME} with --no-push and writing no dotenv; the drills fall back to a local dind build."
+        # shellcheck disable=SC2086 — CI_IMAGE_EXTRA_ARGS is a word list on purpose.
+        /kaniko/executor \
+          --context="${CI_IMAGE_CONTEXT}" \
+          --dockerfile="${CI_IMAGE_DOCKERFILE}" \
+          --no-push \
+          --snapshot-mode=redo \
+          --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+          ${CI_IMAGE_EXTRA_ARGS:-}
+        exit 0
+      fi
+      REPO="${CI_REGISTRY_IMAGE}/ci/${CI_IMAGE_NAME}"
+      # shellcheck disable=SC2086 — CI_IMAGE_EXTRA_ARGS is a word list on purpose.
+      /kaniko/executor \
+        --context="${CI_IMAGE_CONTEXT}" \
+        --dockerfile="${CI_IMAGE_DOCKERFILE}" \
+        --destination="${REPO}:${CI_COMMIT_REF_SLUG}" \
+        --cache=true \
+        --cache-ttl=24h \
+        --cache-repo="${CI_REGISTRY_IMAGE}/ci/cache/${CI_IMAGE_NAME}" \
+        --label "org.opencontainers.image.revision=${CI_COMMIT_SHA}" \
+        --digest-file="${CI_PROJECT_DIR}/ci-image.digest" \
+        --snapshot-mode=redo \
+        --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+        ${CI_IMAGE_EXTRA_ARGS:-}
+      DIGEST="$(cat "${CI_PROJECT_DIR}/ci-image.digest")"
+      case "$DIGEST" in
+        sha256:????????????????????????????????????????????????????????????????) ;;
+        *) echo "ERROR: kaniko wrote no usable digest ('$DIGEST')"; exit 1 ;;
+      esac
+      echo "${CI_IMAGE_DOTENV_VAR}=${REPO}@${DIGEST}" | tee "${CI_PROJECT_DIR}/ci-image.env"
+  artifacts:
+    reports:
+      dotenv: ci-image.env
+    expire_in: 1 day
+
+backend-docker-build:
+  extends: .kaniko-ci-image
+  variables:
+    CI_IMAGE_NAME: backend
+    CI_IMAGE_CONTEXT: backend
+    CI_IMAGE_DOCKERFILE: backend/Dockerfile
+    CI_IMAGE_DOTENV_VAR: DRILL_BACKEND_IMAGE
   rules:
+    # Drills' schedule leg (advisory there, like the drills themselves).
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+      allow_failure: true
+    # MR-time build verification, as before #2492.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - backend/**/*
         - backend/Dockerfile
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - |
-      # The Dockerfile's FROM now resolves through DOCKERHUB_MIRROR (#1198)
-      # via --build-arg BASE_REGISTRY below, which is the GitLab Dependency
-      # Proxy on a project where it's enabled, so kaniko needs proxy
-      # credentials to pull it. CI_DEPENDENCY_PROXY_SERVER is empty on a
-      # project with no working group Dependency Proxy (e.g. a
-      # personal-namespace fork), hence the guard — DOCKERHUB_USERNAME/TOKEN
-      # is kept as a fallback auth entry in case a FROM line is ever pointed
-      # back at docker.io directly.
-      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
-      AUTHS=""
-      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
-        AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
-      fi
-      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        [ -n "$AUTHS" ] && AUTHS="${AUTHS},"
-        AUTHS="${AUTHS}\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
-      fi
-      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
-  script:
-    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push --snapshot-mode=redo --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
+    # helm-install / helm-netpol need this image.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *helm-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *helm-paths
+    # compose-upgrade-drill / helm-upgrade-drill need this image too.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *upgrade-drill-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *upgrade-drill-main-paths
 
 frontend-docker-build:
-  stage: test
-  resource_group: kaniko-build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
+  extends: .kaniko-ci-image
+  variables:
+    CI_IMAGE_NAME: frontend
+    CI_IMAGE_CONTEXT: frontend
+    CI_IMAGE_DOCKERFILE: frontend/Dockerfile
+    CI_IMAGE_DOTENV_VAR: DRILL_FRONTEND_IMAGE
+    CI_IMAGE_EXTRA_ARGS: "--build-arg NODE_OPTIONS=--max-old-space-size=2048"
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+      allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - frontend/**/*
         - frontend/Dockerfile
-  before_script:
-    - mkdir -p /kaniko/.docker
-    - |
-      # See backend-docker-build above: the Dockerfile's FROM now resolves
-      # through DOCKERHUB_MIRROR (#1198) via --build-arg BASE_REGISTRY below.
-      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
-      AUTHS=""
-      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
-        AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
-      fi
-      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        [ -n "$AUTHS" ] && AUTHS="${AUTHS},"
-        AUTHS="${AUTHS}\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
-      fi
-      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
-  script:
-    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=2048 --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
+    # helm-install / helm-netpol / helm-upgrade-drill need this image.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *helm-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *helm-paths
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *upgrade-drill-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *upgrade-drill-main-paths
+
+# Dockerfile.prod images for compose-prod-drill only. Same build args the drill
+# used for its in-dind build (BASE_REGISTRY only). Rules mirror the drill's.
+backend-docker-build-prod:
+  extends: .kaniko-ci-image
+  variables:
+    CI_IMAGE_NAME: backend-prod
+    CI_IMAGE_CONTEXT: backend
+    CI_IMAGE_DOCKERFILE: backend/Dockerfile.prod
+    CI_IMAGE_DOTENV_VAR: DRILL_BACKEND_PROD_IMAGE
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *compose-prod-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *compose-prod-paths
+
+frontend-docker-build-prod:
+  extends: .kaniko-ci-image
+  variables:
+    CI_IMAGE_NAME: frontend-prod
+    CI_IMAGE_CONTEXT: frontend
+    CI_IMAGE_DOCKERFILE: frontend/Dockerfile.prod
+    CI_IMAGE_DOTENV_VAR: DRILL_FRONTEND_PROD_IMAGE
+  # Same rules as backend-docker-build-prod, spelled out rather than aliased:
+  # scripts/wait-for-main-pipeline.py --check-ci-file reads rules as text and
+  # fails closed on an aliased rules value (see backend-test-migrations).
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *compose-prod-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *compose-prod-paths
 
 # ─── Release guard: the tag's commit must have passed main (#1154) ───────────
 #
@@ -5955,7 +6248,8 @@ seed-demo-data:
         exit 1
       fi
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     # Use today's date (YYYYMMDD) as the random seed so each refresh
@@ -6008,7 +6302,8 @@ backend-benchmark:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py migrate --noinput
@@ -6122,7 +6417,8 @@ nightly-load-test:
     VISIBAN_LOAD_TEST_SERVER_PID_FILE: "/tmp/visiban_load_test_server.pid"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
     - cd backend
     - python manage.py migrate --noinput
     # A dedicated, larger board — never the normal demo board — so this job's
