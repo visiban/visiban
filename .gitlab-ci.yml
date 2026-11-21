@@ -267,10 +267,11 @@ default:
     - sh scripts/ensure-pip.sh
 
 # Postgres service flags for the jobs that run pytest, plus backend-schema-fuzz and
-# its -deep/-git-lens variants (#2488). The service holds a throwaway database that is discarded with the job, so crash durability buys
-# nothing and fsync/WAL flushes are pure test-time cost. Reference with
-# `command: *pg_ci_fast_flags` on the service entry; never use on a job whose
-# database must survive (migration-check, drills, load tests).
+# its -deep/-git-lens variants (#2488). The service holds a throwaway database that
+# is discarded with the job, so crash durability buys nothing and fsync/WAL flushes
+# are pure test-time cost. Reference with `command: *pg_ci_fast_flags` on the
+# service entry; never use on a job whose database must survive (migration-check,
+# drills, load tests).
 .pg-ci-fast-flags: &pg_ci_fast_flags
   - postgres
   - -c
