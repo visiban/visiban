@@ -477,3 +477,66 @@ failed a required job (#2160).
 download line with curl's own error (`curl: (22) ... error: 504`). If you see that error after the
 retries, the upstream is genuinely down or the pinned version URL is wrong; re-run later or fix
 the version pin. New tool downloads in `.gitlab-ci.yml` must follow the same pattern.
+
+## `main-red-guard` fails an MR: "main is red"
+
+**Signature:** the `main-red-guard` job (#2460) fails with `ERROR: main is red: <job> failed in
+main pipeline ...` and names the open **`main is red`** issue (label `ci`).
+
+**Why it exists:** in the 2026-11-21 audit, `script-tests` stayed red on 7 consecutive `main`
+pipelines while seven merges landed on top, because every MR pipeline was green. GitLab Free
+has no merge trains or merged-results pipelines, so the brake is built from jobs:
+
+- **Tripwire.** `main-red-tripwire` runs last on every `main` push pipeline (never `schedule`).
+  If a non-`allow_failure` job failed it opens the single `main is red` issue, or comments on
+  it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no such
+  failure comments and closes it. Writing needs an `api`-scope token: it uses `KAIZEN_API_TOKEN`
+  (falling back to `GITLAB_API_TOKEN`, which is `read_api` only, so the write is refused and the
+  job prints a `WARNING` and passes). See [Tokens and Rotation](tokens-and-rotation.md).
+- **Guard.** `main-red-guard` runs in MR pipelines, reads the latest *finished*
+  (`success`/`failed`) `main` push pipeline anonymously, and fails if it failed.
+
+**Fix:** fix `main` first. The fix MR carries the **`main-fix`** label; the guard reads labels
+live, so add the label and retry `main-red-guard` (no new pipeline needed). Do not label an
+unrelated MR `main-fix` to get around the brake.
+
+**Fails open:** a network error, a 5xx, or no finished `main` pipeline makes the guard print
+`WARNING: ... FAILING OPEN` and pass, the same convention as
+`scripts/check-suppression-issues.sh`. A green latest `main` pipeline is authoritative even if
+a change-conditional job that failed earlier did not re-run in it.
+
+## Hermetic CI-script tests: protected variables are poisoned (#2461)
+
+Protected variables (`GITLAB_API_TOKEN`, ...) exist on `main` pipelines but not in MR pipelines
+from unprotected branches, so a test that quietly reads one passed on the MR and failed only
+after merge (#2412, `resolve-docs-version.test.sh`). `script-tests` and `script-tests-glibc`
+now `. scripts/ci-poison-env.sh` first, on **both** pipelines: every listed token is the
+sentinel `poisoned-by-ci-poison-env-2461` and `CI_API_V4_URL` is `http://127.0.0.1:9/api/v4`
+(a dead endpoint, so an accidental API call fails fast). A test that needs a variable must set
+it itself, as the `runrt()` helper in `resolve-docs-version.test.sh` does.
+
+`scripts/ci-poison-env.sh` is the one place the list lives. `scripts/check-ci-poison-list.sh`
+(run in `script-tests`) fails when `.gitlab-ci.yml` references a `*_TOKEN` variable that is in
+neither `CI_POISON_VARS` nor `CI_POISON_EXEMPT` (which needs a reason). Fix a failure by adding
+the variable to the right list.
+
+Limit: the poison makes both environments *identical*, it does not make every non-hermetic test
+fail. The dead endpoint yields the same fail-closed result as "no token", so reverting #2412's
+`env -u` scrub still passes locally; what changed is that `main` can no longer see a live token
+the MR did not.
+
+## `runner_system_failure` is auto-retried; script failures never are (#2462)
+
+`default: retry:` (max 2) covers infrastructure failure classes only: `runner_system_failure`,
+`runner_unsupported`, `stuck_or_timeout_failure`, `scheduler_failure`, `api_failure`,
+`data_integrity_failure`, `stale_schedule`. A week in November 2026 had 42 `runner_system_failure`
+failures, all on `gitlab-runner-nuc-2-visiban` (host root cause: #2406 / #2148), mostly
+`clients-contract`. `script_failure` and `unknown_failure` are **never** retried: red tests here
+have repeatedly been real bugs. `scripts/check-ci-retry.sh` (run in `script-tests`) fails if any
+`retry:` in `.gitlab-ci.yml` includes `script_failure`, `unknown_failure`, or `always`.
+
+A job-level `retry:` replaces the default. Non-idempotent jobs set `retry: 0` with a reason on the
+line: `helm-publish`, `github-release`, `docs-deploy`, `pages`, the image-attest jobs,
+`cleanup-merged-branches`, `seed-demo-data`, `kaizen-yield-watch`. Add the same to any new job
+whose side effect is not safe to repeat. A job that still shows a `runner_system_failure` after
+two retries points at the runner, not the job; see #2406.
