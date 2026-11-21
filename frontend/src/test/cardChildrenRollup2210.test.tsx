@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { act, render, screen } from "@testing-library/react";
-import CardChildrenRollup from "../components/Card/CardChildrenRollup";
+import CardChildrenRollup, { CardChildrenRollupSkeleton } from "../components/Card/CardChildrenRollup";
 import { movementLine, relativeAge, rollupSentence } from "../components/Card/childrenRollup";
 import { carryParent } from "../hooks/useBoard";
 import type { Card, CardChildrenRollupVisible } from "../types";
@@ -106,12 +106,65 @@ describe("CardChildrenRollup (#2210)", () => {
       expect(screen.getByTestId("rollup-live")).toHaveTextContent("");
       rerender(<CardChildrenRollup rollup={r({ done: 3, doing: 0 })} density="comfortable" stalenessDays={14} now={NOW} />);
       expect(screen.getByTestId("rollup-live")).toHaveTextContent("Children: 3 of 5 done");
-      expect(screen.getByTestId("rollup-segments")).toHaveClass("ring-2");
+      // Only the segment that gained a child rings (done 2 -> 3), not the whole bar.
+      const ringed = [...document.querySelectorAll("[data-ringed]")];
+      expect(ringed).toHaveLength(1);
+      expect(ringed[0]).toHaveAttribute("data-segment", "done");
+      expect(ringed[0]).toHaveClass("ring-2");
+      expect(screen.getByTestId("rollup-segments")).not.toHaveClass("ring-2");
       // A refetch with the same counts inside the window must not keep the ring on.
       act(() => { vi.advanceTimersByTime(1000); });
       rerender(<CardChildrenRollup rollup={r({ done: 3, doing: 0 })} density="comfortable" stalenessDays={14} now={NOW + 1000} />);
       act(() => { vi.advanceTimersByTime(1000); });
-      expect(screen.getByTestId("rollup-segments")).not.toHaveClass("ring-2");
+      expect(document.querySelector("[data-ringed]")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the meter rings only the changed state's span", () => {
+    vi.useFakeTimers();
+    try {
+      const big = r({ total: 12, done: 4, doing: 4, todo: 3, blocked: 1 });
+      const { rerender } = render(<CardChildrenRollup rollup={big} density="comfortable" stalenessDays={14} now={NOW} />);
+      rerender(<CardChildrenRollup rollup={r({ total: 12, done: 5, doing: 3, todo: 3, blocked: 1 })} density="comfortable" stalenessDays={14} now={NOW} />);
+      const ringed = [...document.querySelectorAll("[data-ringed]")];
+      expect(ringed.map((e) => e.getAttribute("data-segment-group"))).toEqual(["done"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the skeleton keeps the footprint, announces once, and is busy", () => {
+    render(<CardChildrenRollupSkeleton />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-busy", "true");
+    expect(status).toHaveTextContent("Loading children");
+    expect(status).toHaveClass("border-t", "border-line");
+  });
+
+  it("the shared clock ages the movement line and clears its timer on unmount", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(NOW);
+      const rollup = r({ last_moved_at: new Date(NOW - 50 * 60_000).toISOString() });
+      const { unmount } = render(<CardChildrenRollup rollup={rollup} density="comfortable" stalenessDays={14} />);
+      expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved just now");
+      act(() => { vi.advanceTimersByTime(20 * 60_000); });
+      expect(screen.getByTestId("rollup-movement")).toHaveTextContent("Work moved 1 hour ago");
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("one ticker serves many footers", () => {
+    vi.useFakeTimers();
+    try {
+      render(<><CardChildrenRollup rollup={r()} density="standard" stalenessDays={14} /><CardChildrenRollup rollup={r()} density="standard" stalenessDays={14} /></>);
+      expect(vi.getTimerCount()).toBe(1);
     } finally {
       vi.useRealTimers();
     }

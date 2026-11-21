@@ -46,6 +46,7 @@ import PhoneBoard from "./PhoneBoard";
 import { cellOrderOf } from "../../utils/phoneReorder";
 import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import CardItem from "../Card/CardItem";
+import { RollupLoadingContext } from "../Card/rollupLoading";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
 import CardPeekSheet from "../Card/CardPeekSheet";
@@ -801,16 +802,34 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // is computed per reader, so the parent card is re-read. Same per-card
   // sequence guard as the parent reads: only the latest read is applied.
   const rollupReadSeqRef = useRef(new Map<number, number>());
+  // Parents with no rollup yet whose first read is in flight: their card shows
+  // the footer skeleton (and announces "Loading children") instead of nothing.
+  const [rollupLoadingIds, setRollupLoadingIds] = useState<ReadonlySet<number>>(() => new Set());
+  const setRollupLoading = useCallback((id: number, on: boolean) => {
+    setRollupLoadingIds((prev) => {
+      if (prev.has(id) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
   const refetchChildrenRollup = useCallback((parentId: number) => {
     const boardId = boardRef.current?.id;
     if (boardId === undefined) return;
+    const hasRollup = boardRef.current?.cards.find((c) => c.id === parentId)?.children_rollup !== undefined;
+    if (!hasRollup && boardRef.current?.cards_can_have_children === true) setRollupLoading(parentId, true);
     const seqs = rollupReadSeqRef.current;
     const n = (seqs.get(parentId) ?? 0) + 1;
     seqs.set(parentId, n);
     void getCardChildrenRollup(boardId, parentId).then((r) => {
-      if (r !== undefined && seqs.get(parentId) === n) applyCardChildrenRollups(new Map([[parentId, r]]));
-    }, () => { /* a failed read keeps the last rollup; the next ping or resync retries */ });
-  }, [applyCardChildrenRollups]);
+      if (seqs.get(parentId) !== n) return;
+      if (r !== undefined) applyCardChildrenRollups(new Map([[parentId, r]]));
+      setRollupLoading(parentId, false);
+    }, () => {
+      /* a failed read keeps the last rollup; the next ping or resync retries */
+      if (seqs.get(parentId) === n) setRollupLoading(parentId, false);
+    });
+  }, [applyCardChildrenRollups, setRollupLoading]);
   // An unarchived card is appended with no `parent` (frames and write
   // responses never carry it) and applyCardParents skips ids not yet on the
   // board, so read it once the append is queued (#1104).
@@ -3183,7 +3202,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const allLanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
 
   return (
-    <>
+    <RollupLoadingContext.Provider value={rollupLoadingIds}>
       {/* Primary toolbar row (#2269): tabs on the left; Filter, View, Activity,
           the overflow menu and the connection status on the right. Nothing
           folds by viewport: the row wraps instead, so no control is ever
@@ -4238,6 +4257,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </ModalWrapper>
         );
       })()}
-    </>
+    </RollupLoadingContext.Provider>
   );
 }

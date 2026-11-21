@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
+import { RollupLoadingContext } from '../components/Card/rollupLoading'
 import type { Card } from '../types'
 
 // #1376 — spy on the KeyboardSensor handler dnd-kit hands back in `listeners`
@@ -377,6 +378,22 @@ describe('CardItem — child progress footer gate and memo (#2210)', () => {
   it('renders no footer for a card without a rollup', () => {
     render(<CardItem density="comfortable" card={makeCard()} />)
     expect(screen.queryByTestId('card-children-rollup')).not.toBeInTheDocument()
+  })
+
+  it('shows the loading skeleton only for a card whose first rollup read is in flight', () => {
+    const loading = (ids: number[], card: Card, compact = false) => (
+      <RollupLoadingContext.Provider value={new Set(ids)}><CardItem density="comfortable" card={card} compact={compact} /></RollupLoadingContext.Provider>
+    )
+    const card = makeCard()
+    const { rerender } = render(loading([card.id], card))
+    expect(screen.getByRole('status')).toHaveTextContent('Loading children')
+    rerender(loading([], card))
+    expect(screen.queryByTestId('card-children-rollup-loading')).not.toBeInTheDocument()
+    rerender(loading([card.id], card, true))
+    expect(screen.queryByTestId('card-children-rollup-loading')).not.toBeInTheDocument()
+    rerender(loading([card.id], makeCard({ children_rollup: rollup(1) })))
+    expect(screen.queryByTestId('card-children-rollup-loading')).not.toBeInTheDocument()
+    expect(screen.getByTestId('card-children-rollup')).toBeInTheDocument()
   })
 
   it('re-renders when only the rollup changes', () => {
