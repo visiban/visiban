@@ -557,6 +557,21 @@ describe('App', () => {
     expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
   })
 
+  it('[ does not open the drawer over another modal (#2473)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    const other = document.createElement('div')
+    other.setAttribute('aria-modal', 'true')
+    document.body.appendChild(other)
+    try {
+      fireEvent.keyDown(document.body, { key: '[' })
+      expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+    } finally {
+      other.remove()
+    }
+  })
+
   it('[ typed into a field does not open the drawer (#2473)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })

@@ -82,6 +82,8 @@ export default function NavDrawer({ user }: { user: User }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
       if (shouldIgnoreShortcut(e.target)) return;
+      // Never open over another modal (a card, a dialog): it owns the keyboard.
+      if (!drawer.open && document.querySelector('[aria-modal="true"]')) return;
       e.preventDefault();
       if (drawer.open) {
         refocusMenu.current = true;
