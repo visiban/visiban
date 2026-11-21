@@ -520,8 +520,13 @@ a change-conditional job that failed earlier did not re-run in it.
 
 Protected variables (`GITLAB_API_TOKEN`, ...) exist on `main` pipelines but not in MR pipelines
 from unprotected branches, so a test that quietly reads one passed on the MR and failed only
-after merge (#2412, `resolve-docs-version.test.sh`). `script-tests` and `script-tests-glibc`
-now `. scripts/ci-poison-env.sh` first, on **both** pipelines: every listed token is the
+after merge (#2412, `resolve-docs-version.test.sh`). Every `scripts/tests/*.test.sh` invocation in
+`.gitlab-ci.yml` (in `script-tests`, `script-tests-glibc`, `cost-ledger-selftest`,
+`security-deferred-verdict-selftest`, `api-compat-check`, `rbac-coverage`, `suppressions-check` and
+`registry-keep-regex-test`) now runs as `sh scripts/ci-hermetic-run.sh bash scripts/tests/<name>`,
+which sources `scripts/ci-poison-env.sh` in a child shell, on **both** pipelines. Only that command
+is poisoned: a job's real step after its tests (`suppressions-check` querying the live API) keeps
+its real variables. In the wrapped command every listed token is the
 sentinel `poisoned-by-ci-poison-env-2461` and `CI_API_V4_URL` is `http://127.0.0.1:9/api/v4`
 (a dead endpoint, so an accidental API call fails fast). A test that needs a variable must set
 it itself, as the `runrt()` helper in `resolve-docs-version.test.sh` does.
@@ -532,9 +537,9 @@ neither `CI_POISON_VARS` nor `CI_POISON_EXEMPT` (which needs a reason). Fix a fa
 the variable to the right list.
 
 **Loopback canary.** A dead endpoint fails closed exactly like a missing token, so poison alone
-cannot catch a test that quietly depends on a protected variable. Both jobs therefore start
+cannot catch a test that quietly depends on a protected variable. The wrapper therefore starts
 `scripts/ci-api-canary.py` (stdlib listener on 127.0.0.1, answers every request `200 []` and logs
-it) and point `CI_API_V4_URL` at it. After the tests run, `ci-api-canary.py verify` fails the job and
+it) and points `CI_API_V4_URL` at it. After the command runs, `ci-api-canary.py verify` fails the line and
 prints every requested path when the log is non-empty: "a test reached the API with inherited CI
 variables". A test that talks to a fake API (`runapi` in `resolve-docs-version.test.sh`) sets its own
 URL and never touches the canary; fix a flagged test by setting its own URL and token, or unsetting

@@ -620,7 +620,7 @@ cost-ledger-selftest:
     - python3 scripts/cost-table.py --self-test
     - python3 scripts/post-mr-cost.py --self-test
     - python3 scripts/kaizen_gate_ledger.py --self-test
-    - bash scripts/tests/kaizen_gate_ledger.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_gate_ledger.test.sh  # #2461: poisoned + canary
 
 # ─── security::deferred verdict self-test (#1521) ────────────────────────────
 #
@@ -655,7 +655,7 @@ security-deferred-verdict-selftest:
     - bash scripts/release.sh --self-test
     # release.test.sh adds the end-to-end rollback cases in hermetic clones;
     # python3 is for assemble-changelog.sh.
-    - bash scripts/tests/release.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/release.test.sh  # #2461: poisoned + canary
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
@@ -919,7 +919,7 @@ api-compat-check:
     # Self-test FIRST (#1093): prove the detector still fires before trusting
     # a green run over the real schema.
     - python3 scripts/check-api-compat.py --self-test
-    - bash scripts/tests/check-api-compat.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-api-compat.test.sh  # #2461: poisoned + canary
     - python3 scripts/check-api-compat.py
   allow_failure: false
 
@@ -2875,40 +2875,38 @@ script-tests:
     - git config --global user.email ci@example.invalid
     - git config --global user.name ci
   script:
-    # #2461: same protected-variable view on MR and main pipelines.
-    - . scripts/ci-poison-env.sh
-    # Loopback canary: answers 200 [] and logs every request. A test that reaches the API
-    # with inherited variables (the #2412 class) is flagged at the end of the job.
+    # #2461: every check and test below runs through scripts/ci-hermetic-run.sh: same
+    # protected-variable view (poisoned) on MR and main pipelines, and a loopback API
+    # canary that fails the line if the command reached the API with inherited variables.
     - python3 scripts/ci-api-canary.py --self-test
-    - eval "$(python3 scripts/ci-api-canary.py start --log canary-2461.log)"
-    - bash scripts/check-ci-poison-list.sh --self-test
-    - bash scripts/check-ci-poison-list.sh
-    - bash scripts/check-ci-retry.sh --self-test
-    - bash scripts/check-ci-retry.sh
-    - python3 scripts/main-red-guard.py --self-test
-    - python3 scripts/main-red-tripwire.py --self-test
-    - bash scripts/check-script-tests-wired.sh --self-test
-    - bash scripts/check-script-tests-wired.sh
-    - bash scripts/tests/ci-poison-env.test.sh
-    - bash scripts/tests/check-broadcast-deferral.test.sh
-    - bash scripts/tests/check-docs-version-accuracy.test.sh
-    - bash scripts/tests/check-gate-selftest-parity.test.sh
-    - bash scripts/tests/check-serializer-ts-parity.test.sh
-    - bash scripts/tests/check-trivyignore-expiry.test.sh
-    - bash scripts/tests/check-ws-event-reachability.test.sh
-    - bash scripts/tests/close-milestone-issues.test.sh
-    - bash scripts/tests/kaizen_fastpath_proposal.test.sh
-    - bash scripts/tests/kaizen_yield_watch.test.sh
-    - bash scripts/tests/npm-audit-gate.test.sh
-    - bash scripts/tests/osv-severity-gate.test.sh
-    - bash scripts/tests/pre-tool-safety.test.sh
-    - bash scripts/tests/post-edit-checks.test.sh
-    - bash scripts/tests/resolve-docs-version.test.sh
-    - bash scripts/tests/wt-doctor-drift.test.sh
-    - bash scripts/tests/ci-interruptible.test.sh
-    - bash scripts/tests/refresh_test_durations.test.sh
-    - python3 scripts/ci-api-canary.py verify --log canary-2461.log --pid "$CANARY_PID"
-    # Runs the canary itself (own listener, poison env), so it stays after verify.
+    - bash scripts/tests/ci-hermetic-run.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-poison-list.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-poison-list.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-retry.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-retry.sh
+    - sh scripts/ci-hermetic-run.sh python3 scripts/main-red-guard.py --self-test
+    - sh scripts/ci-hermetic-run.sh python3 scripts/main-red-tripwire.py --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-script-tests-wired.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-script-tests-wired.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-poison-env.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-broadcast-deferral.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-docs-version-accuracy.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-gate-selftest-parity.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-serializer-ts-parity.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-trivyignore-expiry.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-ws-event-reachability.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/close-milestone-issues.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_fastpath_proposal.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_yield_watch.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/npm-audit-gate.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/osv-severity-gate.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/pre-tool-safety.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/post-edit-checks.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/resolve-docs-version.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-doctor-drift.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-interruptible.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/refresh_test_durations.test.sh
+    # Runs the canary itself (own listener, poison env).
     - bash scripts/tests/ci-api-canary.test.sh
   allow_failure: false
 
@@ -2935,10 +2933,7 @@ script-tests-glibc:
     - git config --global user.email ci@example.invalid
     - git config --global user.name ci
   script:
-    - . scripts/ci-poison-env.sh  # #2461
-    - eval "$(python3 scripts/ci-api-canary.py start --log canary-2461.log)"
-    - bash scripts/tests/wt-forge-timeout.test.sh
-    - python3 scripts/ci-api-canary.py verify --log canary-2461.log --pid "$CANARY_PID"
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-forge-timeout.test.sh  # #2461
   allow_failure: false
 
 # Stale version claims in the docs are silent misinformation (#1083): a
@@ -3312,7 +3307,7 @@ rbac-coverage:
     # shape drifts away from what the detectors expect. Runs after the real scan
     # so that a real missing gate is reported by handler, not as a count of
     # failed test cases.
-    - bash scripts/tests/check-rbac-coverage.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-rbac-coverage.test.sh  # #2461: poisoned + canary
   allow_failure: false
 
 # ─── Broadcast deferral (#1143) ───────────────────────────────────────────────
@@ -3484,10 +3479,12 @@ suppressions-check:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - apk add --no-cache bash curl jq
+    - apk add --no-cache bash curl jq python3  # python3: the ci-hermetic-run.sh canary
   script:
-    - bash scripts/tests/gitlab-issues.test.sh
-    - bash scripts/tests/check-suppression-issues.test.sh
+    # The tests run poisoned (#2461); the real check-suppression-issues.sh run below is
+    # NOT wrapped, so it still reads the real API with the job's real variables.
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/gitlab-issues.test.sh  # #2461: poisoned + canary
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-suppression-issues.test.sh  # #2461: poisoned + canary
     - bash scripts/check-suppression-issues.sh --self-test
     - bash scripts/check-suppression-issues.sh
 
@@ -5024,7 +5021,7 @@ registry-keep-regex-test:
   before_script:
     - apk add --no-cache bash python3
   script:
-    - bash scripts/tests/registry-keep-regex.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/registry-keep-regex.test.sh  # #2461: poisoned + canary
 
 # MANUAL backfill for releases published before #1153 (or whose attest job
 # failed): signs + attests an already-published tag's images, both images, both
