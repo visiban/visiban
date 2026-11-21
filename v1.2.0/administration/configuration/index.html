@@ -4708,25 +4708,25 @@
 <tbody>
 <tr>
 <td><code>CI_DJANGO_SECRET_KEY</code></td>
-<td><code>backend-test</code>, <code>migration-check</code>, <code>schema-validation</code></td>
+<td><code>backend-test</code>, <code>backend-test-migrations</code>, <code>migration-check</code>, <code>schema-validation</code></td>
 <td>Yes</td>
 <td>Any non-empty string; not a production secret</td>
 </tr>
 <tr>
 <td><code>CI_POSTGRES_PASSWORD</code></td>
-<td><code>backend-test</code></td>
+<td><code>backend-test</code>, <code>backend-test-migrations</code></td>
 <td>Yes</td>
 <td>Ephemeral test DB; any non-empty string</td>
 </tr>
 <tr>
 <td><code>CI_POSTGRES_USER</code></td>
-<td><code>backend-test</code></td>
+<td><code>backend-test</code>, <code>backend-test-migrations</code></td>
 <td>No</td>
 <td>e.g. <code>visiban</code></td>
 </tr>
 <tr>
 <td><code>CI_POSTGRES_DB</code></td>
-<td><code>backend-test</code></td>
+<td><code>backend-test</code>, <code>backend-test-migrations</code></td>
 <td>No</td>
 <td>e.g. <code>visiban_test</code></td>
 </tr>

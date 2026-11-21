@@ -4590,7 +4590,7 @@ the dashboard, and never paste the token into a file or a shell history you shar
 </tr>
 <tr>
 <td>Denominator</td>
-<td>Whatever each tool reports: everything <code>backend/.coveragerc</code> doesn't omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side</td>
+<td>Whatever each tool reports: everything <code>backend/.coveragerc</code> doesn't omit (<code>backend-test-migrations</code> applies every migration to build its test database, so migrations count), and no Sonar-style exclusions on either side</td>
 <td>Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded</td>
 </tr>
 <tr>
