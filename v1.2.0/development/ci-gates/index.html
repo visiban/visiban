@@ -2407,6 +2407,8 @@
       
         
       
+        
+      
     
     
     
@@ -2731,6 +2733,34 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a11y-axe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility Scans (axe-core)
   
 
     
@@ -4156,6 +4186,8 @@
       
         
       
+        
+      
     
     
     
@@ -4253,6 +4285,34 @@
     
   
     Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/renovate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Renovate
   
 
     
@@ -4870,6 +4930,7 @@ any CI job — see below.</p>
 <p>All three schedules also run every ordinary <code>main</code> job, plus the jobs that use any scheduled pipeline as their slot: <code>schedule-config-check</code>, <code>check-release-images</code>, <code>check-chart-registry</code>, <code>cleanup-merged-branches</code>.</p>
 <ul>
 <li><strong><code>check-release-attestations</code></strong> is narrower: it runs only on the schedule that sets <code>CVE_SCAN</code> (Nightly), so it needs no schedule of its own.</li>
+<li><strong><code>renovate</code></strong> (#2464) is narrower too: it runs only on the schedule that sets <code>CVE_SCAN</code> (Nightly), and only when the <code>RENOVATE_TOKEN</code> variable exists. See <a href="../../maintainers/renovate/">Renovate</a>.</li>
 <li><strong>Helm and compose drills</strong> (<code>helm-install</code>, <code>helm-netpol</code>, <code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the load-test and weekly mutation schedules.</li>
 <li><strong>Load test:</strong> it keeps its own schedule, three hours earlier than the Nightly one, because its latency budgets are noisy on a busy runner.</li>
 <li><strong>Mutation testing:</strong> it keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see <a href="../mutation-testing/#runner-load">Runner load</a>), which didn't fit alongside the Nightly jobs.</li>

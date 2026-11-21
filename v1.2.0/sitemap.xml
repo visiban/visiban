@@ -177,6 +177,10 @@
          <lastmod>2026-11-21</lastmod>
     </url>
     <url>
+         <loc>https://docs.visiban.com/v1.2.0/development/a11y-axe/</loc>
+         <lastmod>2026-11-21</lastmod>
+    </url>
+    <url>
          <loc>https://docs.visiban.com/v1.2.0/development/analytics-redesign/</loc>
          <lastmod>2026-11-21</lastmod>
     </url>
@@ -446,6 +450,10 @@
     </url>
     <url>
          <loc>https://docs.visiban.com/v1.2.0/maintainers/known-ci-failures/</loc>
+         <lastmod>2026-11-21</lastmod>
+    </url>
+    <url>
+         <loc>https://docs.visiban.com/v1.2.0/maintainers/renovate/</loc>
          <lastmod>2026-11-21</lastmod>
     </url>
     <url>

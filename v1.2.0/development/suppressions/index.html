@@ -2407,6 +2407,8 @@
       
         
       
+        
+      
     
     
     
@@ -2731,6 +2733,34 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../a11y-axe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility Scans (axe-core)
   
 
     
@@ -4078,6 +4108,8 @@
       
         
       
+        
+      
     
     
     
@@ -4175,6 +4207,34 @@
     
   
     Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/renovate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Renovate
   
 
     
@@ -4445,7 +4505,7 @@
 <p>The CI job runs <code>--self-test</code> immediately before the real invocation, on the same image, so a regression in the gate itself fails the pipeline before the gate's real result can be trusted.</p>
 <p><code>--self-test</code> only drives the <code>CHECK_SUPPRESSION_MOCK_CLOSED</code> mock. <code>scripts/tests/gitlab-issues.test.sh</code> and <code>scripts/tests/check-suppression-issues.test.sh</code>, both also run in this job, exercise the <em>real</em> fetch path against a fake <code>curl</code> on <code>PATH</code>, with no network access. They cover batching, retries, the never-send-<code>JOB-TOKEN</code> guarantee, and the 401-falls-back-to-anonymous behavior.</p>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
-<p>The marker convention and this check apply to <code>frontend/src</code> (eslint-disable) and <code>backend/</code> (pytest <code>skip</code>/<code>skipif</code>/<code>xfail</code>), plus the <code>pending_budget</code> and <code>pending_memory_budget</code> entries in <code>backend/nightly-load-test-baseline.json</code> described above.</p>
+<p>The marker convention and this check apply to <code>frontend/src</code> (eslint-disable), <code>frontend/e2e</code> (the axe <code>BASELINE</code> entries in <code>a11y.spec.ts</code>, one marker per entry; see <a href="../a11y-axe/">Accessibility scans</a>) and <code>backend/</code> (pytest <code>skip</code>/<code>skipif</code>/<code>xfail</code>), plus the <code>pending_budget</code> and <code>pending_memory_budget</code> entries in <code>backend/nightly-load-test-baseline.json</code> described above.</p>
 <p><strong>Yes, but:</strong> Coverage <code>omit</code> entries in <code>backend/.coveragerc</code> are plain path globs. <code>configparser</code> (the INI format <code>.coveragerc</code> uses) has no syntax for an inline trailing comment on a list item, only a full-line <code>#</code> comment above it, so <code>SUPPRESSED-UNTIL(#N)</code> doesn't read naturally there and <code>check-suppression-issues.sh</code> doesn't scan this file today. A genuinely temporary <code>omit</code> entry should still get a plain <code>#</code> comment on the line above citing the tracking issue, for a human reader. Extending the automated check to <code>.coveragerc</code> is a reasonable follow-up if these entries start accumulating the way the <code>eslint-disable</code> sites did.</p>
 <h2 id="sonarcloud-suppressions">SonarCloud suppressions<a class="headerlink" href="#sonarcloud-suppressions" title="Permanent link">&para;</a></h2>
 <p><code>sonar.issue.ignore.multicriteria.*</code> criteria in <code>sonar-project.properties</code> follow the same two buckets. Each existing criterion is <strong>permanent</strong>: it carries a plain rationale comment and a narrow path, with no marker. A criterion that waits on tracked work would carry a <code>SUPPRESSED-UNTIL(#N)</code> comment above it, exactly like any other suppression. Never widen a glob to hide a finding. The same policy is stated in the header of the properties file.</p>
