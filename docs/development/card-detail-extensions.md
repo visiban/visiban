@@ -60,6 +60,12 @@ CARD_DETAIL_EXTENSIONS.append(ContractSection())
 - Treat `card` and `user` as read-only. Do no blocking network I/O; the call runs
   inside a request. Your own outbound calls (and their SSRF risks) are your
   concern.
+- Extension code runs in-process with **no timeout**. A slow or hung `section`
+  call holds the request worker until it returns, and nothing cancels it, so
+  it must never block or wait on anything it cannot bound itself.
+- Numbers are sent as JSON and read by the browser as doubles, so integers
+  above 2^53 (9007199254740992) lose precision. Send a large amount as
+  `display` text instead of relying on the raw value.
 - Read card links only through `boards.services.card_links.children_for_viewer`
   / `parents_for_viewer` with the same `user` (Security Invariants Rule 10).
 - **Read-only in v1.** There is no edit path; extra keys such as `editable` are

@@ -673,7 +673,7 @@ def default_child_board_options_for_admin(board, user):
     )
     roles = get_board_roles(user, candidates) if candidates else {}
     return [
-        {"id": b.pk, "name": b.name, "parent_name_plural": b.parent_name_plural}
+        {"id": b.pk, "name": b.name}
         for b in candidates
         if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     ]

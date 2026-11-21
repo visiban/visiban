@@ -3025,8 +3025,13 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer, the board load, MCP or the public share (Rule 10), and a
         slow or failing extension cannot slow or break those.
         """
-        board, role = self._board_and_role()
-        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        # slim: this endpoint reads only the board row and the caller's role
+        # (precedent: analytics #928); no favorites/labels/memberships prefetch.
+        board, role = get_board_for_user(board_pk, request.user, slim=True)
+        card = get_object_or_404(Card, pk=pk, board=board)
+        # Reuse the already-loaded board so extensions reading card.board
+        # do not trigger a second query.
+        card.board = board
         return Response({"sections": card_extensions.sections_for_card(card, request.user, role)})
 
     @extend_schema(
