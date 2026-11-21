@@ -876,6 +876,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // server resolves what this viewer may see. Nothing from the frame is shown.
         if (selectedCardIdRef.current === parentId) setChildrenRefreshTick((t) => t + 1);
       }
+    } else if (event.event === "card.children_bulk_changed") {
+      // A child-board column change (#2500): this board's parent ids, or `reload` above the cap.
+      const ids = (d as { parent_ids?: unknown }).parent_ids;
+      const shown = new Set(boardRef.current?.cards.map((c) => c.id));
+      if ((d as { reload?: unknown }).reload === true) silentReload();
+      else if (Array.isArray(ids)) ids.forEach((id) => { if (typeof id === "number" && shown.has(id)) refetchChildrenRollup(id); });
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
