@@ -219,7 +219,7 @@ describe("SaveBar and InlineConfirm", () => {
     expect(onDiscard).toHaveBeenCalled();
     expect(onSave).toHaveBeenCalled();
     rerender(<SaveBar thing="email" dirty saving onDiscard={onDiscard} onSave={onSave} />);
-    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Saving…" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("SaveBar takes a custom button label and a ref to the Save button (#2476)", () => {
