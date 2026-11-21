@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useId } from "react";
+import { useState, useEffect, useCallback, useRef, cloneElement, Fragment } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -14,9 +14,11 @@ import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone, formatDate as formatDateUtil } from "../utils/date";
 import type { UserDatePrefs } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
-import { Toggle } from "../components/Common/Toggle";
-
-type Tab = "profile" | "security" | "access-tokens" | "notifications" | "appearance" | "behavior" | "about";
+import Avatar from "../components/Common/Avatar";
+import {
+  Button, InlineConfirm, PageHeading, SettingsCard, SettingsLayout, SaveBar, Field, SettingTwoSwitchHeader, SettingTwoSwitchRow, SettingSwitchRow, Switch,
+} from "../components/Page";
+import type { SettingsSection } from "../components/Page";
 
 declare const __APP_VERSION__: string;
 
@@ -44,9 +46,9 @@ const NUMBER_LOCALE_OPTIONS = [
   { value: "hi-IN", label: "1,23,456.78 — Indian" },
 ];
 
-function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: (u: User) => void; from?: Location }) {
+function ProfileTab({ user, onUserUpdated, from, onUnsavedChange }: { user: User; onUserUpdated: (u: User) => void; from?: Location; onUnsavedChange?: (unsaved: boolean) => void }) {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
+  const initialForm = {
     display_name: user.display_name ?? "",
     first_name: user.first_name ?? "",
     last_name: user.last_name ?? "",
@@ -56,7 +58,10 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     date_format: user.date_format ?? "MM/DD/YYYY",
     time_format: user.time_format ?? "12h",
     number_locale: user.number_locale ?? "en-US",
-  });
+  };
+  const [form, setForm] = useState(initialForm);
+  // What "unsaved" is measured against (Discard restores it); moves to the saved values on success.
+  const [baseline, setBaseline] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -112,6 +117,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     setError(null);
     setEmailPasswordError(null);
@@ -140,7 +146,9 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         // Stay on the page so the confirmation notice can be read, and show
         // the address that is actually in effect in the field.
         setForm((f) => ({ ...f, email: updated.email ?? "" }));
+        setBaseline({ ...form, email: updated.email ?? "" });
       } else {
+        setBaseline(form);
         if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
         leaveTimerRef.current = setTimeout(() => navigate(from ?? "/", { replace: true }), 1500);
       }
@@ -215,6 +223,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       onUserUpdated(updated);
       setPendingEmail(updated.pending_email ?? null);
       setForm((f) => ({ ...f, email: updated.email ?? "" }));
+      setBaseline((b) => ({ ...b, email: updated.email ?? "" }));
       emailInputRef.current?.focus();
       setEmailNotice({ tone: "success", text: "Email change canceled. Your email address hasn't changed." });
     } catch {
@@ -224,172 +233,27 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     }
   };
 
-  const emailActionClass =
-    "text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover rounded px-1.5 py-0.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed";
+  const formRef = useRef<HTMLFormElement>(null);
+  const dirty = JSON.stringify(form) !== JSON.stringify(baseline);
+  // Reports unsaved edits to the page's leave guard; unmounting (a confirmed Discard) clears it.
+  useEffect(() => {
+    onUnsavedChange?.(dirty);
+    return () => onUnsavedChange?.(false);
+  }, [dirty, onUnsavedChange]);
+  const discard = () => {
+    setForm(baseline);
+    setEmailPassword("");
+    setEmailPasswordError(null);
+    setError(null);
+    setSaved(false);
+  };
+  const fullName = [form.first_name, form.last_name].filter(Boolean).join(" ");
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Profile</h2>
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <PageHeading level="h3" title="Profile" description="How you appear to your team, and how dates and numbers are shown to you." />
 
-      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        Display name
-        <input
-          value={form.display_name}
-          onChange={set("display_name")}
-          placeholder="How you appear on the board"
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-        />
-      </label>
-
-      <div className="flex gap-3">
-        <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
-          First name
-          <input
-            value={form.first_name}
-            onChange={set("first_name")}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-          />
-        </label>
-        <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
-          Last name
-          <input
-            value={form.last_name}
-            onChange={set("last_name")}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-          />
-        </label>
-      </div>
-
-      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        Username
-        <input
-          value={form.username}
-          onChange={set("username")}
-          required
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-        />
-      </label>
-
-      <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        <label className="flex flex-col gap-1">
-          Email address
-          <input
-            ref={emailInputRef}
-            type="email"
-            value={form.email}
-            onChange={setEmail}
-            required
-            aria-describedby="pending-email-note"
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-          />
-        </label>
-        {/* Reserved slot (frontend/CLAUDE.md § Inline status messages): the
-            container always renders so the form doesn't shift, and the
-            input's aria-describedby always has a stable target. */}
-        <span id="pending-email-note" data-testid="pending-email-note" className="block min-h-4 text-xs text-fg-muted">
-          {pendingEmail &&
-            `Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
-        </span>
-        {/* #1293: outside the <label> so the buttons don't become part of the
-            input's accessible name. Only while a change is pending; the note
-            above says what they act on. */}
-        {pendingEmail && (
-          <div className="flex items-center gap-3 -ml-1.5">
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={pendingAction !== null || saving}
-              aria-describedby="pending-email-note"
-              className={emailActionClass}
-            >
-              {pendingAction === "resend" ? "Sending…" : "Resend link"}
-            </button>
-            <button
-              type="button"
-              onClick={handleCancelChange}
-              disabled={pendingAction !== null || saving}
-              aria-describedby="pending-email-note"
-              className={emailActionClass}
-            >
-              {pendingAction === "cancel" ? "Canceling…" : "Cancel change"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {emailNeedsPassword && (
-        <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-          <label className="flex flex-col gap-1">
-            Current password
-            <input
-              ref={emailPasswordRef}
-              type="password"
-              value={emailPassword}
-              onChange={(e) => setEmailPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              aria-invalid={emailPasswordError ? true : undefined}
-              aria-describedby="email-password-hint"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-            />
-          </label>
-          <span
-            id="email-password-hint"
-            className={`text-xs ${emailPasswordError ? "text-danger" : "text-fg-muted"}`}
-          >
-            {emailPasswordError ?? "Required to change your email address, to confirm it's you."}
-          </span>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-        Timezone
-        <SelectDropdown
-          value={form.timezone}
-          onChange={(v) => setForm((f) => ({ ...f, timezone: v }))}
-          options={[
-            { value: "", label: `Detect automatically (${browserTimezone()})` },
-            ...TIMEZONE_OPTIONS.map(({ value, label }) => ({ value, label: `${label} — ${value}` })),
-          ]}
-          className="w-full"
-        />
-        <span className="text-xs text-fg-muted">Used for due date labels and filters</span>
-      </div>
-
-      <div className="border-t border-line pt-4">
-        <p className="text-sm text-fg-secondary font-medium mb-4">Locale</p>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Date format
-            <SelectDropdown
-              value={form.date_format}
-              onChange={(v) => setForm((f) => ({ ...f, date_format: v }))}
-              options={DATE_FORMAT_OPTIONS}
-              className="w-full"
-            />
-          </div>
-          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Time format
-            <SelectDropdown
-              value={form.time_format}
-              onChange={(v) => setForm((f) => ({ ...f, time_format: v }))}
-              options={TIME_FORMAT_OPTIONS}
-              className="w-full"
-            />
-          </div>
-          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Number format
-            <SelectDropdown
-              value={form.number_locale}
-              onChange={(v) => setForm((f) => ({ ...f, number_locale: v }))}
-              options={NUMBER_LOCALE_OPTIONS}
-              className="w-full"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Live region: with an email change pending the page stays here, so
+      {/* Live region (at the top so a failed save is seen without scrolling): with an email change pending the page stays here, so
           this line is the terminal state of the save and must be announced. */}
       <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
         {error && <span className="text-danger">{error}</span>}
@@ -415,16 +279,109 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         )}
       </p>
 
-      <div>
-        <button
-          type="submit"
-          disabled={saving || pendingAction !== null}
-          className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-      </div>
+
+      <SettingsCard>
+        <div className="flex items-center gap-3" data-testid="profile-identity">
+          <Avatar user={user} size="lg" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-fg truncate">{user.display_name || fullName || user.username}</p>
+            <p className="text-sm text-fg-secondary truncate">@{user.username}</p>
+          </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="Personal details" headingAs="h4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="First name" autoComplete="given-name" value={form.first_name} onChange={set("first_name")} />
+          <Field label="Last name" autoComplete="family-name" value={form.last_name} onChange={set("last_name")} />
+          <div className="sm:col-span-2">
+            <Field label="Display name" autoComplete="nickname" value={form.display_name} onChange={set("display_name")} placeholder="How you appear on the board" />
+          </div>
+          <Field label="Username" autoComplete="username" value={form.username} onChange={set("username")} required />
+          <Field label="Email address" type="email" autoComplete="email" inputRef={emailInputRef} value={form.email} onChange={setEmail} required />
+          {emailNeedsPassword && (
+            <div className="sm:col-span-2">
+              <Field
+                label="Current password"
+                type="password"
+                autoComplete="current-password"
+                inputRef={emailPasswordRef}
+                value={emailPassword}
+                onChange={(e) => setEmailPassword(e.target.value)}
+                required
+                aria-invalid={emailPasswordError ? true : undefined}
+                hint={emailPasswordError ?? "Required to change your email address, to confirm it's you."}
+                hintTone={emailPasswordError ? "danger" : undefined}
+              />
+            </div>
+          )}
+        </div>
+      </SettingsCard>
+
+      {pendingEmail && (
+        <SettingsCard title="Email change pending" headingAs="h4">
+          <p id="pending-email-note" data-testid="pending-email-note" className="text-sm text-fg-secondary">
+            {`Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <Button onClick={() => { if (pendingAction === null && !saving) void handleResend() }} aria-busy={pendingAction === "resend" || undefined} aria-describedby="pending-email-note">
+              {pendingAction === "resend" ? "Sending…" : "Resend"}
+            </Button>
+            <Button variant="quiet" onClick={() => { if (pendingAction === null && !saving) void handleCancelChange() }} aria-busy={pendingAction === "cancel" || undefined} aria-describedby="pending-email-note">
+              {pendingAction === "cancel" ? "Canceling…" : "Cancel change"}
+            </Button>
+          </div>
+        </SettingsCard>
+      )}
+
+      <SettingsCard title="Time and number formats" headingAs="h4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <ProfileSelect label="Timezone" hint="Used for due date labels and filters">
+              <SelectDropdown
+                value={form.timezone}
+                onChange={(v) => setForm((f) => ({ ...f, timezone: v }))}
+                options={[
+                  { value: "", label: `Detect automatically (${browserTimezone()})` },
+                  ...TIMEZONE_OPTIONS.map(({ value, label }) => ({ value, label: `${label} — ${value}` })),
+                ]}
+                className="w-full"
+              />
+            </ProfileSelect>
+          </div>
+          <ProfileSelect label="Date format">
+            <SelectDropdown value={form.date_format} onChange={(v) => setForm((f) => ({ ...f, date_format: v }))} options={DATE_FORMAT_OPTIONS} className="w-full" />
+          </ProfileSelect>
+          <ProfileSelect label="Time format">
+            <SelectDropdown value={form.time_format} onChange={(v) => setForm((f) => ({ ...f, time_format: v }))} options={TIME_FORMAT_OPTIONS} className="w-full" />
+          </ProfileSelect>
+          <ProfileSelect label="Number format">
+            <SelectDropdown value={form.number_locale} onChange={(v) => setForm((f) => ({ ...f, number_locale: v }))} options={NUMBER_LOCALE_OPTIONS} className="w-full" />
+          </ProfileSelect>
+        </div>
+      </SettingsCard>
+
+      <SaveBar
+        thing="profile"
+        saveLabel="Save profile"
+        dirty={dirty}
+        saving={saving || pendingAction !== null}
+        onDiscard={discard}
+        onSave={() => formRef.current?.requestSubmit()}
+      />
     </form>
+  );
+}
+
+/** A labeled select row for the Profile card (the custom dropdown has no native label). */
+function ProfileSelect({ label, hint, children }: { label: string; hint?: string; children: React.ReactElement<{ ariaLabel?: string }> }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium text-fg-secondary">{label}</span>
+      {/* The custom dropdown has no native label, so it is named explicitly. */}
+      {cloneElement(children, { ariaLabel: label })}
+      {hint && <span className="text-xs text-fg-tertiary">{hint}</span>}
+    </div>
   );
 }
 
@@ -435,7 +392,7 @@ interface ConnectResult {
   error: string | null;
 }
 
-const PROVIDER_ORDER: ProviderId[] = ["google", "github", "gitlab", "oidc"];
+const PROVIDER_ORDER: ProviderId[] = ["oidc", "google", "github", "gitlab"];
 
 function connectErrorMessage(code: string, label: string): string {
   if (code === "provider_already_connected") {
@@ -481,86 +438,66 @@ function ConnectedAccountRow({
   useConfirmAnnouncement(confirming ? `Disconnect ${label}? You will no longer be able to sign in with it.` : null);
   const hintId = `disconnect-hint-${provider}`;
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition" data-testid={`connected-account-${provider}`}>
-      <ProviderIcon id={provider} className="w-5 h-5 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-fg truncate">{label}</span>
-          {connected ? (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-success/20 text-success-on-tint">Connected</span>
-          ) : (
-            <span className="px-2 py-0.5 text-xs rounded-full border border-line text-fg-tertiary">Not connected</span>
+    <div className="flex flex-col gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition sm:flex-row sm:items-center" data-testid={`connected-account-${provider}`}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <ProviderIcon id={provider} className="w-5 h-5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-fg truncate">{label}</span>
+            {connected ? (
+              <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full bg-success/15 text-success-on-tint">Connected</span>
+            ) : (
+              <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full border border-line-boundary text-fg-secondary">Not connected</span>
+            )}
+          </div>
+          {connected && account?.email && (
+            <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
           )}
+          <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
+            {rowError && <span className="text-danger">{rowError}</span>}
+            {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
+          </p>
         </div>
-        {connected && account?.email && (
-          <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
-        )}
-        <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
-          {rowError && <span className="text-danger">{rowError}</span>}
-          {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
-        </p>
       </div>
-      <div className="shrink-0 flex flex-col items-end gap-1">
+      <div className="flex flex-col gap-1 sm:shrink-0 sm:items-end">
         {connected ? (
           confirming ? (
-            <div className="flex flex-wrap items-center justify-end gap-2 max-w-sm">
-              <span className="text-xs text-fg-tertiary">
-                Disconnect <span className="text-fg font-medium">{label}</span>? You will no longer be able to sign in with it.
-              </span>
-              <button
-                type="button"
-                onClick={onConfirmDisconnect}
-                disabled={disconnecting}
-                className="text-xs text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                aria-label={`Confirm disconnect ${label}`}
-                data-testid={`confirm-disconnect-${provider}`}
-              >
-                {disconnecting ? "Disconnecting…" : "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={onCancelDisconnect}
-                disabled={disconnecting}
-                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Cancel
-              </button>
+            <div className="sm:max-w-sm">
+              <InlineConfirm
+                message={<>Disconnect <span className="font-medium">{label}</span>? You will no longer be able to sign in with it.</>}
+                actionLabel="Disconnect"
+                busy={disconnecting}
+                busyLabel="Disconnecting…"
+                actionTestId={`confirm-disconnect-${provider}`}
+                onConfirm={onConfirmDisconnect}
+                onCancel={onCancelDisconnect}
+              />
             </div>
           ) : (
             // aria-disabled, never native `disabled`: a disabled button drops
             // out of the tab order and hides *why* from keyboard and screen-
             // reader users. The reason stays visible and is announced via
             // aria-describedby; the click is a no-op.
-            <button
-              ref={disconnectTriggerRef("disconnect")}
-              type="button"
+            <Button
+              buttonRef={disconnectTriggerRef("disconnect")}
+              variant="quiet"
               aria-disabled={isOnlyMethod}
               aria-describedby={isOnlyMethod ? hintId : undefined}
               onClick={isOnlyMethod ? undefined : onStartDisconnect}
-              className={
-                isOnlyMethod
-                  ? "text-xs rounded text-fg-tertiary opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                  : "text-xs rounded text-fg-tertiary hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-              }
+              className={isOnlyMethod ? "opacity-40 cursor-not-allowed" : "hover:text-danger"}
               aria-label={`Disconnect ${label}`}
               data-testid={`disconnect-${provider}`}
             >
               Disconnect
-            </button>
+            </Button>
           )
         ) : (
-          <button
-            type="button"
-            onClick={onConnect}
-            disabled={connecting}
-            className="px-3 py-1.5 text-sm font-medium bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            data-testid={`connect-${provider}`}
-          >
+          <Button variant="primary" onClick={connecting ? undefined : onConnect} aria-busy={connecting || undefined} data-testid={`connect-${provider}`}>
             {connecting ? "Connecting…" : "Connect"}
-          </button>
+          </Button>
         )}
         {isOnlyMethod && (
-          <p id={hintId} className="text-xs text-fg-muted text-right">This is your only sign-in method.</p>
+          <p id={hintId} className="text-xs text-fg-secondary sm:text-right">You can't disconnect your only way to sign in; set a password first.</p>
         )}
       </div>
     </div>
@@ -654,13 +591,12 @@ function ConnectedAccountsSection({
   };
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line pt-4" data-testid="connected-accounts">
-      <div>
-        <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Connected accounts</h3>
-        <p className="text-sm text-fg-tertiary mt-1">
-          Connect an account for faster sign-in. You must keep at least one way to sign in.
-        </p>
-      </div>
+    <div data-testid="connected-accounts">
+    <SettingsCard
+      title="Connected accounts"
+      headingAs="h4"
+      description="Connect an account for faster sign-in. You must keep at least one way to sign in."
+    >
       {providersLoading ? (
         <div className="flex items-center justify-center py-6">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -702,6 +638,7 @@ function ConnectedAccountsSection({
           })}
         </div>
       )}
+    </SettingsCard>
     </div>
   );
 }
@@ -740,6 +677,7 @@ function SecurityTab({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (form.new_password !== form.confirm) {
       setError("New passwords do not match.");
       return;
@@ -780,71 +718,34 @@ function SecurityTab({
   };
 
   return (
-    <div className="flex flex-col gap-8 max-w-lg">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <h2 className="text-fg text-lg font-semibold">Security</h2>
-
-        {!hasPw && (
-          <p className="text-sm text-fg-tertiary">
-            You signed in with a social account. Set a password below to also enable
-            username/password login. For your security, this works only within a few
-            minutes of signing in.
-          </p>
-        )}
-
-        {hasPw && (
-          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Current password
-            <input
-              type="password"
-              value={form.current_password}
-              onChange={set("current_password")}
-              required
-              autoComplete="current-password"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-            />
-          </label>
-        )}
-
-        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-          New password
-          <input
-            type="password"
-            value={form.new_password}
-            onChange={set("new_password")}
-            required
-            autoComplete="new-password"
-            minLength={12}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-          Confirm new password
-          <input
-            type="password"
-            value={form.confirm}
-            onChange={set("confirm")}
-            required
-            autoComplete="new-password"
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
-          />
-        </label>
-
-        <p className="text-xs h-4">
-          {error && <span className="text-danger">{error}</span>}
-          {saved && !error && <span className="text-success">{savedText}</span>}
-        </p>
-
-        <div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
-          </button>
-        </div>
+    <div className="flex flex-col gap-4">
+      <PageHeading level="h3" title="Security" description="Your password and the accounts you can sign in with." />
+      <form onSubmit={handleSubmit}>
+        <SettingsCard title={hasPw ? "Password" : "Set a password"} headingAs="h4">
+          <div className="flex flex-col gap-4 max-w-md">
+            {!hasPw && (
+              <p className="text-sm text-fg-secondary">
+                You signed in with a social account. Set a password below to also enable
+                username/password login. For your security, this works only within a few
+                minutes of signing in.
+              </p>
+            )}
+            {hasPw && (
+              <Field label="Current password" type="password" autoComplete="current-password" value={form.current_password} onChange={set("current_password")} required />
+            )}
+            <Field label="New password" type="password" autoComplete="new-password" value={form.new_password} onChange={set("new_password")} required minLength={12} />
+            <Field label="Confirm new password" type="password" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} required />
+            <p className="text-xs min-h-4" role="status" aria-live="polite">
+              {error && <span className="text-danger">{error}</span>}
+              {saved && !error && <span className="text-success">{savedText}</span>}
+            </p>
+            <div>
+              <Button type="submit" variant="primary" aria-busy={saving || undefined}>
+                {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
+              </Button>
+            </div>
+          </div>
+        </SettingsCard>
       </form>
       <ConnectedAccountsSection hasUsablePassword={hasPw || passwordJustSet} connectResult={connectResult} />
     </div>
@@ -862,13 +763,13 @@ const PAT_MAX = 10;
 const PAT_SCOPE_OPTIONS: { scope: PersonalAccessTokenScope; label: string; hint: string }[] = [
   { scope: "read", label: "read", hint: "Read data over the REST API" },
   { scope: "write", label: "write", hint: "Create and change data over the REST API" },
-  { scope: "admin", label: "admin", hint: "Admin REST endpoints (site administrators only)" },
+  { scope: "admin", label: "admin", hint: "Admin REST endpoints" },
   { scope: "mcp:read", label: "mcp:read", hint: "Connect an MCP client and call its read tools" },
   { scope: "mcp:write", label: "mcp:write", hint: "Let an MCP client call write tools (also needs mcp:read)" },
 ];
 const PAT_DEFAULT_SCOPES: PersonalAccessTokenScope[] = ["read", "write"];
 
-function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs | null; isSiteAdmin?: boolean }) {
+function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?: UserDatePrefs | null; isSiteAdmin?: boolean; onUnsavedChange?: (unsaved: boolean) => void }) {
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -877,6 +778,13 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newToken, setNewToken] = useState<CreatedPersonalAccessToken | null>(null);
+  const [copied, setCopied] = useState(false);
+  // A visible reveal-once token is unsaved work: leaving would lose it for good.
+  const tokenVisible = newToken !== null;
+  useEffect(() => {
+    onUnsavedChange?.(tokenVisible);
+    return () => onUnsavedChange?.(false);
+  }, [tokenVisible, onUnsavedChange]);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
@@ -908,14 +816,20 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
     void fetchTokens();
   }, [fetchTokens]);
 
+  const atLimit = tokens.length >= PAT_MAX;
+  const copyRef = useRef<HTMLButtonElement>(null);
+  // A reveal-once secret takes focus on its Copy button (frontend/CLAUDE.md, Settings pages).
+  useEffect(() => { if (newToken) copyRef.current?.focus(); }, [newToken]);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || scopes.length === 0) return;
+    if (creating || atLimit || !name.trim() || scopes.length === 0) return;
     setCreating(true);
     setCreateError(null);
     try {
       const created = await createToken(name.trim(), expiresAt || undefined, scopes);
       setNewToken(created);
+      setCopied(false);
       setName("");
       setExpiresAt("");
       setScopes(PAT_DEFAULT_SCOPES);
@@ -951,85 +865,95 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
   };
 
   const toggleScope = (scope: PersonalAccessTokenScope) =>
-    setScopes((prev) => (prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]));
+    setScopes((prev) => {
+      // mcp:write is useless without mcp:read, so it turns mcp:read on and locks it (#2477).
+      if (scope === "mcp:read" && prev.includes("mcp:write")) return prev;
+      if (prev.includes(scope)) return prev.filter((s) => s !== scope);
+      return scope === "mcp:write" && !prev.includes("mcp:read") ? [...prev, "mcp:read", scope] : [...prev, scope];
+    });
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl" data-testid="access-tokens-tab">
-      <h2 className="text-fg text-lg font-semibold">Access Tokens</h2>
-      <p className="text-sm text-fg-tertiary">
-        Personal access tokens let you authenticate API requests. Tokens are shown once on creation.
-        All tokens are revoked if you change your password.
-      </p>
+    <div className="flex flex-col gap-4" data-testid="access-tokens-tab">
+      <PageHeading
+        level="h3"
+        title="Access tokens"
+        description="Personal access tokens let you authenticate API requests. Tokens are shown once on creation. All tokens are revoked if you change your password."
+      />
 
       {/* One-time reveal panel */}
       {newToken && (
-        <div className="border border-warning/50 rounded-lg p-4 bg-sunken flex flex-col gap-2" data-testid="new-token-reveal">
-          <p className="text-sm text-warning font-medium">
+        <div className="border border-warning/50 rounded-[10px] p-4 bg-sunken flex flex-col gap-2" role="status" data-testid="new-token-reveal">
+          <p className="text-sm text-warning-on-tint font-medium">
             Copy your token now — it won't be shown again.
           </p>
-          <code className="font-mono text-sm text-fg bg-sunken px-3 py-2 rounded break-all select-all" data-testid="new-token-value">
-            {newToken.token}
-          </code>
-          <button
-            onClick={() => setNewToken(null)}
-            className="self-end text-xs text-fg-tertiary hover:text-fg transition"
-            data-testid="dismiss-token"
-          >
-            I've copied it — dismiss
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 font-mono text-sm text-fg bg-surface px-3 py-2 rounded break-all select-all" data-testid="new-token-value">
+              {newToken.token}
+            </code>
+            <Button
+              variant="primary"
+              buttonRef={copyRef}
+              onClick={() => { void navigator.clipboard?.writeText(newToken.token).then(() => setCopied(true)).catch(() => undefined); }}
+              data-testid="copy-token"
+            >
+              Copy
+            </Button>
+          </div>
+          <p role="status" className="text-xs text-success min-h-4" data-testid="copied-status">{copied ? "Copied" : ""}</p>
+          <div className="self-end">
+            <Button variant="quiet" onClick={() => setNewToken(null)} data-testid="dismiss-token">
+              I've copied it — dismiss
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Create form */}
-      {tokens.length < PAT_MAX && (
-        <form onSubmit={handleCreate} className="flex flex-col gap-3" data-testid="create-token-form">
-          <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">New token</h3>
-          <div className="flex gap-2 flex-wrap">
-            <input
+      <SettingsCard title="New token" headingAs="h4">
+        <form onSubmit={handleCreate} className="flex flex-col gap-4" data-testid="create-token-form">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
+            <Field
+              label="Name"
+              autoComplete="off"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Token name (e.g. CI pipeline)"
               maxLength={64}
               required
-              className="flex-1 min-w-0 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-name-input"
             />
-            <input
+            <Field
+              label="Expires (optional)"
+              autoComplete="off"
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
               title="Optional expiry date (max 1 year)"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-expiry-input"
             />
-            <button
-              type="submit"
-              disabled={creating || !name.trim() || scopes.length === 0}
-              className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              data-testid="create-token-button"
-            >
-              {creating ? "Creating…" : "Generate token"}
-            </button>
           </div>
           <fieldset className="flex flex-col gap-1.5" data-testid="token-scopes" aria-describedby={scopes.length === 0 ? "token-scopes-error" : undefined}>
-            <legend className="text-xs text-fg-tertiary mb-1">Scopes</legend>
-            {PAT_SCOPE_OPTIONS.filter((o) => o.scope !== "admin" || isSiteAdmin).map((o) => (
-              <label key={o.scope} className="flex items-start gap-2 text-sm text-fg-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={scopes.includes(o.scope)}
-                  onChange={() => toggleScope(o.scope)}
-                  className="accent-primary shrink-0 mt-0.5"
-                  data-testid={`token-scope-${o.scope}`}
-                />
-                <span className="min-w-0 flex flex-col sm:flex-row sm:gap-2">
-                  <span className="font-mono text-xs text-fg">{o.label}</span>
-                  <span className="text-xs text-fg-muted">{o.hint}</span>
-                </span>
-              </label>
-            ))}
-            <p className="text-xs text-fg-muted">
+            <legend className="text-sm font-medium text-fg-secondary mb-1">Scopes</legend>
+            {PAT_SCOPE_OPTIONS.filter((o) => o.scope !== "admin" || isSiteAdmin).map((o) => {
+              const locked = o.scope === "mcp:read" && scopes.includes("mcp:write");
+              return (
+                <label key={o.scope} className={`flex items-start gap-3 text-sm text-fg-secondary max-sm:min-h-11 max-sm:items-center ${locked ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(o.scope)}
+                    onChange={() => toggleScope(o.scope)}
+                    aria-disabled={locked || undefined}
+                    className="accent-primary shrink-0 mt-0.5 max-sm:mt-0 max-sm:h-6 max-sm:w-6"
+                    data-testid={`token-scope-${o.scope}`}
+                  />
+                  <span className="min-w-0 flex flex-col sm:flex-row sm:gap-2">
+                    <span className="font-mono text-xs text-fg">{o.label}</span>
+                    <span className="text-xs text-fg-secondary">{o.hint}{locked ? " (required by mcp:write)" : ""}</span>
+                  </span>
+                </label>
+              );
+            })}
+            <p className="text-xs text-fg-secondary">
               An MCP client needs <span className="font-mono">mcp:read</span> to use this token.
             </p>
             {scopes.length === 0 && (
@@ -1038,21 +962,35 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
               </p>
             )}
           </fieldset>
-          <p className="text-xs min-h-4">
+          <p className="text-xs min-h-4" role={createError ? "alert" : undefined}>
             {createError
               ? <span className="text-danger">{createError}</span>
-              : <span className="text-fg-muted">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
+              : <span className="text-fg-secondary">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
             }
           </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* aria-disabled, not `disabled`: at the limit the reason below must stay reachable (#2477). */}
+            <Button
+              type="submit"
+              variant="primary"
+              aria-disabled={atLimit || !name.trim() || scopes.length === 0 || undefined}
+              aria-describedby={atLimit ? "max-tokens-notice" : undefined}
+              aria-busy={creating || undefined}
+              data-testid="create-token-button"
+            >
+              {creating ? "Creating…" : "Generate token"}
+            </Button>
+            {atLimit && (
+              <p id="max-tokens-notice" className="text-sm text-warning-on-tint" data-testid="max-tokens-notice">
+                You've reached the maximum of {PAT_MAX} tokens. Revoke one to create another.
+              </p>
+            )}
+          </div>
         </form>
-      )}
-      {tokens.length >= PAT_MAX && (
-        <p className="text-sm text-warning" data-testid="max-tokens-notice">
-          You've reached the maximum of {PAT_MAX} tokens. Revoke one to create another.
-        </p>
-      )}
+      </SettingsCard>
 
       {/* Token list */}
+      <SettingsCard title="Your tokens" headingAs="h4">
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -1060,74 +998,83 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
       ) : loadError ? (
         <p className="text-sm text-danger" data-testid="tokens-load-error">{loadError}</p>
       ) : tokens.length === 0 ? (
-        <p className="text-sm text-fg-muted" data-testid="no-tokens-message">No access tokens yet.</p>
+        <p className="text-sm text-fg-secondary" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
-        <div className="flex flex-col gap-1" data-testid="token-list">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 text-xs text-fg-muted uppercase tracking-wide border-b border-line">
-            <span>Name</span>
-            <span>Created</span>
-            <span>Expires</span>
-            <span />
-          </div>
-          {tokens.map((token) => (
-            <div
-              key={token.id}
-              className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded hover:bg-surface/50"
-              data-testid={`token-row-${token.id}`}
-            >
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-fg truncate">{token.name}</span>
-                <span className="font-mono text-xs text-fg-muted">{token.prefix}…</span>
-                <span className="text-xs text-fg-muted" data-testid={`token-scopes-${token.id}`}>
-                  {token.scopes === null ? "Legacy: full REST access" : token.scopes.join(", ")}
-                </span>
-              </div>
-              <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.created_at)}</span>
-              <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.expires_at)}</span>
-              <div className="flex items-center gap-2">
-                {confirmRevokeId !== token.id && (
-                  <button
-                    ref={revokeTriggerRef(token.id)}
-                    type="button"
-                    onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
-                    aria-label={`Revoke ${token.name}`}
-                    className="text-xs text-fg-tertiary hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                    data-testid={`revoke-${token.id}`}
-                  >
-                    Revoke
-                  </button>
+        // A real table from `sm` (column headers for assistive tech too); on phones each row is a
+        // stacked card and the header row is visually hidden but still read (#2477). Explicit
+        // ARIA roles are restored because `display:block` strips the native table semantics on phones.
+        <table role="table" className="w-full table-fixed text-left border-collapse max-sm:block" data-testid="token-list">
+          <caption className="sr-only">Access tokens</caption>
+          <thead role="rowgroup" className="max-sm:sr-only">
+            <tr role="row" className="text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal">Name</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal">Scopes</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-24">Created</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-24">Expires</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-20"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup" className="max-sm:block">
+            {tokens.map((token) => (
+              <Fragment key={token.id}>
+                <tr
+                  role="row"
+                  className="hover:bg-surface-hover max-sm:flex max-sm:flex-col max-sm:gap-2 max-sm:px-3 max-sm:py-2 max-sm:rounded"
+                  data-testid={`token-row-${token.id}`}
+                >
+                  <td role="cell" className="px-3 py-2 align-top min-w-0 max-sm:p-0 max-sm:block">
+                    <span className="block text-sm text-fg truncate">{token.name}</span>
+                    <span className="block font-mono text-xs text-fg-tertiary">{token.prefix}…</span>
+                  </td>
+                  <td role="cell" className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                    <span className="flex flex-wrap gap-1" data-testid={`token-scopes-${token.id}`}>
+                      {token.scopes === null
+                        ? <span className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover text-xs text-fg-secondary">Legacy: full REST access</span>
+                        : token.scopes.map((sc) => (
+                            <span key={sc} className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover font-mono text-xs text-fg-secondary">{sc}</span>
+                          ))}
+                    </span>
+                  </td>
+                  <td role="cell" className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</td>
+                  <td role="cell" className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</td>
+                  <td role="cell" className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                    {confirmRevokeId !== token.id && (
+                      <Button
+                        buttonRef={revokeTriggerRef(token.id)}
+                        variant="quiet"
+                        className="max-sm:w-full"
+                        onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
+                        aria-label={`Revoke ${token.name}`}
+                        data-testid={`revoke-${token.id}`}
+                      >
+                        Revoke
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+                {confirmRevokeId === token.id && (
+                  <tr role="row" className="max-sm:block">
+                    <td role="cell" colSpan={5} className="px-3 pb-2 max-sm:block">
+                      <InlineConfirm
+                        message={<>Revoke <span className="font-medium">{token.name}</span>? Anything using this token will lose access.
+                          {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                          {" "}<span role="alert" className={revokeError ? "text-danger text-xs" : "sr-only"}>{revokeError}</span></>}
+                        actionLabel="Revoke"
+                        busy={revokingId === token.id}
+                        busyLabel="Revoking…"
+                        actionTestId={`confirm-revoke-${token.id}`}
+                        onConfirm={() => { if (revokingId === null) void handleRevoke(token.id); }}
+                        onCancel={() => setConfirmRevokeId(null)}
+                      />
+                    </td>
+                  </tr>
                 )}
-              </div>
-              {confirmRevokeId === token.id && (
-                <div className="col-span-full mt-1 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-fg-tertiary">
-                    Revoke <span className="text-fg font-medium">{token.name}</span>? Anything using this token will lose access.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRevoke(token.id)}
-                    disabled={revokingId === token.id}
-                    className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                    data-testid={`confirm-revoke-${token.id}`}
-                  >
-                    {revokingId === token.id ? "Revoking…" : "Confirm"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRevokeId(null)}
-                    disabled={revokingId === token.id}
-                    className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    Cancel
-                  </button>
-                  {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
-                  <span role="alert" className={revokeError ? "text-danger" : "sr-only"}>{revokeError}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       )}
+      </SettingsCard>
     </div>
   );
 }
@@ -1166,105 +1113,6 @@ const NOTIF_ROWS: NotifRowSpec[] = [
   { key: "notif_stale", label: "Card has gone stale", description: "When a card you own has not moved for a while" },
 ];
 
-/**
- * One event's in-app toggle plus, where the event supports it, a subordinate
- * email toggle.
- *
- * Two structural notes that are load-bearing rather than cosmetic:
- *
- * - The row is NOT wrapped in a single `<label>` any more. With two controls in
- *   one label, a click on the text forwards to the first labelable descendant,
- *   so clicking the email row's text would flip the in-app switch. Each control
- *   gets its own `htmlFor` label around its own text block instead.
- * - The email toggle is disabled while the in-app toggle is off, because email
- *   delivery rides on the in-app notification row: with no notification there is
- *   nothing to email, so an enabled-looking toggle would silently do nothing.
- *   The stored value is deliberately left alone rather than auto-cleared — that
- *   would need a second PATCH, could half-fail, and would throw away a choice
- *   the user will want back when they re-enable the in-app notification.
- *
- * Extracted as a component so `useId` is called once per row rather than inside
- * a `.map` callback.
- */
-function NotificationRow({
-  spec,
-  prefs,
-  saving,
-  onToggle,
-}: {
-  spec: NotifRowSpec;
-  prefs: NotifPrefs;
-  saving: string | null;
-  onToggle: (field: NotifPrefKey | EmailPrefKey) => void;
-}) {
-  const baseId = useId();
-  const appId = `${baseId}-app`;
-  const emailId = `${baseId}-email`;
-  const reasonId = `${baseId}-reason`;
-
-  const appOn = prefs[spec.key];
-  const emailKey = spec.emailKey;
-  const emailOn = emailKey ? prefs[emailKey] : false;
-
-  // Four states, because the same sentence cannot honestly describe all of them.
-  // In particular the ON-sounding "Sends a copy..." must not appear under a
-  // switch that is off, where it reads as a claim that email is already going out.
-  let emailHelper = emailOn
-    ? "Sends a copy to your account address."
-    : "Email a copy to your account address.";
-  if (emailKey && !appOn) {
-    emailHelper = emailOn
-      ? "Paused while the in-app notification above is off. Your email setting is kept."
-      : "Turn on the in-app notification above to enable email.";
-  }
-
-  return (
-    <div role="group" aria-label={spec.label} className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <label htmlFor={appId} className="min-w-0 cursor-pointer">
-          <span className="block text-sm text-fg">{spec.label}</span>
-          <span className="block text-xs text-fg-muted">{spec.description}</span>
-        </label>
-        <Toggle
-          id={appId}
-          checked={appOn}
-          onChange={() => onToggle(spec.key)}
-          disabled={saving === spec.key}
-          aria-label={spec.label}
-        />
-      </div>
-      {emailKey && (
-        <div className="ml-6 border-l-2 border-line pl-4 flex items-center justify-between gap-4">
-          <label
-            htmlFor={emailId}
-            className={`min-w-0 ${appOn ? "cursor-pointer" : "cursor-not-allowed"}`}
-          >
-            <span className={`block text-sm ${appOn ? "text-fg" : "text-fg-muted"}`}>
-              Also send by email
-            </span>
-            <span id={reasonId} className="block text-xs text-fg-muted">
-              {emailHelper}
-            </span>
-          </label>
-          <Toggle
-            id={emailId}
-            checked={emailOn}
-            onChange={() => onToggle(emailKey)}
-            disabled={saving === emailKey}
-            // The reason this switch is inert (parent notification is off) is
-            // shown via aria-describedby below, so keyboard focus must be able
-            // to reach it — native `disabled` would remove it from the tab
-            // order and leave the reason reachable only in browse mode (#1159).
-            ariaDisabled={!appOn}
-            aria-label={`Also send by email: ${spec.label}`}
-            aria-describedby={reasonId}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1284,6 +1132,7 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
   };
 
   const toggle = async (field: NotifPrefKey | EmailPrefKey) => {
+    if (saving) return;
     const newVal = !prefs[field];
     setSaving(field);
     setError(null);
@@ -1298,30 +1147,51 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Notifications</h2>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm text-fg-tertiary">
-          Choose which events notify you in the app, and which of those are also emailed to you.
-        </p>
-        <p className="text-xs text-fg-muted">
+    <div className="flex flex-col gap-4">
+      <PageHeading
+        level="h3"
+        title="Notifications"
+        description="Choose which events notify you in the app, and which of those are also emailed to you."
+      />
+      <SettingsCard>
+        <p className="text-sm text-fg-secondary">
           An email is a copy of the in-app notification, so the event must be on in the app first.
           Emails go to your account address and are only sent if your administrator has set up
           outgoing email.
         </p>
-      </div>
-      <div className="flex flex-col gap-4">
-        {NOTIF_ROWS.map((spec) => (
-          <NotificationRow
-            key={spec.key}
-            spec={spec}
-            prefs={prefs}
-            saving={saving}
-            onToggle={toggle}
-          />
-        ))}
-      </div>
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+        <div className="mt-3 divide-y divide-line">
+          <SettingTwoSwitchHeader />
+          {NOTIF_ROWS.map((spec) => (
+            <div key={spec.key} role="group" aria-label={spec.label}>
+              {spec.emailKey ? (
+                <SettingTwoSwitchRow
+                  event={spec.label}
+                  description={spec.description}
+                  inApp={prefs[spec.key]}
+                  email={prefs[spec.emailKey]}
+                  inAppBusy={saving === spec.key}
+                  emailBusy={saving === spec.emailKey}
+                  onInAppChange={() => toggle(spec.key)}
+                  onEmailChange={() => toggle(spec.emailKey as EmailPrefKey)}
+                />
+              ) : (
+                // No email counterpart for this event in this release: one switch, in the In-app column.
+                <div className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <p id={`${spec.key}-label`} className="text-sm font-medium text-fg">{spec.label}</p>
+                    <p className="mt-0.5 text-sm text-fg-secondary">{spec.description}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Switch checked={prefs[spec.key]} busy={saving === spec.key} onChange={() => toggle(spec.key)} aria-label={`${spec.label}, in-app`} />
+                    <span className="w-11" aria-hidden="true" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <p role="alert" className="mt-2 text-sm text-danger min-h-5">{error}</p>
+      </SettingsCard>
     </div>
   );
 }
@@ -1344,19 +1214,17 @@ function AppearanceTab() {
   const { preference, setPreference } = useTheme();
 
   return (
-    <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Appearance</h2>
-
-      <div>
-        <p className="text-sm text-fg-tertiary mb-3">Theme</p>
-        <div className="flex flex-col gap-2" role="radiogroup" aria-label="Theme">
+    <div className="flex flex-col gap-4">
+      <PageHeading level="h3" title="Appearance" description="Applies on every device you sign in on." />
+      <SettingsCard title="Theme" headingAs="h4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Theme">
           {THEME_OPTIONS.map(({ value, label, description }) => (
             <label
               key={value}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
+              className={`flex flex-col gap-2 rounded-[10px] border p-3 transition-colors cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                 preference === value
                   ? "border-primary-emphasis bg-primary-emphasis/10"
-                  : "border-line-strong hover:bg-surface-hover/40"
+                  : "border-line-strong hover:bg-surface-hover"
               }`}
             >
               <input
@@ -1367,23 +1235,24 @@ function AppearanceTab() {
                 checked={preference === value}
                 onChange={() => setPreference(value)}
               />
-              <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                preference === value ? "border-primary-emphasis" : "border-line-strong"
-              }`}>
-                {preference === value && (
-                  <span className="w-2 h-2 rounded-full bg-primary-emphasis" />
-                )}
+              {/* Preview: a miniature page and card in that theme (System splits light/dark). */}
+              <span aria-hidden="true" className="flex h-14 overflow-hidden rounded border border-line">
+                {(value === "system" ? ["dark", "light"] : [value]).map((mode) => (
+                  // data-theme scopes the tokens, so the preview shows that theme whichever is active.
+                  <span key={mode} data-theme={mode} className="flex flex-1 items-end gap-1 bg-page p-1.5">
+                    <span className="h-6 flex-1 rounded-sm bg-surface border border-line" />
+                    <span className="h-4 flex-1 rounded-sm bg-surface border border-line" />
+                  </span>
+                ))}
               </span>
               <span>
                 <span className="block text-sm font-medium text-fg">{label}</span>
-                <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
+                <span className="block text-xs text-fg-secondary mt-0.5">{description}</span>
               </span>
             </label>
           ))}
-
         </div>
-      </div>
-
+      </SettingsCard>
     </div>
   );
 }
@@ -1445,81 +1314,62 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Behavior</h2>
-
-      <div>
-        <p className="text-sm text-fg-tertiary mb-3">Card editor</p>
-        <label className="flex items-center justify-between gap-4 cursor-pointer">
-          <span>
-            <span className="block text-sm text-fg">Close editor on Enter</span>
-            <span className="block text-xs text-fg-muted">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
-          </span>
-          <Toggle
-            checked={user.close_editor_on_enter ?? true}
-            onChange={() => toggleCloseOnEnter()}
-            disabled={saving}
-            aria-label="Close editor on Enter"
-          />
-        </label>
-        <p className="text-xs h-4 mt-1">{error && <span className="text-danger">{error}</span>}</p>
-      </div>
-
-      <div className="border-t border-line pt-4">
-        <p className="text-sm text-fg-secondary font-medium mb-3">Onboarding</p>
-        <button
-          disabled={resetting}
-          onClick={handleResetTour}
-          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
+    <div className="flex flex-col gap-4">
+      <PageHeading level="h3" title="Behavior" description="How the card editor and onboarding work for you." />
+      <SettingsCard title="Card editor" headingAs="h4">
+        <SettingSwitchRow
+          label="Close editor on Enter"
+          description="When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default."
+          checked={user.close_editor_on_enter ?? true}
+          busy={saving}
+          onChange={() => { if (!saving) void toggleCloseOnEnter(); }}
+        />
+        <p className="text-xs min-h-4 mt-1" role="alert">{error && <span className="text-danger">{error}</span>}</p>
+      </SettingsCard>
+      <SettingsCard title="Onboarding" headingAs="h4">
+        <Button aria-busy={resetting || undefined} onClick={() => { if (!resetting) void handleResetTour(); }}>
           {resetting ? "Restarting…" : "Restart onboarding tour"}
-        </button>
-        <p className="text-xs h-4 mt-1">
+        </Button>
+        <p className="text-xs min-h-4 mt-2" role="status" aria-live="polite">
           {resetConfirmed && <span className="text-success">Tour will restart on your next visit to a board.</span>}
           {resetError && <span className="text-danger">{resetError}</span>}
         </p>
-      </div>
+      </SettingsCard>
     </div>
   );
 }
 
 function AboutTab() {
   return (
-    <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">About</h2>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-fg-tertiary">Version</span>
-          <span className="font-mono text-xs text-fg-muted">{__APP_VERSION__}</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-fg-tertiary">License</span>
-          <span className="text-xs text-fg-muted">Apache 2.0</span>
-        </div>
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeading level="h3" title="About" description="The version of Visiban you are using." />
+      <SettingsCard>
+        <dl className="flex flex-col gap-3">
+          <div className="flex flex-col gap-0.5">
+            <dt className="text-sm text-fg-secondary">Version</dt>
+            <dd className="font-mono text-sm text-fg">{__APP_VERSION__}</dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="text-sm text-fg-secondary">License</dt>
+            <dd className="text-sm text-fg">Apache 2.0</dd>
+          </div>
+        </dl>
+      </SettingsCard>
     </div>
   );
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "profile", label: "Profile" },
-  { id: "security", label: "Security" },
-  { id: "access-tokens", label: "Access Tokens" },
-  { id: "notifications", label: "Notifications" },
-  { id: "appearance", label: "Appearance" },
-  { id: "behavior", label: "Behavior" },
-  { id: "about", label: "About" },
-];
-
 export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: Location } | null)?.from;
-  const [searchParams] = useSearchParams();
+  // Captured once: switching sections rewrites the URL without router state, and the
+  // post-save and Escape returns still need to know where the user came from.
+  const [from] = useState<Location | undefined>(() => (location.state as { from?: Location } | null)?.from);
+  const [searchParams, setSearchParams] = useSearchParams();
   // A connect round trip (#1314) returns here with ?connected=<provider> or
-  // ?connect_error=<code>&provider=<provider>. Read once, open the Security
-  // tab so the outcome shows on its row, then drop the params from the URL
-  // so a refresh doesn't repeat it.
+  // ?connect_error=<code>&provider=<provider>. Read once, land on Security so
+  // the outcome shows on its row, then drop the params from the URL so a
+  // refresh doesn't repeat it.
   const [connectResult] = useState<ConnectResult | null>(() => {
     const connected = searchParams.get("connected");
     if (connected) return { provider: connected, error: null };
@@ -1527,68 +1377,97 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
     if (connectError) return { provider: searchParams.get("provider") ?? "", error: connectError };
     return null;
   });
-  // ?tab=<id> deep-links a tab (e.g. the lens "Manage connected accounts" link).
-  const requestedTab = TABS.find((t) => t.id === searchParams.get("tab"))?.id;
-  const [activeTab, setActiveTab] = useState<Tab>(connectResult ? "security" : requestedTab ?? "profile");
 
   useEffect(() => {
     if (searchParams.has("connected") || searchParams.has("connect_error")) {
       // void: navigate() can return a Promise in React Router v7; fire-and-forget,
       // there is nothing to roll back if the navigation itself rejects.
-      void navigate(".", { replace: true, state: location.state });
+      void navigate("?tab=security", { replace: true, state: location.state });
     }
   }, [navigate, searchParams, location.state]);
 
-  useEscapeStack(() => {
-    const tag = (document.activeElement as HTMLElement)?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+  // Leave guard: the open section reports unsaved Profile edits or a reveal-once token here.
+  // Leaving (another section, Escape, closing the tab) asks first instead of dropping them.
+  const unsavedRef = useRef<{ profile: boolean; token: boolean }>({ profile: false, token: false });
+  const [leaving, setLeaving] = useState<{ kind: "section"; id: string } | { kind: "leave" } | null>(null);
+  const setProfileUnsaved = useCallback((v: boolean) => { unsavedRef.current.profile = v; }, []);
+  const setTokenUnsaved = useCallback((v: boolean) => { unsavedRef.current.token = v; }, []);
+  const hasUnsaved = () => unsavedRef.current.profile || unsavedRef.current.token;
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedRef.current.profile || unsavedRef.current.token) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+  const goBack = () => {
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // there is nothing to roll back if the navigation itself rejects.
     if (window.history.length > 1) { void navigate(-1); return; }
     void navigate(from ?? "/", { replace: true });
+  };
+  const confirmLeave = () => {
+    const target = leaving;
+    setLeaving(null);
+    if (target?.kind === "section") {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", target.id);
+      setSearchParams(next, { replace: true });
+    } else if (target) {
+      goBack();
+    }
+  };
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    if (hasUnsaved()) { setLeaving({ kind: "leave" }); return; }
+    goBack();
   }, 0);
+
+  // Section ids are the old tab ids, so every existing `?tab=` deep link keeps working.
+  const sections: SettingsSection[] = [
+    { id: "profile", label: "Profile", group: "Account", keywords: ["name", "display name", "username", "email", "timezone", "date format", "time format", "number format", "locale"], render: () => <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} onUnsavedChange={setProfileUnsaved} /> },
+    { id: "security", label: "Security", group: "Account", keywords: ["password", "connected accounts", "google", "github", "gitlab", "oidc", "sign in", "sso"], render: () => <SecurityTab user={user} connectResult={connectResult} onUserUpdated={onUserUpdated} /> },
+    { id: "access-tokens", label: "Access tokens", group: "Account", keywords: ["api", "token", "scopes", "mcp", "pat", "revoke"], render: () => <AccessTokensTab user={user} isSiteAdmin={!!user?.is_site_admin} onUnsavedChange={setTokenUnsaved} /> },
+    { id: "notifications", label: "Notifications", group: "Preferences", keywords: ["email", "in-app", "mentions", "assigned", "due date", "watching", "stale"], render: () => <NotificationsTab user={user} onUserUpdated={onUserUpdated} /> },
+    { id: "appearance", label: "Appearance", group: "Preferences", keywords: ["theme", "dark", "light", "system"], render: () => <AppearanceTab /> },
+    { id: "behavior", label: "Behavior", group: "Preferences", keywords: ["card editor", "enter", "onboarding", "tour"], render: () => <BehaviorTab user={user} onUserUpdated={onUserUpdated} /> },
+    { id: "about", label: "About", group: "Visiban", keywords: ["version", "license"], render: () => <AboutTab /> },
+  ];
 
   return (
     <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Settings" }]} />
 
-      <main className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-        <h1 className="text-fg text-2xl font-bold mb-8">Settings</h1>
-
-        <div className="flex gap-8">
-          {/* Sidebar nav */}
-          <nav className="w-44 shrink-0">
-            <ul className="flex flex-col gap-0.5">
-              {TABS.map((tab) => (
-                <li key={tab.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    aria-current={activeTab === tab.id ? "page" : undefined}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                      activeTab === tab.id
-                        ? "bg-primary text-on-primary font-medium"
-                        : "text-fg-tertiary hover:text-fg hover:bg-surface"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
-            {activeTab === "security" && <SecurityTab user={user} connectResult={connectResult} onUserUpdated={onUserUpdated} />}
-            {activeTab === "access-tokens" && <AccessTokensTab user={user} isSiteAdmin={!!user?.is_site_admin} />}
-            {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
-            {activeTab === "appearance" && <AppearanceTab />}
-            {activeTab === "behavior" && <BehaviorTab user={user} onUserUpdated={onUserUpdated} />}
-            {activeTab === "about" && <AboutTab />}
-          </div>
-        </div>
+      <main className="flex-1 overflow-y-auto">
+        {/* h2 under the app shell, whose header owns the h1 (#2473). */}
+        <SettingsLayout
+          title={
+            <div className="flex flex-col gap-4">
+              <PageHeading title="Your settings" description="Your account, how Visiban notifies you, and how it looks." />
+              {leaving && (
+                <InlineConfirm
+                  message={unsavedRef.current.token
+                    ? "Leave without copying your new access token? It won't be shown again."
+                    : "Leave without saving? Your unsaved profile changes will be discarded."}
+                  actionLabel="Discard"
+                  actionTestId="leave-discard"
+                  onConfirm={confirmLeave}
+                  onCancel={() => setLeaving(null)}
+                />
+              )}
+            </div>
+          }
+          sections={sections}
+          navLabel="Settings sections"
+          defaultId={connectResult ? "security" : undefined}
+          onBeforeSelect={(id) => {
+            if (!hasUnsaved()) return true;
+            setLeaving({ kind: "section", id });
+            return false;
+          }}
+        />
       </main>
     </div>
   );

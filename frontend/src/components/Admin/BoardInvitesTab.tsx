@@ -1,11 +1,11 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { getAdminBoardInviteLinks, revokeAdminBoardInviteLink } from "../../api/auth";
-import { INVITE_ROLE_LABELS, INVITE_STATUS_STYLES } from "../../constants/invites";
+import { INVITE_ROLE_LABELS } from "../../constants/invites";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { AdminBoardInviteLink, AdminBoardInviteStatusFilter } from "../../types";
-import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import { Button, EmptyState, FilterPill, InlineConfirm, ListWell, PageHeading, StatusPill, type StatusTone } from "../Page";
 
 /**
  * Admin → Board Invites (#439): every board's invites — emailed and shareable
@@ -21,8 +21,10 @@ const STATUS_OPTIONS: { value: AdminBoardInviteStatusFilter; label: string }[] =
   { value: "all", label: "All" },
 ];
 
-function statusStyle(status: string): string {
-  return INVITE_STATUS_STYLES[status as keyof typeof INVITE_STATUS_STYLES] ?? INVITE_STATUS_STYLES.revoked;
+const STATUS_TONE: Record<string, StatusTone> = { pending: "pending", used: "on_track", expired: "at_risk", revoked: "off_track" };
+
+function statusTone(status: string): StatusTone {
+  return STATUS_TONE[status] ?? "off_track";
 }
 
 const ALREADY_USED_REVOKE_ERROR = "This invite is no longer pending, so it can't be revoked.";
@@ -37,13 +39,14 @@ function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-export default function BoardInvitesTab() {
+export default function BoardInvitesTab({ onPendingCount }: { onPendingCount?: (n: number) => void } = {}) {
   const [statusFilter, setStatusFilter] = useState<AdminBoardInviteStatusFilter>("pending");
   const [rows, setRows] = useState<AdminBoardInviteLink[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const pendingTotalRef = useRef<number | null>(null);
   const [error, setError] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
@@ -81,6 +84,7 @@ export default function BoardInvitesTab() {
       const data = await getAdminBoardInviteLinks({ status: filter, offset: offsetVal });
       setRows(data.results);
       setTotal(data.count);
+      if (filter === "pending") pendingTotalRef.current = data.count;
       // The server's page size keeps the footer in sync if its default changes.
       setPageSize(data.page_size);
     } catch {
@@ -115,6 +119,11 @@ export default function BoardInvitesTab() {
     setRevokeError(null);
     try {
       await revokeAdminBoardInviteLink(row.id);
+      // The nav count is the pending total; only a pending row was counted in it.
+      if (row.status === "pending" && pendingTotalRef.current !== null) {
+        pendingTotalRef.current = Math.max(0, pendingTotalRef.current - 1);
+        onPendingCount?.(pendingTotalRef.current);
+      }
       setConfirmId(null);
       if (statusFilter === "pending") {
         // No longer pending: it leaves this view.
@@ -154,17 +163,19 @@ export default function BoardInvitesTab() {
   const emptyMessage = statusFilter === "all" ? "No board invites yet." : `No ${statusFilter} board invites.`;
 
   return (
-    <div className="flex flex-col gap-4">
-      <h2 ref={headingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">Board Invites</h2>
+    <>
+      <PageHeading
+        level="h3"
+        title="Board invites"
+        description="Every board's invites, emailed and shareable. Revoke one that leaked."
+        headingRef={headingRef}
+      />
 
-      <div className="flex items-center gap-2">
-        <SingleSelectDropdown<AdminBoardInviteStatusFilter>
-          label="Status"
-          ariaLabel="Status"
-          options={STATUS_OPTIONS}
-          selected={statusFilter}
-          onChange={handleFilterChange}
-        />
+      {/* No per-status counts: the list is filtered on the server and only the selected status is loaded. */}
+      <div role="group" aria-label="Status" className="flex flex-wrap items-center gap-2">
+        {STATUS_OPTIONS.map((o) => (
+          <FilterPill key={o.value} label={o.label} selected={statusFilter === o.value} onClick={() => handleFilterChange(o.value)} />
+        ))}
       </div>
 
       {/* A revoke that lost to a redemption closes its prompt, so its outcome
@@ -178,31 +189,25 @@ export default function BoardInvitesTab() {
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <div>
-          <p role="alert" className="text-sm text-danger mb-2">Failed to load board invites.</p>
-          <button
-            type="button"
-            onClick={() => void fetchRows(statusFilter, offset)}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Try again
-          </button>
+        <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
+          <p role="alert" className="text-sm text-danger-on-tint">Failed to load board invites.</p>
+          <Button variant="secondary" onClick={() => void fetchRows(statusFilter, offset)}>Try again</Button>
         </div>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-fg-muted">{emptyMessage}</p>
+        <EmptyState title={emptyMessage} headingLevel="h3" />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-line">
-            <table className="w-full text-sm">
+          <ListWell>
+            <table className="w-full min-w-[720px] text-sm">
               <thead>
-                <tr className="bg-surface text-fg-tertiary text-xs uppercase tracking-wide">
-                  <th className="text-left px-4 py-2.5 font-medium">Board</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Role</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Delivery</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Status</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Expires</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Created by</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Actions</th>
+                <tr className="text-fg-tertiary text-[13px] uppercase tracking-[0.06em]">
+                  <th className="text-left px-3 py-2 font-semibold">Board</th>
+                  <th className="text-left px-3 py-2 font-semibold">Role</th>
+                  <th className="text-left px-3 py-2 font-semibold">Delivery</th>
+                  <th className="text-left px-3 py-2 font-semibold">Status</th>
+                  <th className="text-left px-3 py-2 font-semibold">Expires</th>
+                  <th className="text-left px-3 py-2 font-semibold">Created by</th>
+                  <th className="text-left px-3 py-2 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,16 +217,16 @@ export default function BoardInvitesTab() {
                   const inFlight = revokingId === row.id;
                   return (
                     <Fragment key={row.id}>
-                      <tr className="border-t border-line-subtle hover:bg-surface/50 transition">
-                        <td className="px-4 py-2.5 text-fg">
+                      <tr className="hover:bg-surface transition-colors">
+                        <td className="px-3 py-2 text-fg">
                           <div className="max-w-[14rem] truncate" title={row.board_name}>{row.board_name}</div>
                         </td>
-                        <td className="px-4 py-2.5 text-fg-secondary">{INVITE_ROLE_LABELS[row.role] ?? row.role}</td>
-                        <td className="px-4 py-2.5 text-fg-secondary">{row.delivery === "email" ? "Email" : "Link"}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-3 py-2 text-fg-secondary">{INVITE_ROLE_LABELS[row.role] ?? row.role}</td>
+                        <td className="px-3 py-2 text-fg-secondary">{row.delivery === "email" ? "Email" : "Link"}</td>
+                        <td className="px-3 py-2">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${statusStyle(row.status)}`}>
-                              {capitalize(row.status)}
+                            <span className={row.status === "revoked" ? "line-through" : undefined}>
+                              <StatusPill tone={statusTone(row.status)} label={capitalize(row.status)} />
                             </span>
                             {pending && !row.can_register && (
                               <span
@@ -233,59 +238,41 @@ export default function BoardInvitesTab() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-fg-muted">{formatDate(row.expires_at)}</td>
-                        <td className="px-4 py-2.5 text-fg-secondary">
+                        <td className="px-3 py-2 text-fg-muted">{formatDate(row.expires_at)}</td>
+                        <td className="px-3 py-2 text-fg-secondary">
                           {row.created_by_username ?? (
-                            <span className="text-fg-muted" title="Account removed">
-                              <span aria-hidden="true">—</span>
-                              <span className="sr-only">Account removed</span>
-                            </span>
+                            <span className="text-fg-secondary">Account removed</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-3 py-2">
                           {pending && !isConfirming && (
-                            <button
-                              ref={revokeTriggerRef(row.id)}
-                              type="button"
+                            <Button
+                              variant="quiet"
+                              buttonRef={revokeTriggerRef(row.id)}
                               onClick={() => { setRevokeError(null); setConfirmId(row.id); }}
                               aria-label={`Revoke invite ${row.prefix} for ${row.board_name}`}
-                              className="text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                             >
                               Revoke
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>
                       {isConfirming && (
                         <tr>
-                          <td colSpan={7} className="px-4 pb-2.5">
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="text-fg-tertiary">
-                                {row.delivery === "email"
-                                  ? `Revoke this invite to ${row.board_name}? The person it was emailed to will no longer be able to join.`
-                                  : `Revoke this invite link to ${row.board_name}? Anyone holding it will no longer be able to join.`}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => void handleRevoke(row)}
-                                disabled={inFlight}
-                                className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { if (inFlight) return; setConfirmId(null); setRevokeError(null); }}
-                                disabled={inFlight}
-                                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                              >
-                                Cancel
-                              </button>
-                              {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
-                              <p role="status" aria-live="polite" aria-atomic="true" className={revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? "basis-full text-xs text-danger mt-1" : "sr-only"}>
-                                {revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? revokeError.message : ""}
-                              </p>
-                            </div>
+                          <td colSpan={7} className="px-3 pb-2">
+                            <InlineConfirm
+                              message={row.delivery === "email"
+                                ? `Revoke this invite to ${row.board_name}? The person it was emailed to will no longer be able to join.`
+                                : `Revoke this invite link to ${row.board_name}? Anyone holding it will no longer be able to join.`}
+                              actionLabel="Revoke invite"
+                              busy={inFlight}
+                              onConfirm={() => void handleRevoke(row)}
+                              onCancel={() => { if (inFlight) return; setConfirmId(null); setRevokeError(null); }}
+                            />
+                            {/* Failure slot only (#2232): the question is announced by useConfirmAnnouncement. */}
+                            <p role="status" aria-live="polite" aria-atomic="true" className={revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? "mt-1 text-xs text-danger" : "sr-only"}>
+                              {revokeError?.id === row.id && revokeError.message === GENERIC_REVOKE_ERROR ? revokeError.message : ""}
+                            </p>
                           </td>
                         </tr>
                       )}
@@ -294,36 +281,19 @@ export default function BoardInvitesTab() {
                 })}
               </tbody>
             </table>
-          </div>
+          </ListWell>
 
-          <div className="flex items-center justify-between text-sm text-fg-tertiary">
-            <span>{total} {total === 1 ? "invite" : "invites"}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-fg-secondary">
+            <span>Showing {offset + 1}–{Math.min(offset + rows.length, total)} of {total}</span>
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => changeOffset(Math.max(0, offset - pageSize))}
-                  disabled={offset === 0}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  ← Prev
-                </button>
-                <span className="text-xs">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => changeOffset(Math.min((totalPages - 1) * pageSize, offset + pageSize))}
-                  disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Next →
-                </button>
+                <Button variant="quiet" onClick={() => changeOffset(Math.max(0, offset - pageSize))} disabled={offset === 0}>Previous</Button>
+                <Button variant="quiet" onClick={() => changeOffset(Math.min((totalPages - 1) * pageSize, offset + pageSize))} disabled={currentPage === totalPages}>Next</Button>
               </div>
             )}
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

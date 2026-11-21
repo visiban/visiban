@@ -52,7 +52,7 @@ In the hosted demo the status cannot be changed.
 A status that nobody looks at goes stale silently. To catch that, set **Review status every** *N* **days** (1 to 365):
 
 - **Board:** **Board Settings** → **Health status**, below **Card aging settings**. Board admins only.
-- **Group:** the group page's **Settings** tab → **Health status review**. Group admins only.
+- **Group:** the group page's **Group settings** → **Health status review**. Group admins only.
 
 Leave it empty to turn it off, the default.
 

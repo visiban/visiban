@@ -194,6 +194,8 @@ test.describe('anchored filter menus (#1482)', () => {
     )
     await page.goto('/admin?tab=users')
     await page.getByRole('button', { name: /deactivate/i }).first().click()
+    // A user who owns boards: the inline confirm opens the transfer dialog (#2476).
+    await page.getByRole('button', { name: 'Transfer boards…' }).click()
     const inputs = page.getByPlaceholder('Search for a member…')
     await inputs.last().scrollIntoViewIfNeeded()
     await inputs.last().fill('ca')

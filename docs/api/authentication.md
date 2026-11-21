@@ -980,7 +980,7 @@ Every field describes the instance, not the caller, so anonymous and signed-in r
 !!! note "The maintenance notice is public"
     Anyone can read this endpoint, so `maintenance_message` is visible without signing in. An anonymous write during maintenance also gets the same notice in its `503` body. Do not put internal detail in the notice.
 
-Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
+Site admins can change the registration mode in **Site admin → General**. See [Site Admins](../administration/site-admins.md).
 
 ---
 

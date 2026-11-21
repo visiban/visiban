@@ -44,7 +44,9 @@ export interface ShellNavData {
    */
   addBoard: (board: Board) => void;
   removeBoard: (boardId: number) => void;
+  /** Adds the group, or merges it over the listed one (a rename). */
   addGroup: (group: Group) => void;
+  removeGroup: (groupId: number) => void;
 }
 
 export const EMPTY_SHELL_NAV_DATA: ShellNavData = {
@@ -56,6 +58,7 @@ export const EMPTY_SHELL_NAV_DATA: ShellNavData = {
   addBoard: () => {},
   removeBoard: () => {},
   addGroup: () => {},
+  removeGroup: () => {},
 };
 
 export const ShellNavDataContext = createContext<ShellNavData>(EMPTY_SHELL_NAV_DATA);

@@ -93,7 +93,7 @@ export default {
         "palette-teal": "rgb(13 148 136 / <alpha-value>)",
         "palette-violet": "rgb(124 58 237 / <alpha-value>)",
         "palette-rose": "rgb(225 29 72 / <alpha-value>)",
-        "palette-emerald": "rgb(5 150 105 / <alpha-value>)",
+        "palette-emerald": "rgb(4 120 87 / <alpha-value>)", /* emerald-700: white text 5.48:1 (emerald-600 was 3.77) */
         "palette-cyan": "rgb(8 145 178 / <alpha-value>)",
         "palette-purple": "rgb(147 51 234 / <alpha-value>)",
         "palette-purple-deep": "rgb(88 28 135 / <alpha-value>)",     /* purple-900 — site admin badge bg */

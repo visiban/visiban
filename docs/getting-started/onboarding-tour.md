@@ -40,7 +40,7 @@ PATCH /api/v1/auth/me/
 { "has_completed_tour": false }
 ```
 
-**Site admins, for anyone:** click **Restart onboarding tour** next to the user in the Admin panel's Users tab (see [Admin Panel](../administration/admin-panel.md#restart-onboarding-tour)). The button appears only for users who have already completed the tour. It calls the same Admin API as the other admin user actions:
+**Site admins, for anyone:** click **Restart onboarding tour** next to the user under **Site admin → Users** (see [Admin Panel](../administration/admin-panel.md#restart-onboarding-tour)). The button appears only for users who have already completed the tour. It calls the same Admin API as the other admin user actions:
 
 ```
 PATCH /api/v1/admin/users/{id}/

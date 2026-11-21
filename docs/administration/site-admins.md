@@ -30,12 +30,12 @@ To let a user manage the admin panel **without** seeing all boards and groups, g
 # Grant admin panel access only — board/group access unchanged
 python manage.py set_site_admin <username>
 # Then immediately revoke content access if the user should not have it:
-# (Site Admin → Users → Revoke all-content in the admin panel)
+# (Site admin → Users → Revoke all-content in the admin panel)
 ```
 
 Or use **Make admin** in the admin panel, which sets `is_site_admin` alone.
 
-To let a user (e.g. a support engineer) see all boards **without** admin panel access, a superuser enables `can_access_all_content` in the admin panel (**Site Admin → Users → Grant all-content**) and leaves `is_site_admin` off.
+To let a user (e.g. a support engineer) see all boards **without** admin panel access, a superuser enables `can_access_all_content` in the admin panel (**Site admin → Users → Grant all-content**) and leaves `is_site_admin` off.
 
 > **Changed in 1.3** (#1830)
 
@@ -58,10 +58,10 @@ python manage.py set_site_admin <username>
 python manage.py set_site_admin <username> --revoke
 ```
 
-To manage the flags independently for accounts that are not superusers, use **Site Admin → Users** in the admin panel. Granting all-content access there takes a superuser.
+To manage the flags independently for accounts that are not superusers, use **Site admin → Users** in the admin panel. Granting all-content access there takes a superuser.
 
 !!! note
-    Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave `can_access_all_content` off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). **Site Admin → Users** therefore does not show **Demote admin** or **Revoke all-content** on a superuser's row.
+    Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave `can_access_all_content` off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). **Site admin → Users** therefore does not show **Demote admin** or **Revoke all-content** on a superuser's row.
     Existing superusers that have `can_access_all_content` switched off regain it the next time their account is saved, for example at sign-in.
 
 ## First site admin
@@ -72,7 +72,7 @@ On first boot, the `ensure_site_admin` management command creates an admin accou
 
 **Admin panel (recommended)**
 
-Go to **Site Admin → Users** (`/admin`), find the user, and click **Make admin** in their row.
+Go to **Site admin → Users** (`/admin`), find the user, and click **Make admin** in their row.
 
 **Management command**
 
@@ -91,7 +91,7 @@ The user form at `/admin/accounts/user/` (the Django admin — see [Django Admin
 
 **Admin panel (recommended)**
 
-Go to **Site Admin → Users** (`/admin`), find the user, and click **Demote admin** in their row.
+Go to **Site admin → Users** (`/admin`), find the user, and click **Demote admin** in their row.
 
 **Management command**
 
@@ -107,7 +107,7 @@ python manage.py set_site_admin <username> --revoke
 
 ## Restricting registration
 
-By default, anyone can create an account. Change this in the admin panel's **Settings** tab (`/admin`):
+By default, anyone can create an account. Change this under **Site admin → General** (`/admin`):
 
 | Mode | Effect |
 |---|---|
@@ -120,20 +120,20 @@ The change takes effect immediately — no restart required.
 **What changes when invite-only or closed is enabled:**
 
 - **Invite-only:** `POST /api/v1/auth/registration/` refuses a sign-up without a valid invite token with `400 Bad Request`, and OAuth sign-up (Google, GitHub, GitLab, OIDC) is refused the same way. With a valid invite — a site invite link, or *(1.2+)* an emailed group or board invite sent by a site admin — both work.
-- **Closed:** `POST /api/v1/auth/registration/` returns `403 Forbidden` for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is **Admin → Users → Add user**.
+- **Closed:** `POST /api/v1/auth/registration/` returns `403 Forbidden` for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is **Site admin → Users → Add user**.
 - Existing users, including OAuth-linked accounts, can still log in either way.
 - The sign-in card says *"Registration is invite-only."* (invite-only) or *"Registration is closed. Ask an admin for an account."* (closed). In register mode, it also says *"An invite link is required to create an account."*
 
 **Inviting users when invite-only is on:**
 
-Go to **Site Admin → Invite Links** to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.
+Go to **Site admin → Invite links** to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.
 
 *(1.2+)* A site invite link creates accounts only while the admin who created it is still an active site admin. These stop their links from working:
 
 - deactivating or deleting that admin (by any means, including the Django admin's **Active** checkbox)
 - removing their site admin status (**Demote admin** in the admin panel, `set_site_admin --revoke`, or removing their superuser status in the Django admin)
 
-**Site Admin → Invite Links** then lists those links as **Revoked** and no longer counts them toward the 50-link limit. **Demote admin**, `set_site_admin --revoke`, removing superuser status and deactivation from the admin panel also mark the pending links revoked.
+**Site admin → Invite links** then lists those links as **Revoked** and no longer counts them toward the 50-link limit. **Demote admin**, `set_site_admin --revoke`, removing superuser status and deactivation from the admin panel also mark the pending links revoked.
 
 **Yes, but:** a link shown as **Revoked** only because its creator lost standing is not permanently revoked. If the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the **Revoke** action is shown only for pending links), or at any time through `DELETE /api/v1/admin/invite-links/{id}/` (see the [Admin API](../api/admin.md)).
 
@@ -154,7 +154,7 @@ Emailed invites from group admins who are not site admins, and every shareable g
 
 > **Added in 1.2**
 
-**Shareable board invite links never create accounts on an invite-only instance** — not even one a site admin created. They let people who already have an account join the board; on an **open** instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under **Site Admin → Board Invites** (see [Admin Panel](admin-panel.md#board-invites-tab)).
+**Shareable board invite links never create accounts on an invite-only instance** — not even one a site admin created. They let people who already have an account join the board; on an **open** instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under **Site admin → Board invites** (see [Admin Panel](admin-panel.md#board-invites-section)).
 
 > **Added in 1.2**
 
@@ -175,17 +175,17 @@ Emailed invites from group admins who are not site admins, and every shareable g
 - **Shareable links are unchanged.** They are not tied to anyone and work for whoever holds them, within their role, expiry and single-use settings. Use a shareable link when you want "link, not email" behavior.
 - **Invites emailed before the upgrade** carry no fingerprint and keep working for whoever holds them until they are used, expire or are revoked. Revoke and resend any you want tied to an address.
 - **Changing `DJANGO_SECRET_KEY`** makes pending emailed site, group and board invites unusable, because their fingerprints no longer match. Resend them after a key change. Visiban has no environment variable for keeping an old key around. If you set Django's `SECRET_KEY_FALLBACKS` in your own settings override, invites made under a key listed there keep matching.
-- *(New in 1.2)* **Emailed site invites** (**Invite by email** under **Site Admin → Invite Links**) are bound the same way (#1703): the sign-up address, or the address the OAuth provider reports, must be the invited one, and a mismatch leaves the invite unused. Shareable site invite links are not tied to an address, and neither are site invites emailed before the upgrade.
+- *(New in 1.2)* **Emailed site invites** (**Invite by email** under **Site admin → Users → Invite people**) are bound the same way (#1703): the sign-up address, or the address the OAuth provider reports, must be the invited one, and a mismatch leaves the invite unused. Shareable site invite links are not tied to an address, and neither are site invites emailed before the upgrade.
 
 > **Added in 1.2**
 
-Site admins can also have Visiban **email an invite** straight to an address. Under **Site Admin → Invite Links**, enter the address in **Invite by email** and select **Send invite** (also available as `POST /api/v1/admin/invite-links/send/`; see the [Admin API](../api/admin.md)).
+Site admins can also have Visiban **email an invite** straight to an address. Under **Site admin → Users**, select **Invite people**, enter the address in **Invite by email** and select **Send invite** (also available as `POST /api/v1/admin/invite-links/send/`; see the [Admin API](../api/admin.md)).
 
 - **What it creates:** a single-use link that expires in 7 days (the API also accepts 1 or 30), sent from the instance's sender address.
 - **Limits:** emailed links have their own limit of 200 pending, and don't count against the 50 shareable links.
 - **What's stored:** the address is not stored. The `202` response includes `already_registered`, saying whether it already belongs to an account (the email is sent either way), and never the raw token.
 - **On failure:** if the mail server rejects the message, the endpoint returns `502` with a sanitized error `code` and revokes the link automatically.
-- **Availability:** `invite_email_available` on `GET /api/v1/auth/site-config/` tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). If emailing isn't available (email isn't set up, or `INVITE_EMAIL_ENABLED` is off), the section points you to **Settings → Email** instead; on a demo site it just says email invites are disabled.
+- **Availability:** `invite_email_available` on `GET /api/v1/auth/site-config/` tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with `INVITE_EMAIL_ENABLED=false` (see [Configuration](configuration.md)). If emailing isn't available (email isn't set up, or `INVITE_EMAIL_ENABLED` is off), the section points you to **Site admin → Email** instead; on a demo site it just says email invites are disabled.
 - **Binding:** the invite is bound to the address you entered. Only a sign-up with that address (capitalization and surrounding spaces ignored) can use it.
 
 **Yes, but:** following the link does not verify the recipient's address. Registration still follows the normal email-verification setting.

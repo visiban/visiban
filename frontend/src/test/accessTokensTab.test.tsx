@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PersonalAccessToken, CreatedPersonalAccessToken } from '../types'
 
@@ -81,7 +81,7 @@ function renderPage() {
 }
 
 async function switchToAccessTokensTab() {
-  const tab = screen.getByRole('button', { name: 'Access Tokens' })
+  const tab = screen.getByRole('button', { name: 'Access tokens' })
   await userEvent.click(tab)
 }
 
@@ -93,7 +93,7 @@ describe('AccessTokensTab', () => {
 
   it('renders the tab navigation item', () => {
     renderPage()
-    expect(screen.getByRole('button', { name: 'Access Tokens' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Access tokens' })).toBeInTheDocument()
   })
 
   it('shows no-tokens message when list is empty', async () => {
@@ -190,7 +190,7 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId('token-scope-read'))
     await userEvent.click(screen.getByTestId('token-scope-write'))
     expect(screen.getByTestId('token-scopes-error')).toBeInTheDocument()
-    expect(screen.getByTestId('create-token-button')).toBeDisabled()
+    expect(screen.getByTestId('create-token-button')).toHaveAttribute('aria-disabled', 'true')
     fireEvent.submit(screen.getByTestId('create-token-form'))
     expect(mockCreateToken).not.toHaveBeenCalled()
   })
@@ -214,7 +214,7 @@ describe('AccessTokensTab', () => {
     mockListTokens.mockResolvedValue([token1, token2])
     renderPage()
     await switchToAccessTokensTab()
-    await waitFor(() => expect(screen.getByTestId('token-scopes-1')).toHaveTextContent('read, write'))
+    await waitFor(() => expect(screen.getByTestId('token-scopes-1')).toHaveTextContent('readwrite'))
     expect(screen.getByTestId('token-scopes-2')).toHaveTextContent('Legacy: full REST access')
   })
 
@@ -317,7 +317,23 @@ describe('AccessTokensTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('max-tokens-notice')).toBeInTheDocument()
     })
-    expect(screen.queryByTestId('create-token-form')).not.toBeInTheDocument()
+    // The form stays; New token is disabled and the notice says why (#2477).
+    expect(screen.getByTestId('create-token-button')).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('mcp:write turns on and locks mcp:read (#2477)', async () => {
+    mockCreateToken.mockResolvedValue({ ...token1, token: 'vbn_x' })
+    renderPage()
+    await switchToAccessTokensTab()
+    await waitFor(() => expect(screen.getByTestId('token-scopes')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('token-scope-mcp:write'))
+    expect(screen.getByTestId('token-scope-mcp:read')).toBeChecked()
+    expect(screen.getByTestId('token-scope-mcp:read')).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(screen.getByTestId('token-scope-mcp:read'))
+    expect(screen.getByTestId('token-scope-mcp:read')).toBeChecked()
+    await userEvent.type(screen.getByTestId('token-name-input'), 'mcp', { delay: null })
+    await userEvent.click(screen.getByTestId('create-token-button'))
+    await waitFor(() => expect(mockCreateToken).toHaveBeenCalledWith('mcp', undefined, ['read', 'write', 'mcp:read', 'mcp:write']))
   })
 
   it('Escape cancels the revoke confirm without navigating away (#1238)', async () => {
@@ -343,6 +359,7 @@ describe('AccessTokensTab', () => {
     const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
     expect(confirm).toHaveTextContent('Revoking…')
     expect(confirm).toBeDisabled()
+    expect(confirm).toHaveAttribute('aria-busy', 'true')
     // A second click while pending sends no second request (#1435).
     fireEvent.click(confirm)
     expect(mockRevokeToken).toHaveBeenCalledTimes(1)
@@ -363,5 +380,75 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
     expect(await screen.findByText('Failed to revoke token. Please try again.')).toBe(slot)
     expect(screen.getByTestId(`confirm-revoke-${token1.id}`)).not.toBeDisabled()
+  })
+})
+
+describe('access token leave guard and phone layout (#2477)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  async function revealToken() {
+    mockCreateToken.mockResolvedValue({ ...token1, token: 'vbn_secret' })
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    await userEvent.type(await screen.findByTestId('token-name-input'), 'CI', { delay: null })
+    await userEvent.click(screen.getByTestId('create-token-button'))
+    await screen.findByTestId('new-token-reveal')
+  }
+
+  it('warns the token will not be shown again before leaving the section; Cancel keeps it', async () => {
+    await revealToken()
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    expect(screen.getByRole('group', { name: 'Discard' })).toHaveTextContent("It won't be shown again")
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId('new-token-reveal')).toBeInTheDocument()
+  })
+
+  it('Discard leaves the section and the token is gone', async () => {
+    await revealToken()
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    await userEvent.click(screen.getByTestId('leave-discard'))
+    expect(screen.queryByTestId('new-token-reveal')).not.toBeInTheDocument()
+  })
+
+  it('no guard once the token is dismissed', async () => {
+    await revealToken()
+    await userEvent.click(screen.getByTestId('dismiss-token'))
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+  })
+
+  it('announces Copied in a status region after copying', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    await revealToken()
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await userEvent.click(screen.getByTestId('copy-token'))
+    await waitFor(() => expect(screen.getByTestId('copied-status')).toHaveTextContent('Copied'))
+  })
+
+  it('stacks token rows on phones with full-width 44px actions and 44px scope targets', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    const row = await screen.findByTestId(`token-row-${token1.id}`)
+    expect(row.className).toContain('max-sm:flex-col')
+    expect(screen.getByTestId('token-list').className).not.toContain('overflow-x-auto')
+    expect(screen.getByTestId(`revoke-${token1.id}`).className).toContain('max-sm:h-11')
+    expect(screen.getByTestId('token-scope-read').closest('label')?.className).toContain('max-sm:min-h-11')
+  })
+
+  // #2477 — a real table on desktop: a column header per column, Scopes included.
+  it('renders the token list as a table with Name, Scopes, Created, Expires and Actions columns', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    const table = await screen.findByRole('table', { name: 'Access tokens' })
+    const headers = within(table).getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers).toEqual(['Name', 'Scopes', 'Created', 'Expires', 'Actions'])
+    for (const h of within(table).getAllByRole('columnheader')) expect(h).toHaveAttribute('scope', 'col')
+    const row = within(table).getByTestId(`token-row-${token1.id}`)
+    expect(within(row).getAllByRole('cell')).toHaveLength(5)
+    expect(within(row).getByTestId(`token-scopes-${token1.id}`)).toBeInTheDocument()
+    expect(within(row).getByRole('button', { name: `Revoke ${token1.name}` })).toBeInTheDocument()
   })
 })

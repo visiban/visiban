@@ -84,6 +84,21 @@ function renderSettings(user: User = fakeUser, locationState?: object) {
   )
 }
 
+
+// Section nav button (the name also appears as the page's section heading and the phone select).
+function navBtn(name: string) {
+  return within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name })
+}
+
+// Profile saves from a sticky Save bar that only shows while the form has unsaved changes
+// (#2477), so every save first edits a field (a fresh value each time) and returns the button.
+let editCount = 0
+function saveBtn() {
+  editCount += 1
+  fireEvent.change(screen.getByLabelText('Last name'), { target: { value: `Doe-${editCount}` } })
+  return screen.getByRole('button', { name: 'Save profile' })
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -97,9 +112,47 @@ describe('SettingsPage', () => {
     vi.useRealTimers()
   })
 
-  it('renders the Settings heading', () => {
+  it('renders the page heading as an h2 (the shell header owns the h1) and groups the nav (#2477)', () => {
     renderSettings()
-    expect(screen.getByText('Settings')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Your settings' })).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' })
+    expect(within(nav).getByText('Account')).toBeInTheDocument()
+    expect(within(nav).getByText('Preferences')).toBeInTheDocument()
+    expect(within(nav).getByText('Visiban')).toBeInTheDocument()
+    expect(within(nav).getByRole('button', { name: 'Access tokens' })).toBeInTheDocument()
+  })
+
+  it('every old tab id still deep-links its section, and Find a setting filters the nav (#2477)', async () => {
+    vi.stubGlobal('__APP_VERSION__', 'test')
+    const ids: Array<[string, string]> = [
+      ['profile', 'Profile'], ['security', 'Security'], ['access-tokens', 'Access tokens'],
+      ['notifications', 'Notifications'], ['appearance', 'Appearance'], ['behavior', 'Behavior'], ['about', 'About'],
+    ]
+    for (const [id, label] of ids) {
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[`/settings?tab=${id}`]}>
+          <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+        </MemoryRouter>,
+      )
+      const nav = screen.getByRole('navigation', { name: 'Settings sections' })
+      expect(within(nav).getByRole('button', { name: label })).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByRole('heading', { level: 3, name: label })).toBeInTheDocument()
+      unmount()
+    }
+    renderSettings()
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'theme')
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' })
+    expect(within(nav).getByRole('button', { name: 'Appearance' })).toBeInTheDocument()
+    expect(within(nav).queryByRole('button', { name: 'Profile' })).not.toBeInTheDocument()
+  })
+
+  it('the OAuth return (?connected=) lands on Security and then drops the params (#2477)', () => {
+    render(
+      <MemoryRouter initialEntries={['/settings?connected=github']}>
+        <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    expect(mockNavigate).toHaveBeenCalledWith('?tab=security', expect.objectContaining({ replace: true }))
   })
 
   it('sidebar tabs carry a focus ring and mark the active tab with aria-current (#439)', () => {
@@ -151,8 +204,7 @@ describe('SettingsPage', () => {
     const user = userEvent.setup()
     renderSettings()
     // Click the Security tab in the sidebar nav
-    const securityTab = screen.getAllByText('Security')[0]
-    await user.click(securityTab)
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Security' }))
     expect(screen.getByText('New password')).toBeInTheDocument()
     expect(screen.getByText('Confirm new password')).toBeInTheDocument()
   })
@@ -160,14 +212,14 @@ describe('SettingsPage', () => {
   it('tab navigation: clicking Notifications shows notification toggles', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Notifications' }))
     expect(screen.getByText(/Choose which events notify you in the app/)).toBeInTheDocument()
   })
 
   it('tab navigation: clicking Appearance shows theme options', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Appearance'))
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
     expect(screen.getByText('Theme')).toBeInTheDocument()
     expect(screen.getByText('System')).toBeInTheDocument()
     expect(screen.getByText('Dark')).toBeInTheDocument()
@@ -203,7 +255,7 @@ describe('ProfileTab', () => {
     const displayNameInput = screen.getByPlaceholderText('How you appear on the board')
     await user.clear(displayNameInput)
     await user.type(displayNameInput, 'Updated Name')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
       expect.objectContaining({ display_name: 'Updated Name' }),
@@ -215,7 +267,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(screen.getByText('Changes saved.')).toBeInTheDocument())
   })
 
@@ -225,7 +277,7 @@ describe('ProfileTab', () => {
     renderSettings()
     // Use fireEvent (synchronous) so we don't depend on userEvent's internal timers
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      fireEvent.click(saveBtn())
       // Flush the resolved promise from mockUpdateCurrentUser
       await Promise.resolve()
       await Promise.resolve()
@@ -243,7 +295,7 @@ describe('ProfileTab', () => {
     const fromLocation = { pathname: '/boards/1', search: '', hash: '', state: null, key: 'abc' }
     renderSettings(fakeUser, { from: fromLocation })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      fireEvent.click(saveBtn())
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -256,7 +308,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
     renderSettings(fakeUser) // no location state
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      fireEvent.click(saveBtn())
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -293,7 +345,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockRejectedValueOnce(new Error('Server error'))
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() =>
       expect(screen.getByText('Failed to save changes. Please try again.')).toBeInTheDocument(),
     )
@@ -305,7 +357,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: 'new@example.com' })
     renderSettings()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+      fireEvent.click(saveBtn())
       await Promise.resolve()
       await Promise.resolve()
     })
@@ -325,7 +377,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
     const user = userEvent.setup()
     renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser.mock.calls[0][0]).not.toHaveProperty('email')
   })
@@ -338,7 +390,7 @@ describe('ProfileTab', () => {
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
     await user.type(screen.getByLabelText('Current password'), 'my-password')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'other@example.com' }),
@@ -358,7 +410,7 @@ describe('ProfileTab', () => {
     expect(password).toBeRequired()
     expect(password).toHaveAccessibleDescription("Required to change your email address, to confirm it's you.")
     await user.type(password, 'my-password')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'other@example.com', current_password: 'my-password' }),
@@ -379,7 +431,7 @@ describe('ProfileTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(fakeUser)
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser.mock.calls[0][0]).not.toHaveProperty('current_password')
   })
@@ -392,7 +444,7 @@ describe('ProfileTab', () => {
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
     expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1))
     expect(mockUpdateCurrentUser.mock.calls[0][0]).not.toHaveProperty('current_password')
   })
@@ -406,7 +458,7 @@ describe('ProfileTab', () => {
     const emailInput = screen.getByDisplayValue('j@example.com')
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     expect(
       await screen.findByText(/To change your email address, sign out, sign in again with your sign-in provider/),
     ).toBeInTheDocument()
@@ -427,7 +479,7 @@ describe('ProfileTab', () => {
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
     await user.type(screen.getByLabelText('Current password'), 'wrong')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     const password = screen.getByLabelText('Current password')
     // Tied to the field: helper slot, aria-invalid, focus; not the status line.
     await waitFor(() =>
@@ -442,7 +494,7 @@ describe('ProfileTab', () => {
       screen.getAllByText('Your current password was entered incorrectly. Please enter it again.'),
     ).toHaveLength(1)
     expect(screen.getByText('Your current password was entered incorrectly. Please enter it again.'))
-      .toHaveAttribute('id', 'email-password-hint')
+      .toHaveClass('text-danger')
   })
 
   it('clears the password on any failed save and refocuses the field', async () => {
@@ -453,7 +505,7 @@ describe('ProfileTab', () => {
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
     await user.type(screen.getByLabelText('Current password'), 'my-password')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     expect(await screen.findByText('Failed to save changes. Please try again.')).toBeInTheDocument()
     const password = screen.getByLabelText('Current password')
     expect(password).toHaveValue('')
@@ -488,14 +540,14 @@ describe('ProfileTab', () => {
     await user.clear(emailInput)
     await user.type(emailInput, 'other@example.com')
     expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     const password = await screen.findByLabelText('Current password')
     await waitFor(() => expect(password).toHaveFocus())
     expect(password).toHaveAccessibleDescription(
       'Enter your current password to change your email address.',
     )
     await user.type(password, 'my-password')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(2))
     expect(mockUpdateCurrentUser.mock.calls[1][0]).toEqual(
       expect.objectContaining({ email: 'other@example.com', current_password: 'my-password' }),
@@ -507,26 +559,18 @@ describe('ProfileTab', () => {
     expect(screen.getByText(/we sent a link to new@example\.com/)).toBeInTheDocument()
   })
 
-  it('reserves the pending-note slot and keeps aria-describedby stable when nothing is pending', () => {
+  it('shows no "Email change pending" card when nothing is pending', () => {
     renderSettings({ ...fakeUser, pending_email: null })
-    const note = screen.getByTestId('pending-email-note')
-    expect(note).toBeInTheDocument()
-    expect(note).toBeEmptyDOMElement()
-    expect(note).toHaveAttribute('id', 'pending-email-note')
-    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
-      'aria-describedby',
-      'pending-email-note',
-    )
+    expect(screen.queryByTestId('pending-email-note')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Email change pending' })).not.toBeInTheDocument()
     expect(screen.queryByText(/we sent a link to/)).not.toBeInTheDocument()
   })
 
-  it('aria-describedby points at the same note id while a change is pending', () => {
+  it('an "Email change pending" card names the new address while a change is pending', () => {
     renderSettings({ ...fakeUser, pending_email: 'new@example.com' })
-    expect(screen.getByDisplayValue('j@example.com')).toHaveAttribute(
-      'aria-describedby',
-      'pending-email-note',
-    )
+    expect(screen.getByRole('heading', { name: 'Email change pending' })).toBeInTheDocument()
     expect(screen.getByTestId('pending-email-note')).toHaveTextContent(/new@example\.com/)
+    expect(screen.getByDisplayValue('j@example.com')).toBeInTheDocument()
   })
 
   it('announces the save result through a polite, atomic live region', async () => {
@@ -536,7 +580,7 @@ describe('ProfileTab', () => {
     const status = screen.getByRole('status')
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status).toHaveAttribute('aria-atomic', 'true')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() => expect(status).toHaveTextContent('Changes saved.'))
   })
 
@@ -546,7 +590,7 @@ describe('ProfileTab', () => {
     })
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() =>
       expect(screen.getByText('That username is already taken.')).toBeInTheDocument(),
     )
@@ -559,10 +603,10 @@ describe('ProfileTab', () => {
     )
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled()
+    await user.click(saveBtn())
+    expect(await screen.findByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
     resolveUpdate(fakeUser)
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument())
+    await waitFor(() => expect(saveBtn()).toBeInTheDocument())
   })
 })
 
@@ -586,13 +630,13 @@ describe('ProfileTab — pending email actions', () => {
     return onUserUpdated
   }
 
-  it('shows Resend link and Cancel change only while a change is pending', () => {
+  it('shows Resend and Cancel change only while a change is pending', () => {
     const { unmount } = renderSettings({ ...fakeUser, pending_email: null })
-    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resend' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
     unmount()
     renderPending()
-    expect(screen.getByRole('button', { name: 'Resend link' })).toHaveAttribute('type', 'button')
+    expect(screen.getByRole('button', { name: 'Resend' })).toHaveAttribute('type', 'button')
     expect(screen.getByRole('button', { name: 'Cancel change' })).toHaveAttribute('type', 'button')
   })
 
@@ -603,16 +647,16 @@ describe('ProfileTab — pending email actions', () => {
 
   it('both actions are described by the pending note', () => {
     renderPending()
-    for (const name of ['Resend link', 'Cancel change']) {
+    for (const name of ['Resend', 'Cancel change']) {
       expect(screen.getByRole('button', { name })).toHaveAttribute('aria-describedby', 'pending-email-note')
     }
   })
 
-  it('Resend link calls the API and announces success in the live region', async () => {
+  it('Resend calls the API and announces success in the live region', async () => {
     mockResendPendingEmailConfirmation.mockResolvedValueOnce({ detail: 'Confirmation email sent.' })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     expect(mockResendPendingEmailConfirmation).toHaveBeenCalledTimes(1)
     const status = screen.getByRole('status')
     await waitFor(() =>
@@ -620,7 +664,7 @@ describe('ProfileTab — pending email actions', () => {
     )
     expect(status.querySelector('.text-success')).not.toBeNull()
     // Still pending: the note and actions stay.
-    expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Resend' })).toBeEnabled()
     expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
   })
 
@@ -630,7 +674,7 @@ describe('ProfileTab — pending email actions', () => {
     })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     const status = screen.getByRole('status')
     await waitFor(() =>
       expect(status).toHaveTextContent('A confirmation email was sent to this address a moment ago.'),
@@ -644,19 +688,19 @@ describe('ProfileTab — pending email actions', () => {
     })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(/no email change waiting for confirmation anymore/),
     )
-    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+    expect(screen.queryByRole('button', { name: 'Resend' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('pending-email-note')).not.toBeInTheDocument()
   })
 
   it('shows a generic error when resend fails otherwise', async () => {
     mockResendPendingEmailConfirmation.mockRejectedValueOnce(new Error('network'))
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() =>
       expect(screen.getByText("Couldn't resend the link. Please try again.")).toHaveClass('text-danger'),
     )
@@ -667,12 +711,13 @@ describe('ProfileTab — pending email actions', () => {
     mockResendPendingEmailConfirmation.mockReturnValueOnce(new Promise((res) => { resolve = res }))
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
-    expect(await screen.findByRole('button', { name: 'Sending…' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Cancel change' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
+    expect(await screen.findByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: 'Cancel change' })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Doe-resend' } })
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
     resolve({ detail: 'ok' })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend' })).toBeEnabled())
   })
 
   it('the post-save navigation timer does not fire after the page unmounts', async () => {
@@ -682,7 +727,7 @@ describe('ProfileTab — pending email actions', () => {
     vi.useFakeTimers()
     mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, pending_email: null })
     const { unmount } = renderSettings()
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(saveBtn())
     await act(async () => { await Promise.resolve() })
     expect(mockUpdateCurrentUser).toHaveBeenCalled()
     unmount()
@@ -706,7 +751,7 @@ describe('ProfileTab — pending email actions', () => {
       ),
     )
     expect(onUserUpdated).toHaveBeenCalledWith(expect.objectContaining({ pending_email: null }))
-    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+    expect(screen.queryByTestId('pending-email-note')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveFocus()
     // Cancelling is not a save: the page does not navigate away.
@@ -729,7 +774,7 @@ describe('ProfileTab — pending email actions', () => {
     expect(onUserUpdated).toHaveBeenCalledWith(
       expect.objectContaining({ email: fakeUser.email, pending_email: null }),
     )
-    expect(screen.getByTestId('pending-email-note')).toBeEmptyDOMElement()
+    expect(screen.queryByTestId('pending-email-note')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
   })
 
@@ -751,9 +796,9 @@ describe('ProfileTab — pending email actions', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(pendingUser)
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/We sent a new confirmation link/))
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await user.click(saveBtn())
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         'Profile updated. Check your inbox to confirm your new email address.',
@@ -775,8 +820,7 @@ describe('SecurityTab — password account', () => {
   async function openSecurityTab() {
     const user = userEvent.setup({ delay: null })
     renderSettings()
-    const securityTab = screen.getAllByText('Security')[0]
-    await user.click(securityTab)
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Security' }))
     return user
   }
 
@@ -856,8 +900,7 @@ describe('SecurityTab — social account (no usable password)', () => {
         <SettingsPage user={socialUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
       </MemoryRouter>,
     )
-    const securityTab = screen.getAllByText('Security')[0]
-    await user.click(securityTab)
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Security' }))
     return user
   }
 
@@ -930,7 +973,7 @@ describe('SecurityTab — social account (no usable password)', () => {
       )
     }
     render(<MemoryRouter><Harness /></MemoryRouter>)
-    await user.click(screen.getAllByText('Security')[0])
+    await user.click(navBtn('Security'))
     await user.type(screen.getByLabelText('New password'), 'NewPassword123!')
     await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword123!')
     await user.click(screen.getByRole('button', { name: 'Set password' }))
@@ -940,7 +983,7 @@ describe('SecurityTab — social account (no usable password)', () => {
     // The success message keeps the wording of what just happened.
     expect(screen.getByText('Password set successfully.')).toBeInTheDocument()
     // Profile now asks for the password when the email is edited.
-    await user.click(screen.getAllByText('Profile')[0])
+    await user.click(navBtn('Profile'))
     const emailInput = screen.getByDisplayValue('j@example.com')
     await user.type(emailInput, 'x')
     expect(screen.getByLabelText('Current password')).toBeInTheDocument()
@@ -955,7 +998,7 @@ describe('SecurityTab — social account (no usable password)', () => {
         <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={onUserUpdated} />
       </MemoryRouter>,
     )
-    await user.click(screen.getAllByText('Security')[0])
+    await user.click(navBtn('Security'))
     await user.type(screen.getByLabelText('Current password'), 'OldPassword1!')
     await user.type(screen.getByLabelText('New password'), 'NewPassword123!')
     await user.type(screen.getByLabelText('Confirm new password'), 'NewPassword123!')
@@ -996,7 +1039,7 @@ describe('SecurityTab — connected accounts', () => {
         <SettingsPage user={user} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
       </MemoryRouter>,
     )
-    if (!url.includes('connect')) await ue.click(screen.getAllByText('Security')[0])
+    if (!url.includes('connect')) await ue.click(navBtn('Security'))
     await screen.findByTestId('connected-accounts-list')
     return ue
   }
@@ -1016,7 +1059,7 @@ describe('SecurityTab — connected accounts', () => {
     mockGetAuthProviders.mockImplementation(() => Promise.resolve(NO_PROVIDERS))
     const ue = userEvent.setup()
     renderSettings()
-    await ue.click(screen.getAllByText('Security')[0])
+    await ue.click(navBtn('Security'))
     await waitFor(() => expect(mockGetAuthProviders).toHaveBeenCalled())
     await waitFor(() => expect(screen.queryByTestId('connected-accounts')).not.toBeInTheDocument())
   })
@@ -1026,7 +1069,7 @@ describe('SecurityTab — connected accounts', () => {
     await ue.click(screen.getByTestId('connect-github'))
     expect(mockStartProviderConnect).toHaveBeenCalledWith('github')
     expect(screen.getByTestId('connect-github')).toHaveTextContent('Connecting…')
-    expect(screen.getByTestId('connect-github')).toBeDisabled()
+    expect(screen.getByTestId('connect-github')).toHaveAttribute('aria-busy', 'true')
   })
 
   it('Disconnect asks for inline confirmation, then disconnects', async () => {
@@ -1040,7 +1083,7 @@ describe('SecurityTab — connected accounts', () => {
     ]))
     await ue.click(screen.getByTestId('disconnect-google'))
     expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
-    expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
+    expect(screen.getByRole('group', { name: 'Disconnect' })).toHaveTextContent('Disconnect Google? You will no longer')
     expect(announced()).toBe('Disconnect Google? You will no longer be able to sign in with it.')
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
@@ -1115,7 +1158,7 @@ describe('SecurityTab — connected accounts', () => {
     await ue.click(screen.getByTestId('disconnect-google'))
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
     const confirm = screen.getByTestId('confirm-disconnect-google')
-    expect(confirm).toBeDisabled()
+    expect(confirm).toHaveAttribute('aria-busy', 'true')
     fireEvent.click(confirm)
     expect(mockDisconnectAccount).toHaveBeenCalledTimes(1)
   })
@@ -1130,10 +1173,12 @@ describe('SecurityTab — connected accounts', () => {
     expect(screen.getByTestId('confirm-disconnect-google')).toBeInTheDocument()
   })
 
-  it('gives Confirm a provider-specific accessible name (#1366)', async () => {
+  it('the shared confirm sentence names the provider; its action sits in a Disconnect group (#1366, #2477)', async () => {
     const ue = await open()
     await ue.click(screen.getByTestId('disconnect-google'))
-    expect(screen.getByRole('button', { name: 'Confirm disconnect Google' })).toBe(screen.getByTestId('confirm-disconnect-google'))
+    const group = screen.getByRole('group', { name: 'Disconnect' })
+    expect(group).toHaveTextContent('Disconnect Google?')
+    expect(within(group).getByRole('button', { name: 'Disconnect' })).toBe(screen.getByTestId('confirm-disconnect-google'))
   })
 
   it('names the provider on the Disconnect trigger (#1366)', async () => {
@@ -1147,7 +1192,7 @@ describe('SecurityTab — connected accounts', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true')
     expect(button).not.toBeDisabled() // stays focusable
     expect(button).toHaveAttribute('aria-describedby', 'disconnect-hint-google')
-    expect(document.getElementById('disconnect-hint-google')).toHaveTextContent('This is your only sign-in method.')
+    expect(document.getElementById('disconnect-hint-google')).toHaveTextContent("You can't disconnect your only way to sign in; set a password first.")
     await ue.click(button)
     expect(screen.queryByText(/You will no longer be able to sign in with it/)).not.toBeInTheDocument()
   })
@@ -1155,7 +1200,7 @@ describe('SecurityTab — connected accounts', () => {
   it('no guard when the user also has a password', async () => {
     await open()
     expect(screen.getByTestId('disconnect-google')).toHaveAttribute('aria-disabled', 'false')
-    expect(screen.queryByText('This is your only sign-in method.')).not.toBeInTheDocument()
+    expect(screen.queryByText("You can't disconnect your only way to sign in; set a password first.")).not.toBeInTheDocument()
   })
 
   it('shows a server refusal in the row', async () => {
@@ -1181,7 +1226,7 @@ describe('SecurityTab — connected accounts', () => {
     mockListConnectedAccounts.mockImplementationOnce(() => Promise.reject(new Error('500')))
     const ue = userEvent.setup()
     renderSettings()
-    await ue.click(screen.getAllByText('Security')[0])
+    await ue.click(navBtn('Security'))
     expect(await screen.findByText('Failed to load connected accounts.')).toBeInTheDocument()
     expect(screen.queryByText('Not connected')).not.toBeInTheDocument()
     await ue.click(screen.getByRole('button', { name: 'Retry' }))
@@ -1195,7 +1240,7 @@ describe('SecurityTab — connected accounts', () => {
     ]))
     await open(fakeUser, '/settings?connected=github')
     expect(screen.getByTestId('connected-account-github')).toHaveTextContent('Connected.')
-    expect(mockNavigate).toHaveBeenCalledWith('.', expect.objectContaining({ replace: true }))
+    expect(mockNavigate).toHaveBeenCalledWith('?tab=security', expect.objectContaining({ replace: true }))
   })
 
   it('?connect_error=connect_identity_mismatch explains nothing was connected', async () => {
@@ -1231,7 +1276,7 @@ describe('AppearanceTab', () => {
   async function openAppearanceTab() {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Appearance'))
+    await user.click(navBtn('Appearance'))
     return user
   }
 
@@ -1287,24 +1332,24 @@ describe('NotificationsTab', () => {
   it('shows notification preference toggles', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
+    await user.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Notifications' }))
     expect(screen.getByText(/Choose which events notify you in the app/)).toBeInTheDocument()
     expect(screen.getByText('Card assigned to me')).toBeInTheDocument()
   })
 
-  it('shows the Notifications heading', async () => {
+  it('shows the Notifications section heading at h3 under the page h2', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
-    const headings = screen.getAllByText('Notifications')
-    const h2 = headings.find((el) => el.tagName === 'H2')
-    expect(h2).toBeInTheDocument()
+    await user.click(navBtn('Notifications'))
+    expect(screen.getByRole('heading', { level: 3, name: 'Notifications' })).toBeInTheDocument()
+    expect(screen.getByText('In-app')).toBeInTheDocument()
+    expect(screen.getByText('Email')).toBeInTheDocument()
   })
 
   it('renders every notification preference row', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
+    await user.click(navBtn('Notifications'))
     expect(screen.getByText('Card assigned to me')).toBeInTheDocument()
     expect(screen.getByText('Someone @mentions me')).toBeInTheDocument()
     expect(screen.getByText('Due date approaching')).toBeInTheDocument()
@@ -1317,18 +1362,15 @@ describe('NotificationsTab', () => {
     const user = userEvent.setup()
     mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, notif_due_soon: true })
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
-    // Looked up by accessible name, not by index: each row now contains a second
-    // "Also send by email" switch (#356), so positional indexing silently points
-    // at a different preference than the comment claims.
-    await user.click(screen.getByRole('switch', { name: 'Due date approaching' }))
+    await user.click(navBtn('Notifications'))
+    await user.click(screen.getByRole('switch', { name: 'Due date approaching, in-app' }))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ notif_due_soon: true })
   })
 
-  it('renders an email toggle for every event that supports one', async () => {
+  it('renders an in-app and an email switch for every event that supports email', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
+    await user.click(navBtn('Notifications'))
     for (const label of [
       'Card assigned to me',
       'Someone @mentions me',
@@ -1336,137 +1378,84 @@ describe('NotificationsTab', () => {
       'Card I\u2019m watching is moved',
       'Comment on a watched card',
     ]) {
-      expect(screen.getByRole('switch', { name: `Also send by email: ${label}` })).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: `${label}, in-app` })).toBeInTheDocument()
+      expect(screen.getByRole('switch', { name: `${label}, email` })).toBeInTheDocument()
     }
   })
 
-  it('does not render an email toggle for events with no email delivery', async () => {
+  it('an event with no email delivery has only the in-app switch', async () => {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
-    expect(
-      screen.queryByRole('switch', { name: 'Also send by email: Card has gone stale' })
-    ).not.toBeInTheDocument()
+    await user.click(navBtn('Notifications'))
+    expect(screen.getByRole('switch', { name: 'Card has gone stale, in-app' })).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Card has gone stale, email' })).not.toBeInTheDocument()
   })
 
-  it('email toggle sends the email_notif_* field', async () => {
+  it('email switch sends the email_notif_* field', async () => {
     const user = userEvent.setup()
     mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, email_notif_card_assigned: true })
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
-    await user.click(screen.getByRole('switch', { name: 'Also send by email: Card assigned to me' }))
+    await user.click(navBtn('Notifications'))
+    await user.click(screen.getByRole('switch', { name: 'Card assigned to me, email' }))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ email_notif_card_assigned: true })
   })
 
-  it('comment-on-watched-card email toggle sends email_notif_comment_added (#1295)', async () => {
+  it('comment-on-watched-card email switch sends email_notif_comment_added (#1295)', async () => {
     const user = userEvent.setup()
     mockUpdateCurrentUser.mockResolvedValueOnce({
       ...fakeUser, notif_comment_added: true, email_notif_comment_added: true,
     })
     renderSettings({ ...fakeUser, notif_comment_added: true, email_notif_comment_added: false })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Comment on a watched card',
-    })
+    await user.click(navBtn('Notifications'))
+    const emailToggle = screen.getByRole('switch', { name: 'Comment on a watched card, email' })
     expect(emailToggle).toHaveAttribute('aria-checked', 'false')
-    expect(emailToggle).not.toHaveAttribute('aria-disabled')
+    expect(emailToggle).not.toBeDisabled()
     await user.click(emailToggle)
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ email_notif_comment_added: true })
   })
 
-  it('comment-on-watched-card email toggle is inert while the in-app toggle is off', async () => {
+  it('the email switch is off, disabled and explained while in-app is off; a stored email choice is kept', async () => {
     const user = userEvent.setup()
-    // notif_comment_added defaults to false, like notif_card_moved.
-    renderSettings({ ...fakeUser, notif_comment_added: false })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Comment on a watched card',
-    })
-    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
-    await user.click(emailToggle)
-    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
-  })
-
-  it('email toggle is disabled and explained when the in-app toggle is off', async () => {
-    const user = userEvent.setup()
-    // notif_card_moved defaults to false, so its email toggle is inert: with no
-    // in-app notification there is no row to email.
-    renderSettings({ ...fakeUser, notif_card_moved: false })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Card I\u2019m watching is moved',
-    })
-    // aria-disabled, not native disabled (#1159) \u2014 the reason line below must
-    // stay reachable by keyboard focus, not only screen-reader browse mode.
-    expect(emailToggle).not.toBeDisabled()
-    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
-    emailToggle.focus()
-    expect(emailToggle).toHaveFocus()
-    const reasonId = emailToggle.getAttribute('aria-describedby')
-    expect(reasonId).toBeTruthy()
-    expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Turn on the in-app notification above to enable email.'
-    )
-    // Activation is still ignored, by click and by keyboard.
-    await user.click(emailToggle)
-    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
-    await user.keyboard('{Enter}')
-    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
-  })
-
-  it('a stored-on email preference reads as paused rather than off', async () => {
-    const user = userEvent.setup()
+    // notif_card_moved defaults to false: with no in-app notification there is nothing to email.
     renderSettings({ ...fakeUser, notif_card_moved: false, email_notif_card_moved: true })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Card I\u2019m watching is moved',
-    })
-    // The value is kept, not silently cleared — flipping the in-app toggle back
-    // on restores it.
-    expect(emailToggle).toHaveAttribute('aria-checked', 'true')
-    expect(emailToggle).not.toBeDisabled()
-    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
-    const reasonId = emailToggle.getAttribute('aria-describedby')
-    expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Paused while the in-app notification above is off. Your email setting is kept.'
-    )
+    await user.click(navBtn('Notifications'))
+    const emailToggle = screen.getByRole('switch', { name: 'Card I\u2019m watching is moved, email' })
+    expect(emailToggle).toBeDisabled()
+    expect(emailToggle).toHaveAttribute('aria-checked', 'false')
+    expect(emailToggle).toHaveAccessibleDescription(/Turn on in-app to get email\./)
+    await user.click(emailToggle)
+    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
   })
 
-  it('email toggle is enabled once the in-app toggle is on', async () => {
-    const user = userEvent.setup()
-    renderSettings({ ...fakeUser, notif_card_assigned: true })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Card assigned to me',
-    })
-    expect(emailToggle).not.toBeDisabled()
-    expect(emailToggle).not.toHaveAttribute('aria-disabled')
-    const reasonId = emailToggle.getAttribute('aria-describedby')
-    // Off, so the helper is action-phrased rather than claiming mail is going out.
-    expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Email a copy to your account address.'
-    )
-  })
-
-  it('an enabled email toggle that is on says it is sending', async () => {
-    const user = userEvent.setup()
+  it('the email switch is enabled once in-app is on and reads as on when set', async () => {
     renderSettings({ ...fakeUser, notif_card_assigned: true, email_notif_card_assigned: true })
-    await user.click(screen.getByText('Notifications'))
-    const emailToggle = screen.getByRole('switch', {
-      name: 'Also send by email: Card assigned to me',
-    })
+    await userEvent.click(navBtn('Notifications'))
+    const emailToggle = screen.getByRole('switch', { name: 'Card assigned to me, email' })
+    expect(emailToggle).not.toBeDisabled()
     expect(emailToggle).toHaveAttribute('aria-checked', 'true')
-    const reasonId = emailToggle.getAttribute('aria-describedby')
-    expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Sends a copy to your account address.'
-    )
+  })
+
+  it('a switch whose save is in flight is aria-busy, not disabled, and ignores a second change', async () => {
+    const user = userEvent.setup()
+    let resolveUpdate!: (u: User) => void
+    mockUpdateCurrentUser.mockReturnValueOnce(new Promise<User>((r) => { resolveUpdate = r }))
+    renderSettings()
+    await user.click(navBtn('Notifications'))
+    const sw = screen.getByRole('switch', { name: 'Due date approaching, in-app' })
+    await user.click(sw)
+    expect(sw).toHaveAttribute('aria-busy', 'true')
+    expect(sw).not.toBeDisabled()
+    await user.click(sw)
+    expect(mockUpdateCurrentUser).toHaveBeenCalledTimes(1)
+    resolveUpdate({ ...fakeUser, notif_due_soon: true })
+    await waitFor(() => expect(sw).not.toHaveAttribute('aria-busy'))
   })
 
   it('shows error message when save fails', async () => {
     const user = userEvent.setup()
     mockUpdateCurrentUser.mockRejectedValueOnce(new Error('network'))
     renderSettings()
-    await user.click(screen.getByText('Notifications'))
+    await user.click(navBtn('Notifications'))
     const switches = screen.getAllByRole('switch')
     await user.click(switches[0])
     expect(await screen.findByText('Failed to save. Please try again.')).toBeInTheDocument()
@@ -1490,7 +1479,7 @@ describe('BehaviorTab — restart tour', () => {
   async function openBehaviorTab() {
     const user = userEvent.setup()
     renderSettings()
-    await user.click(screen.getByText('Behavior'))
+    await user.click(navBtn('Behavior'))
     return user
   }
 
@@ -1508,7 +1497,7 @@ describe('BehaviorTab — restart tour', () => {
         <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={onUserUpdated} />
       </MemoryRouter>,
     )
-    await user.click(screen.getByText('Behavior'))
+    await user.click(navBtn('Behavior'))
     await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
     await waitFor(() => expect(mockResetTour).toHaveBeenCalledTimes(1))
     expect(onUserUpdated).toHaveBeenCalledWith(
@@ -1543,7 +1532,7 @@ describe('BehaviorTab — restart tour', () => {
     mockResetTour.mockReturnValueOnce(new Promise<void>((res) => { resolveReset = res }))
     const user = await openBehaviorTab()
     await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
-    expect(await screen.findByRole('button', { name: 'Restarting…' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Restarting…' })).toHaveAttribute('aria-busy', 'true')
     resolveReset()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Restart onboarding tour' })).toBeInTheDocument(),
@@ -1561,7 +1550,7 @@ describe('BehaviorTab — restart tour', () => {
         <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
       </MemoryRouter>,
     )
-    await user.click(screen.getByText('Behavior'))
+    await user.click(navBtn('Behavior'))
     await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
     await waitFor(() =>
       expect(
@@ -1573,5 +1562,49 @@ describe('BehaviorTab — restart tour', () => {
     unmount()
     expect(clearSpy).toHaveBeenCalled()
     clearSpy.mockRestore()
+  })
+})
+
+describe('SettingsPage leave guard and phone layout (#2477)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('asks before switching sections with unsaved Profile edits; Cancel keeps them', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    await ue.click(navBtn('Notifications'))
+    const group = screen.getByRole('group', { name: 'Discard' })
+    expect(group).toHaveTextContent(/unsaved profile changes will be discarded/)
+    await ue.click(within(group).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Last name')).toHaveValue('Changed')
+  })
+
+  it('Discard switches section and drops the edits', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    await ue.click(navBtn('Appearance'))
+    await ue.click(screen.getByTestId('leave-discard'))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(navBtn('Appearance')).toHaveAttribute('aria-current', 'page')
+    await ue.click(navBtn('Profile'))
+    expect(screen.getByLabelText('Last name')).not.toHaveValue('Changed')
+  })
+
+  it('switches freely when nothing is unsaved', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    await ue.click(navBtn('Appearance'))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(navBtn('Appearance')).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Escape with unsaved edits asks first instead of navigating', async () => {
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(await screen.findByRole('group', { name: 'Discard' })).toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 })

@@ -146,7 +146,7 @@ async function loadGroup(boards: Board[] = [alpha, bravo]) {
       </Routes>
     </MemoryRouter>,
   )
-  await screen.findByText('+ New board')
+  await screen.findByText('New board')
 }
 
 function reconnect() {
@@ -352,7 +352,7 @@ describe('GroupDetail boards re-read (#2139)', () => {
     const reread = deferredBoards()
     reconnect()
     mockCreateGroupBoard.mockResolvedValue(board(4, 'Made Here'))
-    fireEvent.click(screen.getByText('+ New board'))
+    fireEvent.click(screen.getByText('New board'))
     fireEvent.click(screen.getByText('Confirm create board'))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/4'))
     await reread.answer([alpha, bravo])
@@ -363,7 +363,8 @@ describe('GroupDetail boards re-read (#2139)', () => {
     await loadGroup()
     const reread = deferredBoards()
     reconnect()
-    fireEvent.click(screen.getByRole('button', { name: 'Move Alpha to another group' }))
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Alpha' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Move to another group' }))
     fireEvent.click(screen.getByText('Confirm move board'))
     expect(screen.queryByText('Alpha')).toBeNull()
     await reread.answer([alpha, bravo])
@@ -399,7 +400,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     reconnect()
     await reread.fail(new Error('network'))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(rows()).toEqual(['Alpha', 'Bravo'])
   })
 
@@ -409,7 +410,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     const reread = deferredBoards()
     reconnect()
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await reread.fail(new Error('network'))
     expect(rows()).toEqual(['Alpha', 'Bravo'])
   })
@@ -421,7 +422,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     reconnect()
     frame(created(board(3, 'Frame Board')))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await reread.fail(new Error('network'))
     expect(rows()).toEqual(['Alpha', 'Bravo', 'Frame Board'])
   })
@@ -433,7 +434,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     reconnect()
     await reread.answer([bravo])
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(rows()).toEqual(['Bravo'])
   })
 
@@ -444,7 +445,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     reconnect()
     frame(deleted(alpha))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await reread.fail(new Error('network'))
     expect(rows()).toEqual(['Bravo'])
   })
@@ -457,7 +458,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     frame(deleted(alpha))
     await reread.fail(new Error('network'))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(rows()).toEqual(['Bravo'])
     // A frame after the load still applies on top of the load's list.
     frame(created(board(3, 'Later')))
@@ -471,7 +472,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
       { initialEntries: ['/groups/1'] },
     )
     render(<RouterProvider router={router} />)
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const reread = deferredBoards()
     reconnect()
     await reread.answer([alpha])
@@ -492,7 +493,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     await r1.fail(new Error('network'))
     await r2.fail(new Error('network'))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(rows()).toEqual(['Alpha', 'Bravo', 'Between'])
   })
 
@@ -507,7 +508,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     await r1.answer([alpha, bravo])
     await r2.fail(new Error('network'))
     await load.answer([alpha, bravo])
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(rows()).toEqual(['Bravo'])
   })
 })

@@ -176,12 +176,11 @@ function renderGroupDetail(locationState?: Record<string, unknown>, user: User =
   return render(withToasts ? <ToastProvider>{page}</ToastProvider> : page)
 }
 
-// The #2473 shell header renders its own h1 for the last breadcrumb crumb (the group name),
-// so page headings are queried inside <main> to stay unambiguous. Revisit with #2478.
-const pageHeadingNow = (opts: Parameters<typeof screen.getByRole>[1]) =>
-  within(screen.getByRole('main')).getByRole('heading', opts)
-const pageHeading = (opts: Parameters<typeof screen.getByRole>[1]) =>
-  waitFor(() => pageHeadingNow(opts))
+// The #2473 shell header renders the group name as the page's only h1; the page heading is an h2 (#2478).
+async function openGroupSettings(section = 'Members') {
+  fireEvent.click((await screen.findAllByRole('button', { name: 'Group settings' }))[0])
+  if (section !== 'Members') fireEvent.click(await screen.findByRole('button', { name: section }))
+}
 
 describe('GroupDetail', () => {
   beforeEach(() => {
@@ -285,12 +284,12 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(screen.getByText('Subgroups')).toBeInTheDocument()
 
-    // Members and Settings content live in the Settings tab
-    fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0])
-    expect(await screen.findByText('Members')).toBeInTheDocument()
+    // Members and settings content live on the Group settings page
+    fireEvent.click(screen.getAllByRole('button', { name: 'Group settings' })[0])
+    expect(await screen.findByRole('heading', { name: 'Members' })).toBeInTheDocument()
   })
 
-  it('gives the move-board button an accessible name beyond title alone', async () => {
+  it('offers Move to another group in the board row menu, named for its board (#2478)', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([
       { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
@@ -302,8 +301,9 @@ describe('GroupDetail', () => {
     renderGroupDetail()
 
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
-    // title alone is not a reliable accessible name (Firefox/VoiceOver skip it)
-    expect(screen.getByRole('button', { name: 'Move Sprint Board to another group' })).toBeInTheDocument()
+    // The menu trigger names its board, since many rows share one label.
+    fireEvent.click(screen.getByRole('button', { name: 'More actions for Sprint Board' }))
+    expect(await screen.findByRole('menuitem', { name: 'Move to another group' })).toBeInTheDocument()
   })
 
   it('shows delete group button for admin', async () => {
@@ -315,12 +315,12 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where the danger zone lives
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    // Navigate to Group settings page where the danger zone lives
+    await openGroupSettings('Danger zone')
     expect(await screen.findByText('Delete group')).toBeInTheDocument()
   })
 
-  it('shows + New board button for admin', async () => {
+  it('shows New board button for admin', async () => {
     mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
     mockGetGroupMembers.mockResolvedValue([
       { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
@@ -329,7 +329,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    expect(await screen.findByText('+ New board')).toBeInTheDocument()
+    expect(await screen.findByText('New board')).toBeInTheDocument()
   })
 
   // #2324 — the empty board's Import cards deep-links here with ?import=1.
@@ -360,9 +360,9 @@ describe('GroupDetail', () => {
     expect(screen.queryByTestId('import-board-modal')).not.toBeInTheDocument()
   })
 
-  // #1692 — + New board and Import follow the server's board-placement rule
+  // #1692 — New board and Import follow the server's board-placement rule
   // (can_place_boards), not the page's own direct-role isAdmin.
-  it('shows + New board and Import when can_place_boards is true for a non-admin member', async () => {
+  it('shows New board and Import when can_place_boards is true for a non-admin member', async () => {
     // Admin of an ancestor group only: a member here, not the owner.
     const otherOwner: User = { ...fakeUser, id: 99, username: 'boss', display_name: 'Boss' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, owner: otherOwner, can_place_boards: true })
@@ -373,14 +373,13 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    expect(await screen.findByText('+ New board')).toBeInTheDocument()
+    expect(await screen.findByText('New board')).toBeInTheDocument()
     expect(screen.getByText('Import')).toBeInTheDocument()
-    expect(screen.queryByText('No boards yet.')).not.toBeInTheDocument()
     // Settings stays gated on the page's own admin check.
-    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Group settings' })).not.toBeInTheDocument()
   })
 
-  it('hides + New board and Import when can_place_boards is false, even for the owner and a site admin', async () => {
+  it('hides New board and Import when can_place_boards is false, even for the owner and a site admin', async () => {
     const siteAdmin: User = { ...fakeUser, is_site_admin: true }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: false })
     mockGetGroupMembers.mockResolvedValue([
@@ -391,13 +390,13 @@ describe('GroupDetail', () => {
     renderGroupDetail(undefined, siteAdmin)
 
     expect(await screen.findByText('No boards yet.')).toBeInTheDocument()
-    expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
+    expect(screen.queryByText('New board')).not.toBeInTheDocument()
     expect(screen.queryByText('Import')).not.toBeInTheDocument()
     // Other admin affordances are unchanged.
-    expect(screen.getAllByRole('button', { name: 'Settings' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'Group settings' }).length).toBeGreaterThan(0)
   })
 
-  it('shows + Create subgroup button for admin', async () => {
+  it('shows + New subgroup button for admin', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([
       { id: 1, user: fakeUser, role: 'admin', joined_at: '' },
@@ -406,7 +405,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    expect(await screen.findByText('+ Create subgroup')).toBeInTheDocument()
+    expect(await screen.findByText('+ New subgroup')).toBeInTheDocument()
   })
 
   it('shows Import button for admin', async () => {
@@ -446,8 +445,8 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where members are listed
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    // Navigate to Group settings page where members are listed
+    await openGroupSettings('Members')
     expect(await screen.findByText('Alice Smith')).toBeInTheDocument()
     // Admin can see role selectors and remove buttons for other members
     expect(screen.getByText('Remove')).toBeInTheDocument()
@@ -464,7 +463,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
@@ -484,11 +483,11 @@ describe('GroupDetail', () => {
     mockRemoveGroupMember.mockRejectedValue(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText('Failed to remove member. Please try again.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
@@ -503,7 +502,7 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
   }
 
@@ -512,7 +511,7 @@ describe('GroupDetail', () => {
     await setupTwoMembers()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText('The group owner cannot be removed.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
   })
@@ -521,7 +520,7 @@ describe('GroupDetail', () => {
     mockUpdateGroupMemberRole.mockRejectedValue({ response: { status: 400, data: { detail: 'Cannot demote the last admin.' } } })
     await setupTwoMembers()
     const user = userEvent.setup()
-    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const aliceRow = screen.getByText('Alice Smith').closest('li') as HTMLElement
     await user.click(within(aliceRow).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Viewer' }))
     expect(await screen.findByText('Cannot demote the last admin.')).toHaveAttribute('role', 'status')
@@ -532,7 +531,7 @@ describe('GroupDetail', () => {
     await setupTwoMembers()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText('Failed to remove member. Please try again.')).toHaveAttribute('role', 'status')
   })
 
@@ -548,14 +547,14 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Big Boss')
-    const ownerRow = screen.getByText('Big Boss').closest('div.rounded-lg') as HTMLElement
+    const ownerRow = screen.getByText('Big Boss').closest('li') as HTMLElement
     expect(within(ownerRow).queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove Big Boss from group' })).not.toBeInTheDocument()
     expect(within(ownerRow).getByText('admin')).toBeInTheDocument()
     expect(within(ownerRow).getByText('Owner')).toBeInTheDocument()
-    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const aliceRow = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(aliceRow).getByRole('combobox')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Alice Smith from group' })).toBeInTheDocument()
   })
@@ -572,9 +571,9 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
-    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const aliceRow = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(aliceRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
     expect(within(aliceRow).getByText(/not in effect while this account has all-content access/)).toBeInTheDocument()
@@ -582,7 +581,7 @@ describe('GroupDetail', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
     expect(screen.getByText('Remove this group role? Full access is not affected.')).toBeInTheDocument()
     // A member without the flag keeps the picker.
-    const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
+    const bobRow = screen.getByText('Bob Jones').closest('li') as HTMLElement
     expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(bobRow).queryByText('Full access')).not.toBeInTheDocument()
   })
@@ -599,7 +598,7 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Bob Jones')
     expect(screen.getByRole('combobox', { name: /^Group role for Alice Smith/ })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /^Group role for Bob Jones/ })).toBeInTheDocument()
@@ -612,7 +611,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     mockUpdateGroup.mockRejectedValue(new Error('boom'))
     renderGroupDetail()
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'Platform' } })
@@ -633,19 +632,19 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     mockUpdateGroupMemberRole.mockResolvedValue({ id: 2, user: otherUser, role: 'admin', joined_at: '' })
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
-    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const aliceRow = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(aliceRow).getByText('Full access')).toBeInTheDocument()
     await user.click(within(aliceRow).getByRole('combobox'))
-    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Admin', 'Viewer'])
+    expect(within(screen.getByRole('listbox')).getAllByRole('option').map((o) => o.textContent)).toEqual(['Admin', 'Viewer'])
     await user.click(screen.getByRole('option', { name: 'Admin' }))
     expect(mockUpdateGroupMemberRole).toHaveBeenCalledWith(1, 2, 'admin')
     // An admin-role all-content row keeps the full picker.
-    const adaRow = screen.getByText('Ada Admin').closest('div.rounded-lg') as HTMLElement
+    const adaRow = screen.getByText('Ada Admin').closest('li') as HTMLElement
     await user.click(within(adaRow).getByRole('combobox'))
-    expect(screen.getAllByRole('option')).toHaveLength(4)
+    expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(4)
   })
 
   it('locks a site-admin direct row with no role picker or Remove for a non-site-admin admin (#2164)', async () => {
@@ -662,20 +661,20 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Sam Admin')
     const note = 'This membership is managed at the instance level and cannot be removed here.'
-    const samRow = screen.getByText('Sam Admin').closest('div.rounded-lg') as HTMLElement
+    const samRow = screen.getByText('Sam Admin').closest('li') as HTMLElement
     expect(within(samRow).queryByRole('combobox')).not.toBeInTheDocument()
     expect(within(samRow).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
     expect(within(samRow).getByText('member')).toBeInTheDocument()
     expect(within(samRow).getByText(note)).toBeInTheDocument()
-    const aceRow = screen.getByText('Ace Admin').closest('div.rounded-lg') as HTMLElement
+    const aceRow = screen.getByText('Ace Admin').closest('li') as HTMLElement
     expect(within(aceRow).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
     expect(within(aceRow).getByText('Full access')).toBeInTheDocument()
     expect(within(aceRow).getByText(note)).toBeInTheDocument()
     // A row without the flag keeps its controls.
-    const bobRow = screen.getByText('Bob Jones').closest('div.rounded-lg') as HTMLElement
+    const bobRow = screen.getByText('Bob Jones').closest('li') as HTMLElement
     expect(within(bobRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(bobRow).getByRole('button', { name: 'Remove Bob Jones from group' })).toBeInTheDocument()
     expect(within(bobRow).queryByText(note)).not.toBeInTheDocument()
@@ -691,9 +690,9 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail(undefined, { ...fakeUser, is_site_admin: true })
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Sam Admin')
-    const samRow = screen.getByText('Sam Admin').closest('div.rounded-lg') as HTMLElement
+    const samRow = screen.getByText('Sam Admin').closest('li') as HTMLElement
     expect(within(samRow).getByRole('combobox')).toBeInTheDocument()
     expect(within(samRow).getByRole('button', { name: 'Remove Sam Admin from group' })).toBeInTheDocument()
     expect(within(samRow).queryByText(/managed at the instance level/)).not.toBeInTheDocument()
@@ -713,9 +712,9 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Big Boss')
-    const rowOf = (name: string) => screen.getByText(name).closest('div.rounded-lg') as HTMLElement
+    const rowOf = (name: string) => screen.getByText(name).closest('li') as HTMLElement
     for (const name of ['Big Boss', 'Ina Inherited', 'Odd Role']) {
       expect(within(rowOf(name)).getByText('Full access')).toBeInTheDocument()
     }
@@ -741,9 +740,9 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Ada Admin')
-    const row = screen.getByText('Ada Admin').closest('div.rounded-lg') as HTMLElement
+    const row = screen.getByText('Ada Admin').closest('li') as HTMLElement
     expect(within(row).getByRole('combobox')).toBeInTheDocument()
     expect(within(row).getByText('Full access')).toBeInTheDocument()
     expect(within(row).getByText("Group role: Admin — doesn't limit this account's access, and still counts as a group admin.")).toBeInTheDocument()
@@ -760,19 +759,19 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Big Boss')
-    const owner = screen.getByText('Big Boss').closest('div.rounded-lg') as HTMLElement
+    const owner = screen.getByText('Big Boss').closest('li') as HTMLElement
     expect(within(owner).getByText('Full access')).toBeInTheDocument()
     expect(within(owner).getByText(/Group role: Viewer — not in effect/)).toBeInTheDocument()
-    const self = screen.getByText('Jane Doe').closest('div.rounded-lg') as HTMLElement
+    const self = screen.getByText('Jane Doe').closest('li') as HTMLElement
     expect(within(self).getByText('Full access')).toBeInTheDocument()
     expect(within(self).getByText(/Group role: Admin — doesn't limit/)).toBeInTheDocument()
   })
 
   it('renders the normal picker and no chip when the payload has no flag (#2075)', async () => {
     await setupTwoMembers()
-    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const row = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(row).getByRole('combobox')).toBeInTheDocument()
     expect(screen.queryByText('Full access')).not.toBeInTheDocument()
     expect(screen.queryByText(/Group role:/)).not.toBeInTheDocument()
@@ -789,13 +788,13 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     mockRemoveGroupMember.mockRejectedValue({ response: { status: 403, data: { detail: "Cannot modify a site admin's group membership." } } })
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove group role for Alice Smith' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(screen.getByTestId('group-member-error')).not.toBeEmptyDOMElement())
-    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const row = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(row).getByText('Full access')).toBeInTheDocument()
   })
 
@@ -811,11 +810,11 @@ describe('GroupDetail', () => {
     mockRemoveGroupMember.mockResolvedValue(undefined)
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument())
     expect(screen.getByTestId('group-member-error')).toBeEmptyDOMElement()
   })
@@ -832,28 +831,29 @@ describe('GroupDetail', () => {
     mockUpdateGroupMemberRole.mockRejectedValue(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
-    const aliceRow = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const aliceRow = screen.getByText('Alice Smith').closest('li') as HTMLElement
     await user.click(within(aliceRow).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: 'Viewer' }))
     expect(await screen.findByText('Failed to change member role. Please try again.')).toHaveAttribute('role', 'status')
     // The selector still shows the stored role, not the attempted one
-    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    const row = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(row).getByRole('combobox')).toHaveTextContent('Member')
     expect(mockUpdateGroupMemberRole).toHaveBeenCalledWith(1, 2, 'viewer')
   })
 
-  it('shared label dot carries the neutral ring (#2094)', async () => {
+  it('a shared label renders as a chip through colorChipStyle (#2094, #2478)', async () => {
     mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [{ id: 1, name: 'Design', color: '#ffffff' }] })
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Shared labels')
     const name = await screen.findByText('Design')
-    expect(name.parentElement?.querySelector('.color-dot')).not.toBeNull()
+    expect(name).toHaveClass('cf-choice-badge')
+    expect(name.style.getPropertyValue('--cf-bg-light')).not.toBe('')
   })
 
   it('announces the label remove prompt and a second remove while pending sends one DELETE (#1435)', async () => {
@@ -865,15 +865,15 @@ describe('GroupDetail', () => {
     mockDeleteGroupLabel.mockReturnValueOnce(new Promise<void>((r) => { resolveDelete = r }))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Shared labels')
     await screen.findByText('Design')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
     expect(announced()).toBe('Remove Design from this group?')
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     // The prompt closed, so the trigger is back while the DELETE is pending.
     await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(mockDeleteGroupLabel).toHaveBeenCalledTimes(1)
     resolveDelete()
     await waitFor(() => expect(screen.queryByText('Design')).not.toBeInTheDocument())
@@ -892,13 +892,13 @@ describe('GroupDetail', () => {
     mockRemoveGroupMember.mockReturnValueOnce(new Promise<void>((r) => { resolveRemove = r }))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Members')
     await screen.findByText('Alice Smith')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(mockRemoveGroupMember).toHaveBeenCalledTimes(1)
     resolveRemove()
     await waitFor(() => expect(screen.queryByText('Alice Smith')).not.toBeInTheDocument())
@@ -912,29 +912,13 @@ describe('GroupDetail', () => {
     mockDeleteGroupLabel.mockRejectedValueOnce(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Shared labels')
     await screen.findByText('Design')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Design from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(await screen.findByText('Failed to remove label. Please try again.')).toHaveAttribute('role', 'status')
     expect(screen.getByText('Design')).toBeInTheDocument()
-  })
-
-  it('surfaces an error and leaves the toggle unchanged when a priority toggle fails (#1386)', async () => {
-    mockGetGroup.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['low', 'medium', 'high', 'urgent'] })
-    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
-    mockGetSubgroups.mockResolvedValue([])
-    mockGetGroupBoards.mockResolvedValue([])
-    mockUpdateGroupBoardDefaults.mockRejectedValueOnce(new Error('boom'))
-    renderGroupDetail()
-
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    await screen.findByText('Board defaults')
-    const low = screen.getByRole('button', { name: 'low' })
-    fireEvent.click(low)
-    expect(await screen.findByText('Failed to save allowed priorities.')).toHaveAttribute('role', 'status')
-    expect(low).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('keeps the defaults status in an always-mounted slot so Saved/error does not shift the row (#487)', async () => {
@@ -945,14 +929,16 @@ describe('GroupDetail', () => {
     mockUpdateGroupBoardDefaults.mockRejectedValueOnce(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    await screen.findByText('Board defaults')
+    await openGroupSettings('Board defaults')
+    await screen.findByRole('heading', { name: 'Board defaults' })
     const slot = screen.getByTestId('group-defaults-status')
     expect(slot).toBeEmptyDOMElement()
     // The slot itself is the live region (#1437): only its text changes.
     expect(slot).toHaveAttribute('role', 'status')
     expect(slot).toHaveAttribute('aria-live', 'polite')
-    fireEvent.click(screen.getByRole('button', { name: 'low' }))
+    const user = userEvent.setup()
+    await user.click(screen.getByLabelText('Default member role for new boards'))
+    await user.click(await screen.findByRole('option', { name: 'Viewer' }))
     await waitFor(() => expect(slot).not.toBeEmptyDOMElement())
     expect(slot).toHaveClass('text-danger')
     expect(screen.getByTestId('group-defaults-status')).toBe(slot)
@@ -966,8 +952,8 @@ describe('GroupDetail', () => {
     mockUpdateGroupBoardDefaults.mockResolvedValueOnce({ ...fakeGroup, default_board_member_role: 'viewer' })
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    await screen.findByText('Board defaults')
+    await openGroupSettings('Board defaults')
+    await screen.findByRole('heading', { name: 'Board defaults' })
     const slot = screen.getByTestId('group-defaults-status')
     const user = userEvent.setup()
     await user.click(screen.getByLabelText('Default member role for new boards'))
@@ -985,10 +971,11 @@ describe('GroupDetail', () => {
     mockDeleteGroup.mockRejectedValueOnce(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    await screen.findByRole('button', { name: 'Delete group' })
-    for (const id of ['group-member-error', 'group-label-error', 'group-delete-error']) {
-      const slot = screen.getByTestId(id)
+    // Each slot lives in its own settings section (#2478): members, shared labels, danger zone.
+    await openGroupSettings('Members')
+    for (const [section, id] of [['Members', 'group-member-error'], ['Shared labels', 'group-label-error'], ['Danger zone', 'group-delete-error']]) {
+      if (section !== 'Members') fireEvent.click(await screen.findByRole('button', { name: section }))
+      const slot = await screen.findByTestId(id)
       expect(slot).toBeEmptyDOMElement()
       expect(slot).toHaveClass('min-h-4')
       expect(slot).toHaveAttribute('role', 'status')
@@ -997,6 +984,7 @@ describe('GroupDetail', () => {
     const deleteSlot = screen.getByTestId('group-delete-error')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Delete group' }))
+    fireEvent.change(within(await screen.findByRole('dialog')).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete group' }))
     await waitFor(() => expect(deleteSlot).toHaveTextContent('Failed to delete group. Please try again.'))
     expect(screen.getByTestId('group-delete-error')).toBe(deleteSlot)
@@ -1010,10 +998,11 @@ describe('GroupDetail', () => {
     mockDeleteGroup.mockRejectedValueOnce(new Error('boom'))
     renderGroupDetail()
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Danger zone')
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Delete group' }))
     const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
     await user.click(within(dialog).getByRole('button', { name: 'Delete group' }))
     expect(await screen.findByText('Failed to delete group. Please try again.')).toHaveAttribute('role', 'status')
     expect(mockNavigate).not.toHaveBeenCalled()
@@ -1027,8 +1016,8 @@ describe('GroupDetail', () => {
       mockGetSubgroups.mockResolvedValue([])
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail(undefined, viewer)
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-      await screen.findByText('Danger zone')
+      await openGroupSettings('Danger zone')
+      await screen.findByRole('heading', { name: 'Danger zone' })
     }
 
     it('offers Delete group to the owner and no note', async () => {
@@ -1064,14 +1053,14 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Non-admin lands on Boards tab; Settings tab is hidden entirely
+    // Non-admin lands on Boards tab; Group settings page is hidden entirely
     await screen.findByText(/Subgroups let you organize/)
     expect(screen.getByText('No subgroups yet')).toBeInTheDocument()
     expect(screen.getByTestId('subgroups-empty').querySelector('svg')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Group settings' })).not.toBeInTheDocument()
     expect(screen.queryByText('Delete group')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ New board')).not.toBeInTheDocument()
-    expect(screen.queryByText('+ Create subgroup')).not.toBeInTheDocument()
+    expect(screen.queryByText('New board')).not.toBeInTheDocument()
+    expect(screen.queryByText('+ New subgroup')).not.toBeInTheDocument()
   })
 
   it('shows invite link panel for admin', async () => {
@@ -1083,9 +1072,9 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where the invite link panel lives
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-    expect(await screen.findByText('Invite links')).toBeInTheDocument()
+    // Navigate to Group settings page where the invite link panel lives
+    await openGroupSettings('Invite links')
+    expect(await screen.findByRole('heading', { name: 'Invite links' })).toBeInTheDocument()
   })
 
   it('passes the site-admin flag to the email invite form (#1445)', async () => {
@@ -1101,7 +1090,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail(undefined, siteAdmin)
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Invite links')
     expect(await screen.findByText('New people can join this site only from invites you email, not from a shareable link.')).toBeInTheDocument()
     expect(screen.queryByText(/New users can't sign up/)).not.toBeInTheDocument()
   })
@@ -1151,7 +1140,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await pageHeading({ name: 'Engineering' }) // wait for load
+    await screen.findByRole('heading', { level: 2, name: 'Engineering' }) // wait for load
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
   })
 
@@ -1165,15 +1154,17 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Both the Navbar and in-page breadcrumbs render the ancestor links
-    expect((await screen.findAllByText('RootOrg')).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('PlatformTeam').length).toBeGreaterThanOrEqual(1)
-
-    // #2012: the in-page breadcrumb dividers are decorative and hidden from assistive tech
-    const nav = screen.getAllByRole('navigation', { name: 'Group breadcrumb' })[0]
+    // The shell header's breadcrumb carries the ancestors: Home / RootOrg / PlatformTeam / Engineering,
+    // and the group name is its one h1 (#2473, #2478). Its dividers are decorative (#2012).
+    const nav = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'RootOrg' })).toHaveAttribute('href', '/groups/10')
+    expect(within(nav).getByRole('link', { name: 'PlatformTeam' })).toHaveAttribute('href', '/groups/11')
+    expect(within(nav).getByRole('heading', { level: 1 })).toHaveTextContent('Engineering')
     const dividers = within(nav).getAllByText('/')
-    expect(dividers).toHaveLength(2)
+    expect(dividers).toHaveLength(3)
     dividers.forEach((d) => expect(d).toHaveAttribute('aria-hidden', 'true'))
+    // The page no longer repeats the trail in its own heading block.
+    expect(screen.queryByRole('navigation', { name: 'Group breadcrumb' })).not.toBeInTheDocument()
   })
 
   it('does not render breadcrumb for root-level groups', async () => {
@@ -1183,7 +1174,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await pageHeading({ name: 'Engineering' })
+    await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     expect(screen.queryByRole('navigation', { name: 'Group breadcrumb' })).not.toBeInTheDocument()
   })
 
@@ -1194,7 +1185,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await pageHeading({ name: 'Engineering' })
+    await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     expect(screen.getByText('Add a description…')).toBeInTheDocument()
   })
 
@@ -1208,7 +1199,7 @@ describe('GroupDetail', () => {
     const descText = await screen.findByText('Our main engineering group')
     fireEvent.click(descText)
 
-    const textarea = screen.getByRole('textbox', { name: '' })
+    const textarea = screen.getByRole('textbox', { name: 'Group description' })
     expect((textarea as HTMLTextAreaElement).value).toBe('Our main engineering group')
   })
 
@@ -1223,7 +1214,7 @@ describe('GroupDetail', () => {
     const descText = await screen.findByText('Original')
     fireEvent.click(descText)
 
-    const textarea = screen.getByRole('textbox', { name: '' })
+    const textarea = screen.getByRole('textbox', { name: 'Group description' })
     fireEvent.change(textarea, { target: { value: 'Updated' } })
     fireEvent.blur(textarea)
 
@@ -1240,11 +1231,11 @@ describe('GroupDetail', () => {
     const descText = await screen.findByText('Original')
     fireEvent.click(descText)
 
-    const textarea = screen.getByRole('textbox', { name: '' })
+    const textarea = screen.getByRole('textbox', { name: 'Group description' })
     fireEvent.change(textarea, { target: { value: 'Should not save' } })
     fireEvent.keyDown(textarea, { key: 'Escape' })
 
-    expect(screen.queryByRole('textbox', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Group description' })).not.toBeInTheDocument()
     expect(mockUpdateGroup).not.toHaveBeenCalled()
   })
 
@@ -1259,7 +1250,7 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Team description')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Team description'))
     // No textarea should appear for non-admin
-    expect(screen.queryByRole('textbox', { name: '' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Group description' })).not.toBeInTheDocument()
   })
 
   it('admin can click heading to start inline rename', async () => {
@@ -1269,7 +1260,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1285,7 +1276,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     renderGroupDetail()
 
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     const nameButton = within(heading).getByRole('button')
     nameButton.focus()
     expect(nameButton).toHaveFocus()
@@ -1310,7 +1301,7 @@ describe('GroupDetail', () => {
     mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
     renderGroupDetail()
 
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1327,7 +1318,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1346,18 +1337,18 @@ describe('GroupDetail', () => {
     mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
     renderGroupDetail()
     const open = async () => {
-      const heading = await pageHeading({ name: /Engineering|Platform/ })
+      const heading = await screen.findByRole('heading', { level: 2, name: /Engineering|Platform/ })
       fireEvent.click(within(heading).getByRole('button'))
       return screen.getByRole('textbox')
     }
     let input = await open()
     fireEvent.keyDown(input, { key: 'Escape' })
-    await waitFor(() => expect(within(pageHeadingNow({ name: 'Engineering' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(screen.getByRole('heading', { level: 2, name: 'Engineering' })).getByRole('button')).toHaveFocus())
 
     input = await open()
     fireEvent.change(input, { target: { value: 'Platform' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => expect(within(pageHeadingNow({ name: 'Platform' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(screen.getByRole('heading', { level: 2, name: 'Platform' })).getByRole('button')).toHaveFocus())
 
     // Empty-name Enter keeps the editor open and sets no stale flag; a later blur-commit leaves focus alone.
     input = await open()
@@ -1407,12 +1398,12 @@ describe('GroupDetail', () => {
     renderGroupDetail()
     mockNavigate.mockClear()
 
-    const heading = await pageHeading({ name: 'Engineering' })
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
     const input = screen.getByRole('textbox')
     input.focus()
     fireEvent.keyDown(input, { key: 'Escape' })
-    await waitFor(() => expect(within(pageHeadingNow({ name: 'Engineering' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(screen.getByRole('heading', { level: 2, name: 'Engineering' })).getByRole('button')).toHaveFocus())
     expect(mockNavigate).not.toHaveBeenCalled()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Team description' }))
@@ -1442,9 +1433,13 @@ describe('GroupDetail', () => {
   })
 
   it('keeps the join toast after a tab click navigates without location state', async () => {
+    mockGetGroup.mockResolvedValue(fakeGroup)
+    mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+    mockGetSubgroups.mockResolvedValue([])
+    mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail({ joinedGroup: 'Engineering' }, fakeUser, true)
     expect(await screen.findByTestId('joined-notice')).toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: 'Boards' }))
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Group settings' }))[0])
     expect(screen.getByTestId('joined-notice')).toHaveTextContent("You've joined Engineering. Welcome!")
   })
 
@@ -1511,7 +1506,7 @@ describe('GroupDetail', () => {
     it('star button shows hollow star when group is not starred', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
       const btn = screen.getByRole('button', { name: 'Star group' })
       expect(btn).toBeInTheDocument()
       // Button text content is the hollow star glyph
@@ -1521,7 +1516,7 @@ describe('GroupDetail', () => {
     it('star button shows filled star when group is already starred', async () => {
       setupAdmin(true)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
       const btn = screen.getByRole('button', { name: 'Unstar group' })
       expect(btn).toBeInTheDocument()
       expect(btn).toHaveTextContent('★')
@@ -1530,7 +1525,7 @@ describe('GroupDetail', () => {
     it('clicking star on an unstarred group calls starGroup and flips to filled star', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
 
@@ -1544,7 +1539,7 @@ describe('GroupDetail', () => {
     it('clicking unstar on a starred group calls unstarGroup and flips to hollow star', async () => {
       setupAdmin(true)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
 
@@ -1559,7 +1554,7 @@ describe('GroupDetail', () => {
       setupAdmin(false)
       mockStarGroup.mockRejectedValueOnce(new Error('network error'))
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
 
@@ -1573,7 +1568,7 @@ describe('GroupDetail', () => {
       setupAdmin(true)
       mockUnstarGroup.mockRejectedValueOnce(new Error('network error'))
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
 
@@ -1586,7 +1581,7 @@ describe('GroupDetail', () => {
     it('group.star_changed WS event updates star indicator for current user', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
       expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
 
       act(() => {
@@ -1602,7 +1597,7 @@ describe('GroupDetail', () => {
     it('group.star_changed WS event for a different user does not change star indicator', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
 
       act(() => {
         capturedOnEvent?.({
@@ -1633,7 +1628,7 @@ describe('GroupDetail', () => {
     it('member.removed WS event refetches the members list', async () => {
       setupAdmin()
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
       // Initial load fetched members once.
       expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
 
@@ -1647,9 +1642,9 @@ describe('GroupDetail', () => {
     it('invite_link.revoked WS event reloads the invite panel', async () => {
       setupAdmin()
       renderGroupDetail()
-      // Mount the invite panel (Settings tab) — it fetches links once.
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-      await screen.findByText('Invite links')
+      // Mount the invite panel (Group settings page) — it fetches links once.
+      await openGroupSettings('Invite links')
+      await screen.findByRole('heading', { name: 'Invite links' })
       expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
 
       act(() => {
@@ -1663,8 +1658,8 @@ describe('GroupDetail', () => {
     it('invite_link.created WS event reloads the invite panel (#731)', async () => {
       setupAdmin()
       renderGroupDetail()
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-      await screen.findByText('Invite links')
+      await openGroupSettings('Invite links')
+      await screen.findByRole('heading', { name: 'Invite links' })
       expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
 
       act(() => {
@@ -1677,7 +1672,7 @@ describe('GroupDetail', () => {
     it('invite_link.revoked WS event does not refetch the members list', async () => {
       setupAdmin()
       renderGroupDetail()
-      await pageHeading({ name: 'Engineering' })
+      await screen.findByRole('heading', { level: 2, name: 'Engineering' })
       expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
 
       act(() => {
@@ -1695,7 +1690,7 @@ describe('GroupDetail', () => {
   // ---------------------------------------------------------------------------
 
   describe('board-defaults tab', () => {
-    async function loadAndSwitchToSettings() {
+    async function loadAndSwitchToSettings(section = 'Shared labels') {
       mockGetGroup.mockResolvedValue({
         ...fakeGroup,
         default_board_member_role: 'member',
@@ -1709,141 +1704,37 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings(section)
     }
 
-    it('shows the allowed-priorities control and header counts for a full group', async () => {
-      await loadAndSwitchToSettings()
-      expect(await screen.findByText('Allowed priorities on new boards')).toBeInTheDocument()
-      expect(screen.getByText(/2 members/)).toBeInTheDocument()
-    })
-
-    it('hides allowed priorities and header counts for a navigation-only group (#1681)', async () => {
-      mockGetGroup.mockResolvedValue({
-        ...fakeGroup,
-        navigation_only: true,
-        member_count: 0, board_count: 0, subgroup_count: 0,
-        allowed_priorities: [], shared_labels: [],
-      })
-      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
-      mockGetSubgroups.mockResolvedValue([])
-      mockGetGroupBoards.mockResolvedValue([])
-      renderGroupDetail()
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
-      expect(await screen.findByText('Board defaults')).toBeInTheDocument()
-      expect(screen.queryByText('Allowed priorities on new boards')).not.toBeInTheDocument()
-      expect(screen.queryByText(/0 members/)).not.toBeInTheDocument()
-      expect(screen.queryByText(/0 boards/)).not.toBeInTheDocument()
-    })
-
-    it('switching to Settings tab renders the Board defaults section heading', async () => {
-      await loadAndSwitchToSettings()
-      expect(await screen.findByText('Board defaults')).toBeInTheDocument()
+    it('switching to Group settings page renders the Board defaults section heading', async () => {
+      await loadAndSwitchToSettings('Board defaults')
+      expect(await screen.findByRole('heading', { name: 'Board defaults' })).toBeInTheDocument()
     })
 
     it('board defaults section shows the default member role label', async () => {
-      await loadAndSwitchToSettings()
+      await loadAndSwitchToSettings('Board defaults')
       expect(await screen.findByText('Default member role for new boards')).toBeInTheDocument()
     })
 
     it('flags the default member role as deprecated (#1430)', async () => {
-      await loadAndSwitchToSettings()
+      await loadAndSwitchToSettings('Board defaults')
       expect(
         await screen.findByText('Deprecated. This setting has no effect: group members get their group role on every group board.'),
       ).toBeInTheDocument()
     })
 
     it('associates the deprecation hint with the default role control (#1430)', async () => {
-      await loadAndSwitchToSettings()
+      await loadAndSwitchToSettings('Board defaults')
       const hint = await screen.findByText(/Deprecated\. This setting has no effect: group members/)
       const control = screen.getByLabelText('Default member role for new boards')
       expect(control).toHaveAccessibleDescription(hint.textContent ?? '')
     })
 
-    it('flags the allowed priorities setting as deprecated and associates the hint (#1429)', async () => {
-      await loadAndSwitchToSettings()
-      const hint = await screen.findByText(
-        'Deprecated. This setting has no effect: it is copied onto new boards, but card priorities are not restricted.',
-      )
-      expect(screen.getByRole('group', { name: 'Allowed priorities on new boards' })).toHaveAccessibleDescription(hint.textContent ?? '')
-    })
-
-    it('board defaults section shows the allowed priorities label', async () => {
-      await loadAndSwitchToSettings()
-      expect(await screen.findByText('Allowed priorities on new boards')).toBeInTheDocument()
-    })
-
-    it('board defaults section renders priority toggle buttons', async () => {
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-      // All four priorities should be rendered as buttons
-      expect(screen.getByRole('button', { name: /low/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /medium/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /high/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /urgent/i })).toBeInTheDocument()
-    })
-
-    it('active priority toggles use /20 tints with on-tint text and a focus ring (#1550)', async () => {
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-      const expected: Record<string, string> = {
-        low: 'text-info-on-tint', medium: 'text-warning-on-tint',
-        high: 'text-danger-on-tint', urgent: 'text-urgent-on-tint',
-      }
-      for (const [name, textClass] of Object.entries(expected)) {
-        const btn = screen.getByRole('button', { name })
-        expect(btn).toHaveClass(textClass, 'focus:ring-2')
-        expect(btn.className).toMatch(/bg-(info|warning|danger|urgent)\/20/)
-        expect(btn.className).not.toMatch(/bg-(info|warning|danger|urgent)\/(50|60)/)
-      }
-    })
-
-    it('medium, high and urgent toggles are visually distinct (#1592)', async () => {
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-      const medium = screen.getByRole('button', { name: 'medium' })
-      const high = screen.getByRole('button', { name: 'high' })
-      const urgent = screen.getByRole('button', { name: 'urgent' })
-      expect(medium).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByRole('button', { name: 'low' })).toHaveClass('bg-info/20', 'border-info/60')
-      expect(medium).toHaveClass('bg-warning/20', 'border-warning/60')
-      expect(high).toHaveClass('bg-danger/20', 'border-danger/60')
-      expect(high).not.toHaveClass('bg-warning/20')
-      expect(urgent).toHaveClass('bg-urgent/20', 'border-urgent/60', 'text-urgent-on-tint')
-      expect(urgent).not.toHaveClass('font-semibold')
-      expect(urgent.className).not.toMatch(/danger/)
-    })
-
-    it('priority toggles mark the active state with a check, not color alone (#2185)', async () => {
-      mockUpdateGroupBoardDefaults.mockResolvedValue({ ...fakeGroup, allowed_priorities: ['medium', 'high', 'urgent'] })
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-      const low = screen.getByRole('button', { name: 'low' })
-      expect(within(low).getByTestId('active-mark')).toBeInTheDocument()
-      fireEvent.click(low)
-      await waitFor(() => expect(low).toHaveAttribute('aria-pressed', 'false'))
-      expect(within(low).queryByTestId('active-mark')).not.toBeInTheDocument()
-    })
-
-    it('a disabled priority toggle reports aria-pressed=false (#1592)', async () => {
-      mockUpdateGroupBoardDefaults.mockResolvedValue({
-        ...fakeGroup,
-        allowed_priorities: ['medium', 'high', 'urgent'],
-      })
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-      expect(screen.getByRole('button', { name: 'low' })).toHaveAttribute('aria-pressed', 'true')
-      fireEvent.click(screen.getByRole('button', { name: 'low' }))
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'low' })).toHaveAttribute('aria-pressed', 'false')
-      })
-      expect(screen.getByRole('button', { name: 'low' })).not.toHaveClass('bg-info/20')
-    })
-
     it('saves the health review setting and merges the resolved due time (#2244)', async () => {
       mockUpdateGroup.mockResolvedValue({ ...fakeGroup, health_review_days: 7, health_review_due_at: '2026-12-01T00:00:00Z' })
-      await loadAndSwitchToSettings()
-      await screen.findByText('Health status review')
+      await loadAndSwitchToSettings('Health status review')
+      await screen.findByRole('heading', { name: 'Health status review' })
       const input = screen.getByLabelText('Review status every')
       fireEvent.change(input, { target: { value: '7' } })
       fireEvent.blur(input)
@@ -1852,27 +1743,9 @@ describe('GroupDetail', () => {
       expect(await screen.findByText('Saved')).toBeInTheDocument()
     })
 
-    it('toggling a priority button calls updateGroupBoardDefaults', async () => {
-      mockUpdateGroupBoardDefaults.mockResolvedValue({
-        ...fakeGroup,
-        allowed_priorities: ['medium', 'high', 'urgent'],
-      })
-      await loadAndSwitchToSettings()
-      await screen.findByText('Board defaults')
-
-      // Click the "low" priority button to disable it (accessible name is the text content)
-      fireEvent.click(screen.getByRole('button', { name: 'low' }))
-
-      await waitFor(() => {
-        expect(mockUpdateGroupBoardDefaults).toHaveBeenCalledWith(1, expect.objectContaining({
-          allowed_priorities: expect.not.arrayContaining(['low']),
-        }))
-      })
-    })
-
     it('board defaults section shows the shared label library heading', async () => {
       await loadAndSwitchToSettings()
-      expect(await screen.findByText('Shared label library')).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: 'Shared labels' })).toBeInTheDocument()
     })
 
     it('shared labels in the group are listed under the shared label library', async () => {
@@ -1883,31 +1756,31 @@ describe('GroupDetail', () => {
 
     it('Add button is disabled when label name input is empty', async () => {
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
-      const addBtn = screen.getByRole('button', { name: 'Add' })
-      expect(addBtn).toBeDisabled()
+      const addBtn = screen.getByRole('button', { name: 'New label' })
+      expect(addBtn).toHaveAttribute('aria-disabled', 'true')
     })
 
     it('Add button is enabled after typing a label name', async () => {
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       const input = screen.getByPlaceholderText('Label name…')
       fireEvent.change(input, { target: { value: 'Enhancement' } })
 
-      expect(screen.getByRole('button', { name: 'Add' })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: 'New label' })).not.toBeDisabled()
     })
 
     it('submitting Add calls createGroupLabel with name and color', async () => {
       const newLabel = { id: 20, name: 'Enhancement', color: '#EAB308' }
       mockCreateGroupLabel.mockResolvedValue(newLabel)
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       const input = screen.getByPlaceholderText('Label name…')
       fireEvent.change(input, { target: { value: 'Enhancement' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+      fireEvent.click(screen.getByRole('button', { name: 'New label' }))
 
       await waitFor(() => {
         expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Enhancement' }))
@@ -1917,14 +1790,14 @@ describe('GroupDetail', () => {
     it('starts the new label on the Amber preset, with the custom trigger in the row (#2095)', async () => {
       mockCreateGroupLabel.mockResolvedValue({ id: 22, name: 'Amber', color: '#F59E0B' })
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       const group = screen.getByRole('group', { name: 'Label color' })
       expect(within(group).getByRole('button', { name: 'Select color Amber' })).toHaveAttribute('aria-pressed', 'true')
       expect(within(group).getByRole('button', { name: 'Choose custom color' })).toBeInTheDocument()
 
       fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Amber' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+      fireEvent.click(screen.getByRole('button', { name: 'New label' }))
 
       await waitFor(() => {
         expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, { name: 'Amber', color: '#F59E0B' })
@@ -1934,7 +1807,7 @@ describe('GroupDetail', () => {
     it('creates the label in a custom color picked in the row (#2095)', async () => {
       mockCreateGroupLabel.mockResolvedValue({ id: 23, name: 'Plum', color: '#AA00CC' })
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Choose custom color' }))
       fireEvent.input(screen.getByRole('textbox', { name: 'Hex value' }), { target: { value: '#aa00cc' } })
@@ -1942,7 +1815,7 @@ describe('GroupDetail', () => {
       expect(screen.getByRole('button', { name: 'Custom color, selected' })).toBeInTheDocument()
 
       fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Plum' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+      fireEvent.click(screen.getByRole('button', { name: 'New label' }))
 
       await waitFor(() => {
         expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, { name: 'Plum', color: '#AA00CC' })
@@ -1953,11 +1826,11 @@ describe('GroupDetail', () => {
       const newLabel = { id: 20, name: 'Enhancement', color: '#EAB308' }
       mockCreateGroupLabel.mockResolvedValue(newLabel)
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       const input = screen.getByPlaceholderText('Label name…')
       fireEvent.change(input, { target: { value: 'Enhancement' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+      fireEvent.click(screen.getByRole('button', { name: 'New label' }))
 
       expect(await screen.findByText('Enhancement')).toBeInTheDocument()
     })
@@ -1966,7 +1839,7 @@ describe('GroupDetail', () => {
       const newLabel = { id: 21, name: 'Spike', color: '#EAB308' }
       mockCreateGroupLabel.mockResolvedValue(newLabel)
       await loadAndSwitchToSettings()
-      await screen.findByText('Shared label library')
+      await screen.findByRole('heading', { name: 'Shared labels' })
 
       const input = screen.getByPlaceholderText('Label name…')
       fireEvent.change(input, { target: { value: 'Spike' } })
@@ -1997,7 +1870,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
 
       expect(await screen.findByText('Frontend')).toBeInTheDocument()
       expect(screen.getByText('Backend')).toBeInTheDocument()
@@ -2010,7 +1883,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
 
       expect(await screen.findByText('No shared labels yet.')).toBeInTheDocument()
     })
@@ -2029,7 +1902,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Docs')
 
       // Each label row carries a Remove button
@@ -2048,7 +1921,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Design')
 
       // Click Remove on the label. The label-row Remove button is the first one;
@@ -2058,7 +1931,7 @@ describe('GroupDetail', () => {
 
       // Inline confirmation prompt should appear
       expect(await screen.findByText(/from this group\?/)).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
     })
 
@@ -2073,12 +1946,12 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Design')
 
       fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
       await screen.findByText(/from this group\?/)
-      fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
 
       await waitFor(() => {
         expect(screen.queryByText('Design')).not.toBeInTheDocument()
@@ -2096,7 +1969,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Design')
 
       const user = userEvent.setup()
@@ -2118,7 +1991,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Design')
 
       fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
@@ -2136,7 +2009,7 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Shared labels')
       await screen.findByText('Design')
       fireEvent.click(screen.getByRole('button', { name: 'Remove Design from group' }))
       expect(screen.getByText(/from this group\?/)).toBeInTheDocument()
@@ -2157,13 +2030,13 @@ describe('GroupDetail', () => {
       mockGetGroupBoards.mockResolvedValue([])
       renderGroupDetail()
 
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Members')
       await screen.findByText('Alice Smith')
       fireEvent.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
 
-      expect(screen.getByText(/from this group\?/).textContent).toBe('Remove Alice Smith from this group?')
+      expect(screen.getByText(/from this group\?/).textContent).toBe('Remove Alice Smith from this group? They lose access to its boards.')
       expect(announced()).toBe('Remove Alice Smith from this group?')
-      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
 
       // Escape dismisses the prompt rather than reaching the page-level navigate(-1)
@@ -2202,8 +2075,8 @@ describe('GroupDetail', () => {
       const liveBoard = screen.getByText('Live Board')
       expect(liveBoard).toBeInTheDocument()
       const trigger = liveBoard.closest('[data-board-id]') as HTMLElement
-      expect(trigger.parentElement?.className).toContain('animate-fade-in')
-      expect(trigger.parentElement?.className).toContain('motion-reduce:animate-none')
+      expect(trigger.closest('li')?.className).toContain('animate-fade-in')
+      expect(trigger.closest('li')?.className).toContain('motion-reduce:animate-none')
     })
 
     it('ignores duplicate board.created for a board already in the list', async () => {
@@ -2493,7 +2366,7 @@ describe('GroupDetail — navigation (#1374)', () => {
     setupAdmin()
     renderGroupDetail()
     // JSDOM has no real history, so history.length === 1 → navigate("/")
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
@@ -2503,7 +2376,7 @@ describe('GroupDetail — navigation (#1374)', () => {
     const historySpy = vi.spyOn(window.history, 'length', 'get').mockReturnValue(2)
     try {
       renderGroupDetail()
-      await screen.findByText('+ New board')
+      await screen.findByText('New board')
       fireEvent.keyDown(document, { key: 'Escape' })
       expect(mockNavigate).toHaveBeenCalledWith(-1)
     } finally {
@@ -2536,14 +2409,14 @@ describe('GroupDetail — navigation (#1374)', () => {
     async function loaded() {
       setupAdmin()
       renderGroupDetail()
-      await screen.findByText('+ New board')
+      await screen.findByText('New board')
     }
 
     it('re-reads the group when the group socket has failed', async () => {
       setupAdmin()
       mockGroupSocketStatus = 'failed'
       renderGroupDetail()
-      await screen.findByText('+ New board')
+      await screen.findByText('New board')
       // Initial load + the failed-socket re-read.
       await waitFor(() => expect(mockGetGroup.mock.calls.length).toBeGreaterThanOrEqual(2))
     })
@@ -2561,7 +2434,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       setupAdmin()
       mockGroupSocketStatus = 'failed'
       renderGroupDetail()
-      await screen.findByText('+ New board')
+      await screen.findByText('New board')
       await waitFor(() => expect(mockGetGroup.mock.calls.length).toBeGreaterThanOrEqual(2))
       expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
     })
@@ -2580,9 +2453,10 @@ describe('GroupDetail — navigation (#1374)', () => {
         mockGetGroup.mockRejectedValue(gone)
         capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent)
       })
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Danger zone')
       fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
       const dialog = await screen.findByRole('dialog')
+      fireEvent.change(within(dialog).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
       fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'))
       await act(async () => {})
@@ -2592,9 +2466,10 @@ describe('GroupDetail — navigation (#1374)', () => {
     it('a failed own delete re-arms the reload path', async () => {
       await loaded()
       mockDeleteGroup.mockRejectedValueOnce(new Error('boom'))
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await openGroupSettings('Danger zone')
       fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
       const dialog = await screen.findByRole('dialog')
+      fireEvent.change(within(dialog).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
       fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
       await screen.findByText('Failed to delete group. Please try again.')
       mockGetGroup.mockRejectedValue(gone)
@@ -2641,7 +2516,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       group: 1, group_name: 'Engineering', member_count: 1, created_at: '', updated_at: '',
     })
     renderGroupDetail()
-    fireEvent.click(await screen.findByText('+ New board'))
+    fireEvent.click(await screen.findByText('New board'))
     fireEvent.click(screen.getByText('Confirm create board'))
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/boards/42')
@@ -2748,9 +2623,10 @@ describe('GroupDetail — navigation (#1374)', () => {
     setupAdmin()
     mockDeleteGroup.mockResolvedValue(undefined)
     renderGroupDetail()
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    await openGroupSettings('Danger zone')
     fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
     const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/')
@@ -2760,10 +2636,8 @@ describe('GroupDetail — navigation (#1374)', () => {
   it('navigates to the ancestor group when its breadcrumb link is clicked', async () => {
     setupAdmin({ ancestors: [{ id: 10, name: 'RootOrg' }, { id: 11, name: 'PlatformTeam' }] })
     renderGroupDetail()
-    await screen.findAllByText('RootOrg')
-    const breadcrumbNav = screen.getByRole('navigation', { name: 'Group breadcrumb' })
-    fireEvent.click(within(breadcrumbNav).getByText('RootOrg'))
-    expect(mockNavigate).toHaveBeenCalledWith('/groups/10')
+    const breadcrumbNav = await screen.findByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(breadcrumbNav).getByRole('link', { name: 'RootOrg' })).toHaveAttribute('href', '/groups/10')
   })
 })
 
@@ -2795,7 +2669,7 @@ describe('GroupDetail — health status (#1133)', () => {
     const subPill = subCard.querySelector('[data-health-status="at_risk"]') as HTMLElement
     expect(subPill).toHaveClass('border-dashed')
     expect(subPill).toHaveTextContent('inherited from Engineering')
-    const row = screen.getByText('Roadmap').closest('[data-board-id]') as HTMLElement
+    const row = screen.getByText('Roadmap').closest('li') as HTMLElement
     expect(row.querySelector('[data-health-status="off_track"]')).not.toBeNull()
   })
 
@@ -2815,13 +2689,13 @@ describe('GroupDetail — health status (#1133)', () => {
     mockGetGroupBoards.mockResolvedValue([])
     mockGetGroup.mockResolvedValue(fakeGroup)
     const { unmount } = renderGroupDetail(undefined, member)
-    await screen.findByText('Engineering', { selector: 'h1' })
+    await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     expect(screen.queryByRole('button', { name: /Health status/ })).not.toBeInTheDocument()
     expect(document.querySelector('[data-health-status]')).toBeNull()
     unmount()
     mockGetGroup.mockResolvedValue({ ...sub, owner: fakeUser })
     renderGroupDetail(undefined, member)
-    await screen.findByText('Platform', { selector: 'h1' })
+    await screen.findByRole('heading', { level: 2, name: 'Platform' })
     // A read-only trigger for the history (#2242), never a greyed-out control.
     expect(screen.getByRole('button', { name: /Health status/ })).toHaveAttribute('aria-haspopup', 'dialog')
     expect(screen.getByText('Inherited from Engineering')).toBeInTheDocument()
@@ -2830,7 +2704,7 @@ describe('GroupDetail — health status (#1133)', () => {
   it('withholds the control on a navigation-only group', async () => {
     mockGetGroup.mockResolvedValue({ ...fakeGroup, navigation_only: true, effective_health_status: null })
     renderGroupDetail()
-    await pageHeading({ name: 'Engineering', level: 1 })
+    await screen.findByRole('heading', { level: 2, name: 'Engineering' })
     expect(screen.queryByRole('button', { name: /^Health status:/ })).not.toBeInTheDocument()
   })
 

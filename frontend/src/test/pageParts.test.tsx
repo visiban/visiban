@@ -4,8 +4,9 @@
  * the Settings layout's `?tab=` deep link, and that no part hard-codes a color.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { createRef } from "react";
+import { render, screen, fireEvent, within, cleanup } from "@testing-library/react";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
@@ -15,6 +16,11 @@ import {
   WorkspaceLayout, OverviewLayout, SettingsLayout, filterSettingsSections, CenteredLayout,
   CenteredHeader, StatusCard, BrandTile,
 } from "../components/Page";
+
+function HistoryLen() {
+  // REPLACE navigations keep one entry per visit; PUSH would show "PUSH".
+  return <span data-testid="hist">{useNavigationType() === "REPLACE" ? "1" : "2"}</span>
+}
 
 describe("buttonClasses", () => {
   it("gives every variant 36px (44px on phones), rounded and a focus ring", () => {
@@ -65,6 +71,12 @@ describe("headings", () => {
     expect(screen.getByText("One line.")).toBeInTheDocument();
     expect(screen.getByText("star")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
+  });
+
+  it("PageHeading level prop renders an h3 for in-page sections and defaults to h2", () => {
+    render(<><PageHeading title="Page" /><PageHeading level="h3" title="Section" /></>);
+    expect(screen.getByRole("heading", { level: 2, name: "Page" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Section" })).toBeInTheDocument();
   });
 
   it("PageHeading without description or actions renders only the heading", () => {
@@ -207,7 +219,23 @@ describe("SaveBar and InlineConfirm", () => {
     expect(onDiscard).toHaveBeenCalled();
     expect(onSave).toHaveBeenCalled();
     rerender(<SaveBar thing="email" dirty saving onDiscard={onDiscard} onSave={onSave} />);
-    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Saving…" })).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("SaveBar takes a custom button label and a ref to the Save button (#2476)", () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(<SaveBar thing="email" saveLabel="Save email settings" dirty onDiscard={vi.fn()} onSave={vi.fn()} saveRef={ref} />);
+    expect(screen.getByRole("status")).toHaveTextContent("You have unsaved email changes.");
+    expect(screen.getByRole("button", { name: "Save email settings" })).toBe(ref.current);
+  });
+
+  it("FilterPill omits the count when the server cannot supply one; PageHeading can take focus (#2476)", () => {
+    render(<FilterPill label="Used" selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Used" }).querySelectorAll("span")).toHaveLength(1);
+    const ref = createRef<HTMLHeadingElement>();
+    render(<PageHeading title="Board invites" headingRef={ref} />);
+    expect(ref.current).toHaveAttribute("tabindex", "-1");
+    expect(ref.current?.tagName).toBe("H2");
   });
 
   it("InlineConfirm holds the sentence, Cancel (Quiet) and the Danger action", () => {
@@ -300,6 +328,20 @@ describe("layouts", () => {
     expect(screen.getByTestId("loc")).toHaveTextContent("?tab=general");
   });
 
+  it("Settings nav shows a group heading once per run of sections and each count (#2476)", () => {
+    const grouped = [
+      { id: "a", label: "General", group: "Instance", render: () => <p>A</p> },
+      { id: "b", label: "Email", group: "Instance", render: () => <p>B</p> },
+      { id: "c", label: "Users", group: "People", count: 12, render: () => <p>C</p> },
+    ];
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={grouped} navLabel="Grouped" /></MemoryRouter>);
+    const nav = screen.getByRole("navigation", { name: "Grouped" });
+    expect(within(nav).getAllByText("Instance")).toHaveLength(1);
+    expect(within(nav).getByText("People")).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /^Users\s*12$/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Users (12)" })).toBeInTheDocument();
+  });
+
   it("Settings falls back to the first section for an unknown or absent tab", () => {
     render(<MemoryRouter initialEntries={["/admin?tab=nope"]}><SettingsLayout sections={sections} /></MemoryRouter>);
     expect(screen.getByText("General body")).toBeInTheDocument();
@@ -369,4 +411,58 @@ describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
     }
     expect(offenders).toEqual([]);
   });
+  it("two-switch row busy flags set aria-busy without disabling; Field takes inputRef and a danger hint; card heading level is selectable (#2477)", () => {
+    const ref = { current: null as HTMLInputElement | null };
+    render(
+      <>
+        <SettingTwoSwitchRow event="Mentioned" inApp email inAppBusy emailBusy={false} onInAppChange={vi.fn()} onEmailChange={vi.fn()} />
+        <Field label="Email address" autoComplete="email" inputRef={ref} hint="Bad address" hintTone="danger" />
+        <SettingsCard title="Card" headingAs="h4">x</SettingsCard>
+      </>,
+    );
+    const inApp = screen.getByRole("switch", { name: "Mentioned, in-app" });
+    expect(inApp).toHaveAttribute("aria-busy", "true");
+    expect(inApp).not.toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Mentioned, email" })).not.toHaveAttribute("aria-busy");
+    expect(ref.current).toBe(screen.getByLabelText("Email address"));
+    expect(screen.getByText("Bad address")).toHaveClass("text-danger");
+    expect(screen.getByRole("heading", { level: 4, name: "Card" })).toBeInTheDocument();
+  });
+
+  it("SettingsLayout shows defaultId when the URL names no section, and the URL wins when it does (#2477)", () => {
+    const sections = [
+      { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
+      { id: "b", label: "Beta", render: () => <p>beta body</p> },
+    ]
+    const { unmount } = render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} defaultId="b" /></MemoryRouter>)
+    expect(screen.getByText("beta body")).toBeInTheDocument()
+    unmount()
+    render(<MemoryRouter initialEntries={["/x?tab=a"]}><SettingsLayout sections={sections} defaultId="b" /></MemoryRouter>)
+    expect(screen.getByText("alpha body")).toBeInTheDocument()
+  })
+
+  it("SettingsLayout replaces history by default, and `replace={false}` pushes (#2477)", () => {
+    const sections = [
+      { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
+      { id: "b", label: "Beta", render: () => <p>beta body</p> },
+    ]
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} /><HistoryLen /></MemoryRouter>)
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
+    expect(screen.getByText("beta body")).toBeInTheDocument()
+    expect(screen.getByTestId("hist")).toHaveTextContent("1")
+    cleanup()
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} replace={false} /><HistoryLen /></MemoryRouter>)
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
+    expect(screen.getByTestId("hist")).toHaveTextContent("2")
+  })
+
+  it("SettingsLayout `onBeforeSelect` returning false vetoes the switch", () => {
+    const sections = [
+      { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
+      { id: "b", label: "Beta", render: () => <p>beta body</p> },
+    ]
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} onBeforeSelect={() => false} /></MemoryRouter>)
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
+    expect(screen.getByText("alpha body")).toBeInTheDocument()
+  })
 });

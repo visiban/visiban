@@ -164,13 +164,13 @@ DJANGO_SUPERUSER_EMAIL=admin@example.com
 
 ## Inviting your team
 
-Choose how people join **before** you share the URL. Go to **Admin → Settings** and set the registration mode:
+Choose how people join **before** you share the URL. Go to **Site admin → General** and set the registration mode:
 
 | Mode | Who can create an account |
 |---|---|
 | **Open** | Anyone who reaches the login page can self-register. No admin action needed. |
 | **Invite-only** | New users must follow a valid invite link from a site admin. That's a site invite link or *(1.2+)* a group invite that a site admin emailed from a group's invite panel. Registration attempts without one are rejected. |
-| **Closed** | Self-registration is off. Site admins create accounts by hand under **Admin → Users → Add user**. |
+| **Closed** | Self-registration is off. Site admins create accounts by hand under **Site admin → Users → Add user**. |
 
 **How it works:** The change applies immediately, with no restart. Existing sessions and OAuth-linked accounts are never affected.
 
@@ -182,7 +182,7 @@ Choose how people join **before** you share the URL. Go to **Admin → Settings*
 
 To create a link:
 
-1. Open the **Admin** panel (`/admin`) and go to the **Invite Links** tab.
+1. Open the **Admin** panel (`/admin`) and go to **Invite links** under **People**.
 2. Click **Generate invite link**.
 3. Choose an expiry: **1 day**, **7 days**, **30 days**, or **Never expires**.
 4. Optionally turn on **Single-use**, which consumes the link on the first registration so it can't be reused.
@@ -204,7 +204,7 @@ To create a link:
 
 ### Create accounts by hand (Closed mode)
 
-Use **Admin → Users → Add user**. Set a temporary password and turn on **Force password reset** so the user picks their own password on first login.
+Use **Site admin → Users → Add user**. Set a temporary password and turn on **Force password reset** so the user picks their own password on first login.
 
 !!! warning "Copy the temporary password before you close the dialog"
     The Create User dialog doesn't show it again. Send it to the new user over a secure channel.

@@ -4,7 +4,6 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 import type { GroupInviteLink } from '../types'
-import { INVITE_STATUS_STYLES } from '../constants/invites'
 
 vi.mock('../api/groups', () => ({
   listInviteLinks: vi.fn(),
@@ -130,6 +129,13 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByText(/New users can't sign up on this site\./)).toBeInTheDocument()
   })
 
+  it('without isSiteAdmin (absent input) never shows the site-admin-only invite-only copy', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, registration_mode: 'invite_only', registration_open: false })
+    render(<InviteLinkPanel scope={{ kind: "group", id: 7 }} />)
+    expect(await screen.findByText(/New users can't sign up on this site\./)).toBeInTheDocument()
+    expect(screen.queryByText(/only from invites you email/)).not.toBeInTheDocument()
+  })
+
   it('hides the Invite by email section when email is unavailable', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
@@ -247,7 +253,7 @@ describe('InviteLinkPanel', () => {
     mockListInviteLinks.mockResolvedValue([fakeUsedLink])
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Used')
-    expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Revoke invite link/ })).not.toBeInTheDocument()
   })
 
   it('shows "1-use" indicator for a pending single-use link', async () => {
@@ -271,14 +277,14 @@ describe('InviteLinkPanel', () => {
     // Confirm the link is visible
     expect(await screen.findByText('Existing link')).toBeInTheDocument()
     // Click Revoke to enter confirm mode, then confirm
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Revoke link' }))
     // The row should still be visible showing the Revoked badge
     expect(await screen.findByText('Revoked')).toBeInTheDocument()
     expect(screen.getByText('Existing link')).toBeInTheDocument()
     // The revoke button should no longer be visible for a revoked row
-    expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Revoke invite link/ })).not.toBeInTheDocument()
   })
 
   it('refetches links when reloadSignal changes (invite_link.revoked convergence)', async () => {
@@ -336,13 +342,13 @@ describe('InviteLinkPanel', () => {
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
     // Enter confirm mode
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     // Cancel — the Cancel button appears in the inline confirm row
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     // API must not have been called
     expect(mockRevokeInviteLink).not.toHaveBeenCalled()
     // The original Revoke trigger should be visible again
-    expect(await screen.findByRole('button', { name: 'Revoke' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Revoke invite link/ })).toBeInTheDocument()
   })
 
   it('Cancel on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
@@ -350,9 +356,9 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Revoke invite link/ })).toHaveFocus()
   })
 
   it('Escape on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
@@ -360,12 +366,12 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     // Move focus onto the prompt, as a keyboard user tabbing into it would.
     screen.getByRole('button', { name: 'Cancel' }).focus()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Revoke invite link/ })).toHaveFocus()
   })
 
   it('shows createError UI when createInviteLink rejects', async () => {
@@ -579,32 +585,19 @@ describe('InviteLinkPanel', () => {
     expect(expiredLabels.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('expired badge uses the /20 tint token, not the low-contrast /60', async () => {
-    mockListInviteLinks.mockResolvedValue([fakeExpiredLink])
-    render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
-    await screen.findByText('Expired link')
-    const badge = screen
-      .getAllByText('Expired')
-      .find((el) => el.className.includes('bg-danger'))
-    expect(badge).toBeDefined()
-    expect(badge!.className).toContain('bg-danger/20')
-    expect(badge!.className).not.toContain('bg-danger/60')
-  })
-
+  // The group list renders status through the shared StatusPill (#2478), whose on-tint /15 pairs
+  // pageParts.test.tsx pins; here the tone mapping is what matters.
   it.each([
-    ['used', 'Used', fakeUsedLink],
-    ['revoked', 'Revoked', { ...fakeUsedLink, id: 5, name: 'Revoked link', status: 'revoked' as const }],
-  ] as const)('%s badge renders the shared INVITE_STATUS_STYLES tone', async (status, label, link) => {
+    ['expired', 'Expired', fakeExpiredLink, 'at_risk'],
+    ['used', 'Used', fakeUsedLink, 'on_track'],
+    ['revoked', 'Revoked', { ...fakeUsedLink, id: 5, name: 'Revoked link', status: 'revoked' as const }, 'off_track'],
+  ] as const)('%s badge renders the shared StatusPill tone', async (_status, label, link, tone) => {
     mockListInviteLinks.mockResolvedValue([link as GroupInviteLink])
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText(link.name)
-    const badge = screen
-      .getAllByText(label)
-      .find((el) => el.className.includes('font-semibold'))
-    expect(badge).toBeDefined()
-    for (const cls of INVITE_STATUS_STYLES[status].split(' ')) {
-      expect(badge!.className).toContain(cls)
-    }
+    const badge = screen.getAllByText(label).map((el) => el.closest('[data-tone]')).find(Boolean)
+    expect(badge).toBeTruthy()
+    expect(badge).toHaveAttribute('data-tone', tone)
   })
 
   it('expired link shows the Expired status badge in the UI', async () => {
@@ -629,7 +622,7 @@ describe('InviteLinkPanel', () => {
     }
     const user = userEvent.setup()
     render(<Host />)
-    await user.click(await screen.findByRole('button', { name: 'Revoke' }))
+    await user.click(await screen.findByRole('button', { name: /^Revoke invite link/ }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()

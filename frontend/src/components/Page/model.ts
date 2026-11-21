@@ -20,6 +20,10 @@ export interface SettingsSection {
   label: string;
   /** Extra words "Find a setting" matches (the settings inside the section). */
   keywords?: string[];
+  /** Group heading above the section in the nav (Site admin: Instance, People). Consecutive sections with the same group share one heading. */
+  group?: string;
+  /** Count shown at the right of the nav item (Users = total). Omitted until known. */
+  count?: number;
   render: () => ReactNode;
 }
 

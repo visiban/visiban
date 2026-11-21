@@ -77,8 +77,12 @@ export function useLoadShellNavData(user: User, starVersion: number): ShellNavDa
     pruneRef.current(new Set(boardsRef.current.filter((b) => b.id !== boardId).map((b) => b.id)));
   }, []);
   const addGroup = useCallback((group: Group) => {
-    setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev : [group, ...prev]));
+    // Upsert: a rename on the group page replaces the listed row (#2478).
+    setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev.map((g) => (g.id === group.id ? { ...g, ...group } : g)) : [group, ...prev]));
+  }, []);
+  const removeGroup = useCallback((groupId: number) => {
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
   }, []);
 
-  return { loading, groups, boards, starredBoards, recentBoards, addBoard, removeBoard, addGroup };
+  return { loading, groups, boards, starredBoards, recentBoards, addBoard, removeBoard, addGroup, removeGroup };
 }

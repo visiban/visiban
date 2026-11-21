@@ -105,7 +105,7 @@ describe('source scan: dots and chips (#2094)', () => {
     'components/Board/BulkActionToolbar.tsx', 'components/Board/CreateBoardModal.tsx',
     'components/Board/BoardView.tsx', 'components/Board/SummaryView.tsx',
     'components/Board/FilterChip.tsx', 'components/Common/CheckboxDropdown.tsx',
-    'pages/GroupDetail.tsx', 'pages/ShareBoardPage.tsx',
+    'pages/ShareBoardPage.tsx',
   ]
 
   it.each(DOT_FILES)('%s: every rounded-full dot filled from a user color has color-dot', (file) => {
@@ -126,6 +126,7 @@ describe('source scan: dots and chips (#2094)', () => {
   it.each([
     'components/Board/trello/TrelloReviewStep.tsx', 'components/Card/CardItem.tsx',
     'components/Card/CardDetail.tsx', 'components/Board/Lens/LensIssueCard.tsx', 'pages/ShareBoardPage.tsx',
+    'pages/GroupDetail.tsx', // shared labels are chips since #2478
   ])('%s: label chips use colorChipStyle with cf-choice-badge, not raw color + alpha', (file) => {
     const src = read(file)
     expect(src).toContain('colorChipStyle(')

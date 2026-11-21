@@ -37,18 +37,22 @@ export function Button({ variant = "secondary", size, fullWidth, className, type
  * header (#2473); pages outside the shell use `CenteredLayout`, which keeps its own `h1`.
  * `accessory` holds the star and status control on the Overview layout, beside the heading.
  */
-export function PageHeading({ title, description, accessory, actions, id }: {
+export function PageHeading({ title, description, accessory, actions, id, headingRef, level: Tag = "h2" }: {
   title: ReactNode;
   description?: ReactNode;
   accessory?: ReactNode;
   actions?: ReactNode;
   id?: string;
+  /** Heading level. Defaults to `h2`; a section inside a page that already has an `h2` passes `h3`. */
+  level?: "h2" | "h3";
+  /** Makes the heading focusable (`tabIndex=-1`) so a page can move focus here when the row that held it goes away. */
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id={id} className="text-2xl font-semibold text-fg break-words">{title}</h2>
+          <Tag id={id} ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold text-fg break-words focus:outline-none">{title}</Tag>
           {accessory}
         </div>
         {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
@@ -141,11 +145,11 @@ export function StatusControl({ tone, label, onClick, "aria-label": ariaLabel, "
 // ---------------------------------------------------------------------------
 
 /**
- * Identical to the board's Show chips (#2272): 34px pills, a count in every pill. Selected is a
+ * Identical to the board's Show chips (#2272): 34px pills, a count in every pill. `count` may be omitted only when the server cannot supply one (Admin → Board invites, #2476); never show a count the page did not load. Selected is a
  * 22% primary tint with the selected (`info`) border and weight 650 plus `aria-pressed`, so the
  * state never rests on color alone; resting is the panel color with a `line-strong` border.
  */
-export function FilterPill({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) {
+export function FilterPill({ label, count, selected, onClick }: { label: string; count?: number; selected: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -156,7 +160,7 @@ export function FilterPill({ label, count, selected, onClick }: { label: string;
       }`}
     >
       <span>{label}</span>
-      <span className="text-fg-secondary tabular-nums">{count}</span>
+      {count !== undefined && <span className="text-fg-secondary tabular-nums">{count}</span>}
     </button>
   );
 }
@@ -184,11 +188,11 @@ export function ListRow({ children, as: Tag = "div" }: { children: ReactNode; as
 // ---------------------------------------------------------------------------
 
 /** Settings card: the panel color, 10px radius, 18px padding. */
-export function SettingsCard({ title, description, children, id }: { title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string }) {
+export function SettingsCard({ title, description, children, id, headingAs }: { title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string; /** `h4` when the card sits under a section's `h3` heading (default `h3`). */ headingAs?: "h3" | "h4" }) {
   const headingId = useId();
   return (
     <section aria-labelledby={title ? (id ?? headingId) : undefined} className="bg-surface border border-line rounded-[10px] p-[18px]">
-      {title && <CardHeading id={id ?? headingId}>{title}</CardHeading>}
+      {title && <CardHeading as={headingAs} id={id ?? headingId}>{title}</CardHeading>}
       {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
       <div className={title || description ? "mt-3" : ""}>{children}</div>
     </section>
@@ -199,10 +203,12 @@ export function SettingsCard({ title, description, children, id }: { title?: Rea
  * A 44×26 switch. Saves on change: the caller persists in `onChange`, there is no Save button.
  * On phones the hit area grows to 44×44 around the same track (§ Phone touch targets).
  */
-export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: {
+export function Switch({ checked, onChange, disabled, busy, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  /** In-flight save: sets `aria-busy` but keeps the switch enabled, so focus is not dropped. */
+  busy?: boolean;
   id?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -218,6 +224,7 @@ export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabe
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       disabled={disabled}
+      aria-busy={busy || undefined}
       onClick={() => onChange(!checked)}
       className="group/switch relative inline-flex h-[26px] w-11 max-sm:h-11 shrink-0 items-center justify-center rounded-full focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
@@ -236,12 +243,13 @@ export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabe
 }
 
 /** Setting row: label and description on the left, a switch on the right. */
-export function SettingSwitchRow({ label, description, checked, onChange, disabled }: {
+export function SettingSwitchRow({ label, description, checked, onChange, disabled, busy }: {
   label: string;
   description?: ReactNode;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  busy?: boolean;
 }) {
   const labelId = useId();
   const descId = useId();
@@ -251,7 +259,7 @@ export function SettingSwitchRow({ label, description, checked, onChange, disabl
         <p id={labelId} className="text-sm font-medium text-fg">{label}</p>
         {description && <p id={descId} className="mt-0.5 text-sm text-fg-secondary">{description}</p>}
       </div>
-      <Switch checked={checked} onChange={onChange} disabled={disabled} aria-labelledby={labelId} aria-describedby={description ? descId : undefined} />
+      <Switch checked={checked} onChange={onChange} disabled={disabled} busy={busy} aria-labelledby={labelId} aria-describedby={description ? descId : undefined} />
     </div>
   );
 }
@@ -271,13 +279,16 @@ export function SettingTwoSwitchHeader() {
  * named "<event>, in-app" / "<event>, email". Email is shown off and disabled while in-app is
  * off: an email for an event the user has silenced in the app would be a surprise.
  */
-export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppChange, onEmailChange }: {
+export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppChange, onEmailChange, inAppBusy, emailBusy }: {
   event: string;
   description?: ReactNode;
   inApp: boolean;
   email: boolean;
   onInAppChange: (checked: boolean) => void;
   onEmailChange: (checked: boolean) => void;
+  /** In-flight save of that switch: `aria-busy`, still enabled so focus is kept. */
+  inAppBusy?: boolean;
+  emailBusy?: boolean;
 }) {
   const descId = useId();
   const reasonId = useId();
@@ -291,8 +302,8 @@ export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppC
         {!inApp && <p id={reasonId} className="mt-0.5 text-xs text-fg-secondary">Turn on in-app to get email.</p>}
       </div>
       <div className="flex items-center gap-4">
-        <Switch checked={inApp} onChange={onInAppChange} aria-label={`${event}, in-app`} aria-describedby={description ? descId : undefined} />
-        <Switch checked={inApp && email} onChange={onEmailChange} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={emailDescribedBy} />
+        <Switch checked={inApp} onChange={onInAppChange} busy={inAppBusy} aria-label={`${event}, in-app`} aria-describedby={description ? descId : undefined} />
+        <Switch checked={inApp && email} onChange={onEmailChange} busy={emailBusy} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={emailDescribedBy} />
       </div>
     </div>
   );
@@ -306,19 +317,23 @@ export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppC
  * For forms with several fields. Shows only while there are unsaved changes: a status message,
  * Discard (Quiet) and "Save <thing>" (Primary). Drawn on the Chrome surface (`bg-sunken`).
  */
-export function SaveBar({ thing, dirty, saving = false, onDiscard, onSave }: {
+export function SaveBar({ thing, saveLabel, dirty, saving = false, onDiscard, onSave, saveRef }: {
   thing: string;
+  /** Button text when it differs from "Save <thing>" (Email: "Save email settings"). */
+  saveLabel?: string;
   dirty: boolean;
   saving?: boolean;
   onDiscard: () => void;
   onSave: () => void;
+  /** Lets a caller return focus to Save when an inline confirm it opened closes (#1367). */
+  saveRef?: Ref<HTMLButtonElement>;
 }) {
   if (!dirty) return null;
   return (
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-sunken px-4 py-3">
       <p role="status" className="flex-1 min-w-0 text-sm text-fg-secondary">You have unsaved {thing} changes.</p>
       <Button variant="quiet" onClick={onDiscard} disabled={saving}>Discard</Button>
-      <Button variant="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : `Save ${thing}`}</Button>
+      <Button variant="primary" buttonRef={saveRef} onClick={() => { if (!saving) onSave(); }} aria-busy={saving || undefined}>{saving ? "Saving…" : (saveLabel ?? `Save ${thing}`)}</Button>
     </div>
   );
 }
@@ -331,9 +346,12 @@ export function SaveBar({ thing, dirty, saving = false, onDiscard, onSave }: {
  * Danger-tinted box: one full sentence that names the target and the consequence, then Cancel
  * (Quiet) and the action (Danger), both 36px. Only for the change that removes access.
  */
-export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy = false }: {
+export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy = false, busyLabel, actionTestId }: {
   message: ReactNode;
   actionLabel: string;
+  /** Shown on the action while `busy` (for example "Revoking…"). */
+  busyLabel?: string;
+  actionTestId?: string;
   onConfirm: () => void;
   onCancel: () => void;
   busy?: boolean;
@@ -347,7 +365,7 @@ export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy 
       <p className="text-sm text-fg">{message}</p>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button variant="quiet" buttonRef={cancelRef} onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button variant="danger" onClick={onConfirm} disabled={busy}>{actionLabel}</Button>
+        <Button variant="danger" onClick={onConfirm} disabled={busy} aria-busy={busy || undefined} data-testid={actionTestId}>{busy && busyLabel ? busyLabel : actionLabel}</Button>
       </div>
     </div>
   );
@@ -389,10 +407,14 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   /** Sits right of the label, e.g. "Forgot password?". */
   labelAccessory?: ReactNode;
   id?: string;
+  /** `danger` colors the hint as an error (set `aria-invalid` too). */
+  hintTone?: "danger";
+  /** Ref to the input, for programmatic focus. */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 /** A visibly labeled input. 36px, 48px on phones (the Centered layout's control height). */
-export function Field({ label, hint, labelAccessory, id, ...input }: FieldProps) {
+export function Field({ label, hint, labelAccessory, id, hintTone, inputRef, ...input }: FieldProps) {
   const generated = useId();
   const inputId = id ?? generated;
   const hintId = `${inputId}-hint`;
@@ -404,11 +426,12 @@ export function Field({ label, hint, labelAccessory, id, ...input }: FieldProps)
       </div>
       <input
         id={inputId}
+        ref={inputRef}
         aria-describedby={hint ? hintId : undefined}
         className="w-full h-9 max-sm:h-12 bg-surface border border-line-strong text-fg placeholder-fg-muted rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
         {...input}
       />
-      {hint && <p id={hintId} className="mt-1 text-xs text-fg-tertiary">{hint}</p>}
+      {hint && <p id={hintId} className={`mt-1 text-xs ${hintTone === "danger" ? "text-danger" : "text-fg-tertiary"}`}>{hint}</p>}
     </div>
   );
 }

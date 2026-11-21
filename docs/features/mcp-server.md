@@ -31,7 +31,7 @@ Any Streamable HTTP MCP client can connect: Claude Desktop, Claude.ai (via a rem
 
 The MCP server reuses Visiban's existing [Personal Access Token](personal-access-tokens.md) system; there's no separate "API Tokens" screen in Django admin.
 
-In **Settings > Access Tokens**, tick **mcp:read** (plus `mcp:write` only if you want the agent to create, move, update, or archive cards) before generating the token. The default `read` and `write` scopes alone are refused at `/mcp`.
+In **Settings > Access tokens**, tick **mcp:read** (plus `mcp:write` only if you want the agent to create, move, update, or archive cards) before generating the token. The default `read` and `write` scopes alone are refused at `/mcp`.
 
 To do the same through the API:
 

@@ -23,6 +23,12 @@ describe('SelectDropdown', () => {
     expect(screen.getByText('Option A')).toBeInTheDocument()
   })
 
+  // #2478 — the compact xs trigger (group role picker) keeps the 44px phone target; desktop sizing is unchanged.
+  it.each(['xs', 'sm'] as const)('the %s trigger has a phone-only 44px minimum height', (size) => {
+    render(<SelectDropdown value="a" onChange={() => undefined} options={options} size={size} />)
+    expect(screen.getByRole('combobox').className).toContain('max-sm:min-h-11')
+  })
+
   it('has correct ARIA attributes when closed', () => {
     render(<SelectDropdown value="a" onChange={() => undefined} options={options} />)
     const trigger = screen.getByRole('combobox')

@@ -138,7 +138,7 @@ For now, you are watching a card when you **created it** or **are assigned to it
 - **Never for your own comment.** Commenting on a card you created or are assigned to does not notify you.
 - **One notification per comment.** If the same comment @mentions you, you get only the @mention notification, not this one as well.
 - **Only while you can see the board.** If you created a card but have since been removed from the board, or your account is deactivated, you are not notified.
-- **Email is optional.** Turn on **Also send by email** under *Comment on a watched card* to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See [Email notifications](#email-notifications).
+- **Email is optional.** Turn on the **Email** switch in the *Comment on a watched card* row to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See [Email notifications](#email-notifications).
 
 ## Staleness notifications
 
@@ -194,17 +194,17 @@ Team members who are not watching the board all day can have notifications deliv
 
 | Event | Email preference |
 |---|---|
-| Card assigned to me | **Also send by email** under *Card assigned to me* |
-| Someone @mentions me | **Also send by email** under *Someone @mentions me* |
-| Due date approaching | **Also send by email** under *Due date approaching* |
-| Card I'm watching is moved | **Also send by email** under *Card I'm watching is moved* |
-| Comment on a watched card | **Also send by email** under *Comment on a watched card* |
+| Card assigned to me | **Email** switch in the *Card assigned to me* row |
+| Someone @mentions me | **Email** switch in the *Someone @mentions me* row |
+| Due date approaching | **Email** switch in the *Due date approaching* row |
+| Card I'm watching is moved | **Email** switch in the *Card I'm watching is moved* row |
+| Comment on a watched card | **Email** switch in the *Comment on a watched card* row |
 
 ### Turning it on
 
 Two things have to be true before any email is sent:
 
-1. **A superuser has configured outgoing email** — either the `EMAIL_*` environment variables or **Admin → Settings → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
+1. **A superuser has configured outgoing email** — either the `EMAIL_*` environment variables or **Site admin → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
 2. **You turned the event's email toggle on** in **Settings → Notifications**.
 
 One notice ignores the toggles *(1.3+)*: when a [webhook](webhooks.md) on a board you administer is turned off automatically, you get it in the bell and by email, as long as your address is verified. It names the board, the webhook's number and why it stopped.
@@ -255,7 +255,7 @@ A delivery failure never breaks the action that caused it. Notifications are cre
 
 The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly **best-effort**: restarting or recycling a worker mid-send drops that batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead. Scheduled commands such as `notify_due_soon` do not need that: they wait up to 30 seconds for mail still being sent before they exit.
 
-There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Admin → Settings → Email** has a **Send test email** button.
+There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Site admin → Email** has a **Send test email** button.
 
 ### Extending delivery
 

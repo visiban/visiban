@@ -36,9 +36,9 @@ Each group has members with one of four roles:
 | `collaborator` | View boards in the group; can comment on cards but cannot create, edit, move, or delete them |
 | `viewer` | Read-only access to all boards in the group — can view cards and card history but cannot create, edit, move, delete cards, or manage members |
 
-Only the group owner or a site administrator can delete a group; other group admins see a note naming the owner in **Settings → Danger zone** instead of the Delete button.
+Only the group owner or a site administrator can delete a group; other group admins see a note naming the owner in **Group settings → Danger zone** instead of the Delete button. The owner confirms by typing the group's name.
 
-The group owner's row in **Settings → Members** shows the role as plain text, with no role dropdown or Remove button; transfer ownership first to change the owner. If the server refuses a member removal or role change (for example the last remaining admin), the panel shows the server's reason instead of a generic error.
+The group owner's row in **Group settings → Members** shows the role as plain text, with no role dropdown or Remove button; transfer ownership first to change the owner. If the server refuses a member removal or role change (for example the last remaining admin), the panel shows the server's reason instead of a generic error.
 
 Membership is **inherited**: a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup. See [Group Inheritance](rbac/inheritance.md).
 
@@ -48,13 +48,28 @@ All four roles (`admin`, `member`, `collaborator`, `viewer`) are valid at both t
 
 ## Group description
 
-Each group has an optional **description**: a short free-text summary of its purpose. It appears on the group detail page. Click it to edit inline, then press **Enter** (or click outside) to save, or **Escape** to cancel.
+Each group has an optional **description**: a short free-text summary of its purpose. It appears on the group detail page, under the name. Group admins click it to edit inline, then press **Enter** (or click outside) to save, or **Escape** to cancel.
 
 The description is returned as `description` in `GET /api/v1/groups/{id}/` and is writable via `PUT /api/v1/groups/{id}/` (group admin required).
 
+## The group page and Group settings
+
+*(1.3+, #2478)* The group page uses the same Overview layout as [Home](navigation.md#home). The header shows the breadcrumb **Home / ancestors / the group**, with the group's name as the page title, and **Import** and **New board** for anyone who can place boards in the group. Under it:
+
+- the group's name (admins click it or the pencil to rename), its health status, a star, and the description (admins click it to edit);
+- "N members · N boards · N subgroups" and the live connection status;
+- **Invite** and **Group settings** (group admins only; on a phone they are in the **⋯** menu);
+- **Boards**, with **Show subgroup boards**. Each row shows the name, description, card count and health status. The **⋯** menu holds **Move to another group** (group admins) and **Delete** (the board's owner or a user with all-content access). A board owner who is not a group admin sees the menu with **Delete** only;
+- **Subgroups**, as cards with board and member counts and the "Not reviewed in N days" cue, plus **+ New subgroup** for group admins;
+- **Members**, a side column (below the content on a phone) that everyone in the group sees, with role chips. **Manage** (group admins only) opens Group settings → Members.
+
+Group admins reach **Group settings** from the header, or at `/groups/{id}?tab=settings`. It lists six sections, with **Find a setting** above them: **Members**, **Invite links**, **Health status review**, **Board defaults**, **Shared labels** and **Danger zone**. A section has its own address, for example `?tab=settings&section=danger-zone`. People who are not group admins who open a settings link see the group page instead.
+
+A group you can see only because you belong to one of its subgroups (a navigation-only group) shows its name and nothing else: no counts, health status or members.
+
 ## Ancestor breadcrumb chain
 
-For a group with a parent, the detail page shows a breadcrumb chain above the group name: every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.
+For a group with a parent, the header's breadcrumb shows every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.
 
 The full ancestor list is also in the API: `GET /api/v1/groups/{id}/` returns an `ancestors` array (see [Groups API](../api/groups.md)).
 
@@ -151,7 +166,7 @@ Only board admins and site admins can move a board, and moving a board into a gr
 
 > **Added in 1.2**
 
-The dialog lists every group you can see, but groups you can't place boards in are shown disabled, with **Group admins only** next to the name. Their subgroups stay listed, and a parent group opens automatically when a subgroup you can use sits under it. If the board's current group is one you can't place boards in, it is not disabled; it shows **Current group** so you can switch back to it. If you can't place boards in any group, the dialog says so. On a group page, **+ New board** and **Import** appear only when you can place boards in that group.
+The dialog lists every group you can see, but groups you can't place boards in are shown disabled, with **Group admins only** next to the name. Their subgroups stay listed, and a parent group opens automatically when a subgroup you can use sits under it. If the board's current group is one you can't place boards in, it is not disabled; it shows **Current group** so you can switch back to it. If you can't place boards in any group, the dialog says so. On a group page, **New board** and **Import** appear only when you can place boards in that group.
 
 **API:** `POST /api/v1/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
 
@@ -159,7 +174,7 @@ The dialog lists every group you can see, but groups you can't place boards in a
 
 > **Added in 1.0**
 
-Group admins define a shared label library in the **Settings** tab on the group detail page. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.
+Group admins define a shared label library in **Group settings → Shared labels**. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.
 
 Each label's color is a preset swatch or a [custom color](board.md#custom-colors).
 
@@ -169,7 +184,7 @@ Each label's color is a preset swatch or a [custom color](board.md#custom-colors
 
 ## Group board defaults
 
-Group admins configure defaults for new boards in the group, in the **Settings** tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is also deprecated (#1429): it is copied onto new boards but not enforced.
+Group admins see the defaults for new boards in **Group settings → Board defaults**. The default member role is deprecated and has no effect. Allowed priorities is also deprecated (#1429): it is copied onto new boards but not enforced, and since 1.3 the page no longer shows it (the API field is unchanged).
 
 | Setting | Description |
 |---|---|
@@ -180,7 +195,7 @@ Group admins configure defaults for new boards in the group, in the **Settings**
 
 ## Transferring group ownership
 
-Only the **current owner** can transfer ownership, and only to an existing group **admin**. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.
+Only the **current owner** can transfer ownership, and only to an existing group **admin**. Open **Group settings → Danger zone → Transfer ownership**; the form opens in place below the button. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.
 
 If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see [Transferring a group's ownership](../administration/django-admin.md#transferring-a-groups-ownership).
 

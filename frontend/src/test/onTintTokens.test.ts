@@ -904,7 +904,11 @@ describe('InviteLinkPanel dimmed rows (#2030)', () => {
 
   it('uses no opacity class on a row', () => {
     expect(panel).not.toMatch(/opacity-(60|70|75)/)
-    expect(panel.match(/"border-danger\/40 bg-sunken"/g)?.length).toBe(2)
+    // The board-scope row (the group scope now renders ListRow + StatusPill, #2478) keeps the bg-sunken face for
+    // every status: revoked and used on border-line, expired on border-danger/40, so the pill carries the state.
+    expect(panel).toContain('linkStatus === "revoked" ? "border-line bg-sunken"')
+    expect(panel).toContain('linkStatus === "used" ? "border-line bg-sunken"')
+    expect(panel).toContain('linkStatus === "expired" ? "border-danger/40 bg-sunken"')
   })
 
   it.each([
