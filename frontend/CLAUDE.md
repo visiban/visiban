@@ -63,7 +63,7 @@ Six variants — use no others (#2475). `components/Page/buttonClasses.ts` (`but
 
 ## Shared page layouts and parts (#2475)
 
-`components/Page` (barrel `index.ts`: `buttonClasses.ts`, `parts.tsx`, `layouts.tsx`) holds the Consistency sheet's layouts and parts. Page redesigns (#2473, #2474, #2476–#2480) import them instead of restating classes; `src/test/pageParts.test.tsx` pins them and fails on a hard-coded color in the folder.
+`components/Page` (barrel `index.ts`: `buttonClasses.ts`, `parts.tsx`, `layouts.tsx`) holds the Consistency sheet's layouts and parts. Page redesigns (#2473, #2474, #2476–#2480) import them instead of restating classes; `src/test/pageParts.test.tsx` pins them and fails on a hard-coded color in the folder (any Tailwind default-palette name, white or black under any color-utility prefix, and hex, rgb() or hsl() literals).
 
 - **Colors map to tokens, no new token.** Page `bg-page`; Chrome (header, drawer, Save bar) the Row 1 surface `bg-sunken`; Panel `bg-surface`; Well `bg-canvas`; Sunken (a box inside a panel) `bg-sunken`; Chip `bg-surface-hover` (its text is `fg-secondary`, § Color tokens); borders `border-line` (panels) / `border-line-strong` (controls), `border-line-boundary` where a border is the only cue (the hollow No status pill, an off switch track). Every pairing reuses one already measured above: status pills use the `/15` on-tint pairs (§ Color tokens #2029), Pending and the selected settings nav row use the Filter panel's `bg-primary-emphasis/10 text-info-on-tint` (7.78 light / 7.15 dark). The Analytics canvas's own `--inset`, warning tint and light danger `#dc2626` are canvas drift, not tokens.
 - **Layouts.** `WorkspaceLayout` (full width; Board, Analytics), `OverviewLayout` (max 1200px, a 320px side column from `lg`, below the content otherwise; Home, group page), `SettingsLayout` (max 1240px, a 240px nav with Find a setting, one section per view, a `<select>` below `md`; the active section is `?tab=` so deep links keep working), `CenteredLayout` (one card, max 380px, from `sm`; on phones no card, the content on the page ground with 48px controls). Pages outside the app shell (Centered, the shared board) keep their own `h1`; inside the shell the header owns the `h1` (#2473) and the page heading is `PageHeading`, an `h2` at 24/650 with a one-line description.
@@ -803,7 +803,7 @@ The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all
 - **Stale detection:** `useIsStale(status, lastEventAt, thresholdMs = 60_000)` flips `connected` into the `stale` variant when no event has arrived within 60 seconds. Do not poll; the hook schedules a single `setTimeout`.
 - **Popover:** click trigger opens a `role="dialog" aria-label="Connection status"` popover (`w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3`). Dismissal via Esc (`useEscapeStack` priority 25), outside-click, or re-clicking the trigger. On Esc close, refocus the trigger.
 - **Popover actions:**
-  - connected / stale → "Refresh board" secondary button (only when `onRefresh` is passed — board pages yes, group page no)
+  - connected / stale → "Refresh board" Quiet button (only when `onRefresh` is passed — board pages yes, group page no)
   - failed → "Reload page" danger button
   - connecting / reconnecting → informational only; no button
 - **Accessibility:** trigger carries `aria-haspopup="dialog"`, `aria-expanded`, and a state-specific `aria-label` ("Real-time updates active" / "Offline, reconnecting to real-time updates" / …). Include an inner `<span role="status" aria-live="polite" aria-atomic="true" className="sr-only">` that announces degraded states to screen readers; stay silent when connected.
@@ -1033,7 +1033,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Empty states
 
-- **Full-page not-found pages for signed-in users** (unmatched route, #1740; deleted or inaccessible board/group, #2041 — `UnavailablePage`, one copy for 404 and 403 alike, "This {board|group} isn't available", title "Not available – Visiban", and never say which cause it was; the expired-share page and JoinPage's countdown redirect are outside the app shell and do not follow this: the expired share page is the `EmptyState` part with its own `h1`, and the shared board's header is `ShareBoardHeader`, whose `h1` is the board name): render inside the normal app shell (`Navbar` + `bg-page` body, #2480) with an `<h1 class="text-fg text-2xl font-bold">`, one `text-sm text-fg-secondary` sentence saying what happened (Unavailable adds who to ask: "ask them to add you to the board or its group" / "to the group"), then exactly one Primary `<Link>` "Go to Home" (`/`) and a Secondary "Search boards ⌘K" button that dispatches `visiban:open-palette` (full width and stacked on phones). Set `document.title` to "<Reason> – Visiban" and restore it on unmount. On mount move focus to the `<h1>` (`tabIndex={-1}` + `focus:outline-none`) so assistive tech announces the change. A silent redirect is never an acceptable response to an unmatched route.
+- **Full-page not-found pages for signed-in users** (unmatched route, #1740; deleted or inaccessible board/group, #2041 — `UnavailablePage`, one copy for 404 and 403 alike, "This {board|group} isn't available", title "Not available – Visiban", and never say which cause it was; the expired-share page and JoinPage's countdown redirect are outside the app shell and do not follow this: the expired share page is the `EmptyState` part with its own `h1`, and the shared board's header is `ShareBoardHeader`, whose `h1` is the board name): render inside the normal app shell (`Navbar` + `bg-page` body, #2480) with an `<h1 class="text-fg text-2xl font-semibold">`, one `text-sm text-fg-secondary` sentence saying what happened (Unavailable adds who to ask: "ask them to add you to the board or its group" / "to the group"), then exactly one Primary `<Link>` "Go to Home" (`/`) and a Secondary (bordered) "Search boards ⌘K" button that dispatches `visiban:open-palette` (full width and stacked on phones). Set `document.title` to "<Reason> – Visiban" and restore it on unmount. On mount move focus to the `<h1>` (`tabIndex={-1}` + `focus:outline-none`) so assistive tech announces the change. A silent redirect is never an acceptable response to an unmatched route.
 - Consistent pattern: centered icon (muted, `text-fg-faint`; the icon is decorative, any sentence under it is `fg-muted` or stronger) + heading (`text-fg-tertiary`) + optional CTA button
 - No one-off inline empty messages with different styling
 - **Section-level empty states use `components/Common/SectionEmptyState` (#487):** the Dashboard's Groups and My Boards sections and the group page's Subgroups. When the page-level `OnboardingEmptyState` is showing, the sections below it render no empty message of their own. A failed load is never an empty state: show the error with a `Retry` button and suppress the onboarding and empty states (Dashboard `loadFailed`).
@@ -1176,7 +1176,7 @@ The permitted focus-ring form is `focus:ring-2 focus:ring-primary-emphasis` (or 
 
 **Gate for any PR that touches interactive elements:** run `grep -r "focus-visible:ring" frontend/src/`. If any new instances appear outside the documented DnD exception, switch them to `focus:`. Issues #933, #949, and #983 all closed the same regression — keep this rule visible so it does not recur.
 
-**Confirmation-dialog Cancel buttons need a ring too.** The secondary / "Cancel" button in a confirm or destructive-action dialog is a real tab stop and the keyboard user's safe escape path — it must carry `focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`, not only the primary or danger action button. A bare-text Cancel with no ring leaves keyboard users with no focus indicator on the very control they are most likely to reach for.
+**Confirmation-dialog Cancel buttons need a ring too.** The Quiet "Cancel" button in a confirm or destructive-action dialog is a real tab stop and the keyboard user's safe escape path — it must carry `focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`, not only the primary or danger action button. A bare-text Cancel with no ring leaves keyboard users with no focus indicator on the very control they are most likely to reach for.
 
 ## Hover-reveal controls
 
@@ -1361,7 +1361,7 @@ When a persistent board-wide mode is active (e.g. focus mode, a future "view-onl
 
 - Style: `bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150`
 - Use `bg-primary/15` to signal "active mode" — distinct from transient toasts (§ Toasts: `bg-surface` shells, with the `info` toast's own `bg-primary/15` tint over it) and warnings (amber)
-- Exit controls within the strip use the **secondary button variant** (`text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-primary-emphasis`) — never the primary variant
+- Exit controls within the strip use the **Quiet button variant** (`text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-primary-emphasis`) — never the primary variant
 - Mode name or target label: `font-medium text-info truncate max-w-[24rem]` with `flex-shrink-0` on the exit button
 
 ## Degraded-state site banners (system-imposed, not user-chosen)
@@ -1608,7 +1608,7 @@ When a token or secret is shown exactly once after creation (e.g. invite links, 
    - `text-xs text-warning` notice: "Copy this link now — it won't be shown again."
    - Monospace display field: `font-mono text-xs bg-sunken border border-warning/50 rounded px-2 py-1.5 text-fg truncate` with `title` attribute for full value
    - Copy button (primary variant)
-   - "Done" button (secondary variant) that collapses the row to prefix-only display
+   - "Done" button (Quiet variant) that collapses the row to prefix-only display
 2. Row collapses to prefix-only display after the user copies or clicks Done
 3. Never store the full token client-side after the reveal state is dismissed
 4. Use `transition-all duration-150` on the expanded row so it does not pop in

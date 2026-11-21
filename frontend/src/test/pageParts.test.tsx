@@ -351,6 +351,13 @@ describe("layouts", () => {
   });
 });
 
+const PALETTE =
+  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black";
+const PREFIX = "bg|text|border|ring|fill|stroke|shadow|from|via|to|outline|divide|decoration|accent|caret";
+const HARD_CODED = new RegExp(
+  `#[0-9a-fA-F]{3,8}\\b|\\b(rgba?|hsla?)\\(|\\b(${PREFIX})-(${PALETTE})\\b`,
+);
+
 describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
   it("uses tokens only", () => {
     const dir = resolve(__dirname, "../components/Page");
@@ -358,7 +365,7 @@ describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
     for (const f of readdirSync(dir)) {
       // Comments cite issue numbers (#2475), which look like hex; scan code only.
       const src = readFileSync(join(dir, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-      if (/#[0-9a-fA-F]{3,8}\b|rgba?\(|\b(bg|text|border|ring)-(white|black|slate|gray|zinc|red|blue|green|amber|orange)\b/.test(src)) offenders.push(f);
+      if (HARD_CODED.test(src)) offenders.push(f);
     }
     expect(offenders).toEqual([]);
   });

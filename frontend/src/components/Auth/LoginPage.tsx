@@ -359,7 +359,7 @@ export default function LoginPage({ onLogin }: Props) {
             <ProviderIcon id={banner.via} className="w-5 h-5" />
             Continue with {labelFor(banner.via)}
           </button>
-          <Button variant="quiet" fullWidth onClick={handleForgotPassword}>
+          <Button variant="quiet" size="lg" fullWidth onClick={handleForgotPassword}>
             Can&apos;t access {labelFor(banner.via)}? Reset your password instead
           </Button>
         </div>
