@@ -105,6 +105,13 @@
         "major"
       ],
       "enabled": false
+    },
+    {
+      "description": "The Renovate image pin in .gitlab-ci.yml (renovate job) and the renovate@ pin in renovate-config-check move together by hand; the regex manager must not bump one half",
+      "matchDepNames": [
+        "renovate/renovate"
+      ],
+      "enabled": false
     }
   ],
   "vulnerabilityAlerts": {

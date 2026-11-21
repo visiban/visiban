@@ -33,10 +33,17 @@ should get a fragment added by hand on the Renovate branch and the label removed
 
 ### Detection gaps
 
-The `.gitlab-ci.yml` regex manager does not touch the Python `.lock` files or a plain-string
-image such as `image: "postgres:17"` in `values.yaml` (the Helm manager reads only
-`repository`/`tag` pairs). Those stay manual. CI images pinned to node 20 for the
-`clients/typescript` floor (#2374) are exempt from major bumps.
+**Python lock file (action needed on every pip MR).** Renovate's pip manager edits
+`backend/requirements.txt` only. It does not regenerate the hash-pinned
+`backend/requirements.lock`, so the `backend-lock-check` job (which runs
+`scripts/lock-backend-requirements.sh --check`) goes red on every Renovate pip bump. Before
+merging one, check out the Renovate branch, run `scripts/lock-backend-requirements.sh`, and
+commit the regenerated `backend/requirements.lock` to that branch.
+
+**Other manual pins.** The `.gitlab-ci.yml` regex manager does not touch a plain-string image
+such as `image: "postgres:17"` in `values.yaml` (the Helm manager reads only `repository`/`tag`
+pairs). Those stay manual. CI images pinned to node 20 for the `clients/typescript` floor
+(#2374) are exempt from major bumps.
 
 ## One-time setup (a maintainer does this by hand)
 
@@ -72,11 +79,14 @@ the schedule red. Read the log if no MRs appear for a week.
 
 ## Changing the config
 
-- Edit `renovate.json`. The `frontend-lint` job runs `renovate-config-validator --strict` on it
-  and fails the MR on any error or warning.
+- Edit `renovate.json`. The `renovate-config-check` job runs `renovate-config-validator --strict` on it
+  (when `renovate.json` or `.gitlab-ci.yml` changes) and fails the MR on any error or warning.
 - The Renovate version is pinned twice and must move together: the image tag of the `renovate`
-  job and the `renovate@<version>` in the `frontend-lint` validator step. Renovate does not bump
-  its own image here; bump both by hand to a release at least a few weeks old.
+  job and the `renovate@<version>` in the `renovate-config-check` job. Renovate does not bump
+  either pin: `renovate.json` disables the `renovate/renovate` dependency (the regex manager
+  would otherwise match the image tag), and the `npx` pin is not matched by any manager. Bump
+  both by hand, in one MR, to a release at least a few weeks old. The validator needs Node 24
+  (`engines.node ^24.11.0`), which is why that job runs on `node:24-alpine`.
 - Validate locally: `npx --yes --package renovate@<pin> renovate-config-validator --strict`.
 
 ## Rotating the token
