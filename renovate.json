@@ -1,0 +1,122 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Self-hosted Renovate (#2464): runs from the scheduled `renovate` job in .gitlab-ci.yml. See docs/maintainers/renovate.md. Never automerge: every bump is reviewed and merged by a human. Majors are never grouped: the group rules above match minor/patch only, so each major is its own MR.",
+  "extends": [
+    "config:recommended",
+    ":disableDependencyDashboard"
+  ],
+  "baseBranchPatterns": [
+    "main"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies",
+    "no-changelog"
+  ],
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "automerge": false,
+  "platformAutomerge": false,
+  "rangeStrategy": "auto",
+  "pip_requirements": {
+    "managerFilePatterns": [
+      "/^backend/requirements[^/]*\\.txt$/"
+    ]
+  },
+  "npm": {
+    "managerFilePatterns": [
+      "/^frontend/package\\.json$/",
+      "/^clients/typescript/package\\.json$/"
+    ]
+  },
+  "dockerfile": {
+    "managerFilePatterns": [
+      "/(^|/)Dockerfile[^/]*$/"
+    ]
+  },
+  "docker-compose": {
+    "managerFilePatterns": [
+      "/^docker-compose[^/]*\\.ya?ml$/"
+    ]
+  },
+  "helm-values": {
+    "managerFilePatterns": [
+      "/^helm/visiban/values[^/]*\\.ya?ml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "description": "Image tags in .gitlab-ci.yml written as ${DOCKERHUB_MIRROR}/<image>:<tag> (#1198)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.gitlab-ci\\.yml$/"
+      ],
+      "matchStrings": [
+        "\\$\\{DOCKERHUB_MIRROR(?::-[^}]*)?\\}/(?<depName>[^\\s:@\"']+):(?<currentValue>[^\\s@\"'#]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Group minor and patch updates per ecosystem",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "python dependencies (minor/patch)"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "npm dependencies (minor/patch)"
+    },
+    {
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose",
+        "helm-values",
+        "custom.regex"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "container images (minor/patch)"
+    },
+    {
+      "description": "clients/typescript documents Node >=20.3 as its floor (#2374); the CI images stay on node 20 on purpose",
+      "matchDepNames": [
+        "node"
+      ],
+      "matchCurrentVersion": "/^20/",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": [
+      "at any time"
+    ],
+    "labels": [
+      "dependencies",
+      "security",
+      "no-changelog"
+    ],
+    "automerge": false
+  }
+}
