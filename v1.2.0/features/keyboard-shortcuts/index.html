@@ -4393,7 +4393,7 @@
 <h1 id="drive-the-board-from-the-keyboard">Drive the board from the keyboard<a class="headerlink" href="#drive-the-board-from-the-keyboard" title="Permanent link">&para;</a></h1>
 <p><a id="keyboard-shortcuts"></a></p>
 <p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
-<p>Press <code>?</code> on any board (or use the avatar menu → <strong>Keyboard shortcuts</strong>) to open the shortcuts overlay.</p>
+<p>Press <code>?</code> on any signed-in page (or use the account menu → <strong>Keyboard shortcuts</strong>) to open the shortcuts overlay. It always leads with the <strong>Everywhere</strong> keys; on a board it also lists the board's own keys, and off a board it says to open a board to see them.</p>
 <p><strong>Why it matters:</strong> For someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.</p>
 <p><strong>How it works:</strong> shortcuts are platform-aware. macOS renders glyphs (⌘, ⇧, ⌥); Linux and Windows render named chords (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>).</p>
 <p><strong>Watch out:</strong> single-letter shortcuts never fire while you type; see the rule below.</p>
@@ -4402,6 +4402,7 @@
 <p>Single-letter shortcuts are suppressed when focus is in an input, textarea, select, or rich-text editor. Type <code>b</code> in the search box without switching to the Board view, or <code>y</code> in a card description without toggling the Archived tab. Modifier chords (⌘K, ⌘\) fire everywhere, because the modifier makes the intent unambiguous.</p>
 <p><a id="navigation-works-on-every-authenticated-page"></a></p>
 <h2 id="navigation-every-authenticated-page">Navigation: every authenticated page<a class="headerlink" href="#navigation-every-authenticated-page" title="Permanent link">&para;</a></h2>
+<p>These keys work on every signed-in page (the overlay's <strong>Everywhere</strong> section):</p>
 <table>
 <thead>
 <tr>
@@ -4412,8 +4413,31 @@
 <tbody>
 <tr>
 <td><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd></td>
-<td>Open the command palette</td>
+<td>Jump to a board or action (the command palette)</td>
 </tr>
+<tr>
+<td><kbd>[</kbd></td>
+<td>Open or close the <a href="../navigation/">navigation drawer</a></td>
+</tr>
+<tr>
+<td><kbd>G</kbd> then <kbd>U</kbd></td>
+<td>Open the account menu</td>
+</tr>
+<tr>
+<td><kbd>?</kbd></td>
+<td>Show the shortcuts overlay</td>
+</tr>
+</tbody>
+</table>
+<p>On a board, two more navigation keys apply:</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td><kbd>/</kbd></td>
 <td>Focus the search box (opens the filter bar if closed)</td>
@@ -4422,18 +4446,15 @@
 <td><kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd></td>
 <td>Open board settings (admins only)</td>
 </tr>
-<tr>
-<td><kbd>G</kbd> then <kbd>U</kbd></td>
-<td>Open the user menu</td>
-</tr>
 </tbody>
 </table>
 <ul>
-<li><strong>Command palette:</strong> the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.</li>
+<li><strong>Command palette:</strong> the single cross-route entry point. Off a board it searches boards and actions only ("Jump to a board or action"); on a board it also searches the board's cards ("Search cards, boards, actions…").</li>
+<li><strong><code>[</code></strong> opens the drawer from anywhere except a text field, an open menu or filter panel, or another dialog, which keep the key. With the drawer open, <code>[</code> (or Escape) closes it and returns focus to the menu button.</li>
 <li><strong>Board presets</strong> <span class="vb-version" title="Added in 1.3">1.3+</span>: on a board, the palette offers <strong>Apply preset: Classic</strong> and <strong>Apply preset: Default</strong> (not the one already in use), and <strong>Reset to preset: …</strong> when the active preset is modified. They do exactly what the toolbar <a href="../board/#board-presets">Preset dropdown</a> does, including the Undo notice, from any view of the board (Board, Summary, History, Analytics, Lens). They are not listed while the palette is acting on a card. No new shortcut key.</li>
 <li><strong>Empty query:</strong> the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank <code>⌘K</code> → <code>Enter</code> jumps into the workspace you care about most.</li>
 <li><strong>Card actions:</strong> on a board, the palette also lists commands for a card; see <a href="#card-actions-in-the-command-palette">Card actions in the command palette</a>.</li>
-<li><strong><code>G</code> then <code>U</code></strong> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">user menu</a> from anywhere in the authenticated app.</li>
+<li><strong><code>G</code> then <code>U</code></strong> is a chord, not a combo: press and release <code>G</code>, then press <code>U</code> within one second, to open the <a href="../navigation/">account menu</a> from anywhere in the authenticated app.</li>
 </ul>
 <h2 id="board-view-switch-the-active-sub-tab">Board view: switch the active sub-tab<a class="headerlink" href="#board-view-switch-the-active-sub-tab" title="Permanent link">&para;</a></h2>
 <table>

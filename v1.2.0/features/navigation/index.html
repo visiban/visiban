@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#jump-between-boards-from-the-sidebar" class="md-skip">
+        <a href="#get-around-with-the-header-and-the-navigation-drawer" class="md-skip">
           Skip to content
         </a>
       
@@ -1454,10 +1454,43 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-the-sidebar-shows" class="md-nav__link">
+  <a href="#the-header" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What the sidebar shows
+        The header
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-navigation-drawer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The navigation drawer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#home" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Home
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#switch-boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switch boards
       
     </span>
   </a>
@@ -1468,7 +1501,7 @@
   <a href="#recent-boards" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Recent Boards
+        Recent boards
       
     </span>
   </a>
@@ -1487,49 +1520,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#collapse-and-expand" class="md-nav__link">
+  <a href="#keyboard-shortcuts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Collapse and expand
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Collapse and expand">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#collapsed-rail-flyout-panels" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Collapsed rail flyout panels
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#groups-flyout-ordering" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Groups flyout ordering
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#localstorage-persistence" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        localStorage persistence
+        Keyboard shortcuts
       
     </span>
   </a>
@@ -1537,32 +1531,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#active-board-highlight" class="md-nav__link">
+  <a href="#account-menu" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Active board highlight
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mobile-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mobile behavior
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#footer-shortcuts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Footer shortcuts
+        Account menu
       
     </span>
   </a>
@@ -4429,178 +4401,100 @@
   
 
 
-<h1 id="jump-between-boards-from-the-sidebar">Jump between boards from the sidebar<a class="headerlink" href="#jump-between-boards-from-the-sidebar" title="Permanent link">&para;</a></h1>
+<h1 id="get-around-with-the-header-and-the-navigation-drawer">Get around with the header and the navigation drawer<a class="headerlink" href="#get-around-with-the-header-and-the-navigation-drawer" title="Permanent link">&para;</a></h1>
 <p><a id="navigation"></a></p>
-<p>The left sidebar shows your full group and board hierarchy on every authenticated page, on desktop-sized viewports. Collapse it to a 48 px icon rail with the toggle in its header.</p>
-<p><strong>Why it matters:</strong> With dozens of boards across several workstreams, the sidebar is how you jump between them without hunting through menus.</p>
-<p><strong>How it works:</strong> star a board or group with the ☆/★ button in the top navbar breadcrumb. Starred items appear at the top of the sidebar, on the Dashboard, and in the command palette.</p>
-<p><strong>Yes, but:</strong> the sidebar's state (collapsed, expanded groups, recent boards) lives in <code>localStorage</code>, so it is per browser and device.</p>
-<h2 id="what-the-sidebar-shows">What the sidebar shows<a class="headerlink" href="#what-the-sidebar-shows" title="Permanent link">&para;</a></h2>
-<p>The sidebar renders sections in this order, omitting any empty section entirely:</p>
+<blockquote>
+<p><strong>Changed in 1.3</strong>: the persistent left sidebar (and its collapsed icon rail) is gone. Every signed-in page has one header, and navigation opens on demand in a drawer (#2473).</p>
+</blockquote>
+<p>Every signed-in page shares one header. Its menu button opens the <strong>navigation drawer</strong>, which lists your boards and groups; the drawer closes again when you pick a destination.</p>
+<p><strong>Why it matters:</strong> the board gets the full width of the screen, and the same header works the same way on every page, from a phone to a wide monitor.</p>
+<p><strong>How it works:</strong> click the menu button at the left of the header, or press <code>[</code> anywhere, to open the drawer. On a board, click the board name in the header to switch boards without opening the drawer.</p>
+<p><strong>Yes, but:</strong> the drawer does not stay open. There is no pinned or collapsed sidebar option.</p>
+<h2 id="the-header">The header<a class="headerlink" href="#the-header" title="Permanent link">&para;</a></h2>
+<p>Left to right:</p>
 <ol>
-<li><strong>Dashboard</strong> — always present; navigates to <code>/</code> and highlights when the current path is <code>/</code>.</li>
-<li><strong>Favorite Boards</strong> — boards you have starred, in the order you starred them. Shown only when at least one board is starred.</li>
-<li><strong>Favorite Groups</strong> — groups you have starred. Shown only when at least one group is starred.</li>
-<li><strong>Recent Boards</strong> — the last 5 boards you visited, most recent first. Shown only when at least one board has been visited. See <a href="#recent-boards">Recent Boards</a> below.</li>
-<li><strong>Groups and their boards</strong> — all top-level groups (groups with no parent). Expand a group to reveal its boards. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.</li>
-<li><strong>Personal</strong> — boards that do not belong to any group, under a "Personal" heading. Shown only when at least one such board exists.</li>
+<li><strong>Menu button</strong>: the menu icon and the Visiban logo. Opens the navigation drawer (<code>[</code>).</li>
+<li><strong>Breadcrumb</strong>: always starts at <strong>Home</strong>, then the group (on a board in a group), then the page. The last item is the page title. On a board, the title is a button that opens the <a href="#switch-boards">board switcher</a>.</li>
+<li><strong>Star and status</strong> on board pages, beside the title.</li>
+<li><strong>Search</strong>: opens the command palette (<code>⌘K</code> on macOS, <code>Ctrl K</code> on Windows and Linux). On a board it reads "Search cards, people, labels, fields"; everywhere else it reads "Jump to a board or action", because off a board the palette finds boards and actions only.</li>
+<li>The page's <strong>primary action</strong>, where a page has one.</li>
+<li><strong>Notifications</strong> and your <strong>account menu</strong>.</li>
 </ol>
-<p>A 3D engraved separator (<code>h-px bg-slate-900</code> / <code>h-px bg-slate-600/50</code>) appears between each pair of visible sections.</p>
-<p><strong>Data loading:</strong> groups and personal boards load from a single API call on mount (<code>GET /api/v1/groups/</code> and <code>GET /api/v1/boards/</code>). Favorite boards and groups come from <code>GET /api/v1/boards/?starred=true</code> and <code>GET /api/v1/groups/?starred=true</code>, re-fetched whenever the star version counter increments, which happens any time a board or group is starred or unstarred.</p>
-<h2 id="recent-boards">Recent Boards<a class="headerlink" href="#recent-boards" title="Permanent link">&para;</a></h2>
-<p><strong>Recent Boards</strong> tracks the last 5 boards you visited, most recent first, between the Favorites sections and the Groups tree.</p>
+<p>On a phone (below 640 px) the header shows the menu button, the page title, a search icon, notifications and your account menu. Every control is at least 44 px.</p>
+<h2 id="the-navigation-drawer">The navigation drawer<a class="headerlink" href="#the-navigation-drawer" title="Permanent link">&para;</a></h2>
+<p>The drawer slides in from the left over the page, 300 px wide. It lists:</p>
 <ul>
-<li>Visits are recorded automatically whenever you navigate to a board page.</li>
-<li>The list is stored in <code>localStorage</code> under a per-account key (<code>user:prefs:recent-boards:&lt;user id&gt;</code>). It persists across page reloads but is device-local and not synced across browsers or devices. Because it holds board and group names, it is cleared when you sign out or your session expires, and one account on a shared browser never sees another account's list.</li>
-<li>Entries are deduplicated: revisiting a board moves it to the top instead of adding a duplicate.</li>
-<li>The section is hidden when no boards have been visited yet.</li>
+<li><strong>Home</strong>.</li>
+<li><strong>Starred</strong>: boards you have starred, each with its status dot.</li>
+<li><strong>Groups</strong>: your groups as a tree, each with how many boards it holds.</li>
+<li><strong>Personal boards</strong>: boards that are not in a group you can see, with status dots.</li>
+<li>At the bottom: <strong>Site admin</strong> (site admins only) and <strong>Settings</strong>.</li>
 </ul>
-<p>In the <strong>collapsed sidebar rail</strong>, the Recent section is a clock icon. Clicking it opens a flyout panel showing the same 5 boards.</p>
+<p>A section with nothing in it is hidden. While your boards load, the sections show placeholder rows.</p>
+<p>To close the drawer, press <code>Escape</code>, press <code>[</code> again, click the X, or click outside it. Focus goes back to the menu button.</p>
+<h2 id="home">Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h2>
+<p>Home (<code>/</code>) is a status page, not just a list of boards <em>(new in 1.3, #2474)</em>. The header shows <strong>Home</strong>; the page greets you ("Good morning, Jane") and sums up your workspace: how many boards across how many groups, how many boards are at risk, and the stale and blocked cards on the boards that have <a href="../health-status/">auto health</a> on. A clause with a count of 0 is left out. The counts are a snapshot from each board's last health calculation, not a weekly total.</p>
+<ul>
+<li><strong>Jump back in</strong> shows the last three boards you opened <em>on this device</em>, with the group (or "Personal"), the status, the card count, stale and blocked counts, and when you opened it. It is stored in this browser only, so it is empty on a new device, and the section is hidden when it has nothing to show.</li>
+<li><strong>All boards</strong> lists every board you can open, personal and in groups. Filter by <strong>All</strong>, <strong>Starred</strong>, <strong>Personal</strong> or <strong>At risk</strong> (each shows its count; on a phone the filter is a select). Each row has a star toggle, the name and description, the "Not reviewed in N days" cue, stale and blocked counts, the status, and when the board was last updated. A board without auto health shows "Stale, blocked: no data" rather than 0. The <strong>...</strong> menu has <strong>Move to group</strong> and, if you may delete the board, <strong>Delete</strong>; on a phone it also holds <strong>Star</strong>. <strong>At risk</strong> includes boards whose status is Off track.</li>
+<li><strong>Groups</strong> lists the groups you can see with their board and member counts.</li>
+<li><strong>Needs attention</strong> lists boards and subgroups with stale or blocked cards, or whose health status is overdue for review, worst first (blocked, then stale, then days overdue). It is hidden when nothing needs attention.</li>
+</ul>
+<p><strong>Import</strong>, <strong>New group</strong> and <strong>New board</strong> sit beside the heading and in the header. In a hosted demo, creating and importing boards is disabled with the reason shown.</p>
+<p><strong>First run.</strong> With no boards and no groups, Home leads with joining a team: <strong>I have an invite link</strong> (paste a link or token), then the options for a board of your own: <strong>Create a board</strong> (pick a template or start from the plain Kanban default) and <strong>Import a board</strong> (Visiban or Trello). Boards you start there are personal. If you are in a group that has no boards yet, you see the normal page with its empty list.</p>
+<h2 id="switch-boards">Switch boards<a class="headerlink" href="#switch-boards" title="Permanent link">&para;</a></h2>
+<p>On a board, the board name in the header opens <strong>Switch board</strong>. Type to filter by name, use the arrow keys to move, <code>Enter</code> to open a board, and <code>Escape</code> to close. It lists, in order:</p>
+<ol>
+<li><strong>Starred</strong> boards.</li>
+<li><strong>Recent on this device</strong>: the last 5 boards you opened in this browser.</li>
+<li>The rest of the current board's group (or <strong>Personal boards</strong>, on a personal board).</li>
+</ol>
+<p>Each board appears once, in the first list that has it. The board you are on is marked <strong>Current</strong>. If nothing matches, press <code>⌘K</code> to search cards and actions too. On a phone the list opens as a sheet from the bottom of the screen.</p>
+<p>Board admins rename a board with the <strong>Rename board</strong> (pencil) button beside its name.</p>
+<h2 id="recent-boards">Recent boards<a class="headerlink" href="#recent-boards" title="Permanent link">&para;</a></h2>
+<p>Visiban remembers the last 5 boards you opened, most recent first. The list is stored in this browser under a per-account key (<code>user:prefs:recent-boards:&lt;user id&gt;</code>), so it is not synced across devices. Because it holds board and group names, it is cleared when you sign out or your session expires, and one account on a shared browser never sees another account's list. Boards you can no longer open drop off the list.</p>
 <h2 id="starring-boards-and-groups">Starring boards and groups<a class="headerlink" href="#starring-boards-and-groups" title="Permanent link">&para;</a></h2>
-<p>The star button (☆/★) appears in the <strong>breadcrumb in the top navbar</strong>, right after the board or group name. Click it to toggle. Starred boards and groups appear in the <strong>Favorite Boards</strong> and <strong>Favorite Groups</strong> sections at the top of the sidebar. The star updates optimistically and rolls back on failure.</p>
-<p>Starred boards also surface in two more places so they stay one click away from anywhere in the app:</p>
-<blockquote>
-<p><strong>Added in 1.1</strong> — the Dashboard Favorite Boards section and command palette starred-boards ranking (#450)</p>
-</blockquote>
-<ul>
-<li><strong>Dashboard — Favorite Boards section.</strong> A dedicated section above <em>My Boards</em> lists every starred board (personal or grouped) alphabetically. It is hidden entirely when no boards are starred, so the Dashboard stays uncluttered.</li>
-<li><strong>Command palette default view.</strong> Opening the palette (<code>⌘K</code> / <code>Ctrl+K</code>) with an empty query lists your starred boards first, alphabetically, followed by your recent visits. A ★ glyph marks the starred rows.</li>
-</ul>
-<h2 id="collapse-and-expand">Collapse and expand<a class="headerlink" href="#collapse-and-expand" title="Permanent link">&para;</a></h2>
-<p>A toggle button in the sidebar header switches between two states:</p>
-<table>
-<thead>
-<tr>
-<th>State</th>
-<th>Width</th>
-<th>Content</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Expanded (default)</td>
-<td>220 px</td>
-<td>Section headings, group names with expand/collapse chevrons, board names, footer shortcuts</td>
-</tr>
-<tr>
-<td>Collapsed (icon rail)</td>
-<td>48 px</td>
-<td>One trigger icon per section; no text labels; no footer shortcuts</td>
-</tr>
-</tbody>
-</table>
-<p>In the collapsed state, fixed destinations (Dashboard, Site Admin) render as direct icon links. Variable-length sections (Favorites, Groups, Personal boards) each render as a single trigger icon, however many items the section holds:</p>
-<table>
-<thead>
-<tr>
-<th>Section</th>
-<th>Collapsed icon</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Dashboard</td>
-<td>Grid (four squares) icon</td>
-</tr>
-<tr>
-<td>Favorites</td>
-<td>Filled star ★ (yellow)</td>
-</tr>
-<tr>
-<td>Groups</td>
-<td>Folder icon</td>
-</tr>
-<tr>
-<td>Personal boards</td>
-<td>Clipboard icon</td>
-</tr>
-</tbody>
-</table>
-<p>Every icon in the collapsed rail shows a tooltip on hover with the section name. The collapsed state persists across sessions via <code>localStorage</code>.</p>
-<h3 id="collapsed-rail-flyout-panels">Collapsed rail flyout panels<a class="headerlink" href="#collapsed-rail-flyout-panels" title="Permanent link">&para;</a></h3>
-<blockquote>
-<p><strong>Added in 1.0</strong></p>
-</blockquote>
-<p>In the 48 px icon rail, clicking a section trigger icon opens a flyout panel to its right with the full, scrollable list for that section, so you can browse and navigate without expanding the sidebar.</p>
-<p>Three sections produce flyouts:</p>
-<table>
-<thead>
-<tr>
-<th>Trigger icon</th>
-<th>Flyout contents</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Filled star (Favorites)</td>
-<td>Starred boards and starred groups, split into labeled sub-sections when both are present</td>
-</tr>
-<tr>
-<td>Folder (Groups)</td>
-<td>All groups and their boards, flattened in depth-first pre-order with indentation</td>
-</tr>
-<tr>
-<td>Clipboard (Personal)</td>
-<td>All boards not belonging to any group</td>
-</tr>
-</tbody>
-</table>
-<p>Each flyout panel is 224 px wide (<code>w-56</code>), dark-themed (<code>bg-slate-800</code>), and scrollable up to 320 px tall (<code>max-h-80</code>), with an uppercase muted section header at the top. Items are links that navigate to the board or group and close the flyout.</p>
-<p><strong>Watch out:</strong> only one flyout can be open at a time; opening one closes any other. Flyouts also close on outside click, Escape, or a second click on the same trigger icon.</p>
-<p>The active board or group's trigger icon gets the blue active highlight (<code>text-blue-400 bg-blue-600/20</code>) even while its flyout is closed, so "you are here" is visible without opening it.</p>
-<h3 id="groups-flyout-ordering">Groups flyout ordering<a class="headerlink" href="#groups-flyout-ordering" title="Permanent link">&para;</a></h3>
-<p>The Groups flyout flattens the sidebar tree in depth-first pre-order, matching the expanded tree: within each group, boards appear before subgroups.</p>
-<ul>
-<li><strong>Indent:</strong> by depth in the group hierarchy (<code>paddingLeft: 12 + depth * 12</code> pixels). Visual depth is capped at 3: groups nested deeper render at depth-3 indentation but are never omitted.</li>
-<li><strong>Text:</strong> root-level items (<code>depth 0</code>) use brighter text (<code>text-slate-300</code>); nested items (<code>depth &gt; 0</code>) use slightly muted text (<code>text-slate-400</code>).</li>
-</ul>
-<h2 id="localstorage-persistence">localStorage persistence<a class="headerlink" href="#localstorage-persistence" title="Permanent link">&para;</a></h2>
-<p>Two keys are written to <code>localStorage</code> to survive page reloads and navigation:</p>
+<p>The star button (☆/★) sits beside the board or group name in the header. Starred groups are not listed in the drawer. Starred boards appear in the drawer's <strong>Starred</strong> section, at the top of the board switcher, under <strong>Starred</strong> on Home, and first in the command palette when you open it with an empty query.</p>
+<h2 id="keyboard-shortcuts">Keyboard shortcuts<a class="headerlink" href="#keyboard-shortcuts" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Key</th>
-<th>Type</th>
-<th>Description</th>
+<th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>user:prefs:sidebar-collapsed</code></td>
-<td><code>"true"</code> | <code>"false"</code></td>
-<td>Whether the sidebar is in icon-rail mode</td>
+<td><code>⌘K</code> / <code>Ctrl K</code></td>
+<td>Jump to a board or action</td>
 </tr>
 <tr>
-<td><code>user:prefs:sidebar-groups-expanded</code></td>
-<td>JSON array of group IDs (numbers)</td>
-<td>Which groups have their board list open</td>
+<td><code>[</code></td>
+<td>Open or close the navigation drawer</td>
+</tr>
+<tr>
+<td><code>g</code> then <code>u</code></td>
+<td>Open the account menu</td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td>Show the keyboard shortcuts help</td>
 </tr>
 </tbody>
 </table>
-<p><code>user:prefs:sidebar-collapsed</code> is written on every toggle; <code>user:prefs:sidebar-groups-expanded</code> on every group expand or collapse. Both are read synchronously during component initialization, so there's no flash of the default state on load.</p>
-<p>Preferences saved under the older, pre-1.2 key names are no longer migrated (1.3 removed the one-time copy that 1.2 ran). A browser that jumps straight from 1.1 or earlier to 1.3 starts with the default sidebar state once (the theme is taken from the signed-in account), then remembers new choices under these keys.</p>
-<p>If <code>user:prefs:sidebar-groups-expanded</code> can't be parsed as valid JSON, the error is silently caught and the set of expanded groups starts empty.</p>
-<h2 id="active-board-highlight">Active board highlight<a class="headerlink" href="#active-board-highlight" title="Permanent link">&para;</a></h2>
-<p>The sidebar reads the current URL via React Router's <code>useLocation</code> hook and extracts a board ID from paths matching <code>/boards/&lt;id&gt;</code>. The matching board item gets a blue highlight (<code>bg-blue-600/20 text-blue-400 font-medium</code>); other board items use muted slate text. The active ID is derived from the route on every render, so navigating away clears the highlight immediately, with no extra state management.</p>
-<h2 id="mobile-behavior">Mobile behavior<a class="headerlink" href="#mobile-behavior" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Changed in 1.1</strong> — replaced the desktop-only viewport gate with a responsive layout (#524)</p>
-</blockquote>
-<p>Below the <code>lg</code> breakpoint (1024 px), the persistent sidebar collapses into a hamburger drawer. Tap the menu icon in the mobile top bar (on a phone, below 640 px, it sits at the start of the app header row instead, with no separate bar) to slide it in as a full-height overlay; tap the backdrop, the close button, or a nav item to dismiss it. The rest of the app (Dashboard, boards, groups, settings) renders normally at any width, with nothing blocked.</p>
+<p>These work on every page, except while you are typing in a field. On a board, the help also lists the board's own shortcuts. You can also open the help from the account menu.</p>
+<h2 id="account-menu">Account menu<a class="headerlink" href="#account-menu" title="Permanent link">&para;</a></h2>
+<p>Click your avatar at the right of the header (or press <code>g</code> then <code>u</code>). The menu shows your name and email (and a <strong>Site admin</strong> chip for site admins), then:</p>
 <ul>
-<li><strong>Board toolbar:</strong> the <strong>Board</strong>, <strong>Summary</strong>, <strong>History</strong> and <strong>Analytics</strong> tabs sit on the left, with <strong>Filter</strong>, <strong>View</strong>, <strong>Activity</strong>, <strong>Export</strong> and <strong>Settings</strong> buttons (<strong>Filter</strong> opens a panel with a search box, one row per field and your saved filters; its footer shows the full filter bar), the overflow menu (<code>...</code>: keyboard shortcuts only) and the connection status on the right. On narrow screens the row wraps onto a second line instead of scrolling sideways. To replay the onboarding tour, use <strong>Restart tour</strong> in the keyboard shortcuts overlay or <strong>Restart onboarding tour</strong> in Settings. Still to come: the "Filtered by" chip row (#2315). <strong>View</strong> holds the preset, card density, card layout, overlay, collapse and expand actions, and archived cards.</li>
-<li><strong>Board:</strong> on a tablet the grid scrolls sideways inside its own box (never the page), and cards drag with press and hold. Below 640 px the board shows one column at a time with stacked lanes instead of the grid, with no sideways page scroll (see <a href="../board/#phone-layout">Boards → Phone layout</a>).</li>
-<li><strong>Public routes:</strong> join links, share links, email confirmation, and password reset render outside the authenticated shell, so invites and account recovery always work from a phone.</li>
+<li><strong>Profile &amp; settings</strong></li>
+<li><strong>Site admin</strong> (site admins only)</li>
+<li><strong>Keyboard shortcuts</strong></li>
+<li><strong>Help &amp; docs</strong> (opens in a new tab)</li>
+<li><strong>Theme</strong>: Dark, Light or System. It applies at once and is saved to your account, the same setting as <strong>Settings › Appearance</strong>.</li>
+<li><strong>Sign out</strong></li>
 </ul>
-<h2 id="footer-shortcuts">Footer shortcuts<a class="headerlink" href="#footer-shortcuts" title="Permanent link">&para;</a></h2>
-<p>In the expanded state, a footer pinned to the bottom of the sidebar offers two quick-action links:</p>
-<ul>
-<li><strong>New board</strong> — opens the board creation modal directly</li>
-<li><strong>New group</strong> — opens the group creation modal directly</li>
-</ul>
-<p>The footer is hidden entirely when the sidebar is collapsed to the icon rail.</p>
 <h2 id="unknown-pages">Unknown pages<a class="headerlink" href="#unknown-pages" title="Permanent link">&para;</a></h2>
-<p>A link to a page that doesn't exist, such as a mistyped address or an out-of-date bookmark, shows a "Page not found" page ("There's no page at this address. Check it for typos, or go back to Home.") with <strong>Go to Home</strong> and <strong>Search boards</strong> (which opens the ⌘K search) instead of silently sending you to the dashboard. Expired share links keep their own messages. A board or group that was deleted, or that you no longer have access to, shows "This board isn't available" (or "This group isn't available"), with a line asking whoever sent the link to add you to the board or its group (or the group), and the same <strong>Go to Home</strong> and <strong>Search boards</strong> buttons, instead of redirecting. The page is the same either way, and it does not say which happened. It also replaces the board or group if it is deleted, you are removed from it, or you otherwise lose access while it is open. The person who deletes a board or group themselves is not shown the page: deleting a board takes them back to its group (or the dashboard if it had none), and deleting a group takes them to the dashboard. Other load failures keep the existing "Failed to load" message. <code>/login</code> takes a signed-in user to the dashboard. If you sign in from an address that doesn't exist, you see the same "Page not found" page.</p>
+<p>An address that matches no page shows <strong>Page not found</strong>, with the same header, so the drawer and search still work.</p>
 
 
 

@@ -5116,7 +5116,7 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Group access is inherited downward only: membership in a subgroup grants nothing on its parent. The list and retrieve endpoints still return the ancestors of a user's groups so clients can render the sidebar tree and breadcrumbs, but a group the user has no access to itself — not a member of it or of one of its ancestors within the 6-level walk — is returned with <code>navigation_only: true</code> and these fields withheld (set to empty values):</p>
+<p>Group access is inherited downward only: membership in a subgroup grants nothing on its parent. The list and retrieve endpoints still return the ancestors of a user's groups so clients can render the navigation drawer's group tree and breadcrumbs, but a group the user has no access to itself — not a member of it or of one of its ancestors within the 6-level walk — is returned with <code>navigation_only: true</code> and these fields withheld (set to empty values):</p>
 <table>
 <thead>
 <tr>

@@ -4666,7 +4666,7 @@
 <h2 id="moving-boards-between-groups">Moving boards between groups<a class="headerlink" href="#moving-boards-between-groups" title="Permanent link">&para;</a></h2>
 <p>Move a board to a different group, or back to personal boards, from the <strong>Move board</strong> dialog. Open it with the move icon that appears when you hover over or tab to a board row:</p>
 <ul>
-<li>on the dashboard, <strong>Move to group</strong> on a board in the <strong>Favorite Boards</strong> list or in <strong>My Boards</strong> (your personal boards);</li>
+<li>on Home, <strong>Move to group</strong> in the <strong>...</strong> menu of any row in <strong>All boards</strong> (see <a href="../navigation/#home">Home</a>);</li>
 <li>on a group page, <strong>Move to another group</strong> on a board in the group's <strong>Boards</strong> list.</li>
 </ul>
 <p>Only board admins and site admins can move a board, and moving a board into a group also requires being an admin of that group (or of one of its parent groups). Importing or creating a board in a group needs the same group role.</p>
@@ -4709,7 +4709,7 @@
 <p>If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>.</p>
 <p><strong>API:</strong> <code>POST /api/v1/groups/{id}/transfer-ownership/</code> with <code>{ "new_owner_id": 42, "confirmation": "Group Name" }</code></p>
 <h2 id="starring-groups">Starring groups<a class="headerlink" href="#starring-groups" title="Permanent link">&para;</a></h2>
-<p>The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups appear in a <strong>Favorite Groups</strong> section at the top of the sidebar. The star updates optimistically and rolls back on failure.</p>
+<p>The star button (☆/★) in the group detail page header marks a group as a favorite. Since 1.3 the navigation drawer's <strong>Starred</strong> section lists starred boards only, so a starred group is not listed there (#2473). The star updates optimistically and rolls back on failure.</p>
 <h2 id="live-board-list">Live board list<a class="headerlink" href="#live-board-list" title="Permanent link">&para;</a></h2>
 <p><span class="vb-version" title="Added in 1.1">1.1+</span></p>
 <p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time, with no page refresh.</p>
@@ -4738,8 +4738,7 @@
 </table>
 <p>A <strong>Live / Reconnecting… / Offline</strong> status indicator in the group page header uses the same <code>ConnectionStatus</code> component as the board view and reflects the same five states; the group page keeps <strong>Reconnecting…</strong> while it retries, where a board reads <strong>Offline</strong>. The group page does not wire a <strong>Refresh board</strong> action into the popover; its lists are re-read when the connection reconnects (see <a href="../realtime/">Real-time updates</a>).</p>
 <h2 id="dashboard">Dashboard<a class="headerlink" href="#dashboard" title="Permanent link">&para;</a></h2>
-<p>The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.</p>
-<p>The <strong>+ New board</strong> and <strong>+ New group</strong> buttons in the sidebar footer open their creation dialogs immediately, with no navigation.</p>
+<p>The navigation drawer, opened from the header's menu button or <code>[</code>, lists your groups as a tree with their board counts, alongside your starred and personal boards (1.3+, replacing the persistent sidebar; see <a href="../navigation/">Navigation</a>). Create boards and groups from Home (see <a href="../navigation/#home">Home</a>) and the group page.</p>
 <h3 id="create-group-modal">Create Group modal<a class="headerlink" href="#create-group-modal" title="Permanent link">&para;</a></h3>
 <p>The <strong>Create Group</strong> modal has two fields:</p>
 <table>

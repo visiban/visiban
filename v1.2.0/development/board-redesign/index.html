@@ -4667,7 +4667,7 @@
 <h2 id="page-structure">Page structure<a class="headerlink" href="#page-structure" title="Permanent link">&para;</a></h2>
 <p>Top to bottom:</p>
 <ol>
-<li>App header (Row 1): logo, breadcrumb, star, board status pill, board search, notifications, account.</li>
+<li>App header (Row 1): the menu button (opens the navigation drawer, <code>[</code>), the breadcrumb rooted at "Home" whose last crumb is the page's only <code>h1</code> (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in <code>frontend/CLAUDE.md</code> § App shell.</li>
 <li>Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.</li>
 <li>Filter chip row: only when a filter is active.</li>
 <li>Show chips, with the board totals and "Collapse all lanes" on the right.</li>
@@ -4683,8 +4683,10 @@
 <li><strong>Buttons, right-aligned:</strong> Filter, View, Activity, Export (download icon), Settings (gear icon), then the <code>⋯</code> kebab. No divider: Row 2 has none. Bordered, 36px tall, icon plus label. Export shows when the viewer can export and Settings for admins; tooltips read "Export board ⌘ ⇧ E" and "Board settings ⌘ ," (#2435). A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see <a href="#design-tokens">Design tokens</a>); Filter also shows the count of active filters.</li>
 <li><strong>Overflow menu:</strong> Keyboard shortcuts only (#2435). Export and Board settings are toolbar buttons.</li>
 <li><strong>Connection status:</strong> the existing <code>ConnectionStatus</code> component, last in the row.</li>
+<li><strong>Board name:</strong> the last breadcrumb crumb, inside the <code>h1</code>: a button labeled "<board>, switch board" that opens the 360px "Switch board" popover (Starred, Recent on this device, then the rest of the group; a bottom sheet on phones). Admins rename through the Rename button beside it (#2473).</li>
 <li><strong>Board status pill:</strong> beside the star in Row 1. Same data and menu as today.</li>
-<li><strong>Board search:</strong> in Row 1, centered, placeholder "Search cards, people, labels, fields", with the command palette hint.</li>
+<li><strong>Board search:</strong> in Row 1, centered, a 38px field with placeholder "Search cards, people, labels, fields" and the ⌘K keycap. Off a board the same field reads "Jump to a board or action" (#2473).</li>
+<li><strong>Keyboard shortcuts:</strong> the overflow menu's item and <code>?</code> open the same help, which leads with the global keys (⌘K, <code>[</code>, <code>g</code> <code>u</code>, <code>?</code>) and then lists the board's own (#2473).</li>
 </ul>
 <p>Preset, card density, overlay, collapse all and expand all move into the View menu. Archived cards move into the Activity drawer.</p>
 <h2 id="menus">Menus<a class="headerlink" href="#menus" title="Permanent link">&para;</a></h2>
