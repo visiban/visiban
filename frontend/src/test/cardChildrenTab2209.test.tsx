@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
 import { childrenCount, describeChildrenChange, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
@@ -103,7 +103,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByText(/1 blocked/)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '1 done, 0 doing, 1 blocked, 1 to do' })).toBeInTheDocument()
     expect(screen.getByText('2 of 9 on Delivery')).toBeInTheDocument()
-    expect(screen.getByText('0 of 5 on Delivery · limit 5')).toBeInTheDocument()
+    expect(screen.getByText('0 of 5 on Delivery · limit 5, at limit')).toBeInTheDocument()
     expect(screen.getByText('15 other cards on Delivery are hidden by this view.')).toBeInTheDocument()
     expect(screen.getByText('New children go to Delivery · To do')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7?f_parent=5')
@@ -230,11 +230,13 @@ describe('CardChildrenTab scoped board (#2209)', () => {
       const over = read([row({ id: 20, column_id: 101, column_name: 'Doing' })])
       over.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, card_count: 6 } : c))
       renderTab(state({ data: over }))
-      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("1 of 6 on Delivery are this card's · limit 5")
+      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("1 of 6 on Delivery are this card's · limit 5, over limit")
       const meter = screen.getByTestId('children-wip-meter')
       expect(meter).toHaveAttribute('aria-hidden', 'true')
       // Over the limit: the meter is full and warning-colored, as on the child board.
       expect(meter.firstElementChild).toHaveClass('bg-warning')
+      // Not color alone: over limit is striped too.
+      expect((meter.firstElementChild as HTMLElement).style.backgroundImage).toContain('repeating-linear-gradient')
       expect((meter.firstElementChild as HTMLElement).style.width).toBe('100%')
       // A column with no limit has no meter.
       await userEvent.click(screen.getByRole('button', { name: /To do/ }))
@@ -408,5 +410,93 @@ describe('remote changes (#2209 row 13)', () => {
     rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids), error: true, reload })} onExitToTabs={vi.fn()} />)
     rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(movedKids), reload })} onExitToTabs={vi.fn()} />)
     expect(screen.getByText('Pen-test scoping call moved to Doing. 1 of 3 done.')).toBeInTheDocument()
+  })
+})
+
+describe('Children tab review fixes (#2209)', () => {
+  const status = () => document.querySelector('[role="status"][aria-live="polite"]')!
+  const tab = (st: ChildrenState, remoteSignal = 0) => (
+    <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={st} onExitToTabs={vi.fn()} remoteSignal={remoteSignal} />
+  )
+
+  it('says an under-limit column in no extra words and marks the at-limit meter with an end cap', () => {
+    const under = read(kids)
+    under.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, card_count: 3 } : c))
+    const { unmount } = renderTab(state({ data: under }))
+    expect(screen.getByText('0 of 3 on Delivery · limit 5')).toBeInTheDocument()
+    unmount()
+    renderTab(state({ data: read(kids) }))
+    expect((screen.getByTestId('children-wip-meter').firstElementChild as HTMLElement).style.borderRight).toContain('3px')
+  })
+
+  it('re-announces identical consecutive text and clears stale text', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    const unlinkBtn = () => screen.getByRole('button', { name: 'Unlink child Contract' })
+    await userEvent.click(unlinkBtn())
+    await waitFor(() => expect(status()).toHaveTextContent('Unlinked Contract.'))
+    const first = status().textContent
+    await userEvent.click(unlinkBtn())
+    await waitFor(() => expect(status().textContent).not.toBe(first))
+    expect(status()).toHaveTextContent('Unlinked Contract.')
+    rerender(tab(state({ data: read(kids), reload })))
+    vi.useFakeTimers()
+    try {
+      await act(async () => { fireEvent.click(unlinkBtn()) })
+      expect(status()).toHaveTextContent('Unlinked Contract.')
+      act(() => { vi.advanceTimersByTime(8001) })
+      expect(status()).toHaveTextContent('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("announces a remote change whose re-read lands while this tab's own write is reloading", async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload }), 0))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    // A ping moved the remote counter before the single re-read landed.
+    rerender(tab(state({ data: read(kids.slice(1)), reload }), 1))
+    expect(status()).toHaveTextContent("Children updated. 1 of 2 done.")
+  })
+
+  it('gives phone targets 44px: the card link, Move and Unlink', () => {
+    const RO = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) { this.cb = cb }
+      observe() { this.cb([{ contentRect: { width: 390 } } as ResizeObserverEntry], this as never) }
+      disconnect() {}
+      unobserve() {}
+    } as never
+    try {
+      renderTab(state({ data: read(kids) }), vi.fn(), { ...parentBoard, current_user_role: 'admin' as never })
+      expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveClass('min-h-11')
+      for (const name of ['Move Pen-test scoping call', 'Unlink child Pen-test scoping call']) {
+        expect(screen.getByRole('button', { name })).toHaveClass('min-h-11', 'min-w-11')
+      }
+    } finally {
+      globalThis.ResizeObserver = RO
+    }
+  })
+
+  it.each([[840, true], [800, true], [799, false], [500, false]])('lays the columns side by side from a measured 800px container (%ipx: %s)', (px, wide) => {
+    const RO = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) { this.cb = cb }
+      observe() { this.cb([{ contentRect: { width: px } } as ResizeObserverEntry], this as never) }
+      disconnect() {}
+      unobserve() {}
+    } as never
+    try {
+      renderTab(state({ data: read(kids) }))
+      expect(screen.getAllByRole('region')).toHaveLength(wide ? 3 : 1)
+    } finally {
+      globalThis.ResizeObserver = RO
+    }
   })
 })

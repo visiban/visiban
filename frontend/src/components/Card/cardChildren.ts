@@ -18,8 +18,12 @@ export const CHILD_PICKER_ESCAPE_PRIORITY = PARENT_PICKER_ESCAPE_PRIORITY;
 export const CHILDREN_BOARD_ESCAPE_PRIORITY = 30.5;
 /** The in-sheet Move popover shares the card panel's move-popover slot; the two are never open together. */
 export const CHILD_MOVE_ESCAPE_PRIORITY = 36;
-/** At or above this sheet width the scoped board shows its columns side by side (canvas 2a). */
-export const WIDE_MIN_PX = 880;
+/**
+ * At or above this width of the tab's own container the scoped board shows its columns side by side (canvas 2a).
+ * It is compared with the measured container, which sits inside the 880px sheet's 20px side padding and a
+ * scrollbar gutter, so the threshold is 880 less that (840, less ~16 for a scrollbar) with slack at the boundary.
+ */
+export const WIDE_MIN_PX = 800;
 
 export const WRITE_ROLES = new Set(["member", "admin", "site_admin"]);
 

@@ -519,10 +519,10 @@ export default function FilterPanel({
           { key: "any-value", value: undefined, label: "Any" },
           { key: "any", value: "any", label: "Any parent" },
           { key: "none", value: "none", label: "No parent" },
-          ...parentOptions.map((o) => ({ key: `p-${o.id}`, value: o.id as ParentFilter, label: o.title })),
+          ...parentOptions.map((o) => ({ key: `p-${o.id}`, value: o.id as ParentFilter, label: o.label })),
         ];
         return (
-          <div role="radiogroup" aria-label="Parent">
+          <div role="radiogroup" aria-label="Parent" className="max-h-64 overflow-y-auto">
             {options.map((o) => (
               <label key={o.key} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
                 <input type="radio" name={`${id}-parent`} checked={filters.parentFilter === o.value} onChange={() => setParent(o.value)} className="accent-primary" />

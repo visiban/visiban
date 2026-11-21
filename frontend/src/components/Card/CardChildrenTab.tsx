@@ -33,6 +33,8 @@ interface Props {
   state: ChildrenState;
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
+  /** Bumps on every re-read someone else caused (a `card.children_changed` ping); lets a re-read be told from this tab's own. */
+  remoteSignal?: number;
 }
 
 /**
@@ -42,7 +44,7 @@ interface Props {
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs }: Props) {
+export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, remoteSignal = 0 }: Props) {
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -52,7 +54,10 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const [adding, setAdding] = useState(false);
   const [linkBoards, setLinkBoards] = useState<{ id: number; name: string }[] | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const [announcement, setAnnouncement] = useState("");
+  const [announcement, setAnnouncementState] = useState({ text: "", n: 0 });
+  // Every call re-announces, even identical text: the counter alternates a trailing no-break space so the live
+  // region's content changes (frontend/CLAUDE.md § Children tab (#2209), rule C). A timer below clears stale text.
+  const setAnnouncement = (text: string) => setAnnouncementState((a) => ({ text, n: a.n + 1 }));
   const [activeId, setActiveId] = useState<number | null>(null);
   const [shownColumnId, setShownColumnId] = useState<number | null>(null);
   const [moving, setMoving] = useState<CardChildRow | null>(null);
@@ -64,7 +69,10 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   // `card.children_changed` ping, #2209 row 13) announces what changed, once.
   const localWrite = useRef(false);
   const prevData = useRef(data);
-  const reloadAfterWrite = () => { localWrite.current = true; reload(); };
+  // The remote-change counter at the time of this tab's own write: a ping that lands while that write's
+  // re-read is in flight moves the counter past it, so its re-read is announced, not swallowed.
+  const remoteSeen = useRef(remoteSignal);
+  const reloadAfterWrite = () => { localWrite.current = true; remoteSeen.current = remoteSignal; reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -182,14 +190,27 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   useEffect(() => {
     const prev = prevData.current;
     prevData.current = data;
-    if (localWrite.current) { localWrite.current = false; return; }
+    const remoteMoved = remoteSignal !== remoteSeen.current;
+    remoteSeen.current = remoteSignal;
+    if (localWrite.current) {
+      localWrite.current = false;
+      if (!remoteMoved) return;
+    }
     // Access to the child board lost: drop any title the live region still holds.
     if (data && !data.visible) { setAnnouncement(""); return; }
     const msg = describeChildrenChange(prev, data);
     if (msg) setAnnouncement(msg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the data lands; the remote counter is only read then, and re-running on it would consume the local-write flag
   }, [data]);
   // A failed re-read leaves the data as it was; the next change is someone else's.
   useEffect(() => { if (error) localWrite.current = false; }, [error]);
+
+  // Stale text must not linger for a screen reader's virtual cursor; the visible default-not-set notice stays.
+  useEffect(() => {
+    if (!announcement.text || announcement.text.includes("default was not changed")) return;
+    const t = setTimeout(() => setAnnouncementState((a) => (a.n === announcement.n ? { text: "", n: a.n } : a)), 8000);
+    return () => clearTimeout(t);
+  }, [announcement]);
 
   useEffect(() => {
     const target = pendingFocus.current;
@@ -333,7 +354,9 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         >
           {shownColumns.map((col) => {
             const list = byColumn(col.id);
-            const limit = col.wip_limit != null ? ` · limit ${col.wip_limit}` : "";
+            // WIP state in words, never color alone (frontend/CLAUDE.md § Children tab (#2209), rule B): at the limit and over it are both said.
+            const wipState = col.wip_limit != null && col.wip_limit > 0 ? (col.card_count > col.wip_limit ? "over limit" : col.card_count === col.wip_limit ? "at limit" : "") : "";
+            const limit = col.wip_limit != null ? ` · limit ${col.wip_limit}${wipState ? `, ${wipState}` : ""}` : "";
             return (
               <section key={col.id} aria-label={col.name} className="flex flex-col gap-2 min-w-0">
                 <div className="flex flex-col gap-0.5 border-t-2 pt-1.5" style={{ borderTopColor: col.color }}>
@@ -347,7 +370,12 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                     <span aria-hidden="true" data-testid="children-wip-meter" className="block h-1 w-full rounded bg-surface-hover overflow-hidden">
                       <span
                         className={`block h-full ${col.card_count > col.wip_limit ? "bg-warning" : "bg-fg-tertiary"}`}
-                        style={{ width: `${Math.min(100, (col.card_count / col.wip_limit) * 100)}%` }}
+                        // Non-color cue: over limit is striped, at limit is full width with a solid end cap.
+                        style={{
+                          width: `${Math.min(100, (col.card_count / col.wip_limit) * 100)}%`,
+                          ...(col.card_count > col.wip_limit ? { backgroundImage: "repeating-linear-gradient(45deg, transparent 0 3px, rgb(0 0 0 / 0.35) 3px 5px)" } : {}),
+                          ...(col.card_count === col.wip_limit ? { borderRight: "3px solid currentColor" } : {}),
+                        }}
                       />
                     </span>
                   )}
@@ -361,7 +389,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                       onFocus={() => setActiveId(child.id)}
                       onKeyDown={(e) => onCardKeyDown(e, child)}
                       aria-label={`${child.title}, ${col.name}${child.assignee ? `, ${child.assignee.display_name || child.assignee.username}` : ""}${child.blocked ? ", blocked" : ""}, ${i + 1} of ${list.length}`}
-                      className="text-sm text-fg hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      className={`${tgt} ${wide ? "" : "flex items-center"} text-sm text-fg hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}
                     >
                       {child.title}
                     </a>
@@ -380,7 +408,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                           tabIndex={child.id === rovingId ? 0 : -1}
                           aria-label={`Move ${child.title}`}
                           onClick={() => setMoving(child)}
-                          className={`${tgt} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+                          className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
                         >
                           Move
                         </button>
@@ -391,7 +419,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                           tabIndex={child.id === rovingId ? 0 : -1}
                           aria-label={`Unlink child ${child.title}`}
                           onClick={() => void unlink(child)}
-                          className={`${tgt} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+                          className={`${tgt} ${wide ? "" : "min-w-11"} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
                         >
                           Unlink
                         </button>
@@ -421,7 +449,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
       )}
       {linkError && <p role="alert" className="text-xs text-danger">{linkError}</p>}
       <p role="alert" className={actionError ? "text-xs text-danger" : "sr-only"}>{actionError ?? ""}</p>
-      <p role="status" aria-live="polite" aria-atomic="true" className={announcement.includes("default was not changed") ? "text-xs text-fg-secondary" : "sr-only"}>{announcement}</p>
+      <p role="status" aria-live="polite" aria-atomic="true" className={announcement.text.includes("default was not changed") ? "text-xs text-fg-secondary" : "sr-only"}>{announcement.text ? announcement.text + (announcement.n % 2 ? "\u00A0" : "") : ""}</p>
       {moving && childBoard && (
         <ChildMovePopover
           child={moving}

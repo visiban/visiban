@@ -40,13 +40,18 @@ export function matchesParentFilter(card: Pick<Card, "parent">, f: ParentFilter 
  * The specific parents the filter offers: only parents the viewer can open, read from the cards' own
  * `parent` (spec: "Options come only from parent boards the viewer can open"). Sorted by title.
  */
-export function parentFilterOptions(cards: Pick<Card, "parent">[]): { id: number; title: string }[] {
+export function parentFilterOptions(cards: Pick<Card, "parent">[]): { id: number; title: string; label: string }[] {
   const seen = new Map<number, string>();
   for (const c of cards) {
     const p = c.parent;
     if (p && !p.hidden && !seen.has(p.id)) seen.set(p.id, p.title);
   }
-  return [...seen].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id);
+  const titleCount = new Map<string, number>();
+  for (const t of seen.values()) titleCount.set(t, (titleCount.get(t) ?? 0) + 1);
+  // Two parents may share a title; the card id tells them apart (frontend/CLAUDE.md frontend/CLAUDE.md § Children tab (#2209), rule D).
+  return [...seen]
+    .map(([id, title]) => ({ id, title, label: (titleCount.get(title) ?? 0) > 1 ? `${title} (#${id})` : title }))
+    .sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id);
 }
 
 /**
@@ -57,7 +62,7 @@ export function parentFilterLabel(f: ParentFilter | undefined, cards: Pick<Card,
   if (f === undefined) return null;
   if (f === "any") return "Any parent";
   if (f === "none") return "No parent";
-  return parentFilterOptions(cards).find((o) => o.id === f)?.title ?? "A card not shown here";
+  return parentFilterOptions(cards).find((o) => o.id === f)?.label ?? "A card not shown here";
 }
 
 /** Whether the Parent row is offered: a child-tier board with a linked card, or an active filter. */

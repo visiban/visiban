@@ -76,14 +76,15 @@ for (const width of [880, 540, 390]) {
         if (m === 'populated') {
           await expect(tab.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', `/boards/7?f_parent=${CARD.id}`)
           await expect(tab.getByRole('img', { name: '2 done, 1 doing, 1 blocked, 1 to do' })).toBeVisible()
-          const wide = await tab.evaluate((el) => el.getBoundingClientRect().width >= 880)
-          test.info().annotations.push({ type: 'layout', description: `${width}px: ${wide ? 'columns side by side' : 'one column at a time'}` })
-          if (wide) {
-            await expect(tab.getByRole('region')).toHaveCount(4)
-          } else {
-            await expect(tab.getByRole('group', { name: 'Columns on Delivery' })).toBeVisible()
-            await expect(tab.getByTestId('children-limit-line')).toContainText("are this card's")
-          }
+          // The card sheet is 540px at every viewport above the phone and full screen at or below 640px
+          // (useCardSheetPlacement), so the tab never gets the 840px of container the side-by-side layout
+          // needs: asserted, not recorded. The side-by-side layout is pinned in cardChildrenTab2209.test.tsx
+          // at a measured 840px container (open on #2209: no sheet is 880px wide).
+          const box = await tab.boundingBox()
+          expect(box!.width, `tab width at ${width}px`).toBeLessThan(800)
+          await expect(tab.getByRole('region')).toHaveCount(1)
+          await expect(tab.getByRole('group', { name: 'Columns on Delivery' })).toBeVisible()
+          await expect(tab.getByTestId('children-limit-line')).toContainText("are this card's")
         }
         // No sideways scroll inside the sheet, in any state.
         const overflow = await tab.evaluate((el) => el.scrollWidth - el.clientWidth)

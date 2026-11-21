@@ -51,10 +51,19 @@ describe('Parent filter (#2209 row 10)', () => {
     expect(filterCards(cards, { ...EMPTY_FILTER, parentFilter: 51 })).toEqual([2])
   })
 
+  it('tells two parents with the same title apart by id and labels the chip the same way', () => {
+    const dup = [
+      { parent: { id: 7, title: 'Renewal', hidden: false } },
+      { parent: { id: 9, title: 'Renewal', hidden: false } },
+    ] as never[]
+    expect(parentFilterOptions(dup).map((o) => o.label)).toEqual(['Renewal (#7)', 'Renewal (#9)'])
+    expect(parentFilterLabel(9, dup)).toBe('Renewal (#9)')
+  })
+
   it('offers only parents the viewer can open, once each, by title', () => {
     expect(parentFilterOptions(cards)).toEqual([
-      { id: 51, title: 'Acme: platform renewal' },
-      { id: 50, title: 'Initech: security review' },
+      { id: 51, title: 'Acme: platform renewal', label: 'Acme: platform renewal' },
+      { id: 50, title: 'Initech: security review', label: 'Initech: security review' },
     ])
     expect(parentFilterLabel(undefined, cards)).toBeNull()
     expect(parentFilterLabel('any', cards)).toBe('Any parent')
@@ -119,6 +128,8 @@ describe('Parent filter (#2209 row 10)', () => {
     const group = screen.getByRole('radiogroup', { name: 'Parent' })
     const names = within(group).getAllByRole('radio').map((r) => r.closest('label')!.textContent)
     expect(names).toEqual(['Any', 'Any parent', 'No parent', 'Acme: platform renewal', 'Initech: security review'])
+    // A long list scrolls inside the panel instead of growing it.
+    expect(group).toHaveClass('max-h-64', 'overflow-y-auto')
     expect(within(group).getByRole('radio', { name: 'Initech: security review' })).toBeChecked()
     await u.click(within(group).getByRole('radio', { name: 'No parent' }))
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ parentFilter: 'none' }))

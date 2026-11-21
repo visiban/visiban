@@ -2563,6 +2563,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
               state={childrenState}
+              remoteSignal={childrenRefreshSignal}
               onExitToTabs={() => tabRefs.current.children?.focus()}
             />
           ) : tab === "comments" ? (

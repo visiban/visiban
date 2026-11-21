@@ -1967,3 +1967,11 @@ A parent card on a board whose cards can have children ends in a footer under a 
 | Planned (#2371, not yet shipped) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
 
 Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle N days", `text-warning-on-tint`) uses the clock glyph. The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
+
+## Children tab and its lens (#2209)
+
+1. **(R-A) A layout threshold is measured on the container it applies to, never assumed from an outer width.** `CardChildrenTab` switches between four side-by-side columns and one column at a time on its own `ResizeObserver` width. That width is the sheet minus its 20px side padding and a scrollbar gutter, so `WIDE_MIN_PX` (800) is set below the 880px sheet width with slack. The card sheet is 540px (full screen at or below a 640px viewport), so the side-by-side layout is unreachable in the shipped sheet; the e2e spec asserts one column at 880, 540 and 390 and a Vitest case pins the threshold on a measured container.
+2. **(R-B) WIP state is said in words, never by color alone.** The limit line reads "limit N, at limit" or "limit N, over limit"; the meter adds a non-color cue (striped when over, a solid end cap at the limit).
+3. **(R-C) A live region re-announces a repeat and clears stale text.** An identical consecutive message alternates a trailing no-break space so the content changes; the text is cleared after 8 seconds (the visible default-not-set notice stays). A re-read that a remote `card.children_changed` ping caused while a local write's re-read was in flight is still announced.
+4. **(R-D) A filter option list is capped and scrolls** (`max-h-64 overflow-y-auto`), and two options with the same title are told apart by appending the card id: "Title (#12)".
+5. **(R-E) Card tap targets are at least 44px on phone.** The child card link, Move and Unlink are `min-h-11` (Move and Unlink also `min-w-11`) below the wide layout.
