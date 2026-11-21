@@ -2,25 +2,32 @@
  "30": {
   "blocked": {
    "blocks_per_column": {
-    "Doing": 0,
+    "Doing": 1,
     "Done": 0,
     "To Do": 0
    },
    "days_per_column": {
-    "Doing": 0.0,
+    "Doing": 5.0,
     "Done": 0.0,
     "To Do": 0.0
    },
    "seconds_per_column": {
-    "Doing": 0,
+    "Doing": 432000,
     "Done": 0,
     "To Do": 0
    },
-   "top_reasons": [],
+   "top_reasons": [
+    {
+     "count": 1,
+     "reason": "Waiting on customer",
+     "total_days": 5.0,
+     "total_seconds": 432000
+    }
+   ],
    "total": {
-    "blocks": 0,
-    "days": 0.0,
-    "seconds": 0
+    "blocks": 1,
+    "days": 5.0,
+    "seconds": 432000
    }
   },
   "board_medians": {
@@ -159,25 +166,44 @@
  "365": {
   "blocked": {
    "blocks_per_column": {
-    "Doing": 0,
-    "Done": 0,
+    "Doing": 2,
+    "Done": 2,
     "To Do": 0
    },
    "days_per_column": {
-    "Doing": 0.0,
-    "Done": 0.0,
+    "Doing": 15.0,
+    "Done": 20.0,
     "To Do": 0.0
    },
    "seconds_per_column": {
-    "Doing": 0,
-    "Done": 0,
+    "Doing": 1296000,
+    "Done": 1728000,
     "To Do": 0
    },
-   "top_reasons": [],
+   "top_reasons": [
+    {
+     "count": 2,
+     "reason": "Waiting on customer",
+     "total_days": 15.0,
+     "total_seconds": 1296000
+    },
+    {
+     "count": 1,
+     "reason": "Legal review",
+     "total_days": 10.0,
+     "total_seconds": 864000
+    },
+    {
+     "count": 1,
+     "reason": "Vendor outage",
+     "total_days": 10.0,
+     "total_seconds": 864000
+    }
+   ],
    "total": {
-    "blocks": 0,
-    "days": 0.0,
-    "seconds": 0
+    "blocks": 4,
+    "days": 35.0,
+    "seconds": 3024000
    }
   },
   "board_medians": {
@@ -313,28 +339,148 @@
    }
   ]
  },
- "90": {
+ "365_lane_B": {
   "blocked": {
    "blocks_per_column": {
-    "Doing": 0,
+    "Doing": 1,
     "Done": 0,
     "To Do": 0
    },
    "days_per_column": {
-    "Doing": 0.0,
+    "Doing": 10.0,
     "Done": 0.0,
     "To Do": 0.0
    },
    "seconds_per_column": {
-    "Doing": 0,
+    "Doing": 864000,
     "Done": 0,
     "To Do": 0
    },
-   "top_reasons": [],
+   "top_reasons": [
+    {
+     "count": 1,
+     "reason": "Vendor outage",
+     "total_days": 10.0,
+     "total_seconds": 864000
+    }
+   ],
    "total": {
-    "blocks": 0,
-    "days": 0.0,
-    "seconds": 0
+    "blocks": 1,
+    "days": 10.0,
+    "seconds": 864000
+   }
+  },
+  "board_medians": {
+   "Doing": 13.0,
+   "To Do": 10.0
+  },
+  "columns": [
+   "To Do",
+   "Doing",
+   "Done"
+  ],
+  "days": 365,
+  "done_columns": [
+   "Done"
+  ],
+  "stale_warning_pct": 50,
+  "staleness_threshold_days": 7,
+  "stalled_threshold_days": 7,
+  "swimlanes": [
+   {
+    "age_avg_days_per_column": {
+     "Doing": 90.0,
+     "To Do": 3.0
+    },
+    "age_heat_level": {
+     "Doing": "high",
+     "To Do": "ok"
+    },
+    "age_is_outlier": {
+     "Doing": true,
+     "To Do": false
+    },
+    "age_is_warning": {
+     "Doing": false,
+     "To Do": false
+    },
+    "age_wait_avg_days_per_column": {},
+    "avg_days_per_column": {
+     "Doing": 37.7,
+     "To Do": 7.7
+    },
+    "deal_velocity_days": 10.0,
+    "is_outlier": {
+     "Doing": true,
+     "To Do": true
+    },
+    "name": "B",
+    "stalled_cards": [
+     {
+      "days_since_move": 90,
+      "days_since_move_exact": 90.0,
+      "title": "b2"
+     }
+    ],
+    "throughput_avg_days_per_column": {
+     "Doing": null,
+     "To Do": 21.5
+    },
+    "throughput_card_count_per_column": {
+     "Doing": 0,
+     "To Do": 2
+    },
+    "throughput_heat_level": {
+     "Doing": null,
+     "To Do": "high"
+    },
+    "throughput_is_outlier": {
+     "Doing": false,
+     "To Do": true
+    },
+    "throughput_is_warning": {
+     "Doing": false,
+     "To Do": false
+    },
+    "throughput_wait_avg_days_per_column": {}
+   }
+  ]
+ },
+ "90": {
+  "blocked": {
+   "blocks_per_column": {
+    "Doing": 2,
+    "Done": 1,
+    "To Do": 0
+   },
+   "days_per_column": {
+    "Doing": 15.0,
+    "Done": 10.0,
+    "To Do": 0.0
+   },
+   "seconds_per_column": {
+    "Doing": 1296000,
+    "Done": 864000,
+    "To Do": 0
+   },
+   "top_reasons": [
+    {
+     "count": 2,
+     "reason": "Waiting on customer",
+     "total_days": 15.0,
+     "total_seconds": 1296000
+    },
+    {
+     "count": 1,
+     "reason": "Vendor outage",
+     "total_days": 10.0,
+     "total_seconds": 864000
+    }
+   ],
+   "total": {
+    "blocks": 3,
+    "days": 25.0,
+    "seconds": 2160000
    }
   },
   "board_medians": {
@@ -461,6 +607,113 @@
     "throughput_is_outlier": {
      "Doing": false,
      "To Do": true
+    },
+    "throughput_is_warning": {
+     "Doing": false,
+     "To Do": false
+    },
+    "throughput_wait_avg_days_per_column": {}
+   }
+  ]
+ },
+ "90_lane_A": {
+  "blocked": {
+   "blocks_per_column": {
+    "Doing": 1,
+    "Done": 1,
+    "To Do": 0
+   },
+   "days_per_column": {
+    "Doing": 5.0,
+    "Done": 10.0,
+    "To Do": 0.0
+   },
+   "seconds_per_column": {
+    "Doing": 432000,
+    "Done": 864000,
+    "To Do": 0
+   },
+   "top_reasons": [
+    {
+     "count": 2,
+     "reason": "Waiting on customer",
+     "total_days": 15.0,
+     "total_seconds": 1296000
+    }
+   ],
+   "total": {
+    "blocks": 2,
+    "days": 15.0,
+    "seconds": 1296000
+   }
+  },
+  "board_medians": {
+   "Doing": 23.5,
+   "To Do": 9.0
+  },
+  "columns": [
+   "To Do",
+   "Doing",
+   "Done"
+  ],
+  "days": 90,
+  "done_columns": [
+   "Done"
+  ],
+  "stale_warning_pct": 50,
+  "staleness_threshold_days": 7,
+  "stalled_threshold_days": 7,
+  "swimlanes": [
+   {
+    "age_avg_days_per_column": {
+     "Doing": null,
+     "To Do": null
+    },
+    "age_heat_level": {
+     "Doing": null,
+     "To Do": null
+    },
+    "age_is_outlier": {
+     "Doing": false,
+     "To Do": false
+    },
+    "age_is_warning": {
+     "Doing": false,
+     "To Do": false
+    },
+    "age_wait_avg_days_per_column": {},
+    "avg_days_per_column": {
+     "Doing": 23.5,
+     "To Do": 9.0
+    },
+    "deal_velocity_days": 26.5,
+    "is_outlier": {
+     "Doing": true,
+     "To Do": true
+    },
+    "name": "A",
+    "stalled_cards": [
+     {
+      "days_since_move": 12,
+      "days_since_move_exact": 12.0,
+      "title": "a1"
+     }
+    ],
+    "throughput_avg_days_per_column": {
+     "Doing": null,
+     "To Do": null
+    },
+    "throughput_card_count_per_column": {
+     "Doing": 0,
+     "To Do": 0
+    },
+    "throughput_heat_level": {
+     "Doing": null,
+     "To Do": null
+    },
+    "throughput_is_outlier": {
+     "Doing": false,
+     "To Do": false
     },
     "throughput_is_warning": {
      "Doing": false,
