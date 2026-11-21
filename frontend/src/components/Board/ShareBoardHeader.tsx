@@ -18,7 +18,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
       <h1 className="truncate min-w-0 text-sm font-semibold text-fg" title={boardName}>
         {boardName}
       </h1>
-      <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-full bg-primary-emphasis/10 text-info-on-tint text-xs font-medium shrink-0 whitespace-nowrap">
+      <span className="max-sm:hidden inline-flex items-center gap-1.5 h-6 px-2 rounded-full bg-primary-emphasis/10 text-info-on-tint text-xs font-medium shrink-0 whitespace-nowrap">
         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-info" />
         Shared view, read-only
       </span>

@@ -315,7 +315,7 @@ export default function LoginPage({ onLogin }: Props) {
             {submittingDemo ? "Please wait…" : "Explore the demo"}
           </Button>
           {demoError && <p className="mt-2 text-danger text-xs" role="alert">{demoError}</p>}
-          <p className="mt-2 text-xs text-fg-muted">
+          <p className="mt-2 text-xs text-fg-secondary">
             or sign in manually with <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
             <code className="font-mono text-fg select-all">{demoLogin.password}</code> below.
           </p>
@@ -390,7 +390,7 @@ export default function LoginPage({ onLogin }: Props) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               labelAccessory={mode === "login" ? (
-                <button type="button" onClick={handleForgotPassword} className={`text-xs ${linkClass}`}>
+                <button type="button" onClick={handleForgotPassword} className={`text-xs max-sm:min-h-11 max-sm:px-2 ${linkClass}`}>
                   Forgot password?
                 </button>
               ) : undefined}

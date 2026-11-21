@@ -40,9 +40,9 @@ test.describe('login flow', () => {
 
   test('shows the login form when unauthenticated', async ({ page }) => {
     await page.goto('/')
-    // LoginPage has no heading element — use the submit button as the page-load signal.
+    // The submit button is the page-load signal.
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 10_000 })
-    // Inputs are identified by placeholder; the form has no <label> elements.
+    // Inputs are identified by their visible label (#2479).
     await expect(page.getByLabel('Username or email', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
   })

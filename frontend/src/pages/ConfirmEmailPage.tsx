@@ -61,6 +61,7 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
     <CenteredLayout testId="confirm-email-page">
       {status === "loading" && (
         <div role="status" className="flex flex-col items-center gap-3 py-4">
+          <h1 className="sr-only">Verifying your email</h1>
           <BrandTile />
           <span aria-hidden="true" className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-fg-secondary">Verifying your email…</p>

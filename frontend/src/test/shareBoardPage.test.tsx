@@ -131,7 +131,7 @@ describe('ShareBoardPage — valid token', () => {
 describe('ShareBoardPage — expired/invalid token', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetPublicBoard.mockRejectedValue(new Error('404'))
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
   })
 
   it('renders the expired page on 404', async () => {
@@ -251,7 +251,7 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
   })
 
   it('the revoked state is the empty-state part with an h1 and Sign in to Visiban', async () => {
-    mockGetPublicBoard.mockRejectedValue(new Error('404'))
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
     renderSharePage()
     expect(await screen.findByRole('heading', { level: 1, name: 'This board is no longer shared' })).toBeInTheDocument()
     expect(screen.getByText('The share link has been revoked or the board has been deleted.')).toBeInTheDocument()
@@ -277,5 +277,20 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
     } finally {
       window.matchMedia = original
     }
+  })
+  it('a transient failure is retryable, not the revoked message', async () => {
+    mockGetPublicBoard.mockRejectedValueOnce(Object.assign(new Error('500'), { response: { status: 500 } })).mockResolvedValueOnce(fakeBoard)
+    renderSharePage()
+    expect(await screen.findByRole('heading', { level: 1, name: "The board didn't load" })).toBeInTheDocument()
+    expect(screen.queryByText('This board is no longer shared')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByTestId('share-board-page')).toBeInTheDocument()
+    expect(screen.getByRole('main')).toBeInTheDocument()
+  })
+
+  it('a 404 is the revoked state', async () => {
+    mockGetPublicBoard.mockRejectedValue(Object.assign(new Error('404'), { response: { status: 404 } }))
+    renderSharePage()
+    expect(await screen.findByTestId('share-expired-page')).toBeInTheDocument()
   })
 })

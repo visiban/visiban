@@ -240,6 +240,7 @@ export default function JoinPage({ user }: Props) {
   if (loading) {
     return (
       <CenteredLayout testId="join-page">
+        <h1 className="sr-only">Checking invite</h1>
         <p role="status" className="text-center text-sm text-fg-secondary">Checking invite…</p>
       </CenteredLayout>
     );

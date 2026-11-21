@@ -260,18 +260,40 @@ export default function ShareBoardPage() {
   const [board, setBoard] = useState<BoardPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
+  // Only a 404/410 means the link is gone; any other failure is retryable (#2480 ux-review).
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const isPhone = useIsPhoneViewport();
 
   useEffect(() => {
     if (!token) return;
     getPublicBoard(token)
       .then(setBoard)
-      .catch(() => setExpired(true))
+      .catch((err) => {
+        const status = (err as { response?: { status?: number } }).response?.status;
+        if (status === 404 || status === 410) setExpired(true);
+        else setLoadFailed(true);
+      })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, attempt]);
 
   if (loading) {
     return <ShareBoardSkeleton />;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="min-h-screen bg-page flex flex-col" data-testid="share-load-error">
+        <main className="flex-1 flex items-center justify-center">
+          <EmptyState
+            headingLevel="h1"
+            title="The board didn't load"
+            description="Check your connection and try again."
+            action={<button type="button" onClick={() => { setLoadFailed(false); setLoading(true); setAttempt((a) => a + 1); }} className={buttonClasses("primary")}>Try again</button>}
+          />
+        </main>
+      </div>
+    );
   }
 
   if (expired || !board) {
@@ -287,7 +309,9 @@ export default function ShareBoardPage() {
         {laneCount} lane{laneCount !== 1 ? "s" : ""} · {cardCount} card{cardCount !== 1 ? "s" : ""}. A read-only snapshot of this board. Cards
         can&apos;t be opened or moved here. Reload to see the latest.
       </p>
-      {isPhone ? <PhoneBoard board={board} /> : <StaticBoardGrid board={board} />}
+      <main className="flex-1 flex flex-col min-h-0">
+        {isPhone ? <PhoneBoard board={board} /> : <StaticBoardGrid board={board} />}
+      </main>
     </div>
   );
 }
@@ -346,7 +370,7 @@ function ShareBoardSkeleton() {
     <div className="flex flex-col min-h-screen bg-page" role="status" aria-busy="true" data-testid="share-board-skeleton">
       <span className="sr-only">Loading board</span>
       <div aria-hidden="true" className="h-14 bg-sunken border-b border-line" />
-      <div aria-hidden="true" className="flex gap-3 p-4 overflow-hidden">
+      <main aria-hidden="true" className="flex gap-3 p-4 overflow-hidden">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="w-[220px] shrink-0 flex flex-col gap-2">
             <div className="h-9 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
@@ -354,7 +378,7 @@ function ShareBoardSkeleton() {
             <div className="h-16 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
           </div>
         ))}
-      </div>
+      </main>
     </div>
   );
 }

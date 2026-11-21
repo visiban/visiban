@@ -35,7 +35,7 @@ export default function UnavailablePage({ user, onLogout, onUserUpdated, kind }:
     <div className="h-full bg-page flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Not available" }]} />
       <main className="flex-1 flex flex-col items-center justify-center gap-3 px-4 py-8 text-center">
-        <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-bold focus:outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-semibold focus:outline-none">
           This {kind} isn&apos;t available
         </h1>
         <p className="text-sm text-fg-secondary max-w-sm">
@@ -54,7 +54,7 @@ export default function UnavailablePage({ user, onLogout, onUserUpdated, kind }:
             className={buttonClasses("secondary", { className: "max-sm:w-full" })}
           >
             Search boards
-            <kbd aria-hidden="true" className="rounded bg-surface-hover px-1.5 text-xs text-fg-secondary font-sans">⌘K</kbd>
+            <kbd aria-hidden="true" className="rounded border border-line bg-surface-active px-1.5 text-xs text-fg-secondary font-sans">{/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd>
           </button>
         </div>
       </main>

@@ -179,6 +179,7 @@ describe("switches", () => {
     expect(screen.getByText("In-app")).toBeInTheDocument();
     const email = screen.getByRole("switch", { name: "Card assigned, email" });
     expect(email).toBeDisabled();
+    expect(email).toHaveAccessibleDescription("Turn on in-app to get email.");
     expect(email).toHaveAttribute("aria-checked", "false");
     fireEvent.click(screen.getByRole("switch", { name: "Card assigned, in-app" }));
     expect(onInApp).toHaveBeenCalledWith(true);
@@ -213,9 +214,10 @@ describe("SaveBar and InlineConfirm", () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     render(<InlineConfirm message="Remove Sam from Design? Sam loses access to its boards." actionLabel="Remove Sam" onConfirm={onConfirm} onCancel={onCancel} />);
-    const box = screen.getByRole("alertdialog", { name: "Remove Sam" });
+    const box = screen.getByRole("group", { name: "Remove Sam" });
     expect(box.className).toContain("bg-danger/10");
     const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel).toHaveFocus();
     expect(cancel.className).toContain(BUTTON_VARIANT_CLASSES.quiet);
     const action = screen.getByRole("button", { name: "Remove Sam" });
     expect(action.className).toContain(BUTTON_VARIANT_CLASSES.danger);

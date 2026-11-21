@@ -33,7 +33,7 @@ export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
     <div className="h-full bg-page flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Page not found" }]} />
       <main className="flex-1 flex flex-col items-center justify-center gap-3 px-4 py-8 text-center">
-        <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-bold focus:outline-none">Page not found</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-semibold focus:outline-none">Page not found</h1>
         <p className="text-sm text-fg-secondary max-w-sm">
           There&apos;s no page at this address. Check it for typos, or go back to Home.
         </p>
@@ -49,7 +49,7 @@ export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
             className={buttonClasses("secondary", { className: "max-sm:w-full" })}
           >
             Search boards
-            <kbd aria-hidden="true" className="rounded bg-surface-hover px-1.5 text-xs text-fg-secondary font-sans">⌘K</kbd>
+            <kbd aria-hidden="true" className="rounded border border-line bg-surface-active px-1.5 text-xs text-fg-secondary font-sans">{/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}</kbd>
           </button>
         </div>
       </main>

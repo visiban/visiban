@@ -5,7 +5,7 @@
  * `bg-sunken`, Chip `bg-surface-hover`. No part hard-codes a color. See frontend/CLAUDE.md
  * § Shared page layouts and parts.
  */
-import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
 import { buttonClasses, type ButtonSize, type ButtonVariant } from "./buttonClasses";
 import { STATUS_TONE_LABEL, type StatusControlTone, type StatusTone } from "./model";
 
@@ -208,7 +208,7 @@ export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabe
       className="group/switch relative inline-flex h-[26px] w-11 max-sm:h-11 shrink-0 items-center justify-center rounded-full focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
       <span
-        className={`relative inline-flex h-[26px] w-11 shrink-0 items-center rounded-full border transition-colors group-focus/switch:ring-2 group-focus/switch:ring-primary-emphasis group-focus/switch:ring-offset-1 ${
+        className={`relative inline-flex h-[26px] w-11 shrink-0 items-center rounded-full border transition-colors group-focus/switch:ring-2 group-focus/switch:ring-primary-emphasis group-focus/switch:ring-offset-1 ring-offset-surface ${
           checked ? "bg-primary border-primary" : "bg-surface-active border-line-boundary"
         }`}
       >
@@ -266,15 +266,19 @@ export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppC
   onEmailChange: (checked: boolean) => void;
 }) {
   const descId = useId();
+  const reasonId = useId();
+  const emailDescribedBy = [description ? descId : "", inApp ? "" : reasonId].filter(Boolean).join(" ") || undefined;
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-medium text-fg">{event}</p>
         {description && <p id={descId} className="mt-0.5 text-sm text-fg-secondary">{description}</p>}
+        {/* A switch disabled by a dependency says why (never opacity alone). */}
+        {!inApp && <p id={reasonId} className="mt-0.5 text-xs text-fg-secondary">Turn on in-app to get email.</p>}
       </div>
       <div className="flex items-center gap-4">
         <Switch checked={inApp} onChange={onInAppChange} aria-label={`${event}, in-app`} aria-describedby={description ? descId : undefined} />
-        <Switch checked={inApp && email} onChange={onEmailChange} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={description ? descId : undefined} />
+        <Switch checked={inApp && email} onChange={onEmailChange} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={emailDescribedBy} />
       </div>
     </div>
   );
@@ -320,11 +324,15 @@ export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy 
   onCancel: () => void;
   busy?: boolean;
 }) {
+  // Non-modal, so no focus trap and no alertdialog role: a labeled group that takes focus on its
+  // safe escape (Cancel) when it opens. The caller returns focus to its trigger on cancel.
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { cancelRef.current?.focus(); }, []);
   return (
-    <div role="alertdialog" aria-label={actionLabel} className="rounded-[10px] border border-danger/40 bg-danger/10 p-3">
+    <div role="group" aria-label={actionLabel} className="rounded-[10px] border border-danger/40 bg-danger/10 p-3">
       <p className="text-sm text-fg">{message}</p>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <Button variant="quiet" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button variant="quiet" buttonRef={cancelRef} onClick={onCancel} disabled={busy}>Cancel</Button>
         <Button variant="danger" onClick={onConfirm} disabled={busy}>{actionLabel}</Button>
       </div>
     </div>
