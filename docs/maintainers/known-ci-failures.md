@@ -487,12 +487,15 @@ main pipeline ...` and names the open **`main is red`** issue (label `ci`).
 pipelines while seven merges landed on top, because every MR pipeline was green. GitLab Free
 has no merge trains or merged-results pipelines, so the brake is built from jobs:
 
-- **Tripwire.** `main-red-tripwire` runs last on every `main` push pipeline (never `schedule`).
+- **Tripwire.** `main-red-tripwire` runs in GitLab's built-in `.post` stage (after every other stage) of every
+  `main` push pipeline (never `schedule`), and treats a pipeline with any other job still
+  `running`/`pending`/`created` as not judgeable: it never closes the issue then, it only logs.
   If a non-`allow_failure` job failed it opens the single `main is red` issue, or comments on
   it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no such
   failure comments and closes it. Writing needs an `api`-scope token: it uses `KAIZEN_API_TOKEN`
   (falling back to `GITLAB_API_TOKEN`, which is `read_api` only, so the write is refused and the
-  job prints a `WARNING` and passes). See [Tokens and Rotation](tokens-and-rotation.md).
+  job prints a `WARNING` and passes). Until the token exists the tripwire is inert (it cannot open
+  or close the issue); creating it is tracked in #2470. See [Tokens and Rotation](tokens-and-rotation.md).
 - **Guard.** `main-red-guard` runs in MR pipelines, reads the latest *finished*
   (`success`/`failed`) `main` push pipeline anonymously, and fails if it failed.
 
@@ -520,10 +523,16 @@ it itself, as the `runrt()` helper in `resolve-docs-version.test.sh` does.
 neither `CI_POISON_VARS` nor `CI_POISON_EXEMPT` (which needs a reason). Fix a failure by adding
 the variable to the right list.
 
-Limit: the poison makes both environments *identical*, it does not make every non-hermetic test
-fail. The dead endpoint yields the same fail-closed result as "no token", so reverting #2412's
-`env -u` scrub still passes locally; what changed is that `main` can no longer see a live token
-the MR did not.
+**Loopback canary.** A dead endpoint fails closed exactly like a missing token, so poison alone
+cannot catch a test that quietly depends on a protected variable. Both jobs therefore start
+`scripts/ci-api-canary.py` (stdlib listener on 127.0.0.1, answers every request `200 []` and logs
+it) and point `CI_API_V4_URL` at it. After the tests run, `ci-api-canary.py verify` fails the job and
+prints every requested path when the log is non-empty: "a test reached the API with inherited CI
+variables". A test that talks to a fake API (`runapi` in `resolve-docs-version.test.sh`) sets its own
+URL and never touches the canary; fix a flagged test by setting its own URL and token, or unsetting
+the inherited ones. `scripts/tests/ci-api-canary.test.sh` replays #2412: with the `env -u` scrub
+reverted in `resolve-docs-version.test.sh`, the canary flags the call
+(`GET /api/v4/projects/1/pipelines?ref=v1.3.0...`).
 
 ## `runner_system_failure` is auto-retried; script failures never are (#2462)
 
@@ -537,6 +546,10 @@ have repeatedly been real bugs. `scripts/check-ci-retry.sh` (run in `script-test
 
 A job-level `retry:` replaces the default. Non-idempotent jobs set `retry: 0` with a reason on the
 line: `helm-publish`, `github-release`, `docs-deploy`, `pages`, the image-attest jobs,
-`cleanup-merged-branches`, `seed-demo-data`, `kaizen-yield-watch`. Add the same to any new job
+`cleanup-merged-branches`, `seed-demo-data`, `kaizen-yield-watch`, `main-red-tripwire` (posts issue
+comments) and `backend-schema-fuzz-deep` (files issues in `after_script`). The kaniko
+build/push jobs and the manifest jobs keep the default retry because re-pushing the same digest is
+idempotent; `gitleaks-commits` keeps it too, as it only reads the diff and writes nothing (it has no
+upload step). Add the same to any new job
 whose side effect is not safe to repeat. A job that still shows a `runner_system_failure` after
 two retries points at the runner, not the job; see #2406.

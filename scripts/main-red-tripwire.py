@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Tripwire for a red `main` (#2460): one tracking issue, opened while red, closed when green.
 
-Runs at the end of every main push pipeline (never schedule). It reads that
+Runs in the built-in `.post` stage (after every other stage) of every main push
+pipeline (never schedule). It reads that
 pipeline's jobs and:
   * red   (a non-allow_failure job failed): opens the single `main is red`
           issue (label `ci`), or comments on it if already open;
@@ -22,11 +23,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import main_red_common as c  # noqa: E402
 
 
+UNFINISHED = ("running", "pending", "created")
+
+
 def run(client: c.Client, env: dict, out=print) -> int:
     pipeline_id, url = env.get("CI_PIPELINE_ID"), env.get("CI_PIPELINE_URL", "")
     sha = (env.get("CI_COMMIT_SHA") or "")[:12]
     try:
-        failed = c.blocking_failures(client.jobs(int(pipeline_id)))
+        jobs = client.jobs(int(pipeline_id))
+        failed = c.blocking_failures(jobs)
+        own = env.get("CI_JOB_NAME", "main-red-tripwire")
+        # Not judgeable as green while any other job is still in flight: closing the
+        # issue on a pipeline that has not finished could turn red later. A failure is
+        # decisive on its own, so this only gates the green (close) path.
+        unfinished = sorted({j["name"] for j in jobs if j.get("status") in UNFINISHED and j.get("name") != own})
         issue = client.tracking_issue()
         if failed:
             body = (
@@ -42,6 +52,8 @@ def run(client: c.Client, env: dict, out=print) -> int:
             else:
                 client.call("POST", f"/issues/{int(issue['iid'])}/notes", form={"body": body})
                 out(f"Commented on tracking issue {issue.get('web_url', '')}")
+        elif unfinished:
+            out("Not judgeable yet: still " + "/".join(UNFINISHED) + ": " + ", ".join(unfinished) + "; leaving the tracking issue as is.")
         elif issue is not None:
             client.call(
                 "POST",
@@ -111,6 +123,18 @@ def _self_test() -> int:
     check("green, one open: comments then closes",
           [x[:2] for x in calls if x[0] != "GET"] == [("POST", "/issues/7/notes"), ("PUT", "/issues/7")]
           and "state_event=close" in calls[-1][2], calls)
+    running_green = green + [{"name": "backend-test", "status": "running", "allow_failure": False}]
+    cl, calls = make(running_green, open_issue)
+    rc, log = go(cl)
+    check("green so far but a job is running: no close, logs it",
+          rc == 0 and all(x[0] == "GET" for x in calls) and "Not judgeable" in log and "backend-test" in log, (calls, log))
+    own_job = green + [{"name": "main-red-tripwire", "status": "running", "allow_failure": True}]
+    cl, calls = make(own_job, open_issue)
+    go(cl)
+    check("its own running job is ignored", any(x[0] == "PUT" for x in calls), calls)
+    cl, calls = make(running_green + [{"name": "x", "status": "failed", "allow_failure": False}], open_issue)
+    go(cl)
+    check("a failure is decisive even with jobs running", [x[:2] for x in calls if x[0] != "GET"] == [("POST", "/issues/7/notes")], calls)
     cl, calls = make(green, [])
     go(cl)
     check("green, none open: no writes", all(x[0] == "GET" for x in calls), calls)

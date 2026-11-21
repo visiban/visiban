@@ -1741,6 +1741,7 @@ clients-contract:
 # binding limit here too; raise it before raising --max-examples.
 backend-schema-fuzz-deep:
   interruptible: false  # scheduled-only deep fuzz; a merge must not cancel it (#2421)
+  retry: 0  # files an issue in after_script; a retry would file it twice
   extends: backend-schema-fuzz
   allow_failure: true
   timeout: 55m
@@ -2876,6 +2877,10 @@ script-tests:
   script:
     # #2461: same protected-variable view on MR and main pipelines.
     - . scripts/ci-poison-env.sh
+    # Loopback canary: answers 200 [] and logs every request. A test that reaches the API
+    # with inherited variables (the #2412 class) is flagged at the end of the job.
+    - python3 scripts/ci-api-canary.py --self-test
+    - eval "$(python3 scripts/ci-api-canary.py start --log canary-2461.log)"
     - bash scripts/check-ci-poison-list.sh --self-test
     - bash scripts/check-ci-poison-list.sh
     - bash scripts/check-ci-retry.sh --self-test
@@ -2902,6 +2907,9 @@ script-tests:
     - bash scripts/tests/wt-doctor-drift.test.sh
     - bash scripts/tests/ci-interruptible.test.sh
     - bash scripts/tests/refresh_test_durations.test.sh
+    - python3 scripts/ci-api-canary.py verify --log canary-2461.log --pid "$CANARY_PID"
+    # Runs the canary itself (own listener, poison env), so it stays after verify.
+    - bash scripts/tests/ci-api-canary.test.sh
   allow_failure: false
 
 # wt-forge-timeout.test.sh needs glibc/Debian userland (perl alarm and process-group
@@ -2928,7 +2936,9 @@ script-tests-glibc:
     - git config --global user.name ci
   script:
     - . scripts/ci-poison-env.sh  # #2461
+    - eval "$(python3 scripts/ci-api-canary.py start --log canary-2461.log)"
     - bash scripts/tests/wt-forge-timeout.test.sh
+    - python3 scripts/ci-api-canary.py verify --log canary-2461.log --pid "$CANARY_PID"
   allow_failure: false
 
 # Stale version claims in the docs are silent misinformation (#1083): a
@@ -4299,7 +4309,8 @@ release-main-pipeline-guard-selftest:
 # docs/maintainers/known-ci-failures.md. Self-tests run in `script-tests`.
 main-red-tripwire:
   interruptible: false  # files/closes the tracking issue
-  stage: deploy
+  retry: 0  # posts issue comments; a retry would double-post
+  stage: .post  # built-in last stage: runs after every other stage, so it never reads a still-running pipeline as green
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   allow_failure: true  # never turns a green main red; the script fails open
   rules:
