@@ -900,11 +900,11 @@ class Swimlane(models.Model):
 class SwimlaneTeamMember(models.Model):
     """One person on a swimlane's default team (#2211).
 
-    Limited to the board's assignable members when written (the serializer)
-    and again when applied (``boards.services.swimlane_team``), because a
-    member can lose access between the two by a group or role change that
-    does not touch this row. Removing a member from the board deletes their
-    rows on that board's lanes (``BoardViewSet.remove_member``).
+    Stored settings only. Limited to the board's listed, active, non-viewer
+    members when written (the serializer, re-checked under the board lock in
+    ``boards.services.swimlane_team.set_team``). Removing a member from the
+    board deletes their rows on that board's lanes (``BoardViewSet.remove_member``).
+    The Edit Swimlane modal filters out people who no longer qualify on read.
     """
 
     swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")

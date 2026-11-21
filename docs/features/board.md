@@ -127,7 +127,7 @@ The words carry the state. A collapsed row hides the calm states but keeps the t
 
 A swimlane can carry a **default team**: the board members who work that row, for example the people on one customer account. The team is stored with the lane; using it to pre-assign new cards, or children created with **Add child**, is not available yet, so new cards are created exactly as before.
 
-Set it in the **Edit Swimlane** modal (board admins), under **Default team**. Each person is a row with a **Remove** button; **Add a member** lists the board's members who can be assigned cards (viewers are not listed).
+Set it in the **Edit Swimlane** modal (board admins), under **Default team**. Each person is a row with a **Remove** button; **Add a member** lists the board's active, listed members who are not viewers.
 
 - **Leaving the board.** Removing someone from the board, in the app or in the Django admin, removes them from every lane team on it. Someone who loses access another way (a group change, or becoming a viewer) keeps their id in the lane's team in the API until someone edits that team; the Edit Swimlane modal hides them in the meantime.
 

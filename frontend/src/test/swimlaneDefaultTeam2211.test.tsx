@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
 import { DEFAULT_TEAM_HELP } from '../components/Board/SwimlaneDefaultTeamSection'
-import { liveTeamIds } from '../utils/swimlaneDefaultTeam'
+import { assignableMembers, liveTeamIds } from '../utils/swimlaneDefaultTeam'
 import type { EffectiveBoardMember, Swimlane } from '../types'
 
 vi.mock('../api/boards', () => ({
@@ -119,5 +119,23 @@ describe('Swimlane default team (#2211)', () => {
   it('drops ids of people who left or became viewers', () => {
     expect(liveTeamIds([99, VIC.user.id, DAN.user.id], MEMBERS)).toEqual([DAN.user.id])
     expect(liveTeamIds(undefined, MEMBERS)).toEqual([])
+  })
+
+  it('does not offer or keep unlisted roster rows (role site_admin)', () => {
+    const WIDE = member(13, 'Wes Wide', 'site_admin')
+    const all = [...MEMBERS, WIDE]
+    expect(assignableMembers(all).map((m) => m.user.id)).toEqual([MIA.user.id, DAN.user.id])
+    expect(liveTeamIds([WIDE.user.id, DAN.user.id], all)).toEqual([DAN.user.id])
+  })
+
+  it('sends back only ids it can show', async () => {
+    const user = userEvent.setup()
+    mockUpdate.mockResolvedValue(lane())
+    renderModal(lane({ default_team: [99, MIA.user.id] }))
+    expect(screen.queryByText('99')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockUpdate.mock.calls[0][2].default_team).toEqual([])
   })
 })

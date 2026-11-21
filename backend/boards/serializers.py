@@ -1090,12 +1090,11 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         return wanted
 
     def validate_default_team(self, value):
-        """Every id must be an active, assignable member of this board (#2211).
+        """Every id must be an active, non-viewer person listed as a board member (#2211).
 
-        Deduplicated, order kept (the first is who a card gets while a card
-        has one assignee). An unknown id and a non-member get the same
-        message, so the API never confirms a guessed user id. Fails closed
-        with no board (#1075).
+        Deduplicated, order kept. Any id that does not qualify gets the same
+        message, so the response is identical for every ineligible id. Fails
+        closed with no board (#1075).
         """
         if len(value) > self.MAX_DEFAULT_TEAM:
             raise serializers.ValidationError(

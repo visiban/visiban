@@ -106,6 +106,39 @@ class TeamWriteTests(TeamFixture):
             )
         self.assertFalse(SwimlaneTeamMember.objects.exists())
 
+    def test_only_listed_members_are_accepted(self):
+        # A user with the instance-wide access who is not listed on
+        # the board gets the same refusal as an unknown id.
+        wide = User.objects.create_user(username="dt_wide", password="pass", can_access_all_content=True)
+        r = self.patch_team(self.owner, [wide.pk])
+        self.assertEqual(r.status_code, 400, r.content)
+        unknown = self.patch_team(self.owner, [999_999])
+        self.assertEqual(unknown.status_code, 400)
+        self.assertEqual(
+            r.json()["default_team"][0].replace(str(wide.pk), "N"),
+            unknown.json()["default_team"][0].replace("999999", "N"),
+        )
+        self.assertFalse(SwimlaneTeamMember.objects.exists())
+        # The same kind of user, once explicitly listed, is accepted.
+        BoardMembership.objects.create(board=self.parent, user=wide, role=Role.MEMBER)
+        r = self.patch_team(self.owner, [wide.pk])
+        self.assertEqual(r.status_code, 200, r.content)
+
+    def test_group_inherited_member_is_accepted_and_viewer_is_not(self):
+        from groups.models import Group, GroupMembership
+
+        group = Group.objects.create(name="Team group", owner=self.owner)
+        self.parent.group = group
+        self.parent.save(update_fields=["group"])
+        inherited = User.objects.create_user(username="dt_inh", password="pass")
+        inherited_viewer = User.objects.create_user(username="dt_inhv", password="pass")
+        GroupMembership.objects.create(group=group, user=inherited, role=GroupMembership.Role.MEMBER)
+        GroupMembership.objects.create(group=group, user=inherited_viewer, role=GroupMembership.Role.VIEWER)
+        r = self.patch_team(self.owner, [inherited_viewer.pk])
+        self.assertEqual(r.status_code, 400, r.content)
+        r = self.patch_team(self.owner, [inherited.pk])
+        self.assertEqual(r.status_code, 200, r.content)
+
     def test_too_many_ids_is_refused(self):
         # 51 REAL eligible members, so only the cap can cause the 400.
         ids = [
