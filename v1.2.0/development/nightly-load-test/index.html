@@ -3280,6 +3280,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#peak-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Peak memory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pending-budgets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4588,6 +4599,26 @@
 <td><code>GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/</code></td>
 <td>Each replays movement history in Python (<a href="https://gitlab.com/visiban/visiban/-/issues/448">#448</a>). Since <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a> only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. <code>cumulative-flow</code> still reads every older card's movements once, folded card by card, because finished work stays in the done band for ever: it keeps one dict entry per skipped card (per-card, not per-movement), and its latency still grows with the board's history. Gated since <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> assigned their budgets from NUC job 18170442650</td>
 </tr>
+<tr>
+<td>Single-request overview</td>
+<td><code>GET /api/v1/boards/{id}/metrics/overview/?days=90</code> (<code>flow_overview</code>, <code>aged_flow_overview</code>)</td>
+<td>The one request the Analytics overview makes for its seven flow charts since <a href="https://gitlab.com/visiban/visiban/-/issues/2426">#2426</a>: one history load serves them all, where the seven <code>metrics/*</code> reads above each loaded their own copy. Sent with <code>?days=90</code>, the overview's default range. Measured but not gated until a NUC run assigns its budgets (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>); the merged #2426 notes pin its query count (12, flat in history), not a latency or memory figure, so none is quoted here</td>
+</tr>
+<tr>
+<td>Aged-board reads</td>
+<td>The summary, <code>analytics/?days=90</code>, <code>analytics/?days=365</code>, the eight <code>metrics/*</code> reads and <code>metrics/overview/?days=90</code> on the aged board (<code>aged_board_summary</code>, <code>aged_board_analytics</code>, <code>aged_board_analytics_365</code>, <code>aged_flow_*</code>)</td>
+<td>The same active cards as the load-test board plus years of archived history (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>). Analytics breaks on board <em>age</em>, not on the shape of the active board: in the 2026-11-20 stress run the same 2.4k active cards cost 8-10x more per <code>metrics/*</code> request with three years of archived cards behind them. <code>aged_flow_cumulative_flow</code> also makes <a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a> visible (it reads the whole history for any range, and so does <code>metrics/cumulative-flow/?date=</code>, the drill-down the overview does not send). Still open and not covered by these scenarios: <a href="https://gitlab.com/visiban/visiban/-/issues/2445">#2445</a>, the MCP <code>flow_summary</code> tool's whole-history load. Run as <code>loadtest_analytics</code>, 10 timed requests each (an aged request costs seconds), so its p95 is the slowest sample</td>
+</tr>
+<tr>
+<td>Overview fan-out</td>
+<td>Two reads at once, the set <code>useAnalyticsOverviewData</code> fires since <a href="https://gitlab.com/visiban/visiban/-/issues/2426">#2426</a>: <code>GET /api/v1/boards/{id}/metrics/overview/?days=90</code> (<code>getFlowOverview</code>, <code>frontend/src/api/flowMetrics.ts</code>) and <code>GET /api/v1/boards/{id}/analytics/?days=90</code> (<code>getBoardAnalytics</code>, <code>frontend/src/api/boards.ts</code>; never <code>summary</code>), <code>days=90</code> being the overview's default range (<code>DEFAULT_DAYS</code>; <code>analytics/</code> would otherwise default to 30 server side). <code>analytics_overview</code> on the load-test board and <code>aged_analytics_overview</code> on the aged board</td>
+<td>What opening the analytics overview does to one server process. Before #2426 this was eight reads, each loading the board's history into the same process at once; the two-read set is what the page does now, and the standalone <code>metrics/*</code> scenarios still measure the individual endpoints. The sample is the wall time to the LAST response, never the sum, and the peak RSS is of the one process, where the per-request figures add up</td>
+</tr>
+<tr>
+<td>Linked child board</td>
+<td><code>GET /api/v1/boards/{id}/full/</code> and <code>GET /api/v1/boards/{id}/cards/</code> on the linked board (<code>linked_board_full</code>, <code>linked_card_list</code>)</td>
+<td>500 cards, every one linked to a parent on one of 5 parent boards (<a href="https://gitlab.com/visiban/visiban/-/issues/2424">#2424</a>), so <code>Card.parent</code>'s parent-board role batch runs. Query count and p95 are correlated, not equivalent; the query counts are in <code>perf-bench</code> (<code>FULL_LINKED_BUDGET</code>, <code>CARD_LIST_LINKED_BUDGET</code>), the latency is here</td>
+</tr>
 </tbody>
 </table>
 <p>This job is additive. <code>perf-check</code> and <code>perf-bench</code> are unchanged and still run where they already did. <code>perf-check</code>'s own description (<a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md"><code>.claude/agents/perf-check.md</code></a>) now states the division of labor: a query-count guard doesn't satisfy a latency budget.</p>
@@ -4597,12 +4628,14 @@
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span>--token-file<span class="w"> </span>/tmp/visiban_load_test_token<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span>--owner-token-file<span class="w"> </span>/tmp/visiban_load_test_owner_token<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span>--multi-board-token-file<span class="w"> </span>/tmp/visiban_load_test_multi_board_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span>--board-name<span class="w"> </span><span class="s2">"Visiban Load Test Board"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span>--analytics-token-file<span class="w"> </span>/tmp/visiban_load_test_analytics_token<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span>--server-pid-file<span class="w"> </span>/tmp/visiban_load_test_server.pid<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span>--board-name<span class="w"> </span><span class="s2">"Visiban Load Test Board"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
 </code></pre></div>
-<p>The other flags shown are the script's defaults. The CI job provisions three tokens:</p>
+<p>The other flags shown are the script's defaults. The CI job provisions four tokens:</p>
 <table>
 <thead>
 <tr>
@@ -4615,7 +4648,7 @@
 <tr>
 <td><code>--token-file</code></td>
 <td><code>demo2</code> (a plain member)</td>
-<td>every scenario except two</td>
+<td>every scenario except <code>board_list</code>, <code>card_search_multi_board</code> and the 15 <code>--analytics-token-file</code> scenarios (<code>linked_*</code>, <code>aged_*</code>, <code>aged_analytics_overview</code>)</td>
 </tr>
 <tr>
 <td><code>--owner-token-file</code></td>
@@ -4627,8 +4660,14 @@
 <td><code>demo3</code> (can access 200 boards)</td>
 <td><code>card_search_multi_board</code> alone</td>
 </tr>
+<tr>
+<td><code>--analytics-token-file</code></td>
+<td><code>loadtest_analytics</code> (sole member of the aged, linked and parent boards)</td>
+<td>the <code>aged_*</code>, <code>linked_*</code> and <code>aged_analytics_overview</code> scenarios (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2424">#2424</a>)</td>
+</tr>
 </tbody>
 </table>
+<p><code>--analytics-token-file</code> is optional: without it the aged and linked scenarios are skipped, with a <code>NOTE</code> line, so a local run against a plain fixture still works. Once any of those 15 scenarios has a committed budget (p95 or peak memory) in the baseline, skipping them fails the run instead: a gate that measured nothing must not pass. While every such budget is pending, it stays a <code>NOTE</code>. CI always passes it, and the script fails before timing anything if the aged board has fewer than <code>--min-aged-archived</code> archived cards (default 1,000) or the linked board has fewer than <code>--min-linked-cards</code> cards (default 500) or any without a parent.</p>
 <p><code>--owner-token-file</code> and <code>--multi-board-token-file</code> have no default, and the script refuses to run without them. <code>board_list</code>'s 60ms budget was derived as the owner, whose access query spans all 20 memberships, so measuring it as <code>demo2</code> would compare a cheaper path against that budget and hide a regression. Measured as <code>demo2</code>, <code>card_search_multi_board</code> would time the one-board plan again and report a number that says nothing about the many-board plan.</p>
 <p><strong>How it measures.</strong></p>
 <ul>
@@ -4639,6 +4678,18 @@
 <li>The Django <code>runserver</code> output isn't written to the job log (a noisy run could hit GitLab's 16 MB log cap). It goes to the <code>nightly-load-test-server.log</code> artifact, which shares the results file's 90-day expiry and is restricted to developers. On failure the job log prints the last 200 lines of it.</li>
 </ul>
 <p><strong>Self-test.</strong> Like every bespoke gate script here, it ships <code>python scripts/nightly_load_test.py --self-test</code>. It proves the percentile calculation and budget-comparison logic still fire on a known-bad and known-good input, and CI runs it immediately before the real invocation (see <a href="../ci-gates/">CI gate self-tests</a>). It fails if any scenario the script measures has no <code>budget_p95_ms</code> in the committed baseline, so a new scenario can't silently stay measure-only, unless the entry carries an explicit pending budget (below). The <code>nightly-load-test-selftest</code> job runs it on merge requests that touch the script or the baseline.</p>
+<h3 id="peak-memory">Peak memory<a class="headerlink" href="#peak-memory" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.3</strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>, which <a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a> had also asked for).</p>
+</blockquote>
+<p>Memory is what breaks first on the analytics endpoints: 186-691 MB for one request against a 512Mi pod, and 1.1-2.0 GB for one overview open. Latency alone cannot see it.</p>
+<p>With <code>--server-pid-file</code>, the script reads the server process's peak resident set size around every scenario: it writes <code>5</code> to <code>/proc/&lt;pid&gt;/clear_refs</code> (which restarts <code>VmHWM</code> at the current RSS) before the scenario, and reads <code>VmHWM</code> and <code>VmRSS</code> after it. Each result carries <code>peak_rss_mb</code> (the high-water mark) and <code>rss_growth_mb</code> (that mark minus the RSS before the scenario). Linux only, same host as the server. On another platform, or when the script cannot write <code>/proc/&lt;pid&gt;/clear_refs</code> (unprivileged or read-only <code>/proc</code>), it prints a NOTE and skips memory measurement (<code>peak_rss_mb</code> and <code>rss_growth_mb</code> are left out of the results entirely, not written as null). Once any scenario has a committed <code>budget_peak_rss_mb</code>, memory measurement being off fails the run; with only pending memory budgets it stays a NOTE. If the file is given on Linux and the PID cannot be read, the run fails at startup rather than silently dropping the measurement.</p>
+<ul>
+<li><strong>The gated number is the absolute peak</strong> (<code>budget_peak_rss_mb</code>), not the growth. It includes the server's baseline and what the scenarios before it left allocated, so the scenario order is part of the fixture: do not reorder <code>run()</code> without re-deriving. Python rarely hands heap back to the OS, so a delta would read near zero once an earlier scenario had grown the heap.</li>
+<li><strong>CI starts <code>runserver --noreload</code></strong> so <code>$!</code> is the server and not the reloader parent, and writes it to <code>VISIBAN_LOAD_TEST_SERVER_PID_FILE</code>. The job runs with <code>DEBUG=True</code>, which keeps every query in memory, so these numbers are higher than a production pod's; the budget is derived on the same setting, so it still moves with the code.</li>
+<li><strong>The budget rule is the p95 one</strong>: <code>budget_peak_rss_mb = ceil(measured_peak_rss_mb * 1.4 / 5) * 5</code>, from a NUC run, never by hand.</li>
+<li><strong>A memory budget can be pending on its own</strong>: <code>"budget_peak_rss_mb": null</code> with <code>"pending_memory_budget": "#NNNN"</code>. It behaves like a pending p95 budget (measured, loud, never a failure), and the self-test requires one or the other for every scenario in <code>_MEMORY_GATED</code>.</li>
+</ul>
 <h3 id="pending-budgets">Pending budgets<a class="headerlink" href="#pending-budgets" title="Permanent link">&para;</a></h3>
 <p>A budget may only come from a NUC run, so a new scenario can land before its budget can. For that case a baseline entry may set <code>"budget_p95_ms": null</code> together with <code>"pending_budget": "#NNNN"</code>, the issue that will assign the budget. The script then:</p>
 <ul>
@@ -4649,8 +4700,9 @@
 <p>It isn't a silent default. The self-test fails a scenario whose budget is null without a valid <code>#NNNN</code> reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.</p>
 <ul>
 <li>When the issue assigns the budget, replace <code>budget_p95_ms</code> and delete <code>pending_budget</code> in the same whole-file re-derivation.</li>
-<li>Pending now: <code>card_timeline_counts</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2195">#2195</a>, and <code>board_movements</code>, <code>board_movements_deep</code> and <code>board_movements_dated</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>. All four were added after the last NUC run, so the next NUC run on <code>main</code> produces their numbers; re-derive the whole file from it.</li>
-<li>The flow, summary and analytics scenarios (<a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a>) and <code>card_list</code> and <code>cards_archived</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>) got their budgets from NUC job 18170442650 (the 2026-11-19 scheduled run on <code>main</code>). That derivation records p95 latency only: peak replay memory for the flow scenarios, also asked for in #2110, is not measured by this script.</li>
+<li>Pending now, from <a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a> and <a href="https://gitlab.com/visiban/visiban/-/issues/2424">#2424</a>: every new scenario (<code>aged_*</code>, <code>linked_*</code>, <code>flow_overview</code>, <code>analytics_overview</code>, <code>aged_analytics_overview</code>) has no p95 budget, and every flow, summary, analytics and aged scenario has no memory budget, because none has been measured on a NUC runner. They all cite #2430, which therefore stays open until the NUC run derives them; the <code>suppressions-check</code> job fails the day it is closed with any new scenario still pending a p95 budget. It scans <code>pending_memory_budget</code> as well (on entries whose <code>budget_peak_rss_mb</code> is null), so the memory-only entries on the existing flow scenarios are tracked too and fail the day #2430 closes.</li>
+<li>Pending before that: <code>card_timeline_counts</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2195">#2195</a>, and <code>board_movements</code>, <code>board_movements_deep</code> and <code>board_movements_dated</code> until <a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>. All four were added after the last NUC run, so the next NUC run on <code>main</code> produces their numbers; re-derive the whole file from it.</li>
+<li>The flow, summary and analytics scenarios (<a href="https://gitlab.com/visiban/visiban/-/issues/2110">#2110</a>) and <code>card_list</code> and <code>cards_archived</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/2237">#2237</a>) got their budgets from NUC job 18170442650 (the 2026-11-19 scheduled run on <code>main</code>). That derivation records p95 latency only: peak replay memory for the flow scenarios, also asked for in #2110, was not recorded then; the script now measures it (see above) and those memory budgets are pending.</li>
 <li>The first scenario to use this was <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario), which got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
 <li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
 </ul>
@@ -4788,7 +4840,8 @@
 <h2 id="the-fixture">The fixture<a class="headerlink" href="#the-fixture" title="Permanent link">&para;</a></h2>
 <p>The job seeds a dedicated, larger board, never the real demo board:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--scale<span class="w"> </span><span class="m">20</span><span class="w"> </span>--extra-boards<span class="w"> </span><span class="m">199</span><span class="w"> </span>--with-notifications
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--scale<span class="w"> </span><span class="m">20</span><span class="w"> </span>--extra-boards<span class="w"> </span><span class="m">199</span><span class="w"> </span>--with-notifications<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--aged-generations<span class="w"> </span><span class="m">4</span><span class="w"> </span>--linked-boards
 </code></pre></div>
 <p>The large fixture is regenerated fresh in an ephemeral CI database on every run and is never committed anywhere.</p>
 <ul>
@@ -4806,6 +4859,9 @@
 <li>The baseline's <code>fixture</code> block records <code>extra_board_count</code> and <code>multi_board_accessible_boards</code>.</li>
 </ul>
 </li>
+<li><strong><code>--aged-generations N</code></strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>) seeds a SEPARATE board, "Visiban Load Test Aged Board": the same shape as the load-test board (about 2,400 active cards) plus <code>N</code> archived generations. Generation <code>g</code> is every active card copied with its movements shifted <code>90 * g</code> days back and archived at that point, so 4 is about a year of history (about 12k cards, 125k movements) and 12 is about three years (the stress run's size, 31k cards, 323k movements). <code>LOAD_TEST_AGED_GENERATIONS</code> sets it in CI (4, to keep the job short; raise it in a manual run to see the cliff). A separate board, because adding history to the load-test board would silently change every committed budget derived without it. Requires <code>--scale &gt; 1</code>. Seeding takes about as long as the load-test board itself, since the copies are bulk-inserted.</li>
+<li><strong><code>--linked-boards</code></strong> (<a href="https://gitlab.com/visiban/visiban/-/issues/2424">#2424</a>) seeds 5 parent boards (<code>cards_can_have_children</code> on, 5 cards each) and "Visiban Load Test Linked Board", a 500-card child board where every card has a parent: 20 children per parent, spread across the 5 parent boards. The links are bulk-written but only between boards that satisfy <code>link_allowed</code> and under <code>CHILDREN_PER_PARENT_LIMIT</code>. Requires <code>--scale &gt; 1</code>.</li>
+<li><strong>The aged, linked and parent boards belong to <code>loadtest_analytics</code>, and to nobody else.</strong> <code>card_search</code> filters on the viewer's accessible board ids, so giving <code>demo2</code> or <code>demo3</code> access would change a gated plan. One account with its own token leaves what viewers can see unchanged. Row counts still grow when the aged fixture is on (<code>cards</code> from about 4k to about 16.5k, movements about 5x), which can shift query plans and timings for the existing gated scenarios, so their budgets may move: expected, not proven (as with <a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a>). The isolation is about board <em>access</em> (memberships and ownership), not authorship: <code>demo1</code>-<code>demo5</code> are still the assignees and creators of the aged board's cards, and archived copies inherit the assignee. No scenario filters by assignee or author, and a test pins this so a change is deliberate. <strong>Known limit:</strong> the aged copy carries movements only. Block history (<code>CardBlock</code>, read by <code>metrics/blocked/</code>) is not copied and <code>blocked_at</code> / <code>due_date</code> on copies are not shifted, so <code>aged_flow_blocked</code> is not an aged-history measurement. The user has an unusable password, like the filler accounts.</li>
 <li><strong>Deep movement history.</strong> With <code>--scale &gt; 1</code>, every card that has moved off the first column also gets 10 extra back-and-forth moves right after creation, so cards carry ~12-16 lifetime movements. Card-serving reads must not scale with that history (<a href="https://gitlab.com/visiban/visiban/-/issues/1883">#1883</a>); a regression to loading every movement per card is invisible to query-count guards but shows up here as latency. The extra moves predate the real stage transitions, so each card's current column and <code>last_moved_at</code> are unchanged.</li>
 <li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> applies (<code>NotificationUnreadCountView</code> is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
 <li><strong>A fixture size with no stated card/swimlane count is meaningless</strong>: a p95 is only interpretable next to its data volume. <code>nightly-load-test-results.json</code> (the job's artifact) records the actual card and swimlane count with the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets were derived against.</li>
@@ -4864,6 +4920,7 @@ changes.</p>
 <li>Download its <code>nightly-load-test-results.json</code> artifact.</li>
 <li>For each endpoint, recompute <code>budget_p95_ms</code> from that run's <code>p95_ms</code> using the formula above.</li>
 <li>Update <code>backend/nightly-load-test-baseline.json</code>'s <code>measured_p95_ms</code>, <code>measured_p99_ms</code>, and <code>budget_p95_ms</code> fields (and, for an entry with a <code>pending_budget</code> key, delete that key once its budget is set), its top-level <code>measured_at</code>, and its <code>fixture</code> block if the fixture size changed. Recompute the whole file in one pass. Never hand-adjust a single <code>budget_p95_ms</code> without also updating the <code>measured_p95_ms</code> it supposedly came from.</li>
+<li>For every scenario with a <code>pending_memory_budget</code> key, set <code>budget_peak_rss_mb = ceil(peak_rss_mb * 1.4 / 5) * 5</code> from the same artifact and delete that key. The first NUC run with the aged and linked boards (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2424">#2424</a>) is also what assigns the new scenarios' first p95 budgets; a budget that would fail today because of an open fix (<a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2426">#2426</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2427">#2427</a>) stays pending against that issue rather than being loosened. Only then close #2430. The <code>suppressions-check</code> job now scans <code>pending_memory_budget</code> too, so a leftover key blocks the day #2430 closes; this step is still the one that clears it.</li>
 <li>Flip <code>status</code> from <code>"provisional"</code> to <code>"ci-derived"</code> the first time this is done from a real scheduled pipeline run (see the note below).</li>
 </ol>
 <div class="admonition note">
