@@ -457,7 +457,7 @@ Three different numbers apply. They measure different things; see
 | SonarCloud overall coverage (backend and frontend, product source only) | **At least 85%**, with **80% as the floor** | Policy, read on the SonarCloud dashboard. Not a CI gate |
 | Backend aggregate | **90%** | `backend-test-coverage` runs `coverage report --fail-under=90` and blocks the pipeline |
 | Frontend aggregate | Lines **83%**, statements **80%**, functions and branches **77%** | `coverage.thresholds` in `frontend/vitest.config.ts` |
-| Lines an MR adds or changes | **80%** | `backend-diff-coverage` and `frontend-diff-coverage` (see [Diff coverage](#diff-coverage-1076)) |
+| Lines an MR adds or changes | **80%** | the diff gate in `backend-test-coverage`, and `frontend-diff-coverage` (see [Diff coverage](#diff-coverage-1076)) |
 
 **Yes, but:** The frontend thresholds are a floor that stops the aggregate from regressing, and they are lower than the Sonar target. A change that leaves the frontend at its threshold can still pull Sonar's combined number under 85%, so aim higher on new code instead of treating the threshold as the goal.
 
@@ -479,15 +479,15 @@ If `sysmon` can't be used (Python older than 3.12, `branch = true`, or dynamic c
 
 **Why it matters:** `backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate* coverage of the whole codebase. That number moves slowly: a large, well-tested codebase can absorb a fully untested new feature and barely notice.
 
-`backend-diff-coverage` and `frontend-diff-coverage` close that gap:
+The backend diff gate and `frontend-diff-coverage` close that gap. The backend diff gate runs inside `backend-test-coverage` itself (#2497): it used to be a separate `backend-diff-coverage` job chained after it, which cost a second runner wait on every backend MR for a second report over the same data. Both backend gates always run and the job fails if either one fails; the log line `FAIL: aggregate coverage is below 90%` or `FAIL: diff coverage is below 80% of changed lines` says which.
 
-- They run only on MR pipelines (there's no diff to measure on `main`).
+- They run only on MR pipelines (there's no diff to measure on `main`). On `main` and schedules, `backend-test-coverage` runs only the aggregate gate.
 - They use [`diff-cover`](https://github.com/Bachmann1234/diff_cover) to measure coverage of only the lines the MR adds or changes, against the same `coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce. No test re-run.
 - Both are blocking at **80% of changed lines** and print the uncovered line numbers in the job log (`--show-uncovered`), not just a percentage.
 
 Excluded from the diff denominator on both sides:
 
-- backend `*/migrations/*` and `manage.py` (schema, not behavior; see the `backend-diff-coverage` job comment in `.gitlab-ci.yml` for why the aggregate run *does* count migrations but the diff gate doesn't);
+- backend `*/migrations/*` and `manage.py` (schema, not behavior; see the `backend-test-coverage` job comment in `.gitlab-ci.yml` for why the aggregate run *does* count migrations but the diff gate doesn't);
 - frontend `src/test/*`, `*.test.*`, `*.spec.*` (already excluded from the coverage report itself by `vitest.config.ts`'s `coverage.exclude`; the CI job's `--exclude` is belt-and-suspenders).
 
 Generated files, if any are ever introduced, should be added to the same exclude list.
@@ -497,8 +497,8 @@ Generated files, if any are ever introduced, should be added to the same exclude
 An MR can legitimately fail this gate without meaning "add more tests": a pure refactor that only moves lines, or a vendored file with no realistic local test. When that happens:
 
 1. Say so explicitly in the MR description (a line under a `## Notes` heading is enough:
-   *"backend-diff-coverage fails on moved-but-unchanged lines in `foo.py`; no new
-   behavior to test."*).
+   *"backend-test-coverage's diff gate fails on moved-but-unchanged lines in `foo.py`;
+   no new behavior to test."*).
 2. A reviewer confirms the reasoning and re-runs the job manually with an adjusted
    understanding, or approves the MR with the failing job explicitly acknowledged.
 

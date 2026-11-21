@@ -912,9 +912,50 @@ backend-test-migrations:
 #
 # No postgres/redis services required — this job only runs coverage combine and
 # report, no Django or test execution.
+#
+# Diff coverage (MR only) — #1076 — runs in THIS job too (#2497). It used to be
+# a separate backend-diff-coverage job that `needs:`-chained on this one, which
+# put two runner waits (~35 s) in series on every backend MR for a second report
+# over the same data. Folding it in keeps both gates and both failure conditions:
+#
+# - Aggregate: `coverage report --fail-under=90` over the whole codebase.
+# - Diff: diff-cover over only the lines this MR adds or modifies, against the
+#   coverage.xml produced here — no test re-run. The aggregate has enough
+#   inertia (500+ backend test files) to absorb a fully untested new view and
+#   stay green, which is why the diff gate exists at all.
+#
+# Both gates always run and are reported; the job fails if EITHER fails, so a
+# red aggregate never hides the diff gate's uncovered-line list (or vice versa).
+# coverage.xml is written FIRST, with --fail-under=0, so the artifact, the MR
+# coverage widget and diff-cover all have it even when the aggregate is red.
+#
+# Diff threshold: 80% of changed lines, blocking. Escape hatch: an MR that
+# legitimately cannot meet it (a pure refactor with moved lines, a vendored
+# file) says so in its description and a reviewer overrides by approving with
+# the failing job acknowledged — see
+# docs/development/testing.md#diff-coverage-escape-hatch. The override is
+# always visible in the MR/job history, never silent. Because the two gates now
+# share a job, the log line "FAIL: diff coverage" vs "FAIL: aggregate coverage"
+# is what tells a reviewer which one they are acknowledging.
+#
+# migrations/ is excluded from the diff gate because .coveragerc does NOT omit
+# it from the aggregate run (backend-test-migrations, #2490, imports and applies
+# every migration to build its test DB, so migration lines legitimately count
+# toward the 90% number) — but a line
+# diff-cover would flag as "uncovered" in a migration is nearly always schema,
+# not behavior, and re-litigating that here would just train reviewers to
+# override the gate instead of reading it.
 backend-test-coverage:
   stage: test
-  needs: [backend-test, backend-test-migrations, backend-test-git-lens, backend-test-mcp]
+  # One producer per line so a new instrumented job is a one-line addition.
+  # Every producer of a backend/.coverage.* fragment MUST be here — see the
+  # comment above. backend-test-migrations (#2490) is also what keeps a
+  # migration that fails on apply from reaching deploy green.
+  needs:
+    - backend-test
+    - backend-test-migrations
+    - backend-test-git-lens
+    - backend-test-mcp
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
@@ -925,11 +966,33 @@ backend-test-coverage:
   before_script:
     - !reference [.pip-floor, script]
     - pip install --quiet coverage
+    - |
+      # diff-cover needs git history and the MR target branch; only the MR
+      # leg runs the diff gate, so main/schedule pipelines skip this setup.
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        apt-get update -qq && apt-get install -y -qq git
+        pip install --quiet diff-cover
+        git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth=100
+        # Deepen the MR head too: with more branch commits than GIT_DEPTH the
+        # shallow head never reaches the fetched base ("no merge base").
+        git fetch origin "$CI_COMMIT_SHA" --depth=100
+      fi
   script:
     - cd backend
     - coverage combine
-    - coverage report --fail-under=90
-    - coverage xml -o coverage.xml
+    - coverage xml --fail-under=0 -o coverage.xml
+    - |
+      rc=0
+      coverage report --fail-under=90 || { echo "FAIL: aggregate coverage is below 90%"; rc=1; }
+      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+        diff-cover coverage.xml \
+          --compare-branch="origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" \
+          --fail-under=80 \
+          --show-uncovered \
+          --exclude "*/migrations/*" "manage.py" \
+          || { echo "FAIL: diff coverage is below 80% of changed lines"; rc=1; }
+      fi
+      exit "$rc"
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
   artifacts:
     reports:
@@ -982,54 +1045,6 @@ api-compat-check:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-api-compat.test.sh  # #2461: poisoned + canary
     - python3 scripts/check-api-compat.py
   allow_failure: false
-
-# Diff coverage (MR only) — #1076.
-#
-# The aggregate --fail-under=90 above measures the whole codebase, not the
-# change. With 500+ backend test files already in the tree, that aggregate
-# has enough inertia to absorb a fully untested new view or method and stay
-# green. This job instead measures coverage of only the lines this MR adds
-# or modifies, using diff-cover against the coverage.xml produced above — no
-# test re-run, just a second report over the same data.
-#
-# Threshold starts at 80% of changed lines, blocking. Escape hatch: an MR
-# that legitimately cannot meet it (a pure refactor with moved lines, a
-# vendored file) says so in its description and a reviewer overrides by
-# approving with the failing job acknowledged — see
-# docs/development/testing.md#diff-coverage-escape-hatch. The override is
-# always visible in the MR/job history, never silent.
-#
-# migrations/ is excluded because .coveragerc does NOT omit it from the
-# aggregate run (Django imports every migration to build the test DB, so
-# migration lines legitimately count toward the 90% number) — but a line
-# diff-cover would flag as "uncovered" in a migration is nearly always
-# schema, not behavior, and re-litigating that here would just train
-# reviewers to override the gate instead of reading it.
-backend-diff-coverage:
-  extends: .pip-cache
-  stage: test
-  needs: [backend-test-coverage]
-  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
-        - backend/**/*
-        - requirements*.txt
-        - .gitlab-ci.yml
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git
-    - !reference [.pip-floor, script]
-    - pip install --quiet diff-cover
-    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
-    # Deepen the MR head too: with more branch commits than GIT_DEPTH the shallow head never reaches the fetched base ("no merge base")
-    - git fetch origin "$CI_COMMIT_SHA" --depth=100
-  script:
-    - cd backend
-    - diff-cover coverage.xml
-        --compare-branch=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
-        --fail-under=80
-        --show-uncovered
-        --exclude "*/migrations/*" "manage.py"
 
 # Checks that every model change has a corresponding migration file, that no
 # migration builds an index or constraint in a way that takes ACCESS EXCLUSIVE on a
@@ -3272,8 +3287,8 @@ serializer-ts-parity:
     - python3 scripts/check-serializer-ts-parity.py
   allow_failure: false
 
-# Diff coverage (MR only) — #1076. Same rationale as backend-diff-coverage
-# above: vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
+# Diff coverage (MR only) — #1076. Same rationale as the diff gate in
+# backend-test-coverage above (#2497 folded the backend one into that job): vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
 # the whole frontend and can absorb an untested new component. This job
 # reuses frontend-test's existing cobertura-coverage.xml — diff-cover reads
 # Cobertura XML natively, so no new vitest reporter (e.g. lcov) is needed.
