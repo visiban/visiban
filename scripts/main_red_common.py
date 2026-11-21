@@ -70,12 +70,18 @@ class Client:
         return self.call("GET", path, params)
 
     def jobs(self, pipeline_id: int) -> list:
-        data = self.get(
-            f"/pipelines/{int(pipeline_id)}/jobs", {"per_page": PER_PAGE, "include_retried": "false"}
-        )
-        if not isinstance(data, list) or not all(isinstance(j, dict) and "name" in j for j in data):
-            raise ApiError("jobs response is not a list of job objects")
-        return data
+        out: list = []
+        for page in range(1, 11):  # a main pipeline has >100 jobs; never judge a partial list
+            data = self.get(
+                f"/pipelines/{int(pipeline_id)}/jobs",
+                {"per_page": PER_PAGE, "page": page, "include_retried": "false"},
+            )
+            if not isinstance(data, list) or not all(isinstance(j, dict) and "name" in j for j in data):
+                raise ApiError("jobs response is not a list of job objects")
+            out.extend(data)
+            if len(data) < PER_PAGE:
+                return out
+        raise ApiError("more than 1000 jobs; refusing to judge a partial list")
 
     def tracking_issue(self) -> "dict | None":
         """The open `main is red` issue, if any (exact title match)."""
