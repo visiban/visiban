@@ -136,6 +136,32 @@ runner host `gitlab-nuc-03` is shared with TruePPM (`concurrent = 6` across the 
   too. Apply it with `sudo sysctl --system` and verify with
   `sysctl fs.inotify.max_user_instances` (expect 512 or more).
 
+## Per-commit drill images (#2492)
+
+`helm-install`, `helm-netpol` and `compose-prod-drill` boot the backend and frontend images built from their own commit. They no longer build them. Before #2492 each drill ran `docker build` twice inside its own `docker:27-dind`, with no layer cache, which cost `helm-install` about 170 s per run (pipeline `3097977047`: backend 76 s, frontend 91 s).
+
+Now four kaniko jobs build and push the images (`.kaniko-ci-image` in `.gitlab-ci.yml`):
+
+| Job | Dockerfile | Registry path | Dotenv variable | Used by |
+|---|---|---|---|---|
+| `backend-docker-build` | `backend/Dockerfile` | `ci/backend` | `DRILL_BACKEND_IMAGE` | `helm-install`, `helm-netpol` |
+| `frontend-docker-build` | `frontend/Dockerfile` | `ci/frontend` | `DRILL_FRONTEND_IMAGE` | `helm-install`, `helm-netpol` |
+| `backend-docker-build-prod` | `backend/Dockerfile.prod` | `ci/backend-prod` | `DRILL_BACKEND_PROD_IMAGE` | `compose-prod-drill` |
+| `frontend-docker-build-prod` | `frontend/Dockerfile.prod` | `ci/frontend-prod` | `DRILL_FRONTEND_PROD_IMAGE` | `compose-prod-drill` |
+
+How it fits together:
+
+- **Push.** Each job pushes to `$CI_REGISTRY_IMAGE/ci/<name>:<branch slug>` with the job's own `CI_REGISTRY_USER`/`CI_REGISTRY_PASSWORD`, labels the image `org.opencontainers.image.revision=$CI_COMMIT_SHA`, and writes `<repo>@sha256:<digest>` to a dotenv report. A fork MR pipeline runs in the fork and pushes to the fork's registry.
+- **Pull.** The drill `needs:` its two build jobs. `scripts/drill-image.sh` pulls the digest, fails unless the revision label equals `$CI_COMMIT_SHA` and the architecture matches the dind daemon, then re-tags it under the drill's local name. In CI a missing variable fails the drill; it never falls back to a rebuild. Run by hand on a laptop (no `GITLAB_CI`), the drill scripts still build from the working tree.
+- **Layer cache.** `--cache-repo $CI_REGISTRY_IMAGE/ci/cache/<name>`. A change that does not touch an image's inputs reuses every layer.
+- **Rules.** Each build job's rules are the union of its MR-time verification rule and the rules of the drills that need it, in the same order. A drill whose build job is absent fails pipeline creation, so change both together (this includes #2471's schedule-leg fix).
+- **No `resource_group`.** The two jobs used to share the project-wide `kaniko-build` resource group and wait for the lint stage. With the drills waiting on them, a project-wide group would queue every drill behind every other pipeline's image builds. Total concurrent image builds on a drill pipeline go down, not up: the drills used to run up to six uncached builds in dind.
+- **Nothing ships from `ci/`.** The release push jobs (`.kaniko-push-common`) still build from scratch, with no cache, to the release paths. A `ci/` image or cache layer cannot reach a published image.
+
+**Cleanup.** The drill pins the digest, so the tag is only a handle. It is the branch slug rather than the SHA: each branch overwrites one tag, the superseded manifest goes untagged, and the registry's garbage collection reclaims untagged manifests (GitLab.com runs online GC with a review delay of about a day, long enough for a drill that started a few minutes after its build). Tags of merged or deleted branches, and the 64-hex `ci/cache/*` tags, fall under the project's existing cleanup policy (`keep_n: 10`, `older_than: 90d`, `name_regex: ".*"`), which never protects them because `name_regex_keep` only matches release tags. See [Make sure registry cleanup never deletes a released image](../administration/container-image-retention.md). kaniko ignores cache entries older than its default `--cache-ttl` (two weeks), so a stale cache layer is never used even while it is still stored.
+
+**Watch out:** If the drill fails with `drill-image: ... was built from revision 'X', but this drill is testing 'Y'`, the drill was handed some other commit's image. Don't relax the check. Fix the dotenv/`needs:` wiring.
+
 ## Distributed CI cache (MinIO)
 
 The `.npm-cache` / pip cache templates use a MinIO S3-compatible backend so all runners share

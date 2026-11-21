@@ -91,8 +91,8 @@ GitLab CI runs on every push, MR, and version tag. It lints, tests, scans for vu
 │  │  frontend-test         (Vitest)                          │
 │  │  migration-check       (makemigrations --check + zero-   │
 │  │                         downtime schema checks)           │
-│  │  backend-docker-build  (kaniko --no-push, verification)  │
-│  │  frontend-docker-build (kaniko --no-push, verification)  │
+│  │  backend-docker-build  (kaniko, per-commit drill image)  │
+│  │  frontend-docker-build (kaniko, per-commit drill image)  │
 │  │  helm-lint / helm-template / helm-install / helm-netpol  │
 │                                                             │
 │  security                                                    │

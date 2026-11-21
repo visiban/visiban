@@ -262,12 +262,21 @@ for bin in docker kind kubectl helm; do
 done
 
 # ---------------------------------------------------------------------------
-step "Building images from the working tree (tag $TAG)"
+step "Product images for this commit (tag $TAG)"
 # ---------------------------------------------------------------------------
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$BACKEND_IMAGE"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
-ok "backend built"
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$FRONTEND_IMAGE" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
-ok "frontend built"
+# In CI: pull the per-commit kaniko image (DRILL_*_IMAGE, digest-pinned) and
+# assert it was built from this commit. Locally: build from the working tree.
+# See scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. "$REPO_ROOT/scripts/drill-image.sh"
+drill_image DRILL_BACKEND_IMAGE "$BACKEND_IMAGE" "$REPO_ROOT/backend/Dockerfile" "$REPO_ROOT/backend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || { echo "ERROR: backend image unavailable" >&2; exit 1; }
+ok "backend image ready"
+drill_image DRILL_FRONTEND_IMAGE "$FRONTEND_IMAGE" "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || { echo "ERROR: frontend image unavailable" >&2; exit 1; }
+ok "frontend image ready"
 
 # ---------------------------------------------------------------------------
 step "Pre-pulling cluster images through DOCKERHUB_MIRROR (#1198)"

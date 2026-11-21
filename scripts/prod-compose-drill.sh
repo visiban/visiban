@@ -170,14 +170,17 @@ teardown() {
 trap teardown EXIT
 
 # ---- 0. per-commit images under the names the prod file resolves ----------
-log "building ${BACKEND_IMAGE} from backend/Dockerfile.prod"
-docker build -q \
-  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
-  -t "${BACKEND_IMAGE}" -f backend/Dockerfile.prod backend >/dev/null
-log "building ${FRONTEND_IMAGE} from frontend/Dockerfile.prod"
-docker build -q \
-  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
-  -t "${FRONTEND_IMAGE}" -f frontend/Dockerfile.prod frontend >/dev/null
+# In CI: the per-commit kaniko build of Dockerfile.prod (DRILL_*_PROD_IMAGE,
+# digest-pinned, revision-checked against this commit). Locally: built from the
+# working tree. See scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. scripts/drill-image.sh
+log "${BACKEND_IMAGE} from backend/Dockerfile.prod"
+drill_image DRILL_BACKEND_PROD_IMAGE "${BACKEND_IMAGE}" backend/Dockerfile.prod backend \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}"
+log "${FRONTEND_IMAGE} from frontend/Dockerfile.prod"
+drill_image DRILL_FRONTEND_PROD_IMAGE "${FRONTEND_IMAGE}" frontend/Dockerfile.prod frontend \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}"
 
 # ---- fill .env the way installation.md's "Step 1" block says to --------
 # Every generated value below is created fresh, not hardcoded: a committed
