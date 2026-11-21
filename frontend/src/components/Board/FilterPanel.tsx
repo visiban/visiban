@@ -4,6 +4,7 @@ import type { BoardFull, BoardUser, CustomFieldDefinition, SavedFilter } from ".
 import { userDisplayName } from "../../types";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
+import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, type ParentFilter } from "../../utils/parentFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
 import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
@@ -55,7 +56,7 @@ interface Props {
 const PANEL_WIDTH = 520;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
+type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "parent" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
 interface Row {
   id: RowId;
   label: string;
@@ -208,6 +209,7 @@ export default function FilterPanel({
   const hasSubColumns = subColumnOptions.length > 0;
   const hasTracks = board.columns.some((c) => (c.tracks?.length ?? 0) > 0);
   const blockedCount = useMemo(() => board.cards.filter(isCardBlocked).length, [board.cards]);
+  const parentOptions = useMemo(() => parentFilterOptions(board.cards), [board.cards]);
   const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const laneFields = useMemo(
     () => laneFilterFields(board.swimlane_custom_field_definitions ?? [], isBoardAdmin),
@@ -247,6 +249,10 @@ export default function FilterPanel({
   });
   rows.push({ id: "dueDate", label: "Due date", value: DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate)?.label ?? null });
   rows.push({ id: "blocked", label: "Blocked", value: filters.blockedOnly ? "Blocked only" : null });
+  // #2209 — the Parent row, on a child-tier board with linked cards (or while the filter is active).
+  if (parentFilterAvailable(board, filters.parentFilter)) {
+    rows.push({ id: "parent", label: "Parent", value: parentFilterLabel(filters.parentFilter, board.cards) });
+  }
   // #2367 — sub-column and Track state rows exist only when the board has a split stage / tracks.
   if (hasSubColumns) {
     const picked = filters.subColumnIds ?? [];
@@ -502,6 +508,30 @@ export default function FilterPanel({
             }))}
           </div>
         );
+      case "parent": {
+        // The standard single-select (as Due date): Any, Any parent, No parent, then each parent the viewer
+        // can open, read from the cards' own `parent`; a parent on a board they cannot open is never offered.
+        const setParent = (v: ParentFilter | undefined) => {
+          const { parentFilter: _dropped, ...rest } = filters;
+          onChange(v === undefined ? rest : { ...rest, parentFilter: v });
+        };
+        const options: { key: string; value: ParentFilter | undefined; label: string }[] = [
+          { key: "any-value", value: undefined, label: "Any" },
+          { key: "any", value: "any", label: "Any parent" },
+          { key: "none", value: "none", label: "No parent" },
+          ...parentOptions.map((o) => ({ key: `p-${o.id}`, value: o.id as ParentFilter, label: o.label })),
+        ];
+        return (
+          <div role="radiogroup" aria-label="Parent" className="max-h-64 overflow-y-auto">
+            {options.map((o) => (
+              <label key={o.key} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
+                <input type="radio" name={`${id}-parent`} checked={filters.parentFilter === o.value} onChange={() => setParent(o.value)} className="accent-primary" />
+                <span className="min-w-0 break-words">{o.label}</span>
+              </label>
+            ))}
+          </div>
+        );
+      }
       case "blocked":
         return <div role="group" aria-label="Blocked">{checkbox("blocked", `Blocked only (${blockedCount})`, !!filters.blockedOnly, () => onChange({ ...filters, blockedOnly: !filters.blockedOnly }))}</div>;
       default: {

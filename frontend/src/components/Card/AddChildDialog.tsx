@@ -17,6 +17,13 @@ interface Props {
   onClose: () => void;
   /** Called once the child exists; the board's own socket event adds it to its board. */
   onAdded: (info: { boardName: string; title: string; defaultNotSet?: boolean }) => void;
+  /**
+   * Called before the first await of a submit, so the Children tab can mark its own write pending before the
+   * server's echo ping lands (rule R-C). Optional: other callers need not know about it.
+   */
+  onWriteStart?: () => void;
+  /** Called when the add itself failed, so the pending mark can be cleared. */
+  onWriteFailed?: () => void;
 }
 
 /** The server's refusal text for an Add child write, or a generic line. */
@@ -39,7 +46,7 @@ function refusal(err: unknown): { text: string; refetch: boolean } {
  * where a child may go (`child-board-options`): a parent's children share one board, so once it has any the
  * select is replaced by that board's name, and a board the viewer cannot open disables Add child.
  */
-export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, onClose, onAdded }: Props) {
+export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, onClose, onAdded, onWriteStart, onWriteFailed }: Props) {
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
@@ -86,10 +93,12 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     const targetId = fixedVisible ? fixedVisible.id : Number(chosen);
     setSubmitting(true);
     setError(null);
+    onWriteStart?.();
     try {
       await addChild(boardId, cardId, { board_id: targetId, title: title.trim() });
     } catch (err) {
       const r = refusal(err);
+      onWriteFailed?.();
       setError(r.text);
       if (r.refetch) setReload((n) => n + 1);
       setSubmitting(false);

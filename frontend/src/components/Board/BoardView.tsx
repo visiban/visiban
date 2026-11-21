@@ -123,6 +123,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { isImeComposing } from "../../utils/imeComposition";
 import { firstNotDoneColumn, wouldBecomeIntakeColumn } from "../../utils/intakeColumn";
+import { parseParentFilterParam } from "../../utils/parentFilter";
 import { countUnusableLaneRules, laneFilterFields, laneIdsHiddenByFilter, parseLaneFilterParam, pruneLaneFilter, serializeLaneFilterParam, withHideUnmatched, withLaneItems } from "../../utils/laneFilter";
 import { useLaneFilterNotice } from "../../hooks/useLaneFilterNotice";
 
@@ -869,7 +870,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       else if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
     } else if (event.event === "card.children_changed") {
       const parentId = (d as { parent_id?: unknown }).parent_id;
-      if (typeof parentId === "number") refetchChildrenRollup(parentId);
+      if (typeof parentId === "number") {
+        refetchChildrenRollup(parentId);
+        // An ids-only ping (#2209 row 13): the open parent's Children tab re-reads over REST, where the
+        // server resolves what this viewer may see. Nothing from the frame is shown.
+        if (selectedCardIdRef.current === parentId) setChildrenRefreshTick((t) => t + 1);
+      }
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -1173,6 +1179,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
   const [cardDetailRefreshTick, setCardDetailRefreshTick] = useState(0);
+  // Bumped by a `card.children_changed` ping for the open card, so only its Children tab re-reads (#2209).
+  const [childrenRefreshTick, setChildrenRefreshTick] = useState(0);
   // Mirrors selectedCard's id into a ref so handleSocketEvent (defined above,
   // before selectedCard exists) can consult it without joining the callback's
   // dependency array — the same forward-reference pattern focusedSwimlaneIdRef
@@ -1434,11 +1442,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // #2214 — "Hide lanes with no matching cards" travels as its own param, so the
     // versioned f_lanes format (and older clients reading it) is untouched.
     const fHideUnmatched = searchParams.get("f_hide_unmatched");
-    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null || fHideUnmatched !== null;
+    // #2209 — the Parent filter travels as f_parent=<card id>|any|none: the Children tab's "Open on <board>".
+    const fParent = searchParams.get("f_parent");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null || fBlocked !== null || fLanes !== null || fHideUnmatched !== null || fParent !== null;
     if (!hasUrlFilters) return persistedFilters;
     const laneFilter = withHideUnmatched(parseLaneFilterParam(fLanes), fHideUnmatched === "1");
+    const parentFilter = parseParentFilterParam(fParent);
     return {
       ...(laneFilter ? { laneFilter } : {}),
+      ...(parentFilter !== undefined ? { parentFilter } : {}),
       search: fSearch ?? "",
       assigneeIds: fAssignees ? fAssignees.split(",").map(Number).filter((n) => !isNaN(n)) : [],
       labelIds: fLabels ? fLabels.split(",").map(Number).filter((n) => !isNaN(n)) : [],
@@ -1506,6 +1518,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       else prev.delete("f_lanes");
       if (next.laneFilter?.hideUnmatched) prev.set("f_hide_unmatched", "1");
       else prev.delete("f_hide_unmatched");
+      if (next.parentFilter !== undefined) prev.set("f_parent", String(next.parentFilter));
+      else prev.delete("f_parent");
       return prev;
     }, { replace: true });
   }, [setPersistedFilters, setSearchParams]);
@@ -3124,6 +3138,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
           />
@@ -3974,6 +3989,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             currentUser={currentUser}
             closeEditorOnEnter={closeEditorOnEnter}
             refreshSignal={cardDetailRefreshTick}
+            childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
           />

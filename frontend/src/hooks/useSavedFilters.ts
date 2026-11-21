@@ -5,6 +5,7 @@ import { EMPTY_FILTER } from "../components/Board/FilterBar";
 import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
 import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
+import { sanitizeParentFilter } from "../utils/parentFilter";
 import { normalizeFiltersForSave } from "../utils/numberFilter";
 
 export { normalizeFiltersForSave };
@@ -91,6 +92,8 @@ export function useSavedFilters(boardId: number) {
     // #2367 — absent in a filter saved before sub-column and track filters existed.
     const subColumnIds = sanitizeSubColumnIds(s["subColumnIds"]);
     const trackStates = sanitizeTrackStates(s["trackStates"]);
+    // #2209 — absent in a filter saved before the Parent filter existed.
+    const parentFilter = sanitizeParentFilter(s["parentFilter"]);
     return {
       search: typeof s["search"] === "string" ? s["search"] : EMPTY_FILTER.search,
       assigneeIds: Array.isArray(s["assigneeIds"])
@@ -123,6 +126,7 @@ export function useSavedFilters(boardId: number) {
       ...(laneFilter ? { laneFilter } : {}),
       ...(subColumnIds ? { subColumnIds } : {}),
       ...(trackStates ? { trackStates } : {}),
+      ...(parentFilter !== undefined ? { parentFilter } : {}),
     };
   }, []);
 

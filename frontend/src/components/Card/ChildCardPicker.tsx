@@ -22,6 +22,10 @@ interface Props {
   boards: { id: number; name: string }[];
   onLinked: (child: ChildCandidate, boardId: number) => void;
   onClose: () => void;
+  /** Called before the link's await so the Children tab can mark its own write pending (rule R-C). Optional. */
+  onWriteStart?: () => void;
+  /** Called when the link failed, so the pending mark can be cleared. */
+  onWriteFailed?: () => void;
 }
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -39,7 +43,7 @@ function searchable(q: string): boolean {
  * and both cards log it in their history. "No matching cards" is the one answer for a missing card and a
  * card the viewer can't open.
  */
-export default function ChildCardPicker({ boardId, cardId, cardTitle, boards, onLinked, onClose }: Props) {
+export default function ChildCardPicker({ boardId, cardId, cardTitle, boards, onLinked, onClose, onWriteStart, onWriteFailed }: Props) {
   const ids = useId();
   const listId = `${ids}-list`;
   const helperId = `${ids}-helper`;
@@ -106,11 +110,13 @@ export default function ChildCardPicker({ boardId, cardId, cardTitle, boards, on
     submittingRef.current = true;
     setSubmitting(true);
     setError(null);
+    onWriteStart?.();
     try {
       // Written on the child's board: its role, not this board's, authorizes it.
       await linkCardParent(childBoardId, candidate.id, cardId);
       onLinked(candidate, childBoardId);
     } catch (err) {
+      onWriteFailed?.();
       setError(linkErrorCopy(err));
     } finally {
       submittingRef.current = false;

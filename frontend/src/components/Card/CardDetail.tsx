@@ -112,6 +112,8 @@ interface Props {
   // remount note in BoardView — but comments/checklist/attachments are
   // fetched collections with no in-progress-edit risk, so they refetch.
   refreshSignal?: number;
+  /** Bumped by BoardView on a `card.children_changed` ping for this card: re-reads the Children tab only (#2209). */
+  childrenRefreshSignal?: number;
   /**
    * Opens the block (or unblock) form with its field focused, as requested by
    * the card context menu or the ⌘K palette (#2059). `seq` changes per
@@ -194,7 +196,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", children: "Children", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -219,7 +221,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   // Children tab on any other board opens Details.
   const CARD_DETAIL_TABS = cardDetailTabsFor(board);
   const tab: CardDetailTab = CARD_DETAIL_TABS.includes(rawTab) ? rawTab : "details";
-  const childrenState = useCardChildren(board.id, card.id, !!board.cards_can_have_children, refreshSignal);
+  const childrenState = useCardChildren(board.id, card.id, !!board.cards_can_have_children, refreshSignal + childrenRefreshSignal);
   const selectTab = (t: CardDetailTab) => {
     if (t !== tab && bodyScrollRef.current) bodyScrollRef.current.scrollTop = 0;
     setTab(t);
@@ -2561,6 +2563,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
               state={childrenState}
+              remoteSignal={childrenRefreshSignal}
               onExitToTabs={() => tabRefs.current.children?.focus()}
             />
           ) : tab === "comments" ? (

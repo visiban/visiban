@@ -81,8 +81,8 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ refreshSignal }: { refreshSignal?: number }) => (
-    <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} />
+  default: ({ refreshSignal, childrenRefreshSignal }: { refreshSignal?: number; childrenRefreshSignal?: number }) => (
+    <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} data-children-refresh-signal={childrenRefreshSignal ?? 0} />
   ),
 }))
 const settingsDeleteHooks: { deleting?: () => void; failed?: () => void } = {}
@@ -1120,6 +1120,23 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
     await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
     expect(spy).toHaveBeenCalledWith(expect.any(Number), 7)
     expect(ctx.applyCardChildrenRollups).toHaveBeenCalledWith(new Map([[7, rollup]]))
+    spy.mockRestore()
+  })
+
+  it("re-reads the open parent's Children tab only, and only for that parent (#2209 row 13)", async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const card = makeCard({ id: 7, uid: 'crd007' })
+    mockBoardContextValue = makeContext({ board: makeBoard({ cards: [card] }) })
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 7 } })) })
+    const detail = () => screen.getByTestId('card-detail')
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 8 } }) })
+    expect(detail()).toHaveAttribute('data-children-refresh-signal', '0')
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    expect(detail()).toHaveAttribute('data-children-refresh-signal', '1')
+    // The ping does not refetch comments, checklist or attachments.
+    expect(detail()).toHaveAttribute('data-refresh-signal', '0')
     spy.mockRestore()
   })
 

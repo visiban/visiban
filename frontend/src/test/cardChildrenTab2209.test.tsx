@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
-import { childrenCount, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
+import { childrenCount, describeChildrenChange, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
 import ChildCardPicker from '../components/Card/ChildCardPicker'
 import { childCandidateReason } from '../components/Card/cardParent'
 import {
@@ -103,10 +103,10 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByText(/1 blocked/)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: '1 done, 0 doing, 1 blocked, 1 to do' })).toBeInTheDocument()
     expect(screen.getByText('2 of 9 on Delivery')).toBeInTheDocument()
-    expect(screen.getByText('0 of 5 on Delivery · limit 5')).toBeInTheDocument()
+    expect(screen.getByText('0 of 5 on Delivery · limit 5, at limit')).toBeInTheDocument()
     expect(screen.getByText('15 other cards on Delivery are hidden by this view.')).toBeInTheDocument()
     expect(screen.getByText('New children go to Delivery · To do')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7')
+    expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7?f_parent=5')
     const card = screen.getByRole('link', { name: /^Kickoff, To do, blocked, 2 of 2/ })
     expect(card).toHaveAttribute('href', '/boards/7?card=11')
     expect(screen.getByRole('link', { name: /^Contract, Done, Sam/ })).toBeInTheDocument()
@@ -225,6 +225,24 @@ describe('CardChildrenTab scoped board (#2209)', () => {
       await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toBeInTheDocument())
       expect(screen.getByRole('button', { name: /Done/, pressed: true })).toHaveFocus()
     })
+
+    it("puts the child board's limit line and WIP meter under the column buttons (#2209 row 12)", async () => {
+      const over = read([row({ id: 20, column_id: 101, column_name: 'Doing' })])
+      over.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, card_count: 6 } : c))
+      renderTab(state({ data: over }))
+      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("1 of 6 on Delivery are this card's · limit 5, over limit")
+      const meter = screen.getByTestId('children-wip-meter')
+      expect(meter).toHaveAttribute('aria-hidden', 'true')
+      // Over the limit: the meter is full and warning-colored, as on the child board.
+      expect(meter.firstElementChild).toHaveClass('bg-warning')
+      // Not color alone: over limit is striped too.
+      expect((meter.firstElementChild as HTMLElement).style.backgroundImage).toContain('repeating-linear-gradient')
+      expect((meter.firstElementChild as HTMLElement).style.width).toBe('100%')
+      // A column with no limit has no meter.
+      await userEvent.click(screen.getByRole('button', { name: /To do/ }))
+      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("0 of 9 on Delivery are this card's")
+      expect(screen.queryByTestId('children-wip-meter')).toBeNull()
+    })
   })
 })
 
@@ -339,5 +357,258 @@ describe('useCardChildren (#2209)', () => {
     vi.mocked(getCardChildren).mockClear()
     renderHook(() => useCardChildren(1, 5, false))
     expect(getCardChildren).not.toHaveBeenCalled()
+  })
+})
+
+describe('remote changes (#2209 row 13)', () => {
+  const hidden = { count: 3, visible: false, offset: 0, limit: 50, results: [] }
+  const movedKids = kids.map((k) => (k.id === 10 ? { ...k, column_id: 101, column_name: 'Doing' } : k))
+
+  it('describes one move, any other change, and nothing for a first, unchanged or hidden read', () => {
+    expect(describeChildrenChange(null, read(kids))).toBe('')
+    expect(describeChildrenChange(read(kids), read(kids))).toBe('')
+    expect(describeChildrenChange(read(kids), read(movedKids))).toBe('Pen-test scoping call moved to Doing. 1 of 3 done.')
+    expect(describeChildrenChange(read(kids), read([...kids, row({ id: 13, title: 'New' })]))).toBe('Children updated. 1 of 4 done.')
+    expect(describeChildrenChange(read(kids), read(kids.slice(1)))).toBe('Children updated. 1 of 2 done.')
+    expect(describeChildrenChange(read(kids), read(kids.map((k) => (k.id === 10 ? { ...k, blocked: true } : k))))).toBe('Children updated. 1 of 3 done.')
+    // A board the viewer cannot open never yields a title, column or tally, before or after.
+    expect(describeChildrenChange(read(kids), hidden)).toBe('')
+    expect(describeChildrenChange(hidden, read(movedKids))).toBe('')
+    expect(describeChildrenChange(hidden, hidden)).toBe('')
+  })
+
+  it('announces a re-read from elsewhere once, politely; a hidden re-read announces nothing', () => {
+    const { rerender } = renderTab(state({ data: read(kids) }))
+    const status = () => document.querySelector('[role="status"][aria-live="polite"]')!
+    expect(status()).toHaveTextContent('')
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(movedKids) })} onExitToTabs={vi.fn()} />)
+    expect(status()).toHaveTextContent('Pen-test scoping call moved to Doing. 1 of 3 done.')
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: hidden })} onExitToTabs={vi.fn()} />)
+    expect(screen.queryByText(/Pen-test scoping call/)).toBeNull()
+  })
+
+  it("a re-read after this tab's own write keeps that write's announcement", async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids.slice(1)), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Unlinked Pen-test scoping call.')).toBeInTheDocument()
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    // The next re-read is someone else's again.
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids.slice(2)), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Children updated. 1 of 1 done.')).toBeInTheDocument()
+  })
+
+  it('a failed re-read after a write does not swallow the next remote change', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids), error: true, reload })} onExitToTabs={vi.fn()} />)
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(movedKids), reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText('Pen-test scoping call moved to Doing. 1 of 3 done.')).toBeInTheDocument()
+  })
+})
+
+describe('Children tab review fixes (#2209)', () => {
+  const status = () => document.querySelector('[role="status"][aria-live="polite"]')!
+  const tab = (st: ChildrenState, remoteSignal = 0) => (
+    <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={st} onExitToTabs={vi.fn()} remoteSignal={remoteSignal} />
+  )
+
+  it('says an under-limit column in no extra words and marks the at-limit meter with an end cap', () => {
+    const under = read(kids)
+    under.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, card_count: 3 } : c))
+    const { unmount } = renderTab(state({ data: under }))
+    expect(screen.getByText('0 of 3 on Delivery · limit 5')).toBeInTheDocument()
+    unmount()
+    renderTab(state({ data: read(kids) }))
+    expect((screen.getByTestId('children-wip-meter').firstElementChild as HTMLElement).style.borderRight).toContain('3px')
+  })
+
+  it('re-announces identical consecutive text and clears stale text', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = renderTab(state({ data: read(kids), reload }))
+    const unlinkBtn = () => screen.getByRole('button', { name: 'Unlink child Contract' })
+    await userEvent.click(unlinkBtn())
+    await waitFor(() => expect(status()).toHaveTextContent('Unlinked Contract.'))
+    const first = status().textContent
+    await userEvent.click(unlinkBtn())
+    await waitFor(() => expect(status().textContent).not.toBe(first))
+    expect(status()).toHaveTextContent('Unlinked Contract.')
+    rerender(tab(state({ data: read(kids), reload })))
+    vi.useFakeTimers()
+    try {
+      await act(async () => { fireEvent.click(unlinkBtn()) })
+      expect(status()).toHaveTextContent('Unlinked Contract.')
+      act(() => { vi.advanceTimersByTime(8001) })
+      expect(status()).toHaveTextContent('')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("keeps this tab's own write announcement when its own echo ping lands before the re-read", async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload }), 0))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+    // The actor's own socket echo bumps the remote counter before the single re-read lands.
+    rerender(tab(state({ data: read(kids.slice(1)), reload }), 1))
+    expect(status()).toHaveTextContent('Unlinked Pen-test scoping call.')
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('swallows a ping that lands before the write resolves, then announces the write', async () => {
+    let resolveUnlink: () => void = () => {}
+    vi.mocked(unlinkCardChild).mockReturnValue(new Promise<never>((r) => { resolveUnlink = () => r(undefined as never) }))
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload }), 0))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    // The ping and its re-read land while unlinkCardChild is still pending.
+    rerender(tab(state({ data: read(kids.slice(1)), reload }), 1))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    await act(async () => { resolveUnlink() })
+    await waitFor(() => expect(status()).toHaveTextContent('Unlinked Pen-test scoping call.'))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('gives phone targets 44px: the card link, Move and Unlink', () => {
+    const RO = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) { this.cb = cb }
+      observe() { this.cb([{ contentRect: { width: 390 } } as ResizeObserverEntry], this as never) }
+      disconnect() {}
+      unobserve() {}
+    } as never
+    try {
+      renderTab(state({ data: read(kids) }), vi.fn(), { ...parentBoard, current_user_role: 'admin' as never })
+      expect(screen.getByRole('link', { name: /^Pen-test/ })).toHaveClass('min-h-11')
+      for (const name of ['Move Pen-test scoping call', 'Unlink child Pen-test scoping call']) {
+        expect(screen.getByRole('button', { name })).toHaveClass('min-h-11', 'min-w-11')
+      }
+    } finally {
+      globalThis.ResizeObserver = RO
+    }
+  })
+
+  it.each([[840, true], [800, true], [799, false], [500, false]])('lays the columns side by side from a measured 800px container (%ipx: %s)', (px, wide) => {
+    const RO = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      cb: ResizeObserverCallback
+      constructor(cb: ResizeObserverCallback) { this.cb = cb }
+      observe() { this.cb([{ contentRect: { width: px } } as ResizeObserverEntry], this as never) }
+      disconnect() {}
+      unobserve() {}
+    } as never
+    try {
+      renderTab(state({ data: read(kids) }))
+      expect(screen.getAllByRole('region')).toHaveLength(wide ? 3 : 1)
+    } finally {
+      globalThis.ResizeObserver = RO
+    }
+  })
+})
+
+describe('own-write echo before the write resolves (#2209 rule R-C)', () => {
+  const tab = (s: ChildrenState) => <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={s} onExitToTabs={vi.fn()} />
+
+  it('Add child: an echo re-read while the default write is pending is not announced as someone else\'s', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: true,
+      boards: [{ id: 7, name: 'Delivery', can_set_default: true }],
+    })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    let release!: () => void
+    vi.mocked(patchBoard).mockReturnValue(new Promise<never>((res) => { release = () => res({} as never) }))
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.click(screen.getByRole('checkbox'))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(patchBoard).toHaveBeenCalled())
+    // The echo ping's re-read lands while patchBoard is still pending.
+    rerender(tab(state({ data: read([...kids, row({ id: 13, title: 'Task' })]), reload })))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    release()
+    await waitFor(() => expect(screen.getByText('Added "Task" to Delivery.')).toBeInTheDocument())
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('Link existing: an echo re-read while the link is pending is not announced; only Linked is', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: { hidden: false, id: 7, name: 'Delivery', can_add: true }, default: null, can_set_default: false, boards: [],
+    })
+    vi.mocked(getChildCandidates).mockResolvedValue([{
+      id: 20, title: 'Loose task', column_id: 100, column_name: 'To do', swimlane_id: 50, swimlane_name: 'Lane',
+      assignee: null, disabled_reason: null, parent_title: null,
+    }])
+    let release!: () => void
+    vi.mocked(linkCardParent).mockReturnValue(new Promise<never>((res) => { release = () => res({ parent_id: 5, child_id: 20 } as never) }))
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await userEvent.click(screen.getByRole('button', { name: 'Link existing' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Link existing card' })
+    await userEvent.type(within(dialog).getByRole('combobox'), 'task')
+    await waitFor(() => expect(getChildCandidates).toHaveBeenCalled())
+    await within(dialog).findByText('Loose task')
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(linkCardParent).toHaveBeenCalled())
+    rerender(tab(state({ data: read([...kids, row({ id: 20, title: 'Loose task' })]), reload })))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    release()
+    await waitFor(() => expect(screen.getByText('Linked Loose task.')).toBeInTheDocument())
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('a refused Add child clears the pending mark so the next remote change is announced', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: false, boards: [{ id: 7, name: 'Delivery', can_set_default: false }],
+    })
+    vi.mocked(addChild).mockRejectedValue({ isAxiosError: true, response: { status: 403, data: {} } })
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(addChild).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add to Delivery' })).toBeEnabled())
+    rerender(tab(state({ data: read(kids.slice(1)), reload })))
+    expect(screen.getByText('Children updated. 1 of 2 done.')).toBeInTheDocument()
+  })
+})
+
+describe('a WIP limit of 0 is no limit (#2209, as on the board)', () => {
+  const zero = () => {
+    const d = read(kids)
+    d.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, wip_limit: 0, card_count: 0 } : c))
+    return d
+  }
+
+  it('shows no limit text and keeps the Move option enabled', async () => {
+    renderTab(state({ data: zero() }))
+    expect(screen.queryByText(/· limit/)).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    const group = screen.getByRole('radiogroup', { name: 'Column on Delivery' })
+    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeEnabled()
+    expect(within(group).queryByText(/At its limit/)).toBeNull()
+  })
+
+  it('still shows a positive limit', () => {
+    renderTab(state({ data: read(kids) }))
+    expect(screen.getByText(/limit 5, at limit/)).toBeInTheDocument()
   })
 })
