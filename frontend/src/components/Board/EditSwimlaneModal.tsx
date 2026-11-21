@@ -1,7 +1,9 @@
 import { useId, useRef, useState } from "react";
 import type { BoardColor } from "../../utils/boardColors";
 import { updateSwimlane, deleteSwimlane } from "../../api/boards";
-import type { Card, Column, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
+import type { Card, Column, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
+import SwimlaneDefaultTeamSection from "./SwimlaneDefaultTeamSection";
+import { liveTeamIds } from "../../utils/swimlaneDefaultTeam";
 import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -30,6 +32,8 @@ interface Props {
   boardColors?: BoardColor[];
   /** The board's enforce_* flags, which "Follow board settings" inherits (#1150). */
   limitFlags?: LimitFlags;
+  /** Board members, for the Default team section (#2211). Omitted = section hidden. */
+  members?: EffectiveBoardMember[];
 }
 
 type EnforcementChoice = "inherit" | SwimlaneLimitEnforcement;
@@ -74,7 +78,7 @@ function boardModeDescription(flags: LimitFlags): string {
   return `Board now: ${wip}; ${weight}.`;
 }
 
-export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], boardColors, limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false } }: Props) {
+export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpdated, onDeleted, onClose, swimlaneFieldDefinitions, userDateFormat, columns = [], laneCards = [], boardColors, limitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false }, members }: Props) {
   const [name, setName] = useState(swimlane.name);
   const [color, setColor] = useState(swimlane.color);
   // Row limits (#1150). Seeded once from the swimlane at mount (useState
@@ -91,6 +95,9 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   const firstCountedRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { moreBelow, onScroll: onBodyScroll } = useOverflowFade(bodyRef, [columns.length, swimlaneFieldDefinitions?.length]);
+  // Default team (#2211), seeded once; ids of people who left are dropped.
+  const [initialTeam] = useState<number[]>(() => liveTeamIds(swimlane.default_team, members ?? []));
+  const [team, setTeam] = useState<number[]>(initialTeam);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -167,6 +174,9 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
         limit_enforcement: enforcement === "inherit" ? null : enforcement,
         limit_column_ids: countedIds,
         ...(changed.length > 0 && { custom_field_values: changed }),
+        // Sent only when edited, so a save of other settings never trips on
+        // a team the server would now refuse.
+        ...(team.join() !== initialTeam.join() && { default_team: team }),
       });
       onUpdated(updated);
       onClose();
@@ -428,6 +438,13 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               </div>
             </fieldset>
           </section>
+
+          {members && (
+            <>
+              <div className="border-t border-line my-4" />
+              <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} />
+            </>
+          )}
 
           </div>
           {moreBelow && (

@@ -460,6 +460,12 @@ export interface Swimlane {
   health_computed_at: string | null;
   /** #2245 — the open-card counts behind `computed_health_status`. */
   health_computed_counts: HealthComputedCounts | null;
+  /**
+   * #2211 — user ids of the lane's default team, in team order. Stored
+   * settings only; nothing pre-assigns new cards from it yet.
+   * Optional: absent on the public share.
+   */
+  default_team?: number[];
 }
 
 export type SwimlaneLimitEnforcement = "block" | "hard";

@@ -866,6 +866,17 @@ class Swimlane(models.Model):
     )
     health_computed_at = models.DateTimeField(null=True, blank=True)
     health_computed_counts = models.JSONField(null=True, blank=True, default=None)
+    # Default team (#2211): the board members who work this row. Stored
+    # settings only; nothing pre-assigns new cards from it yet (#2206
+    # decision G has no ruling). A join table rather than a column, so the
+    # swimlanes table is not altered; the order of the rows
+    # (``SwimlaneTeamMember.id``) is the order the team was built in.
+    default_team = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="SwimlaneTeamMember",
+        blank=True,
+        related_name="default_team_swimlanes",
+    )
 
     class Meta:
         db_table = "swimlanes"
@@ -884,6 +895,34 @@ class Swimlane(models.Model):
             # import validate it). Fail closed: every column counts.
             return True
         return column.pk in self.limit_column_ids
+
+
+class SwimlaneTeamMember(models.Model):
+    """One person on a swimlane's default team (#2211).
+
+    Stored settings only. Limited to the board's listed, active, non-viewer
+    members when written (the serializer, re-checked under the board lock in
+    ``boards.services.swimlane_team.set_team``). Removing a member from the
+    board deletes their rows on that board's lanes (``BoardViewSet.remove_member``).
+    The Edit Swimlane modal filters out people who no longer qualify on read.
+    """
+
+    swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="swimlane_team_memberships",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "swimlane_team_members"
+        # Insertion order is the team's order (see Swimlane.default_team).
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["swimlane", "user"], name="swimlane_team_member_uniq"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} on {self.swimlane_id}"
 
 
 class Label(models.Model):

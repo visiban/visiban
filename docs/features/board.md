@@ -121,6 +121,16 @@ Set them in the **Edit Swimlane** modal (board admins), under **Limits**:
 
 The words carry the state. A collapsed row hides the calm states but keeps the two over-limit ones. *Changed in 1.3 (#2275): the line matches the column header's `n / limit over` format and warning color; before, an over-limit row read `⚠ Over WIP · 5/4` in red with a red line across the top of the band.*
 
+### Swimlane default team
+
+> **Added in 1.3** (#2211)
+
+A swimlane can carry a **default team**: the board members who work that row, for example the people on one customer account. The team is stored with the lane; using it to pre-assign new cards, or children created with **Add child**, is not available yet, so new cards are created exactly as before.
+
+Set it in the **Edit Swimlane** modal (board admins), under **Default team**. Each person is a row with a **Remove** button; **Add a member** lists the board's active, listed members who are not viewers.
+
+- **Leaving the board.** Removing someone from the board, in the app or in the Django admin, removes them from every lane team on it. Someone who loses access another way (a group change, or becoming a viewer) keeps their id in the lane's team in the API until someone edits that team; the Edit Swimlane modal hides them in the meantime.
+
 ### Swimlane rollup
 
 *Added in 1.3 (#2275).* A board can show, in every swimlane band, the total of one card [number field](custom-fields.md) over the lane's open cards, for example `$413k open` on a sales board whose cards carry a deal amount. "Open" means every card in the lane that is not in a column marked done; archived cards never count. Cards without a value add nothing. The total uses the field's prefix, suffix and decimal places, so a field with prefix `$` and suffix `k` reads `$413k open`. It sits after the WIP line in the band and updates live as cards are created, moved, edited and archived.

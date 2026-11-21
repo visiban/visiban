@@ -198,7 +198,7 @@ def _send_lane_updates(board_id, lane_ids):
 
     lanes = (
         Swimlane.objects.filter(board_id=board_id, pk__in=lane_ids)
-        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
         .order_by("position", "pk")
     )
     for lane in lanes:

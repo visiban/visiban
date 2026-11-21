@@ -889,6 +889,19 @@ AUTO_HEALTH_BOARD_FIELDS = [
 ]
 
 
+class SwimlaneDefaultTeamField(serializers.ListField):
+    """``default_team`` (#2211): the lane's team as user ids, in team order.
+
+    Read through ``team_members`` so the board read's prefetch serves it; the
+    write is applied by the swimlane viewset (``services.swimlane_team``).
+    """
+
+    def get_attribute(self, instance):
+        from .services.swimlane_team import team_member_ids
+
+        return team_member_ids(instance)
+
+
 class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
     """Public swimlane representation — omits contact_email and notes.
 
@@ -959,7 +972,23 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_COUNTS_HELP,
     )
 
+    # Default team (#2211). Every member reads it; writes are
+    # admin-gated in the viewset. PublicSwimlaneSerializer lists its fields
+    # explicitly and omits it.
+    default_team = SwimlaneDefaultTeamField(
+        child=serializers.IntegerField(min_value=1),
+        # Bounded in validate_default_team, not max_length, for the same
+        # multipart reason as limit_column_ids above.
+        required=False, allow_empty=True,
+        help_text=(
+            "User ids of the lane's default team, in team order (#2211, since 1.3). "
+            "Each must be an active, non-viewer member of the board. Stored settings "
+            "only: the team does not pre-assign new cards yet. Writable by board admins."
+        ),
+    )
+
     MAX_LIMIT_COLUMN_IDS = 90
+    MAX_DEFAULT_TEAM = 50
 
     @extend_schema_field({"type": "array", "items": {"type": "integer"}})
     def get_not_applicable_field_ids(self, obj):
@@ -977,6 +1006,8 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
             # Additive (#1921): dimensions marked not applicable for this lane.
             "not_applicable_field_ids",
+            # Additive (#2211).
+            "default_team",
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -1058,6 +1089,34 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             )
         return wanted
 
+    def validate_default_team(self, value):
+        """Every id must be an active, non-viewer person listed as a board member (#2211).
+
+        Deduplicated, order kept. Any id that does not qualify gets the same
+        message, so the response is identical for every ineligible id. Fails
+        closed with no board (#1075).
+        """
+        if len(value) > self.MAX_DEFAULT_TEAM:
+            raise serializers.ValidationError(
+                f"Ensure this field has no more than {self.MAX_DEFAULT_TEAM} elements."
+            )
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is None:
+            raise serializers.ValidationError("The team cannot be checked without a board.")
+        from .services.swimlane_team import eligible_ids
+
+        wanted = list(dict.fromkeys(value))
+        if not wanted:
+            return wanted
+        eligible = eligible_ids(board)
+        unknown = [pk for pk in wanted if pk not in eligible]
+        if unknown:
+            raise serializers.ValidationError(
+                "Not an assignable member of this board: "
+                + ", ".join(str(pk) for pk in unknown) + "."
+            )
+        return wanted
+
     def validate(self, attrs):
         board = self.context.get("board") or (self.instance.board if self.instance else None)
         if board is not None:
@@ -1119,6 +1178,8 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             "effective_health_status", "health_status_origin", *AUTO_HEALTH_COMPUTED_FIELDS,
             # Additive (#1921).
             "not_applicable_field_ids",
+            # Additive (#2211).
+            "default_team",
         ]
 
 
@@ -5056,7 +5117,7 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # without this the /full/ payload costs 1 + 2N queries in swimlane count
         # (#1140). .all() on the prefetched manager keeps the cache; a .filter()
         # here would escape it.
-        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions")
+        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
         return serializer_class(lanes, many=True, context=self.context).data
 
     @extend_schema_field(CardSerializer(many=True))

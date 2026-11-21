@@ -204,7 +204,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 20  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked)
+    BUDGET = 21  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -293,7 +293,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 20  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant)
+    SITE_ADMIN_READER_QUERIES = 21  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -481,7 +481,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     # 21 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 23 is generous headroom for
     # middleware and the group-inherited membership walk.
-    BUDGET = 23
+    BUDGET = 24  # +1 #2211: swimlanes__team_members prefetch (constant)
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -827,7 +827,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 20  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant)
+    FULL_QUERIES = 21  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1212,7 +1212,7 @@ class IsStaleAnnotationQueryCountTests(TestCase):
     the full/ query count does not grow when is_stale-affecting cards are added.
     """
 
-    BUDGET = 20
+    BUDGET = 21  # +1 #2211: swimlanes__team_members prefetch (constant)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_stale", password="x")
