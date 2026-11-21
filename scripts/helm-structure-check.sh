@@ -2763,9 +2763,32 @@ selftest_run_case() {
     # check that fails on everything would score a perfect self-test.
     local control="$tmp/control" control_log="$tmp/control-run.log"
     cp -R "$CHART_DIR" "$control"
+    local alone_failed=""
+    # Fixtures run each section ALONE in a subshell, but run_all_checks runs
+    # them in one shell where an earlier section may set a global a later one
+    # needs. A section that errors standalone (unset global under set -u, a
+    # hidden dependency, an exit) would be scored "detected" for every fixture
+    # of that section, so the control must prove each section also PASSES alone
+    # on the undamaged chart, in the fixture's exact subshell form.
+    # SELF_TEST_STANDALONE_SABOTAGE=<section> is a test-only hook that makes one
+    # section fail standalone (scripts/tests/helm-structure-check.test.sh).
     if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
-      echo "  ✓ control: the undamaged chart passes"
+      RENDERED="$tmp/control.yaml"
+      for s in $(selftest_known_sections); do
+        if ! ( CHART_UNDER_TEST="$control"; FAILURES=0; [ "${SELF_TEST_STANDALONE_SABOTAGE:-}" != "$s" ] || exit 3; "check_$s" >>"$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
+          alone_failed="$alone_failed $s"
+        fi
+      done
+    else
+      alone_failed="(whole check)"
+    fi
+    if [ -z "$alone_failed" ]; then
+      echo "  ✓ control: the undamaged chart passes (whole check and each section alone)"
       echo pass > "$resultdir/$idx.status"
+    elif [ "$alone_failed" != "(whole check)" ]; then
+      echo "  ✗ SELF-TEST FAIL: section(s)${alone_failed} fail ALONE on the undamaged chart, so every fixture naming them would be scored detected without proving anything"
+      sed 's/^/      /' "$control_log"
+      echo fail > "$resultdir/$idx.status"
     else
       # Unlike every fixture, a control failure has no injected damage to
       # name — it means the undamaged chart itself trips one of the checks, so

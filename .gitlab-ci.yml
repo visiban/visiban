@@ -2768,7 +2768,7 @@ helm-template:
 
 # Log the drill's dind daemon in to the project registry so it can pull the
 # per-commit image (#2492). CI_REGISTRY_PASSWORD is the job's own short-lived
-# registry token (read access to this project's registry, expires with the
+# registry token (read and write access to this project's registry, expires with the
 # job); --password-stdin keeps it out of the process list. Skipped where the
 # project has no registry (CI_REGISTRY empty); scripts/drill-image.sh then
 # fails loudly on the pull rather than this step failing obscurely.
@@ -3447,6 +3447,11 @@ added-files-coverage-check:
       artifacts: true
       optional: true
   image: ${DOCKERHUB_MIRROR}/node:22-alpine
+  # when: always (#2497): backend-test-coverage now also enforces the diff
+  # gate, so it fails when only that gate fails, and a needs: job is otherwise
+  # skipped after a failed need. This check must still run then (it used to);
+  # the coverage reports are uploaded when: always and the script's own
+  # "report not found" branch still fails loudly if one is missing.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -3454,6 +3459,7 @@ added-files-coverage-check:
         - frontend/**/*
         - .gitlab-ci.yml
         - scripts/check-added-files-covered.mjs
+      when: always
   before_script:
     - apk add --no-cache git
     - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
@@ -4530,13 +4536,23 @@ sonar:rules-check:
 # `kaniko-build` resource_group and wait for the lint stage, to keep kaniko off
 # runners busy with lint. Now the drills wait on these jobs, and a project-wide
 # resource_group serializes kaniko across EVERY concurrent pipeline, which
-# would queue each drill behind other MRs' image builds. Net RAM pressure on
-# drill pipelines goes DOWN: each drill used to run two uncached `docker build`s
-# inside its own dind (up to six concurrent builds with all three drills).
+# would queue each drill behind other MRs' image builds. On DRILL pipelines net
+# RAM pressure goes down: each drill used to run two uncached `docker build`s
+# inside its own dind (up to six concurrent builds with all three drills). On
+# non-drill (backend-only / frontend-only) MRs it goes the other way: kaniko
+# now starts at t=0 alongside lint and the test shards. Not redesigned here;
+# the first MR pipeline's shard timings are the check on that.
+#
+# --cache-ttl=24h: the Dockerfiles run unpinned `apt-get install`, so a layer
+# cached for kaniko's default 14 days could differ from the uncached release
+# build. 24h bounds that drift.
 
 .kaniko-ci-image:
   stage: test
   needs: []
+  # Pushes the ci/ image and layer cache to the registry: an external side
+  # effect, so it must not be auto-canceled mid-push (#2419 rule above).
+  interruptible: false
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
@@ -4569,6 +4585,7 @@ sonar:rules-check:
         --dockerfile="${CI_IMAGE_DOCKERFILE}" \
         --destination="${REPO}:${CI_COMMIT_REF_SLUG}" \
         --cache=true \
+        --cache-ttl=24h \
         --cache-repo="${CI_REGISTRY_IMAGE}/ci/cache/${CI_IMAGE_NAME}" \
         --label "org.opencontainers.image.revision=${CI_COMMIT_SHA}" \
         --digest-file="${CI_PROJECT_DIR}/ci-image.digest" \

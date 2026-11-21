@@ -38,6 +38,9 @@ case_ "every named section must catch it, not just one" fail "migrate_placement 
 case_ "a fixture that changes nothing still FAILS" fail "migrate_placement|noop|templates/tests/api-connection.yaml|s/NO_SUCH_TEXT_2493/x/" "changed nothing"
 case_ "a fixture that breaks rendering still FAILS" fail "migrate_placement|norender|templates/_helpers.tpl|s/{{- define/{{- definex/" "does not render"
 case_ "control runs the whole check on the undamaged chart" pass "" "control: the undamaged chart passes"
+# A section that fails only when run alone (hidden dependency on another
+# section's global, an exit) must fail the control, not hide behind run_all_checks.
+SELF_TEST_STANDALONE_SABOTAGE=image_pins case_ "control FAILS when a section fails alone on the undamaged chart" fail "" "image_pins fail ALONE"
 # Every section run_all_checks runs is targetable, and the table names only
 # known sections (the runtime check would fail the case anyway; this names the
 # offender without a full --self-test run).
