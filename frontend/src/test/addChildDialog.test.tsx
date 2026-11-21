@@ -91,7 +91,7 @@ describe('AddChildDialog (#2208)', () => {
     })
     await choose(user, 'Delivery')
     expect(screen.queryByRole('checkbox')).toBeNull()
-    expect(screen.getByRole('dialog', { name: 'Add child' })).toHaveTextContent('A board admin can set one so this step is skipped.')
+    expect(screen.getByRole('dialog')).toHaveTextContent('A board admin can set one so this step is skipped.')
   })
 
   it('a refused default PATCH does not undo the add', async () => {
@@ -130,6 +130,13 @@ describe('AddChildDialog (#2208)', () => {
     await user.type(screen.getByLabelText('Title'), 'Task')
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith({ boardName: 'Delivery', title: 'Task', defaultNotSet: true }))
+  })
+
+  it('names the child board in the title and the parent card and column in the header line (#2209)', async () => {
+    setup({ ...BASE, default: { id: 7, name: 'Delivery' } }, { parentTitle: 'Acme: platform renewal', parentColumn: 'Qualify' })
+    const dialog = await screen.findByRole('dialog', { name: 'Add child to Delivery' })
+    expect(dialog).toHaveTextContent('Parent: Acme: platform renewal · Qualify')
+    expect(dialog).not.toHaveTextContent('Where should this child go?')
   })
 
   it('a hidden fixed board disables Add child', async () => {

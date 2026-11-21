@@ -6,8 +6,9 @@ import { childrenCount, useCardChildren, type ChildrenState } from '../component
 import ChildCardPicker from '../components/Card/ChildCardPicker'
 import { childCandidateReason } from '../components/Card/cardParent'
 import {
-  getCardChildren, getChildBoardOptions, getChildCandidates, linkCardParent, moveCard, unlinkCardChild,
+  addChild, getCardChildren, getChildBoardOptions, getChildCandidates, linkCardParent, moveCard, unlinkCardChild,
 } from '../api/cards'
+import { patchBoard } from '../api/boards'
 import type { CardChildRow, CardChildrenRead, ChildCandidate } from '../types'
 
 vi.mock('../api/cards', () => ({
@@ -217,6 +218,29 @@ describe('CardChildrenTab scoped board (#2209)', () => {
       await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toBeInTheDocument())
       expect(screen.getByRole('button', { name: /Done/, pressed: true })).toHaveFocus()
     })
+  })
+})
+
+describe('Add child from the Children tab (#2208, #2209)', () => {
+  it('tells the user, in visible text, when the default could not be set', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: true,
+      boards: [{ id: 7, name: 'Delivery', can_set_default: true }],
+    })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    vi.mocked(patchBoard).mockRejectedValue(new Error('nope'))
+    const user = userEvent.setup()
+    renderTab(state({ data: { count: 0, visible: true, offset: 0, limit: 50, results: [] } }))
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.click(screen.getByRole('checkbox'))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const note = screen.getByRole('status')
+    expect(note).toHaveTextContent('Added "Task" to Delivery; the default was not changed.')
+    expect(note).not.toHaveClass('sr-only')
   })
 })
 

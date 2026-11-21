@@ -28,6 +28,8 @@ interface Props {
   board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role">;
   cardId: number;
   cardTitle: string;
+  /** The parent's column, for the Add child dialog's header line. */
+  cardColumnName?: string;
   state: ChildrenState;
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
@@ -40,7 +42,7 @@ interface Props {
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, state, onExitToTabs }: Props) {
+export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs }: Props) {
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -389,7 +391,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
       )}
       {linkError && <p role="alert" className="text-xs text-danger">{linkError}</p>}
       <p role="alert" className={actionError ? "text-xs text-danger" : "sr-only"}>{actionError ?? ""}</p>
-      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
+      <p role="status" aria-live="polite" aria-atomic="true" className={announcement.includes("default was not changed") ? "text-xs text-fg-secondary" : "sr-only"}>{announcement}</p>
       {moving && childBoard && (
         <ChildMovePopover
           child={moving}
@@ -405,10 +407,14 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
           boardId={board.id}
           boardName={board.name}
           cardId={cardId}
+          parentTitle={cardTitle}
+          parentColumn={cardColumnName}
           onClose={() => { setAdding(false); queueMicrotask(() => addRef.current?.focus()); }}
-          onAdded={({ boardName: b, title }) => {
+          onAdded={({ boardName: b, title, defaultNotSet }) => {
             setAdding(false);
-            setAnnouncement(`Added "${title}" to ${b}.`);
+            // Visible as well as announced: the default-not-set notice is the only word the user gets
+            // that the checkbox's second write failed (#2208).
+            setAnnouncement(`Added "${title}" to ${b}${defaultNotSet ? "; the default was not changed" : ""}.`);
             reload();
             queueMicrotask(() => addRef.current?.focus());
           }}

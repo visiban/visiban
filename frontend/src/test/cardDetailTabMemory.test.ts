@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getRememberedCardDetailTab, parseCardDetailTab, rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+import { cardDetailTabsFor, getRememberedCardDetailTab, parseCardDetailTab, rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import { lastActivitySummary } from '../utils/cardTimelineLabels'
 
 describe('card detail tab memory (#967)', () => {
@@ -7,10 +7,17 @@ describe('card detail tab memory (#967)', () => {
     expect(parseCardDetailTab('details')).toBe('details')
     expect(parseCardDetailTab('comments')).toBe('comments')
     expect(parseCardDetailTab('history')).toBe('history')
+    expect(parseCardDetailTab('children')).toBe('children')
     expect(parseCardDetailTab('activity')).toBeNull()
     expect(parseCardDetailTab('')).toBeNull()
     expect(parseCardDetailTab(null)).toBeNull()
     expect(parseCardDetailTab(undefined)).toBeNull()
+  })
+
+  it('offers Children, after Details, only on a parent-tier board (#2209)', () => {
+    expect(cardDetailTabsFor({ cards_can_have_children: true })).toEqual(['details', 'children', 'comments', 'history'])
+    expect(cardDetailTabsFor({ cards_can_have_children: false })).toEqual(['details', 'comments', 'history'])
+    expect(cardDetailTabsFor({})).toEqual(['details', 'comments', 'history'])
   })
 
   it('remembers the last tab in memory, never in storage', () => {

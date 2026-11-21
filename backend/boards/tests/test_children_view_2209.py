@@ -7,11 +7,15 @@ Both cross the #1104 authorization boundary, so the tests are mostly about
 what a viewer without the child board's role is never sent.
 """
 
+from unittest import mock
+
+from django.core.cache import cache
 from django.utils import timezone
 
 from boards.models import BoardMembership, Card, CardParentLink, CardRelation
 from boards.serializers import ChildCandidateSerializer
 from boards.tests.conftest import _make_card, _make_column, _make_user
+from boards.views.card_query import CardQueryRateThrottle
 from boards.tests.test_card_parent_links import _board_with_card, _count_queries, _LinkFixture
 from django.test import TestCase
 
@@ -61,6 +65,17 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertTrue(row["blocked"])
         self.assertIsNotNone(row["blocked_at"])
 
+    def test_hidden_count_excludes_archived_children(self):
+        live = _make_card(self.col_c, self.lane_c, title="Live child")
+        gone = _make_card(self.col_c, self.lane_c, title="Archived child")
+        CardParentLink.objects.create(parent=self.parent, child=live)
+        CardParentLink.objects.create(parent=self.parent, child=gone)
+        Card.objects.filter(pk__in=[self.child.pk, gone.pk]).update(archived_at=timezone.now())
+        u = self._user("cv_hidcount", parent_role=Role.MEMBER)
+        body = self._client(u).get(self.url).json()
+        self.assertFalse(body["visible"])
+        self.assertEqual(body["count"], 1)
+
     def test_hidden_read_still_carries_no_board(self):
         u = self._user("cv_ponly", parent_role=Role.MEMBER)
         res = self._client(u).get(self.url)
@@ -100,6 +115,13 @@ class ChildCandidateTests(_LinkFixture, TestCase):
         self.assertEqual(set(rows[0]), set(ChildCandidateSerializer().fields))
         self.assertIsNone(rows[0]["disabled_reason"])
         self.assertIsNone(rows[0]["parent_title"])
+
+    def test_throttled_by_the_card_query_scope(self):
+        cache.clear()
+        with mock.patch.object(CardQueryRateThrottle, "get_rate", return_value="2/min"):
+            for _ in range(2):
+                self.assertEqual(self._get(board=self.cboard.pk, search="secret-c").status_code, 200)
+            self.assertEqual(self._get(board=self.cboard.pk, search="secret-c").status_code, 429)
 
     def test_short_search_returns_nothing(self):
         for search in ("", " ", "T"):

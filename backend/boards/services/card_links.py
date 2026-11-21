@@ -933,6 +933,11 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
     )
     child_role = get_board_roles(user, [child_board])[child_board.pk] if child_board is not None else None
     if child_role is None:
+        # The hidden branch has no rows to filter client-side, so the count
+        # itself must exclude archived children: they leave the tab and its
+        # counts (#2209). The visible branch keeps archived rows (flagged
+        # `archived`) because the client drops them and pages by this count.
+        out["count"] = links.filter(child__board_id=child_board_id, child__archived_at__isnull=True).count()
         return out
     out["visible"] = True
     from accounts.serializers import BoardUserSerializer

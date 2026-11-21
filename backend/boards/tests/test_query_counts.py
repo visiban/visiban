@@ -2201,6 +2201,33 @@ class CardParentQueryCountTests(TestCase):
         Card.objects.filter(board=self.fx.cboard).exclude(pk=self.fx.child.pk).update(archived_at=None)
         self.assertEqual(reads["archived"](), archived_twenty)
 
+    def test_child_candidates_flat_in_results(self):
+        from unittest import mock
+
+        fx = self.fx
+        url = f"/api/v1/boards/{fx.pboard.pk}/cards/{fx.parent.pk}/child-candidates/"
+        params = {"board": fx.cboard.pk, "search": "Cand"}
+        with mock.patch("boards.views.card_query.CardQueryRateThrottle.get_rate", return_value="1000/min"):
+            Card.objects.create(
+                board=fx.cboard, column=fx.child.column, swimlane=fx.child.swimlane, title="Cand 0", position=50,
+            )
+            one = self._count(url, params)
+            for i in range(1, 20):
+                c = Card.objects.create(
+                    board=fx.cboard, column=fx.child.column, swimlane=fx.child.swimlane,
+                    title=f"Cand {i}", position=50 + i,
+                )
+                if i % 2:
+                    other = Card.objects.create(
+                        board=fx.pboard, column=fx.parent.column, swimlane=fx.parent.swimlane,
+                        title=f"Other parent {i}", position=50 + i,
+                    )
+                    self.Link.objects.create(parent=other, child=c)
+            twenty = self._count(url, params)
+        # Candidate rows add no per-row queries, including rows that already
+        # have another parent.
+        self.assertLessEqual(twenty - one, 3)
+
     def test_parent_candidates_flat_in_results(self):
         from unittest import mock
 

@@ -2559,6 +2559,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               board={board}
               cardId={card.id}
               cardTitle={card.title}
+              cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
               state={childrenState}
               onExitToTabs={() => tabRefs.current.children?.focus()}
             />

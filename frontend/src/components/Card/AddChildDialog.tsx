@@ -11,6 +11,9 @@ interface Props {
   boardId: number;
   boardName: string;
   cardId: number;
+  /** The parent card's title and column, for the header line (#2209). */
+  parentTitle?: string;
+  parentColumn?: string;
   onClose: () => void;
   /** Called once the child exists; the board's own socket event adds it to its board. */
   onAdded: (info: { boardName: string; title: string; defaultNotSet?: boolean }) => void;
@@ -36,7 +39,7 @@ function refusal(err: unknown): { text: string; refetch: boolean } {
  * where a child may go (`child-board-options`): a parent's children share one board, so once it has any the
  * select is replaced by that board's name, and a board the viewer cannot open disables Add child.
  */
-export default function AddChildDialog({ boardId, boardName, cardId, onClose, onAdded }: Props) {
+export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, onClose, onAdded }: Props) {
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
@@ -106,9 +109,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, onClose, on
       open
       onClose={onClose}
       dismissable={!submitting}
-      title="Add child"
+      title={targetName ? `Add child to ${targetName}` : "Add child"}
       labelId={titleId}
-      subtitle="Where should this child go?"
+      subtitle={parentTitle ? `Parent: ${parentTitle}${parentColumn ? ` · ${parentColumn}` : ""}` : "Where should this child go?"}
       maxWidth="max-w-md"
       panelClassName="max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
     >
