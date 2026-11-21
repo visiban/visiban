@@ -10,13 +10,16 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 check() {
-  local ci_file="$1" poison_file="$2" known="" tok rc=0 e
+  local ci_file="$1" poison_file="$2" known="" tok rc=0
   [ -f "$ci_file" ] && [ -f "$poison_file" ] || { echo "ERROR: missing input file" >&2; return 3; }
   # Subshell: sourcing exports sentinels we do not want in this shell.
-  known="$( # shellcheck disable=SC1090
-    . "$poison_file" >/dev/null 2>&1
-    printf '%s\n' "${CI_POISON_VARS[@]}"
-    for e in "${CI_POISON_EXEMPT[@]}"; do printf '%s\n' "${e%%:*}"; done )"
+  # Source under POSIX `sh` (the file must load in busybox) in a child process so the
+  # exported sentinels never reach this shell.
+  known="$(sh -c '. "$1" >/dev/null 2>&1
+    for v in $CI_POISON_VARS; do echo "$v"; done
+    printf "%s\n" "$CI_POISON_EXEMPT" | while IFS= read -r e; do
+      [ -n "$e" ] && echo "${e%%:*}"
+    done' sh "$poison_file")"
   # Non-comment lines; a trailing _FILE (VISIBAN_FUZZ_TOKEN_FILE) is a path, not a secret.
   while IFS= read -r tok; do
     [ -n "$tok" ] || continue
@@ -33,7 +36,7 @@ check() {
 # shellcheck disable=SC2016  # single quotes are deliberate: literal YAML fixtures
 self_test() {
   local tmp rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
-  printf 'CI_POISON_VARS=(A_TOKEN)\nCI_POISON_EXEMPT=("B_TOKEN:why")\n' >"$tmp/p.sh"
+  printf 'CI_POISON_VARS="A_TOKEN"\nCI_POISON_EXEMPT="\nB_TOKEN:why\n"\n' >"$tmp/p.sh"
   printf 'j:\n  script:\n    - echo "$A_TOKEN" "${B_TOKEN}"\n  variables:\n    X_TOKEN_FILE: f\n' >"$tmp/ok.yml"
   check "$tmp/ok.yml" "$tmp/p.sh" >/dev/null 2>&1 || { echo "self-test FAILED: listed tokens rejected" >&2; rc=1; }
   printf 'j:\n  script:\n    - curl -H "T: $NEW_SECRET_TOKEN"\n' >"$tmp/bad.yml"

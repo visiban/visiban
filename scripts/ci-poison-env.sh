@@ -1,4 +1,5 @@
-# shellcheck shell=bash disable=SC2034  # sourced file; CI_POISON_EXEMPT is read by check-ci-poison-list.sh
+# shellcheck shell=sh disable=SC2034  # sourced file; CI_POISON_EXEMPT is read by check-ci-poison-list.sh
+# gate-selftest-exempt: sourced env file, not a gate; covered by scripts/tests/ci-poison-env.test.sh
 # scripts/ci-poison-env.sh — SOURCE this (`. scripts/ci-poison-env.sh`); do not execute (#2461).
 #
 # Why: `main` pipelines see protected CI/CD variables (GITLAB_API_TOKEN, ...),
@@ -11,10 +12,12 @@
 #
 # This is the ONE place the list lives. scripts/check-ci-poison-list.sh fails
 # when .gitlab-ci.yml references a `*_TOKEN` variable that is in neither list.
+# POSIX sh only: script-tests runs alpine busybox `sh` (bash is installed later), so
+# no arrays and no bashisms; lists are whitespace-separated strings (#2461 audit B1).
 # Convention doc: docs/maintainers/known-ci-failures.md ("Hermetic CI-script tests").
 
 # Poisoned: set to a sentinel. Derived by grep over .gitlab-ci.yml and scripts/.
-CI_POISON_VARS=(
+CI_POISON_VARS="
   GITLAB_API_TOKEN
   GHCR_TOKEN
   DOCKERHUB_TOKEN
@@ -26,15 +29,16 @@ CI_POISON_VARS=(
   KAIZEN_API_TOKEN
   FUZZ_DEEP_API_TOKEN
   ISSUES_API_TOKEN
-)
+"
 
-# Not poisoned, each with a reason (never grows silently: the check reads this).
-CI_POISON_EXEMPT=(
-  "CI_JOB_TOKEN:GitLab-issued per job, identical in kind on MR and main"
-  "SIGSTORE_ID_TOKEN:per-job OIDC id_token, not a protected variable"
-)
+# Not poisoned, each with a reason, one `NAME:reason` per line (never grows silently:
+# the check reads this).
+CI_POISON_EXEMPT="
+CI_JOB_TOKEN:GitLab-issued per job, identical in kind on MR and main
+SIGSTORE_ID_TOKEN:per-job OIDC id_token, not a protected variable
+"
 
-for _v in "${CI_POISON_VARS[@]}"; do
+for _v in $CI_POISON_VARS; do
   export "$_v=poisoned-by-ci-poison-env-2461"
 done
 unset _v
