@@ -1598,8 +1598,10 @@ def announce_columns_children_changed(board, column_ids, *, actor_id):
 
     Cost: zero queries for no columns or a parent-tier board; else ONE read,
     of the distinct parents of the columns' live children ranked per parent
-    board and cut at cap + 1, so the rows are bounded by the parent boards,
-    not by the parents or children.
+    board and cut at cap + 1. The rows returned are bounded by the parent
+    boards (cap + 1 each); the database still ranks every distinct parent of
+    those children before the cut, a one-off sort on an ``is_done`` flip or
+    first-column change, never per card.
     """
     ids = sorted({c for c in column_ids if c is not None})
     if not ids or board.cards_can_have_children:

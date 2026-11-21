@@ -650,20 +650,29 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
         _lock_board_for_admin_save(obj.board_id, Column, obj.pk if change else None)
         # The name before this write, read under the column lock (as
         # ColumnViewSet.perform_update reads it), not from ``obj``.
-        old_name = (
-            Column.objects.filter(pk=obj.pk).values_list("name", flat=True).first()
+        old_name, old_board_id = (
+            Column.objects.filter(pk=obj.pk).values_list("name", "board_id").first()
             if change else None
-        )
+        ) or (None, None)
         # is_done and position bucket a child in its parent's rollup (#2500):
         # the board's column state before this write, under the board lock,
         # diffed after it as ColumnViewSet.perform_update and reorder do. On an
         # add too: unlike the REST create, which always appends, the admin
-        # form can insert a column ahead of the current first one.
+        # form can insert a column ahead of the current first one. A column
+        # re-pointed at another board leaves its old board too, which may
+        # change that board's first or done columns, so diff it as well.
         from .services.card_links import announce_column_rollup_changed, column_rollup_state
 
         rollup_before = column_rollup_state(obj.board)
+        old_board = (
+            Board.objects.filter(pk=old_board_id).first()
+            if old_board_id not in (None, obj.board_id) else None
+        )
+        old_board_before = column_rollup_state(old_board) if old_board is not None else None
         super().save_model(request, obj, form, change)
         announce_column_rollup_changed(obj.board, rollup_before, actor_id=request.user.pk)
+        if old_board is not None:
+            announce_column_rollup_changed(old_board, old_board_before, actor_id=request.user.pk)
         # A parent's column name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change, published on commit.

@@ -2056,6 +2056,8 @@ A criterion containing a control character (including NUL or a line break) is re
 
 The `column.updated` socket event carries the column with its `policy`, like every other field.
 
+*(1.3+, #2500)* A change of `is_done` also sends `card.children_bulk_changed` to each parent board whose cards have live children in this column, so their child progress refreshes; nothing is sent when `is_done` is unchanged. See [WebSockets](websockets.md).
+
 ### `DELETE /api/v1/boards/{id}/columns/{col_id}/`
 Delete a column. Requires board admin.
 
@@ -2068,6 +2070,8 @@ Since 1.2, a request body that is not a JSON object returns `400 Bad Request` (i
 
 **Request** `{ "order": [3, 1, 4, 2] }`. `order` must be **exactly** this board's current column IDs: every column once, no duplicates, no ID from another board. A partial list, a duplicate, a foreign ID, or (on a board that has columns) an empty list is rejected with `400` and body `{"order": ["..."]}`, never partially applied. *(Since 1.2, #1302 — same
 rule as checklist-item reorder, #1292.)*
+
+*(1.3+, #2500)* A reorder that changes which column is first sends the same `card.children_bulk_changed` to each parent board whose cards have live children in the old or new first column; a reorder that keeps the first column sends none. See [WebSockets](websockets.md).
 
 ---
 

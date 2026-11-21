@@ -725,3 +725,24 @@ class ColumnBulkPingTests(_RollupFixture, TestCase):
         # An admin add ahead of the first column re-buckets its children.
         self._admin_save(Column(board=self.cboard, name="Inbox", position=-1), change=False)
         self._expect_one()
+
+    def test_admin_column_moved_to_another_board_pings_its_old_boards_parents(self):
+        from boards.models import Column
+
+        elsewhere, _card = _board_with_card(self.owner, parent_tier=False, name="Elsewhere", title="e")
+        # col_c (the first column, holding the "to do" child) leaves: col_doing
+        # becomes the old board's first column.
+        self._admin_save(Column.objects.get(pk=self.col_c.pk), board=elsewhere, position=60)
+        self._expect_one()
+
+    def test_below_admin_column_writes_are_refused_and_ping_nothing(self):
+        for role in (Role.MEMBER, Role.VIEWER):
+            client = self._client(self._user(f"bulk_{role}", child_role=role))
+            with self.captureOnCommitCallbacks(execute=True):
+                patched = client.patch(f"{self.cols}{self.col_doing.pk}/", {"is_done": True}, format="json")
+                reordered = client.post(
+                    f"{self.cols}reorder/", {"order": [self.col_doing.pk, self.col_c.pk, self.col_done.pk]},
+                    format="json",
+                )
+            self.assertEqual((patched.status_code, reordered.status_code), (403, 403), role)
+        self.assertEqual(self._pings(), [])
