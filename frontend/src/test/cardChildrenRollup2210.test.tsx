@@ -142,8 +142,12 @@ describe("Doing segment token contrast (#2210)", () => {
   };
   const ratio = (a: number[], b: number[]) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
 
-  it.each([["dark", dark], ["light", light]])("--info clears 3:1 on --surface in %s", (_n, block) => {
-    expect(ratio(rgb(block, "info"), rgb(block, "surface"))).toBeGreaterThanOrEqual(3);
+  // Every segment token (Done, Todo, Blocked, Doing) must clear 3:1 on --surface.
+  const SEGMENT_TOKENS = ["info", "success", "fg-tertiary", "danger"];
+  it.each(
+    SEGMENT_TOKENS.flatMap((t) => [[t, "dark", dark], [t, "light", light]] as const),
+  )("--%s clears 3:1 on --surface in %s", (token, _n, block) => {
+    expect(ratio(rgb(block, token), rgb(block, "surface"))).toBeGreaterThanOrEqual(3);
   });
 
   it("the Doing segment uses the info token, not primary", () => {

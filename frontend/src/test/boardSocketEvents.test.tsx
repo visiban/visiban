@@ -1148,6 +1148,34 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
     spy.mockRestore()
   })
 
+  it.each(['card.created', 'card.unarchived'])(
+    '%s on a parent-tier board reads the card rollup, which the frame never carries',
+    async (name) => {
+      const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+      const ctx = makeContext({ board: makeBoard({ cards_can_have_children: true }) })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      const card = { id: 5, uid: 'crd005', title: 'Parent', column: 10, swimlane: 20 }
+      await act(async () => { getOnEvent.dispatch({ event: name, data: card as unknown as Record<string, unknown> }) })
+      expect(spy).toHaveBeenCalledWith(expect.any(Number), 5)
+      expect(ctx.applyCardChildrenRollups).toHaveBeenCalledWith(new Map([[5, rollup]]))
+      spy.mockRestore()
+    },
+  )
+
+  it.each(['card.created', 'card.unarchived'])('%s on a child-tier board does not read a rollup', async (name) => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const ctx = makeContext({ board: makeBoard({ cards_can_have_children: false }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const card = { id: 5, uid: 'crd005', title: 'Child', column: 10, swimlane: 20 }
+    await act(async () => { getOnEvent.dispatch({ event: name, data: card as unknown as Record<string, unknown> }) })
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
   it('a card.parent_changed with reload re-reads the board (#2416)', async () => {
     const spy = vi.spyOn(cardsApi, 'getCardParent')
     const ctx = makeContext()

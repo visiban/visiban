@@ -812,10 +812,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // An unarchived card is appended with no `parent` (frames and write
   // responses never carry it) and applyCardParents skips ids not yet on the
   // board, so read it once the append is queued (#1104).
+  // The same payload also carries no `children_rollup` (it is per reader), so
+  // a restored or newly created parent card would show no footer until a
+  // reload or a ping; read it too, on a parent-tier board only (#2210).
+  const refetchRollupIfParentTier = useCallback((cardId: number) => {
+    if (boardRef.current?.cards_can_have_children === true) refetchChildrenRollup(cardId);
+  }, [refetchChildrenRollup]);
   const onCardUnarchived = useCallback((card: Card) => {
     unarchiveCard(card);
     refetchCardParents([card.id]);
-  }, [unarchiveCard, refetchCardParents]);
+    refetchRollupIfParentTier(card.id);
+  }, [unarchiveCard, refetchCardParents, refetchRollupIfParentTier]);
   useEffect(() => {
     const onRefetch = (e: Event) => {
       const ids = (e as CustomEvent<{ cardIds?: number[] }>).detail?.cardIds;
@@ -835,6 +842,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     if (event.event === "card.created") {
       onCardAdded(d as unknown as Card);
+      refetchRollupIfParentTier((d as unknown as Card).id);
     } else if (event.event === "card.moved") {
       // card.moved payload is { card, movement } — consistent with the REST
       // response — plus, since 1.3, sibling_positions: the cards the move
@@ -1021,7 +1029,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, refetchChildrenRollup, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.

@@ -185,6 +185,84 @@ class RollupReadTests(_RollupFixture, TestCase):
             card_links.rollups_for_viewer([self.parent.pk, self.lonely.pk], self.owner)
 
 
+def _all_keys(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from _all_keys(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _all_keys(item)
+
+
+class RollupAbsentSurfaceTests(_RollupFixture, TestCase):
+    """``children_rollup`` is a per-viewer REST read: no other surface carries it.
+
+    The feed (``/events/``) is the OSS webhook dispatcher's source (hooks.py:
+    it polls the feed rather than serializing a card of its own), so the feed
+    and persisted ``BoardEvent`` rows stand in for a webhook payload; there is
+    no separate webhook serializer to exercise. Export and MCP are pinned by
+    ``test_card_link_transport_parity.py`` (its key pattern matches
+    ``children_rollup``; see ``test_link_key_pattern_names_the_rollup``).
+    """
+
+    def setUp(self):
+        self._setup_rollup()
+        self.client = self._client(self.owner)
+        self.pbase = f"/api/v1/boards/{self.pboard.pk}/cards/"
+
+    def _write_everything_on_the_parent_board(self):
+        """Create, update, move, archive and restore a parent; return the broadcast calls."""
+        self.parent.column.allow_card_creation = True
+        self.parent.column.save(update_fields=["allow_card_creation"])
+        with mock.patch("boards.broadcast.broadcast_board_event") as sent:
+            with self.captureOnCommitCallbacks(execute=True):
+                created = self.client.post(self.pbase, {
+                    "title": "fresh parent", "column": self.parent.column_id, "swimlane": self.parent.swimlane_id,
+                }, format="json")
+                self.assertEqual(created.status_code, 201, created.content)
+                for path, method, body in (
+                    (f"{self.parent.pk}/", "patch", {"description": "x"}),
+                    (f"{self.parent.pk}/archive/", "post", None),
+                    (f"{self.parent.pk}/unarchive/", "post", None),
+                ):
+                    res = getattr(self.client, method)(f"{self.pbase}{path}", body, format="json")
+                    self.assertEqual(res.status_code, 200, (path, res.content))
+        return sent
+
+    def test_link_key_pattern_names_the_rollup(self):
+        # The export/MCP parity tests rely on this pattern to catch the field.
+        from boards.tests.test_card_link_transport_parity import LINK_KEY
+
+        self.assertTrue(LINK_KEY.search("children_rollup"))
+
+    def test_broadcast_frames_and_persisted_rows_never_carry_the_rollup(self):
+        sent = self._write_everything_on_the_parent_board()
+        self.assertGreaterEqual(sent.call_count, 4)
+        frames = [c.args + tuple(c.kwargs.values()) for c in sent.call_args_list]
+        self.assertNotIn("children_rollup", set(_all_keys(frames)))
+        rows = list(BoardEvent.objects.filter(board_id=self.pboard.pk).values_list("data", flat=True))
+        self.assertTrue(rows)
+        self.assertNotIn("children_rollup", set(_all_keys(rows)))
+
+    def test_feed_rows_never_carry_the_rollup(self):
+        self._write_everything_on_the_parent_board()
+        viewer = self._user("ru_feed", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        for user in (self.owner, viewer):
+            res = self._client(user).get(f"/api/v1/boards/{self.pboard.pk}/events/")
+            self.assertEqual(res.status_code, 200, res.content)
+            self.assertTrue(res.json()["results"] if "results" in res.json() else res.json())
+            self.assertNotIn("children_rollup", set(_all_keys(res.json())))
+
+    def test_archived_list_never_carries_the_rollup(self):
+        res = self.client.post(f"{self.pbase}{self.parent.pk}/archive/")
+        self.assertEqual(res.status_code, 200, res.content)
+        res = self.client.get(f"{self.pbase}archived/")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertIn(self.parent.pk, [c["id"] for c in res.json()["results"]])
+        self.assertNotIn("children_rollup", set(_all_keys(res.json())))
+
+
 class ChildrenChangedPingTests(_RollupFixture, TestCase):
     def setUp(self):
         self._setup_rollup()
