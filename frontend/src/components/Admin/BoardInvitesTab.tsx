@@ -165,6 +165,7 @@ export default function BoardInvitesTab({ onPendingCount }: { onPendingCount?: (
   return (
     <>
       <PageHeading
+        level="h3"
         title="Board invites"
         description="Every board's invites, emailed and shareable. Revoke one that leaked."
         headingRef={headingRef}

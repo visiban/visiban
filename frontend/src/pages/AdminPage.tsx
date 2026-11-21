@@ -790,7 +790,7 @@ function GeneralSection() {
         ? "text-warning-on-tint"
         : "text-fg-secondary";
 
-  const heading = <PageHeading level="h3" title="General" description="Changes save automatically." />;
+  const heading = <PageHeading level="h3" title="General" description="Switches save as soon as you change them." />;
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
   if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} /></>;

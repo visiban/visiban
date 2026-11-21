@@ -22,7 +22,7 @@ vi.mock('../api/auth', () => ({
   getAdminInviteLinksPage: vi.fn().mockResolvedValue({ links: [], total: 0, truncated: false }),
   getAdminInviteLinks: vi.fn().mockResolvedValue([]),
   getAdminEmailSettings: vi.fn().mockResolvedValue({}),
-  getAdminBoardInviteLinks: vi.fn().mockResolvedValue([]),
+  getAdminBoardInviteLinks: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   getSiteConfig: vi.fn().mockResolvedValue({ registration_open: true, registration_mode: 'open', demo_mode: false, demo_login: null, invite_email_available: true }),
 }))
 
@@ -41,8 +41,8 @@ function renderAt(tab: string) {
 }
 
 describe('Site admin ux-review fixes (#2476)', () => {
-  it('outline: one h1, one page h2, sections are h3', async () => {
-    for (const [tab, name] of [['general', 'General'], ['users', 'Users'], ['invite_links', 'Invite links']]) {
+  it('outline: one h1, one page h2, every section heading is an h3', async () => {
+    for (const [tab, name] of [['general', 'General'], ['email', 'Email'], ['users', 'Users'], ['invite_links', 'Invite links'], ['board_invites', 'Board invites']]) {
       const { unmount } = renderAt(tab)
       await screen.findByRole('heading', { level: 3, name })
       expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
@@ -50,6 +50,11 @@ describe('Site admin ux-review fixes (#2476)', () => {
       expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Site administration')
       unmount()
     }
+  })
+
+  it('General says switches save on change (spec copy)', async () => {
+    renderAt('general')
+    expect(await screen.findByText('Switches save as soon as you change them.')).toBeInTheDocument()
   })
 
   it('invite links empty state heading is an h3', async () => {
