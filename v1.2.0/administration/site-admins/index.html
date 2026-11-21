@@ -4454,7 +4454,7 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <li><strong>Invite-only:</strong> <code>POST /api/v1/auth/registration/</code> refuses a sign-up without a valid invite token with <code>400 Bad Request</code>, and OAuth sign-up (Google, GitHub, GitLab, OIDC) is refused the same way. With a valid invite — a site invite link, or <em>(1.2+)</em> an emailed group or board invite sent by a site admin — both work.</li>
 <li><strong>Closed:</strong> <code>POST /api/v1/auth/registration/</code> returns <code>403 Forbidden</code> for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is <strong>Admin → Users → Add user</strong>.</li>
 <li>Existing users, including OAuth-linked accounts, can still log in either way.</li>
-<li>The login page shows: <em>"An invite link is required to create an account."</em></li>
+<li>The sign-in card says <em>"Registration is invite-only."</em> (invite-only) or <em>"Registration is closed. Ask an admin for an account."</em> (closed). In register mode, it also says <em>"An invite link is required to create an account."</em></li>
 </ul>
 <p><strong>Inviting users when invite-only is on:</strong></p>
 <p>Go to <strong>Site Admin → Invite Links</strong> to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.</p>
