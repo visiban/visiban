@@ -188,7 +188,7 @@ If the owner has left or been deactivated, a superuser can transfer the group fr
 
 ## Starring groups
 
-The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups appear in a **Favorite Groups** section at the top of the sidebar. The star updates optimistically and rolls back on failure.
+The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups surface in the command palette. The star updates optimistically and rolls back on failure.
 
 ## Live board list
 
@@ -208,9 +208,7 @@ A **Live / Reconnecting… / Offline** status indicator in the group page header
 
 ## Dashboard
 
-The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.
-
-The **+ New board** and **+ New group** buttons in the sidebar footer open their creation dialogs immediately, with no navigation.
+The navigation drawer, opened from the header's menu button or `[`, lists your groups as a tree with their board counts, alongside your starred and personal boards (1.3+, replacing the persistent sidebar; see [Navigation](navigation.md)). Create boards and groups from the Dashboard and the group page.
 
 ### Create Group modal
 

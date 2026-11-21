@@ -276,9 +276,9 @@ The palette is the single discoverable surface for cross-board search until the 
 
 ## Navigation
 
-The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated **Favorite Boards** and **Favorite Groups** sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via `localStorage`.
+Every signed-in page has one header. Its menu button (or `[`) opens a navigation drawer with Home, your starred boards, your groups as a tree and your personal boards; on a board, the board name in the header opens a board switcher. See [Navigation](navigation.md).
 
-Site admins see a **Site Admin** link in the sidebar that opens the administration panel directly. The link is hidden for all other users.
+Site admins see a **Site admin** link in the navigation drawer and the account menu that opens the administration panel directly. The link is hidden for all other users.
 
 Navigation opens in a drawer from the header's menu button at every width; on tablets the board grid scrolls sideways inside its own box, and below 640 px the board shows one column at a time, so the app stays usable on phones and tablets (see [Navigation → Mobile behavior](navigation.md#mobile-behavior)). Public join, share, and account-recovery pages remain accessible on any viewport.
 
@@ -288,7 +288,7 @@ Navigation opens in a drawer from the header's menu button at every width; on ta
 
 ## Site administration
 
-Site admins can manage the instance from the `/admin` panel (accessible via the sidebar or directly):
+Site admins can manage the instance from the `/admin` panel (accessible from the navigation drawer, the account menu, or directly):
 
 - **Registration mode** — open (anyone can sign up), invite-only (only someone with a valid invite link can sign up), or closed (no self-registration; admins create accounts)
 - **User management** — create accounts, toggle active/site-admin status, and force a password reset on next login
@@ -444,9 +444,9 @@ Board admins can generate a public read-only link that lets anyone view the boar
 
 ---
 
-## Sidebar explorer tree
+## Navigation drawer group tree
 
-The expanded sidebar now renders groups and their boards as a recursive tree. Subgroups appear nested under their parent group with indented chevron expand/collapse controls, and boards belonging to subgroups are shown inline under their group. The collapsed icon rail is unchanged — it continues to show one icon per top-level section.
+The navigation drawer lists your groups as a tree: subgroups appear indented under their parent group, each with the number of boards it holds (1.3+; the persistent sidebar and its expandable tree were removed in #2473).
 
 → [Navigation](navigation.md)
 
