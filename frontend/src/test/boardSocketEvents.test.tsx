@@ -238,6 +238,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     applyCardParents: vi.fn(),
+    applyCardChildrenRollups: vi.fn(),
     silentReload: vi.fn(),
     ...overrides,
   }
@@ -1099,6 +1100,63 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     await act(async () => {})
     await act(async () => { window.dispatchEvent(new CustomEvent('visiban:card-parent-refetch', { detail: { cardIds: [8, 9] } })) })
     expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[9, null]]))
+    spy.mockRestore()
+  })
+})
+
+describe('BoardView — card.children_changed (#2210) and rename reload (#2416)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const rollup = { visible: true as const, total: 2, done: 1, doing: 1, todo: 0, blocked: 0, last_moved_at: null }
+
+  it('re-reads the parent card and applies only its children_rollup', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    expect(spy).toHaveBeenCalledWith(expect.any(Number), 7)
+    expect(ctx.applyCardChildrenRollups).toHaveBeenCalledWith(new Map([[7, rollup]]))
+    spy.mockRestore()
+  })
+
+  it('ignores a malformed ping, an absent rollup, a failed read and a stale read', async () => {
+    const resolvers: Array<(r: typeof rollup | undefined) => void> = []
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup')
+      .mockRejectedValueOnce(new Error('x'))
+      .mockResolvedValueOnce(undefined)
+      .mockImplementation(() => new Promise((res) => { resolvers.push(res) }))
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 'x' } }) })
+    expect(spy).not.toHaveBeenCalled()
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    expect(ctx.applyCardChildrenRollups).not.toHaveBeenCalled()
+    act(() => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    act(() => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+    await act(async () => { resolvers[1]({ ...rollup, done: 2, doing: 0 }) })
+    await act(async () => { resolvers[0](rollup) })
+    const calls = (ctx.applyCardChildrenRollups as unknown as ReturnType<typeof vi.fn>).mock.calls
+    expect(calls).toHaveLength(1)
+    expect(calls[0][0]).toEqual(new Map([[7, { ...rollup, done: 2, doing: 0 }]]))
+    spy.mockRestore()
+  })
+
+  it('a card.parent_changed with reload re-reads the board (#2416)', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardParent')
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [], reload: true } }) })
+    expect(ctx.silentReload).toHaveBeenCalled()
+    expect(spy).not.toHaveBeenCalled()
     spy.mockRestore()
   })
 })

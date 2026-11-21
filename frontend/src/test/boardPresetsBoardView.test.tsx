@@ -199,7 +199,7 @@ function context(board: BoardFull): BoardContextType {
     applySwimlaneFieldDefinitions: fn(), addMember: fn(), updateMember: fn(), removeMember: fn(),
     applyColumnOrder: fn(), applySwimlaneOrder: fn(), reorderColumns: fn(), reorderSwimlanes: fn(),
     updateSwimlane: fn(), removeSwimlane: fn(), updateBoardSettings: fn(), evictColumn: fn(),
-    evictSwimlane: fn(), evictCardByUid: fn(), mergeBoardState: fn(), applyCardParents: fn(),
+    evictSwimlane: fn(), evictCardByUid: fn(), mergeBoardState: fn(), applyCardParents: fn(), applyCardChildrenRollups: fn(),
   }
 }
 

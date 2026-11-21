@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
-import { getCardParent, getCardStatus } from "../../api/cards";
+import { getCardChildrenRollup, getCardParent, getCardStatus } from "../../api/cards";
 import { CARD_PARENT_REFETCH_EVENT } from "../Card/cardParent";
 import { resetTour } from "../../api/auth";
 import { getGroup } from "../../api/groups";
@@ -413,6 +413,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     evictCardByUid,
     mergeBoardState,
     applyCardParents,
+    applyCardChildrenRollups,
     silentReload,
     getLastFullFetchAt,
   } = useBoardContext();
@@ -794,6 +795,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (parents.size > 0) applyCardParents(parents);
     });
   }, [applyCardParents, silentReload]);
+  // `card.children_changed {parent_id}` (#2210) carries ids only: the rollup
+  // is computed per reader, so the parent card is re-read. Same per-card
+  // sequence guard as the parent reads: only the latest read is applied.
+  const rollupReadSeqRef = useRef(new Map<number, number>());
+  const refetchChildrenRollup = useCallback((parentId: number) => {
+    const boardId = boardRef.current?.id;
+    if (boardId === undefined) return;
+    const seqs = rollupReadSeqRef.current;
+    const n = (seqs.get(parentId) ?? 0) + 1;
+    seqs.set(parentId, n);
+    void getCardChildrenRollup(boardId, parentId).then((r) => {
+      if (r !== undefined && seqs.get(parentId) === n) applyCardChildrenRollups(new Map([[parentId, r]]));
+    }, () => { /* a failed read keeps the last rollup; the next ping or resync retries */ });
+  }, [applyCardChildrenRollups]);
   // An unarchived card is appended with no `parent` (frames and write
   // responses never carry it) and applyCardParents skips ids not yet on the
   // board, so read it once the append is queued (#1104).
@@ -840,7 +855,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
     } else if (event.event === "card.parent_changed") {
       const ids = (d as { card_ids?: unknown }).card_ids;
-      if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
+      // A large container rename (#2416) sends `reload: true` instead of every id.
+      if ((d as { reload?: unknown }).reload === true) silentReload();
+      else if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
+    } else if (event.event === "card.children_changed") {
+      const parentId = (d as { parent_id?: unknown }).parent_id;
+      if (typeof parentId === "number") refetchChildrenRollup(parentId);
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -1001,7 +1021,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, refetchChildrenRollup, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.

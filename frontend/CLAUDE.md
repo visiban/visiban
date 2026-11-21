@@ -1957,3 +1957,17 @@ A parent card's children all live on **one** board, and no UI path may split the
 An unknown utility such as `text-warning-text`, `text-primary-text` or `bg-primary-bg` compiles to nothing: no build error, no test failure, and the control silently loses its color or fill. Before using a semantic token in new code, confirm it is in `tailwind.config.js` `theme.extend.colors`. Warning text on a tint is `text-warning-on-tint`; link text is `text-info`; a primary fill is `bg-button-primary hover:bg-button-primary-hover`.
 
 A full-screen phone sheet's footer buttons and text inputs carry `max-sm:min-h-11`; the desktop `py-1.5` size is not enough below 640px.
+
+## Child progress footer — segment key (#2210)
+
+A parent card on a board whose cards can have children ends in a footer under a 1px `border-line` hairline (`CardChildrenRollup`). Its segment bar draws one 6px segment per child, in board order (to do, blocked, doing, done); above 8 children it becomes one proportional meter. The key, which never relies on color alone:
+
+| Segment | Meaning | Look |
+|---|---|---|
+| Done | the child's column is flagged done | solid `bg-success` |
+| Doing | any column between the first and done | solid `bg-primary` |
+| To do | the child board's first column | **solid** 1px `border-fg-tertiary` outline |
+| Blocked | manual block or an open `blocks` relation; overrides the column | 1px danger outline plus diagonal stripes |
+| Planned (#2371, not yet shipped) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
+
+Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle N days", `text-warning-on-tint`) uses the clock glyph. The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".

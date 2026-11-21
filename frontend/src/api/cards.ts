@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
+import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -166,6 +166,10 @@ export const getCardExtensions = (boardId: number, cardId: number): Promise<unkn
 /** Read `parent` for one card: `null` (none), hidden, or the visible parent. */
 export const getCardParent = (boardId: number, cardId: number): Promise<CardParent | null> =>
   getCard(boardId, cardId).then((c) => c.parent ?? null);
+
+/** Read `children_rollup` for one parent card (#2210): the `card.children_changed` refetch. */
+export const getCardChildrenRollup = (boardId: number, cardId: number): Promise<CardChildrenRollup | undefined> =>
+  getCard(boardId, cardId).then((c) => c.children_rollup);
 
 export const linkCardParent = (boardId: number, cardId: number, parentId: number) =>
   client

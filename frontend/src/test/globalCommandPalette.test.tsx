@@ -71,6 +71,7 @@ function emptyBoardContext(): BoardContextType {
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     applyCardParents: vi.fn(),
+    applyCardChildrenRollups: vi.fn(),
   };
 }
 
