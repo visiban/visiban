@@ -1,7 +1,7 @@
 {
   "_readme": "Committed p95 latency budgets for the nightly-load-test CI job (#1082). See docs/development/nightly-load-test.md for the full contract: fixture size, budget-derivation rule, and how to re-derive this file at each release. DO NOT hand-edit budget_p95_ms to a round number — every value here must trace to a measured_p95_ms via the stated formula.",
   "status": "ci-derived",
-  "status_note": "Re-derived 2026-11-19 (#2110, #2237, #2063) from job 18170442650 -- the 2026-11-19 scheduled nightly-load-test run on main at f863f39ff on gitlab-runner-nuc-2-visiban (tag nuc). Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; the ten flow/summary/analytics scenarios (#2110) and card_list/cards_archived (#2237) get their first budgets and their pending_budget keys are gone. card_timeline_counts (#2195) and the three board_movements scenarios (#2237) were added after that run, so they are measured but not gated (pending_budget) until a NUC run that includes them re-derives the whole file again. This is a single run: board_full measured 824.5ms against 1227.5ms in the previous derivation, so its budget fell from 1720 to 1155ms; the two derivations were taken on the same runner class but a different commit and a different date, so the change is not attributed here. Peak memory (#2110, #2430): the script records the server's peak RSS per scenario when given --server-pid-file; every memory budget is pending (budget_peak_rss_mb null, pending_memory_budget) until a NUC run assigns it. History: 2026-10-21 (#1808) from job 17348200339 on gitlab-runner-nuc-2-visiban; 2026-10-20 (#1767) from job 17304593759 on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105. Re-derive again at the next release per docs/development/nightly-load-test.md#re-deriving-the-baseline. #2430/#2424 added the aged-board, linked-board and overview fan-out scenarios; they have no measurement yet, so they are all pending_budget against #2430 until that NUC run.",
+  "status_note": "Re-derived 2026-11-19 (#2110, #2237, #2063) from job 18170442650 -- the 2026-11-19 scheduled nightly-load-test run on main at f863f39ff on gitlab-runner-nuc-2-visiban (tag nuc). Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; the ten flow/summary/analytics scenarios (#2110) and card_list/cards_archived (#2237) get their first budgets and their pending_budget keys are gone. card_timeline_counts (#2195) and the three board_movements scenarios (#2237) were added after that run, so they are measured but not gated (pending_budget) until a NUC run that includes them re-derives the whole file again. This is a single run: board_full measured 824.5ms against 1227.5ms in the previous derivation, so its budget fell from 1720 to 1155ms; the two derivations were taken on the same runner class but a different commit and a different date, so the change is not attributed here. Peak memory (#2110, #2430): the script records the server's peak RSS per scenario when given --server-pid-file; every memory budget is pending (budget_peak_rss_mb null, pending_memory_budget) until a NUC run assigns it. History: 2026-10-21 (#1808) from job 17348200339 on gitlab-runner-nuc-2-visiban; 2026-10-20 (#1767) from job 17304593759 on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105. Re-derive again at the next release per docs/development/nightly-load-test.md#re-deriving-the-baseline. #2430/#2424 added the aged-board, linked-board, single-request overview (flow_overview, aged_flow_overview) and overview fan-out scenarios; they have no measurement yet, so they are all pending_budget against #2430 until that NUC run.",
   "measured_at": "2026-11-19T05:15:38.543375+00:00",
   "fixture": {
     "board_name": "Visiban Load Test Board",
@@ -225,6 +225,17 @@
       "budget_peak_rss_mb": null,
       "pending_memory_budget": "#2430"
     },
+    "flow_overview": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/metrics/overview/?days=90",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "The one request the Analytics overview makes for its seven flow charts since #2426 (days=90, as the overview sends it): one history load instead of seven. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
     "aged_board_summary": {
       "method": "GET",
       "path": "/api/v1/boards/{aged_id}/summary/",
@@ -346,6 +357,17 @@
       "pending_memory_budget": "#2430",
       "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
     },
+    "aged_flow_overview": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/overview/?days=90",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the overview's single flow request (#2426) on years of archived history. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
     "linked_board_full": {
       "method": "GET",
       "path": "/api/v1/boards/{linked_id}/full/",
@@ -366,25 +388,25 @@
     },
     "analytics_overview": {
       "method": "GET",
-      "path": "8 reads, each with ?days=90 as the overview sends: analytics/, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention}/ on the load-test board",
+      "path": "2 reads at once, each with ?days=90 as the overview sends since #2426: metrics/overview/ and analytics/ on the load-test board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
       "pending_budget": "#2430",
       "budget_peak_rss_mb": null,
       "pending_memory_budget": "#2430",
-      "note": "The overview open on the active-only board (#2430). The overview's eight reads fired at once (#2426); wall time to the last response, peak RSS of the one server process."
+      "note": "The overview open on the active-only board (#2430). Since #2426 the overview fires two reads (metrics/overview/ for the seven flow charts, analytics/ for the heatmap); wall time to the last response, peak RSS of the one server process."
     },
     "aged_analytics_overview": {
       "method": "GET",
-      "path": "the same 8 reads, each with ?days=90, on the aged board",
+      "path": "the same 2 reads (metrics/overview/ and analytics/), each with ?days=90, on the aged board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
       "pending_budget": "#2430",
       "budget_peak_rss_mb": null,
       "pending_memory_budget": "#2430",
-      "note": "The overview open on the aged board (#2430). The overview's eight reads fired at once (#2426); wall time to the last response, peak RSS of the one server process."
+      "note": "The overview open on the aged board (#2430). Since #2426 the overview fires two reads (metrics/overview/ for the seven flow charts, analytics/ for the heatmap); wall time to the last response, peak RSS of the one server process."
     }
   }
 }

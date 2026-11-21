@@ -32,8 +32,8 @@ cursor page, as a one-board user (#1805).
   - notifications_unread    GET  /api/v1/notifications/unread-count/
   - linked_board_full       GET  .../{linked board}/full/            (#2424, 500 cards each with a parent)
   - linked_card_list        GET  .../{linked board}/cards/           (#2424)
-  - aged_*                  the summary, analytics and eight metrics/* reads on the AGED board (#2430)
-  - analytics_overview, aged_analytics_overview   the overview's eight reads fired at once (#2430)
+  - aged_*                  the summary, analytics and the metrics/* reads (single and overview) on the AGED board (#2430)
+  - analytics_overview, aged_analytics_overview   the overview's two reads fired at once (#2430)
 
 Peak memory (#2430): with --server-pid-file the script also records the server
 process's peak RSS (VmHWM, reset before each scenario) per scenario. Linux only.
@@ -234,13 +234,13 @@ def _pending_memory_budget(name, budgets):
 # movement history, on the active-only board and on the aged one.
 _FLOW_SCENARIOS = (
     "flow_cycle_time", "flow_throughput", "flow_cumulative_flow", "flow_wip_age",
-    "flow_dwell", "flow_blocked", "flow_attention", "flow_swimlanes",
+    "flow_dwell", "flow_blocked", "flow_attention", "flow_swimlanes", "flow_overview",
 )
 _AGED_SCENARIOS = (
     "aged_board_summary", "aged_board_analytics", "aged_board_analytics_365",
     "aged_flow_cycle_time", "aged_flow_throughput", "aged_flow_cumulative_flow",
     "aged_flow_wip_age", "aged_flow_dwell", "aged_flow_blocked", "aged_flow_attention",
-    "aged_flow_swimlanes",
+    "aged_flow_swimlanes", "aged_flow_overview",
 )
 _LINKED_SCENARIOS = ("linked_board_full", "linked_card_list")
 _FANOUT_SCENARIOS = ("analytics_overview", "aged_analytics_overview")
@@ -248,12 +248,11 @@ _MEMORY_GATED = (
     ("board_summary", "board_analytics") + _FLOW_SCENARIOS + _AGED_SCENARIOS + _FANOUT_SCENARIOS
 )
 
-# The overview opens with these eight reads at once, into one server process (#2426).
-_OVERVIEW_PATHS = (
-    "analytics/", "metrics/cycle-time/", "metrics/throughput/",
-    "metrics/cumulative-flow/", "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/",
-    "metrics/attention/",
-)
+# The overview opens with these two reads at once, into one server process: since #2426 the
+# seven flow charts come from one metrics/overview request (getFlowOverview in
+# frontend/src/api/flowMetrics.ts:101) and the heatmap from analytics/ (getBoardAnalytics in
+# frontend/src/api/boards.ts:188), both fired by useAnalyticsOverviewData.ts.
+_OVERVIEW_PATHS = ("metrics/overview/", "analytics/")
 
 
 def _committed(name, budgets, key):
@@ -282,7 +281,7 @@ _ANALYTICS_USER_SCENARIOS = _LINKED_SCENARIOS + _AGED_SCENARIOS + ("aged_analyti
 
 
 def _check_analytics_measured(analytics_session, budgets):
-    """The 14 loadtest_analytics scenarios must be measured once any has a committed budget."""
+    """The 15 loadtest_analytics scenarios must be measured once any has a committed budget."""
     if analytics_session is not None:
         return
     for key in ("budget_p95_ms", "budget_peak_rss_mb"):
@@ -298,8 +297,8 @@ def _check_memory_measured(server_mem, budgets):
 
 
 # The overview's default range (useAnalyticsFilters.ts DEFAULT_DAYS), sent on every one of its
-# eight reads as getBoardAnalytics / flowParams do. analytics/ defaults to 30 server side, so
-# omitting it would measure a window the overview never asks for.
+# two reads, as getFlowOverview (flowParams) and getBoardAnalytics do. analytics/ defaults to 30
+# server side, so omitting it would measure a window the overview never asks for.
 _OVERVIEW_DAYS = 90
 
 
@@ -321,6 +320,8 @@ def _aged_endpoints(base_url, board_id):
         "aged_flow_blocked": f"{root}/metrics/blocked/",
         "aged_flow_attention": f"{root}/metrics/attention/",
         "aged_flow_swimlanes": f"{root}/metrics/swimlanes/",
+        # The single request the overview makes for its seven flow charts (#2426).
+        "aged_flow_overview": f"{root}/metrics/overview/?days={_OVERVIEW_DAYS}",
     }
 
 
@@ -622,19 +623,19 @@ def _self_test():
         failures.append("aged_board_analytics must send exactly ?days=90, as the overview does")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
-    # Exactly what useAnalyticsOverviewData.ts fires (it never calls summary/); drift here
-    # means the fan-out stops measuring what the overview does.
-    # Query strings included: the overview sends days=90 on all eight (no swimlane or label
-    # filter, no grouping, by default).
+    # Exactly what useAnalyticsOverviewData.ts fires since #2426 (two requests; it never calls
+    # summary/ or the single-chart endpoints); drift here means the fan-out stops measuring what
+    # the overview does. Query strings included: days=90 on both (no swimlane or label filter,
+    # no grouping, no period, by default).
     _want_overview = {
-        f"http://x/api/v1/boards/1/{p}?days=90" for p in (
-            "analytics/", "metrics/cycle-time/", "metrics/throughput/", "metrics/cumulative-flow/",
-            "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/", "metrics/attention/",
-        )
+        "http://x/api/v1/boards/1/metrics/overview/?days=90",
+        "http://x/api/v1/boards/1/analytics/?days=90",
     }
     _got_overview = _overview_urls("http://x", 1)
-    if len(_got_overview) != 8 or set(_got_overview) != _want_overview:
-        failures.append("the overview fan-out must be exactly the eight reads useAnalyticsOverviewData fires")
+    if len(_got_overview) != 2 or set(_got_overview) != _want_overview:
+        failures.append("the overview fan-out must be exactly the two reads useAnalyticsOverviewData fires")
+    if _aged_endpoints("http://x", 7)["aged_flow_overview"] != "http://x/api/v1/boards/7/metrics/overview/?days=90":
+        failures.append("aged_flow_overview must send exactly the overview's ?days=90")
     # The fan-out measures the LAST response, not the sum: four 50ms requests at once
     # must take about 50ms, never 200.
     _wall = _fan_out(lambda _u: time.sleep(0.05), ["a", "b", "c", "d"])
@@ -746,6 +747,8 @@ def _endpoints(base_url, board_id, sample_card_id, movements_deep_offset=0, move
         "flow_blocked": f"{base_url}/api/v1/boards/{board_id}/metrics/blocked/",
         "flow_attention": f"{base_url}/api/v1/boards/{board_id}/metrics/attention/",
         "flow_swimlanes": f"{base_url}/api/v1/boards/{board_id}/metrics/swimlanes/",
+        # The one request the overview makes for its seven flow charts (#2426), as it sends it.
+        "flow_overview": f"{base_url}/api/v1/boards/{board_id}/metrics/overview/?days={_OVERVIEW_DAYS}",
     }
 
 
@@ -1001,7 +1004,7 @@ def run(args):
         measure(name, lambda sess=sess, url=url: _time_requests(sess, url, args.iterations, args.warmup),
                 args.iterations, args.warmup)
 
-    # The overview, as a plain member: eight reads at once on the active-only board.
+    # The overview, as a plain member: its two reads at once on the active-only board.
     measure(
         "analytics_overview",
         lambda: _fan_out_samples(dict(session.headers), _overview_urls(base_url, board_id),
