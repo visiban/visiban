@@ -94,6 +94,18 @@ class EmailCollisionRoutingTests(TestCase):
 
         self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
 
+    def test_non_boolean_verified_flag_is_parsed_as_unverified(self):
+        """The verified flag is parsed strictly: only a boolean True counts."""
+        user = User.objects.create_user(username="carol", email="carol@example.com")
+        user.set_unusable_password()
+        user.save()
+        SocialAccount.objects.create(user=user, provider="google", uid="g-9", extra_data={})
+        for value in ("false", "False", "true", "0", ""):
+            with self.subTest(value=value):
+                request = _request()
+                _, params = self._run(request, _sociallogin(request, "carol@example.com", verified=value))
+                self.assertEqual(params, {"auth_error": "account_exists", "provider": "github"})
+
     def test_collision_stashes_pending_connect_for_the_matched_account(self):
         alice = User.objects.create_user(username="alice", email="alice@example.com", password="testpassword123")
         request = _request()

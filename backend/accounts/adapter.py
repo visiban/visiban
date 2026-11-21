@@ -32,6 +32,16 @@ __all__ = [
 ]
 
 
+def idp_email_is_verified(address) -> bool:
+    """Parse the provider's email-verified flag strictly.
+
+    Providers may hand the raw claim through unconverted, so the value is not
+    always a boolean. Only a boolean ``True`` counts; any other value,
+    including an absent attribute, is treated as not verified.
+    """
+    return getattr(address, "verified", False) is True
+
+
 def account_lockout_cache_seed(site_domain: str, user) -> str:
     """The per-account ``login_failed`` key seed for ``user`` (#1206).
 
@@ -603,7 +613,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
         addresses = list(sociallogin.email_addresses or [])
         first = (
             next((a for a in addresses if getattr(a, "primary", False)), None)
-            or next((a for a in addresses if getattr(a, "verified", False)), None)
+            or next((a for a in addresses if idp_email_is_verified(a)), None)
             or (addresses[0] if addresses else None)
         )
         email = getattr(first, "email", "") or ""
@@ -619,7 +629,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             self._redirect_with_error(request, "oauth_failed")
 
         provider = sociallogin.account.provider
-        idp_verified = bool(getattr(first, "verified", False))
+        idp_verified = idp_email_is_verified(first)
         # Stashed whether or not the IdP verified the email: the offer is only
         # ever shown after the user has signed in to the matched account, so
         # it discloses nothing, and some providers (allauth's GitLab provider)
