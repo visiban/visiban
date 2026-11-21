@@ -160,6 +160,20 @@ describe('BoardPage rename focus return (#2473)', () => {
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Board name' })).toBeNull())
     await waitFor(() => expect(within(screen.getByTestId('navbar')).getByRole('button', { name: 'Rename board' })).toHaveFocus())
   })
+
+  it('a blur-commit leaves focus on the control the user moved to, not the Rename button', async () => {
+    const user = userEvent.setup()
+    renderBoardPage()
+    const navbar = within(screen.getByTestId('navbar'))
+    await user.click(navbar.getByRole('button', { name: 'Rename board' }))
+    const input = await screen.findByRole('textbox', { name: 'Board name' })
+    await user.type(input, ' renamed')
+    const star = navbar.getByRole('button', { name: 'Star board' })
+    await user.click(star)
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Board name' })).toBeNull())
+    expect(star).toHaveFocus()
+    expect(navbar.getByRole('button', { name: 'Rename board' })).not.toHaveFocus()
+  })
 })
 
 describe('BoardPage Row 1 health status (#1133)', () => {

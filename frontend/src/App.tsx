@@ -353,9 +353,12 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const [renaming, setRenaming] = useState(false);
   // After a rename closes (saved or canceled) focus goes back to the Rename button.
   const renameButtonRef = useRef<HTMLButtonElement>(null);
+  // A blur-commit (clicking or Tabbing elsewhere) must not steal focus back; InlineBoardName reports that.
+  const restoreRenameFocus = useRef(false);
   const wasRenaming = useRef(false);
   useEffect(() => {
-    if (wasRenaming.current && !renaming) renameButtonRef.current?.focus();
+    if (wasRenaming.current && !renaming && restoreRenameFocus.current) renameButtonRef.current?.focus();
+    if (!renaming) restoreRenameFocus.current = false;
     wasRenaming.current = renaming;
   }, [renaming]);
   const [isStarred, setIsStarred] = useState(false);
@@ -510,7 +513,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                 name={board.name}
                 canEdit
                 initialEditing
-                onDone={() => setRenaming(false)}
+                onDone={(restoreFocus) => { restoreRenameFocus.current = restoreFocus; setRenaming(false); }}
                 onSave={async (name) => { await updateBoardSettings({ name }); }}
               />
             ) : <BoardSwitcher board={board} />) : undefined,
