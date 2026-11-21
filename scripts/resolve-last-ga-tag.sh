@@ -11,7 +11,9 @@
 # (v1.10.0 > v1.9.3), not lexical.
 #
 # In a fork MR pipeline `origin` is the fork, so CI_MERGE_REQUEST_PROJECT_URL
-# (the target project) is used when set; --remote overrides both.
+# (the target project) is used, but only when the source project differs from
+# the target; same-project MRs (incl. the private enterprise mirror) use
+# `origin`. --remote overrides both.
 # Tags are listed from the REMOTE (`git ls-remote`), not the local clone: CI
 # clones are shallow and carry no tags, so a local `git tag` lists nothing (or a
 # stale subset) and the drill would silently start from the wrong release. The
@@ -24,9 +26,9 @@
 #   scripts/resolve-last-ga-tag.sh --filter       # read tag names on stdin, print the pick
 #   scripts/resolve-last-ga-tag.sh --self-test
 #
-# The pick is the newest GA tag whose release images are published on GHCR; if
-# the newest is not published yet (the tag pipeline publishes them) it falls
-# back to the previous GA with a warning. --no-image-check skips that (offline).
+# The pick is the newest GA tag whose backend and frontend images and OCI chart
+# are all published; if the newest is not published yet (the tag pipeline
+# publishes them) it falls back to the previous GA with a warning. --no-image-check skips that (offline).
 #
 # Prints the tag on stdout; diagnostics go to stderr.
 # Exit: 0 = tag printed, 1 = no GA tag found, 2 = usage / git error.
@@ -113,10 +115,14 @@ tag_missing_artifact() {
 
 # The remote tags are listed and fetched from. In a fork MR pipeline `origin`
 # is the fork, whose tags are stale, so the target project is used instead.
+# Same-project MRs keep `origin`: the target URL would be an anonymous HTTPS
+# ls-remote, which fails in a private project such as the enterprise mirror.
 tag_remote() {
   if [ -n "${REMOTE_OVERRIDE:-}" ]; then
     printf '%s\n' "${REMOTE_OVERRIDE}"
-  elif [ -n "${CI_MERGE_REQUEST_PROJECT_URL:-}" ]; then
+  elif [ -n "${CI_MERGE_REQUEST_PROJECT_URL:-}" ] \
+    && [ -n "${CI_MERGE_REQUEST_SOURCE_PROJECT_ID:-}" ] \
+    && [ "${CI_MERGE_REQUEST_SOURCE_PROJECT_ID}" != "${CI_MERGE_REQUEST_PROJECT_ID:-}" ]; then
     printf '%s.git\n' "${CI_MERGE_REQUEST_PROJECT_URL}"
   else
     printf 'origin\n'
@@ -212,12 +218,15 @@ self_test() {
     echo "  FAIL no published artifacts must fail" >&2; fails=$((fails + 1))
   else echo "  ok   no GA with artifacts fails"; fi
   # Remote selection: a fork MR pipeline must list the target project's tags.
-  got="$(unset CI_MERGE_REQUEST_PROJECT_URL REMOTE_OVERRIDE; tag_remote)"
+  got="$(unset CI_MERGE_REQUEST_PROJECT_URL CI_MERGE_REQUEST_SOURCE_PROJECT_ID CI_MERGE_REQUEST_PROJECT_ID REMOTE_OVERRIDE; tag_remote)"
   if [ "${got}" = "origin" ]; then echo "  ok   remote defaults to origin"
   else echo "  FAIL remote default: got '${got}'" >&2; fails=$((fails + 1)); fi
-  got="$(unset REMOTE_OVERRIDE; CI_MERGE_REQUEST_PROJECT_URL=https://gitlab.com/visiban/visiban tag_remote)"
-  if [ "${got}" = "https://gitlab.com/visiban/visiban.git" ]; then echo "  ok   MR pipelines use the target project, not the fork origin"
-  else echo "  FAIL remote in MR pipeline: got '${got}'" >&2; fails=$((fails + 1)); fi
+  got="$(unset REMOTE_OVERRIDE; CI_MERGE_REQUEST_PROJECT_URL=https://gitlab.com/visiban/visiban CI_MERGE_REQUEST_PROJECT_ID=7 CI_MERGE_REQUEST_SOURCE_PROJECT_ID=7 tag_remote)"
+  if [ "${got}" = "origin" ]; then echo "  ok   same-project MR uses origin"
+  else echo "  FAIL same-project MR remote: got '${got}'" >&2; fails=$((fails + 1)); fi
+  got="$(unset REMOTE_OVERRIDE; CI_MERGE_REQUEST_PROJECT_URL=https://gitlab.com/visiban/visiban CI_MERGE_REQUEST_PROJECT_ID=7 CI_MERGE_REQUEST_SOURCE_PROJECT_ID=9 tag_remote)"
+  if [ "${got}" = "https://gitlab.com/visiban/visiban.git" ]; then echo "  ok   fork MR uses the target project"
+  else echo "  FAIL fork MR remote: got '${got}'" >&2; fails=$((fails + 1)); fi
   unset TAG_IMAGE_CHECK_CMD SELF_TEST
   if [ "${fails}" -ne 0 ]; then
     echo "resolve-last-ga-tag.sh --self-test: ${fails} failure(s)" >&2
