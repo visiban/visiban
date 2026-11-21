@@ -3547,7 +3547,7 @@ CARD_PARENTS_CONTEXT_KEY = "card_parents"
 
 _PARENT_VISIBLE_KEYS = (
     "id", "title", "board_id", "board_name", "column_id", "column_name",
-    "swimlane_id", "swimlane_name", "archived",
+    "swimlane_id", "swimlane_name", "archived", "board_parent_name_singular",
 )
 
 
@@ -3574,6 +3574,13 @@ _PARENT_VISIBLE_KEYS = (
                 "swimlane_id": {"type": "integer"},
                 "swimlane_name": {"type": "string"},
                 "archived": {"type": "boolean"},
+                "board_parent_name_singular": {
+                    "type": "string",
+                    "description": (
+                        "What the parent's board calls its cards (#2212), raw: empty "
+                        "means the client says \"Parent\"."
+                    ),
+                },
             },
             "required": ["hidden", *_PARENT_VISIBLE_KEYS],
         },
@@ -3619,6 +3626,51 @@ class ParentBoardOptionSerializer(serializers.Serializer):
 
     id = serializers.IntegerField()
     name = serializers.CharField()
+    parent_name_singular = serializers.CharField(
+        allow_blank=True,
+        help_text="What this board calls one of its cards (#2212), raw: empty means the client says Parent.",
+    )
+    parent_name_plural = serializers.CharField(
+        allow_blank=True,
+        help_text="What this board calls its cards, plural (#2212), raw: empty means the client says Parents.",
+    )
+
+
+class CardExtensionFieldSerializer(serializers.Serializer):
+    """Schema only (#2212): one field of a card-detail extension section.
+
+    Built and validated by ``boards.services.card_extensions``; closed type set.
+    """
+
+    key = serializers.RegexField(r"^[a-z][a-z0-9_]{0,63}$")
+    label = serializers.CharField(max_length=80)
+    type = serializers.ChoiceField(choices=["text", "number", "date", "choice"])
+    value = serializers.JSONField(
+        allow_null=True,
+        help_text="text: string <=500; number: finite number; date: YYYY-MM-DD; choice: one of `choices`. null = not set.",
+    )
+    display = serializers.CharField(
+        required=False, max_length=200,
+        help_text="Optional preformatted read string (e.g. a currency amount), shown instead of `value`.",
+    )
+    choices = serializers.ListField(
+        child=serializers.CharField(max_length=80), required=False, max_length=50,
+        help_text="Present only for type `choice`.",
+    )
+
+
+class CardExtensionSectionSerializer(serializers.Serializer):
+    """Schema only (#2212): one extension's section. ``id`` is stamped by OSS."""
+
+    id = serializers.RegexField(r"^[a-z][a-z0-9_-]{0,63}$")
+    title = serializers.CharField(max_length=120)
+    fields = CardExtensionFieldSerializer(many=True, max_length=30)
+
+
+class CardExtensionSectionListSerializer(serializers.Serializer):
+    """Schema only (#2212): ``GET /boards/{b}/cards/{c}/extensions/`` (at most 10 sections)."""
+
+    sections = CardExtensionSectionSerializer(many=True, max_length=10)
 
 
 class ParentCandidateSerializer(serializers.Serializer):
@@ -4183,6 +4235,26 @@ class _BoardRollupFieldRelatedField(serializers.PrimaryKeyRelatedField):
         return CustomFieldDefinition.objects.filter(board=board)
 
 
+_PARENT_NAME_MAX = 24
+
+
+def _clean_parent_name(value):
+    """Strip; refuse control, format/bidi and surrogate characters; cap at 24 (#2212).
+
+    The name is shown in other users' UIs (the child-side row, the picker), so
+    a bidi override or zero-width character that could disguise it is refused
+    rather than stripped silently. Empty stores "" (the UI says "Parent").
+    """
+    import unicodedata
+
+    value = (value or "").strip()
+    if any(unicodedata.category(ch) in ("Cc", "Cf", "Cs") for ch in value):
+        raise serializers.ValidationError("Use letters, numbers, spaces and punctuation only.")
+    if len(value) > _PARENT_NAME_MAX:
+        raise serializers.ValidationError(f"Use {_PARENT_NAME_MAX} characters or fewer.")
+    return value
+
+
 @extend_schema_serializer(deprecate_fields=["allowed_priorities"])
 class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
@@ -4280,7 +4352,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4390,6 +4462,14 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             # Same message as an unknown id (Meta.extra_kwargs above), so the
             # response does not reveal whether the group exists.
             raise serializers.ValidationError(_BOARD_GROUP_NOT_ALLOWED_MSG, code="does_not_exist")
+
+    def validate_parent_name_singular(self, value):
+        """What a parent card on this board is called (#2212)."""
+        return _clean_parent_name(value)
+
+    def validate_parent_name_plural(self, value):
+        """The plural of ``parent_name_singular`` (#2212); falls back on its own."""
+        return _clean_parent_name(value)
 
     def validate_default_child_board(self, value):
         """Accept a clear, an echo, or a target the caller administers (#2208).
@@ -4877,10 +4957,13 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             "cards_can_have_children",
             # Additive (#2208 part 2): id only; written via PATCH /boards/{id}/.
             "default_child_board",
+            # Additive (#2212): parent-card naming; written via PATCH /boards/{id}/.
+            "parent_name_singular",
+            "parent_name_plural",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
-        read_only_fields = ["uid", "group", "commitment_column_uid", "cards_can_have_children", "default_child_board"]
+        read_only_fields = ["uid", "group", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     def get_archived_card_count(self, obj) -> int:

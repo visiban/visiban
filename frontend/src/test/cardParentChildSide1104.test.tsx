@@ -33,6 +33,7 @@ const parentBoard = { id: 12, cards_can_have_children: true } as unknown as Boar
 const visibleParent: CardParentVisible = {
   hidden: false, id: 41, title: "Initech: security review", board_id: 12, board_name: "Pipeline",
   column_id: 3, column_name: "Qualify", swimlane_id: 4, swimlane_name: "Initech", archived: false,
+  board_parent_name_singular: "",
 };
 
 function makeCard(overrides: Partial<Card> = {}): Card {
@@ -57,7 +58,7 @@ function candidate(overrides: Partial<ParentCandidate> = {}): ParentCandidate {
   };
 }
 
-const boards = [{ id: 12, name: "Pipeline" }];
+const boards = [{ id: 12, name: "Pipeline", parent_name_singular: "", parent_name_plural: "" }];
 
 beforeEach(() => {
   vi.mocked(cardsApi.getCardParent).mockReset().mockResolvedValue(null);
@@ -377,7 +378,7 @@ describe("ParentCardPicker (#1104)", () => {
   it("searches the board chosen in the Board select, and closes from the backdrop", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<ParentCardPicker boardId={7} cardId={51} parentBoards={[...boards, { id: 13, name: "Accounts" }]} onLinked={vi.fn()} onClose={onClose} />);
+    render(<ParentCardPicker boardId={7} cardId={51} parentBoards={[...boards, { id: 13, name: "Accounts", parent_name_singular: "", parent_name_plural: "" }]} onLinked={vi.fn()} onClose={onClose} />);
     await user.click(screen.getByRole("combobox", { name: /^Board/ }));
     await user.click(await screen.findByRole("option", { name: "Accounts" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Card" }), { target: { value: "Ini" } });
@@ -463,5 +464,52 @@ describe("carryParent (#1104)", () => {
     const next = makeCard();
     expect(carryParent(next, makeCard())).toBe(next);
     expect(carryParent(next, undefined)).toBe(next);
+  });
+});
+
+describe("parent-item naming on the child side (#2212)", () => {
+  it("labels a linked, visible parent with its board's singular name", async () => {
+    render(<CardParentSection board={childBoard} card={makeCard({ parent: { ...visibleParent, board_parent_name_singular: "Opportunity" } })} canEdit />);
+    expect(await screen.findByRole("heading", { name: "Opportunity" })).toBeInTheDocument();
+  });
+
+  it("labels the parent with the parent board's singular name right after linking, Parent when it has none", async () => {
+    const user = userEvent.setup();
+    vi.mocked(cardsApi.getParentCandidates).mockResolvedValue([candidate()]);
+    const link = async () => {
+      await user.click(await screen.findByRole("button", { name: "Link a parent" }));
+      await user.type(screen.getByRole("combobox", { name: "Card" }), "Ini");
+      fireEvent.mouseDown(await screen.findByRole("option", { name: /Initech: security review/ }));
+      await user.click(screen.getByRole("button", { name: "Link to Initech: security review" }));
+    };
+    vi.mocked(cardsApi.getParentBoards).mockResolvedValue([{ id: 12, name: "Pipeline", parent_name_singular: "Opportunity", parent_name_plural: "Opportunities" }]);
+    const first = render(<CardParentSection board={childBoard} card={makeCard({ parent: null })} canEdit />);
+    await link();
+    expect(await screen.findByRole("heading", { name: "Opportunity" })).toBeInTheDocument();
+    first.unmount();
+    vi.mocked(cardsApi.getParentBoards).mockResolvedValue(boards);
+    render(<CardParentSection board={childBoard} card={makeCard({ parent: null })} canEdit />);
+    await link();
+    expect(await screen.findByRole("heading", { name: "Parent" })).toBeInTheDocument();
+  });
+
+  it("falls back to Parent when the board set no name, or the parent is hidden", async () => {
+    const { unmount } = render(<CardParentSection board={childBoard} card={makeCard({ parent: visibleParent })} canEdit />);
+    expect(await screen.findByRole("heading", { name: "Parent" })).toBeInTheDocument();
+    unmount();
+    render(<CardParentSection board={childBoard} card={makeCard({ parent: { hidden: true } })} canEdit />);
+    expect(await screen.findByRole("heading", { name: "Parent" })).toBeInTheDocument();
+  });
+
+  it("the picker names the chosen board's plural and keeps its title", () => {
+    render(<ParentCardPicker boardId={7} cardId={51} parentBoards={[{ id: 12, name: "Pipeline", parent_name_singular: "Opportunity", parent_name_plural: "Opportunities" }]} onLinked={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByText("Pipeline calls these Opportunities")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Link a parent card" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Board: Pipeline" })).toHaveAccessibleDescription("Pipeline calls these Opportunities");
+  });
+
+  it("the picker omits the line when the board set no plural", () => {
+    render(<ParentCardPicker boardId={7} cardId={51} parentBoards={boards} onLinked={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.queryByText(/calls these/)).not.toBeInTheDocument();
   });
 });

@@ -142,6 +142,7 @@ nav:
     - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
     - Suppression Markers: development/suppressions.md
     - Security Invariants: development/security-invariants.md
+    - Card-Detail Extensions: development/card-detail-extensions.md
     - Authorization Entry Points: development/authorization-entry-points.md
     - SonarCloud: development/sonarcloud.md
     - Kaizen Yield Watch: development/kaizen-yield-watch.md

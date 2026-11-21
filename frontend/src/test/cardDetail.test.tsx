@@ -7,6 +7,8 @@ import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
 vi.mock('../api/cards', () => ({
+  // Extension sections (#2212): CardExtensionSections fetches on mount; none registered.
+  getCardExtensions: vi.fn().mockResolvedValue({ sections: [] }),
   // Manual block (#1149): CardBlockSection fetches the block history on mount.
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
@@ -80,7 +82,7 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem, getCardTimeline } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment, addChecklistItem, getCardTimeline, getCardExtensions } from '../api/cards'
 import { flagsWrapper } from './instanceFlagsWrapper'
 import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import { announced } from './confirmAnnouncer'
@@ -120,6 +122,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
@@ -4316,5 +4320,24 @@ describe('Move popover offers sub-column stops (#1102)', () => {
     await user.click(screen.getByText('Review: Ready'))
     await user.click(screen.getByRole('button', { name: 'Move' }))
     await waitFor(() => expect(onMoveCard).toHaveBeenCalledWith(props.card.id, 999, props.card.swimlane, 9999, 1))
+  })
+})
+
+describe('CardDetail extension sections (#2212)', () => {
+  it('renders nothing with no extension, and a section after Weight and before Relations when one is registered', async () => {
+    const { unmount } = render(<CardDetail {...defaultProps()} />)
+    await act(async () => {})
+    expect(screen.queryByTestId('card-extension-section')).not.toBeInTheDocument()
+    unmount()
+
+    vi.mocked(getCardExtensions).mockResolvedValueOnce({
+      sections: [{ id: 'deal', title: 'Deal', fields: [{ key: 'stage', label: 'Stage', type: 'text', value: 'Open' }] }],
+    })
+    render(<CardDetail {...defaultProps()} />)
+    const region = await screen.findByRole('region', { name: 'Deal' })
+    const weight = screen.getByText('Weight')
+    expect(weight.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const relations = await screen.findByRole('button', { name: /^Relations/ })
+    expect(region.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

@@ -8,6 +8,8 @@ import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import type { Card, BoardFull, User, CustomFieldDefinition } from '../types'
 
 vi.mock('../api/cards', () => ({
+  // Extension sections (#2212): CardExtensionSections fetches on mount; none registered.
+  getCardExtensions: vi.fn().mockResolvedValue({ sections: [] }),
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
   getCardBlocks: vi.fn().mockResolvedValue([]),
@@ -75,6 +77,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [

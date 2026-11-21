@@ -27,6 +27,8 @@ function makeBoard(id: number, group: number | null = null): Board {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id, uid: `uid${id}`, name: `Board ${id}`, description: '', owner: fakeUser,
     archived_card_count: 0,
     group, group_name: group !== null ? `Group ${group}` : null,

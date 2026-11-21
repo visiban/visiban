@@ -11,6 +11,8 @@ import { DEMO_CARD_DETAIL_NOTE, DEMO_CARD_FOOTER_NOTE, DEMO_EXTERNAL_REF_REASON 
 // #1914 — the card detail sheet anchored to the selected card's column.
 
 vi.mock('../api/cards', () => ({
+  // Extension sections (#2212): CardExtensionSections fetches on mount; none registered.
+  getCardExtensions: vi.fn().mockResolvedValue({ sections: [] }),
   // Manual block (#1149): CardBlockSection fetches the block history on mount.
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
@@ -76,6 +78,8 @@ function makeBoard(): BoardFull {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [

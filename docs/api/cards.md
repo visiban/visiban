@@ -1176,6 +1176,48 @@ and weight limits apply as for any create. `201` returns the new card, as
 - **Events:** `card.created` on the child's board, plus the same ids-only
   `card.children_changed` and `card.parent_changed` pings as a link.
 
+### `GET /api/v1/boards/{board_id}/cards/{id}/extensions/`
+
+Since 1.3, **experimental**: the shape may change before it is declared stable
+(planned once the first real extension ships). Read-only. The card-detail
+extension sections for this card (#2212): records an in-process extension
+registered in `CARD_DETAIL_EXTENSIONS` attaches to the card, rendered in the
+card's Details tab. See [Card-detail extensions](../development/card-detail-extensions.md).
+
+**Minimum role:** any role on this card's board. Each extension declares its own
+`min_role` (missing or invalid means `admin`); one above your role is never
+called. `404` without access to the board, or when the card is not on it (one
+body for both). Always `200` otherwise, with `{"sections": []}` when nothing is
+registered or visible to you. `GET` only.
+
+```json
+{"sections": [
+  {"id": "contracts", "title": "Contract",
+   "fields": [
+     {"key": "value", "label": "Value", "type": "number", "value": 12000, "display": "$12,000"},
+     {"key": "stage", "label": "Stage", "type": "choice", "value": "Signed", "choices": ["Draft", "Signed"]},
+     {"key": "renews", "label": "Renews", "type": "date", "value": "2027-03-01"},
+     {"key": "owner", "label": "Owner", "type": "text", "value": null}
+   ]}
+]}
+```
+
+| Key | Rule |
+|---|---|
+| `sections` | At most 10; one per extension, in registration order. |
+| `id` | The extension's id (`^[a-z][a-z0-9_-]{0,63}$`), stamped by the server. |
+| `title` | 1 to 120 characters. |
+| `fields` | 1 to 30, unique `key` (`^[a-z][a-z0-9_]{0,63}$`). |
+| `label` | 1 to 80 characters. |
+| `type` | `text` (string, at most 500 characters), `number` (finite), `date` (`YYYY-MM-DD`) or `choice` (one of `choices`, at most 50 of at most 80 characters). |
+| `value` | Typed as above, or `null` (not set). |
+| `display` | Optional preformatted read string, at most 200 characters, shown instead of `value`. |
+
+Values, labels and titles are plain text: clients must not render them as HTML.
+The server drops a section that breaks any rule whole (it is never truncated),
+and an extension that raises is left out while the others still render. Never
+on the card payload, `/full/`, the card list, MCP, export or the public share.
+
 ### `GET /api/v1/boards/{board_id}/cards/{id}/child-board-options/`
 
 Where Add child may put a new child of this card, computed for you (#2208).
@@ -1219,6 +1261,10 @@ A read-only key on the card object, resolved for the caller:
 - Otherwise `{"hidden": false, "id", "title", "board_id", "board_name", "column_id",
   "column_name", "swimlane_id", "swimlane_name", "archived"}`. An archived parent
   is shown with `archived: true`.
+  Since #2212 the visible shape also carries `board_parent_name_singular`: what
+  the parent's board calls its cards (for example `"Initiative"`), raw. An empty
+  string means the board set no name and the client says "Parent". It is never
+  on the hidden shape.
 
 `parent` is **present** on `GET .../full/`, the per-board card list
 `GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and

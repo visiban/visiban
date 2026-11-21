@@ -697,10 +697,12 @@ which offers only the group's other active members as the new owner; for a
 group with no other member, someone with access to all content first adds
 one through the API.
 
-## Rule 12: Extension panels are filtered on the caller's role before they run
+## Rule 12: Extension panels and card sections are filtered on the caller's role before they run
 
-**Rule.** Every surface that renders `ANALYTICS_EXTENSIONS` panels gets the
-callables to run from `boards/permissions.py` `analytics_extensions_for_role`,
+**Rule.** Every surface that renders `ANALYTICS_EXTENSIONS` panels or
+`CARD_DETAIL_EXTENSIONS` sections (#2212) gets the entries to run from
+`boards/permissions.py` (`analytics_extensions_for_role` or
+`card_detail_extensions_for_role`, which share one filter, `_registered_for_role`),
 passing the board role it authorized the request with. A panel whose declared
 `min_role` ranks above that role (on the `boards/invites.py` `ROLE_RANK` ladder)
 is never called. A missing, `None` or invalid `min_role` means `admin`, and a
@@ -717,6 +719,7 @@ author opts it in.
 | Surface | Entry point | Enforced via |
 |---|---|---|
 | Board summary (REST) | `boards/views/analytics.py` `BoardAnalyticsMixin.summary` | `analytics_extensions_for_role(role)` with the role from `get_board_for_user`, before any panel is called |
+| Card extension sections (REST, #2212) | `boards/views/cards.py` `CardViewSet.extensions` → `boards/services/card_extensions.py` `sections_for_card` | `card_detail_extensions_for_role(role)` with the role from `get_board_for_user` (`404` without access, Rule 7), before any `section()` is called; absent card, user or role returns `[]` |
 
 No other surface calls the panels: `BoardAnalyticsMixin.analytics`, MCP, the
 WebSocket consumers, the public share link and board export don't render them.
@@ -727,6 +730,12 @@ with call counts, owner, all-content access, group-inherited and overridden
 roles, non-member `404`, unset and invalid `min_role`, and
 `AnalyticsExtensionsEntryPointTests`, which scans the backend for any reference
 to `ANALYTICS_EXTENSIONS` outside `boards/hooks.py` and `boards/permissions.py`).
+`boards/tests/test_card_detail_extensions_2212.py` covers the card sections the
+same way (role matrix with call counts, fail-closed `min_role`, absent inputs,
+`404` parity, no other read calls an extension) plus
+`CardDetailExtensionsEntryPointTests`, the sibling scan for
+`CARD_DETAIL_EXTENSIONS`. Card sections are never on MCP, export, the public
+share, the card payload or `/full/`.
 
 ## Rule 13: An invite never grants admin, and a shared link always expires
 

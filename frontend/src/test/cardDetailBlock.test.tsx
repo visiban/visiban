@@ -4,6 +4,8 @@ import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
 vi.mock('../api/cards', () => ({
+  // Extension sections (#2212): CardExtensionSections fetches on mount; none registered.
+  getCardExtensions: vi.fn().mockResolvedValue({ sections: [] }),
   // Manual block (#1149): CardBlockSection fetches the block history on mount.
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
@@ -111,6 +113,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0,
     columns: [{ id: 10, uid: 'coluid000001', name: 'To Do', position: 0, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false, policy: null }],
