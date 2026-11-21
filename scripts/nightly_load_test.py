@@ -256,12 +256,60 @@ _OVERVIEW_PATHS = (
 )
 
 
+def _committed(name, budgets, key):
+    """True when *name* has a real (non-null) value for budget *key* in the baseline."""
+    entry = budgets.get(name)
+    return isinstance(entry, dict) and entry.get(key) is not None
+
+
+def _check_measured(names, budgets, key, why):
+    """Refuse to run when a scenario that is not being measured has a COMMITTED budget.
+
+    A skipped scenario (no --analytics-token-file) or an off memory measurement is a NOTE
+    while its budget is pending, but once the budget is committed the gate would pass with
+    nothing measured: the same fail-open the refuse-to-run precedent in run() closes (#1767),
+    and the absent-input rule in CLAUDE.md. *budgets* is empty under --measure-only.
+    """
+    unmeasured = [n for n in names if _committed(n, budgets, key)]
+    if unmeasured:
+        raise RuntimeError(
+            f"{why}, but these scenarios have a committed {key} and would pass unmeasured: "
+            + ", ".join(unmeasured) + " (#2430)."
+        )
+
+
+_ANALYTICS_USER_SCENARIOS = _LINKED_SCENARIOS + _AGED_SCENARIOS + ("aged_analytics_overview",)
+
+
+def _check_analytics_measured(analytics_session, budgets):
+    """The 14 loadtest_analytics scenarios must be measured once any has a committed budget."""
+    if analytics_session is not None:
+        return
+    for key in ("budget_p95_ms", "budget_peak_rss_mb"):
+        _check_measured(_ANALYTICS_USER_SCENARIOS, budgets, key,
+                        "no --analytics-token-file, so the aged and linked scenarios are skipped")
+
+
+def _check_memory_measured(server_mem, budgets):
+    """Peak memory must be measured once any scenario has a committed memory budget."""
+    if not server_mem.enabled:
+        _check_measured(_MEMORY_GATED, budgets, "budget_peak_rss_mb",
+                        "peak memory is not being measured (no usable --server-pid-file)")
+
+
+# The overview's default range (useAnalyticsFilters.ts DEFAULT_DAYS), sent on every one of its
+# eight reads as getBoardAnalytics / flowParams do. analytics/ defaults to 30 server side, so
+# omitting it would measure a window the overview never asks for.
+_OVERVIEW_DAYS = 90
+
+
 def _aged_endpoints(base_url, board_id):
     """The scenarios measured on the aged board (#2430), name -> URL."""
     root = f"{base_url}/api/v1/boards/{board_id}"
     return {
         "aged_board_summary": f"{root}/summary/",
-        "aged_board_analytics": f"{root}/analytics/",
+        # ?days=90: what the Analytics overview sends (DEFAULT_DAYS, #2430); the server's own default is 30.
+        "aged_board_analytics": f"{root}/analytics/?days={_OVERVIEW_DAYS}",
         # The widest range: 691 MB at 12k active cards in the stress run (#2427).
         "aged_board_analytics_365": f"{root}/analytics/?days=365",
         "aged_flow_cycle_time": f"{root}/metrics/cycle-time/",
@@ -283,7 +331,7 @@ def _linked_endpoints(base_url, board_id):
 
 
 def _overview_urls(base_url, board_id):
-    return [f"{base_url}/api/v1/boards/{board_id}/{path}" for path in _OVERVIEW_PATHS]
+    return [f"{base_url}/api/v1/boards/{board_id}/{path}?days={_OVERVIEW_DAYS}" for path in _OVERVIEW_PATHS]
 
 
 def _fan_out(fetch, urls):
@@ -536,15 +584,50 @@ def _self_test():
             failures.append("from_pid_file on Linux with an unreadable PID must fail at startup")
         except OSError:
             pass
+    # _check_* (#2430): an unmeasured scenario with a committed budget refuses to run; a
+    # pending one stays a NOTE. Skipped analytics scenarios, memory off.
+    _b_pending = {n: {"budget_p95_ms": None, "pending_budget": "#2430", "budget_peak_rss_mb": None,
+                      "pending_memory_budget": "#2430"} for n in _ANALYTICS_USER_SCENARIOS}
+    _b_p95 = {**_b_pending, "aged_flow_dwell": {"budget_p95_ms": 900}}
+    _b_rss = {**_b_pending, "linked_card_list": {"budget_peak_rss_mb": 400}}
+    _mem_pending = {n: {"budget_peak_rss_mb": None, "pending_memory_budget": "#2430"} for n in _MEMORY_GATED}
+    _mem_committed = {**_mem_pending, "flow_dwell": {"budget_peak_rss_mb": 400}}
+
+    def _raises(fn, *a):
+        try:
+            fn(*a)
+        except RuntimeError as exc:
+            return str(exc)
+        return None
+
+    if _raises(_check_analytics_measured, None, _b_pending) or _raises(_check_analytics_measured, None, {}):
+        failures.append("skipped analytics scenarios with only pending budgets must stay a NOTE")
+    if "aged_flow_dwell" not in (_raises(_check_analytics_measured, None, _b_p95) or ""):
+        failures.append("skipped analytics scenarios with a committed p95 budget must fail the run")
+    if "linked_card_list" not in (_raises(_check_analytics_measured, None, _b_rss) or ""):
+        failures.append("skipped analytics scenarios with a committed memory budget must fail the run")
+    if _raises(_check_analytics_measured, object(), _b_p95):
+        failures.append("a present analytics session must never trip the skip guard")
+    _off, _on = _ServerMemory(None), _ServerMemory(1)
+    if _raises(_check_memory_measured, _off, _mem_pending) or _raises(_check_memory_measured, _off, {}):
+        failures.append("memory off with only pending memory budgets must stay a NOTE")
+    if "flow_dwell" not in (_raises(_check_memory_measured, _off, _mem_committed) or ""):
+        failures.append("memory off with a committed memory budget must fail the run")
+    if _raises(_check_memory_measured, _on, _mem_committed):
+        failures.append("memory on must never trip the memory guard")
     aged = _aged_endpoints("http://x", 7)
     if set(aged) != set(_AGED_SCENARIOS) or not aged["aged_board_analytics_365"].endswith("/boards/7/analytics/?days=365"):
         failures.append("_aged_endpoints and _AGED_SCENARIOS disagree, or the 365-day scenario lost its range")
+    if aged["aged_board_analytics"] != "http://x/api/v1/boards/7/analytics/?days=90":
+        failures.append("aged_board_analytics must send exactly ?days=90, as the overview does")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
     # Exactly what useAnalyticsOverviewData.ts fires (it never calls summary/); drift here
     # means the fan-out stops measuring what the overview does.
+    # Query strings included: the overview sends days=90 on all eight (no swimlane or label
+    # filter, no grouping, by default).
     _want_overview = {
-        f"http://x/api/v1/boards/1/{p}" for p in (
+        f"http://x/api/v1/boards/1/{p}?days=90" for p in (
             "analytics/", "metrics/cycle-time/", "metrics/throughput/", "metrics/cumulative-flow/",
             "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/", "metrics/attention/",
         )
@@ -851,7 +934,10 @@ def run(args):
     pending = []
     server_mem = _ServerMemory.from_pid_file(args.server_pid_file)
     if not server_mem.enabled:
-        print("NOTE: no --server-pid-file; peak memory is NOT measured or gated (#2430).")
+        if not args.server_pid_file:  # from_pid_file already said why when one was given
+            print("NOTE: no --server-pid-file; peak memory is NOT measured or gated (#2430).")
+        _check_memory_measured(server_mem, budgets)
+    _check_analytics_measured(analytics_session, budgets)
 
     def measure(name, sample, iterations, warmup, extra=None):
         """Run ``sample()`` (a list of ms), then record, print and gate its p95 and peak RSS."""

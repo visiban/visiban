@@ -48,9 +48,9 @@ The `suppressions-check` CI job (`scripts/check-suppression-issues.sh`) greps th
 The same job also scans `backend/nightly-load-test-baseline.json` for pending budgets (#1812). An `endpoints` entry with `"budget_p95_ms": null` and `"pending_budget": "#NNNN"` is measured nightly but not gated (see [Pending budgets](nightly-load-test.md#pending-budgets)). That makes it a temporary exemption exactly like a `SUPPRESSED-UNTIL` marker, so the check applies the same rules:
 
 - It fails, naming the endpoint and the issue, when the cited issue is closed or not returned by the tracker, and fails open on an inconclusive lookup.
-- The marker shape matches `_pending_budget()` in `scripts/nightly_load_test.py`. An entry whose budget isn't null is gated normally, so a leftover `pending_budget` on it is ignored, and so is a value that isn't `#NNNN` (the load-test self-test rejects that case).
+- The marker shape matches `_pending_budget()` in `scripts/nightly_load_test.py`. An entry whose budget isn't null is gated normally, so a leftover `pending_budget` on it is ignored, and so is a value that isn't `#NNNN` (the load-test self-test rejects that case). The same applies to `pending_memory_budget` on an entry whose `budget_peak_rss_mb` is null (#2430): it is scanned independently of the p95 key, so an entry gated on latency but pending on memory is still tracked.
 - A missing or unparseable baseline file fails the check instead of reporting a clean scan.
-- When it fires, assign the budget and delete `pending_budget` in the whole-file NUC re-derivation, or re-point it at a new tracked issue.
+- When it fires, assign the budget and delete `pending_budget` (or `pending_memory_budget`) in the whole-file NUC re-derivation, or re-point it at a new tracked issue.
 
 This job runs on **merge requests, `main`, and scheduled pipelines**, deliberately not MR-only. The triggering event is "an issue closed," not "a commit landed." The commit that added the marker may have merged long before the cited issue closes, so a job that only ran on that MR's pipeline would never fire again. Running on `main` and on schedules is what makes the closed issue actually get caught.
 
@@ -84,7 +84,7 @@ The CI job runs `--self-test` immediately before the real invocation, on the sam
 
 ## Scope
 
-The marker convention and this check apply to `frontend/src` (eslint-disable) and `backend/` (pytest `skip`/`skipif`/`xfail`), plus the `pending_budget` entries in `backend/nightly-load-test-baseline.json` described above.
+The marker convention and this check apply to `frontend/src` (eslint-disable) and `backend/` (pytest `skip`/`skipif`/`xfail`), plus the `pending_budget` and `pending_memory_budget` entries in `backend/nightly-load-test-baseline.json` described above.
 
 **Yes, but:** Coverage `omit` entries in `backend/.coveragerc` are plain path globs. `configparser` (the INI format `.coveragerc` uses) has no syntax for an inline trailing comment on a list item, only a full-line `#` comment above it, so `SUPPRESSED-UNTIL(#N)` doesn't read naturally there and `check-suppression-issues.sh` doesn't scan this file today. A genuinely temporary `omit` entry should still get a plain `#` comment on the line above citing the tracking issue, for a human reader. Extending the automated check to `.coveragerc` is a reasonable follow-up if these entries start accumulating the way the `eslint-disable` sites did.
 

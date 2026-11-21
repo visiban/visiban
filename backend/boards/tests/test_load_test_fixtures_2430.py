@@ -133,6 +133,23 @@ class LoadTestFixtureTests(TestCase):
             Board.objects.filter(pk__in=list(fixture_ids)).exclude(owner=self.user).exists()
         )
 
+    def test_isolation_is_about_access_not_authorship(self):
+        """Pin the honest scope of the isolation claim (#2430).
+
+        Access (memberships, ownership) is isolated, asserted above. Authorship is NOT:
+        ``_create_cards`` still makes demo1-5 the assignees and creators of the aged board's
+        cards, and archived copies inherit ``assignee_id``. No scenario filters by assignee or
+        author, so nothing measured changes; this test makes a change to that deliberate.
+        """
+        demo = {"demo1", "demo2", "demo3", "demo4", "demo5"}
+        cards = Card.objects.filter(board=self.aged)
+        authors = set(cards.values_list("created_by__username", flat=True))
+        assignees = set(cards.exclude(assignee=None).values_list("assignee__username", flat=True))
+        self.assertTrue(authors and authors <= demo, authors)
+        self.assertTrue(assignees and assignees <= demo, assignees)
+        # ...and still no demo user can open the board through them.
+        self.assertFalse(BoardMembership.objects.filter(board=self.aged, user__username__in=demo).exists())
+
     # -- linked boards ------------------------------------------------------
 
     def test_every_child_is_linked_across_five_parent_boards(self):

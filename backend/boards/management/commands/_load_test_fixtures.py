@@ -14,7 +14,22 @@ boards only that user can open. The committed p95 budgets for the existing
 scenarios were derived without these boards, and ``card_search`` as ``demo2``
 or ``demo3`` filters on the viewer's accessible board ids, so giving either of
 them access would change a gated plan. Keeping the fixtures on their own
-account leaves every existing scenario's data exactly as it was.
+account means what viewers can see is unchanged. Row counts still grow
+(``cards`` from about 4k to about 16.5k, movements about 5x, when the aged
+fixture is on), which can shift query plans and timings for the existing gated
+scenarios, so their budgets may move: expected, not proven (#1810 did the same
+to the cards table).
+
+The isolation guarantee is about board ACCESS (memberships and ownership), not
+authorship: ``seed_demo_data._create_cards`` still makes demo1-5 the assignees
+and creators of the aged board's cards, and archived copies inherit
+``assignee_id``. No scenario filters by assignee or author; the test suite pins
+this so a change is deliberate.
+
+Known limits of the aged copy: movements are copied but block history
+(``CardBlock``, read by ``metrics/blocked/``) is not, and ``blocked_at`` /
+``due_date`` on copies are not shifted, so ``aged_flow_blocked`` is not an
+aged-history measurement.
 """
 
 import datetime

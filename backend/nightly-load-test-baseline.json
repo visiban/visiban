@@ -14,7 +14,7 @@
     "extra_board_count": 199,
     "multi_board_accessible_boards": 200,
     "multi_board_note": "#1810: --extra-boards 199 adds 199 small boards (8 cards each, 1,592 cards) owned by demo3, so demo3 can access 200 boards with the load-test board. The extra boards belong to demo3 alone, so the demo1 board_list and demo2 scenarios see the same boards as before. Every measured_p95_ms in this file was taken with the extra boards present (#1808).",
-    "aged_and_linked": "#2430/#2424: seed_demo_data also gets --aged-generations N and --linked-boards. Both fixtures live on boards only the loadtest_analytics user can open, so every measured_p95_ms above was taken with data those flags add absent from the viewers' reach."
+    "aged_and_linked": "#2430/#2424: seed_demo_data also gets --aged-generations N and --linked-boards. Both fixtures live on boards only the loadtest_analytics user can open, so what viewers can see is unchanged. Row counts grow (cards about 4k to about 16.5k, movements about 5x, with the aged fixture on), so the existing budgets may move: expected, not proven (as #1810). The isolation is about board access, not authorship (demo1-5 still author and are assigned the aged cards). Known limit: aged copies carry movements only, no CardBlock history, and blocked_at/due_date are not shifted, so aged_flow_blocked is not an aged-history measurement."
   },
   "measurement_method": {
     "script": "scripts/nightly_load_test.py",
@@ -238,7 +238,7 @@
     },
     "aged_board_analytics": {
       "method": "GET",
-      "path": "/api/v1/boards/{aged_id}/analytics/",
+      "path": "/api/v1/boards/{aged_id}/analytics/?days=90",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
@@ -366,7 +366,7 @@
     },
     "analytics_overview": {
       "method": "GET",
-      "path": "8 reads: analytics, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention} on the load-test board",
+      "path": "8 reads, each with ?days=90 as the overview sends: analytics/, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention}/ on the load-test board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
@@ -377,7 +377,7 @@
     },
     "aged_analytics_overview": {
       "method": "GET",
-      "path": "the same 8 reads on the aged board",
+      "path": "the same 8 reads, each with ?days=90, on the aged board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
