@@ -80,11 +80,11 @@ backend:
     useTls: true
 ```
 
-**Email can wait.** Since 1.2, `backend.email.backend` defaults to `""` (unset) instead of `"smtp"`. You can leave `backend.email.*` blank and install first. A superuser can then configure SMTP from **Admin → Settings → Email**, with no redeploy. The chart's render-time check for a placeholder `fromAddress` (for example `noreply@example.com`) fires only when `backend.email.host` is set, so an install with the whole block blank passes.
+**Email can wait.** Since 1.2, `backend.email.backend` defaults to `""` (unset) instead of `"smtp"`. You can leave `backend.email.*` blank and install first. A superuser can then configure SMTP from **Site admin → Email**, with no redeploy. The chart's render-time check for a placeholder `fromAddress` (for example `noreply@example.com`) fires only when `backend.email.host` is set, so an install with the whole block blank passes.
 
-**Watch out: setting `backend.email.backend` locks the UI.** Set it only if you want env-only email configuration. Doing so pins the backend and **disables** the Admin → Settings → Email UI. Filling in `host`, `user`, and `password` alone doesn't pin it.
+**Watch out: setting `backend.email.backend` locks the UI.** Set it only if you want env-only email configuration. Doing so pins the backend and **disables** the Site admin → Email UI. Filling in `host`, `user`, and `password` alone doesn't pin it.
 
-- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty, the password still reaches the backend and **Admin → Settings → Email** stays available. Set `backend.email.backend: "smtp"` to pin env-only configuration instead. For implicit TLS (port 465), use `backend.email.useSsl` instead of `useTls`.
+- **SMTP:** fill in `host`, `port`, `user`, `password`, and `fromAddress`. With `backend.email.backend` left empty, the password still reaches the backend and **Site admin → Email** stays available. Set `backend.email.backend: "smtp"` to pin env-only configuration instead. For implicit TLS (port 465), use `backend.email.useSsl` instead of `useTls`.
 - **Console (no SMTP):** set `backend.email.backend=console` and leave the other fields blank. Emails go to stdout.
 
 !!! warning "Never commit `values.secret.yaml`"

@@ -204,7 +204,7 @@ Team members who are not watching the board all day can have notifications deliv
 
 Two things have to be true before any email is sent:
 
-1. **A superuser has configured outgoing email** — either the `EMAIL_*` environment variables or **Admin → Settings → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
+1. **A superuser has configured outgoing email** — either the `EMAIL_*` environment variables or **Site admin → Email**. See [Configuration](../administration/configuration.md#email-smtp). Nothing is sent, and nothing is queued, if email is unconfigured.
 2. **You turned the event's email toggle on** in **Settings → Notifications**.
 
 One notice ignores the toggles *(1.3+)*: when a [webhook](webhooks.md) on a board you administer is turned off automatically, you get it in the bell and by email, as long as your address is verified. It names the board, the webhook's number and why it stopped.
@@ -255,7 +255,7 @@ A delivery failure never breaks the action that caused it. Notifications are cre
 
 The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly **best-effort**: restarting or recycling a worker mid-send drops that batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead. Scheduled commands such as `notify_due_soon` do not need that: they wait up to 30 seconds for mail still being sent before they exit.
 
-There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Admin → Settings → Email** has a **Send test email** button.
+There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — **Site admin → Email** has a **Send test email** button.
 
 ### Extending delivery
 

@@ -59,7 +59,7 @@ The description is returned as `description` in `GET /api/v1/groups/{id}/` and i
 - the group's name (admins click it or the pencil to rename), its health status, a star, and the description (admins click it to edit);
 - "N members · N boards · N subgroups" and the live connection status;
 - **Invite** and **Group settings** (group admins only; on a phone they are in the **⋯** menu);
-- **Boards**, with **Show subgroup boards**. Each row shows the name, description, card count and health status. Group admins also get **⋯** with **Move to another group** and, for the board's owner or a user with all-content access, **Delete**;
+- **Boards**, with **Show subgroup boards**. Each row shows the name, description, card count and health status. The **⋯** menu holds **Move to another group** (group admins) and **Delete** (the board's owner or a user with all-content access). A board owner who is not a group admin sees the menu with **Delete** only;
 - **Subgroups**, as cards with board and member counts and the "Not reviewed in N days" cue, plus **+ New subgroup** for group admins;
 - **Members**, a side column (below the content on a phone) that everyone in the group sees, with role chips. **Manage** (group admins only) opens Group settings → Members.
 
@@ -195,7 +195,7 @@ Group admins see the defaults for new boards in **Group settings → Board defau
 
 ## Transferring group ownership
 
-Only the **current owner** can transfer ownership, and only to an existing group **admin**. Open **Group settings → Danger zone → Transfer ownership**. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.
+Only the **current owner** can transfer ownership, and only to an existing group **admin**. Open **Group settings → Danger zone → Transfer ownership**; the form opens in place below the button. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.
 
 If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see [Transferring a group's ownership](../administration/django-admin.md#transferring-a-groups-ownership).
 

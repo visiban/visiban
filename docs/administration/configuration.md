@@ -344,7 +344,7 @@ the instance by uploading in a loop.
 - These quotas bound one card. A user can still spread uploads over many cards,
   which is what the rate limit bounds: at the defaults one account can add at
   most about 1.2 GB an hour. Size the media volume, or lower the rate, with
-  that in mind. Turning uploads off entirely is in **Admin → Settings**.
+  that in mind. Turning uploads off entirely is in **Site admin → General**.
 
 ---
 
@@ -401,7 +401,7 @@ There are two ways to configure it, and **exactly one of them is in effect at a 
 Settings are never merged across the two:
 
 1. **Environment variables** (below): the default, unchanged from earlier releases.
-2. **The admin UI** — *new in 1.2.* **Admin → Settings → Email** stores the same settings in the database, so you can configure and test SMTP without shell access or a restart. See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
+2. **The admin UI** — *new in 1.2.* **Site admin → Email** stores the same settings in the database, so you can configure and test SMTP without shell access or a restart. See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
 
 **Yes, but:** an instance uses environment variables until an admin explicitly switches the source to the stored configuration, so **upgrading changes nothing** about how your instance sends mail.
 
@@ -465,7 +465,7 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
 > **Added in 1.2**
 
-*(1.3+)* A superuser can configure outbound email from **Admin → Settings → Email** without shell access or a container restart, which suits managed and cloud deployments.
+*(1.3+)* A superuser can configure outbound email from **Site admin → Email** without shell access or a container restart, which suits managed and cloud deployments.
 
 1. Fill in the server, port, sender address, and credentials.
 2. Switch **Configuration source** to **Stored in this admin UI**.

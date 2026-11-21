@@ -152,7 +152,7 @@ A site admin (or a user with `can_access_all_content`) viewing the board also se
 - If the member has an explicit board membership, a line under their name reads "Board role: Viewer — not in effect while this account has all-content access." (using the stored role). The stored role is kept: it takes effect if the member's all-content access is later revoked.
 - A row with no explicit membership shows the chip and no extra line.
 - **Remove board role** (only when an explicit membership exists) asks "Remove this board role? Full access is not affected." and deletes only the stored membership; Escape dismisses the prompt. Afterward the member keeps full access. The action is not offered for a site admin whose membership you cannot change (see above).
-- Site admins also see a **Manage in Admin → Users** link on the row, since the all-content setting is changed there, not per board.
+- Site admins also see a **Manage in Site admin → Users** link on the row, since the all-content setting is changed there, not per board.
 
 The panel keeps the row listed until the board is next re-read; a re-read then lists the member only if you see the all-content roster, or they are also in the board's group or its owner. Their effective access stays full for as long as they have `can_access_all_content`. Anyone on the board can still @mention such a user by typing their username.
 

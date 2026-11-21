@@ -27,7 +27,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 
 !!! warning "Rotating this key invalidates a stored SMTP password"
 
-    If you configured outbound email through **Admin → Settings → Email** (rather than
+    If you configured outbound email through **Site admin → Email** (rather than
     the `EMAIL_*` environment variables), the SMTP password is encrypted at rest using a
     key derived from `SECRET_KEY`. Rotating `SECRET_KEY` makes that stored password
     permanently unrecoverable, and outbound email will stop working.
@@ -83,7 +83,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
     ```
 
 5. **If you configured SMTP in the admin UI, re-enter the password.** Open
-   **Admin → Settings → Email**. If the stored password can no longer be decrypted the
+   **Site admin → Email**. If the stored password can no longer be decrypted the
    page says so explicitly and outbound mail is blocked until you re-enter it. Type the
    password again and save, then use **Send test email** to confirm delivery.
 
@@ -98,7 +98,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 
 > **Added in 1.2** (#306)
 
-Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypts secrets Visiban stores at rest: the SMTP password set in **Admin → Settings → Email** and, from 1.3, the URL and signing secret of every [outbound webhook](../features/webhooks.md). It lets you rotate `SECRET_KEY` on its own schedule without invalidating stored secrets.
+Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypts secrets Visiban stores at rest: the SMTP password set in **Site admin → Email** and, from 1.3, the URL and signing secret of every [outbound webhook](../features/webhooks.md). It lets you rotate `SECRET_KEY` on its own schedule without invalidating stored secrets.
 
 ### Steps
 
@@ -111,7 +111,7 @@ Optional. When set, this key (rather than one derived from `SECRET_KEY`) encrypt
 2. Set `VISIBAN_SECRET_ENCRYPTION_KEY` in your `.env` and restart the backend. The
    backend refuses to start if the value is not 32 bytes of URL-safe base64.
 
-3. Re-enter any stored SMTP password in **Admin → Settings → Email** — existing secrets
+3. Re-enter any stored SMTP password in **Site admin → Email** — existing secrets
    were encrypted under the old key and are not migrated automatically. Webhooks must
    be recreated by their boards' admins (they turn off on their own, see above).
 

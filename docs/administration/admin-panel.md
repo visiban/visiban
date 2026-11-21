@@ -160,7 +160,7 @@ Controls the `can_access_all_content` flag independently of admin status (for ac
 !!! tip
     The `set_site_admin` management command sets **both** flags together for convenience. To manage them independently for accounts that are not superusers, use the admin panel actions described here. The user form in the [Django admin](django-admin.md) doesn't carry either flag; it only sets **Superuser status**, which implies both.
 
-#### Force reset
+#### Force password reset
 
 Sets `must_change_password = true` on the user. At their next login, they get a password-change dialog before accessing the application. Use it after a suspected credential compromise. On a superuser account it is available to, and shown to, superusers only.
 

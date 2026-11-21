@@ -313,7 +313,7 @@ present and always a non-empty string: a fixed, neutral message for that code.
 | `tls_failure` | TLS negotiation failed — often STARTTLS vs implicit SSL, or the wrong port | The secure connection to the mail server could not be established. Check that STARTTLS or SSL matches the port. |
 | `auth_failed` | The server rejected the username or password | The mail server rejected the username or password. |
 | `timeout` | The server did not respond within the configured timeout | The mail server did not respond within the configured timeout. |
-| `config_unusable` | The stored configuration is incomplete, or its password cannot be decrypted | One of a few fixed messages saying which — for example "Email is set to use the configuration stored in the admin UI, but it is incomplete. Set a host and a sender address in Admin → Settings → Email." |
+| `config_unusable` | The stored configuration is incomplete, or its password cannot be decrypted | One of a few fixed messages saying which — for example "Email is set to use the configuration stored in the admin UI, but it is incomplete. Set a host and a sender address in Site admin → Email." |
 | `no_recipient` | The requesting admin's account has no email address | Your account has no email address, so there is nowhere to send the test. Add one in your profile first. |
 | `backend_pinned` | `EMAIL_BACKEND` is set explicitly on the server, so neither configuration source is what sends mail and there is nothing here to test | EMAIL_BACKEND is set on the server, so Visiban cannot test the configuration below — it is not what sends mail. |
 | `unknown` | Anything else | The test email could not be sent. The error type is recorded in the server log. |

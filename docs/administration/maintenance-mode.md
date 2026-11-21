@@ -16,7 +16,7 @@ Reach for maintenance mode when the thing you want to prevent is **concurrent wr
 
 ## Turning it on
 
-From **Admin → Settings → Maintenance**:
+From **Site admin → General → Maintenance**:
 
 | Control | Effect |
 |---|---|
@@ -93,7 +93,7 @@ command-line change has no signed-in user to attribute, so it is recorded with n
 
 Setting a value to the one it already holds is not recorded. The log holds real transitions only, so the gap between an `enabled` entry and the next `disabled` entry is the actual maintenance window.
 
-The log covers the instance-wide settings on the Admin → Settings tab. It does **not** yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.
+The log covers the instance-wide settings on the Site admin → General section. It does **not** yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.
 
 !!! warning "The audit write is part of the change"
     A setting change and its log entry commit together: if the entry cannot be written, the
@@ -133,7 +133,7 @@ The [Django admin](django-admin.md) is a second break-glass route: `Site setting
 
 ## Related pages
 
-- [Admin Panel](admin-panel.md#settings-tab) — the Settings tab this control lives on, and the
+- [Admin Panel](admin-panel.md#maintenance-mode) — the General section this control lives on, and the
   other instance-wide toggles alongside it
 - [Maintenance mode](../api/admin.md#maintenance-mode) — the API reference: request/response
   shapes, the `503` error body, and MCP behavior

@@ -491,7 +491,7 @@ Generic OpenID Connect (OIDC) is configurable via environment variables, making 
 
 ## Feature toggles
 
-Site admins can enable or disable specific features instance-wide from the admin panel Settings tab. Toggling a feature takes effect within approximately 60 seconds and never deletes existing data. The current toggles control file uploads; additional toggles will be added as new gated features are introduced.
+Site admins can enable or disable specific features instance-wide from **Site admin → General**. Toggling a feature takes effect within approximately 60 seconds and never deletes existing data. The current toggles control file uploads; additional toggles will be added as new gated features are introduced.
 
 → [Feature Toggles](feature-toggles.md)
 
