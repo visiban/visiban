@@ -13,7 +13,7 @@ function boardIdFromPath(pathname: string): number | null {
 
 /**
  * Loads the shell's navigation data (#2473) and records board visits for the
- * Recent list. This moved here from AppSidebar when the sidebar was removed:
+ * Recent list. This moved here from the removed AppSidebar (#2473):
  * the drawer is mounted only while open, but visits must be recorded on every
  * board navigation, so the shell owns the recording.
  */

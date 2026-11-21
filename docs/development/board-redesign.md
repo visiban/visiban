@@ -42,7 +42,7 @@ All are 1440px wide unless noted, dark theme unless noted.
 
 Top to bottom:
 
-1. App header (Row 1): logo, breadcrumb, star, board status pill, board search, notifications, account.
+1. App header (Row 1): the menu button (opens the navigation drawer, `[`), the breadcrumb rooted at "Home" whose last crumb is the page's only `h1` (on a board, a button with the board name and a chevron that opens the board switcher), star, board status pill, board search, notifications, account. There is no sidebar (#2473): navigation is the on-demand drawer described in `frontend/CLAUDE.md` § App shell.
 2. Board toolbar (Row 2): view tabs on the left; Filter, View, Activity, overflow menu and the connection status on the right.
 3. Filter chip row: only when a filter is active.
 4. Show chips, with the board totals and "Collapse all lanes" on the right.
@@ -61,8 +61,10 @@ Screenshots: `board-dark.png`, `menus.png`.
 - **Buttons, right-aligned:** Filter, View, Activity, Export (download icon), Settings (gear icon), then the `⋯` kebab. No divider: Row 2 has none. Bordered, 36px tall, icon plus label. Export shows when the viewer can export and Settings for admins; tooltips read "Export board ⌘ ⇧ E" and "Board settings ⌘ ," (#2435). A button whose panel is open, or Filter while any filter is active, takes the selected treatment (see [Design tokens](#design-tokens)); Filter also shows the count of active filters.
 - **Overflow menu:** Keyboard shortcuts only (#2435). Export and Board settings are toolbar buttons.
 - **Connection status:** the existing `ConnectionStatus` component, last in the row.
+- **Board name:** the last breadcrumb crumb, inside the `h1`: a button labeled "<board>, switch board" that opens the 360px "Switch board" popover (Starred, Recent on this device, then the rest of the group; a bottom sheet on phones). Admins rename through the Rename button beside it (#2473).
 - **Board status pill:** beside the star in Row 1. Same data and menu as today.
-- **Board search:** in Row 1, centered, placeholder "Search cards, people, labels, fields", with the command palette hint.
+- **Board search:** in Row 1, centered, a 38px field with placeholder "Search cards, people, labels, fields" and the ⌘K keycap. Off a board the same field reads "Jump to a board or action" (#2473).
+- **Keyboard shortcuts:** the overflow menu's item and `?` open the same help, which leads with the global keys (⌘K, `[`, `g` `u`, `?`) and then lists the board's own (#2473).
 
 Preset, card density, overlay, collapse all and expand all move into the View menu. Archived cards move into the Activity drawer.
 

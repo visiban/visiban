@@ -4,7 +4,7 @@
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Open **Profile & preferences → Appearance** and pick one of three options: **System** (the default), **Dark**, or **Light**. It applies at once, with no reload.
+Open **Profile & settings → Appearance** and pick one of three options: **System** (the default), **Dark**, or **Light**. It applies at once, with no reload. The account menu's **Theme** buttons (Dark, Light, System) set the same preference (1.3+).
 
 **Why it matters:** The preference is stored with your account, so it follows you to every browser and device you sign in on.
 
@@ -20,7 +20,7 @@ Open **Profile & preferences → Appearance** and pick one of three options: **S
 
 ## Changing your appearance
 
-1. Click your avatar (top right) and select **Profile & preferences**.
+1. Click your avatar (top right) and select **Profile & settings**.
 2. Open the **Appearance** tab in the Settings sidebar.
 3. Under **Theme**, choose an option.
 

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
-// Matches Tailwind's `lg` breakpoint — the same threshold AppSidebar uses to
-// toggle between its hidden and visible state. Keeping these in sync means the
-// viewport gate triggers exactly where the layout would otherwise break.
+// Matches Tailwind's `lg` breakpoint, so the viewport gate triggers exactly
+// where `lg:` layouts switch.
 const LARGE_VIEWPORT_QUERY = "(min-width: 1024px)";
 
 function readInitial(): boolean {
