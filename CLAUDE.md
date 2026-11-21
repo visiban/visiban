@@ -168,7 +168,8 @@ issue — when a cited issue is already closed.** It runs on merge requests, `ma
 scheduled pipelines, not MR-only: the triggering event is "an issue closed," not "a commit
 landed," so an MR-only job would never fire again after the marker's branch merges. See
 [`docs/development/suppressions.md`](docs/development/suppressions.md) for the full contract,
-scope (`frontend/src` eslint-disable + `backend/` skip/xfail, plus `pending_budget` entries in
+scope (`frontend/src` eslint-disable + `backend/` skip/xfail, the axe `BASELINE` entries in
+`frontend/e2e/a11y.spec.ts`, plus `pending_budget` entries in
 `backend/nightly-load-test-baseline.json`, which fail the same way when their cited issue closes),
 and the fail-open behavior on an inconclusive API lookup.
 
