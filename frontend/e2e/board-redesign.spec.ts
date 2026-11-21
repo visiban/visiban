@@ -31,8 +31,6 @@ async function openBoard(page: Page, theme: 'light' | 'dark', search = '') {
   await page.clock.setFixedTime(new Date(REDESIGN_NOW))
   await page.addInitScript((t) => {
     window.localStorage.setItem('user:prefs:theme', t)
-    // The reference mocks show the board alone; collapse the app sidebar to match.
-    window.localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
   }, theme)
   await routeAuth(page)
   await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
@@ -145,7 +143,6 @@ test.describe('board redesign baseline', () => {
     test('empty board state', async ({ page }) => {
       await page.addInitScript(() => {
         window.localStorage.setItem('user:prefs:theme', 'dark')
-        window.localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
       })
       await page.clock.setFixedTime(new Date(REDESIGN_NOW))
       await routeAuth(page)
@@ -192,7 +189,6 @@ test.describe('board redesign baseline', () => {
       await page.clock.setFixedTime(new Date(REDESIGN_NOW))
       await page.addInitScript(() => {
         window.localStorage.setItem('user:prefs:theme', 'dark')
-        window.localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
       })
       await routeAuth(page)
     }

@@ -1,10 +1,15 @@
 import { useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import type { User } from "../../types";
 import { userDisplayName } from "../../types";
 import Avatar from "../Common/Avatar";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
+import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
+import { useTheme } from "../../context/ThemeContext";
+import type { ThemePreference } from "../../context/ThemeContext";
+import { openShortcutsHelp } from "./shellNavModel";
+import { ExternalIcon, GearIcon, HelpIcon, KeyboardIcon, MonitorIcon, MoonIcon, ShieldIcon, SignOutIcon, SunIcon } from "./shellIcons";
 
 interface Props {
   user: User;
@@ -13,15 +18,38 @@ interface Props {
   onLogout: () => void;
 }
 
+const ITEM = `w-full flex items-center gap-2.5 text-left px-3 min-h-10 max-sm:min-h-11 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:bg-surface-hover focus:text-fg ${MENU_ITEM_FOCUS_RING}`;
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: ReactNode }[] = [
+  { value: "dark", label: "Dark", icon: <MoonIcon /> },
+  { value: "light", label: "Light", icon: <SunIcon /> },
+  { value: "system", label: "System", icon: <MonitorIcon /> },
+];
+
+function Separator() {
+  return (
+    <div role="separator" className="mx-4 my-1">
+      <div className="h-px bg-sunken" />
+      <div className="h-px bg-surface-active/50" />
+    </div>
+  );
+}
+
+/**
+ * The account menu (#2473). Roving focus over every item (the three theme
+ * buttons included), Escape closes and refocuses the trigger. The theme
+ * buttons write the same preference as Settings › Appearance; ThemeServerSync
+ * saves it to the server.
+ */
 export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
-  const location = useLocation();
+  const { preference, setPreference } = useTheme();
 
   const displayName = userDisplayName(user) || user.username || "Account";
   const email = user.email?.trim() || "";
-  const onBoardPage = /^\/boards\/\d+/.test(location.pathname);
+  const isAdmin = !!user.is_site_admin;
 
   // Close on Escape (dropdown priority = 25). Refocus trigger on close.
   useEscapeStack(() => {
@@ -68,11 +96,22 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
 
   const handleOpenShortcuts = () => {
     // #1775: the focused item unmounts with the menu, and the overlay it opens
-    // (in BoardView) would capture that item as its focus opener. Hand focus
-    // to the surviving trigger before the event so the overlay restores to it.
+    // would capture that item as its focus opener. Hand focus to the
+    // surviving trigger before the event so the overlay restores to it.
     triggerRef.current?.focus({ preventScroll: true });
     onOpenChange(false);
-    window.dispatchEvent(new CustomEvent("visiban:open-shortcuts"));
+    openShortcutsHelp();
+  };
+
+  // Item indexes follow the visual order so roving focus does too.
+  const at = isAdmin ? 1 : 0;
+  const IDX = { settings: 0, admin: 1, shortcuts: 1 + at, help: 2 + at, theme: 3 + at, signOut: 6 + at };
+  const item = (idx: number) => {
+    return {
+      ref: (el: HTMLElement | null) => { itemRefs.current[idx] = el; },
+      tabIndex: -1,
+      onKeyDown: (e: React.KeyboardEvent) => onItemKeyDown(e, idx),
+    };
   };
 
   return (
@@ -84,12 +123,9 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account menu for ${displayName}`}
-        className="flex items-center justify-center gap-1 rounded-full p-0.5 max-sm:min-h-11 max-sm:min-w-11 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className="flex items-center justify-center rounded-full p-0.5 max-sm:min-h-11 max-sm:min-w-11 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         <Avatar user={user} size="trigger" />
-        <svg aria-hidden="true" viewBox="0 0 12 12" className="w-3 h-3 text-fg-tertiary">
-          <path d="M3 4.5l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
 
       {open && (
@@ -97,78 +133,80 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
           ref={panelRef}
           role="menu"
           aria-label="Account menu"
-          className="absolute right-0 top-full mt-1 w-56 bg-surface border border-line-strong rounded-lg shadow-xl py-1 z-50 max-sm:[&_[role=menuitem]]:min-h-11"
+          className="absolute right-0 top-full mt-1 w-64 bg-surface border border-line-strong rounded-lg shadow-xl py-1 z-50"
         >
-          <div className="px-3 py-2" role="none">
-            <p className="text-sm font-medium text-fg truncate" title={displayName}>{displayName}</p>
-            {email && (
-              <p className="text-xs text-fg-muted truncate" title={email}>{email}</p>
+          <div className="flex items-center gap-2.5 px-3 py-2" role="none">
+            <Avatar user={user} size="md" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-fg truncate" title={displayName}>{displayName}</p>
+              {email && <p className="text-xs text-fg-muted truncate" title={email}>{email}</p>}
+            </div>
+            {isAdmin && (
+              <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium bg-primary-emphasis/10 text-info-on-tint">Site admin</span>
             )}
           </div>
 
-          <div role="separator" className="mx-4 my-1">
-            <div className="h-px bg-sunken" />
-            <div className="h-px bg-surface-active/50" />
-          </div>
+          <Separator />
 
-          <Link
-            ref={(el) => { itemRefs.current[0] = el; }}
-            to="/settings"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => onOpenChange(false)}
-            onKeyDown={(e) => onItemKeyDown(e, 0)}
-            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:bg-surface-hover focus:text-fg ${MENU_ITEM_FOCUS_RING}`}
-          >
-            <span aria-hidden="true" className="w-4 text-center flex-shrink-0">⚙</span>
-            <span className="flex-1 truncate">Profile &amp; preferences</span>
+          <Link {...item(IDX.settings)} to="/settings" role="menuitem" onClick={() => onOpenChange(false)} className={ITEM}>
+            <GearIcon />
+            <span className="flex-1 truncate">Profile &amp; settings</span>
           </Link>
 
-          <button
-            ref={(el) => { itemRefs.current[1] = el; }}
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            aria-disabled={!onBoardPage}
-            onClick={!onBoardPage ? undefined : handleOpenShortcuts}
-            onKeyDown={(e) => onItemKeyDown(e, 1)}
-            title={onBoardPage ? undefined : "Keyboard shortcuts are available while viewing a board"}
-            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary transition focus:bg-surface-hover focus:text-fg ${MENU_ITEM_FOCUS_RING} ${!onBoardPage ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-hover hover:text-fg"}`}
-          >
-            <span aria-hidden="true" className="w-4 text-center flex-shrink-0">⌨</span>
+          {isAdmin && (
+            <Link {...item(IDX.admin)} to="/admin" role="menuitem" onClick={() => onOpenChange(false)} className={ITEM}>
+              <ShieldIcon />
+              <span className="flex-1 truncate">Site admin</span>
+            </Link>
+          )}
+
+          <button {...item(IDX.shortcuts)} type="button" role="menuitem" onClick={handleOpenShortcuts} aria-keyshortcuts="?" className={ITEM}>
+            <KeyboardIcon />
             <span className="flex-1 truncate">Keyboard shortcuts</span>
+            <kbd aria-hidden="true" className="text-xs font-mono px-1.5 rounded border border-line-strong bg-sunken text-fg-tertiary">?</kbd>
           </button>
 
           <a
-            ref={(el) => { itemRefs.current[2] = el; }}
+            {...item(IDX.help)}
             href="https://docs.visiban.com"
             target="_blank"
             rel="noopener noreferrer"
             role="menuitem"
-            tabIndex={-1}
             onClick={() => onOpenChange(false)}
-            onKeyDown={(e) => onItemKeyDown(e, 2)}
-            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:bg-surface-hover focus:text-fg ${MENU_ITEM_FOCUS_RING}`}
+            className={ITEM}
           >
-            <span aria-hidden="true" className="w-4 text-center flex-shrink-0">❓</span>
-            <span className="flex-1 truncate">Help &amp; docs</span>
+            <HelpIcon />
+            <span className="flex-1 truncate">Help &amp; docs<span className="sr-only"> (opens in a new tab)</span></span>
+            <ExternalIcon className="w-3.5 h-3.5 text-fg-tertiary" />
           </a>
 
-          <div role="separator" className="mx-4 my-1">
-            <div className="h-px bg-sunken" />
-            <div className="h-px bg-surface-active/50" />
+          <div role="group" aria-label="Theme" className="flex items-center gap-2 px-3 min-h-10 max-sm:min-h-11">
+            <span aria-hidden="true" className="flex-1 text-sm text-fg-secondary">Theme</span>
+            {THEME_OPTIONS.map((t, ti) => (
+              <button
+                key={t.value}
+                {...item(IDX.theme + ti)}
+                type="button"
+                role="menuitemradio"
+                aria-checked={preference === t.value}
+                aria-label={t.label}
+                title={t.label}
+                onClick={() => setPreference(t.value)}
+                className={`inline-flex items-center justify-center w-10 h-10 max-sm:w-11 max-sm:h-11 rounded-md transition ${MENU_ITEM_FOCUS_RING} ${
+                  preference === t.value
+                    ? "bg-surface-active text-fg ring-1 ring-inset ring-line-emphasis"
+                    : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
+                }`}
+              >
+                {t.icon}
+              </button>
+            ))}
           </div>
 
-          <button
-            ref={(el) => { itemRefs.current[3] = el; }}
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => { onOpenChange(false); onLogout(); }}
-            onKeyDown={(e) => onItemKeyDown(e, 3)}
-            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-danger-bg/20 hover:text-danger transition focus:bg-danger-bg/20 ${MENU_ITEM_FOCUS_RING_DANGER}`}
-          >
-            <span aria-hidden="true" className="w-4 text-center flex-shrink-0">🚪</span>
+          <Separator />
+
+          <button {...item(IDX.signOut)} type="button" role="menuitem" onClick={() => { onOpenChange(false); onLogout(); }} className={ITEM}>
+            <SignOutIcon />
             <span className="flex-1">Sign out</span>
           </button>
         </div>

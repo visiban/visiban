@@ -33,7 +33,7 @@ async function optionsBelowFloor(page: Page): Promise<string[]> {
 // Pairs of header and toolbar controls whose boxes overlap (a control may not cover another).
 async function overlappingControls(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="mobile-nav-bar"] button, nav[aria-label="Board toolbar"] button'))
+    const els = Array.from(document.querySelectorAll('[role="banner"] button, [role="banner"] a, [data-testid="shell-fallback-bar"] button, nav[aria-label="Board toolbar"] button'))
       .filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden' })
     const name = (el: Element) => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)
     // The part a user sees: a tab scrolled out of the tab strip's own box (#2348) is clipped, not overlapping the icons after it.
@@ -94,7 +94,7 @@ test.describe('board phone layout', () => {
   test('has no sideways page scroll and every board-body control is at least 44px', async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    const small = await smallControls(page, ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="mobile-nav-bar"]', 'nav[aria-label="Board toolbar"]'])
+    const small = await smallControls(page, ['[data-testid="phone-board"]', '[data-testid="show-chips"]', '[role="banner"]', '[data-testid="shell-fallback-bar"]', 'nav[aria-label="Board toolbar"]'])
     expect(small).toEqual([])
     expect(await overlappingControls(page)).toEqual([])
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
@@ -110,7 +110,7 @@ test.describe('board phone layout', () => {
     const banner = page.getByRole('banner')
     // Phones show only the last crumb; the group crumb is hidden, not clipped.
     await expect(banner.getByRole('link', { name: 'Platform engineering and operations' })).toBeHidden()
-    const nameBtn = banner.getByRole('button', { name, exact: true })
+    const nameBtn = banner.getByRole('button', { name: `${name}, switch board` })
     await expect(nameBtn).toBeVisible()
     const nameBox = (await nameBtn.boundingBox())!
     for (const ctl of [banner.getByRole('button', { name: 'Star board' }), banner.getByRole('button', { name: /^Health status/ })]) {
@@ -122,7 +122,8 @@ test.describe('board phone layout', () => {
       expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(43.5)
     }
     // The name truncates with an ellipsis instead of pushing the controls out.
-    expect(await nameBtn.evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === 'ellipsis')).toBe(true)
+    // The board switcher's label span carries the truncation (#2473).
+    expect(await nameBtn.locator('span.truncate').evaluate((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).textOverflow === 'ellipsis')).toBe(true)
     expect(await overlappingControls(page)).toEqual([])
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
@@ -166,14 +167,14 @@ test.describe('board phone layout', () => {
     }
     await expect(page.getByRole('button', { name: /^Search/ }).first()).toBeVisible()
     await expect(page.getByRole('button', { name: /^Notifications/ })).toBeVisible()
-    await expect(page.getByRole('banner').getByRole('button', { name: 'Open navigation menu' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: 'Open navigation' })).toBeVisible()
   })
 
   test('the navigation bar and the app header are one row, over the toolbar and tabs (#2344)', async ({ page }) => {
-    await expect(page.getByTestId('mobile-nav-bar')).toBeHidden()
+    await expect(page.getByTestId('shell-fallback-bar')).toHaveCount(0)
     const banner = page.getByRole('banner')
-    const hamburger = banner.getByRole('button', { name: 'Open navigation menu' })
-    const nameBtn = banner.getByRole('button', { name: BOARD_FULL.name, exact: true })
+    const hamburger = banner.getByRole('button', { name: 'Open navigation' })
+    const nameBtn = banner.getByRole('button', { name: `${BOARD_FULL.name}, switch board` })
     const search = banner.getByRole('button', { name: /^Search/ })
     const [hb, nb, sb, bb] = await Promise.all([hamburger.boundingBox(), nameBtn.boundingBox(), search.boundingBox(), banner.boundingBox()])
     // One row: the hamburger, the board name and the header icons share a line.
@@ -188,7 +189,7 @@ test.describe('board phone layout', () => {
     const toolbar = (await page.getByRole('navigation', { name: 'Board toolbar' }).boundingBox())!
     expect(toolbar.y + toolbar.height).toBeLessThanOrEqual(96)
     await hamburger.click()
-    await expect(page.getByRole('dialog', { name: 'Navigation menu' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Main navigation' })).toBeVisible()
   })
 
   test('the header and toolbar stay on one row, 44px, without overlap in dark mode (#2344)', async ({ page }) => {
@@ -275,8 +276,8 @@ test.describe('board phone layout', () => {
     await expect(page.getByText('Ada moved Fix login to Done')).toBeVisible()
     await sweep('[role="banner"] .shadow-xl')
     await page.getByRole('button', { name: /^Notifications/ }).click()
-    await page.getByRole('banner').getByRole('button', { name: 'Open navigation menu' }).click()
-    await sweep('[role="dialog"][aria-label="Navigation menu"]')
+    await page.getByRole('banner').getByRole('button', { name: 'Open navigation' }).click()
+    await sweep('[role="dialog"][aria-label="Main navigation"]')
   })
 
   test('the filter bar facet menus, Activity drawer, Board Health popover and command palette are 44px (#2350, #2351)', async ({ page }) => {
@@ -989,7 +990,7 @@ test.describe('phone board settings modal (#2404)', () => {
 // Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board, Export Board and
 // Import board (dashboard). Not swept yet: Add child; BoardView "Delete column?"; CardDetail "Delete/Archive this card?";
 // Move board; Trello import; Policy confirm; Lens connection; the two "Delete field?" dialogs (Board settings Fields and
-// Swimlane fields tabs); Profile; Force password change; Force username rename; Connect provider; BoardSelector
+// Swimlane fields tabs); Profile; Force password change; Force username rename; Connect provider
 // "Delete board?"; Create group (2 sites); Group detail "Transfer ownership" and "Delete group"; Dashboard "Join a
 // group" and "Delete board?"; Admin "Add User" and "Transfer boards & deactivate". #2407 stays open and is the tracker.
 test.describe('phone ModalWrapper modals (#2407)', () => {
@@ -1019,8 +1020,9 @@ test.describe('phone ModalWrapper modals (#2407)', () => {
       await page.getByRole('button', { name: /^Import/ }).first().click()
     }],
     ['New Board', 'New Board', async (page) => {
-      await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click')
-      await page.getByRole('button', { name: /^New board/ }).first().dispatchEvent('click')
+      // The drawer carries no New board button (#2473); the dashboard does.
+      await page.goto('/')
+      await page.getByRole('button', { name: /New board/ }).first().dispatchEvent('click')
     }],
   ]
 

@@ -144,7 +144,7 @@ The **Invite by email** section shows which case applies. A site admin on an inv
 
 Move a board to a different group, or back to personal boards, from the **Move board** dialog. Open it with the move icon that appears when you hover over or tab to a board row:
 
-- on the dashboard, **Move to group** on a board in the **Favorite Boards** list or in **My Boards** (your personal boards);
+- on Home, **Move to group** in the **...** menu of any row in **All boards** (see [Home](navigation.md#home));
 - on a group page, **Move to another group** on a board in the group's **Boards** list.
 
 Only board admins and site admins can move a board, and moving a board into a group also requires being an admin of that group (or of one of its parent groups). Importing or creating a board in a group needs the same group role.
@@ -188,7 +188,7 @@ If the owner has left or been deactivated, a superuser can transfer the group fr
 
 ## Starring groups
 
-The star button (☆/★) in the group detail page header marks a group as a favorite. Starred groups appear in a **Favorite Groups** section at the top of the sidebar. The star updates optimistically and rolls back on failure.
+The star button (☆/★) in the group detail page header marks a group as a favorite. Since 1.3 the navigation drawer's **Starred** section lists starred boards only, so a starred group is not listed there (#2473). The star updates optimistically and rolls back on failure.
 
 ## Live board list
 
@@ -208,9 +208,7 @@ A **Live / Reconnecting… / Offline** status indicator in the group page header
 
 ## Dashboard
 
-The persistent, collapsible left sidebar is the primary way to navigate between groups and boards. It shows the full group/board hierarchy and remembers each item's collapsed or expanded state across sessions.
-
-The **+ New board** and **+ New group** buttons in the sidebar footer open their creation dialogs immediately, with no navigation.
+The navigation drawer, opened from the header's menu button or `[`, lists your groups as a tree with their board counts, alongside your starred and personal boards (1.3+, replacing the persistent sidebar; see [Navigation](navigation.md)). Create boards and groups from Home (see [Home](navigation.md#home)) and the group page.
 
 ### Create Group modal
 

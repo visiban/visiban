@@ -29,7 +29,7 @@ describe('KeyboardShortcutsOverlay', () => {
 
   it('renders the G U chord as separate kbd chips joined by "then", not one combo chip', () => {
     const { container } = render(<KeyboardShortcutsOverlay onClose={() => {}} />)
-    expect(screen.getByText('Open the user menu')).toBeInTheDocument()
+    expect(screen.getByText('Open the account menu')).toBeInTheDocument()
     const keys = Array.from(container.querySelectorAll('kbd')).map((el) => el.textContent)
     // Two distinct <kbd> chips — G and U — never a single "G U" chip, so the
     // sequential chord can't be mistaken for a simultaneous combo like ⌘K.
@@ -37,6 +37,25 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(keys).toContain('U')
     expect(keys).not.toContain('G U')
     expect(screen.getByText('then')).toBeInTheDocument()
+  })
+
+  it('leads with the Everywhere section and lists the board sections on a board (#2473)', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    const headings = screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    expect(headings[0]).toBe('Everywhere')
+    for (const copy of ['Jump to a board or action', 'Open or close the navigation drawer', 'Open the account menu', 'Show this help']) {
+      expect(screen.getByText(copy)).toBeInTheDocument()
+    }
+    expect(screen.getByText('Board view')).toBeInTheDocument()
+    expect(screen.queryByText(/Open a board to see them here/)).not.toBeInTheDocument()
+  })
+
+  it('off a board, shows only the Everywhere keys and the board-shortcuts box (#2473)', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} onBoard={false} />)
+    expect(screen.getByText('Everywhere')).toBeInTheDocument()
+    expect(screen.queryByText('Board view')).not.toBeInTheDocument()
+    expect(screen.getByText('Board shortcuts.')).toBeInTheDocument()
+    expect(screen.getByText(/Filtering, moving cards and switching views have their own keys\. Open a board to see them here\./)).toBeInTheDocument()
   })
 
   it('shows the L shortcut for Lens view when a lens is available', () => {

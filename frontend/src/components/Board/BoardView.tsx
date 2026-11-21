@@ -67,6 +67,7 @@ import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
 import FilterPanel from "./FilterPanel";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
+import { SHOW_BOARD_SHORTCUTS_EVENT } from "../Layout/shellNavModel";
 import Tooltip from "../Common/Tooltip";
 import HideFilterBarButton, { focusFiltersTrigger } from "./HideFilterBarButton";
 import BulkActionToolbar from "./BulkActionToolbar";
@@ -2134,9 +2135,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         e.preventDefault();
         setShowFilters(true);
         setTimeout(() => searchRef.current?.focus(), 0);
-      } else if (e.key === "?") {
-        e.preventDefault();
-        setShowShortcuts((v) => !v);
       } else if (e.key === ".") {
         // Bare `.` — open the overflow menu. Guarded by the input-tag check
         // above so a period typed into a text field does not fire. 
@@ -2154,11 +2152,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above; only the decision-surface deps are pinned
   }, [toggleCollapsedSwimlane, canExport, isAdmin, announceBulk]);
 
-  // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
+  // `?`, the account menu and the palette all go through the shell's one
+  // shortcuts-help handler (#2473, ShortcutsHelpHost). On a board it asks here
+  // first with a cancelable event; claiming it shows the board's full list,
+  // so the shell's off-board help never opens on top of it.
   useEffect(() => {
-    const open = () => setShowShortcuts(true);
-    window.addEventListener("visiban:open-shortcuts", open);
-    return () => window.removeEventListener("visiban:open-shortcuts", open);
+    const open = (e: Event) => {
+      e.preventDefault();
+      setShowShortcuts(true);
+    };
+    window.addEventListener(SHOW_BOARD_SHORTCUTS_EVENT, open);
+    return () => window.removeEventListener(SHOW_BOARD_SHORTCUTS_EVENT, open);
   }, []);
 
   // Replay the onboarding tour — best-effort reset on the server, then flip

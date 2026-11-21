@@ -6,16 +6,31 @@ interface Props {
   name: string;
   canEdit: boolean;
   onSave: (name: string) => Promise<void>;
+  /** Open straight into the editor (#2473: the header's Rename button swaps the board switcher for it). */
+  initialEditing?: boolean;
+  /**
+   * Called once the editor closes, saved or canceled. `restoreFocus` is true only for Enter/Escape;
+   * a blur-commit passes false so the caller never pulls focus off the control the user moved to.
+   */
+  onDone?: (restoreFocus: boolean) => void;
 }
 
-export default function InlineBoardName({ name, canEdit, onSave }: Props) {
-  const [editing, setEditing] = useState(false);
+export default function InlineBoardName({ name, canEdit, onSave, initialEditing = false, onDone }: Props) {
+  const [editing, setEditing] = useState(initialEditing);
   const [value, setValue] = useState(name);
   const [error, setError] = useState<string | null>(null);
 
   // Focus returns to the name button on Escape/Enter (#2087); a blur-commit never steals focus back.
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusTriggerRef = useRef(false);
+  const wasEditing = useRef(editing);
+  useEffect(() => {
+    // Declared before the effect below that resets focusTriggerRef, so the flag is still readable here.
+    if (wasEditing.current && !editing) onDone?.(focusTriggerRef.current);
+    wasEditing.current = editing;
+  // onDone is a caller callback; only the editing transition matters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [editing]);
   useEffect(() => {
     if (!editing && focusTriggerRef.current) {
       focusTriggerRef.current = false;

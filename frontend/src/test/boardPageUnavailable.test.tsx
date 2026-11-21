@@ -57,8 +57,10 @@ vi.mock('../components/Layout/Navbar', () => ({
   ),
 }))
 
-vi.mock('../components/Layout/AppSidebar', () => ({
-  default: () => <div data-testid="sidebar" />,
+// The shell's drawer/switcher data (#2473) is loaded by one hook; stub it so
+// these tests need no groups/boards API mocks.
+vi.mock('../hooks/useLoadShellNavData', () => ({
+  useLoadShellNavData: () => ({ loading: false, groups: [], boards: [], starredBoards: [], recentBoards: [] }),
 }))
 vi.mock('../components/Board/BoardView', () => ({
   default: () => <div data-testid="board-view">Board</div>,
@@ -123,8 +125,8 @@ describe('BoardPage unavailable state (#2041)', () => {
 
   it('shows the unavailable page instead of redirecting when the board is gone', () => {
     renderBoardPage({ unavailable: true })
-    const h1 = screen.getByRole('heading', { level: 1, name: "This board isn't available" })
-    expect(h1).toHaveFocus()
+    const heading = screen.getByRole('heading', { level: 2, name: "This board isn't available" })
+    expect(heading).toHaveFocus()
     expect(document.title).toBe('Not available – Visiban')
     expect(screen.getByText(/It may have been deleted, or you don.t have access to it/)).toHaveTextContent('ask them to add you to the board or its group.')
     // #2480: never says which reason applies, and offers search beside Home.
@@ -151,7 +153,7 @@ describe('BoardPage unavailable state (#2041)', () => {
       updateBoardSettings: vi.fn(),
     })
     rerender(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    expect(screen.getByRole('heading', { level: 1, name: "This board isn't available" })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: "This board isn't available" })).toBeInTheDocument()
     expect(screen.queryByTestId('board-view')).toBeNull()
   })
 

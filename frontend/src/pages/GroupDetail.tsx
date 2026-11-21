@@ -1116,10 +1116,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     { label: group.name },
   ] : [];
 
+  // The loading and error states keep the shell header (breadcrumb h1, search,
+  // notifications, account menu) so the page never loses its navigation (#2473).
+  const placeholderBreadcrumb = [{ label: "Group" }];
+
   if (loading) {
     return (
-      <div className="h-full bg-sunken flex items-center justify-center">
-        <Spinner size="lg" />
+      <div className="h-full bg-sunken flex flex-col">
+        <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={placeholderBreadcrumb} />
+        <main className="flex-1 flex items-center justify-center">
+          <Spinner size="lg" />
+        </main>
       </div>
     );
   }
@@ -1130,11 +1137,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   if (error || !group) {
     return (
-      <div className="h-full bg-sunken flex flex-col items-center justify-center gap-3">
-        <span className="text-fg-tertiary">{error ?? "Group not found"}</span>
-        <button onClick={() => navigate("/")} className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-2 py-1 transition">
-          Return to dashboard
-        </button>
+      <div className="h-full bg-sunken flex flex-col">
+        <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={placeholderBreadcrumb} />
+        <main className="flex-1 flex flex-col items-center justify-center gap-3">
+          <span className="text-fg-tertiary">{error ?? "Group not found"}</span>
+          <button onClick={() => navigate("/")} className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-2 py-1 transition">
+            Back to Home
+          </button>
+        </main>
       </div>
     );
   }

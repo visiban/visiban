@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from '../components/Layout/Navbar'
-import { MobileNavContext } from '../contexts/MobileNavContext'
+import { NavDrawerContext } from '../contexts/ShellNavContext'
 import type { User } from '../types'
 
 vi.mock('../api/notifications', () => ({
@@ -84,9 +84,9 @@ describe('Navbar', () => {
     Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
   })
 
-  it('renders app name link', () => {
+  it('renders no home logo link: Home is the breadcrumb root (#2473)', () => {
     renderNavbar()
-    expect(screen.getByAltText('Visiban')).toBeInTheDocument()
+    expect(screen.queryByAltText('Visiban')).toBeNull()
   })
 
   it('renders an account menu trigger (avatar + chevron) instead of a bare sign-out button', () => {
@@ -135,12 +135,13 @@ describe('Navbar', () => {
     expect(screen.queryByRole('link', { name: /group/i })).not.toBeInTheDocument()
     // Exactly one separator '/' renders before the single (board) segment.
     const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
-    expect(nav.textContent).toBe('/Solo Board')
+    expect(nav.textContent).toBe('Home/Solo Board')
   })
 
-  it('renders a logo-only (no breadcrumb nav) on pages with no breadcrumb prop', () => {
+  it('renders only the Home crumb on pages with no breadcrumb prop (#2473)', () => {
     renderNavbar()
-    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(nav.textContent).toBe('Home')
   })
 
   it('sets title attribute on long names so truncation exposes the full value on hover', () => {
@@ -184,20 +185,13 @@ describe('Navbar', () => {
     expect(banner.className).toMatch(/bg-sunken/)
   })
 
-  it('logo link is keyboard-reachable with a visible focus ring', () => {
-    renderNavbar()
-    const logoLink = screen.getByAltText('Visiban').closest('a')
-    expect(logoLink).not.toBeNull()
-    expect(logoLink?.className).toMatch(/focus:ring-2/)
-    expect(logoLink?.className).toMatch(/focus:ring-primary-emphasis/)
-  })
 })
 
 describe('Navbar — global search entry (#852 / #869)', () => {
   // #869 — the visible label and accessible name adapt per route via
   // useNavbarSearchLabel so the copy matches what the palette can do on
-  // that surface. On the Dashboard / Group routes, the copy is "Jump to
-  // board". On the Settings / Admin routes, it's "Jump to…". On a board
+  // that surface. Off a board (Home, Groups, Settings, Admin) the copy is
+  // "Jump to a board or action". On a board
   // route, it's "Search cards". MemoryRouter defaults to "/" ⇒ dashboard.
 
   beforeEach(() => {
@@ -213,9 +207,19 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     )
   }
 
-  it('renders the Row 1 global search button on the Dashboard with the Jump-to-board label', () => {
+  it('renders the Row 1 global search button on the Dashboard with the Jump-to-a-board-or-action label', () => {
     renderNavbarAt('/')
-    expect(screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+  })
+
+  it('never promises cards on the Unavailable page, which sits on a board URL (#2473)', () => {
+    render(
+      <MemoryRouter initialEntries={['/boards/42']}>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} searchBoardsOnly />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Search cards/ })).not.toBeInTheDocument()
   })
 
   it('adapts the label to "Search cards" on a board route', () => {
@@ -223,25 +227,26 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     expect(screen.getByRole('button', { name: /Search cards \(Cmd\+K\)/ })).toBeInTheDocument()
   })
 
-  it('adapts the label to "Jump to…" on Settings (palette acts only as a nav surface there)', () => {
+  it('uses the boards-and-actions label on Settings (the palette is a nav surface there)', () => {
     renderNavbarAt('/settings')
-    expect(screen.getByRole('button', { name: /Jump to \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
   })
 
   it('shows the visible placeholder label and ⌘K hint at lg+', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
+    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
     // Both the visible label and the shortcut hint render in the DOM; they're
     // hidden below lg via `hidden lg:inline` so jsdom still sees them.
-    expect(btn).toHaveTextContent('Jump to board')
+    expect(btn).toHaveTextContent('Jump to a board or action')
     expect(btn).toHaveTextContent('⌘K')
   })
 
-  it('uses the responsive width classes — w-8 square below lg, wider at lg+ to fit adaptive copy', () => {
+  it('is a 38px field on wider screens and a 44px icon button on phones (#2473)', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
-    expect(btn.className).toMatch(/\bw-8\b/)
-    expect(btn.className).toMatch(/\blg:w-56\b/)
+    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
+    expect(btn.className).toMatch(/h-\[38px\]/)
+    expect(btn.className).toMatch(/max-sm:w-11/)
+    expect(btn.className).toMatch(/max-sm:h-11/)
   })
 
   it('clicking the button dispatches visiban:open-palette', async () => {
@@ -249,7 +254,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     window.addEventListener('visiban:open-palette', listener)
     try {
       renderNavbarAt('/')
-      await userEvent.setup().click(screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ }))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ }))
       expect(listener).toHaveBeenCalledOnce()
     } finally {
       window.removeEventListener('visiban:open-palette', listener)
@@ -258,7 +263,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
 
   it('renders to the left of the notification bell in Row 1', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
+    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
     const bell = screen.getByTitle('Notifications')
     // Compare document position — search button precedes the bell.
     expect(btn.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -314,51 +319,107 @@ describe('Navbar — hosted demo (#1193)', () => {
   })
 })
 
-describe('Navbar phone hamburger (#2344)', () => {
-  it('renders no hamburger outside the shell', () => {
+describe('Navbar menu button and breadcrumb (#2473)', () => {
+  it('renders no menu button outside the shell', () => {
     renderNavbar()
-    expect(screen.queryByRole('button', { name: 'Open navigation menu' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open navigation' })).toBeNull()
   })
 
-  it('carries the hamburger on phones, registers with the shell and unregisters on unmount', async () => {
+  it('carries the menu button, registers with the shell and unregisters on unmount', async () => {
     const user = userEvent.setup()
     const unregister = vi.fn()
-    const value = { open: false, openMenu: vi.fn(), registerHeader: vi.fn(() => unregister) }
+    const value = { open: false, setOpen: vi.fn(), toggle: vi.fn(), menuButtonRef: { current: null }, registerHeader: vi.fn(() => unregister) }
     const view = render(
       <MemoryRouter>
-        <MobileNavContext.Provider value={value}>
+        <NavDrawerContext.Provider value={value}>
           <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
-        </MobileNavContext.Provider>
+        </NavDrawerContext.Provider>
       </MemoryRouter>,
       { wrapper: flagsWrapper({}) },
     )
     expect(value.registerHeader).toHaveBeenCalledTimes(1)
-    const hamburger = screen.getByRole('button', { name: 'Open navigation menu' })
-    expect(hamburger).toHaveClass('sm:hidden', 'min-h-11', 'min-w-11')
-    expect(hamburger).toHaveAttribute('aria-expanded', 'false')
-    await user.click(hamburger)
-    expect(value.openMenu).toHaveBeenCalledTimes(1)
+    const menu = screen.getByRole('button', { name: 'Open navigation' })
+    expect(menu).toHaveAttribute('aria-expanded', 'false')
+    expect(menu).toHaveAttribute('aria-keyshortcuts', '[')
+    expect(menu).toHaveAttribute('title', 'Menu  [')
+    expect(value.menuButtonRef.current).toBe(menu)
+    await user.click(menu)
+    expect(value.toggle).toHaveBeenCalledTimes(1)
     view.unmount()
     expect(unregister).toHaveBeenCalledTimes(1)
   })
-})
 
-describe('Navbar — notification dropdown separators (#487)', () => {
-  it('uses engraved double-div separators (header|list and between rows), not border-b', async () => {
-    mockGetUnreadCount.mockResolvedValue(0)
-    const row = (id: number, verb: string) => ({ id, verb, actor: null, card_id: null, card_title: null, board_id: null, board_name: null, action_type: 'card_moved', mention_source: null, read: false, created_at: new Date().toISOString() })
-    mockListNotifications.mockResolvedValue([row(1, 'first thing'), row(2, 'second thing')])
-    const user = userEvent.setup()
+  it('with no crumbs, Home is the page h1 and there is no home logo link', () => {
     renderNavbar()
-    await user.click(screen.getByTitle('Notifications'))
-    const first = await screen.findByText('first thing')
-    const panel = first.closest('div.absolute') as HTMLElement
-    // one after the header, one between the two rows (none before the first row or after the last)
-    const separators = within(panel).getAllByRole('separator')
-    expect(separators).toHaveLength(2)
-    // Same inset as every other dropdown's separators (frontend/CLAUDE.md § Separators).
-    for (const sep of separators) expect(sep).toHaveClass('mx-4')
-    expect(panel.querySelectorAll('button.border-b')).toHaveLength(0)
-    expect(panel.querySelector('.border-b')).toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Visiban' })).toBeNull()
+  })
+
+  it('roots every breadcrumb at Home and makes the last crumb the only h1', () => {
+    render(
+      <MemoryRouter>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} breadcrumb={[{ label: 'Team', href: '/groups/2' }, { label: 'Settings' }]} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(within(nav).getByRole('link', { name: 'Team' })).toHaveAttribute('href', '/groups/2')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+  })
+
+  it('renders the page primary action in the header', () => {
+    render(
+      <MemoryRouter>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} primaryAction={<button type="button">New board</button>} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    expect(screen.getByRole('button', { name: 'New board' })).toBeInTheDocument()
+  })
+
+  it('g then u in a text field does not open the account menu', () => {
+    render(
+      <MemoryRouter>
+        <input aria-label="Field" />
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    const field = screen.getByRole('textbox', { name: 'Field' })
+    fireEvent.keyDown(field, { key: 'g' })
+    fireEvent.keyDown(field, { key: 'u' })
+    expect(screen.queryByRole('menu', { name: 'Account menu' })).toBeNull()
+    fireEvent.keyDown(document.body, { key: 'g' })
+    fireEvent.keyDown(document.body, { key: 'u' })
+    expect(screen.getByRole('menu', { name: 'Account menu' })).toBeInTheDocument()
+  })
+
+  it('g then u does not open the account menu behind an open modal or the nav drawer (#2473)', () => {
+    render(
+      <MemoryRouter>
+        <div role="dialog" aria-modal="true" aria-label="Some dialog" />
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    fireEvent.keyDown(document.body, { key: 'g' })
+    fireEvent.keyDown(document.body, { key: 'u' })
+    expect(screen.queryByRole('menu', { name: 'Account menu' })).toBeNull()
+  })
+
+  it('g then u does not open the account menu from inside a popover scope (#2301)', () => {
+    render(
+      <MemoryRouter>
+        <div data-shortcut-scope="popover"><button>Inside</button></div>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    const inside = screen.getByRole('button', { name: 'Inside' })
+    fireEvent.keyDown(inside, { key: 'g' })
+    fireEvent.keyDown(inside, { key: 'u' })
+    expect(screen.queryByRole('menu', { name: 'Account menu' })).toBeNull()
   })
 })

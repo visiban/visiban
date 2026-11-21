@@ -28,29 +28,38 @@ describe('useNavbarSearchLabel', () => {
     expect(result.current.ariaLabel).toContain('Search cards')
   })
 
+  it('never promises cards when told no board is loaded, even on a board URL (#2473)', () => {
+    mockPathname.mockReturnValue('/boards/42')
+    const { result } = renderHook(() => useNavbarSearchLabel(true))
+    expect(result.current.placeholder).toBe('Jump to a board or action')
+    expect(result.current.ariaLabel).not.toContain('cards')
+  })
+
   it('does not treat an unmatched /boards/* path as a board (#1740)', () => {
     mockPathname.mockReturnValue('/boards/1/typo/extra')
     const { result } = renderHook(() => useNavbarSearchLabel())
-    expect(result.current.placeholder).toBe('Jump to…')
+    expect(result.current.placeholder).toBe('Jump to a board or action')
   })
 
-  it('returns Jump to board on the dashboard route', () => {
+  it('returns the boards-and-actions label on the dashboard route', () => {
     mockPathname.mockReturnValue('/')
     const { result } = renderHook(() => useNavbarSearchLabel())
-    expect(result.current.placeholder).toBe('Jump to board…')
+    expect(result.current.placeholder).toBe('Jump to a board or action')
   })
 
-  it('returns Jump to board on a group route', () => {
+  it('returns the boards-and-actions label on a group route', () => {
     mockPathname.mockReturnValue('/groups/5')
     const { result } = renderHook(() => useNavbarSearchLabel())
-    expect(result.current.placeholder).toBe('Jump to board…')
+    expect(result.current.placeholder).toBe('Jump to a board or action')
   })
 
   it('returns Jump to on settings and admin routes', () => {
     for (const path of ['/settings', '/admin', '/admin/users']) {
       mockPathname.mockReturnValue(path)
       const { result } = renderHook(() => useNavbarSearchLabel())
-      expect(result.current.placeholder).toBe('Jump to…')
+      expect(result.current.placeholder).toBe('Jump to a board or action')
+      // Off a board the palette searches boards and actions only: never promise cards or people.
+      expect(result.current.placeholder).not.toMatch(/card|people/i)
     }
   })
 

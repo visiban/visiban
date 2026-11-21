@@ -127,7 +127,7 @@ Placing a board in a group requires the group admin role on that group or on one
 
 > **Added in 1.2**
 
-Group access is inherited downward only: membership in a subgroup grants nothing on its parent. The list and retrieve endpoints still return the ancestors of a user's groups so clients can render the sidebar tree and breadcrumbs, but a group the user has no access to itself — not a member of it or of one of its ancestors within the 6-level walk — is returned with `navigation_only: true` and these fields withheld (set to empty values):
+Group access is inherited downward only: membership in a subgroup grants nothing on its parent. The list and retrieve endpoints still return the ancestors of a user's groups so clients can render the navigation drawer's group tree and breadcrumbs, but a group the user has no access to itself — not a member of it or of one of its ancestors within the 6-level walk — is returned with `navigation_only: true` and these fields withheld (set to empty values):
 
 | Field | Value for a navigation-only group |
 |---|---|

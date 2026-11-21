@@ -88,7 +88,8 @@ async function choose(trigger: RegExp, option: string) {
 describe('AnalyticsView title row (#2012, #2261)', () => {
   it('shows the title, Beta badge and board name, and hides the decorative "·" divider from assistive tech', () => {
     render(<AnalyticsView {...props} />)
-    expect(screen.getByRole('heading', { name: 'Analytics', level: 1 })).toBeInTheDocument()
+    // An h2: the header's last breadcrumb is the page's only h1 (#2473).
+    expect(screen.getByRole('heading', { name: 'Analytics', level: 2 })).toBeInTheDocument()
     expect(screen.getByText('Beta')).toBeInTheDocument()
     expect(screen.getByText(/Platform roadmap/)).toBeInTheDocument()
     expect(screen.getByText('·')).toHaveAttribute('aria-hidden', 'true')

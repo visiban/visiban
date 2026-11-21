@@ -7,7 +7,9 @@ import { formatShortcut } from "../../utils/platform";
 import { useNavbarSearchLabel } from "../../hooks/useNavbarSearchLabel";
 import { DEMO_MARK_READ_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
-import { useMobileNav } from "../../contexts/MobileNavContext";
+import { useNavDrawer } from "../../contexts/ShellNavContext";
+import { shouldIgnoreGlobalShortcut } from "../../utils/keyboard";
+import { LogoTile, MenuIcon, SearchIcon } from "./shellIcons";
 
 interface BreadcrumbItem {
   label: string;
@@ -19,11 +21,15 @@ interface BreadcrumbItem {
 interface Props {
   user: User;
   breadcrumb?: BreadcrumbItem[];
+  /** The page has no board loaded (e.g. Unavailable on a board URL): search copy never promises cards. */
+  searchBoardsOnly?: boolean;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
+  /** The page's one primary action (for example New board), placed before notifications. */
+  primaryAction?: React.ReactNode;
 }
 
-export default function Navbar({ user, breadcrumb, onLogout }: Props) {
+export default function Navbar({ user, breadcrumb, onLogout, primaryAction, searchBoardsOnly }: Props) {
   // Hosted demo (#1193): mark-read is not on DEMO_ALLOWED_WRITES.
   const demoMode = useInstanceFlags().demo_mode;
   const [unreadCount, setUnreadCount] = useState(0);
@@ -32,11 +38,12 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const searchLabel = useNavbarSearchLabel();
-  // Phones (#2344): the hamburger lives in this row, and the shell hides its own bar.
-  const mobileNav = useMobileNav();
-  const registerHeader = mobileNav?.registerHeader;
-  // Layout effect: the shell hides its bar before the first paint, never showing two hamburgers.
+  const searchLabel = useNavbarSearchLabel(searchBoardsOnly);
+  // The header carries the drawer's menu button (#2473); the shell shows its
+  // fallback bar only while no header is registered.
+  const drawer = useNavDrawer();
+  const registerHeader = drawer?.registerHeader;
+  // Layout effect: the shell hides its fallback bar before the first paint, never showing two menu buttons.
   useLayoutEffect(() => registerHeader?.(), [registerHeader]);
 
   // Poll the unread count every 30 s. Real-time push via UserConsumer is
@@ -113,17 +120,13 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   }, [showBell]);
 
   // `g u` chord shortcut — opens the user menu.
-  // `g` primes the chord for 1 s; `u` commits. Guarded against typing contexts.
+  // `g` primes the chord for 1 s; `u` commits. Typing contexts are ignored by
+  // the same helper as `[` and `?` (#2473).
   useEffect(() => {
     let primedAt = 0;
-    const inTypingContext = (el: EventTarget | null): boolean => {
-      if (!(el instanceof HTMLElement)) return false;
-      const tag = el.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (inTypingContext(e.target)) return;
+      if (shouldIgnoreGlobalShortcut(e.target)) return;
       if (e.key === "g") {
         primedAt = Date.now();
         return;
@@ -150,64 +153,69 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
+  const crumbs: BreadcrumbItem[] = breadcrumb && breadcrumb.length > 0
+    ? [{ label: "Home", href: "/" }, ...breadcrumb]
+    : [{ label: "Home" }];
+
   return (
     <>
-      <header role="banner" className="h-14 max-sm:h-12 max-sm:relative bg-sunken border-b border-line flex items-center px-4 max-sm:px-3 gap-3 max-sm:gap-1 shrink-0">
-        {mobileNav && (
+      <header role="banner" className="h-14 max-sm:h-12 max-sm:relative bg-sunken border-b border-line flex items-center px-4 max-sm:px-1 gap-3 max-sm:gap-1 shrink-0">
+        {/* Menu button (#2473): opens the navigation drawer; replaces the old home logo link.
+            Home is reached from the breadcrumb root and the drawer. */}
+        {drawer && (
           <button
+            ref={drawer.menuButtonRef}
             type="button"
-            onClick={mobileNav.openMenu}
-            className="sm:hidden inline-flex items-center justify-center min-h-11 min-w-11 shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            aria-label="Open navigation menu"
-            aria-expanded={mobileNav.open}
+            onClick={drawer.toggle}
+            aria-label="Open navigation"
+            aria-expanded={drawer.open}
+            aria-keyshortcuts="["
+            title="Menu  ["
+            className="inline-flex items-center gap-1.5 h-9 max-sm:h-11 max-sm:min-w-11 px-1.5 shrink-0 rounded-md border border-line-strong max-sm:border-transparent text-fg-tertiary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis justify-center"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <MenuIcon />
+            <LogoTile className="w-[26px] h-[26px] max-sm:hidden" />
           </button>
         )}
-        <Link to="/" className="flex items-center max-sm:hidden hover:opacity-80 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
-          <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
-        </Link>
-        {breadcrumb && breadcrumb.length > 0 && (
-          <nav aria-label="Breadcrumb" className="flex items-center min-w-0 max-sm:flex-1">
-            {breadcrumb.map((item, i) => {
-              const isLast = i === breadcrumb.length - 1;
-              // Phones show only the last crumb, so its star and health controls always fit
-              // beside it and the name, not the controls, gives way (#2333). No clip on the nav:
-              // it would cut the focus rings off every crumb control.
-              return (
-                <span key={i} className={`flex items-center min-w-0${isLast ? "" : " max-sm:hidden"}`}>
-                  <span className="text-fg-faint mx-1.5 select-none max-sm:hidden" aria-hidden="true">/</span>
-                  {item.render ? (
-                    item.render
-                  ) : item.href ? (
-                    <Link
-                      to={item.href}
-                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate max-sm:inline-block max-sm:leading-[2.75rem]"
-                      title={item.label}
-                    >
-                      {item.label}
-                    </Link>
-                  ) : (
-                    <span
-                      className="text-sm text-fg font-medium max-w-[18rem] truncate"
-                      title={item.label}
-                      aria-current={isLast ? "page" : undefined}
-                    >
-                      {item.label}
-                    </span>
-                  )}
-                  {item.suffix && <span className="flex items-center max-sm:shrink-0">{item.suffix}</span>}
-                </span>
-              );
-            })}
-          </nav>
-        )}
-        <div className="ml-auto flex items-center gap-3 max-sm:gap-1 shrink-0">
+        <nav aria-label="Breadcrumb" className="flex items-center min-w-0 max-sm:flex-1">
+          {crumbs.map((item, i) => {
+            const isLast = i === crumbs.length - 1;
+            // Phones show only the last crumb, so its star and health controls always fit
+            // beside it and the name, not the controls, gives way (#2333). No clip on the nav:
+            // it would cut the focus rings off every crumb control.
+            const body = item.render ? (
+              item.render
+            ) : item.href && !isLast ? (
+              <Link
+                to={item.href}
+                className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate max-sm:inline-block max-sm:leading-[2.75rem]"
+                title={item.label}
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <span
+                className="text-sm text-fg font-semibold max-w-[18rem] truncate block"
+                title={item.label}
+                aria-current={isLast ? "page" : undefined}
+              >
+                {item.label}
+              </span>
+            );
+            return (
+              <span key={i} className={`flex items-center min-w-0${isLast ? "" : " max-sm:hidden"}`}>
+                {i > 0 && <span className="text-fg-faint mx-1.5 select-none max-sm:hidden" aria-hidden="true">/</span>}
+                {/* The last crumb is the page's only h1 (#2473). */}
+                {isLast ? <h1 className="min-w-0 flex items-center text-sm">{body}</h1> : body}
+                {item.suffix && <span className="flex items-center max-sm:shrink-0">{item.suffix}</span>}
+              </span>
+            );
+          })}
+        </nav>
+        <div className="flex-1 flex justify-center min-w-0 max-sm:flex-none">
           {/* Global search entry (#852, #869). Dispatches visiban:open-palette
               which GlobalCommandPalette at the shell / board-page level
-              listens for. Visible placeholder adapts per surface (see
+              listens for. The placeholder adapts per surface (see
               useNavbarSearchLabel) so the copy matches what the palette can
               actually do there. */}
           <button
@@ -215,14 +223,17 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
             onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
             aria-label={searchLabel.ariaLabel}
             title={searchLabel.ariaLabel}
-            className="flex items-center gap-2 px-2 py-1 text-xs text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis w-8 h-8 max-sm:w-11 max-sm:h-11 justify-center lg:w-56 lg:h-auto lg:justify-between shrink-0"
+            className="flex items-center gap-2 px-3 text-sm text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded-md transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis h-[38px] w-full max-w-md justify-between max-sm:w-11 max-sm:h-11 max-sm:px-0 max-sm:justify-center max-sm:border-transparent max-sm:bg-transparent"
           >
             <span className="flex items-center gap-2 min-w-0">
-              <span aria-hidden="true">🔍</span>
-              <span className="hidden lg:inline truncate">{searchLabel.placeholder}</span>
+              <SearchIcon />
+              <span className="max-sm:hidden truncate">{searchLabel.placeholder}</span>
             </span>
-            <span aria-hidden="true" className="hidden lg:inline text-fg-muted">{formatShortcut({ mod: true, key: "K" })}</span>
+            <kbd aria-hidden="true" className="max-sm:hidden text-xs font-mono px-1.5 rounded border border-line-strong bg-sunken text-fg-muted">{formatShortcut({ mod: true, key: "K" })}</kbd>
           </button>
+        </div>
+        <div className="flex items-center gap-3 max-sm:gap-0 shrink-0">
+          {primaryAction}
 
           {/* Notification bell */}
           <div ref={bellRef} className="relative max-sm:static">

@@ -801,7 +801,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   };
 
   // #2034 — Danger Zone delete. Offered only to the owner or a site
-  // administrator, the same predicate the Dashboard and BoardSelector use; the server
+  // administrator, the same predicate the Dashboard uses; the server
   // (BoardViewSet.destroy) is still the authority. The role comes from the
   // board, so a 403's refetch (onDeleteForbidden) flips a stale owner into the
   // non-owner note without any local bookkeeping.

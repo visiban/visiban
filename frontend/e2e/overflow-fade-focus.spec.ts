@@ -166,23 +166,8 @@ test.describe('Overflow fades never cover the focused control (#2180)', () => {
     await walkClearOfFades(page, 'Tab', 28, '[data-testid="custom-field-quick-edit-popover"]')
   })
 
-  test('Collapsed sidebar flyout: tabbing down the favorites', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('user:prefs:sidebar-collapsed', 'true'))
-    await routeAuth(page)
-    await routeBoard(page)
-    const starred = Array.from({ length: 30 }, (_, i) => ({
-      ...BOARD_LIST_ITEM, id: 100 + i, uid: `boardfav${String(i).padStart(4, '0')}`, name: `Favorite board ${i + 1}`, is_starred: true,
-    }))
-    await page.route(/\/api\/v1\/boards\/(\?starred=true)?$/, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: starred.length, results: starred }) }),
-    )
-    await page.goto(`/boards/${BOARD_FULL.id}`)
-    await page.getByRole('button', { name: 'Favorites' }).click()
-    const flyout = page.getByRole('menu', { name: /favorites/i })
-    await expect(flyout).toBeVisible()
-    await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role="menu"]'))).toBe(true)
-    await walkClearOfFades(page, 'Tab', 12, '[role="menu"]')
-  })
+  // The collapsed-sidebar Favorites flyout case went with the sidebar (#2473): the
+  // navigation drawer's list scrolls without an overflow fade, so there is nothing to walk.
 
   test('Anchored filter menu: tabbing down a long assignee list', async ({ page }) => {
     const members = Array.from({ length: 60 }, (_, i) => ({

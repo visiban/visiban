@@ -826,7 +826,6 @@ describe('fg-muted retune and fg-faint scope (#2030)', () => {
       'src/components/Card/CardRelationsSection.tsx:className={`w-3.5 h-3.5 text-fg-faint group-hover/rel:text-fg-tertiary': 'disclosure chevron <svg>, attribute on its own line',
       'src/components/Board/ArchivedCardsPanel.tsx:<span className="text-fg-faint text-2xl">📦</span>': 'empty-state emoji, which paints its own colors',
       'src/components/Board/Lens/LensSwimlaneRow.tsx:className="col-span-full flex items-center justify-center py-2 text-xs text-fg-faint select-none"': 'aria-hidden empty-lane dash (next line); the count lives in the column header',
-      'src/components/Dashboard/OnboardingEmptyState.tsx:<div className="mb-6 text-fg-faint">': 'wrapper of the decorative onboarding illustration <svg>',
     }
     const bad: string[] = []
     const listedSeen = new Set<string>()

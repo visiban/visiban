@@ -10,16 +10,17 @@ export interface NavbarSearchLabel {
 // label matches what the palette can actually do there (Option 2 from the
 // #868/#869 UX design). `aria-label` uses plain words for screen readers
 // instead of the visible `⌘K` glyph.
-export function useNavbarSearchLabel(): NavbarSearchLabel {
+// `boardsOnly` is for a page that lives on a board URL but has no board loaded
+// (the Unavailable page): it must never promise cards or people (#2473).
+export function useNavbarSearchLabel(boardsOnly = false): NavbarSearchLabel {
   const { pathname } = useLocation();
   const mod = isMacPlatform() ? "Cmd+K" : "Ctrl+K";
 
   // matchPath, not startsWith: /boards/1/typo is the not-found page, not a board.
-  if (matchPath("/boards/:id", pathname)) {
+  if (!boardsOnly && matchPath("/boards/:id", pathname)) {
     return { placeholder: "Search cards, people, labels, fields", ariaLabel: `Search cards (${mod})` };
   }
-  if (pathname === "/" || pathname.startsWith("/groups/")) {
-    return { placeholder: "Jump to board…", ariaLabel: `Jump to board (${mod})` };
-  }
-  return { placeholder: "Jump to…", ariaLabel: `Jump to (${mod})` };
+  // Off a board the palette searches only boards and actions (#2473), so the
+  // copy never promises cards or people there.
+  return { placeholder: "Jump to a board or action", ariaLabel: `Jump to a board or action (${mod})` };
 }

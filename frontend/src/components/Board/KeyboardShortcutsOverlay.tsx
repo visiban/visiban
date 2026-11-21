@@ -9,6 +9,10 @@ interface Props {
    * whether the `L` row is shown in Board view. Defaults to false so other
    * call sites (outside a board with a lens connection) are unaffected. */
   showLens?: boolean;
+  /** Whether the help opened on a board (#2473). Off a board the board
+   * sections are replaced by a box saying they appear on a board. The shell
+   * opens this overlay off a board; BoardView opens it on one. */
+  onBoard?: boolean;
 }
 
 interface ShortcutRow {
@@ -26,6 +30,18 @@ interface ShortcutSection {
   rows: ShortcutRow[];
 }
 
+// The global keys (#2473): bound by the shell on every signed-in page, so they
+// lead the help wherever it opens.
+const globalShortcutSection = (): ShortcutSection => ({
+  heading: "Everywhere",
+  rows: [
+    { key: formatShortcut({ mod: true, key: "K" }), description: "Jump to a board or action" },
+    { key: "[", description: "Open or close the navigation drawer" },
+    { key: "G U", sequence: ["G", "U"], description: "Open the account menu" },
+    { key: "?", description: "Show this help" },
+  ],
+});
+
 // Grouped into four sections per the #868 audit: Navigation (cross-route
 // chords), Board view (view-tab bindings), Board actions (on-board tools),
 // and Help (everything else). Imperative-tone descriptions start with a verb
@@ -35,11 +51,9 @@ function buildSections(showLens: boolean): ShortcutSection[] {
     {
       heading: "Navigation",
       rows: [
-        { key: formatShortcut({ mod: true, key: "K" }), description: "Open command palette" },
         { key: "→ / ←", description: "In the command palette, show a card result's actions / go back" },
         { key: "/", description: "Focus the search box" },
         { key: formatShortcut({ mod: true, key: "," }), description: "Open board settings" },
-        { key: "G U", sequence: ["G", "U"], description: "Open the user menu" },
       ],
     },
     {
@@ -73,15 +87,14 @@ function buildSections(showLens: boolean): ShortcutSection[] {
     {
       heading: "Help",
       rows: [
-        { key: "?", description: "Show this help" },
         { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
       ],
     },
   ];
 }
 
-export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showLens = false }: Props) {
-  const sections = buildSections(showLens);
+export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showLens = false, onBoard = true }: Props) {
+  const sections = [globalShortcutSection(), ...(onBoard ? buildSections(showLens) : [])];
   return (
     <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-md">
       <div className="flex flex-col gap-4">
@@ -119,6 +132,12 @@ export default function KeyboardShortcutsOverlay({ onClose, onRestartTour, showL
             </table>
           </section>
         ))}
+        {!onBoard && (
+          <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-sm text-fg-secondary">
+            <p className="font-medium text-fg">Board shortcuts.</p>
+            <p>Filtering, moving cards and switching views have their own keys. Open a board to see them here.</p>
+          </div>
+        )}
       </div>
       {onRestartTour && (
         <>

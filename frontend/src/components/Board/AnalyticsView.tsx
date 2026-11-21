@@ -41,7 +41,7 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
-      <h1 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">Analytics</h1>
+      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">Analytics</h2>
       <span className="text-xs font-medium rounded px-1.5 py-0.5 bg-surface text-warning-on-tint ring-1 ring-inset ring-warning/40">
         Beta
       </span>

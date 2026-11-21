@@ -1075,10 +1075,15 @@ describe('BoardView', () => {
       expect(overflowItem(/^Keyboard shortcuts/)).toBeInTheDocument()
     })
 
-    it('? hotkey still opens the shortcuts overlay', () => {
+    it('the shell\'s shortcuts request opens the board overlay and is claimed (#2473)', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByTestId('shortcuts-overlay')).not.toBeInTheDocument()
+      // BoardView no longer binds `?` itself: the shell's one handler asks it.
       fireEvent.keyDown(document, { key: '?' })
+      expect(screen.queryByTestId('shortcuts-overlay')).not.toBeInTheDocument()
+      const ev = new CustomEvent('visiban:show-board-shortcuts', { cancelable: true })
+      act(() => { window.dispatchEvent(ev) })
+      expect(ev.defaultPrevented).toBe(true)
       expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
     })
   })

@@ -199,18 +199,11 @@ async function shoot(page: Page, name: string): Promise<void> {
 }
 
 /**
- * Start with the sidebar collapsed so wide views (the board) show every column.
- * Seeded before first navigation via the app's persisted preference.
+ * Was: collapse the sidebar so wide views show every column. Since #2473
+ * there is no sidebar (navigation is an on-demand drawer), so this is a no-op
+ * kept for the call sites.
  */
-async function collapseSidebar(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
-    } catch {
-      // storage unavailable: shot falls back to the expanded sidebar
-    }
-  })
-}
+async function collapseSidebar(_page: Page): Promise<void> {}
 
 test.describe('Marketing snapshots', () => {
   test.beforeEach(async ({ page }) => {

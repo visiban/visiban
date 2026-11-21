@@ -79,9 +79,8 @@ export default function GlobalCommandPalette({ userId }: { userId?: number | nul
   // Adaptive placeholder per surface. Matches the navbar trigger copy so the
   // user sees the same words before and after the palette opens.
   const placeholder = (() => {
-    if (inBoardRoute) return "Search cards, boards, actions…";
-    if (pathname === "/" || pathname.startsWith("/groups/")) return "Jump to board…";
-    return "Jump to…";
+    if (board) return "Search cards, boards, actions…";
+    return "Jump to a board or action";
   })();
 
   // #1146 — the open board's active preset, published by BoardView. The active

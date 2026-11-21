@@ -13,6 +13,12 @@ export interface RecentBoardEntry {
   name: string;
   /** Direct parent group name (first entry only is displayed). */
   groupAncestors?: string[];
+  /**
+   * When the board was last opened, in epoch milliseconds. Written by #2474;
+   * optional because entries saved before it carry none. The board switcher
+   * (#2473) shows "<N> ago" only when it is present.
+   */
+  openedAt?: number;
 }
 
 type UserId = number | null | undefined;
@@ -96,7 +102,9 @@ export function useRecentBoardsPref(userId: UserId): {
   const recordVisit = (entry: RecentBoardEntry) => {
     setRecentBoards((prev) => {
       // Prepend the new entry, deduplicate by id, cap at MAX_RECENTS.
-      const deduped = [entry, ...prev.filter((e) => e.id !== entry.id)].slice(0, MAX_RECENTS);
+      // Stamp the visit (#2474) so Home's Jump back in and the switcher can say "<N> ago".
+      const stamped: RecentBoardEntry = { ...entry, openedAt: Date.now() };
+      const deduped = [stamped, ...prev.filter((e) => e.id !== entry.id)].slice(0, MAX_RECENTS);
       save(userId, deduped);
       return deduped;
     });

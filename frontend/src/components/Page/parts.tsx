@@ -94,6 +94,20 @@ export function StatusPill({ tone, label }: { tone: StatusTone; label?: string }
   );
 }
 
+/**
+ * A bare status dot for dense lists (the nav drawer and the board switcher, #2473). The status
+ * word rides along as sr-only text and a tooltip, so color is never the only signal.
+ */
+export function StatusDot({ tone }: { tone: StatusControlTone }) {
+  const label = STATUS_TONE_LABEL[tone];
+  return (
+    <span data-tone={tone} title={label} className="inline-flex items-center shrink-0">
+      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${STATUS_TONE_CLASS[tone].dot}`} />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 /** Interactive status control: a 30px button at 13px, as in the board header. */
 export function StatusControl({ tone, label, onClick, "aria-label": ariaLabel, "aria-expanded": ariaExpanded, "aria-haspopup": ariaHasPopup, buttonRef }: {
   tone: StatusControlTone;

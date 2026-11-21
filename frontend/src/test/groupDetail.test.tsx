@@ -176,6 +176,13 @@ function renderGroupDetail(locationState?: Record<string, unknown>, user: User =
   return render(withToasts ? <ToastProvider>{page}</ToastProvider> : page)
 }
 
+// The #2473 shell header renders its own h1 for the last breadcrumb crumb (the group name),
+// so page headings are queried inside <main> to stay unambiguous. Revisit with #2478.
+const pageHeadingNow = (opts: Parameters<typeof screen.getByRole>[1]) =>
+  within(screen.getByRole('main')).getByRole('heading', opts)
+const pageHeading = (opts: Parameters<typeof screen.getByRole>[1]) =>
+  waitFor(() => pageHeadingNow(opts))
+
 describe('GroupDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -221,6 +228,46 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockRejectedValue(new Error('fail'))
     renderGroupDetail()
     expect(await screen.findByText('Failed to load group')).toBeInTheDocument()
+  })
+
+  // #2473: the early-return states keep the shell header (one h1, Home crumb, account menu).
+  it('keeps the shell header with exactly one h1 while loading', () => {
+    mockGetGroup.mockReturnValue(new Promise(() => {}))
+    mockGetGroupMembers.mockReturnValue(new Promise(() => {}))
+    mockGetSubgroups.mockReturnValue(new Promise(() => {}))
+    mockGetGroupBoards.mockReturnValue(new Promise(() => {}))
+    renderGroupDetail()
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(within(banner).getByRole('heading', { level: 1, name: 'Group' })).toBeInTheDocument()
+    expect(within(banner).getByRole('button', { name: /Notifications/ })).toBeInTheDocument()
+  })
+
+  it('keeps the shell header with exactly one h1 on a load error and goes Back to Home', async () => {
+    mockGetGroup.mockRejectedValue(new Error('fail'))
+    mockGetGroupMembers.mockRejectedValue(new Error('fail'))
+    mockGetSubgroups.mockRejectedValue(new Error('fail'))
+    mockGetGroupBoards.mockRejectedValue(new Error('fail'))
+    renderGroupDetail()
+    expect(await screen.findByText('Failed to load group')).toBeInTheDocument()
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Home' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('renders exactly one h1 on the group-unavailable page (#2473)', async () => {
+    mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupMembers.mockRejectedValue({ response: { status: 404 } })
+    mockGetSubgroups.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupBoards.mockRejectedValue({ response: { status: 404 } })
+    renderGroupDetail()
+    await screen.findByRole('heading', { level: 2, name: "This group isn't available" })
+    const h1s = screen.getAllByRole('heading', { level: 1 })
+    expect(h1s).toHaveLength(1)
+    expect(h1s[0]).toHaveTextContent('Not available')
   })
 
   it('renders group details when loaded', async () => {
@@ -565,7 +612,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     mockUpdateGroup.mockRejectedValue(new Error('boom'))
     renderGroupDetail()
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
     const input = screen.getByRole('textbox')
     fireEvent.change(input, { target: { value: 'Platform' } })
@@ -1104,7 +1151,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await screen.findByRole('heading', { name: 'Engineering' }) // wait for load
+    await pageHeading({ name: 'Engineering' }) // wait for load
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
   })
 
@@ -1136,7 +1183,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await screen.findByRole('heading', { name: 'Engineering' })
+    await pageHeading({ name: 'Engineering' })
     expect(screen.queryByRole('navigation', { name: 'Group breadcrumb' })).not.toBeInTheDocument()
   })
 
@@ -1147,7 +1194,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    await screen.findByRole('heading', { name: 'Engineering' })
+    await pageHeading({ name: 'Engineering' })
     expect(screen.getByText('Add a description…')).toBeInTheDocument()
   })
 
@@ -1222,7 +1269,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1238,7 +1285,7 @@ describe('GroupDetail', () => {
     const user = userEvent.setup()
     renderGroupDetail()
 
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     const nameButton = within(heading).getByRole('button')
     nameButton.focus()
     expect(nameButton).toHaveFocus()
@@ -1263,7 +1310,7 @@ describe('GroupDetail', () => {
     mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
     renderGroupDetail()
 
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1280,7 +1327,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
 
     const input = screen.getByRole('textbox')
@@ -1299,18 +1346,18 @@ describe('GroupDetail', () => {
     mockUpdateGroup.mockResolvedValue({ ...fakeGroup, name: 'Platform' })
     renderGroupDetail()
     const open = async () => {
-      const heading = await screen.findByRole('heading', { name: /Engineering|Platform/ })
+      const heading = await pageHeading({ name: /Engineering|Platform/ })
       fireEvent.click(within(heading).getByRole('button'))
       return screen.getByRole('textbox')
     }
     let input = await open()
     fireEvent.keyDown(input, { key: 'Escape' })
-    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Engineering' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(pageHeadingNow({ name: 'Engineering' })).getByRole('button')).toHaveFocus())
 
     input = await open()
     fireEvent.change(input, { target: { value: 'Platform' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Platform' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(pageHeadingNow({ name: 'Platform' })).getByRole('button')).toHaveFocus())
 
     // Empty-name Enter keeps the editor open and sets no stale flag; a later blur-commit leaves focus alone.
     input = await open()
@@ -1360,12 +1407,12 @@ describe('GroupDetail', () => {
     renderGroupDetail()
     mockNavigate.mockClear()
 
-    const heading = await screen.findByRole('heading', { name: 'Engineering' })
+    const heading = await pageHeading({ name: 'Engineering' })
     fireEvent.click(within(heading).getByRole('button'))
     const input = screen.getByRole('textbox')
     input.focus()
     fireEvent.keyDown(input, { key: 'Escape' })
-    await waitFor(() => expect(within(screen.getByRole('heading', { name: 'Engineering' })).getByRole('button')).toHaveFocus())
+    await waitFor(() => expect(within(pageHeadingNow({ name: 'Engineering' })).getByRole('button')).toHaveFocus())
     expect(mockNavigate).not.toHaveBeenCalled()
 
     fireEvent.click(await screen.findByRole('button', { name: 'Team description' }))
@@ -1464,7 +1511,7 @@ describe('GroupDetail', () => {
     it('star button shows hollow star when group is not starred', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
       const btn = screen.getByRole('button', { name: 'Star group' })
       expect(btn).toBeInTheDocument()
       // Button text content is the hollow star glyph
@@ -1474,7 +1521,7 @@ describe('GroupDetail', () => {
     it('star button shows filled star when group is already starred', async () => {
       setupAdmin(true)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
       const btn = screen.getByRole('button', { name: 'Unstar group' })
       expect(btn).toBeInTheDocument()
       expect(btn).toHaveTextContent('★')
@@ -1483,7 +1530,7 @@ describe('GroupDetail', () => {
     it('clicking star on an unstarred group calls starGroup and flips to filled star', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
 
@@ -1497,7 +1544,7 @@ describe('GroupDetail', () => {
     it('clicking unstar on a starred group calls unstarGroup and flips to hollow star', async () => {
       setupAdmin(true)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
 
@@ -1512,7 +1559,7 @@ describe('GroupDetail', () => {
       setupAdmin(false)
       mockStarGroup.mockRejectedValueOnce(new Error('network error'))
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
 
@@ -1526,7 +1573,7 @@ describe('GroupDetail', () => {
       setupAdmin(true)
       mockUnstarGroup.mockRejectedValueOnce(new Error('network error'))
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
 
       fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
 
@@ -1539,7 +1586,7 @@ describe('GroupDetail', () => {
     it('group.star_changed WS event updates star indicator for current user', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
       expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
 
       act(() => {
@@ -1555,7 +1602,7 @@ describe('GroupDetail', () => {
     it('group.star_changed WS event for a different user does not change star indicator', async () => {
       setupAdmin(false)
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
 
       act(() => {
         capturedOnEvent?.({
@@ -1586,7 +1633,7 @@ describe('GroupDetail', () => {
     it('member.removed WS event refetches the members list', async () => {
       setupAdmin()
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
       // Initial load fetched members once.
       expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
 
@@ -1630,7 +1677,7 @@ describe('GroupDetail', () => {
     it('invite_link.revoked WS event does not refetch the members list', async () => {
       setupAdmin()
       renderGroupDetail()
-      await screen.findByRole('heading', { name: 'Engineering' })
+      await pageHeading({ name: 'Engineering' })
       expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
 
       act(() => {
@@ -2470,7 +2517,7 @@ describe('GroupDetail — navigation (#1374)', () => {
     mockGetSubgroups.mockRejectedValue({ response: { status } })
     mockGetGroupBoards.mockRejectedValue({ response: { status } })
     renderGroupDetail()
-    const h1 = await screen.findByRole('heading', { level: 1, name: "This group isn't available" })
+    const h1 = await screen.findByRole('heading', { level: 2, name: "This group isn't available" })
     await waitFor(() => expect(h1).toHaveFocus())
     expect(document.title).toBe('Not available – Visiban')
     expect(screen.getByText(/ask them to add you to the group\./)).toBeInTheDocument()
@@ -2506,7 +2553,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue(gone)
       mockGroupSocketStatus = 'failed'
       renderGroupDetail()
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true })
     })
 
@@ -2523,7 +2570,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       await loaded()
       mockGetGroup.mockRejectedValue(gone)
       act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it("the deleter's own session ignores its group.deleted echo and navigates away", async () => {
@@ -2552,7 +2599,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       await screen.findByText('Failed to delete group. Please try again.')
       mockGetGroup.mockRejectedValue(gone)
       act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it("does not carry one group's unavailable state into the next group", async () => {
@@ -2783,7 +2830,7 @@ describe('GroupDetail — health status (#1133)', () => {
   it('withholds the control on a navigation-only group', async () => {
     mockGetGroup.mockResolvedValue({ ...fakeGroup, navigation_only: true, effective_health_status: null })
     renderGroupDetail()
-    await screen.findByRole('heading', { name: 'Engineering', level: 1 })
+    await pageHeading({ name: 'Engineering', level: 1 })
     expect(screen.queryByRole('button', { name: /^Health status:/ })).not.toBeInTheDocument()
   })
 

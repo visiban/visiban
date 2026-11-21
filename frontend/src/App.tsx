@@ -6,16 +6,21 @@ import { useInstanceFlagsState } from "./hooks/useInstanceFlagsState";
 import { InstanceFlagsContext, useInstanceFlags } from "./contexts/InstanceFlagsContext";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
 import { ToastProvider } from "./contexts/ToastContext";
-import { MobileNavContext } from "./contexts/MobileNavContext";
+import { NavDrawerContext, ShellNavDataContext } from "./contexts/ShellNavContext";
+import type { NavDrawerValue } from "./contexts/ShellNavContext";
+import { useLoadShellNavData } from "./hooks/useLoadShellNavData";
 import { ThemeServerSync } from "./context/ThemeServerSync";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
 import ConnectProviderModal from "./components/Auth/ConnectProviderModal";
 import Navbar from "./components/Layout/Navbar";
-import AppSidebar from "./components/Layout/AppSidebar";
-import BoardView from "./components/Board/BoardView";
+import NavDrawer from "./components/Layout/NavDrawer";
+import BoardSwitcher from "./components/Layout/BoardSwitcher";
+import ShortcutsHelpHost from "./components/Layout/ShortcutsHelpHost";
+import { MenuIcon, PencilIcon } from "./components/Layout/shellIcons";
 import InlineBoardName from "./components/Board/InlineBoardName";
+import BoardView from "./components/Board/BoardView";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import { BoardSkeleton, BoardLoadError } from "./components/Board/BoardStates";
 import ImportSkippedToast from "./components/Board/ImportSkippedToast";
@@ -52,22 +57,21 @@ export default function App() {
   const navigate = useNavigate();
   const [starVersion, setStarVersion] = useState(0);
   const handleStarToggled = useCallback(() => setStarVersion((v) => v + 1), []);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  useEscapeStack(() => {
-    if (!mobileMenuOpen) return false;
-    setMobileMenuOpen(false);
-  }, 20);
-  // Phones (#2344): a mounted page header carries the hamburger, so the separate
-  // navigation bar hides while one is registered (one row instead of two).
+  // Navigation drawer (#2473): the only navigation surface, opened on demand
+  // from the header's menu button or `[`. No persistent sidebar, no rail.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const toggleDrawer = useCallback(() => setDrawerOpen((v) => !v), []);
+  // A mounted page header carries the menu button, so the fallback bar below
+  // shows only while no header is registered (a route still loading).
   const [headerCount, setHeaderCount] = useState(0);
   const registerHeader = useCallback(() => {
     setHeaderCount((c) => c + 1);
     return () => setHeaderCount((c) => c - 1);
   }, []);
-  const openMobileMenu = useCallback(() => setMobileMenuOpen(true), []);
-  const mobileNav = useMemo(
-    () => ({ open: mobileMenuOpen, openMenu: openMobileMenu, registerHeader }),
-    [mobileMenuOpen, openMobileMenu, registerHeader],
+  const navDrawer = useMemo(
+    () => ({ open: drawerOpen, setOpen: setDrawerOpen, toggle: toggleDrawer, menuButtonRef, registerHeader }),
+    [drawerOpen, toggleDrawer, registerHeader],
   );
   // Prevent double-firing in React StrictMode when consuming pendingJoinToken.
   const oauthJoinFired = useRef(false);
@@ -198,14 +202,8 @@ export default function App() {
       ) : user ? (
         <>
           <Route path="/*" element={
-              <div className="flex h-screen overflow-hidden">
+              <SignedInShell user={user} starVersion={starVersion} navDrawer={navDrawer}>
                 <ThemeServerSync user={user} onUserUpdated={updateUser} />
-                <AppSidebar
-                  user={user}
-                  starVersion={starVersion}
-                  mobileOpen={mobileMenuOpen}
-                  onMobileClose={() => setMobileMenuOpen(false)}
-                />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                   {/* Instance-wide maintenance notice (#783). First child of the
                       content column so it sits above every route and above the
@@ -230,29 +228,31 @@ export default function App() {
                       settings page explains itself too. It raises a toast in
                       the shared region and renders nothing itself. */}
                   {flags.demo_mode && <DemoWriteBlockedToast />}
-                  {/* Mobile navigation bar — visible below lg breakpoint only. On phones
-                      the page header carries the hamburger instead (#2344), so this bar
-                      hides whenever a header is mounted. */}
-                  <div data-testid="mobile-nav-bar" className={`lg:hidden${headerCount > 0 ? " max-sm:hidden" : ""} flex items-center gap-3 px-4 py-3 max-sm:py-0 max-sm:h-11 bg-sunken border-b border-line shrink-0`}>
-                    <button type="button"
-                      onClick={() => setMobileMenuOpen(true)}
-                      className="text-fg-tertiary hover:text-fg transition p-1 max-sm:inline-flex max-sm:items-center max-sm:justify-center max-sm:min-h-11 max-sm:min-w-11 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                      aria-label="Open navigation menu"
-                      aria-expanded={mobileMenuOpen}
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                        <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <span className="text-sm font-semibold text-fg">Visiban</span>
-                  </div>
+                  {/* Fallback bar: only while no page header is mounted (a route
+                      still loading), so there is always a way into the drawer. */}
+                  {headerCount === 0 && (
+                    <div data-testid="shell-fallback-bar" className="flex items-center gap-3 px-4 max-sm:px-1 h-14 max-sm:h-12 bg-sunken border-b border-line shrink-0">
+                      <button type="button"
+                        // Set-only ref: this bar unmounts as a header mounts, and a
+                        // plain ref would null the header's button on the way out.
+                        ref={(el) => { if (el) menuButtonRef.current = el; }}
+                        onClick={toggleDrawer}
+                        className="inline-flex items-center justify-center h-9 w-9 max-sm:h-11 max-sm:w-11 rounded-md text-fg-tertiary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        aria-label="Open navigation"
+                        aria-expanded={drawerOpen}
+                        aria-keyshortcuts="["
+                        title="Menu  ["
+                      >
+                        <MenuIcon />
+                      </button>
+                      <span className="text-sm font-semibold text-fg">Visiban</span>
+                    </div>
+                  )}
                   <main role="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <MobileNavContext.Provider value={mobileNav}>
-                      <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
-                    </MobileNavContext.Provider>
+                    <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
                   </main>
                 </div>
-              </div>
+              </SignedInShell>
           } />
         </>
       ) : (
@@ -261,6 +261,31 @@ export default function App() {
     </Routes>
     </ToastProvider>
     </InstanceFlagsContext.Provider>
+  );
+}
+
+/**
+ * The signed-in shell (#2473): one column under one header, plus the
+ * navigation drawer and the keyboard shortcuts help, which every signed-in
+ * route shares. Loads the drawer's and board switcher's data once.
+ */
+function SignedInShell({ user, starVersion, navDrawer, children }: {
+  user: User;
+  starVersion: number;
+  navDrawer: NavDrawerValue;
+  children: React.ReactNode;
+}) {
+  const navData = useLoadShellNavData(user, starVersion);
+  return (
+    <NavDrawerContext.Provider value={navDrawer}>
+      <ShellNavDataContext.Provider value={navData}>
+        <div className="flex h-screen overflow-hidden">
+          {children}
+          <NavDrawer user={user} />
+          <ShortcutsHelpHost />
+        </div>
+      </ShellNavDataContext.Provider>
+    </NavDrawerContext.Provider>
   );
 }
 
@@ -280,7 +305,7 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
     <>
       {showShellPalette && <GlobalCommandPalette userId={user.id} />}
       <Routes>
-        <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+        <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
         <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
         <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
         <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
@@ -325,6 +350,17 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   // surfaces, rather than letting the click round-trip to a 403.
   const demoMode = useInstanceFlags().demo_mode;
 
+  const [renaming, setRenaming] = useState(false);
+  // After a rename closes (saved or canceled) focus goes back to the Rename button.
+  const renameButtonRef = useRef<HTMLButtonElement>(null);
+  // A blur-commit (clicking or Tabbing elsewhere) must not steal focus back; InlineBoardName reports that.
+  const restoreRenameFocus = useRef(false);
+  const wasRenaming = useRef(false);
+  useEffect(() => {
+    if (wasRenaming.current && !renaming && restoreRenameFocus.current) renameButtonRef.current?.focus();
+    if (!renaming) restoreRenameFocus.current = false;
+    wasRenaming.current = renaming;
+  }, [renaming]);
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are specific fields; including the full board object causes spurious re-runs
@@ -433,6 +469,18 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             // The star stays as it is; the health control follows it (#1133).
             suffix: board ? (
               <>
+                {isAdmin && !renaming && (
+                  <button
+                    ref={renameButtonRef}
+                    type="button"
+                    onClick={() => setRenaming(true)}
+                    aria-label="Rename board"
+                    title="Rename board"
+                    className="inline-flex items-center justify-center w-7 h-7 max-sm:w-11 max-sm:h-11 shrink-0 rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    <PencilIcon className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 {starButton}
                 <HealthStatusControl
                   className="ml-2 max-sm:ml-0 max-sm:!min-h-11 max-sm:!min-w-11 max-sm:justify-center"
@@ -458,13 +506,17 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
                 />
               </>
             ) : null,
-            render: board ? (
+            // The h1 holds the board switcher (#2473). Admins rename through
+            // the Rename button beside it, which swaps in the inline editor.
+            render: board ? (renaming && isAdmin ? (
               <InlineBoardName
                 name={board.name}
-                canEdit={isAdmin}
+                canEdit
+                initialEditing
+                onDone={(restoreFocus) => { restoreRenameFocus.current = restoreFocus; setRenaming(false); }}
                 onSave={async (name) => { await updateBoardSettings({ name }); }}
               />
-            ) : undefined,
+            ) : <BoardSwitcher board={board} />) : undefined,
           },
         ]}
       />

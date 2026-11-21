@@ -54,13 +54,20 @@ vi.mock('../components/Auth/ForceRenameUsernameModal', () => ({
 // Minimal stand-in: renders only the breadcrumb suffix (the star button) so
 // this file can assert on it, matching Navbar's real prop shape.
 vi.mock('../components/Layout/Navbar', () => ({
-  default: ({ breadcrumb }: { breadcrumb?: { suffix?: React.ReactNode }[] }) => (
-    <div data-testid="navbar">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.suffix}</React.Fragment>)}</div>
+  // The crumb's `render` (switcher or inline rename editor) sits outside the navbar test id so
+  // the button-order assertions below only see the suffix controls.
+  default: ({ breadcrumb }: { breadcrumb?: { suffix?: React.ReactNode; render?: React.ReactNode }[] }) => (
+    <>
+      <div data-testid="navbar">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.suffix}</React.Fragment>)}</div>
+      <div data-testid="navbar-crumb">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.render}</React.Fragment>)}</div>
+    </>
   ),
 }))
 
-vi.mock('../components/Layout/AppSidebar', () => ({
-  default: () => <div data-testid="sidebar" />,
+// The shell's drawer/switcher data (#2473) is loaded by one hook; stub it so
+// these tests need no groups/boards API mocks.
+vi.mock('../hooks/useLoadShellNavData', () => ({
+  useLoadShellNavData: () => ({ loading: false, groups: [], boards: [], starredBoards: [], recentBoards: [] }),
 }))
 vi.mock('../components/Board/BoardView', () => ({
   default: () => <div data-testid="board-view">Board</div>,
@@ -134,6 +141,41 @@ function renderBoardPage(board: object = fakeBoard, flags: Partial<InstanceFlags
   return render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
 }
 
+describe('BoardPage rename focus return (#2473)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it.each([
+    ['saved with Enter', '{Enter}'],
+    ['canceled with Escape', '{Escape}'],
+  ])('focus goes back to the Rename button after a rename is %s', async (_label, key) => {
+    const user = userEvent.setup()
+    renderBoardPage()
+    await user.click(within(screen.getByTestId('navbar')).getByRole('button', { name: 'Rename board' }))
+    const input = await screen.findByRole('textbox', { name: 'Board name' })
+    expect(input).toHaveFocus()
+    await user.type(input, ' renamed')
+    await user.keyboard(key)
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Board name' })).toBeNull())
+    await waitFor(() => expect(within(screen.getByTestId('navbar')).getByRole('button', { name: 'Rename board' })).toHaveFocus())
+  })
+
+  it('a blur-commit leaves focus on the control the user moved to, not the Rename button', async () => {
+    const user = userEvent.setup()
+    renderBoardPage()
+    const navbar = within(screen.getByTestId('navbar'))
+    await user.click(navbar.getByRole('button', { name: 'Rename board' }))
+    const input = await screen.findByRole('textbox', { name: 'Board name' })
+    await user.type(input, ' renamed')
+    const star = navbar.getByRole('button', { name: 'Star board' })
+    await user.click(star)
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Board name' })).toBeNull())
+    expect(star).toHaveFocus()
+    expect(navbar.getByRole('button', { name: 'Rename board' })).not.toHaveFocus()
+  })
+})
+
 describe('BoardPage Row 1 health status (#1133)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -142,7 +184,9 @@ describe('BoardPage Row 1 health status (#1133)', () => {
   it('an admin gets the trigger after the star, collapsed to its shape below md', () => {
     renderBoardPage()
     const navbar = screen.getByTestId('navbar')
-    const buttons = within(navbar).getAllByRole('button')
+    // An admin also gets the Rename board button before the star (#2473).
+    expect(within(navbar).getAllByRole('button')[0]).toHaveAccessibleName('Rename board')
+    const buttons = within(navbar).getAllByRole('button').filter((b) => b.getAttribute('aria-label') !== 'Rename board')
     expect(buttons[0]).toHaveAccessibleName('Star board')
     expect(buttons[1]).toHaveAccessibleName('Health status: No status')
     expect(within(buttons[1]).getByText('No status')).toHaveClass('sr-only', 'md:not-sr-only')
