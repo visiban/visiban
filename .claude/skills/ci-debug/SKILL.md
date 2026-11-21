@@ -35,6 +35,7 @@ Map the failure to one of the known CI jobs:
 | lint | `frontend-lint` | ESLint errors or TypeScript type errors |
 | lint | `changelog-check` | Missing CHANGELOG.md entry — run `/changelog` |
 | test | `backend-test` | Failing Django tests or coverage < 90% |
+| test | `backend-test-migrations` | Real migration graph fails to apply, or a `-m migrations` test fails (blocking; shards use `--nomigrations`) |
 | test | `migration-check` | Model changed without migration — run `/migration-check` |
 | test | `frontend-test` | Failing Vitest tests or coverage threshold |
 | test | `backend-docker-build` | Dockerfile syntax or dependency install failure |

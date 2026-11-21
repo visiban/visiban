@@ -47,10 +47,10 @@ Add these in **Settings → CI/CD → Variables**. **Watch out:** the pipeline f
 
 | Variable | Used by | Masked | Notes |
 |---|---|---|---|
-| `CI_DJANGO_SECRET_KEY` | `backend-test`, `migration-check`, `schema-validation` | Yes | Any non-empty string; not a production secret |
-| `CI_POSTGRES_PASSWORD` | `backend-test` | Yes | Ephemeral test DB; any non-empty string |
-| `CI_POSTGRES_USER` | `backend-test` | No | e.g. `visiban` |
-| `CI_POSTGRES_DB` | `backend-test` | No | e.g. `visiban_test` |
+| `CI_DJANGO_SECRET_KEY` | `backend-test`, `backend-test-migrations`, `migration-check`, `schema-validation` | Yes | Any non-empty string; not a production secret |
+| `CI_POSTGRES_PASSWORD` | `backend-test`, `backend-test-migrations` | Yes | Ephemeral test DB; any non-empty string |
+| `CI_POSTGRES_USER` | `backend-test`, `backend-test-migrations` | No | e.g. `visiban` |
+| `CI_POSTGRES_DB` | `backend-test`, `backend-test-migrations` | No | e.g. `visiban_test` |
 | `GHCR_TOKEN` | `backend-docker-push`, `frontend-docker-push` | Yes | GitHub PAT, `write:packages` scope |
 | `GHCR_USER` | Same | No | `visiban` |
 | `GITHUB_TOKEN` | `github-release` | Yes | GitHub PAT, `repo` scope |

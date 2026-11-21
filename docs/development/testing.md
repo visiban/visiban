@@ -374,7 +374,7 @@ Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` an
 
 ## CI
 
-- Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`
+- Backend tests run in the `backend-test` job (8 parallel shards) on every MR that touches `backend/**/*` or `requirements*.txt`. The companion `backend-test-migrations` job (blocking) runs `-m migrations` against a database built by applying the real migration graph; start there when a migration test is red
   - Shards are time-balanced by `pytest-split` from the committed `backend/.test_durations` file. Shards never write it (concurrent shards would overwrite each other's slice). A stale file only degrades balance, never correctness. Tests missing from it get the average duration.
   - **Refresh it from CI's own timings** at each dot-release close (a `/release` pre-flight item) or after a large batch of new tests (#2422). From the repo root, with `glab` authenticated and `backend/.venv` set up, run `python3 scripts/refresh_test_durations.py --pipeline latest --collect --output backend/.test_durations`, then commit the file on a `chore/` branch.
     - **What it does:** reads the newest green `main` push pipeline's test report, which holds every shard's JUnit per-test times, and maps each row to a pytest node id from a local `pytest --collect-only -q`. It drops rows whose test no longer collects. It leaves out collected tests with no CI timing, so pytest-split gives them the average. Repeated rows for one node id (reruns, subtests) are summed.
