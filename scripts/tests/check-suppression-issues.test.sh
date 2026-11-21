@@ -239,6 +239,9 @@ write_baseline pending '{"endpoints":{"card_search_multi_board":{"budget_p95_ms"
 write_baseline none '{"endpoints":{"card_timeline":{"budget_p95_ms":60}}}'
 write_baseline gated '{"endpoints":{"card_timeline":{"budget_p95_ms":60,"pending_budget":"#7001"}}}'
 write_baseline badref '{"endpoints":{"x":{"budget_p95_ms":null,"pending_budget":"7001"}}}'
+write_baseline memonly '{"endpoints":{"flow_dwell":{"budget_p95_ms":50,"budget_peak_rss_mb":null,"pending_memory_budget":"#7002"},"card_timeline":{"budget_p95_ms":60}}}'
+write_baseline memgated '{"endpoints":{"flow_dwell":{"budget_p95_ms":50,"budget_peak_rss_mb":400,"pending_memory_budget":"#7002"}}}'
+write_baseline membadref '{"endpoints":{"flow_dwell":{"budget_peak_rss_mb":null,"pending_memory_budget":"7002"}}}'
 printf '%s' '{not json' > "$TMP/pb/broken.json"
 
 run_pb() { # run_pb <mock-closed-csv> <fixture-name>
@@ -257,6 +260,19 @@ check "pending_budget failure does not name the gated entry" "$(echo "$CASE_OUT"
 
 run_pb "9" pending
 check "pending_budget citing an open issue passes" "$([ "$CASE_RC" -eq 0 ] && echo 0 || echo 1)"
+
+# pending_memory_budget (#2430): scanned like pending_budget, even when p95 is gated.
+run_pb "7002" memonly
+check "pending_memory_budget citing a closed issue blocks" "$([ "$CASE_RC" -eq 1 ] && echo 0 || echo 1)"
+check "pending_memory_budget failure names the entry and issue" \
+  "$(echo "$CASE_OUT" | grep -q "flow_dwell" && echo "$CASE_OUT" | grep -q "#7002" && echo 0 || echo 1)"
+check "pending_memory_budget failure does not name the unrelated entry" "$(echo "$CASE_OUT" | grep -q "card_timeline" && echo 1 || echo 0)"
+run_pb "9" memonly
+check "pending_memory_budget citing an open issue passes" "$([ "$CASE_RC" -eq 0 ] && echo 0 || echo 1)"
+run_pb "7002" memgated
+check "pending_memory_budget on an entry with a non-null budget is ignored" "$([ "$CASE_RC" -eq 0 ] && echo 0 || echo 1)"
+run_pb "7002" membadref
+check "pending_memory_budget without a #NNNN shape is ignored" "$([ "$CASE_RC" -eq 0 ] && echo 0 || echo 1)"
 
 run_pb "7001" none
 check "baseline with no pending_budget passes" "$([ "$CASE_RC" -eq 0 ] && echo 0 || echo 1)"

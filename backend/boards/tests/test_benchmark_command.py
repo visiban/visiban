@@ -9,6 +9,7 @@ import re
 from io import StringIO
 from unittest import mock
 
+from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
@@ -146,3 +147,42 @@ class BenchmarkFixtureTests(TestCase):
         self.assertGreater(sum(1 for card in flow.cards if card.cycle_start), 0)
         self.assertGreater(sum(1 for card in flow.cards if card.reopens), 0)
         self.assertGreater(sum(1 for card in flow.cards if card.is_in_progress(flow.done_uids)), 0)
+
+
+@override_settings(DEBUG=True)
+class BenchmarkLinkedBoardTests(TestCase):
+    """#2424: the benchmark measures a board whose cards all have a parent."""
+
+    def test_linked_rows_run_and_leave_no_boards_behind(self):
+        from boards.models import Board
+
+        out = StringIO()
+        call_command("benchmark", stdout=out, stderr=StringIO())
+        text = out.getvalue()
+        self.assertIn("GET /api/boards/{id}/full/ (linked)", text)
+        self.assertIn("GET /api/boards/{id}/cards/ (linked)", text)
+        self.assertEqual(Board.objects.count(), 0)
+
+    def test_cleanup_removes_fixture_boards_by_identity_not_name(self):
+        """A real load-test fixture in the same database shares the board names."""
+        from boards.management.commands._load_test_fixtures import (
+            LOAD_TEST_LINKED_BOARD_NAME,
+            LOAD_TEST_PARENT_BOARD_PREFIX,
+        )
+        from boards.models import Board
+
+        owner = get_user_model().objects.create_user(username="real_owner", password="x")
+        keep = [
+            Board.objects.create(name=LOAD_TEST_LINKED_BOARD_NAME, owner=owner),
+            Board.objects.create(name=f"{LOAD_TEST_PARENT_BOARD_PREFIX} 1", owner=owner),
+        ]
+        call_command("benchmark", stdout=StringIO(), stderr=StringIO())
+        self.assertEqual(
+            set(Board.objects.values_list("pk", flat=True)), {b.pk for b in keep}
+        )
+
+    def test_linked_budgets_sit_above_the_no_link_budgets(self):
+        from boards.management.commands import benchmark
+
+        self.assertGreater(benchmark.FULL_LINKED_BUDGET, benchmark.FULL_BUDGET)
+        self.assertGreater(benchmark.CARD_LIST_LINKED_BUDGET, 0)

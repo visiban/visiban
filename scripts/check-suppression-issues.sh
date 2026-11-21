@@ -229,11 +229,18 @@ BASELINE_FILE="${CHECK_SUPPRESSION_BASELINE:-backend/nightly-load-test-baseline.
 # pending_budget_entries <baseline_file> — prints "<name><TAB><iid>" per
 # pending entry. Returns non-zero if the file is not parseable JSON.
 pending_budget_entries() {
+  # Two pending shapes: a null p95 budget with pending_budget, and a null peak-RSS
+  # budget with pending_memory_budget (#2430). Each is checked independently, so an
+  # entry gated on p95 but pending on memory is still tracked.
   jq -r '(.endpoints // {}) | to_entries[]
     | select(.value | type == "object")
-    | select(.value.budget_p95_ms == null)
-    | select((.value.pending_budget | type) == "string" and (.value.pending_budget | test("^#[0-9]+$")))
-    | "\(.key)\t\(.value.pending_budget[1:])"' "$1"
+    | .key as $k | .value as $v
+    | ( ( $v | select(.budget_p95_ms == null)
+          | select((.pending_budget | type) == "string" and (.pending_budget | test("^#[0-9]+$")))
+          | "\($k)\t\(.pending_budget[1:])" ),
+        ( $v | select(.budget_peak_rss_mb == null)
+          | select((.pending_memory_budget | type) == "string" and (.pending_memory_budget | test("^#[0-9]+$")))
+          | "\($k)\t\(.pending_memory_budget[1:])" ) )' "$1"
 }
 
 # run_pending_scan <baseline_file> — returns 1 if any pending entry cites a
@@ -287,7 +294,7 @@ run_pending_scan() {
     case "$state" in
       closed)
         pending_fail=1
-        echo "check-suppression-issues: ${file}: endpoint '${name}' has pending_budget #${iid}, which is CLOSED — assign its budget_p95_ms and delete pending_budget (whole-file NUC re-derivation), or re-point pending_budget at a new tracked issue." >&2
+        echo "check-suppression-issues: ${file}: endpoint '${name}' has a pending budget (pending_budget or pending_memory_budget) #${iid}, which is CLOSED — assign its budget_p95_ms or budget_peak_rss_mb and delete the pending key (whole-file NUC re-derivation), or re-point pending_budget at a new tracked issue." >&2
         ;;
       missing)
         pending_fail=1

@@ -42,6 +42,7 @@ from django.db import connection, reset_queries
 from django.core.management.base import BaseCommand, CommandError
 from django.test import RequestFactory, override_settings
 
+from ._load_test_fixtures import seed_linked_boards
 from boards.models import (
     Board, BoardMembership, Column, Swimlane, Label,
     Card, CardMovement, CardAttachment, CardChecklist,
@@ -64,10 +65,17 @@ _BENCH_HOST = "testserver"
 # middleware, not two separate judgments: when they disagreed (cards 12 vs 14,
 # full 20 vs 19) a regression could pass one guard and fail the other.
 CARD_LIST_BUDGET = 14  # 9 measured here on Postgres (#1341)
-# The benchmark seeds no card parent links (#2424 tracks adding them and
-# re-deriving this budget), so it describes the no-link case; the with-links
-# case costs 2 more queries and is pinned by CardParentQueryCountTests.
+# The main fixture has no card parent links, so FULL_BUDGET describes the
+# no-link case; the with-links case costs 2 more queries and is pinned by
+# CardParentQueryCountTests. The linked fixture (#2424) has its own budgets below.
 FULL_BUDGET = 20  # 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup
+# #2424: the 500-card child board, every card linked to a parent on one of 5 parent
+# boards. Kept apart from the no-link budgets above so those, and the flat
+# query-count tests they are shared with, are untouched. Both are driven through
+# the endpoint, so the card list count is not comparable with CARD_LIST_BUDGET
+# (which serializes the queryset directly).
+FULL_LINKED_BUDGET = 24  # 22 measured on Postgres (2026-11-20, #2424): 20 + the 2 role-batch queries; +2 headroom
+CARD_LIST_LINKED_BUDGET = 18  # 16 measured on Postgres (2026-11-20, #2424); +2 headroom
 SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
 
 # ── fixture dimensions ────────────────────────────────────────────────────────
@@ -148,6 +156,7 @@ class Command(BaseCommand):
         factory = RequestFactory()
 
         results = []
+        linked_boards = []
         try:
             results.append(self._bench_cards(factory, user, board))
             results.append(self._bench_full(factory, user, board))
@@ -155,12 +164,25 @@ class Command(BaseCommand):
             if field_count:
                 self._bench_full_latency(user, board, field_count)
             else:
+                linked_board, parent_boards, _ = seed_linked_boards(user, self._create_columns)
+                linked_boards = [linked_board, *parent_boards]
+                results.append(self._bench_history_endpoint(
+                    user, linked_board, "GET /api/boards/{id}/full/ (linked)", "full/", FULL_LINKED_BUDGET,
+                ))
+                results.append(self._bench_history_endpoint(
+                    user, linked_board, "GET /api/boards/{id}/cards/ (linked)", "cards/",
+                    CARD_LIST_LINKED_BUDGET,
+                ))
                 for name, path, budget in _HISTORY_ENDPOINTS:
                     results.append(self._bench_history_endpoint(user, board, name, path, budget))
         finally:
             # No announce_cards_removal: the board and its cards are this
             # command's own throwaway fixture, never linked to another card.
             board.delete()
+            # By identity, never by name: a real load-test fixture in this database
+            # uses the same board names.
+            for fixture_board in linked_boards:
+                fixture_board.delete()
             if not User.objects.filter(pk=user.pk).first() or user.username.startswith("bench_"):
                 user.delete()
 
@@ -346,6 +368,13 @@ class Command(BaseCommand):
             for sw in swimlanes
             for i, d in enumerate(definitions)
         ])
+
+    @staticmethod
+    def _create_columns(board):
+        return [
+            Column.objects.create(board=board, name=f"Col {i}", position=i, is_done=i == COLUMNS - 1)
+            for i in range(COLUMNS)
+        ]
 
     def _seed(self, swimlane_count=SWIMLANES, field_count=0):
         """Create a throw-away board with COLUMNS × swimlanes × CARDS_PER_CELL cards."""

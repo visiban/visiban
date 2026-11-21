@@ -142,6 +142,15 @@ from boards.models import (
 from groups.models import Group, GroupInviteLink, GroupLabel, GroupMembership
 from groups.serializers import GROUP_INVITE_LINK_MAX_EXPIRY_DAYS
 
+from ._load_test_fixtures import (
+    GENERATION_SPACING_DAYS,
+    LOAD_TEST_AGED_BOARD_NAME,
+    LOAD_TEST_LINKED_BOARD_NAME,
+    LOAD_TEST_PARENT_BOARD_PREFIX,
+    copy_archived_generations,
+    ensure_analytics_user,
+    seed_linked_boards,
+)
 from ._seed_history import (
     CREATED_NOTE,
     delete_seed_boards,
@@ -592,6 +601,29 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--aged-generations",
+            type=int,
+            default=0,
+            help=(
+                "Also seed a SEPARATE aged board (#2430): the --scale board's shape "
+                "again, plus N archived generations of its active cards, "
+                f"{GENERATION_SPACING_DAYS} days apart, movements included (4 is about a year "
+                "of history, 12 about three). The nightly load test cannot see how "
+                "analytics breaks on board age without it. Requires --scale > 1. "
+                "Owned by its own user, so no existing scenario's data changes. 0 "
+                "(default) seeds none."
+            ),
+        )
+        parser.add_argument(
+            "--linked-boards",
+            action="store_true",
+            help=(
+                "Also seed the card-parent-link fixture (#2424): a 500-card child "
+                "board whose every card has a parent on one of 5 parent boards. "
+                "Requires --scale > 1. Off by default."
+            ),
+        )
+        parser.add_argument(
             "--demo-site",
             action="store_true",
             help=(
@@ -764,6 +796,11 @@ class Command(BaseCommand):
             raise CommandError("--extra-boards must be >= 0.")
         if extra_boards and scale == 1:
             raise CommandError("--extra-boards requires --scale > 1.")
+        aged_generations = options["aged_generations"]
+        if aged_generations < 0:
+            raise CommandError("--aged-generations must be >= 0.")
+        if (aged_generations or options["linked_boards"]) and scale == 1:
+            raise CommandError("--aged-generations and --linked-boards require --scale > 1.")
 
         if options["wipe"]:
             # With the container-delete locks (#1602): the demo cronjob runs
@@ -771,7 +808,10 @@ class Command(BaseCommand):
             wipe_qs = Board.objects.filter(name=board_name)
             if board_name == LOAD_TEST_BOARD_NAME:
                 wipe_qs = Board.objects.filter(
-                    Q(name=board_name) | Q(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX)
+                    Q(name=board_name)
+                    | Q(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX)
+                    | Q(name__in=(LOAD_TEST_AGED_BOARD_NAME, LOAD_TEST_LINKED_BOARD_NAME))
+                    | Q(name__startswith=LOAD_TEST_PARENT_BOARD_PREFIX)
                 )
             deleted, _ = delete_seed_boards(wipe_qs)
             if board_name == BOARD_NAME:
@@ -850,6 +890,12 @@ class Command(BaseCommand):
                 f"Seeded {extra_boards} extra boards owned by '{users[2].username}' "
                 f"({extra_boards + 1} accessible boards)."
             )
+
+        if aged_generations:
+            self._create_aged_board(scale, aged_generations)
+        if options["linked_boards"]:
+            _, _, n_links = seed_linked_boards(ensure_analytics_user(), self._create_columns)
+            self.stdout.write(f"Seeded the linked-board fixture: {n_links} card parent links.")
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -1585,6 +1631,33 @@ class Command(BaseCommand):
                 for u in User.objects.filter(username__in=names)
             ],
             ignore_conflicts=True,
+        )
+
+    def _create_aged_board(self, scale, generations):
+        """Seed the aged board (#2430): the load-test board's shape plus archived generations.
+
+        Runs after every other step and reseeds ``random`` from its own key, so
+        the main fixture's seeded stream, and so every committed budget derived
+        from it, is untouched. The board has one member, the analytics user, so
+        no demo user's accessible-board set (and with it the ``card_search``
+        plans) changes.
+        """
+        random.seed(f"aged-board-{scale}")
+        owner = ensure_analytics_user()
+        board = self._create_board(owner, LOAD_TEST_AGED_BOARD_NAME)
+        BoardMembership.objects.create(board=board, user=owner, role=BoardMembership.Role.ADMIN)
+        columns = self._create_columns(board)
+        swimlanes = self._create_swimlanes(board, scale)
+        labels = self._create_labels(board)
+        cards = self._create_cards(board, columns, swimlanes, labels, self._ensure_demo_users())
+        anchor = datetime.datetime(
+            self._movement_anchor.year, self._movement_anchor.month, self._movement_anchor.day,
+            tzinfo=datetime.timezone.utc,
+        )
+        n_cards, n_moves = copy_archived_generations(board, generations, anchor)
+        self.stdout.write(
+            f"Seeded '{LOAD_TEST_AGED_BOARD_NAME}': {len(cards)} active cards plus "
+            f"{n_cards} archived over {generations} generations ({n_moves} copied movements)."
         )
 
     def _create_extra_boards(self, owner, count):
