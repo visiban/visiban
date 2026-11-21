@@ -161,6 +161,8 @@ class BenchmarkLinkedBoardTests(TestCase):
         text = out.getvalue()
         self.assertIn("GET /api/boards/{id}/full/ (linked)", text)
         self.assertIn("GET /api/boards/{id}/cards/ (linked)", text)
+        self.assertIn("GET /api/boards/{id}/full/ (rollup)", text)
+        self.assertIn("GET /api/boards/{id}/cards/ (rollup)", text)
         self.assertEqual(Board.objects.count(), 0)
 
     def test_cleanup_removes_fixture_boards_by_identity_not_name(self):
@@ -186,3 +188,10 @@ class BenchmarkLinkedBoardTests(TestCase):
 
         self.assertGreater(benchmark.FULL_LINKED_BUDGET, benchmark.FULL_BUDGET)
         self.assertGreater(benchmark.CARD_LIST_LINKED_BUDGET, 0)
+
+    def test_rollup_budgets_sit_above_the_linked_child_side(self):
+        """The parent-tier read does the child-side reads' work plus the rollup (#2210)."""
+        from boards.management.commands import benchmark
+
+        self.assertGreater(benchmark.FULL_ROLLUP_BUDGET, benchmark.FULL_LINKED_BUDGET)
+        self.assertGreater(benchmark.CARD_LIST_ROLLUP_BUDGET, benchmark.CARD_LIST_LINKED_BUDGET)

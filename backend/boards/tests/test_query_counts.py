@@ -2067,8 +2067,8 @@ class CardChildrenQueryCountTests(TestCase):
     who cannot (count only). Its scaling axis is the number of children; the
     child board is one board by rule, so there is no second axis.
 
-    The issue also asks for a bench case for "the rollup"; no server-side
-    rollup exists (it is UI work), so that case is deferred to #2210.
+    The rollup's own bench case landed with #2210: the ``(rollup)`` rows of
+    ``manage.py benchmark`` (``FULL_ROLLUP_BUDGET``, ``CARD_LIST_ROLLUP_BUDGET``).
     """
 
     # 11 measured with titles, 10 count-only (auth, board role, parent card,
