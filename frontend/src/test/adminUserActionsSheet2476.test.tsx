@@ -134,6 +134,21 @@ describe('Site admin phone row actions sheet (#2476)', () => {
     expect(labels(sheet, 'Support')).toEqual(['Force password reset', 'Clear lockout', 'Restart onboarding tour'])
   })
 
+  it('absent actor superuser status keeps Grant all-content on a normal row (the server decides)', async () => {
+    const { is_superuser: _omit, ...unknownActor } = actor
+    await renderUsers([self, adminUser({})], unknownActor as User)
+    expect(labels(openSheet('Alice').sheet, 'Support')).toContain('Grant all-content')
+  })
+
+  it('a superuser actor on a superuser row gets neither Demote nor Grant/Revoke all-content', async () => {
+    await renderUsers([self, adminUser({ is_superuser: true, is_site_admin: true, can_access_all_content: true })], { ...actor, is_superuser: true })
+    const { sheet } = openSheet('Alice')
+    expect(labels(sheet, 'Account')).toEqual(['Deactivate'])
+    const support = labels(sheet, 'Support')
+    expect(support).not.toContain('Revoke all-content')
+    expect(support).not.toContain('Grant all-content')
+  })
+
   it('a row with no applicable actions gets no ⋯ trigger', async () => {
     await renderUsers([self, adminUser({ is_superuser: true, is_site_admin: true, can_access_all_content: true, has_completed_tour: false })], { ...actor, is_superuser: false })
     expect(screen.queryByRole('button', { name: 'More actions for Alice' })).not.toBeInTheDocument()

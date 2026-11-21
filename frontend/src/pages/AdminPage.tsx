@@ -567,7 +567,7 @@ function OffboardingModal({ user, onDeactivated, onClose, restoreFocusTo }: Offb
       maxWidth="max-w-lg"
       headerBorder
       restoreFocusTo={restoreFocusTo}
-      panelClassName="max-sm:fixed max-sm:inset-0 max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:overflow-y-auto max-sm:pb-[env(safe-area-inset-bottom)]"
+      panelClassName="max-sm:fixed max-sm:inset-0 max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:overflow-y-auto"
     >
       <div ref={contentRef}>
         <p className="text-sm text-fg-secondary mb-4">
@@ -619,7 +619,8 @@ function OffboardingModal({ user, onDeactivated, onClose, restoreFocusTo }: Offb
 
         {error && <p className="text-sm text-danger mb-3">{error}</p>}
 
-        <div className="flex justify-end gap-3">
+        {/* Full screen on a phone: the actions stay pinned while a long board list scrolls. */}
+        <div className="flex justify-end gap-3 max-sm:sticky max-sm:bottom-0 max-sm:bg-surface max-sm:border-t max-sm:border-line max-sm:pt-3 max-sm:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             onClick={onClose}
             className="px-3 py-1.5 max-sm:h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -1327,6 +1328,8 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
 
   // A sheet action that opens a confirm keeps the sheet (the confirm replaces its list); one that
   // runs at once (Reactivate, Force password reset, Restart onboarding tour, Transfer) closes it.
+  // Contract: an action opens its confirm synchronously, through confirmAndRun. One that opened a
+  // confirm after an await would close the sheet first, and the confirm would not show.
   const toSheetAction = (a: SheetAction | OverflowItem): SheetAction => ({
     id: a.id,
     label: a.label,
@@ -1341,6 +1344,14 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   });
 
   const sheetUser = isPhone && sheetUserId !== null ? users.find((u) => u.id === sheetUserId) ?? null : null;
+  // The sheet's row left the list (a search refetch) or the viewport grew past phone width: drop the
+  // sheet and any confirm it held, so neither reappears later under a different layout.
+  useEffect(() => {
+    if (sheetUserId !== null && !sheetUser) {
+      setSheetUserId(null);
+      setConfirm((c) => (c?.userId === sheetUserId ? null : c));
+    }
+  }, [sheetUserId, sheetUser]);
 
   const totalPages = Math.ceil(total / pageSize);
   const first = total === 0 ? 0 : offset + 1;

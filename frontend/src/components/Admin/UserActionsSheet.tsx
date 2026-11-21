@@ -40,8 +40,8 @@ interface UserActionsSheetProps {
 }
 
 const ITEM =
-  "w-full min-h-11 px-4 py-2 flex flex-col items-start justify-center text-left text-sm rounded-md transition " +
-  "hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full min-h-11 px-4 py-2 flex flex-col items-start justify-center text-left text-sm rounded transition " +
+  "hover:bg-surface-hover focus:outline-none focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed";
 
 /**
  * Phone row actions for Site admin → Users (#2476, "Phone row actions" artboard). On a phone every
@@ -90,7 +90,7 @@ export default function UserActionsSheet({
               type="button"
               data-action-id={a.id}
               disabled={a.disabled}
-              className={`${ITEM} ${a.danger ? "text-danger" : "text-fg"}`}
+              className={`${ITEM} ${a.danger ? "text-danger focus:ring-danger-emphasis" : "text-fg focus:ring-primary-emphasis"}`}
               onClick={() => {
                 if (a.disabled) return;
                 lastActionRef.current = a.id;
@@ -114,7 +114,7 @@ export default function UserActionsSheet({
         aria-modal="true"
         aria-labelledby={headingId}
         data-variant="sheet"
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-xl border border-line-strong bg-surface shadow-xl pb-[env(safe-area-inset-bottom)]"
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-xl border border-line-strong bg-surface shadow-xl pb-[env(safe-area-inset-bottom)]"
       >
         <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-line">
           <Avatar user={user} size="sm" />
