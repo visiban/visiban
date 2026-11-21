@@ -61,8 +61,10 @@ vi.mock('../components/Layout/Navbar', () => ({
   ),
 }))
 
-vi.mock('../components/Layout/AppSidebar', () => ({
-  default: () => <div data-testid="sidebar" />,
+// The shell's drawer/switcher data (#2473) is loaded by one hook; stub it so
+// these tests need no groups/boards API mocks.
+vi.mock('../hooks/useLoadShellNavData', () => ({
+  useLoadShellNavData: () => ({ loading: false, groups: [], boards: [], starredBoards: [], recentBoards: [] }),
 }))
 vi.mock('../components/Board/BoardView', () => ({
   default: () => <div data-testid="board-view">Board</div>,

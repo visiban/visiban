@@ -18,8 +18,7 @@ export function useNavbarSearchLabel(): NavbarSearchLabel {
   if (matchPath("/boards/:id", pathname)) {
     return { placeholder: "Search cards, people, labels, fields", ariaLabel: `Search cards (${mod})` };
   }
-  if (pathname === "/" || pathname.startsWith("/groups/")) {
-    return { placeholder: "Jump to board…", ariaLabel: `Jump to board (${mod})` };
-  }
-  return { placeholder: "Jump to…", ariaLabel: `Jump to (${mod})` };
+  // Off a board the palette searches only boards and actions (#2473), so the
+  // copy never promises cards or people there.
+  return { placeholder: "Jump to a board or action", ariaLabel: `Jump to a board or action (${mod})` };
 }

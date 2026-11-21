@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useEffect, useState } from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Navbar from '../components/Layout/Navbar'
 import KeyboardShortcutsOverlay from '../components/Board/KeyboardShortcutsOverlay'
+import { ThemeProvider } from '../context/ThemeContext'
 import type { User } from '../types'
 
 vi.mock('../api/notifications', () => ({
@@ -61,13 +62,20 @@ describe('UserMenu', () => {
     expect(menu).toBeInTheDocument()
     const items = screen.getAllByRole('menuitem')
     expect(items.map((i) => i.textContent?.trim())).toEqual([
-      expect.stringMatching(/Profile & preferences/),
+      expect.stringMatching(/Profile & settings/),
       expect.stringMatching(/Keyboard shortcuts/),
       expect.stringMatching(/Help & docs/),
       expect.stringMatching(/Sign out/),
     ])
-    // Sign out MUST be the terminal destructive action.
+    // Sign out is last; the theme group sits just above it (#2473).
     expect(items[items.length - 1]).toHaveTextContent(/Sign out/)
+    // No emoji icons anywhere in the menu (#2473).
+    expect(menu.textContent).not.toMatch(/[\u2699\u2328\u2753\u{1F6AA}]/u)
+    // Every item is at least 40px tall and uses the shared focus ring.
+    for (const item of items) {
+      expect(item.className).toMatch(/\bmin-h-10\b/)
+      expect(item.className).toMatch(/focus:ring-primary-emphasis/)
+    }
   })
 
   it('renders the header row with display name and email (non-interactive)', async () => {
@@ -119,6 +127,47 @@ describe('UserMenu', () => {
     expect(await screen.findByRole('menu', { name: 'Account menu' })).toBeInTheDocument()
   })
 
+  it('an admin sees the Site admin chip and item, after Profile & settings (#2473)', async () => {
+    renderNavbar({ user: { ...fakeUser, is_site_admin: true } })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+    const menu = await screen.findByRole('menu', { name: 'Account menu' })
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items[1]).toHaveTextContent('Site admin')
+    expect(items[1]).toHaveAttribute('href', '/admin')
+    expect(within(menu).getAllByText('Site admin')).toHaveLength(2)
+  })
+
+  it('the theme control is a group of three menuitemradio buttons that apply at once (#2473)', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }),
+    })
+    render(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/']}>
+          <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+        </MemoryRouter>
+      </ThemeProvider>,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+    const group = await screen.findByRole('group', { name: 'Theme' })
+    const radios = within(group).getAllByRole('menuitemradio')
+    expect(radios.map((r) => r.getAttribute('aria-label'))).toEqual(['Dark', 'Light', 'System'])
+    for (const r of radios) expect(r.className).toMatch(/\bw-10\b/)
+    await user.click(radios[1])
+    expect(radios[1]).toHaveAttribute('aria-checked', 'true')
+    expect(localStorage.getItem('user:prefs:theme')).toBe('light')
+  })
+
+  it('the Help & docs item says it opens in a new tab (#2473)', async () => {
+    renderNavbar()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+    expect(await screen.findByRole('menuitem', { name: /Help & docs \(opens in a new tab\)/ })).toBeInTheDocument()
+  })
+
   it('the Keyboard shortcuts item dispatches the window event on board pages', async () => {
     renderNavbar({}, '/boards/42')
     const user = userEvent.setup()
@@ -164,12 +213,21 @@ describe('UserMenu', () => {
     expect(trigger).toHaveFocus()
   })
 
-  it('the Keyboard shortcuts item is disabled outside board pages', async () => {
+  it('the Keyboard shortcuts item works off a board too (#2473)', async () => {
     renderNavbar({}, '/settings')
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
-    const item = await screen.findByRole('menuitem', { name: /Keyboard shortcuts/ })
-    expect(item).toHaveAttribute('aria-disabled', 'true')
+    const listener = vi.fn()
+    window.addEventListener('visiban:open-shortcuts', listener)
+    try {
+      await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+      const item = await screen.findByRole('menuitem', { name: /Keyboard shortcuts/ })
+      expect(item).not.toHaveAttribute('aria-disabled')
+      expect(item).toHaveAttribute('aria-keyshortcuts', '?')
+      await user.click(item)
+      expect(listener).toHaveBeenCalledOnce()
+    } finally {
+      window.removeEventListener('visiban:open-shortcuts', listener)
+    }
   })
 
   it('the Help & docs item opens docs.visiban.com in a new tab', async () => {
@@ -182,12 +240,13 @@ describe('UserMenu', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })
 
-  it('the Sign out item uses the danger treatment', async () => {
+  it('the Sign out item uses normal text, not the danger treatment (#2473)', async () => {
     renderNavbar()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
     const signOut = await screen.findByRole('menuitem', { name: /Sign out/ })
-    expect(signOut.className).toContain('text-danger')
+    expect(signOut.className).not.toContain('text-danger')
+    expect(signOut.querySelector('svg')).not.toBeNull()
   })
 
   it('ignores the `g u` chord while typing in an input', async () => {

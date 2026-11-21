@@ -13,6 +13,12 @@ export interface RecentBoardEntry {
   name: string;
   /** Direct parent group name (first entry only is displayed). */
   groupAncestors?: string[];
+  /**
+   * When the board was last opened, in epoch milliseconds. Written by #2474;
+   * optional because entries saved before it carry none. The board switcher
+   * (#2473) shows "<N> ago" only when it is present.
+   */
+  openedAt?: number;
 }
 
 type UserId = number | null | undefined;

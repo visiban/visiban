@@ -72,21 +72,28 @@ vi.mock('../components/Common/GlobalCommandPalette', () => ({
 }))
 
 vi.mock('../components/Layout/Navbar', async () => {
-  // Registers with the shell like the real header, so the phone nav bar hides (#2344).
+  // Registers with the shell like the real header, so the fallback bar hides (#2473).
   const { useEffect } = await import('react')
-  const { useMobileNav } = await import('../contexts/MobileNavContext')
+  const { useNavDrawer } = await import('../contexts/ShellNavContext')
   return {
     default: function NavbarMock() {
-      const nav = useMobileNav()
+      const nav = useNavDrawer()
       const register = nav?.registerHeader
       useEffect(() => register?.(), [register])
-      return <div data-testid="navbar">Navbar<button type="button" onClick={nav?.openMenu}>Header hamburger</button></div>
+      return (
+        <div data-testid="navbar">Navbar
+          <button type="button" ref={nav?.menuButtonRef} aria-expanded={nav?.open} onClick={nav?.toggle}>Header menu</button>
+          <input aria-label="Typing field" />
+        </div>
+      )
     },
   }
 })
 
-vi.mock('../components/Layout/AppSidebar', () => ({
-  default: () => <div data-testid="sidebar" />,
+// The shell's drawer/switcher data (#2473) is loaded by one hook; stub it so
+// these tests need no groups/boards API mocks.
+vi.mock('../hooks/useLoadShellNavData', () => ({
+  useLoadShellNavData: () => ({ loading: false, groups: [], boards: [], starredBoards: [], recentBoards: [] }),
 }))
 
 const boardViewMounts = vi.hoisted(() => ({ count: 0 }))
@@ -505,29 +512,84 @@ describe('App', () => {
     expect(boardViewMounts.count).toBe(before + 1)
   })
 
-  it('renders mobile hamburger button when authenticated', () => {
+  it('shows the fallback menu bar on a route that renders no header (#2473)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
-    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument()
+    const bar = screen.getByTestId('shell-fallback-bar')
+    fireEvent.click(within(bar).getByRole('button', { name: 'Open navigation' }))
+    expect(screen.getByRole('dialog', { name: 'Main navigation' })).toBeInTheDocument()
   })
 
-  it('keeps the phone nav bar on a route that renders no header (#2344)', () => {
+  it('renders no sidebar or rail, and hides the fallback bar while a header is mounted (#2473)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
-    expect(screen.getByTestId('mobile-nav-bar')).not.toHaveClass('max-sm:hidden')
-  })
-
-  it('hides the separate phone nav bar while a page header carries the hamburger (#2344)', async () => {
-    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
-    // The board page renders the (mocked) header; the dashboard is mocked whole.
     mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
     render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
-    const bar = screen.getByTestId('mobile-nav-bar')
-    expect(bar).toHaveClass('lg:hidden', 'max-sm:hidden')
-    const barButton = within(bar).getByRole('button', { name: 'Open navigation menu' })
-    expect(barButton).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(screen.getByRole('button', { name: 'Header hamburger' }))
-    expect(barButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByTestId('shell-fallback-bar')).toBeNull()
+    expect(screen.queryByRole('complementary')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+  })
+
+  it('the header menu button and [ open the drawer; Escape and [ close it and refocus the button (#2473)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    const menu = screen.getByRole('button', { name: 'Header menu' })
+    fireEvent.click(menu)
+    expect(menu).toHaveAttribute('aria-expanded', 'true')
+    const drawer = screen.getByRole('dialog', { name: 'Main navigation' })
+    expect(drawer).toHaveAttribute('aria-modal', 'true')
+    // Focus moves into the drawer, onto its Close button.
+    expect(screen.getByRole('button', { name: 'Close navigation' })).toHaveFocus()
+    // The backdrop is hidden from assistive tech and closes on click.
+    expect(screen.getByTestId('nav-drawer-backdrop')).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+    expect(menu).toHaveFocus()
+
+    fireEvent.keyDown(document.body, { key: '[' })
+    expect(screen.getByRole('dialog', { name: 'Main navigation' })).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: '[' })
+    expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+    expect(menu).toHaveFocus()
+
+    fireEvent.click(menu)
+    fireEvent.click(screen.getByTestId('nav-drawer-backdrop'))
+    expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+  })
+
+  it('[ typed into a field does not open the drawer (#2473)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Typing field' }), { key: '[' })
+    expect(screen.queryByRole('dialog', { name: 'Main navigation' })).toBeNull()
+  })
+
+  it('? opens the shortcuts help off a board, with the Everywhere keys and the board-shortcuts box (#2473)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Typing field' }), { key: '?' })
+    expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+    fireEvent.keyDown(document.body, { key: '?' })
+    const help = screen.getByRole('dialog', { name: 'Keyboard shortcuts' })
+    expect(within(help).getByText('Everywhere')).toBeInTheDocument()
+    expect(within(help).getByText('Open or close the navigation drawer')).toBeInTheDocument()
+    expect(within(help).getByText(/Open a board to see them here/)).toBeInTheDocument()
+  })
+
+  it('a mounted board claims the shortcuts request, so the shell help does not also open (#2473)', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    mockUseBoardContext.mockReturnValue({ ...defaultBoardHook, loading: true, error: null })
+    render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
+    const claim = (e: Event) => e.preventDefault()
+    window.addEventListener('visiban:show-board-shortcuts', claim)
+    try {
+      window.dispatchEvent(new CustomEvent('visiban:open-shortcuts'))
+      expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+    } finally {
+      window.removeEventListener('visiban:show-board-shortcuts', claim)
+    }
   })
 
   it('shows board name in breadcrumb when board is loaded', () => {

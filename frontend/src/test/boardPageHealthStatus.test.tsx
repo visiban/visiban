@@ -59,8 +59,10 @@ vi.mock('../components/Layout/Navbar', () => ({
   ),
 }))
 
-vi.mock('../components/Layout/AppSidebar', () => ({
-  default: () => <div data-testid="sidebar" />,
+// The shell's drawer/switcher data (#2473) is loaded by one hook; stub it so
+// these tests need no groups/boards API mocks.
+vi.mock('../hooks/useLoadShellNavData', () => ({
+  useLoadShellNavData: () => ({ loading: false, groups: [], boards: [], starredBoards: [], recentBoards: [] }),
 }))
 vi.mock('../components/Board/BoardView', () => ({
   default: () => <div data-testid="board-view">Board</div>,
@@ -142,7 +144,9 @@ describe('BoardPage Row 1 health status (#1133)', () => {
   it('an admin gets the trigger after the star, collapsed to its shape below md', () => {
     renderBoardPage()
     const navbar = screen.getByTestId('navbar')
-    const buttons = within(navbar).getAllByRole('button')
+    // An admin also gets the Rename board button before the star (#2473).
+    expect(within(navbar).getAllByRole('button')[0]).toHaveAccessibleName('Rename board')
+    const buttons = within(navbar).getAllByRole('button').filter((b) => b.getAttribute('aria-label') !== 'Rename board')
     expect(buttons[0]).toHaveAccessibleName('Star board')
     expect(buttons[1]).toHaveAccessibleName('Health status: No status')
     expect(within(buttons[1]).getByText('No status')).toHaveClass('sr-only', 'md:not-sr-only')
