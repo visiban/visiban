@@ -157,6 +157,8 @@ The **Ungrouped** swimlane is never marked current.
 
 Click **Filters** in the Lens toolbar (or press <kbd>f</kbd>) to open the filter row.
 
+A chevron at the right end of the row (**Hide filter bar**) closes it and returns focus to **Filters**; filters stay applied.
+
 | Filter | Behavior |
 |---|---|
 | **State** | Show only open or only closed issues. |

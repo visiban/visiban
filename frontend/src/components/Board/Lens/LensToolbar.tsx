@@ -141,6 +141,7 @@ export default function LensToolbar({
         <button
           type="button"
           onClick={onToggleFilters}
+          data-filters-trigger
           className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
