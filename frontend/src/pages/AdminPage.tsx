@@ -1590,7 +1590,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
 
   return (
     <div className="h-full bg-sunken flex flex-col">
-      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Administration" }]} />
+      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Site admin" }]} />
 
       <main className="flex-1 overflow-y-auto">
         {/* h2 under the app shell, whose header owns the h1 (#2473). */}
