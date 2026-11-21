@@ -66,7 +66,7 @@ npx playwright test --headed      # watch Chromium as it runs
 
 `npm run test:e2e` is the same command (`playwright test`) via a package.json alias — either form works.
 
-Playwright auto-starts the Vite dev server on port 5173 (`playwright.config.ts` → `webServer`). If you already have `npm run dev` running, Playwright reuses it.
+Locally, Playwright auto-starts the Vite dev server on port 5173 (`playwright.config.ts` → `webServer`). If you already have `npm run dev` running, Playwright reuses it. In CI it serves a production build with `vite preview` instead and runs 2 workers (#2485).
 
 ### Directory layout
 
@@ -382,7 +382,7 @@ Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` an
     - Every occurrence that has been root-caused was a component defect that failed on both attempts: a leaked post-save timer (#1319 occurrence 3) and an effect-seeded input buffer racing the first edit (occurrence 4; occurrence 1 was most likely the same race).
     - **A red job whose test shows `(retry x1)` means a real bug.** Investigate it; don't re-run the job until it passes.
     - Don't raise the retry to 2 either. A second retry wouldn't have saved any of these, and it would hide the next one.
-- Playwright E2E runs in `playwright-e2e` — starts its own Vite dev server, no separate build step needed. It is blocking (`allow_failure: false`, #2392) now that the redesigned-board screenshot baseline has run green on `main`; a red e2e job fails the MR pipeline.
+- Playwright E2E runs in `playwright-e2e` — builds the frontend (`VITE_API_URL=http://localhost:8000 npm run build`), serves it with `vite preview`, and runs 2 workers (#2485). It is blocking (`allow_failure: false`, #2392) now that the redesigned-board screenshot baseline has run green on `main`; a red e2e job fails the MR pipeline.
 - `backend-schema-validate` checks the generated OpenAPI document is well-formed;
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
   [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match

@@ -47,7 +47,7 @@ export default defineConfig({
     // --strictPort makes Vite fail fast instead of silently picking a
     // different port when PORT is already taken.
     command: process.env.CI
-      ? `npx vite preview --port ${PORT} --strictPort`
+      ? `npx vite preview --host 0.0.0.0 --port ${PORT} --strictPort`
       : `VITE_API_URL=http://localhost:8000 npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
