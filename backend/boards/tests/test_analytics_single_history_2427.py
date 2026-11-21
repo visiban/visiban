@@ -72,3 +72,7 @@ class AnalyticsSingleHistoryTests(_Shape):
             self._body(365)
         self.assertEqual(load.call_count, 1)
         self.assertEqual(released, [True])
+
+
+# Keep pytest from collecting the parent's tests a second time under this module.
+del _Shape
