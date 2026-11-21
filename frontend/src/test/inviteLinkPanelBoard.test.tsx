@@ -212,7 +212,7 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     expect(await screen.findByRole('button', { name: 'Show past invites (1)' })).toBeInTheDocument()
   })
 
-  it('revoke in flight disables both buttons and ignores a second click', async () => {
+  it('revoke in flight marks both buttons aria-disabled and ignores a second click', async () => {
     mockList.mockResolvedValue([invite()])
     let resolve!: () => void
     mockRevoke.mockReturnValue(new Promise<void>((r) => { resolve = r }))
@@ -221,8 +221,9 @@ describe('InviteLinkPanel — board scope (#1444)', () => {
     await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1' }))
     const confirm = screen.getByRole('button', { name: 'Confirm' })
     await user.click(confirm)
-    expect(confirm).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(confirm).toHaveAttribute('aria-disabled', 'true')
+    expect(confirm).toHaveAttribute('aria-busy', 'true')
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('aria-disabled', 'true')
     fireEvent.click(confirm)
     expect(mockRevoke).toHaveBeenCalledTimes(1)
     resolve()

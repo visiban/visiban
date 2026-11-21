@@ -68,7 +68,7 @@ export interface EmailInvitePayload {
 
 interface Props {
   /** "group" and "board" show the role picker and the sign-up notice; "board"
-   *  also an Expires picker; "site" the Settings → Email pointer when mail is
+   *  also an Expires picker; "site" the Site admin → Email pointer when mail is
    *  not set up. */
   surface: "group" | "site" | "board";
   send: (payload: EmailInvitePayload) => Promise<InviteEmailSent>;
@@ -120,7 +120,7 @@ function errorLines(err: unknown): Line[] {
     if (data?.code && MAIL_SERVER_CODES.has(data.code)) {
       lines.push({
         tone: "muted",
-        text: "The mail server rejected the message. A site admin can check Admin → Settings → Email.",
+        text: "The mail server rejected the message. A site admin can check Site admin → Email.",
       });
     }
     return lines;
@@ -235,10 +235,10 @@ export default function EmailInviteForm({
               onClick={onOpenEmailSettings}
               className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
-              Settings → Email
+              Site admin → Email
             </button>
           ) : (
-            "Settings → Email"
+            "Site admin → Email"
           )}{" "}
           and that email invites are enabled.
         </p>

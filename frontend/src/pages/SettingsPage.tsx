@@ -1001,30 +1001,32 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
         <p className="text-sm text-fg-secondary" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
         // A real table from `sm` (column headers for assistive tech too); on phones each row is a
-        // stacked card and the header row is visually hidden but still read (#2477).
-        <table className="w-full text-left border-collapse max-sm:block" data-testid="token-list">
+        // stacked card and the header row is visually hidden but still read (#2477). Explicit
+        // ARIA roles are restored because `display:block` strips the native table semantics on phones.
+        <table role="table" className="w-full table-fixed text-left border-collapse max-sm:block" data-testid="token-list">
           <caption className="sr-only">Access tokens</caption>
-          <thead className="max-sm:sr-only">
-            <tr className="text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
-              <th scope="col" className="px-3 py-1.5 font-normal">Name</th>
-              <th scope="col" className="px-3 py-1.5 font-normal">Scopes</th>
-              <th scope="col" className="px-3 py-1.5 font-normal w-24">Created</th>
-              <th scope="col" className="px-3 py-1.5 font-normal w-24">Expires</th>
-              <th scope="col" className="px-3 py-1.5 font-normal w-20"><span className="sr-only">Actions</span></th>
+          <thead role="rowgroup" className="max-sm:sr-only">
+            <tr role="row" className="text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal">Name</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal">Scopes</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-24">Created</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-24">Expires</th>
+              <th role="columnheader" scope="col" className="px-3 py-1.5 font-normal w-20"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
-          <tbody className="max-sm:block">
+          <tbody role="rowgroup" className="max-sm:block">
             {tokens.map((token) => (
               <Fragment key={token.id}>
                 <tr
+                  role="row"
                   className="hover:bg-surface-hover max-sm:flex max-sm:flex-col max-sm:gap-2 max-sm:px-3 max-sm:py-2 max-sm:rounded"
                   data-testid={`token-row-${token.id}`}
                 >
-                  <td className="px-3 py-2 align-top min-w-0 max-sm:p-0 max-sm:block">
+                  <td role="cell" className="px-3 py-2 align-top min-w-0 max-sm:p-0 max-sm:block">
                     <span className="block text-sm text-fg truncate">{token.name}</span>
                     <span className="block font-mono text-xs text-fg-tertiary">{token.prefix}…</span>
                   </td>
-                  <td className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                  <td role="cell" className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
                     <span className="flex flex-wrap gap-1" data-testid={`token-scopes-${token.id}`}>
                       {token.scopes === null
                         ? <span className="h-6 inline-flex items-center px-2 rounded-full bg-surface-hover text-xs text-fg-secondary">Legacy: full REST access</span>
@@ -1033,9 +1035,9 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
                           ))}
                     </span>
                   </td>
-                  <td className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</td>
-                  <td className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</td>
-                  <td className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
+                  <td role="cell" className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</td>
+                  <td role="cell" className="px-3 py-2 align-top text-xs text-fg-secondary sm:whitespace-nowrap max-sm:p-0 max-sm:block"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</td>
+                  <td role="cell" className="px-3 py-2 align-top max-sm:p-0 max-sm:block">
                     {confirmRevokeId !== token.id && (
                       <Button
                         buttonRef={revokeTriggerRef(token.id)}
@@ -1051,8 +1053,8 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
                   </td>
                 </tr>
                 {confirmRevokeId === token.id && (
-                  <tr className="max-sm:block">
-                    <td colSpan={5} className="px-3 pb-2 max-sm:block">
+                  <tr role="row" className="max-sm:block">
+                    <td role="cell" colSpan={5} className="px-3 pb-2 max-sm:block">
                       <InlineConfirm
                         message={<>Revoke <span className="font-medium">{token.name}</span>? Anything using this token will lose access.
                           {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}

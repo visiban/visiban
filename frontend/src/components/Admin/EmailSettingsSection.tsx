@@ -17,7 +17,7 @@ import type {
 } from "../../types";
 
 /**
- * Admin → Settings → Email (SMTP). Issue #306.
+ * Site admin → Email (SMTP). Issue #306.
  *
  * This section deliberately diverges from its siblings in `SettingsTab`, which
  * all autosave on blur or on selection. Per frontend/CLAUDE.md § Composite
@@ -367,6 +367,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   }
 
   function handleTest() {
+    // Guard, not `disabled`: focus must stay on the button while the request runs (#2476).
+    if (testing || dirty) return;
     setTesting(true);
     setTestResult(null);
     sendAdminTestEmail()
@@ -929,7 +931,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
             <Button
               variant="secondary"
               onClick={handleTest}
-              disabled={testing || dirty}
+              aria-disabled={testing || dirty || undefined}
+              aria-busy={testing || undefined}
               title={dirty ? "Save your changes before testing." : undefined}
             >
               {testing && (

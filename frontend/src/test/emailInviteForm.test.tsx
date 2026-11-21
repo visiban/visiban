@@ -160,7 +160,7 @@ describe('EmailInviteForm', () => {
     await renderForm()
     await submit()
     expect(await screen.findByText('Could not send — check the address and try again.')).toHaveClass('text-danger')
-    expect(screen.getByText(/The mail server rejected the message\. A site admin can check Admin → Settings → Email\./)).toHaveClass('text-fg-muted')
+    expect(screen.getByText(/The mail server rejected the message\. A site admin can check Site admin → Email\./)).toHaveClass('text-fg-muted')
   })
 
   it.each(['config_unusable', 'connection_refused'])('502 %s also shows the mail-server hint', async (code) => {
@@ -216,13 +216,13 @@ describe('EmailInviteForm', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('site admins see the muted setup line with a Settings → Email link', async () => {
+  it('site admins see the muted setup line with a Site admin → Email link', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, invite_email_available: false })
     const onOpen = vi.fn()
     render(<EmailInviteForm surface="site" send={send} onOpenEmailSettings={onOpen} />)
     expect(await screen.findByText(/Email invites aren't available\./)).toHaveClass('text-fg-muted')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Settings → Email' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Site admin → Email' }))
     expect(onOpen).toHaveBeenCalledTimes(1)
   })
 
@@ -230,7 +230,7 @@ describe('EmailInviteForm', () => {
     mockGetSiteConfig.mockResolvedValue({ ...baseConfig, demo_mode: true, invite_email_available: false })
     render(<EmailInviteForm surface="site" send={send} onOpenEmailSettings={vi.fn()} />)
     expect(await screen.findByText('Email invites are disabled on this demo site.')).toHaveClass('text-fg-muted')
-    expect(screen.queryByRole('button', { name: 'Settings → Email' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Site admin → Email' })).not.toBeInTheDocument()
     expect(screen.queryByText(/set up/)).not.toBeInTheDocument()
   })
 

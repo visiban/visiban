@@ -332,6 +332,15 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
       expect(screen.queryByTestId('import-board-modal')).not.toBeInTheDocument()
     })
 
+    it('a board with no owner and a user without all-content access gets no Delete in its row menu', async () => {
+      const ownerless = board({ owner: undefined as unknown as Board['owner'] })
+      renderPage(setup({ owner: admin }, admin, { boards: [ownerless] }))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for Roadmap' }))
+      expect(await screen.findByRole('menuitem', { name: 'Move to another group' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
+    })
+
     it('shows the trail without ancestors when the group has none listed', async () => {
       renderPage(setup({ ancestors: undefined }, member))
       await h2('Engineering')

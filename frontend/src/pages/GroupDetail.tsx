@@ -1721,7 +1721,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const inviteSection = () => (
     <>
-      {/* The panel's own "Invite links" h3 is the section heading; restyling the panel to the Site admin invite layout is tracked separately. */}
+      {/* The panel's own "Invite links" h3 is the section heading. */}
       <InviteLinkPanel scope={{ kind: "group", id: groupId }} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
     </>
   );
@@ -1928,12 +1928,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <p role="alert" aria-atomic="true" className="text-sm text-danger min-h-5" data-testid="group-transfer-error">
               {transferError}
             </p>
+            <p id="group-transfer-hint" className="sr-only">Select an admin and type the group name to enable transfer.</p>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="quiet" onClick={closeTransfer}>Cancel</Button>
               <Button
                 variant="danger"
                 onClick={() => { void handleTransferOwnership(); }}
                 aria-disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group.name || undefined}
+                aria-describedby="group-transfer-hint"
                 className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
               >
                 {transferring ? "Transferring…" : "Transfer ownership"}

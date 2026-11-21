@@ -114,6 +114,8 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Guard, not `disabled`: the focused submit button must stay focusable while saving (#2476).
+    if (saving) return;
     if (form.password.length < 12) {
       setError("Password must be at least 12 characters.");
       return;
@@ -168,7 +170,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="quiet" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={saving}>{saving ? "Creating…" : "Create user"}</Button>
+          <Button variant="primary" type="submit" aria-disabled={saving || undefined} aria-busy={saving || undefined} className="aria-disabled:opacity-40">{saving ? "Creating…" : "Create user"}</Button>
         </div>
       </form>
     </ModalWrapper>
@@ -255,6 +257,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creating) return;
     setCreating(true);
     setCreateError(null);
     setNewLink(null);
@@ -350,7 +353,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
             {createError && <p className="text-sm text-danger">{createError}</p>}
 
             <div className="flex gap-2">
-              <Button variant="primary" type="submit" disabled={creating}>{creating ? "Creating…" : "Create link"}</Button>
+              <Button variant="primary" type="submit" aria-disabled={creating || undefined} aria-busy={creating || undefined} className="aria-disabled:opacity-40">{creating ? "Creating…" : "Create link"}</Button>
               <Button variant="quiet" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
           </form>
@@ -541,6 +544,7 @@ function OffboardingModal({ user, onDeactivated, onClose, restoreFocusTo }: Offb
   const allAssigned = user.owned_boards.every((b) => transfers[b.id] !== null);
 
   const handleConfirm = async () => {
+    if (saving || !allAssigned) return;
     setSaving(true);
     setError(null);
     try {
@@ -629,8 +633,9 @@ function OffboardingModal({ user, onDeactivated, onClose, restoreFocusTo }: Offb
           </button>
           <button
             onClick={handleConfirm}
-            disabled={saving || !allAssigned}
-            className="px-3 py-1.5 max-sm:h-11 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+            aria-disabled={saving || !allAssigned || undefined}
+            aria-busy={saving || undefined}
+            className="px-3 py-1.5 max-sm:h-11 text-sm bg-danger-bg hover:bg-danger-bg-hover aria-disabled:opacity-40 text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>
@@ -1445,8 +1450,9 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
                               </span>
                             )}
                             {u.must_change_password && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning-on-tint">
-                                Reset required
+                              <span title="Password reset required" className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning-on-tint">
+                                <span aria-hidden="true">Reset req.</span>
+                                <span className="sr-only">Password reset required</span>
                               </span>
                             )}
                           </div>

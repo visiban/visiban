@@ -284,7 +284,7 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(screen.getByText('Subgroups')).toBeInTheDocument()
 
-    // Members and Settings content live in the Settings tab
+    // Members and settings content live on the Group settings page
     fireEvent.click(screen.getAllByRole('button', { name: 'Group settings' })[0])
     expect(await screen.findByRole('heading', { name: 'Members' })).toBeInTheDocument()
   })
@@ -315,7 +315,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where the danger zone lives
+    // Navigate to Group settings page where the danger zone lives
     await openGroupSettings('Danger zone')
     expect(await screen.findByText('Delete group')).toBeInTheDocument()
   })
@@ -445,7 +445,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where members are listed
+    // Navigate to Group settings page where members are listed
     await openGroupSettings('Members')
     expect(await screen.findByText('Alice Smith')).toBeInTheDocument()
     // Admin can see role selectors and remove buttons for other members
@@ -1053,7 +1053,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Non-admin lands on Boards tab; Settings tab is hidden entirely
+    // Non-admin lands on Boards tab; Group settings page is hidden entirely
     await screen.findByText(/Subgroups let you organize/)
     expect(screen.getByText('No subgroups yet')).toBeInTheDocument()
     expect(screen.getByTestId('subgroups-empty').querySelector('svg')).toBeInTheDocument()
@@ -1072,7 +1072,7 @@ describe('GroupDetail', () => {
     mockGetGroupBoards.mockResolvedValue([])
     renderGroupDetail()
 
-    // Navigate to Settings tab where the invite link panel lives
+    // Navigate to Group settings page where the invite link panel lives
     await openGroupSettings('Invite links')
     expect(await screen.findByRole('heading', { name: 'Invite links' })).toBeInTheDocument()
   })
@@ -1642,7 +1642,7 @@ describe('GroupDetail', () => {
     it('invite_link.revoked WS event reloads the invite panel', async () => {
       setupAdmin()
       renderGroupDetail()
-      // Mount the invite panel (Settings tab) — it fetches links once.
+      // Mount the invite panel (Group settings page) — it fetches links once.
       await openGroupSettings('Invite links')
       await screen.findByRole('heading', { name: 'Invite links' })
       expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
@@ -1707,7 +1707,7 @@ describe('GroupDetail', () => {
       await openGroupSettings(section)
     }
 
-    it('switching to Settings tab renders the Board defaults section heading', async () => {
+    it('switching to Group settings page renders the Board defaults section heading', async () => {
       await loadAndSwitchToSettings('Board defaults')
       expect(await screen.findByRole('heading', { name: 'Board defaults' })).toBeInTheDocument()
     })

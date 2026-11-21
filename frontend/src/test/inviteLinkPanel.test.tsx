@@ -129,6 +129,13 @@ describe('InviteLinkPanel', () => {
     expect(await screen.findByText(/New users can't sign up on this site\./)).toBeInTheDocument()
   })
 
+  it('without isSiteAdmin (absent input) never shows the site-admin-only invite-only copy', async () => {
+    mockGetSiteConfig.mockResolvedValue({ ...siteConfig, registration_mode: 'invite_only', registration_open: false })
+    render(<InviteLinkPanel scope={{ kind: "group", id: 7 }} />)
+    expect(await screen.findByText(/New users can't sign up on this site\./)).toBeInTheDocument()
+    expect(screen.queryByText(/only from invites you email/)).not.toBeInTheDocument()
+  })
+
   it('hides the Invite by email section when email is unavailable', async () => {
     mockGetSiteConfig.mockResolvedValue({ ...siteConfig, invite_email_available: false })
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)

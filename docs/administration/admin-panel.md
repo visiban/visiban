@@ -226,7 +226,7 @@ Under **Users**, select **Invite people**, enter an address and select **Send in
 
 Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
 
-**Yes, but:** when emailing isn't possible, the form is replaced by a note. It points to **Settings → Email** (select it to open the Email section) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
+**Yes, but:** when emailing isn't possible, the form is replaced by a note. It points to **Site admin → Email** (select it to open the Email section) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
 
 ### Revoking a link
 

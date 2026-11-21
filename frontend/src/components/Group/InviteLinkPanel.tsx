@@ -497,15 +497,16 @@ export default function InviteLinkPanel({
               </span>
               <button
                 onClick={() => void handleRevoke(link.id)}
-                disabled={inFlight}
-                className="text-danger hover:text-danger font-medium transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                aria-disabled={inFlight || undefined}
+                aria-busy={inFlight || undefined}
+                className="text-danger hover:text-danger font-medium transition rounded aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
               >
                 Confirm
               </button>
               <button
                 onClick={() => { if (inFlight) return; setConfirmRevokeId(null); setRevokeError(null); }}
-                disabled={inFlight}
-                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                aria-disabled={inFlight || undefined}
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded aria-disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
@@ -669,8 +670,9 @@ export default function InviteLinkPanel({
         </button>
         <button
           onClick={() => void handleCreate()}
-          disabled={creating}
-          className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+          aria-disabled={creating || undefined}
+          aria-busy={creating || undefined}
+          className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover aria-disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           {creating ? "Creating…" : "Create link"}
         </button>
@@ -920,8 +922,10 @@ export default function InviteLinkPanel({
       )}
 
       {/* One-time token reveal: the raw token exists only in this session. */}
+      {/* The live region stays mounted and only its content swaps, so the announcement is not missed. */}
+      <div role="status">
       {revealedLink && (
-        <div role="status" className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
+        <div className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
           <p className="text-sm text-warning-on-tint">Copy this link now — it won't be shown again.</p>
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -937,6 +941,7 @@ export default function InviteLinkPanel({
           </div>
         </div>
       )}
+      </div>
 
       {showSpinner ? (
         <Spinner />

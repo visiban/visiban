@@ -29,7 +29,7 @@ New gated features will be added to this table.
 ## Managing toggles
 
 1. Go to `/admin` (the **Site admin** link in the navigation drawer footer).
-2. Click the **Settings** tab.
+2. Select **General** in the section list.
 3. Find the feature under **Features** and flip the toggle.
 
 Changes take effect within about 60 seconds due to server-side caching. No restart needed.

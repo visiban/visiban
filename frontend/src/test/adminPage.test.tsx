@@ -180,7 +180,7 @@ const fakeAdminUsers: AdminUser[] = [
   },
 ]
 
-// Full SiteConfig, including invite_email_available, which the Invite Links tab's
+// Full SiteConfig, including invite_email_available, which the Invite links section's
 // EmailInviteForm reads (#731). Set for every describe so a partial mock never leaks in.
 const fakeSiteConfig = {
   registration_open: true,
@@ -201,7 +201,7 @@ function renderAdminPage(user: User = adminUser, initialEntry = '/') {
   )
 }
 
-// The Settings tab renders in stages: the instance settings load first, then
+// The General section renders in stages: the instance settings load first, then
 // EmailSettingsSection mounts and loads its own settings. Finding an element
 // from the first stage does not mean the page is idle: the commit that shows
 // it can still have mount effects queued, and on a slow CI runner the test can
@@ -263,10 +263,10 @@ describe('AdminPage — access control', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Tests: Settings tab
+// Tests: General section
 // ---------------------------------------------------------------------------
 
-describe('AdminPage — Settings tab', () => {
+describe('AdminPage — General section', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
@@ -315,10 +315,10 @@ describe('AdminPage — Settings tab', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Tests: Users tab
+// Tests: Users section
 // ---------------------------------------------------------------------------
 
-describe('AdminPage — Users tab', () => {
+describe('AdminPage — Users section', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
@@ -332,7 +332,7 @@ describe('AdminPage — Users tab', () => {
     mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
-  it('shows users table after switching to Users tab', async () => {
+  it('shows users table after switching to Users section', async () => {
     await renderAdminPageSettled(adminUser, 'users')
     fireEvent.click(screen.getByRole('button', { name: /^Users\b/ }))
     await waitFor(() => {
@@ -1068,10 +1068,10 @@ describe('AdminPage — Users tab', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Tests: Invite Links tab
+// Tests: Invite links section
 // ---------------------------------------------------------------------------
 
-describe('AdminPage — Invite Links tab', () => {
+describe('AdminPage — Invite links section', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
@@ -1902,10 +1902,10 @@ describe('AdminPage — Email (SMTP) settings', () => {
     expect(screen.queryByText('Settings saved.')).not.toBeInTheDocument()
   })
 
-  it('disables the test button while there are unsaved changes', async () => {
+  it('marks the test button aria-disabled (still focusable) while there are unsaved changes', async () => {
     await renderEmailSection()
     fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
-    await waitFor(() => expect(screen.getByText('Send test email')).toBeDisabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Send test email/ })).toHaveAttribute('aria-disabled', 'true'))
     expect(screen.getByText('Save your changes before testing.')).toBeInTheDocument()
     expect(mockSendAdminTestEmail).not.toHaveBeenCalled()
   })
@@ -2042,7 +2042,7 @@ describe('AdminPage — Invite by email', () => {
     await openInviteForm()
     expect(await screen.findByText(/Email invites aren't available\./)).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Email address' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Settings → Email' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Site admin → Email' }))
     expect(await screen.findByLabelText('Host')).toBeInTheDocument()
     expect(screen.queryByText(/Email invites aren't available/)).not.toBeInTheDocument()
   })

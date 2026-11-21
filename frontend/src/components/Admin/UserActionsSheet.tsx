@@ -89,7 +89,8 @@ export default function UserActionsSheet({
             <button
               type="button"
               data-action-id={a.id}
-              disabled={a.disabled}
+              aria-disabled={a.disabled || undefined}
+              aria-busy={a.disabled || undefined}
               className={`${ITEM} ${a.danger ? "text-danger focus:ring-danger-emphasis" : "text-fg focus:ring-primary-emphasis"}`}
               onClick={() => {
                 if (a.disabled) return;
