@@ -174,6 +174,19 @@ docker pull -q "${FROM_IMAGE}" >/dev/null || fail "could not pull ${FROM_IMAGE} 
 prepull_dockerhub_images
 
 # ── 2. boot the last release ─────────────────────────────────────────────────
+# Released images up to and including v1.2.0 do not create /app/staticfiles, so a
+# fresh named volume mounts root-owned and backend-init's collectstatic (uid
+# 1001) dies with PermissionError. HEAD's backend/Dockerfile fixes that (#2463),
+# but the published FROM image cannot be changed, so own the volumes the way an
+# operator who hit it would, before the first boot. Harmless on a fixed FROM image.
+log "preparing volume ownership for ${FROM_TAG}"
+compose up --no-start db valkey backend >/dev/null
+for vol in staticfiles mediafiles; do
+  if [ "${vol}" = staticfiles ]; then target=/app/staticfiles; else target=/app/media; fi
+  docker run --rm --user 0 --entrypoint chown \
+    -v "${COMPOSE_PROJECT_NAME}_${vol}:${target}" "${FROM_IMAGE}" 1001:1001 "${target}" \
+    || fail "could not chown the ${vol} volume for ${FROM_TAG}"
+done
 log "booting ${FROM_TAG}"
 compose up -d db valkey backend || fail "docker compose up of ${FROM_TAG} failed (see diagnostics)"
 wait_backend_init "${FROM_IMAGE}"

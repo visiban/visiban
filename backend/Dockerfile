@@ -57,8 +57,14 @@ RUN pip install --no-cache-dir --no-index --no-deps --only-binary :all: /wheels/
 
 COPY . .
 
+# Create /app/media and /app/staticfiles so they are owned by the service user
+# before docker-compose.prod.yml's named volumes mount over them. Without the
+# mkdir, Docker creates the mount point root:root on first boot and
+# collectstatic (uid 1001) fails with PermissionError. backend/Dockerfile.prod
+# already had this; the release image is built from THIS file (#2463).
 RUN addgroup --system --gid 1001 visiban \
     && adduser --system --uid 1001 --ingroup visiban visiban \
+    && mkdir -p /app/media /app/staticfiles \
     && chown -R visiban:visiban /app
 
 USER visiban

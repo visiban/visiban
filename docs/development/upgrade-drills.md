@@ -67,3 +67,14 @@ DATABASE_URL=postgres://postgres:pw@localhost:55432/postgres \
 - [Upgrading](../administration/upgrade.md#supported-postgresql-versions): the supported PostgreSQL range
 - [CI Gate Self-Tests](ci-gates.md): why the drills are `gate-selftest-exempt` and the helpers are not
 - [Database Migrations](database-migrations.md): the zero-downtime rules these drills back up
+
+## Known gap in released images: `/app/staticfiles` ownership
+
+Backend images up to and including v1.2.0 were built from `backend/Dockerfile`,
+which did not create `/app/staticfiles`. On a fresh Compose install the named
+volume therefore mounts root-owned and `backend-init`'s `collectstatic` fails
+with `PermissionError`. `backend/Dockerfile` now creates both `/app/media` and
+`/app/staticfiles` (as `backend/Dockerfile.prod` already did). The Compose drill
+cannot change the published older image, so it chowns the `staticfiles` and
+`mediafiles` volumes to uid 1001 before booting the last release; once the last
+GA release contains the fix that step is a harmless no-op.
