@@ -26,9 +26,9 @@ describe('ForgotPasswordPage', () => {
 
   it('renders the email input and submit button', () => {
     renderPage()
-    expect(screen.getByLabelText('Email address')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Send reset link' })).toBeInTheDocument()
-    expect(screen.getByText('← Back to sign in')).toBeInTheDocument()
+    expect(screen.getByText('Back to sign in')).toBeInTheDocument()
   })
 
   it('shows confirmation regardless of whether the email is registered', async () => {
@@ -36,13 +36,15 @@ describe('ForgotPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('Email address'), 'anyone@example.com')
+    await user.type(screen.getByLabelText('Email'), 'anyone@example.com')
     await user.click(screen.getByRole('button', { name: 'Send reset link' }))
 
     await waitFor(() => {
       expect(screen.getByText('Check your email')).toBeInTheDocument()
     })
-    expect(screen.getByText(/anyone@example.com/)).toBeInTheDocument()
+    expect(screen.getByText('If an account uses that address, a reset link is on its way.')).toBeInTheDocument()
+    // #2479: the confirmation never echoes the address or says whether an account uses it.
+    expect(screen.queryByText(/anyone@example.com/)).toBeNull()
     expect(mockRequest).toHaveBeenCalledWith('anyone@example.com')
   })
 
@@ -52,7 +54,7 @@ describe('ForgotPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('Email address'), 'nobody@example.com')
+    await user.type(screen.getByLabelText('Email'), 'nobody@example.com')
     await user.click(screen.getByRole('button', { name: 'Send reset link' }))
 
     await waitFor(() => {
@@ -67,7 +69,7 @@ describe('ForgotPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('Email address'), 'test@example.com')
+    await user.type(screen.getByLabelText('Email'), 'test@example.com')
     await user.click(screen.getByRole('button', { name: 'Send reset link' }))
 
     await waitFor(() => {
@@ -84,7 +86,7 @@ describe('ForgotPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('Email address'), 'test@example.com')
+    await user.type(screen.getByLabelText('Email'), 'test@example.com')
     await user.click(screen.getByRole('button', { name: 'Send reset link' }))
 
     expect(screen.getByRole('button', { name: 'Sending…' })).toBeDisabled()
@@ -96,7 +98,7 @@ describe('ForgotPasswordPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText('Email address'), 'test@example.com')
+    await user.type(screen.getByLabelText('Email'), 'test@example.com')
     await user.click(screen.getByRole('button', { name: 'Send reset link' }))
 
     await waitFor(() => {

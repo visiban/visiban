@@ -44,8 +44,8 @@ describe('LoginPage', () => {
   it('renders login form by default', () => {
     renderLoginPage()
     expect(screen.getByAltText('Visiban')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Username or email')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Username or email')).toBeInTheDocument()
+    expect(screen.getByLabelText('Password')).toBeInTheDocument()
     expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
@@ -57,29 +57,29 @@ describe('LoginPage', () => {
   it('hides "Forgot password?" link in register mode', async () => {
     const user = userEvent.setup()
     renderLoginPage()
-    await user.click(screen.getByText('Create one'))
+    await user.click(screen.getByText('Create account'))
     expect(screen.queryByText('Forgot password?')).not.toBeInTheDocument()
   })
 
   it('starts in register mode when authMode is "register" in location state', () => {
     renderLoginPage({ authMode: 'register' })
     expect(screen.getByText('Create account')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Confirm password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Confirm password')).toBeInTheDocument()
   })
 
   it('starts in login mode when authMode is absent', () => {
     renderLoginPage()
     expect(screen.getByText('Sign in')).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText('Confirm password')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Confirm password')).not.toBeInTheDocument()
   })
 
   it('switches to register mode', async () => {
     const user = userEvent.setup()
     renderLoginPage()
 
-    await user.click(screen.getByText('Create one'))
+    await user.click(screen.getByText('Create account'))
     expect(screen.getByText('Create account')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Confirm password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Confirm password')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Username (optional)')).not.toBeInTheDocument()
   })
 
@@ -87,7 +87,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup()
     renderLoginPage()
 
-    await user.click(screen.getByText('Create one'))
+    await user.click(screen.getByText('Create account'))
     await user.click(screen.getByText('Sign in', { selector: 'button[type="button"]' }))
     expect(screen.getByText('Sign in', { selector: 'button[type="submit"]' })).toBeInTheDocument()
   })
@@ -96,10 +96,10 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
-    await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'different')
+    await user.click(screen.getByText('Create account'))
+    await user.type(screen.getByLabelText('Email address'), 'test@test.com')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Confirm password'), 'different')
     await user.click(screen.getByText('Create account'))
 
     expect(screen.getByText('Passwords do not match.')).toBeInTheDocument()
@@ -109,11 +109,11 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
-    await user.click(screen.getByText('Create one'))
-    await user.type(screen.getByPlaceholderText('Email address'), 'test@test.com')
+    await user.click(screen.getByText('Create account'))
+    await user.type(screen.getByLabelText('Email address'), 'test@test.com')
     // 11 characters: one below the 12-character server policy (#1258).
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
+    await user.type(screen.getByLabelText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Confirm password'), 'password123')
     await user.click(screen.getByText('Create account'))
 
     expect(screen.getByText('Password must be at least 12 characters.')).toBeInTheDocument()
@@ -128,8 +128,8 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
-    await user.type(screen.getByPlaceholderText('Username or email'), 'test')
-    await user.type(screen.getByPlaceholderText('Password'), 'password123')
+    await user.type(screen.getByLabelText('Username or email'), 'test')
+    await user.type(screen.getByLabelText('Password'), 'password123')
     await user.click(screen.getByText('Sign in'))
 
     expect(mockLogin).toHaveBeenCalledWith('test', 'password123')
@@ -150,8 +150,8 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
-    await user.type(screen.getByPlaceholderText('Username or email'), 'test')
-    await user.type(screen.getByPlaceholderText('Password'), 'wrong')
+    await user.type(screen.getByLabelText('Username or email'), 'test')
+    await user.type(screen.getByLabelText('Password'), 'wrong')
     await user.click(screen.getByText('Sign in'))
 
     expect(await screen.findByText('Invalid credentials')).toBeInTheDocument()
@@ -165,13 +165,13 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
-    await user.click(screen.getByText('Create one'))
+    await user.click(screen.getByText('Create account'))
     // Wait for getSiteConfig to settle before interacting — the submit button is
     // disabled until the async config resolves, so a synchronous getByRole click
     // races against the pending microtask and fails intermittently.
-    await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.type(screen.getByLabelText('Email address'), 'kelly@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password1234')
+    await user.type(screen.getByLabelText('Confirm password'), 'password1234')
     await user.click(await screen.findByRole('button', { name: /create account/i }))
 
     // 4th arg is the invite token from sessionStorage — undefined when none is present
@@ -187,9 +187,9 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage({ authMode: 'register' })
     await screen.findByText('Complete your registration')
-    await user.type(screen.getByPlaceholderText('Email address'), 'new@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.type(screen.getByLabelText('Email address'), 'new@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password1234')
+    await user.type(screen.getByLabelText('Confirm password'), 'password1234')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(detail)
@@ -217,9 +217,9 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage({ authMode: 'register' })
     await screen.findByText('Complete your registration')
-    await user.type(screen.getByPlaceholderText('Email address'), 'taken@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.type(screen.getByLabelText('Email address'), 'taken@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password1234')
+    await user.type(screen.getByLabelText('Confirm password'), 'password1234')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     await screen.findByRole('alert')
@@ -237,9 +237,9 @@ describe('LoginPage', () => {
     const user = userEvent.setup({ delay: null })
     renderLoginPage({ authMode: 'register' })
     await screen.findByText('Complete your registration')
-    await user.type(screen.getByPlaceholderText('Email address'), 'wrong@example.com')
-    await user.type(screen.getByPlaceholderText('Password'), 'password1234')
-    await user.type(screen.getByPlaceholderText('Confirm password'), 'password1234')
+    await user.type(screen.getByLabelText('Email address'), 'wrong@example.com')
+    await user.type(screen.getByLabelText('Password'), 'password1234')
+    await user.type(screen.getByLabelText('Confirm password'), 'password1234')
     await user.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText(detail)).toBeInTheDocument()
@@ -247,12 +247,12 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: 'Create account' })).not.toBeDisabled()
   })
 
-  it('hides "Create one" and shows invite-only message when registration is closed', async () => {
+  it('hides "Create account" and shows invite-only message when registration is closed', async () => {
     mockGetSiteConfig.mockResolvedValue({ registration_open: false, invite_email_available: false })
     renderLoginPage()
 
     expect(await screen.findByText('Registration is invite-only.')).toBeInTheDocument()
-    expect(screen.queryByText('Create one')).not.toBeInTheDocument()
+    expect(screen.queryByText('Create account')).not.toBeInTheDocument()
   })
 
   it('disables submit button in register mode when registration is closed', async () => {
@@ -295,8 +295,8 @@ describe('LoginPage', () => {
     mockGetSiteConfig.mockRejectedValue(new Error('network error'))
     renderLoginPage()
 
-    // "Create one" link should still be present (fail open)
-    expect(await screen.findByText('Create one')).toBeInTheDocument()
+    // "Create account" link should still be present (fail open)
+    expect(await screen.findByText('Create account')).toBeInTheDocument()
   })
 
   it('shows SSO button when oidc provider is enabled', async () => {
@@ -494,11 +494,11 @@ describe('LoginPage', () => {
         "This email is already registered. Log in with your password once and we'll connect GitHub for next time."
       )
       // The full form stays, including the recovery link.
-      expect(screen.getByPlaceholderText('Username or email')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
+      expect(screen.getByLabelText('Username or email')).toBeInTheDocument()
+      expect(screen.getByLabelText('Password')).toBeInTheDocument()
       expect(screen.getByText('Forgot password?')).toBeInTheDocument()
       // Banner comes before the form in document order.
-      const form = screen.getByPlaceholderText('Password').closest('form')!
+      const form = screen.getByLabelText('Password').closest('form')!
       expect(banner.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
@@ -518,7 +518,7 @@ describe('LoginPage', () => {
       )
       expect(screen.getByRole('button', { name: /Continue with Google/ })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: "Can't access Google? Reset your password instead" })).toBeInTheDocument()
-      expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
       expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
     })
 

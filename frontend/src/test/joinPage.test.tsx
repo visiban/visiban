@@ -12,6 +12,7 @@ vi.mock('../api/groups', () => ({
 
 vi.mock('../api/auth', () => ({
   getAuthProviders: vi.fn(),
+  logout: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('../api/boards', () => ({
@@ -20,12 +21,13 @@ vi.mock('../api/boards', () => ({
 }))
 
 import { resolveJoinToken, joinGroup } from '../api/groups'
-import { getAuthProviders } from '../api/auth'
+import { getAuthProviders, logout } from '../api/auth'
 import { resolveBoardJoinToken, joinBoard } from '../api/boards'
 
 const mockResolveJoinToken = resolveJoinToken as ReturnType<typeof vi.fn>
 const mockJoinGroup = joinGroup as ReturnType<typeof vi.fn>
 const mockGetAuthProviders = getAuthProviders as ReturnType<typeof vi.fn>
+const mockLogout = logout as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -105,7 +107,7 @@ describe('JoinPage', () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockJoinGroup.mockReturnValue(new Promise(() => {})) // keep pending so spinner stays
     renderJoinPage(fakeUser)
-    expect(await screen.findByText('Joining Engineering…')).toBeInTheDocument()
+    expect(await screen.findByText('Joining…')).toBeInTheDocument()
   })
 
   it('shows group name in invite message', async () => {
@@ -117,8 +119,8 @@ describe('JoinPage', () => {
   it('shows auth buttons and explanation for unauthenticated user', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
-    expect(await screen.findByText('Create an account')).toBeInTheDocument()
-    expect(screen.getByText('Sign in')).toBeInTheDocument()
+    expect(await screen.findByText('Create account and join')).toBeInTheDocument()
+    expect(screen.getByText('I already have an account')).toBeInTheDocument()
     expect(screen.getByText(/To accept this invitation you need a Visiban account/)).toBeInTheDocument()
   })
 
@@ -126,7 +128,7 @@ describe('JoinPage', () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockGetAuthProviders.mockResolvedValue({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null })
     renderJoinPage(null)
-    await screen.findByText('Create an account')
+    await screen.findByText('Create account and join')
     expect(screen.queryByText('Continue with Google')).not.toBeInTheDocument()
     expect(screen.queryByText('Continue with GitHub')).not.toBeInTheDocument()
     expect(screen.queryByText('Continue with GitLab')).not.toBeInTheDocument()
@@ -166,14 +168,14 @@ describe('JoinPage', () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockJoinGroup.mockReturnValue(new Promise(() => {}))
     renderJoinPage(fakeUser)
-    await screen.findByText('Joining Engineering…')
+    await screen.findByText('Joining…')
     expect(mockGetAuthProviders).not.toHaveBeenCalled()
   })
 
   it('sets returnTo and pendingJoinToken in sessionStorage when redirecting to register', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
-    fireEvent.click(await screen.findByText('Create an account'))
+    fireEvent.click(await screen.findByText('Create account and join'))
     expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
     expect(sessionStorage.getItem('pendingJoinToken')).toBe('abc123')
   })
@@ -181,7 +183,7 @@ describe('JoinPage', () => {
   it('sets returnTo and pendingJoinToken in sessionStorage when redirecting to sign in', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
-    fireEvent.click(await screen.findByText('Sign in'))
+    fireEvent.click(await screen.findByText('I already have an account'))
     expect(sessionStorage.getItem('returnTo')).toBe('/join/abc123')
     expect(sessionStorage.getItem('pendingJoinToken')).toBe('abc123')
   })
@@ -189,14 +191,14 @@ describe('JoinPage', () => {
   it('hands the group invite to the registration form as invite_token (#1445)', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null, 'vbng_emailed')
-    fireEvent.click(await screen.findByText('Create an account'))
+    fireEvent.click(await screen.findByText('Create account and join'))
     expect(sessionStorage.getItem('invite_token')).toBe('vbng_emailed')
   })
 
   it('does not set invite_token when signing in to an existing account (#1445)', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null, 'vbng_emailed')
-    fireEvent.click(await screen.findByText('Sign in'))
+    fireEvent.click(await screen.findByText('I already have an account'))
     expect(sessionStorage.getItem('invite_token')).toBeNull()
   })
 
@@ -218,7 +220,7 @@ describe('JoinPage', () => {
   it('shows countdown redirect on invalid invite', async () => {
     mockResolveJoinToken.mockRejectedValue(new Error('Not found'))
     renderJoinPage(fakeUser)
-    expect(await screen.findByText(/Redirecting to dashboard in/)).toBeInTheDocument()
+    expect(await screen.findByText(/Redirecting to (sign in|Home) in/)).toBeInTheDocument()
   })
 
   it('auto-joins and navigates to group page on success', async () => {
@@ -313,8 +315,8 @@ describe('JoinPage — can_register preview (#1481)', () => {
     expect(screen.getByRole('heading', { name: "You're invited" })).toBeInTheDocument()
     expect(screen.getByText('Engineering')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign in to join Engineering' })).toBeInTheDocument()
-    expect(screen.queryByText('Create an account')).not.toBeInTheDocument()
-    expect(screen.queryByText('already have an account?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Create account and join')).not.toBeInTheDocument()
+    expect(screen.queryByText('I already have an account')).not.toBeInTheDocument()
     expect(screen.queryByText(/To accept this invitation you need a Visiban account/)).not.toBeInTheDocument()
   })
 
@@ -338,8 +340,8 @@ describe('JoinPage — can_register preview (#1481)', () => {
   it('keeps the original layout when can_register is true', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: true })
     renderJoinPage(null)
-    expect(await screen.findByText('Create an account')).toBeInTheDocument()
-    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(await screen.findByText('Create account and join')).toBeInTheDocument()
+    expect(screen.getByText('I already have an account')).toBeInTheDocument()
     expect(screen.getByText(/To accept this invitation you need a Visiban account/)).toBeInTheDocument()
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
@@ -347,8 +349,8 @@ describe('JoinPage — can_register preview (#1481)', () => {
   it('keeps the original layout when can_register is absent (older backend)', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     renderJoinPage(null)
-    expect(await screen.findByText('Create an account')).toBeInTheDocument()
-    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(await screen.findByText('Create account and join')).toBeInTheDocument()
+    expect(screen.getByText('I already have an account')).toBeInTheDocument()
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
 
@@ -359,8 +361,8 @@ describe('JoinPage — can_register preview (#1481)', () => {
       can_register: null as unknown as boolean,
     })
     renderJoinPage(null)
-    expect(await screen.findByText('Create an account')).toBeInTheDocument()
-    expect(screen.getByText('already have an account?')).toBeInTheDocument()
+    expect(await screen.findByText('Create account and join')).toBeInTheDocument()
+    expect(screen.getByText('I already have an account')).toBeInTheDocument()
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
 
@@ -368,7 +370,7 @@ describe('JoinPage — can_register preview (#1481)', () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
     mockJoinGroup.mockReturnValue(new Promise(() => {}))
     renderJoinPage(fakeUser)
-    expect(await screen.findByText('Joining Engineering…')).toBeInTheDocument()
+    expect(await screen.findByText('Joining…')).toBeInTheDocument()
     expect(mockJoinGroup).toHaveBeenCalledWith('abc123')
     expect(screen.queryByText(BLOCKED_COPY)).not.toBeInTheDocument()
   })
@@ -430,11 +432,11 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
     mockResolveBoard.mockResolvedValue(preview)
     renderBoardJoin(null)
     expect(await screen.findByText('Launch Plan')).toHaveClass('break-words')
-    expect(screen.getByText(/as a collaborator/)).toBeInTheDocument()
-    expect(screen.getByText("You'll be able to comment and upload files.")).toHaveClass('text-xs', 'text-fg-muted', 'mt-1')
+    expect(screen.getByText(/as a Collaborator/)).toBeInTheDocument()
+    expect(screen.getByText("You'll be able to comment and upload files.")).toHaveClass('text-xs', 'text-fg-tertiary', 'mt-1')
     expect(mockResolveBoard).toHaveBeenCalledWith(TOKEN)
     expect(mockResolveJoinToken).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Create an account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create account and join' })).toBeInTheDocument()
   })
 
   it.each([
@@ -450,7 +452,7 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
     mockResolveBoard.mockResolvedValue({ ...preview, can_register: false })
     renderBoardJoin(null)
     expect(await screen.findByRole('button', { name: 'Sign in to join Launch Plan' })).toBeInTheDocument()
-    expect(screen.queryByText('Create an account')).not.toBeInTheDocument()
+    expect(screen.queryByText('Create account and join')).not.toBeInTheDocument()
   })
 
   it('signed in: joins and navigates to the board with the joined state', async () => {
@@ -467,21 +469,21 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
     mockResolveBoard.mockResolvedValue(preview)
     mockJoinBoard.mockReturnValue(new Promise(() => {}))
     renderBoardJoin(fakeUser)
-    expect(await screen.findByText('Joining Launch Plan…')).toBeInTheDocument()
+    expect(await screen.findByText('Joining…')).toBeInTheDocument()
   })
 
   it.each([
-    ['used', 'This invite has already been used', 'This invite could only be used once. Ask a board admin to send you a new one.', 'text-fg-tertiary'],
-    ['expired', 'This invite has expired', 'Ask a board admin for a new invite.', 'text-danger'],
-    ['revoked', 'This invite is no longer valid', 'It may have been revoked. Ask a board admin for a new one.', 'text-danger'],
+    ['used', 'This invite has already been used', 'This invite could only be used once. Ask a board admin to send you a new one.', 'neutral'],
+    ['expired', 'This invite has expired', 'Ask a board admin for a new invite.', 'danger'],
+    ['revoked', 'This invite is no longer valid', 'It may have been revoked. Ask a board admin for a new one.', 'danger'],
   ])('preview 410 %s shows its own message and focuses the title', async (code, title, body, tone) => {
     mockResolveBoard.mockRejectedValue(gone(code))
     renderBoardJoin(null)
     const heading = await screen.findByText(title)
-    expect(heading).toHaveClass(tone)
+    expect(screen.getByTestId('join-page').querySelector('[data-tone]')).toHaveAttribute('data-tone', tone)
     expect(screen.getByText(body)).toBeInTheDocument()
     await waitFor(() => expect(heading).toHaveFocus())
-    expect(screen.getByText(/Redirecting to dashboard in/)).toBeInTheDocument()
+    expect(screen.getByText(/Redirecting to (sign in|Home) in/)).toBeInTheDocument()
   })
 
   it('an unknown token (404) reads as no longer valid', async () => {
@@ -522,7 +524,18 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
     const failure = await screen.findByText('This invite was sent to a different email address. Sign in with the account that uses that address, or ask for a new invite.')
     expect(failure).toHaveAttribute('role', 'alert')
     expect(screen.queryByText("Couldn't join Launch Plan. The invite may have expired or been used.")).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    // #2479: a mismatch offers to switch account instead of a retry that would fail the same way.
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    const assign = vi.fn()
+    const original = window.location
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, assign } })
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign out and switch account' }))
+      await waitFor(() => expect(assign).toHaveBeenCalledWith(`/join/${TOKEN}`))
+      expect(mockLogout).toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original })
+    }
   })
 
   it('a 410 on the first join goes straight to the invalid view', async () => {
@@ -535,7 +548,7 @@ describe('JoinPage — board invites (vbnb_, #1444)', () => {
   it('register hands the board invite to the registration form', async () => {
     mockResolveBoard.mockResolvedValue(preview)
     renderBoardJoin(null)
-    fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create account and join' }))
     expect(sessionStorage.getItem('invite_token')).toBe(TOKEN)
     expect(sessionStorage.getItem('pendingJoinToken')).toBe(TOKEN)
     expect(sessionStorage.getItem('returnTo')).toBe(`/join/${TOKEN}`)

@@ -6,6 +6,9 @@ import { formatClockTime } from "../../utils/date";
 import { DEMO_RESET_NOTICE_KEY } from "../../utils/demoReset";
 import { providerLoginUrl } from "../../utils/oauth";
 import { PROVIDER_META, ProviderIcon, isProviderId, providerLabel } from "../Common/ProviderIcons";
+import { Button, CenteredHeader, CenteredLayout, Field, OrDivider, buttonClasses } from "../Page";
+import ProviderButtons from "./ProviderButtons";
+import { enabledProviders, type AuthProviders } from "./providers";
 
 /**
  * User-facing error messages keyed by backend auth_error codes.
@@ -77,9 +80,15 @@ export default function LoginPage({ onLogin }: Props) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // An OAuth callback failure (?auth_error=) shows as an alert above the form (#2479); a
+  // submit failure stays in the form, next to the button that caused it.
+  const [oauthError, setOauthError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
+  // Picks the registration line under the form (#2479): open links to Create account,
+  // invite-only and closed each say so.
+  const [registrationMode, setRegistrationMode] = useState<"open" | "invite_only" | "closed">("open");
   const [demoLogin, setDemoLogin] = useState<{ username: string; password: string } | null>(null);
   const [demoNextResetAt, setDemoNextResetAt] = useState<string | null>(null);
   const [demoResetSchedule, setDemoResetSchedule] = useState<string | null>(null);
@@ -114,6 +123,7 @@ export default function LoginPage({ onLogin }: Props) {
     getSiteConfig()
       .then((c) => {
         setRegistrationOpen(c.registration_open);
+        setRegistrationMode(c.registration_mode ?? (c.registration_open ? "open" : "invite_only"));
         // A closed site creates no accounts from any invite (#1445). JoinPage
         // hands every group token to this form, so drop it here rather than
         // offering an enabled form the backend will refuse with 403.
@@ -155,7 +165,7 @@ export default function LoginPage({ onLogin }: Props) {
       });
       void navigate("/", { replace: true });
     } else if (authError) {
-      setError(AUTH_ERROR_MESSAGES[authError] ?? AUTH_ERROR_FALLBACK);
+      setOauthError(AUTH_ERROR_MESSAGES[authError] ?? AUTH_ERROR_FALLBACK);
       // Clear dead invite tokens on token-specific errors.
       if (authError.startsWith("invite_")) {
         sessionStorage.removeItem("invite_token");
@@ -177,6 +187,7 @@ export default function LoginPage({ onLogin }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setOauthError(null);
 
     if (mode === "register") {
       // eslint-disable-next-line security/detect-possible-timing-attacks -- client-side UI validation only, not a cryptographic comparison
@@ -251,154 +262,147 @@ export default function LoginPage({ onLogin }: Props) {
       ? "Resets every hour, on the hour"
       : "Resets on a regular schedule";
 
+  const completingInvite = mode === "register" && !registrationOpen && hasInviteToken;
+  const title = mode === "login" ? "Sign in to Visiban" : completingInvite ? "Complete your registration" : "Create your account";
+  const hasProviders = enabledProviders(providers).length > 0;
+  const switchMode = () => { setMode(mode === "login" ? "register" : "login"); setError(null); };
+  const linkClass = "text-info hover:underline font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
+
   return (
-    <div className="min-h-screen bg-sunken flex items-center justify-center">
-      <div className="bg-surface rounded-2xl shadow-2xl p-10 w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
-          {mode === "register" && !registrationOpen && hasInviteToken && (
-            <p className="text-sm text-fg-secondary text-center mt-3">Complete your registration</p>
-          )}
+    <CenteredLayout testId="login-page">
+      <CenteredHeader title={title} />
+
+      {/* Post-reset notice (#1179) — one-shot, shown once after the scheduled
+          reset ended this tab's session. Informational tint, like the callout. */}
+      {resetNoticeAt && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-testid="demo-reset-notice"
+          className="mb-4 rounded-lg border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+        >
+          The demo was reset at <strong className="font-semibold text-fg">{formatClockTime(resetNoticeAt)}</strong> — explore again.
         </div>
+      )}
 
-        {/* Post-reset notice (#1179) — one-shot, shown once after the scheduled
-            reset ended this tab's session. Informational tint, like the callout. */}
-        {resetNoticeAt && (
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            data-testid="demo-reset-notice"
-            className="mb-3 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+      {/* Hosted-demo callout (#1034, reworked in #1179) — informational, so the
+          primary-emphasis tint, not the amber degraded-state treatment. "Explore
+          the demo" is the page's primary action; the manual form below is
+          demoted by position only. */}
+      {demoLogin && (
+        <div
+          role="note"
+          data-testid="demo-banner"
+          className="mb-4 rounded-lg border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+        >
+          {/* No next reset means none is scheduled (#1180: the Helm chart's
+              demo.reset.enabled=false renders DEMO_RESET_SCHEDULE empty), so
+              the banner must not promise an erase or a sign-out that never
+              comes. */}
+          <p>
+            <strong className="font-semibold text-fg">This is a shared demo.</strong>{" "}
+            {nextResetLabel ? (
+              <>
+                {cadenceText} — next reset at <strong className="font-semibold text-fg">{nextResetLabel}</strong> (your
+                local time). Everything you change is erased and you will be signed out.
+              </>
+            ) : (
+              <>Other visitors can see and change everything here, and it is never reset.</>
+            )}
+          </p>
+          <Button variant="primary" size="lg" fullWidth className="mt-3" onClick={handleExploreDemo} disabled={submittingDemo}>
+            {submittingDemo ? "Please wait…" : "Explore the demo"}
+          </Button>
+          {demoError && <p className="mt-2 text-danger text-xs" role="alert">{demoError}</p>}
+          <p className="mt-2 text-xs text-fg-muted">
+            or sign in manually with <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
+            <code className="font-mono text-fg select-all">{demoLogin.password}</code> below.
+          </p>
+        </div>
+      )}
+
+      {/* OAuth email-collision banner (#1314) — sits in the same slot as the
+          notices above, never in the thin error line under the form. */}
+      {banner && (
+        <div
+          role="alert"
+          data-testid="account-exists-banner"
+          className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-on-tint"
+        >
+          <p className="font-medium">You already have a Visiban account</p>
+          <p className="mt-1">
+            {banner.kind === "account_exists"
+              ? `This email is already registered. Log in with your password once and we'll connect ${labelFor(banner.provider)} for next time.`
+              : `This email signs in with ${labelFor(banner.via)}. Continue with ${labelFor(banner.via)} and we'll connect ${labelFor(banner.provider)} afterwards.`}
+          </p>
+        </div>
+      )}
+
+      {oauthError && (
+        <div role="alert" data-testid="auth-error" className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-on-tint">
+          {oauthError}
+        </div>
+      )}
+
+      {banner?.kind === "account_exists_provider" ? (
+        <div className="flex flex-col gap-3">
+          {/* The via provider's own brand colors: this starts a real
+              redirect to that provider and must read as its button. */}
+          <button
+            type="button"
+            onClick={() => startOAuth(banner.via)}
+            className={`flex w-full items-center justify-center gap-3 h-9 max-sm:h-12 px-4 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              isProviderId(banner.via) ? PROVIDER_META[banner.via].buttonClassName : PROVIDER_META.oidc.buttonClassName
+            }`}
           >
-            The demo was reset at <strong className="font-semibold text-fg">{formatClockTime(resetNoticeAt)}</strong> — explore again.
-          </div>
-        )}
-
-        {/* Hosted-demo callout (#1034, reworked in #1179) — informational, so the
-            primary-emphasis tint, not the amber degraded-state treatment. "Explore
-            the demo" is the page's primary action; the manual form below keeps its
-            classes (it is the only affordance for a real account elsewhere) and is
-            demoted by position only. */}
-        {demoLogin && (
-          <div
-            role="note"
-            data-testid="demo-banner"
-            className="mb-5 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
-          >
-            {/* No next reset means none is scheduled (#1180: the Helm chart's
-                demo.reset.enabled=false renders DEMO_RESET_SCHEDULE empty), so
-                the banner must not promise an erase or a sign-out that never
-                comes. */}
-            <p>
-              <strong className="font-semibold text-fg">This is a shared demo.</strong>{" "}
-              {nextResetLabel ? (
-                <>
-                  {cadenceText} — next reset at <strong className="font-semibold text-fg">{nextResetLabel}</strong> (your
-                  local time). Everything you change is erased and you will be signed out.
-                </>
-              ) : (
-                <>Other visitors can see and change everything here, and it is never reset.</>
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={handleExploreDemo}
-              disabled={submittingDemo}
-              className="mt-3 w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              {submittingDemo ? "Please wait…" : "Explore the demo"}
-            </button>
-            {demoError && <p className="mt-2 text-danger text-xs" role="alert">{demoError}</p>}
-            <p className="mt-2 text-xs text-fg-muted">
-              or sign in manually with <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
-              <code className="font-mono text-fg select-all">{demoLogin.password}</code> below.
-            </p>
-          </div>
-        )}
-
-        {/* OAuth email-collision banner (#1314) — sits in the same slot as the
-            notices above, never in the thin error line under the form. */}
-        {banner && (
-          <div
-            role="alert"
-            data-testid="account-exists-banner"
-            className="mb-5 rounded border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger-on-tint"
-          >
-            <p className="font-medium">You already have a Visiban account</p>
-            <p className="mt-1 text-danger/90">
-              {banner.kind === "account_exists"
-                ? `This email is already registered. Log in with your password once and we'll connect ${labelFor(banner.provider)} for next time.`
-                : `This email signs in with ${labelFor(banner.via)}. Continue with ${labelFor(banner.via)} and we'll connect ${labelFor(banner.provider)} afterwards.`}
-            </p>
-          </div>
-        )}
-
-        {banner?.kind === "account_exists_provider" ? (
-          <div className="flex flex-col gap-3 mb-5">
-            {/* The via provider's own brand colors: this starts a real
-                redirect to that provider and must read as its button. */}
-            <button
-              type="button"
-              onClick={() => startOAuth(banner.via)}
-              className={`flex items-center justify-center gap-3 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                isProviderId(banner.via) ? PROVIDER_META[banner.via].buttonClassName : PROVIDER_META.oidc.buttonClassName
-              }`}
-            >
-              <ProviderIcon id={banner.via} className="w-5 h-5" />
-              Continue with {labelFor(banner.via)}
-            </button>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-xs text-fg-tertiary hover:text-fg underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-              >
-                Can't access {labelFor(banner.via)}? Reset your password instead
-              </button>
+            <ProviderIcon id={banner.via} className="w-5 h-5" />
+            Continue with {labelFor(banner.via)}
+          </button>
+          <Button variant="quiet" fullWidth onClick={handleForgotPassword}>
+            Can&apos;t access {labelFor(banner.via)}? Reset your password instead
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Providers first (#2479), only those this instance turned on; OIDC leads. */}
+          {hasProviders && (
+            <div className="mb-4 flex flex-col gap-4">
+              <ProviderButtons providers={providers} hrefFor={(id) => oauthUrl(id, mode, hasInviteToken)} />
+              <OrDivider />
             </div>
-          </div>
-        ) : (
-          <>
-          {/* Email/password form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-5">
-            <input
+          )}
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <Field
+              label={mode === "login" ? "Username or email" : "Email address"}
               type="text"
+              autoComplete={mode === "login" ? "username" : "email"}
               required
-              placeholder={mode === "login" ? "Username or email" : "Email address"}
               value={loginField}
               onChange={(e) => setLoginField(e.target.value)}
-              className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
             />
-            <div>
-              <input
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-              />
-              {mode === "login" && (
-                <div className="flex justify-end mt-1">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-            </div>
+            <Field
+              label="Password"
+              type="password"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              labelAccessory={mode === "login" ? (
+                <button type="button" onClick={handleForgotPassword} className={`text-xs ${linkClass}`}>
+                  Forgot password?
+                </button>
+              ) : undefined}
+            />
             {mode === "register" && (
-              <input
+              <Field
+                label="Confirm password"
                 type="password"
+                autoComplete="new-password"
                 required
-                placeholder="Confirm password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               />
             )}
             {mode === "register" && !registrationOpen && !hasInviteToken && (
@@ -410,78 +414,24 @@ export default function LoginPage({ onLogin }: Props) {
             <button
               type="submit"
               disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
-              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className={buttonClasses("primary", { size: "lg", fullWidth: true })}
             >
               {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
             </button>
-            <p className="text-center text-xs text-fg-tertiary">
-              {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
-              {mode === "login" && !registrationOpen ? (
-                <span className="text-fg-muted">Registration is invite-only.</span>
+            <p className="text-center text-sm text-fg-secondary">
+              {mode === "register" ? (
+                <>Already have an account?{" "}<button type="button" onClick={switchMode} className={linkClass}>Sign in</button></>
+              ) : registrationMode === "closed" ? (
+                <span data-testid="registration-line">Registration is closed. Ask an admin for an account.</span>
+              ) : !registrationOpen ? (
+                <span data-testid="registration-line">Registration is invite-only.</span>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
-                  className="text-info hover:text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-                >
-                  {mode === "login" ? "Create one" : "Sign in"}
-                </button>
+                <>Don&apos;t have an account?{" "}<button type="button" onClick={switchMode} className={linkClass}>Create account</button></>
               )}
             </p>
           </form>
-
-          {/* OAuth buttons — only shown when credentials are configured */}
-          {providers && (providers.google || providers.github || providers.gitlab || providers.oidc) && (
-            <>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="flex-1 h-px bg-surface-active" />
-                <span className="text-xs text-fg-muted">or continue with</span>
-                <div className="flex-1 h-px bg-surface-active" />
-              </div>
-              <div className="flex flex-col gap-3">
-                {providers.google && (
-                  // Google brand guidelines require a white button with dark text — intentional
-                  // exception to the site's slate palette. See https://developers.google.com/identity/branding-guidelines
-                  <a
-                    href={oauthUrl("google", mode, hasInviteToken)}
-                    className="flex items-center justify-center gap-3 bg-white text-slate-900 hover:bg-slate-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    <ProviderIcon id="google" className="w-5 h-5" />
-                    Continue with Google
-                  </a>
-                )}
-                {providers.github && (
-                  <a
-                    href={oauthUrl("github", mode, hasInviteToken)}
-                    className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    <ProviderIcon id="github" className="w-5 h-5" />
-                    Continue with GitHub
-                  </a>
-                )}
-                {providers.gitlab && (
-                  <a
-                    href={oauthUrl("gitlab", mode, hasInviteToken)}
-                    className="flex items-center justify-center gap-3 bg-warning-bg text-on-warning font-medium py-2.5 px-4 rounded hover:bg-warning-bg-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    <ProviderIcon id="gitlab" className="w-5 h-5" />
-                    Continue with GitLab
-                  </a>
-                )}
-                {providers.oidc && (
-                  <a
-                    href={oauthUrl("oidc", mode, hasInviteToken)}
-                    className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    Continue with {providers.oidc_name ?? "SSO"}
-                  </a>
-                )}
-              </div>
-            </>
-          )}
-          </>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </CenteredLayout>
   );
 }

@@ -237,17 +237,19 @@ describe('warning-action button (#2169)', () => {
 
   it('text-fg is not AA on warning-bg in dark mode, which is why every warning fill uses text-on-warning', () => {
     expect(ratio(rgbOf(darkBlock, 'fg'), rgbOf(darkBlock, 'warning-bg'))).toBeLessThan(4.5)
-    const files = ['components/Card/CardDetail', 'pages/JoinPage', 'components/Auth/LoginPage', 'components/Common/ProviderIcons']
+    // #2479: LoginPage and JoinPage draw the GitLab button from ProviderIcons' PROVIDER_META and
+    // the Warning variant from the shared buttonClasses, so those two hold the fills now.
+    const files = ['components/Card/CardDetail.tsx', 'components/Page/buttonClasses.ts', 'components/Common/ProviderIcons.tsx']
     let seen = 0
     for (const f of files) {
-      const src = readFileSync(`src/${f}.tsx`, 'utf8')
+      const src = readFileSync(`src/${f}`, 'utf8')
       for (const [cls] of src.matchAll(/"[^"]*\bbg-warning-bg\b[^"]*"/g)) {
         const colors = [...cls.matchAll(TEXT_UTILITY)].map((m) => m[1]).filter((t) => !NOT_COLOR.has(t))
         expect(colors, `${f}: ${cls}`).toEqual(['on-warning'])
         seen++
       }
     }
-    expect(seen).toBe(4)
+    expect(seen).toBe(3)
   })
 })
 
