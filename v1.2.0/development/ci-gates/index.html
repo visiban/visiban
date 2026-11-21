@@ -4545,6 +4545,10 @@ reference on a non-comment line, and fails if any of them:</p>
 <td>Not a gate: the probe both upgrade drills pipe into a running backend container. Listed only because the drills' <code>changes:</code> rules name it.</td>
 </tr>
 <tr>
+<td><code>scripts/drill-image.sh</code></td>
+<td>A library the five boot and upgrade drills source, not a gate. It pulls the per-commit kaniko image by digest and checks its revision label and architecture, or builds locally (<a href="https://gitlab.com/visiban/visiban/-/issues/2492">#2492</a>). <code>scripts/tests/drill-image.test.sh</code> covers every branch against a stub <code>docker</code>: a matching image is pulled and tagged and never built, and each of these fails: another commit's image, a missing label, a tag instead of a digest, no commit to check against, an architecture mismatch, a pull failure, and an unset variable in CI where the project has a registry. With no registry (<code>CI_REGISTRY_IMAGE</code> empty) the local build is taken and logged.</td>
+</tr>
+<tr>
 <td><code>scripts/oidc_provision.py</code></td>
 <td>Provisioning against a live Keycloak Admin REST API — setup, not detection logic. Its correctness is exercised end-to-end by <code>oidc_smoke_test.py</code>.</td>
 </tr>
@@ -4572,7 +4576,7 @@ reference on a non-comment line, and fails if any of them:</p>
 <tr>
 <td><code>scripts/helm-structure-check.sh</code></td>
 <td><code>helm-template</code></td>
-<td><code>--self-test</code> injects each defect class into a throwaway copy of the chart. Each fixture (and the undamaged-chart control) runs as its own worker process through an <code>xargs -P</code> pool sized to the CPU count, so the self-test no longer takes the sum of its fixtures (#2420); <code>SELF_TEST_JOBS=N</code> overrides the count (<code>1</code> is serial), and a worker that dies without reporting counts as a failure. Results print in fixture order. <code>--lint-tmp</code> (run in the same job, #1427) rejects any hardcoded <code>/tmp</code> or <code>/var/tmp</code> path in the script and in <code>scripts/helm-install-drill.sh</code> (#1646), which must use their per-run <code>$RUN_TMP</code> directory.</td>
+<td><code>--self-test</code> injects each defect class into a throwaway copy of the chart. Each fixture (and the undamaged-chart control) runs as its own worker process through an <code>xargs -P</code> pool sized to the CPU count, so the self-test no longer takes the sum of its fixtures (#2420); <code>SELF_TEST_JOBS=N</code> overrides the count (<code>1</code> is serial), and a worker that dies without reporting counts as a failure. Results print in fixture order. Each fixture names the check section(s) that must catch its defect, and only those run against the damaged chart (#2493), so a case no longer pays for the whole check (~303 s of <code>helm-template</code> before). Every named section must reject the damage on its own; a fixture naming no section or a section <code>run_all_checks</code> does not run FAILS rather than skips. The control still runs every section. <code>scripts/tests/helm-structure-check.test.sh</code> (run in <code>helm-template</code>) covers the selection, including the unknown-section path. <code>--lint-tmp</code> (run in the same job, #1427) rejects any hardcoded <code>/tmp</code> or <code>/var/tmp</code> path in the script and in <code>scripts/helm-install-drill.sh</code> (#1646), which must use their per-run <code>$RUN_TMP</code> directory.</td>
 </tr>
 <tr>
 <td><code>scripts/lock-backend-requirements.sh</code></td>

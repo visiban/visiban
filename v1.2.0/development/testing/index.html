@@ -5030,7 +5030,7 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <tr>
 <td>Lines an MR adds or changes</td>
 <td><strong>80%</strong></td>
-<td><code>backend-diff-coverage</code> and <code>frontend-diff-coverage</code> (see <a href="#diff-coverage-1076">Diff coverage</a>)</td>
+<td>the diff gate in <code>backend-test-coverage</code>, and <code>frontend-diff-coverage</code> (see <a href="#diff-coverage-1076">Diff coverage</a>)</td>
 </tr>
 </tbody>
 </table>
@@ -5044,15 +5044,15 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <p><strong>Watch out:</strong> If aggregate coverage drops by more than 0.1 percentage points after a change to this setting, lines have gone unmeasured. Treat it as a blocker, not rounding.</p>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>
 <p><strong>Why it matters:</strong> <code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em> coverage of the whole codebase. That number moves slowly: a large, well-tested codebase can absorb a fully untested new feature and barely notice.</p>
-<p><code>backend-diff-coverage</code> and <code>frontend-diff-coverage</code> close that gap:</p>
+<p>The backend diff gate and <code>frontend-diff-coverage</code> close that gap. The backend diff gate runs inside <code>backend-test-coverage</code> itself (#2497): it used to be a separate <code>backend-diff-coverage</code> job chained after it, which cost a second runner wait on every backend MR for a second report over the same data. Both backend gates always run and the job fails if either one fails; the log line <code>FAIL: aggregate coverage is below 90%</code> or <code>FAIL: diff coverage is below 80% of changed lines</code> says which.</p>
 <ul>
-<li>They run only on MR pipelines (there's no diff to measure on <code>main</code>).</li>
+<li>They run only on MR pipelines (there's no diff to measure on <code>main</code>). On <code>main</code> and schedules, <code>backend-test-coverage</code> runs only the aggregate gate.</li>
 <li>They use <a href="https://github.com/Bachmann1234/diff_cover"><code>diff-cover</code></a> to measure coverage of only the lines the MR adds or changes, against the same <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> the aggregate jobs already produce. No test re-run.</li>
 <li>Both are blocking at <strong>80% of changed lines</strong> and print the uncovered line numbers in the job log (<code>--show-uncovered</code>), not just a percentage.</li>
 </ul>
 <p>Excluded from the diff denominator on both sides:</p>
 <ul>
-<li>backend <code>*/migrations/*</code> and <code>manage.py</code> (schema, not behavior; see the <code>backend-diff-coverage</code> job comment in <code>.gitlab-ci.yml</code> for why the aggregate run <em>does</em> count migrations but the diff gate doesn't);</li>
+<li>backend <code>*/migrations/*</code> and <code>manage.py</code> (schema, not behavior; see the <code>backend-test-coverage</code> job comment in <code>.gitlab-ci.yml</code> for why the aggregate run <em>does</em> count migrations but the diff gate doesn't);</li>
 <li>frontend <code>src/test/*</code>, <code>*.test.*</code>, <code>*.spec.*</code> (already excluded from the coverage report itself by <code>vitest.config.ts</code>'s <code>coverage.exclude</code>; the CI job's <code>--exclude</code> is belt-and-suspenders).</li>
 </ul>
 <p>Generated files, if any are ever introduced, should be added to the same exclude list.</p>
@@ -5060,8 +5060,8 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <p>An MR can legitimately fail this gate without meaning "add more tests": a pure refactor that only moves lines, or a vendored file with no realistic local test. When that happens:</p>
 <ol>
 <li>Say so explicitly in the MR description (a line under a <code>## Notes</code> heading is enough:
-   <em>"backend-diff-coverage fails on moved-but-unchanged lines in <code>foo.py</code>; no new
-   behavior to test."</em>).</li>
+   <em>"backend-test-coverage's diff gate fails on moved-but-unchanged lines in <code>foo.py</code>;
+   no new behavior to test."</em>).</li>
 <li>A reviewer confirms the reasoning and re-runs the job manually with an adjusted
    understanding, or approves the MR with the failing job explicitly acknowledged.</li>
 </ol>

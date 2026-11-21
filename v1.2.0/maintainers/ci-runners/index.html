@@ -4119,6 +4119,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#per-commit-drill-images-2492" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-commit drill images (#2492)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#distributed-ci-cache-minio" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4569,6 +4580,62 @@ runner host <code>gitlab-nuc-03</code> is shared with TruePPM (<code>concurrent 
 <p>A rebuilt or newly provisioned runner host that runs these jobs <strong>must</strong> have this sysctl
   too. Apply it with <code>sudo sysctl --system</code> and verify with
   <code>sysctl fs.inotify.max_user_instances</code> (expect 512 or more).</p>
+<h2 id="per-commit-drill-images-2492">Per-commit drill images (#2492)<a class="headerlink" href="#per-commit-drill-images-2492" title="Permanent link">&para;</a></h2>
+<p><code>helm-install</code>, <code>helm-netpol</code>, <code>compose-prod-drill</code>, <code>helm-upgrade-drill</code> and <code>compose-upgrade-drill</code> boot the backend and frontend images built from their own commit (the upgrade drills for their HEAD side; their last-GA FROM images are still pulled as published). They no longer build them. Before #2492 each drill ran <code>docker build</code> twice inside its own <code>docker:27-dind</code>, with no layer cache, which cost <code>helm-install</code> about 170 s per run (pipeline <code>3097977047</code>: backend 76 s, frontend 91 s).</p>
+<p>Now four kaniko jobs build and push the images (<code>.kaniko-ci-image</code> in <code>.gitlab-ci.yml</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Dockerfile</th>
+<th>Registry path</th>
+<th>Dotenv variable</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend-docker-build</code></td>
+<td><code>backend/Dockerfile</code></td>
+<td><code>ci/backend</code></td>
+<td><code>DRILL_BACKEND_IMAGE</code></td>
+<td><code>helm-install</code>, <code>helm-netpol</code>, <code>helm-upgrade-drill</code>, <code>compose-upgrade-drill</code></td>
+</tr>
+<tr>
+<td><code>frontend-docker-build</code></td>
+<td><code>frontend/Dockerfile</code></td>
+<td><code>ci/frontend</code></td>
+<td><code>DRILL_FRONTEND_IMAGE</code></td>
+<td><code>helm-install</code>, <code>helm-netpol</code>, <code>helm-upgrade-drill</code></td>
+</tr>
+<tr>
+<td><code>backend-docker-build-prod</code></td>
+<td><code>backend/Dockerfile.prod</code></td>
+<td><code>ci/backend-prod</code></td>
+<td><code>DRILL_BACKEND_PROD_IMAGE</code></td>
+<td><code>compose-prod-drill</code></td>
+</tr>
+<tr>
+<td><code>frontend-docker-build-prod</code></td>
+<td><code>frontend/Dockerfile.prod</code></td>
+<td><code>ci/frontend-prod</code></td>
+<td><code>DRILL_FRONTEND_PROD_IMAGE</code></td>
+<td><code>compose-prod-drill</code></td>
+</tr>
+</tbody>
+</table>
+<p>How it fits together:</p>
+<ul>
+<li><strong>Push.</strong> Each job pushes to <code>$CI_REGISTRY_IMAGE/ci/&lt;name&gt;:&lt;branch slug&gt;</code> with the job's own <code>CI_REGISTRY_USER</code>/<code>CI_REGISTRY_PASSWORD</code>, labels the image <code>org.opencontainers.image.revision=$CI_COMMIT_SHA</code>, and writes <code>&lt;repo&gt;@sha256:&lt;digest&gt;</code> to a dotenv report. A fork MR pipeline runs in the fork and pushes to the fork's registry; a fork MR pipeline a maintainer runs in the parent project pushes to the parent's <code>ci/</code> path.</li>
+<li><strong>Pull.</strong> The drill <code>needs:</code> its build jobs (<code>compose-upgrade-drill</code> boots no frontend, so it needs only <code>backend-docker-build</code>). <code>scripts/drill-image.sh</code> pulls the digest, fails unless the revision label equals <code>$CI_COMMIT_SHA</code> and the architecture matches the dind daemon, then re-tags it under the drill's local name. In CI a missing variable fails the drill; it never falls back to a rebuild. Run by hand on a laptop (no <code>GITLAB_CI</code>), the drill scripts still build from the working tree.</li>
+<li><strong>No registry.</strong> On a project with its container registry disabled (e.g. a fork), GitLab leaves <code>CI_REGISTRY_IMAGE</code> undefined. The build jobs then run <code>--no-push</code>, as before #2492, and write no dotenv, and <code>scripts/drill-image.sh</code> logs a warning and builds the image locally in the drill's dind. This is the only case where CI falls back to a rebuild; with a registry present, a missing variable still fails.</li>
+<li><strong>Layer cache.</strong> <code>--cache-repo $CI_REGISTRY_IMAGE/ci/cache/&lt;name&gt;</code>. A change that does not touch an image's inputs reuses every layer.</li>
+<li><strong>Rules.</strong> Each build job's rules are the union of its MR-time verification rule and the rules of the drills that need it, in the same order. A drill whose build job is absent fails pipeline creation, so change both together (this includes #2471's schedule-leg fix).</li>
+<li><strong>No <code>resource_group</code>.</strong> The two jobs used to share the project-wide <code>kaniko-build</code> resource group and wait for the lint stage. With the drills waiting on them, a project-wide group would queue every drill behind every other pipeline's image builds. Total concurrent image builds on a drill pipeline go down, not up: the drills used to run up to nine uncached builds in dind (two per drill, one for <code>compose-upgrade-drill</code>). On backend-only or frontend-only MRs kaniko now starts at t=0 alongside lint and the test shards, so watch the shard timings on the first such pipeline. <strong>Non-interruptible.</strong> The build jobs are <code>interruptible: false</code>, as the #2419 rule requires for jobs that push to the registry (<code>scripts/tests/ci-interruptible.test.sh</code>). Before #2492 the MR-time builds were interruptible, so a superseded push now runs its kaniko builds (about 1-2 minutes) to completion. That cost is accepted rather than exempted; #2495 tracks drill interruptibility.</li>
+<li><strong>Nothing ships from <code>ci/</code>.</strong> The release push jobs (<code>.kaniko-push-common</code>) still build from scratch, with no cache, to the release paths. A <code>ci/</code> image or cache layer cannot reach a published image.</li>
+</ul>
+<p><strong>Cleanup.</strong> The drill pins the digest, so the tag is only a handle. It is the branch slug rather than the SHA: each branch overwrites one tag, the superseded manifest goes untagged, and the registry's garbage collection reclaims untagged manifests (GitLab.com runs online GC with a review delay of about a day, long enough for a drill that started a few minutes after its build). Tags of merged or deleted branches, and the 64-hex <code>ci/cache/*</code> tags, fall under the project's existing cleanup policy (<code>keep_n: 10</code>, <code>older_than: 90d</code>, <code>name_regex: ".*"</code>), which never protects them because <code>name_regex_keep</code> only matches release tags. See <a href="../../administration/container-image-retention/">Make sure registry cleanup never deletes a released image</a>. The build jobs pass <code>--cache-ttl=24h</code>, so a cached layer is at most 24 hours old (the Dockerfiles run unpinned <code>apt-get install</code>, so older layers could drift from a fresh build). The release push jobs build uncached, so what ships never depends on this cache.</p>
+<p><strong>Watch out:</strong> If the drill fails with <code>drill-image: ... was built from revision 'X', but this drill is testing 'Y'</code>, the drill was handed some other commit's image. Don't relax the check. Fix the dotenv/<code>needs:</code> wiring.</p>
 <h2 id="distributed-ci-cache-minio">Distributed CI cache (MinIO)<a class="headerlink" href="#distributed-ci-cache-minio" title="Permanent link">&para;</a></h2>
 <p>The <code>.npm-cache</code> / pip cache templates use a MinIO S3-compatible backend so all runners share
 a warm cache (<code>.gitlab-ci.yml</code>, "Cache templates" section). This requires both:</p>
