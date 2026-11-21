@@ -229,9 +229,11 @@ secret_detection:
 variables:
   DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
 
-# Auto-retry on runner infrastructure failures (pod watcher sync, stuck
-# cleanup, image pull transients). Only retries on runner_system_failure
-# and stuck_or_timeout_failure — never on script failures.
+# Auto-retry on infrastructure failure classes ONLY (#2462; host root cause
+# #2406 — see docs/maintainers/known-ci-failures.md). `script_failure` and
+# `unknown_failure` are never retried: red tests here have repeatedly been real
+# bugs. scripts/check-ci-retry.sh fails any retry that includes them. A job-level
+# `retry:` REPLACES this default; non-idempotent publish jobs set `retry: 0`.
 #
 # interruptible: true (#2419, #2421) lets `workflow:auto_cancel` above cancel
 # a superseded pipeline's read-only jobs. A job with an external side effect
@@ -244,7 +246,12 @@ default:
     max: 2
     when:
       - runner_system_failure
+      - runner_unsupported
       - stuck_or_timeout_failure
+      - scheduler_failure
+      - api_failure
+      - data_integrity_failure
+      - stale_schedule
 
 # ─── pip floor (#1927) ────────────────────────────────────────────────────────
 #
@@ -613,7 +620,7 @@ cost-ledger-selftest:
     - python3 scripts/cost-table.py --self-test
     - python3 scripts/post-mr-cost.py --self-test
     - python3 scripts/kaizen_gate_ledger.py --self-test
-    - bash scripts/tests/kaizen_gate_ledger.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_gate_ledger.test.sh  # #2461: poisoned + canary
 
 # ─── security::deferred verdict self-test (#1521) ────────────────────────────
 #
@@ -648,7 +655,7 @@ security-deferred-verdict-selftest:
     - bash scripts/release.sh --self-test
     # release.test.sh adds the end-to-end rollback cases in hermetic clones;
     # python3 is for assemble-changelog.sh.
-    - bash scripts/tests/release.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/release.test.sh  # #2461: poisoned + canary
 
 # ─── Mutation score checker self-test (#1384) ────────────────────────────────
 #
@@ -912,7 +919,7 @@ api-compat-check:
     # Self-test FIRST (#1093): prove the detector still fires before trusting
     # a green run over the real schema.
     - python3 scripts/check-api-compat.py --self-test
-    - bash scripts/tests/check-api-compat.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-api-compat.test.sh  # #2461: poisoned + canary
     - python3 scripts/check-api-compat.py
   allow_failure: false
 
@@ -1734,6 +1741,7 @@ clients-contract:
 # binding limit here too; raise it before raising --max-examples.
 backend-schema-fuzz-deep:
   interruptible: false  # scheduled-only deep fuzz; a merge must not cancel it (#2421)
+  retry: 0  # files an issue in after_script; a retry would file it twice
   extends: backend-schema-fuzz
   allow_failure: true
   timeout: 55m
@@ -2862,30 +2870,44 @@ script-tests:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *script-tests-paths
   before_script:
-    - apk add --no-cache bash git python3 jq nodejs npm perl perl-utils coreutils grep gawk patch
+    - apk add --no-cache bash git python3 py3-yaml jq nodejs npm perl perl-utils coreutils grep gawk patch  # py3-yaml: check-ci-retry.sh
     - git config --global --add safe.directory '*'
     - git config --global user.email ci@example.invalid
     - git config --global user.name ci
   script:
-    - bash scripts/check-script-tests-wired.sh --self-test
-    - bash scripts/check-script-tests-wired.sh
-    - bash scripts/tests/check-broadcast-deferral.test.sh
-    - bash scripts/tests/check-docs-version-accuracy.test.sh
-    - bash scripts/tests/check-gate-selftest-parity.test.sh
-    - bash scripts/tests/check-serializer-ts-parity.test.sh
-    - bash scripts/tests/check-trivyignore-expiry.test.sh
-    - bash scripts/tests/check-ws-event-reachability.test.sh
-    - bash scripts/tests/close-milestone-issues.test.sh
-    - bash scripts/tests/kaizen_fastpath_proposal.test.sh
-    - bash scripts/tests/kaizen_yield_watch.test.sh
-    - bash scripts/tests/npm-audit-gate.test.sh
-    - bash scripts/tests/osv-severity-gate.test.sh
-    - bash scripts/tests/pre-tool-safety.test.sh
-    - bash scripts/tests/post-edit-checks.test.sh
-    - bash scripts/tests/resolve-docs-version.test.sh
-    - bash scripts/tests/wt-doctor-drift.test.sh
-    - bash scripts/tests/ci-interruptible.test.sh
-    - bash scripts/tests/refresh_test_durations.test.sh
+    # #2461: every check and test below runs through scripts/ci-hermetic-run.sh: same
+    # protected-variable view (poisoned) on MR and main pipelines, and a loopback API
+    # canary that fails the line if the command reached the API with inherited variables.
+    - python3 scripts/ci-api-canary.py --self-test
+    - bash scripts/tests/ci-hermetic-run.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-poison-list.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-poison-list.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-retry.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-ci-retry.sh
+    - sh scripts/ci-hermetic-run.sh python3 scripts/main-red-guard.py --self-test
+    - sh scripts/ci-hermetic-run.sh python3 scripts/main-red-tripwire.py --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-script-tests-wired.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/check-script-tests-wired.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-poison-env.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-broadcast-deferral.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-docs-version-accuracy.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-gate-selftest-parity.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-serializer-ts-parity.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-trivyignore-expiry.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-ws-event-reachability.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/close-milestone-issues.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_fastpath_proposal.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_yield_watch.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/npm-audit-gate.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/osv-severity-gate.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/pre-tool-safety.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/post-edit-checks.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/resolve-docs-version.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-doctor-drift.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-interruptible.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/refresh_test_durations.test.sh
+    # Runs the canary itself (own listener, poison env).
+    - bash scripts/tests/ci-api-canary.test.sh
   allow_failure: false
 
 # wt-forge-timeout.test.sh needs glibc/Debian userland (perl alarm and process-group
@@ -2911,7 +2933,7 @@ script-tests-glibc:
     - git config --global user.email ci@example.invalid
     - git config --global user.name ci
   script:
-    - bash scripts/tests/wt-forge-timeout.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-forge-timeout.test.sh  # #2461
   allow_failure: false
 
 # Stale version claims in the docs are silent misinformation (#1083): a
@@ -3285,7 +3307,7 @@ rbac-coverage:
     # shape drifts away from what the detectors expect. Runs after the real scan
     # so that a real missing gate is reported by handler, not as a count of
     # failed test cases.
-    - bash scripts/tests/check-rbac-coverage.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-rbac-coverage.test.sh  # #2461: poisoned + canary
   allow_failure: false
 
 # ─── Broadcast deferral (#1143) ───────────────────────────────────────────────
@@ -3457,10 +3479,12 @@ suppressions-check:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - apk add --no-cache bash curl jq
+    - apk add --no-cache bash curl jq python3  # python3: the ci-hermetic-run.sh canary
   script:
-    - bash scripts/tests/gitlab-issues.test.sh
-    - bash scripts/tests/check-suppression-issues.test.sh
+    # The tests run poisoned (#2461); the real check-suppression-issues.sh run below is
+    # NOT wrapped, so it still reads the real API with the job's real variables.
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/gitlab-issues.test.sh  # #2461: poisoned + canary
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/check-suppression-issues.test.sh  # #2461: poisoned + canary
     - bash scripts/check-suppression-issues.sh --self-test
     - bash scripts/check-suppression-issues.sh
 
@@ -3480,6 +3504,7 @@ suppressions-check:
 # See docs/development/kaizen-yield-watch.md.
 kaizen-yield-watch:
   interruptible: false  # files GitLab issues (#2419)
+  retry: 0  # files GitLab issues; a retry would duplicate them (#2462)
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
@@ -4271,6 +4296,36 @@ release-main-pipeline-guard-selftest:
     - python3 scripts/wait-for-main-pipeline.py --self-test
     - python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
 
+# ─── Red-main guard (#2460) ───────────────────────────────────────────────────
+#
+# 17 of 161 main pipelines failed in the 2026-11-21 audit, 7 in a row on
+# `script-tests`, while merges kept landing: MR pipelines were green. Free tier
+# has no merge trains, so: the tripwire files one `main is red` issue, the
+# guard fails MRs while the latest finished main push pipeline is red (escape
+# hatch: label `main-fix`). Both fail OPEN on API trouble. Runbook:
+# docs/maintainers/known-ci-failures.md. Self-tests run in `script-tests`.
+main-red-tripwire:
+  interruptible: false  # files/closes the tracking issue
+  retry: 0  # posts issue comments; a retry would double-post
+  resource_group: main-red-tripwire  # one tripwire at a time: no two pipelines open two issues
+  stage: .post  # built-in last stage: runs after every other stage, so it never reads a still-running pipeline as green
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  allow_failure: true  # never turns a green main red; the script fails open
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'  # push only: the guard judges push pipelines; web/api/trigger/schedule runs must not open or close the issue
+      when: always  # on_failure alone could never close the issue on a green pipeline
+  script:
+    - python3 scripts/main-red-tripwire.py
+
+main-red-guard:
+  stage: lint
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  script:
+    - python3 scripts/main-red-guard.py
+
 # ─── Docker push (amd64 + arm64) ───────────────────────────────────────────────
 #
 # Builds and pushes images with kaniko — the same daemonless builder the
@@ -4848,6 +4903,7 @@ frontend-manifest:
 
 .image-attest-common:
   interruptible: false  # attaches cosign signatures/attestations in the registry (#2419)
+  retry: 0  # cosign signing appends signatures; a retry duplicates them (#2462)
   extends: .cosign-pin
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
@@ -4965,7 +5021,7 @@ registry-keep-regex-test:
   before_script:
     - apk add --no-cache bash python3
   script:
-    - bash scripts/tests/registry-keep-regex.test.sh
+    - sh scripts/ci-hermetic-run.sh bash scripts/tests/registry-keep-regex.test.sh  # #2461: poisoned + canary
 
 # MANUAL backfill for releases published before #1153 (or whose attest job
 # failed): signs + attests an already-published tag's images, both images, both
@@ -5072,6 +5128,7 @@ latest-tag-stability-check:
 
 helm-publish:
   interruptible: false  # pushes the chart to the OCI registry (#2419)
+  retry: 0  # OCI chart push is not safely repeatable (#2462)
   extends: .cosign-pin
   stage: deploy
   image:
@@ -5394,6 +5451,7 @@ check-release-attestations:
 
 github-release:
   interruptible: false  # creates the GitHub release (#2419)
+  retry: 0  # a second release create fails on the one already made (#2462)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: [release-main-pipeline-guard, backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
@@ -5463,6 +5521,7 @@ github-release:
 
 docs-deploy:
   interruptible: false  # publishes the docs site (#2419)
+  retry: 0  # publishes the docs site; not re-run blindly (#2462)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # #1154: the tag-pipeline run waits for the guard. On main the guard exits at
@@ -5587,6 +5646,7 @@ docs-deploy:
 
 cleanup-merged-branches:
   interruptible: false  # deletes remote branches (#2419)
+  retry: 0  # deletes remote branches (#2462)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
@@ -5636,6 +5696,7 @@ cleanup-merged-branches:
 
 seed-demo-data:
   interruptible: false  # writes to the demo environment (#2419)
+  retry: 0  # writes to the demo environment (#2462)
   stage: deploy
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
@@ -5969,6 +6030,7 @@ schedule-config-check:
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
 pages:
   interruptible: false  # GitLab Pages deploy (#2419)
+  retry: 0  # GitLab Pages deploy; not re-run blindly (#2462)
   stage: deploy
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
