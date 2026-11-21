@@ -138,7 +138,7 @@ For now, you are watching a card when you **created it** or **are assigned to it
 - **Never for your own comment.** Commenting on a card you created or are assigned to does not notify you.
 - **One notification per comment.** If the same comment @mentions you, you get only the @mention notification, not this one as well.
 - **Only while you can see the board.** If you created a card but have since been removed from the board, or your account is deactivated, you are not notified.
-- **Email is optional.** Turn on **Also send by email** under *Comment on a watched card* to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See [Email notifications](#email-notifications).
+- **Email is optional.** Turn on the **Email** switch in the *Comment on a watched card* row to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See [Email notifications](#email-notifications).
 
 ## Staleness notifications
 
@@ -194,11 +194,11 @@ Team members who are not watching the board all day can have notifications deliv
 
 | Event | Email preference |
 |---|---|
-| Card assigned to me | **Also send by email** under *Card assigned to me* |
-| Someone @mentions me | **Also send by email** under *Someone @mentions me* |
-| Due date approaching | **Also send by email** under *Due date approaching* |
-| Card I'm watching is moved | **Also send by email** under *Card I'm watching is moved* |
-| Comment on a watched card | **Also send by email** under *Comment on a watched card* |
+| Card assigned to me | **Email** switch in the *Card assigned to me* row |
+| Someone @mentions me | **Email** switch in the *Someone @mentions me* row |
+| Due date approaching | **Email** switch in the *Due date approaching* row |
+| Card I'm watching is moved | **Email** switch in the *Card I'm watching is moved* row |
+| Comment on a watched card | **Email** switch in the *Comment on a watched card* row |
 
 ### Turning it on
 

@@ -57,18 +57,20 @@ export function OverviewLayout({ heading, aside, children }: { heading?: ReactNo
  * so existing deep links such as `/admin?tab=users` keep working; an unknown id falls back to
  * the first section.
  */
-export function SettingsLayout({ title, sections, param = "tab", navLabel = "Settings sections" }: {
+export function SettingsLayout({ title, sections, param = "tab", navLabel = "Settings sections", defaultId }: {
   title?: ReactNode;
   sections: SettingsSection[];
   param?: string;
   navLabel?: string;
+  /** Section shown when the URL names none (default: the first); a page that is entered from a redirect lands here. */
+  defaultId?: string;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const findId = useId();
   const selectId = useId();
   const requested = searchParams.get(param);
-  const active = sections.find((s) => s.id === requested) ?? sections[0];
+  const active = sections.find((s) => s.id === requested) ?? sections.find((s) => s.id === defaultId) ?? sections[0];
   const visible = useMemo(() => filterSettingsSections(sections, query), [sections, query]);
 
   const select = (id: string) => {

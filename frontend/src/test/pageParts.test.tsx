@@ -406,4 +406,33 @@ describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
     }
     expect(offenders).toEqual([]);
   });
+  it("two-switch row busy flags set aria-busy without disabling; Field takes inputRef and a danger hint; card heading level is selectable (#2477)", () => {
+    const ref = { current: null as HTMLInputElement | null };
+    render(
+      <>
+        <SettingTwoSwitchRow event="Mentioned" inApp email inAppBusy emailBusy={false} onInAppChange={vi.fn()} onEmailChange={vi.fn()} />
+        <Field label="Email address" autoComplete="email" inputRef={ref} hint="Bad address" hintTone="danger" />
+        <SettingsCard title="Card" headingAs="h4">x</SettingsCard>
+      </>,
+    );
+    const inApp = screen.getByRole("switch", { name: "Mentioned, in-app" });
+    expect(inApp).toHaveAttribute("aria-busy", "true");
+    expect(inApp).not.toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Mentioned, email" })).not.toHaveAttribute("aria-busy");
+    expect(ref.current).toBe(screen.getByLabelText("Email address"));
+    expect(screen.getByText("Bad address")).toHaveClass("text-danger");
+    expect(screen.getByRole("heading", { level: 4, name: "Card" })).toBeInTheDocument();
+  });
+
+  it("SettingsLayout shows defaultId when the URL names no section, and the URL wins when it does (#2477)", () => {
+    const sections = [
+      { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
+      { id: "b", label: "Beta", render: () => <p>beta body</p> },
+    ]
+    const { unmount } = render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} defaultId="b" /></MemoryRouter>)
+    expect(screen.getByText("beta body")).toBeInTheDocument()
+    unmount()
+    render(<MemoryRouter initialEntries={["/x?tab=a"]}><SettingsLayout sections={sections} defaultId="b" /></MemoryRouter>)
+    expect(screen.getByText("alpha body")).toBeInTheDocument()
+  })
 });

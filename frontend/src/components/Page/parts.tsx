@@ -188,11 +188,11 @@ export function ListRow({ children, as: Tag = "div" }: { children: ReactNode; as
 // ---------------------------------------------------------------------------
 
 /** Settings card: the panel color, 10px radius, 18px padding. */
-export function SettingsCard({ title, description, children, id }: { title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string }) {
+export function SettingsCard({ title, description, children, id, headingAs }: { title?: ReactNode; description?: ReactNode; children: ReactNode; id?: string; /** `h4` when the card sits under a section's `h3` heading (default `h3`). */ headingAs?: "h3" | "h4" }) {
   const headingId = useId();
   return (
     <section aria-labelledby={title ? (id ?? headingId) : undefined} className="bg-surface border border-line rounded-[10px] p-[18px]">
-      {title && <CardHeading id={id ?? headingId}>{title}</CardHeading>}
+      {title && <CardHeading as={headingAs} id={id ?? headingId}>{title}</CardHeading>}
       {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
       <div className={title || description ? "mt-3" : ""}>{children}</div>
     </section>
@@ -279,13 +279,16 @@ export function SettingTwoSwitchHeader() {
  * named "<event>, in-app" / "<event>, email". Email is shown off and disabled while in-app is
  * off: an email for an event the user has silenced in the app would be a surprise.
  */
-export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppChange, onEmailChange }: {
+export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppChange, onEmailChange, inAppBusy, emailBusy }: {
   event: string;
   description?: ReactNode;
   inApp: boolean;
   email: boolean;
   onInAppChange: (checked: boolean) => void;
   onEmailChange: (checked: boolean) => void;
+  /** In-flight save of that switch: `aria-busy`, still enabled so focus is kept. */
+  inAppBusy?: boolean;
+  emailBusy?: boolean;
 }) {
   const descId = useId();
   const reasonId = useId();
@@ -299,8 +302,8 @@ export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppC
         {!inApp && <p id={reasonId} className="mt-0.5 text-xs text-fg-secondary">Turn on in-app to get email.</p>}
       </div>
       <div className="flex items-center gap-4">
-        <Switch checked={inApp} onChange={onInAppChange} aria-label={`${event}, in-app`} aria-describedby={description ? descId : undefined} />
-        <Switch checked={inApp && email} onChange={onEmailChange} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={emailDescribedBy} />
+        <Switch checked={inApp} onChange={onInAppChange} busy={inAppBusy} aria-label={`${event}, in-app`} aria-describedby={description ? descId : undefined} />
+        <Switch checked={inApp && email} onChange={onEmailChange} busy={emailBusy} disabled={!inApp} aria-label={`${event}, email`} aria-describedby={emailDescribedBy} />
       </div>
     </div>
   );
@@ -401,10 +404,14 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   /** Sits right of the label, e.g. "Forgot password?". */
   labelAccessory?: ReactNode;
   id?: string;
+  /** `danger` colors the hint as an error (set `aria-invalid` too). */
+  hintTone?: "danger";
+  /** Ref to the input, for programmatic focus. */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 /** A visibly labeled input. 36px, 48px on phones (the Centered layout's control height). */
-export function Field({ label, hint, labelAccessory, id, ...input }: FieldProps) {
+export function Field({ label, hint, labelAccessory, id, hintTone, inputRef, ...input }: FieldProps) {
   const generated = useId();
   const inputId = id ?? generated;
   const hintId = `${inputId}-hint`;
@@ -416,11 +423,12 @@ export function Field({ label, hint, labelAccessory, id, ...input }: FieldProps)
       </div>
       <input
         id={inputId}
+        ref={inputRef}
         aria-describedby={hint ? hintId : undefined}
         className="w-full h-9 max-sm:h-12 bg-surface border border-line-strong text-fg placeholder-fg-muted rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
         {...input}
       />
-      {hint && <p id={hintId} className="mt-1 text-xs text-fg-tertiary">{hint}</p>}
+      {hint && <p id={hintId} className={`mt-1 text-xs ${hintTone === "danger" ? "text-danger" : "text-fg-tertiary"}`}>{hint}</p>}
     </div>
   );
 }

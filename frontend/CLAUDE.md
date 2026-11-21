@@ -1983,3 +1983,10 @@ Rule: **dashed outline = planned, solid outline = to do.** The blocked count is 
 - Admin lists use `ListWell` rows (Users, Invite links); a table that needs columns (Board invites) sits inside `ListWell`, which scrolls it sideways, so nothing else on the page does.
 
 - **Settings pages: never `disabled` a control while its own save is in flight, and keep heading levels nested (#2476 ux-review).** Disabling the focused control drops keyboard focus to `<body>`; guard in the handler (`if (saving) return`) and use `aria-busy` instead. Inside `SettingsLayout` the page title is the `h2`, so section titles belong at `h3` and cards at `h4`. Reveal-once secrets (invite tokens) get `role="status"` and move focus to the Copy button.
+
+## User settings on the Settings layout (#2477)
+
+- `/settings` uses `SettingsLayout` with groups Account (Profile, Security, Access tokens), Preferences (Notifications, Appearance, Behavior) and Visiban (About). Section ids are the old tab ids, so `?tab=` deep links are unchanged; `defaultId` makes a redirect target (the OAuth `?connected=` return lands on Security) the section shown when the URL names none.
+- Section title is `PageHeading level="h3"`, cards under it use `SettingsCard headingAs="h4"`. `Field` takes `inputRef` and `hintTone="danger"`; `SettingTwoSwitchRow` takes `inAppBusy`/`emailBusy`. A multi-field form saves from `SaveBar` (dirty = differs from a baseline that moves to the saved values), and the save button triggers `form.requestSubmit()` so native validation still runs.
+- Theme preview cards scope the tokens with `data-theme="dark"|"light"` on the preview, so each shows its own theme whichever is active; never hard-code a palette color for a preview.
+- Scope rule: choosing `mcp:write` turns on and locks `mcp:read` (locked with `aria-disabled`, not `disabled`).

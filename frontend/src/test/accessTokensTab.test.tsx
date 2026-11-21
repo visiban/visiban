@@ -81,7 +81,7 @@ function renderPage() {
 }
 
 async function switchToAccessTokensTab() {
-  const tab = screen.getByRole('button', { name: 'Access Tokens' })
+  const tab = screen.getByRole('button', { name: 'Access tokens' })
   await userEvent.click(tab)
 }
 
@@ -93,7 +93,7 @@ describe('AccessTokensTab', () => {
 
   it('renders the tab navigation item', () => {
     renderPage()
-    expect(screen.getByRole('button', { name: 'Access Tokens' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Access tokens' })).toBeInTheDocument()
   })
 
   it('shows no-tokens message when list is empty', async () => {
@@ -214,7 +214,7 @@ describe('AccessTokensTab', () => {
     mockListTokens.mockResolvedValue([token1, token2])
     renderPage()
     await switchToAccessTokensTab()
-    await waitFor(() => expect(screen.getByTestId('token-scopes-1')).toHaveTextContent('read, write'))
+    await waitFor(() => expect(screen.getByTestId('token-scopes-1')).toHaveTextContent('readwrite'))
     expect(screen.getByTestId('token-scopes-2')).toHaveTextContent('Legacy: full REST access')
   })
 
@@ -317,7 +317,23 @@ describe('AccessTokensTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('max-tokens-notice')).toBeInTheDocument()
     })
-    expect(screen.queryByTestId('create-token-form')).not.toBeInTheDocument()
+    // The form stays; New token is disabled and the notice says why (#2477).
+    expect(screen.getByTestId('create-token-button')).toBeDisabled()
+  })
+
+  it('mcp:write turns on and locks mcp:read (#2477)', async () => {
+    mockCreateToken.mockResolvedValue({ ...token1, token: 'vbn_x' })
+    renderPage()
+    await switchToAccessTokensTab()
+    await waitFor(() => expect(screen.getByTestId('token-scopes')).toBeInTheDocument())
+    await userEvent.click(screen.getByTestId('token-scope-mcp:write'))
+    expect(screen.getByTestId('token-scope-mcp:read')).toBeChecked()
+    expect(screen.getByTestId('token-scope-mcp:read')).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.click(screen.getByTestId('token-scope-mcp:read'))
+    expect(screen.getByTestId('token-scope-mcp:read')).toBeChecked()
+    await userEvent.type(screen.getByTestId('token-name-input'), 'mcp', { delay: null })
+    await userEvent.click(screen.getByTestId('create-token-button'))
+    await waitFor(() => expect(mockCreateToken).toHaveBeenCalledWith('mcp', undefined, ['read', 'write', 'mcp:read', 'mcp:write']))
   })
 
   it('Escape cancels the revoke confirm without navigating away (#1238)', async () => {
@@ -342,7 +358,7 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
     const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
     expect(confirm).toHaveTextContent('Revoking…')
-    expect(confirm).toBeDisabled()
+    expect(confirm).toHaveAttribute('aria-busy', 'true')
     // A second click while pending sends no second request (#1435).
     fireEvent.click(confirm)
     expect(mockRevokeToken).toHaveBeenCalledTimes(1)

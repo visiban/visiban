@@ -4,7 +4,7 @@
 
 > **Added in 1.0**
 
-Open **Settings → Access Tokens**, fill in the **New token** form, and click **Generate token**. Then send it as `Authorization: Token vbn_...` on API requests.
+Open **Settings → Account → Access tokens**, fill in the **New token** form, and click **Generate token**. Then send it as `Authorization: Token vbn_...` on API requests.
 
 **Why it matters:** Each token acts on your behalf, limited to your own access rights and narrowed by its [scopes](#scopes). Scripts, CI pipelines, and integrations never need your password or a browser session cookie.
 
@@ -24,7 +24,7 @@ In a browser, session-based login is used automatically; no token needed.
 ## Create a token
 
 1. Open your avatar menu (top right) and select **Settings**.
-2. Go to **Access Tokens** in the left sidebar.
+2. Go to **Access tokens** under Account in the left navigation.
 3. Use the **New token** form above the token list.
 4. Enter a descriptive name, for example `deploy-script` or `ci-pipeline`.
 5. Optionally set an expiry date (see [Expiry](#expiry) below).
@@ -42,7 +42,7 @@ Tokens are prefixed with `vbn_` so they're easy to spot in logs and configuratio
 
 ## Identifying tokens after creation
 
-Since the full value is shown only once, the Access Tokens list identifies each token by its **prefix** (the first 8 characters, for example `vbn_a3f1...`). Together with the token's name and its **last used** timestamp, that usually tells tokens apart.
+Since the full value is shown only once, the Access tokens list identifies each token by its **prefix** (the first 8 characters, for example `vbn_a3f1...`). Together with the token's name and its **last used** timestamp, that usually tells tokens apart.
 
 **Last used** shows when the token last authenticated a request; tokens never used show "Never". To avoid a database write on every request, the timestamp is refreshed at most about once a minute, so it is accurate to roughly 60 seconds.
 
@@ -81,7 +81,7 @@ A token created without specific scopes gets `read` and `write`: enough for the 
 
 Tokens that already existed when your instance upgraded to 1.2 have **no scopes recorded**. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator, so upgrading doesn't break a running integration.
 
-The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with `mcp:read` (tick it in Settings > Access Tokens, or use `POST /api/v1/auth/tokens/` with `"scopes": ["mcp:read"]`; see [MCP Server](mcp-server.md#generating-a-bearer-token)).
+The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with `mcp:read` (tick it in Settings > Access tokens, or use `POST /api/v1/auth/tokens/` with `"scopes": ["mcp:read"]`; see [MCP Server](mcp-server.md#generating-a-bearer-token)).
 
 Replace pre-1.2 tokens with scoped ones as you rotate them.
 
@@ -98,7 +98,7 @@ The expiry date is optional:
 - **Leave blank** — the token never expires, and stays valid until revoked manually or your password changes.
 - **Set a date** — the maximum expiry is **one year from today**. Past that date the token is rejected with `401 Unauthorized`.
 
-Expired tokens stay visible in the Access Tokens list and can be revoked there.
+Expired tokens stay visible in the Access tokens list and can be revoked there.
 
 ---
 
@@ -138,7 +138,7 @@ For more examples including Python and HTTPie, see the [API Authentication refer
 
 ## Revoke a token
 
-1. Go to **Settings → Access Tokens**.
+1. Go to **Settings → Account → Access tokens**.
 2. Find the token you want to remove.
 3. Click **Revoke** next to it.
 

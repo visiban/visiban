@@ -21,7 +21,7 @@ Open **Profile & settings → Appearance** and pick one of three options: **Syst
 ## Changing your appearance
 
 1. Click your avatar (top right) and select **Profile & settings**.
-2. Open the **Appearance** tab in the Settings sidebar.
+2. Open **Appearance** under Preferences in the Settings navigation.
 3. Under **Theme**, choose an option.
 
 The choice persists across logins and syncs instantly to other tabs in the same browser.
