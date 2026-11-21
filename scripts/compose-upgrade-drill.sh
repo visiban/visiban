@@ -175,7 +175,7 @@ prepull_dockerhub_images
 
 # ── 2. boot the last release ─────────────────────────────────────────────────
 log "booting ${FROM_TAG}"
-compose up -d db valkey backend
+compose up -d db valkey backend || fail "docker compose up of ${FROM_TAG} failed (see diagnostics)"
 wait_backend_init "${FROM_IMAGE}"
 wait_ready "${FROM_TAG}"
 
@@ -194,7 +194,10 @@ log "upgrading: HEAD docker-compose.prod.yml, APP_VERSION=${HEAD_TAG}, up -d"
 cp "${REPO_ROOT}/docker-compose.prod.yml" "${RUN_DIR}/docker-compose.prod.yml"
 set_env APP_VERSION "${HEAD_TAG}"
 prepull_dockerhub_images
-compose up -d --remove-orphans db valkey backend
+# `up -d` blocks on backend-init (service_completed_successfully), so a failed
+# migrate surfaces here first.
+compose up -d --remove-orphans db valkey backend \
+  || fail "docker compose up on HEAD failed — usually backend-init (migrate) on the ${FROM_TAG} schema; see diagnostics"
 wait_backend_init "${TO_IMAGE}"
 log "backend-init (migrate) exited 0 on the HEAD image"
 compose exec -T backend python manage.py migrate --check >/dev/null \
