@@ -137,7 +137,8 @@ def seed_linked_boards(owner, create_columns):
     that satisfy the two-tier rule (``link_allowed``), the same predicate
     ``card_links.create_link`` enforces, and no parent exceeds
     ``CHILDREN_PER_PARENT_LIMIT`` children (500 / 25 parents = 20 each).
-    Returns ``(child_board, link_count)``.
+    Returns ``(child_board, parent_boards, link_count)``; a caller that cleans up
+    deletes those boards by identity, never by name, which a real fixture may share.
     """
     parent_cards = []
     parent_boards = []
@@ -184,4 +185,4 @@ def seed_linked_boards(owner, create_columns):
         for i, child in enumerate(children)
     ]
     CardParentLink.objects.bulk_create(links, batch_size=_BULK_BATCH)
-    return child_board, len(links)
+    return child_board, parent_boards, len(links)

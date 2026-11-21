@@ -894,7 +894,7 @@ class Command(BaseCommand):
         if aged_generations:
             self._create_aged_board(scale, aged_generations)
         if options["linked_boards"]:
-            _, n_links = seed_linked_boards(ensure_analytics_user(), self._create_columns)
+            _, _, n_links = seed_linked_boards(ensure_analytics_user(), self._create_columns)
             self.stdout.write(f"Seeded the linked-board fixture: {n_links} card parent links.")
 
         self.stdout.write(
