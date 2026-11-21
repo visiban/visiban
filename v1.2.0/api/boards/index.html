@@ -9219,12 +9219,17 @@ rule as checklist-item reorder, #1292.)</em></p>
 <td>array of integers or null</td>
 <td>Since 1.3. Ids of the board's columns whose cards count toward the swimlane's limits, sorted. <code>null</code> (the default) means every column whose <code>is_done</code> is <code>false</code>. An empty list is refused with <code>400</code>. Deleting a column removes its id; a list left empty becomes <code>null</code>.</td>
 </tr>
+<tr>
+<td><code>default_team</code></td>
+<td>array of integers</td>
+<td>Since 1.3 (#2211). User ids of the swimlane's default team, in team order (people kept on a save keep their place; new people are appended). Stored settings only: using the team to pre-assign new cards is not available yet. Every member reads it; board admins write it. At most 50 ids, each an active, non-viewer person listed in the board's member list (owner, explicit members, group-inherited members); any other id (unknown, not listed on this board, a viewer, inactive) returns <code>400</code> with one message. Removing a member from the board removes them from its lane teams. Not on the public share-link payload.</td>
+</tr>
 </tbody>
 </table>
 <p><code>contact_email</code> and <code>notes</code> are only returned to <code>admin</code> and <code>site_admin</code> role members (see role-gated fields note above).</p>
 <h3 id="put-apiv1boardsidswimlanesswimlane_id-patch-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code> / <code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id-patch-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Update a swimlane. Requires board admin. <em>(1.3+, #2009)</em> A caller below admin gets <code>403</code> before the body is validated, so an invalid body no longer answers <code>400</code> with the field errors for them; a caller with no access to the board still gets <code>404</code>.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code>, <code>custom_field_values</code> (since 1.2), <code>wip_limit</code>, <code>weight_limit</code>, <code>limit_enforcement</code>, <code>limit_column_ids</code>, <code>health_status</code> (since 1.3)</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code>, <code>custom_field_values</code> (since 1.2), <code>wip_limit</code>, <code>weight_limit</code>, <code>limit_enforcement</code>, <code>limit_column_ids</code>, <code>health_status</code> (since 1.3), <code>default_team</code> (since 1.3)</p>
 <p>A <code>limit_column_ids</code> entry that is not a column of this board, whether it exists on another board or not at all, returns <code>400 Bad Request</code> with the same message either way. So does one deleted while the request was in flight.</p>
 <p><code>PUT</code> and <code>PATCH</code> are both accepted. <code>PATCH</code> changes only the fields you send. <code>PUT</code> requires <code>name</code>; any other writable field you leave out keeps its current value, it is not reset to its default.</p>
 <blockquote>
