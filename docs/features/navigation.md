@@ -57,7 +57,7 @@ Visiban remembers the last 5 boards you opened, most recent first. The list is s
 
 ## Starring boards and groups
 
-The star button (☆/★) sits beside the board or group name in the header. Starred boards appear in the drawer's **Starred** section, at the top of the board switcher, on the Dashboard, and first in the command palette when you open it with an empty query.
+The star button (☆/★) sits beside the board or group name in the header. Starred groups are not listed in the drawer. Starred boards appear in the drawer's **Starred** section, at the top of the board switcher, on the Dashboard, and first in the command palette when you open it with an empty query.
 
 ## Keyboard shortcuts
 
