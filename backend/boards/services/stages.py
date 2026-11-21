@@ -382,7 +382,7 @@ def _broadcast_stage(board, column, remapped, changed_lanes, actor):
     )
     if changed_lanes:
         lanes = Swimlane.objects.filter(pk__in=changed_lanes).prefetch_related(
-            _swimlane_custom_field_prefetch(), "track_exceptions",
+            _swimlane_custom_field_prefetch(), "track_exceptions", "team_members",
         ).order_by("position", "pk")
         for lane in lanes:
             _broadcast.record_board_event(

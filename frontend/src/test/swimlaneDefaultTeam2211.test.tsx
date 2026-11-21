@@ -90,6 +90,27 @@ describe('Swimlane default team (#2211)', () => {
     expect(screen.getByText('Everyone who can be assigned cards is on the team.')).toBeInTheDocument()
   })
 
+  it('says no one can be assigned when the board has only viewers', () => {
+    renderModal(lane(), [VIC])
+    expect(screen.getByText('No one on this board can be assigned cards.')).toBeInTheDocument()
+  })
+
+  it('Escape closes the Add a member menu and keeps the modal open', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(
+      <EditSwimlaneModal
+        boardId={1} swimlane={lane()} cardCount={0}
+        onUpdated={vi.fn()} onDeleted={vi.fn()} onClose={onClose} members={MEMBERS}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /Add a member/ }))
+    expect(screen.getByText('Dan Kovacs')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByText('Dan Kovacs')).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
   it('hides the section when the board members are not passed', () => {
     renderModal(lane({ default_team: [MIA.user.id] }), null)
     expect(screen.queryByRole('group', { name: 'Default team' })).toBeNull()

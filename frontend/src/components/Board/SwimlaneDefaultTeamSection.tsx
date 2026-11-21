@@ -59,9 +59,15 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange }:
           onChange={(id) => { if (id !== null) onChange([...value, id]); }}
           // Inside ModalWrapper (priority 40): Escape closes the menu, not the form.
           escapePriority={45}
+          // The modal body scrolls; a portaled menu is not clipped by it.
+          portalMenu
         />
       ) : (
-        <p className="text-xs text-fg-muted">Everyone who can be assigned cards is on the team.</p>
+        <p className="text-xs text-fg-muted">
+          {value.length > 0
+            ? "Everyone who can be assigned cards is on the team."
+            : "No one on this board can be assigned cards."}
+        </p>
       )}
       <p className="text-xs text-fg-muted mt-2">{DEFAULT_TEAM_HELP}</p>
     </section>
