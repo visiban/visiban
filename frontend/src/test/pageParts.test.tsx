@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { createRef } from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, cleanup } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -441,14 +441,28 @@ describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
     expect(screen.getByText("alpha body")).toBeInTheDocument()
   })
 
-  it("SettingsLayout `replace` switches sections without adding history entries (#2477)", () => {
+  it("SettingsLayout replaces history by default, and `replace={false}` pushes (#2477)", () => {
     const sections = [
       { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
       { id: "b", label: "Beta", render: () => <p>beta body</p> },
     ]
-    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} replace /><HistoryLen /></MemoryRouter>)
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} /><HistoryLen /></MemoryRouter>)
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
     expect(screen.getByText("beta body")).toBeInTheDocument()
     expect(screen.getByTestId("hist")).toHaveTextContent("1")
+    cleanup()
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} replace={false} /><HistoryLen /></MemoryRouter>)
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
+    expect(screen.getByTestId("hist")).toHaveTextContent("2")
+  })
+
+  it("SettingsLayout `onBeforeSelect` returning false vetoes the switch", () => {
+    const sections = [
+      { id: "a", label: "Alpha", render: () => <p>alpha body</p> },
+      { id: "b", label: "Beta", render: () => <p>beta body</p> },
+    ]
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={sections} onBeforeSelect={() => false} /></MemoryRouter>)
+    fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
+    expect(screen.getByText("alpha body")).toBeInTheDocument()
   })
 });

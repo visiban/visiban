@@ -630,13 +630,13 @@ describe('ProfileTab — pending email actions', () => {
     return onUserUpdated
   }
 
-  it('shows Resend link and Cancel change only while a change is pending', () => {
+  it('shows Resend and Cancel change only while a change is pending', () => {
     const { unmount } = renderSettings({ ...fakeUser, pending_email: null })
-    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resend' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel change' })).not.toBeInTheDocument()
     unmount()
     renderPending()
-    expect(screen.getByRole('button', { name: 'Resend link' })).toHaveAttribute('type', 'button')
+    expect(screen.getByRole('button', { name: 'Resend' })).toHaveAttribute('type', 'button')
     expect(screen.getByRole('button', { name: 'Cancel change' })).toHaveAttribute('type', 'button')
   })
 
@@ -647,16 +647,16 @@ describe('ProfileTab — pending email actions', () => {
 
   it('both actions are described by the pending note', () => {
     renderPending()
-    for (const name of ['Resend link', 'Cancel change']) {
+    for (const name of ['Resend', 'Cancel change']) {
       expect(screen.getByRole('button', { name })).toHaveAttribute('aria-describedby', 'pending-email-note')
     }
   })
 
-  it('Resend link calls the API and announces success in the live region', async () => {
+  it('Resend calls the API and announces success in the live region', async () => {
     mockResendPendingEmailConfirmation.mockResolvedValueOnce({ detail: 'Confirmation email sent.' })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     expect(mockResendPendingEmailConfirmation).toHaveBeenCalledTimes(1)
     const status = screen.getByRole('status')
     await waitFor(() =>
@@ -664,7 +664,7 @@ describe('ProfileTab — pending email actions', () => {
     )
     expect(status.querySelector('.text-success')).not.toBeNull()
     // Still pending: the note and actions stay.
-    expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Resend' })).toBeEnabled()
     expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
   })
 
@@ -674,7 +674,7 @@ describe('ProfileTab — pending email actions', () => {
     })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     const status = screen.getByRole('status')
     await waitFor(() =>
       expect(status).toHaveTextContent('A confirmation email was sent to this address a moment ago.'),
@@ -688,11 +688,11 @@ describe('ProfileTab — pending email actions', () => {
     })
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(/no email change waiting for confirmation anymore/),
     )
-    expect(screen.queryByRole('button', { name: 'Resend link' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Resend' })).not.toBeInTheDocument()
     expect(screen.queryByTestId('pending-email-note')).not.toBeInTheDocument()
   })
 
@@ -700,7 +700,7 @@ describe('ProfileTab — pending email actions', () => {
     mockResendPendingEmailConfirmation.mockRejectedValueOnce(new Error('network'))
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() =>
       expect(screen.getByText("Couldn't resend the link. Please try again.")).toHaveClass('text-danger'),
     )
@@ -711,13 +711,13 @@ describe('ProfileTab — pending email actions', () => {
     mockResendPendingEmailConfirmation.mockReturnValueOnce(new Promise((res) => { resolve = res }))
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     expect(await screen.findByRole('button', { name: 'Sending…' })).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByRole('button', { name: 'Cancel change' })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Doe-resend' } })
     expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
     resolve({ detail: 'ok' })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Resend' })).toBeEnabled())
   })
 
   it('the post-save navigation timer does not fire after the page unmounts', async () => {
@@ -796,7 +796,7 @@ describe('ProfileTab — pending email actions', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce(pendingUser)
     const user = userEvent.setup()
     renderPending()
-    await user.click(screen.getByRole('button', { name: 'Resend link' }))
+    await user.click(screen.getByRole('button', { name: 'Resend' }))
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/We sent a new confirmation link/))
     await user.click(saveBtn())
     await waitFor(() =>
@@ -1083,7 +1083,7 @@ describe('SecurityTab — connected accounts', () => {
     ]))
     await ue.click(screen.getByTestId('disconnect-google'))
     expect(screen.getByText(/You will no longer be able to sign in with it/)).toBeInTheDocument()
-    expect(screen.getByText(/Disconnect/, { selector: 'span' })).toHaveTextContent('Disconnect Google?')
+    expect(screen.getByRole('group', { name: 'Disconnect' })).toHaveTextContent('Disconnect Google? You will no longer')
     expect(announced()).toBe('Disconnect Google? You will no longer be able to sign in with it.')
     expect(mockDisconnectAccount).not.toHaveBeenCalled()
     await ue.click(screen.getByTestId('confirm-disconnect-google'))
@@ -1173,10 +1173,12 @@ describe('SecurityTab — connected accounts', () => {
     expect(screen.getByTestId('confirm-disconnect-google')).toBeInTheDocument()
   })
 
-  it('gives Confirm a provider-specific accessible name (#1366)', async () => {
+  it('the shared confirm sentence names the provider; its action sits in a Disconnect group (#1366, #2477)', async () => {
     const ue = await open()
     await ue.click(screen.getByTestId('disconnect-google'))
-    expect(screen.getByRole('button', { name: 'Confirm disconnect Google' })).toBe(screen.getByTestId('confirm-disconnect-google'))
+    const group = screen.getByRole('group', { name: 'Disconnect' })
+    expect(group).toHaveTextContent('Disconnect Google?')
+    expect(within(group).getByRole('button', { name: 'Disconnect' })).toBe(screen.getByTestId('confirm-disconnect-google'))
   })
 
   it('names the provider on the Disconnect trigger (#1366)', async () => {
@@ -1560,5 +1562,49 @@ describe('BehaviorTab — restart tour', () => {
     unmount()
     expect(clearSpy).toHaveBeenCalled()
     clearSpy.mockRestore()
+  })
+})
+
+describe('SettingsPage leave guard and phone layout (#2477)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('asks before switching sections with unsaved Profile edits; Cancel keeps them', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    await ue.click(navBtn('Notifications'))
+    const group = screen.getByRole('group', { name: 'Discard' })
+    expect(group).toHaveTextContent(/unsaved profile changes will be discarded/)
+    await ue.click(within(group).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Last name')).toHaveValue('Changed')
+  })
+
+  it('Discard switches section and drops the edits', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    await ue.click(navBtn('Appearance'))
+    await ue.click(screen.getByTestId('leave-discard'))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(navBtn('Appearance')).toHaveAttribute('aria-current', 'page')
+    await ue.click(navBtn('Profile'))
+    expect(screen.getByLabelText('Last name')).not.toHaveValue('Changed')
+  })
+
+  it('switches freely when nothing is unsaved', async () => {
+    const ue = userEvent.setup()
+    renderSettings()
+    await ue.click(navBtn('Appearance'))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+    expect(navBtn('Appearance')).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Escape with unsaved edits asks first instead of navigating', async () => {
+    renderSettings()
+    fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Changed' } })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(await screen.findByRole('group', { name: 'Discard' })).toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 })

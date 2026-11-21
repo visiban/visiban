@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PersonalAccessToken, CreatedPersonalAccessToken } from '../types'
 
@@ -358,6 +358,7 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
     const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
     expect(confirm).toHaveTextContent('Revoking…')
+    expect(confirm).toBeDisabled()
     expect(confirm).toHaveAttribute('aria-busy', 'true')
     // A second click while pending sends no second request (#1435).
     fireEvent.click(confirm)
@@ -379,5 +380,61 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
     expect(await screen.findByText('Failed to revoke token. Please try again.')).toBe(slot)
     expect(screen.getByTestId(`confirm-revoke-${token1.id}`)).not.toBeDisabled()
+  })
+})
+
+describe('access token leave guard and phone layout (#2477)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  async function revealToken() {
+    mockCreateToken.mockResolvedValue({ ...token1, token: 'vbn_secret' })
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    await userEvent.type(await screen.findByTestId('token-name-input'), 'CI', { delay: null })
+    await userEvent.click(screen.getByTestId('create-token-button'))
+    await screen.findByTestId('new-token-reveal')
+  }
+
+  it('warns the token will not be shown again before leaving the section; Cancel keeps it', async () => {
+    await revealToken()
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    expect(screen.getByRole('group', { name: 'Discard' })).toHaveTextContent("It won't be shown again")
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId('new-token-reveal')).toBeInTheDocument()
+  })
+
+  it('Discard leaves the section and the token is gone', async () => {
+    await revealToken()
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    await userEvent.click(screen.getByTestId('leave-discard'))
+    expect(screen.queryByTestId('new-token-reveal')).not.toBeInTheDocument()
+  })
+
+  it('no guard once the token is dismissed', async () => {
+    await revealToken()
+    await userEvent.click(screen.getByTestId('dismiss-token'))
+    await userEvent.click(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { name: 'Appearance' }))
+    expect(screen.queryByRole('group', { name: 'Discard' })).not.toBeInTheDocument()
+  })
+
+  it('announces Copied in a status region after copying', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    await revealToken()
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await userEvent.click(screen.getByTestId('copy-token'))
+    await waitFor(() => expect(screen.getByTestId('copied-status')).toHaveTextContent('Copied'))
+  })
+
+  it('stacks token rows on phones with full-width 44px actions and 44px scope targets', async () => {
+    mockListTokens.mockResolvedValue([token1])
+    renderPage()
+    await switchToAccessTokensTab()
+    const row = await screen.findByTestId(`token-row-${token1.id}`)
+    expect(row.className).toContain('flex-col')
+    expect(row.className).toContain('sm:grid')
+    expect(screen.getByTestId('token-list').className).not.toContain('overflow-x-auto')
+    expect(screen.getByTestId(`revoke-${token1.id}`).className).toContain('max-sm:h-11')
+    expect(screen.getByTestId('token-scope-read').closest('label')?.className).toContain('max-sm:min-h-11')
   })
 })

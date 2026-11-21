@@ -57,15 +57,17 @@ export function OverviewLayout({ heading, aside, children }: { heading?: ReactNo
  * so existing deep links such as `/admin?tab=users` keep working; an unknown id falls back to
  * the first section.
  */
-export function SettingsLayout({ title, sections, param = "tab", navLabel = "Settings sections", defaultId, replace = false }: {
+export function SettingsLayout({ title, sections, param = "tab", navLabel = "Settings sections", defaultId, replace = true, onBeforeSelect }: {
   title?: ReactNode;
   sections: SettingsSection[];
   param?: string;
   navLabel?: string;
   /** Section shown when the URL names none (default: the first); a page that is entered from a redirect lands here. */
   defaultId?: string;
-  /** Switch sections with `replace`, so Back and Escape leave the page instead of stepping through sections. */
+  /** Switch sections with `replace` (the default), so Back and Escape leave the page instead of stepping through sections. */
   replace?: boolean;
+  /** Return false to veto a section switch (a leave guard for unsaved work); the caller decides when to proceed. */
+  onBeforeSelect?: (id: string) => boolean;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
@@ -76,6 +78,7 @@ export function SettingsLayout({ title, sections, param = "tab", navLabel = "Set
   const visible = useMemo(() => filterSettingsSections(sections, query), [sections, query]);
 
   const select = (id: string) => {
+    if (id !== active?.id && onBeforeSelect && onBeforeSelect(id) === false) return;
     const next = new URLSearchParams(searchParams);
     next.set(param, id);
     setSearchParams(next, { replace });

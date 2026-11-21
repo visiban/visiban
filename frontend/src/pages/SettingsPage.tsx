@@ -16,7 +16,7 @@ import type { UserDatePrefs } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
 import Avatar from "../components/Common/Avatar";
 import {
-  Button, PageHeading, SettingsCard, SettingsLayout, SaveBar, Field, SettingTwoSwitchHeader, SettingTwoSwitchRow, SettingSwitchRow, Switch,
+  Button, InlineConfirm, PageHeading, SettingsCard, SettingsLayout, SaveBar, Field, SettingTwoSwitchHeader, SettingTwoSwitchRow, SettingSwitchRow, Switch,
 } from "../components/Page";
 import type { SettingsSection } from "../components/Page";
 
@@ -46,7 +46,7 @@ const NUMBER_LOCALE_OPTIONS = [
   { value: "hi-IN", label: "1,23,456.78 — Indian" },
 ];
 
-function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: (u: User) => void; from?: Location }) {
+function ProfileTab({ user, onUserUpdated, from, onUnsavedChange }: { user: User; onUserUpdated: (u: User) => void; from?: Location; onUnsavedChange?: (unsaved: boolean) => void }) {
   const navigate = useNavigate();
   const initialForm = {
     display_name: user.display_name ?? "",
@@ -235,6 +235,11 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
 
   const formRef = useRef<HTMLFormElement>(null);
   const dirty = JSON.stringify(form) !== JSON.stringify(baseline);
+  // Reports unsaved edits to the page's leave guard; unmounting (a confirmed Discard) clears it.
+  useEffect(() => {
+    onUnsavedChange?.(dirty);
+    return () => onUnsavedChange?.(false);
+  }, [dirty, onUnsavedChange]);
   const discard = () => {
     setForm(baseline);
     setEmailPassword("");
@@ -320,7 +325,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Button onClick={() => { if (pendingAction === null && !saving) void handleResend() }} aria-busy={pendingAction === "resend" || undefined} aria-describedby="pending-email-note">
-              {pendingAction === "resend" ? "Sending…" : "Resend link"}
+              {pendingAction === "resend" ? "Sending…" : "Resend"}
             </Button>
             <Button variant="quiet" onClick={() => { if (pendingAction === null && !saving) void handleCancelChange() }} aria-busy={pendingAction === "cancel" || undefined} aria-describedby="pending-email-note">
               {pendingAction === "cancel" ? "Canceling…" : "Cancel change"}
@@ -433,72 +438,58 @@ function ConnectedAccountRow({
   useConfirmAnnouncement(confirming ? `Disconnect ${label}? You will no longer be able to sign in with it.` : null);
   const hintId = `disconnect-hint-${provider}`;
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition" data-testid={`connected-account-${provider}`}>
-      <ProviderIcon id={provider} className="w-5 h-5 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-fg truncate">{label}</span>
-          {connected ? (
-            <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full bg-success/15 text-success-on-tint">Connected</span>
-          ) : (
-            <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full border border-line-boundary text-fg-secondary">Not connected</span>
+    <div className="flex flex-col gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition sm:flex-row sm:items-center" data-testid={`connected-account-${provider}`}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <ProviderIcon id={provider} className="w-5 h-5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-fg truncate">{label}</span>
+            {connected ? (
+              <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full bg-success/15 text-success-on-tint">Connected</span>
+            ) : (
+              <span className="h-6 inline-flex items-center px-2.5 text-xs font-medium rounded-full border border-line-boundary text-fg-secondary">Not connected</span>
+            )}
+          </div>
+          {connected && account?.email && (
+            <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
           )}
+          <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
+            {rowError && <span className="text-danger">{rowError}</span>}
+            {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
+          </p>
         </div>
-        {connected && account?.email && (
-          <p className="text-xs text-fg-muted mt-0.5 truncate">{account.email}</p>
-        )}
-        <p className="text-xs min-h-4 mt-0.5" role="status" aria-live="polite" aria-atomic="true">
-          {rowError && <span className="text-danger">{rowError}</span>}
-          {rowSuccess && !rowError && <span className="text-success">Connected.</span>}
-        </p>
       </div>
-      <div className="shrink-0 flex flex-col items-end gap-1">
+      <div className="flex flex-col gap-1 sm:shrink-0 sm:items-end">
         {connected ? (
           confirming ? (
-            <div className="flex flex-wrap items-center justify-end gap-2 max-w-sm">
-              <span className="text-xs text-fg-tertiary">
-                Disconnect <span className="text-fg font-medium">{label}</span>? You will no longer be able to sign in with it.
-              </span>
-              <button
-                type="button"
-                onClick={() => { if (!disconnecting) onConfirmDisconnect() }}
-                aria-busy={disconnecting || undefined}
-                className="text-xs text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                aria-label={`Confirm disconnect ${label}`}
-                data-testid={`confirm-disconnect-${provider}`}
-              >
-                {disconnecting ? "Disconnecting…" : "Confirm"}
-              </button>
-              <button
-                type="button"
-                onClick={() => { if (!disconnecting) onCancelDisconnect() }}
-                aria-disabled={disconnecting || undefined}
-                className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Cancel
-              </button>
+            <div className="sm:max-w-sm">
+              <InlineConfirm
+                message={<>Disconnect <span className="font-medium">{label}</span>? You will no longer be able to sign in with it.</>}
+                actionLabel="Disconnect"
+                busy={disconnecting}
+                busyLabel="Disconnecting…"
+                actionTestId={`confirm-disconnect-${provider}`}
+                onConfirm={onConfirmDisconnect}
+                onCancel={onCancelDisconnect}
+              />
             </div>
           ) : (
             // aria-disabled, never native `disabled`: a disabled button drops
             // out of the tab order and hides *why* from keyboard and screen-
             // reader users. The reason stays visible and is announced via
             // aria-describedby; the click is a no-op.
-            <button
-              ref={disconnectTriggerRef("disconnect")}
-              type="button"
+            <Button
+              buttonRef={disconnectTriggerRef("disconnect")}
+              variant="quiet"
               aria-disabled={isOnlyMethod}
               aria-describedby={isOnlyMethod ? hintId : undefined}
               onClick={isOnlyMethod ? undefined : onStartDisconnect}
-              className={
-                isOnlyMethod
-                  ? "text-xs rounded text-fg-tertiary opacity-40 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                  : "text-xs rounded text-fg-tertiary hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-              }
+              className={isOnlyMethod ? "opacity-40 cursor-not-allowed" : "hover:text-danger"}
               aria-label={`Disconnect ${label}`}
               data-testid={`disconnect-${provider}`}
             >
               Disconnect
-            </button>
+            </Button>
           )
         ) : (
           <Button variant="primary" onClick={connecting ? undefined : onConnect} aria-busy={connecting || undefined} data-testid={`connect-${provider}`}>
@@ -506,7 +497,7 @@ function ConnectedAccountRow({
           </Button>
         )}
         {isOnlyMethod && (
-          <p id={hintId} className="text-xs text-fg-secondary text-right">You can't disconnect your only way to sign in; set a password first.</p>
+          <p id={hintId} className="text-xs text-fg-secondary sm:text-right">You can't disconnect your only way to sign in; set a password first.</p>
         )}
       </div>
     </div>
@@ -778,7 +769,7 @@ const PAT_SCOPE_OPTIONS: { scope: PersonalAccessTokenScope; label: string; hint:
 ];
 const PAT_DEFAULT_SCOPES: PersonalAccessTokenScope[] = ["read", "write"];
 
-function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs | null; isSiteAdmin?: boolean }) {
+function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?: UserDatePrefs | null; isSiteAdmin?: boolean; onUnsavedChange?: (unsaved: boolean) => void }) {
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -787,6 +778,13 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newToken, setNewToken] = useState<CreatedPersonalAccessToken | null>(null);
+  const [copied, setCopied] = useState(false);
+  // A visible reveal-once token is unsaved work: leaving would lose it for good.
+  const tokenVisible = newToken !== null;
+  useEffect(() => {
+    onUnsavedChange?.(tokenVisible);
+    return () => onUnsavedChange?.(false);
+  }, [tokenVisible, onUnsavedChange]);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
   const revokeTriggerRef = useConfirmFocusReturn(confirmRevokeId);
@@ -831,6 +829,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
     try {
       const created = await createToken(name.trim(), expiresAt || undefined, scopes);
       setNewToken(created);
+      setCopied(false);
       setName("");
       setExpiresAt("");
       setScopes(PAT_DEFAULT_SCOPES);
@@ -894,12 +893,13 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
             <Button
               variant="primary"
               buttonRef={copyRef}
-              onClick={() => { void navigator.clipboard?.writeText(newToken.token).catch(() => undefined); }}
+              onClick={() => { void navigator.clipboard?.writeText(newToken.token).then(() => setCopied(true)).catch(() => undefined); }}
               data-testid="copy-token"
             >
               Copy
             </Button>
           </div>
+          <p role="status" className="text-xs text-success min-h-4" data-testid="copied-status">{copied ? "Copied" : ""}</p>
           <div className="self-end">
             <Button variant="quiet" onClick={() => setNewToken(null)} data-testid="dismiss-token">
               I've copied it — dismiss
@@ -937,13 +937,13 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
             {PAT_SCOPE_OPTIONS.filter((o) => o.scope !== "admin" || isSiteAdmin).map((o) => {
               const locked = o.scope === "mcp:read" && scopes.includes("mcp:write");
               return (
-                <label key={o.scope} className={`flex items-start gap-2 text-sm text-fg-secondary ${locked ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                <label key={o.scope} className={`flex items-start gap-3 text-sm text-fg-secondary max-sm:min-h-11 max-sm:items-center ${locked ? "cursor-not-allowed" : "cursor-pointer"}`}>
                   <input
                     type="checkbox"
                     checked={scopes.includes(o.scope)}
                     onChange={() => toggleScope(o.scope)}
                     aria-disabled={locked || undefined}
-                    className="accent-primary shrink-0 mt-0.5"
+                    className="accent-primary shrink-0 mt-0.5 max-sm:mt-0 max-sm:h-6 max-sm:w-6"
                     data-testid={`token-scope-${o.scope}`}
                   />
                   <span className="min-w-0 flex flex-col sm:flex-row sm:gap-2">
@@ -1000,8 +1000,8 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
       ) : tokens.length === 0 ? (
         <p className="text-sm text-fg-secondary" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
-        <div className="flex flex-col gap-1 overflow-x-auto" data-testid="token-list">
-          <div className="grid grid-cols-[minmax(0,1fr)_88px_88px_64px] gap-x-4 px-3 py-1.5 text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
+        <div className="flex flex-col gap-1" data-testid="token-list">
+          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_88px_88px_72px] gap-x-4 px-3 py-1.5 text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
             <span>Name</span>
             <span>Created</span>
             <span>Expires</span>
@@ -1010,7 +1010,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
           {tokens.map((token) => (
             <div
               key={token.id}
-              className="grid grid-cols-[minmax(0,1fr)_88px_88px_64px] gap-x-4 items-center px-3 py-2 rounded hover:bg-surface-hover"
+              className="flex flex-col gap-2 px-3 py-2 rounded hover:bg-surface-hover sm:grid sm:grid-cols-[minmax(0,1fr)_88px_88px_72px] sm:gap-x-4 sm:items-center"
               data-testid={`token-row-${token.id}`}
             >
               <div className="flex flex-col gap-1 min-w-0">
@@ -1024,14 +1024,14 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
                       ))}
                 </span>
               </div>
-              <span className="text-xs text-fg-secondary whitespace-nowrap">{formatDate(token.created_at)}</span>
-              <span className="text-xs text-fg-secondary whitespace-nowrap">{formatDate(token.expires_at)}</span>
+              <span className="text-xs text-fg-secondary sm:whitespace-nowrap"><span className="sm:hidden">Created </span>{formatDate(token.created_at)}</span>
+              <span className="text-xs text-fg-secondary sm:whitespace-nowrap"><span className="sm:hidden">Expires </span>{formatDate(token.expires_at)}</span>
               <div className="flex items-center gap-2">
                 {confirmRevokeId !== token.id && (
                   <Button
                     buttonRef={revokeTriggerRef(token.id)}
-                   
                     variant="quiet"
+                    className="max-sm:w-full"
                     onClick={() => { setRevokeError(null); setConfirmRevokeId(token.id); }}
                     aria-label={`Revoke ${token.name}`}
                     data-testid={`revoke-${token.id}`}
@@ -1041,24 +1041,18 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
                 )}
               </div>
               {confirmRevokeId === token.id && (
-                <div className="col-span-full mt-1 flex flex-wrap items-center gap-2 rounded border border-danger/40 bg-danger/10 px-3 py-2 text-sm">
-                  <span className="text-fg-secondary">
-                    Revoke <span className="text-fg font-medium">{token.name}</span>? Anything using this token will lose access.
-                  </span>
-                  <Button
-                   
-                    variant="danger"
-                    onClick={() => { if (revokingId === null) void handleRevoke(token.id); }}
-                    aria-busy={revokingId === token.id || undefined}
-                    data-testid={`confirm-revoke-${token.id}`}
-                  >
-                    {revokingId === token.id ? "Revoking…" : "Confirm"}
-                  </Button>
-                  <Button variant="quiet" onClick={() => { if (revokingId === null) setConfirmRevokeId(null); }}>
-                    Cancel
-                  </Button>
-                  {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
-                  <span role="alert" className={revokeError ? "text-danger text-xs" : "sr-only"}>{revokeError}</span>
+                <div className="sm:col-span-full">
+                  <InlineConfirm
+                    message={<>Revoke <span className="font-medium">{token.name}</span>? Anything using this token will lose access.
+                      {/* Always-mounted failure slot (#2232): the text changes, the region stays mounted. */}
+                      {" "}<span role="alert" className={revokeError ? "text-danger text-xs" : "sr-only"}>{revokeError}</span></>}
+                    actionLabel="Revoke"
+                    busy={revokingId === token.id}
+                    busyLabel="Revoking…"
+                    actionTestId={`confirm-revoke-${token.id}`}
+                    onConfirm={() => { if (revokingId === null) void handleRevoke(token.id); }}
+                    onCancel={() => setConfirmRevokeId(null)}
+                  />
                 </div>
               )}
             </div>
@@ -1356,7 +1350,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   // Captured once: switching sections rewrites the URL without router state, and the
   // post-save and Escape returns still need to know where the user came from.
   const [from] = useState<Location | undefined>(() => (location.state as { from?: Location } | null)?.from);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // A connect round trip (#1314) returns here with ?connected=<provider> or
   // ?connect_error=<code>&provider=<provider>. Read once, land on Security so
   // the outcome shows on its row, then drop the params from the URL so a
@@ -1377,20 +1371,50 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
     }
   }, [navigate, searchParams, location.state]);
 
-  useEscapeStack(() => {
-    const tag = (document.activeElement as HTMLElement)?.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+  // Leave guard: the open section reports unsaved Profile edits or a reveal-once token here.
+  // Leaving (another section, Escape, closing the tab) asks first instead of dropping them.
+  const unsavedRef = useRef<{ profile: boolean; token: boolean }>({ profile: false, token: false });
+  const [leaving, setLeaving] = useState<{ kind: "section"; id: string } | { kind: "leave" } | null>(null);
+  const setProfileUnsaved = useCallback((v: boolean) => { unsavedRef.current.profile = v; }, []);
+  const setTokenUnsaved = useCallback((v: boolean) => { unsavedRef.current.token = v; }, []);
+  const hasUnsaved = () => unsavedRef.current.profile || unsavedRef.current.token;
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedRef.current.profile || unsavedRef.current.token) { e.preventDefault(); e.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+  const goBack = () => {
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // there is nothing to roll back if the navigation itself rejects.
     if (window.history.length > 1) { void navigate(-1); return; }
     void navigate(from ?? "/", { replace: true });
+  };
+  const confirmLeave = () => {
+    const target = leaving;
+    setLeaving(null);
+    if (target?.kind === "section") {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", target.id);
+      setSearchParams(next, { replace: true });
+    } else if (target) {
+      goBack();
+    }
+  };
+
+  useEscapeStack(() => {
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    if (hasUnsaved()) { setLeaving({ kind: "leave" }); return; }
+    goBack();
   }, 0);
 
   // Section ids are the old tab ids, so every existing `?tab=` deep link keeps working.
   const sections: SettingsSection[] = [
-    { id: "profile", label: "Profile", group: "Account", keywords: ["name", "display name", "username", "email", "timezone", "date format", "time format", "number format", "locale"], render: () => <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} /> },
+    { id: "profile", label: "Profile", group: "Account", keywords: ["name", "display name", "username", "email", "timezone", "date format", "time format", "number format", "locale"], render: () => <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} onUnsavedChange={setProfileUnsaved} /> },
     { id: "security", label: "Security", group: "Account", keywords: ["password", "connected accounts", "google", "github", "gitlab", "oidc", "sign in", "sso"], render: () => <SecurityTab user={user} connectResult={connectResult} onUserUpdated={onUserUpdated} /> },
-    { id: "access-tokens", label: "Access tokens", group: "Account", keywords: ["api", "token", "scopes", "mcp", "pat", "revoke"], render: () => <AccessTokensTab user={user} isSiteAdmin={!!user?.is_site_admin} /> },
+    { id: "access-tokens", label: "Access tokens", group: "Account", keywords: ["api", "token", "scopes", "mcp", "pat", "revoke"], render: () => <AccessTokensTab user={user} isSiteAdmin={!!user?.is_site_admin} onUnsavedChange={setTokenUnsaved} /> },
     { id: "notifications", label: "Notifications", group: "Preferences", keywords: ["email", "in-app", "mentions", "assigned", "due date", "watching", "stale"], render: () => <NotificationsTab user={user} onUserUpdated={onUserUpdated} /> },
     { id: "appearance", label: "Appearance", group: "Preferences", keywords: ["theme", "dark", "light", "system"], render: () => <AppearanceTab /> },
     { id: "behavior", label: "Behavior", group: "Preferences", keywords: ["card editor", "enter", "onboarding", "tour"], render: () => <BehaviorTab user={user} onUserUpdated={onUserUpdated} /> },
@@ -1404,11 +1428,30 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
       <main className="flex-1 overflow-y-auto">
         {/* h2 under the app shell, whose header owns the h1 (#2473). */}
         <SettingsLayout
-          title={<PageHeading title="Your settings" description="Your account, how Visiban notifies you, and how it looks." />}
+          title={
+            <div className="flex flex-col gap-4">
+              <PageHeading title="Your settings" description="Your account, how Visiban notifies you, and how it looks." />
+              {leaving && (
+                <InlineConfirm
+                  message={unsavedRef.current.token
+                    ? "Leave without copying your new access token? It won't be shown again."
+                    : "Leave without saving? Your unsaved profile changes will be discarded."}
+                  actionLabel="Discard"
+                  actionTestId="leave-discard"
+                  onConfirm={confirmLeave}
+                  onCancel={() => setLeaving(null)}
+                />
+              )}
+            </div>
+          }
           sections={sections}
           navLabel="Settings sections"
           defaultId={connectResult ? "security" : undefined}
-          replace
+          onBeforeSelect={(id) => {
+            if (!hasUnsaved()) return true;
+            setLeaving({ kind: "section", id });
+            return false;
+          }}
         />
       </main>
     </div>

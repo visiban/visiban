@@ -346,9 +346,12 @@ export function SaveBar({ thing, saveLabel, dirty, saving = false, onDiscard, on
  * Danger-tinted box: one full sentence that names the target and the consequence, then Cancel
  * (Quiet) and the action (Danger), both 36px. Only for the change that removes access.
  */
-export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy = false }: {
+export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy = false, busyLabel, actionTestId }: {
   message: ReactNode;
   actionLabel: string;
+  /** Shown on the action while `busy` (for example "Revoking…"). */
+  busyLabel?: string;
+  actionTestId?: string;
   onConfirm: () => void;
   onCancel: () => void;
   busy?: boolean;
@@ -362,7 +365,7 @@ export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy 
       <p className="text-sm text-fg">{message}</p>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button variant="quiet" buttonRef={cancelRef} onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button variant="danger" onClick={onConfirm} disabled={busy}>{actionLabel}</Button>
+        <Button variant="danger" onClick={onConfirm} disabled={busy} aria-busy={busy || undefined} data-testid={actionTestId}>{busy && busyLabel ? busyLabel : actionLabel}</Button>
       </div>
     </div>
   );
