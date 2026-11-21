@@ -1,0 +1,1 @@
+CI: pipelines on `main` are no longer auto-canceled when a newer commit lands, so every merge gets a real pass/fail result and main pipeline stats stay accurate. MR pipelines still cancel superseded runs.
