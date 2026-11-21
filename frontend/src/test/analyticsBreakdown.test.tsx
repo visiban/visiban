@@ -19,7 +19,7 @@ import type {
   FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowGroupBase, FlowThroughput, FlowWipAge,
 } from '../types'
 
-vi.mock('../api/flowMetrics', () => ({
+vi.mock('../api/flowMetrics', async () => (await import('./flowMetricsStubs')).withOverview({
   getFlowCycleTime: vi.fn(),
   getFlowThroughput: vi.fn(),
   getFlowCumulativeFlow: vi.fn(),

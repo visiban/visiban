@@ -21,7 +21,7 @@ vi.mock('../components/Board/flowMetrics/ThroughputChart', () => ({ default: cou
 vi.mock('../components/Board/flowMetrics/CumulativeFlowChart', () => ({ default: counted('cumulative') }))
 vi.mock('../components/Board/flowMetrics/WipAgeChart', () => ({ default: counted('age') }))
 vi.mock('../api/boards', () => ({ getBoardAnalytics: vi.fn() }))
-vi.mock('../api/flowMetrics', () => ({
+vi.mock('../api/flowMetrics', async () => (await import('./flowMetricsStubs')).withOverview({
   getFlowCycleTime: vi.fn(),
   getFlowThroughput: vi.fn(),
   getFlowCumulativeFlow: vi.fn(),

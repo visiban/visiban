@@ -5,7 +5,7 @@ vi.mock('../api/client', () => ({ default: { get: vi.fn() } }))
 import client from '../api/client'
 import {
   getFlowAttention, getFlowBlocked, getFlowCumulativeDay, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell,
-  getFlowSwimlanes, getFlowThroughput, getFlowWipAge,
+  getFlowOverview, getFlowSwimlanes, getFlowThroughput, getFlowWipAge,
 } from '../api/flowMetrics'
 
 const get = vi.mocked(client.get)
@@ -51,6 +51,15 @@ describe('flow metrics API', () => {
     await call(3, filters, undefined)
     expect(get).toHaveBeenLastCalledWith(`/api/v1/boards/3/metrics/${metric}/`, {
       params: { days: 30, swimlane_id: 5 },
+    })
+  })
+
+  it('asks for the whole overview in one request, with the filters and any breakdown (#2426)', async () => {
+    await expect(getFlowOverview(3, { days: 90, swimlaneId: null, labelId: null })).resolves.toEqual({ ok: true })
+    expect(get).toHaveBeenLastCalledWith('/api/v1/boards/3/metrics/overview/', { params: { days: 90 } })
+    await getFlowOverview(3, { days: 30, swimlaneId: 5, labelId: 6 }, { by: 'custom_field', fieldId: 9 })
+    expect(get).toHaveBeenLastCalledWith('/api/v1/boards/3/metrics/overview/', {
+      params: { days: 30, swimlane_id: 5, label_id: 6, group_by: 'custom_field', group_by_field_id: 9 },
     })
   })
 

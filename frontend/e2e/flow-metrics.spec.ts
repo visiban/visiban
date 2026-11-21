@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
-// The Analytics Overview against mocked `metrics/*` and `analytics/` responses (#448, #2261). jsdom cannot
+// The Analytics Overview against mocked `metrics/*` and `analytics/` responses (#448, #2261, #2426). jsdom cannot
 // lay out SVG or resolve the color tokens, so this is what checks that the
 // charts actually draw, that the marks stay clickable through the stacked
 // layers, and that the drawer opens over the page.
@@ -109,6 +109,37 @@ const attention = {
   cards: [cards[5]],
 }
 
+// The Overview asks for its charts in one `metrics/overview` request (#2426). Each test answers a chart
+// by its endpoint's name, as before; the overview route builds its body from those answers, the
+// last one registered first (as page.route itself does), and an answer that returns undefined
+// falls through to the one before.
+type MetricAnswer = (url: URL) => unknown
+const metricAnswers = new WeakMap<Page, Array<[string, MetricAnswer]>>()
+const OVERVIEW_SECTIONS: Record<string, string> = {
+  'cycle-time': 'cycle_time', throughput: 'throughput', 'cumulative-flow': 'cumulative_flow',
+  'wip-age': 'wip_age', dwell: 'dwell', blocked: 'blocked', attention: 'attention',
+}
+const answerMetric = (page: Page, name: string, answer: MetricAnswer) => { metricAnswers.get(page)!.push([name, answer]) }
+
+async function routeOverview(page: Page) {
+  metricAnswers.set(page, [])
+  await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/overview/**`, (route) => {
+    const url = new URL(route.request().url())
+    const answers = metricAnswers.get(page)!
+    const section = (name: string) => {
+      for (let i = answers.length - 1; i >= 0; i--) {
+        const [answered, answer] = answers[i]
+        if (answered !== name) continue
+        const body = answer(url)
+        if (body !== undefined) return body
+      }
+      throw new Error(`no answer for ${name}`)
+    }
+    const body = Object.fromEntries(Object.entries(OVERVIEW_SECTIONS).map(([name, key]) => [key, section(name)]))
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  })
+}
+
 async function openAnalytics(page: Page) {
   await routeAuth(page)
   await routeBoard(page)
@@ -127,10 +158,14 @@ async function openAnalytics(page: Page) {
       }),
     }),
   )
-  const metric = (name: string, body: unknown) =>
-    page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) =>
+  await routeOverview(page)
+  // Each chart's own endpoint still answers too: the cumulative-flow day drill-down calls it.
+  const metric = (name: string, body: unknown) => {
+    answerMetric(page, name, () => body)
+    return page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
     )
+  }
   await metric('cycle-time', cycleTime)
   await metric('throughput', throughput)
   await metric('cumulative-flow', cumulativeFlow)
@@ -153,7 +188,7 @@ async function openAnalytics(page: Page) {
 }
 
 test.describe('flow metrics dashboard', () => {
-  test('names the bottleneck, states the headline numbers, and one filter refetches every panel', async ({ page }) => {
+  test('names the bottleneck, states the headline numbers, and one filter refetches every panel in two requests', async ({ page }) => {
     await openAnalytics(page)
     const bottleneck = page.getByTestId('analytics-bottleneck')
     await expect(bottleneck.getByRole('heading', { name: 'Doing' })).toBeVisible()
@@ -169,9 +204,8 @@ test.describe('flow metrics dashboard', () => {
     })
     await page.getByRole('button', { name: /^Date range/ }).click()
     await page.getByRole('menuitem', { name: 'Last 30 days' }).click()
-    await expect.poll(() => [...requested].sort()).toEqual(
-      ['analytics', 'attention', 'blocked', 'cumulative-flow', 'cycle-time', 'dwell', 'throughput', 'wip-age'],
-    )
+    // Every chart comes from one `metrics/overview` request (#2426), not one request per chart.
+    await expect.poll(() => [...requested].sort()).toEqual(['analytics', 'overview'])
     await expect(page.getByTestId('flow-wip-age')).toBeVisible()
   })
 
@@ -186,11 +220,7 @@ test.describe('flow metrics dashboard', () => {
       'wip-age': { ...wipAge, sample_size: 0, cycle_time_percentiles: none, samples: [], cards: [] },
     }
     for (const [name, body] of Object.entries(emptyBodies)) {
-      await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) =>
-        route.request().url().includes('swimlane_id=')
-          ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
-          : route.fallback(),
-      )
+      answerMetric(page, name, (url) => (url.searchParams.has('swimlane_id') ? body : undefined))
     }
     await page.getByRole('button', { name: /^Swimlane/ }).click()
     await page.getByRole('menuitem').first().click()
@@ -363,11 +393,7 @@ test.describe('flow metrics breakdown (#2268)', () => {
   test('breaking down by swimlane colors the charts, and the legend isolates one group', async ({ page }) => {
     await openAnalytics(page)
     const grouped = (name: string, build: (url: URL) => unknown) =>
-      page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/${name}/**`, (route) => {
-        const url = new URL(route.request().url())
-        if (url.searchParams.get('group_by') !== 'swimlane') return route.fallback()
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(build(url)) })
-      })
+      answerMetric(page, name, (url) => (url.searchParams.get('group_by') === 'swimlane' ? build(url) : undefined))
     const grouping = (extra: (g: (typeof BREAKDOWN_GROUPS)[number]) => object) => ({
       by: 'swimlane', field_id: null, excluded: 0, groups: BREAKDOWN_GROUPS.map((g) => ({ ...g, ...extra(g) })),
     })
@@ -414,13 +440,10 @@ test.describe('flow metrics breakdown (#2268)', () => {
   test('at 390px a breakdown adds no sideways scroll and keeps the legend and filter segments visible', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await openAnalytics(page)
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/metrics/cycle-time/**`, (route) => {
-      if (new URL(route.request().url()).searchParams.get('group_by') !== 'swimlane') return route.fallback()
+    answerMetric(page, 'cycle-time', (url) => {
+      if (url.searchParams.get('group_by') !== 'swimlane') return undefined
       const grouping = { by: 'swimlane', field_id: null, excluded: 0, groups: BREAKDOWN_GROUPS.map((g) => ({ ...g, sample_size: 12, percentiles: cycleTime.percentiles })) }
-      return route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ ...cycleTime, samples: cycleTime.samples.map((s, n) => ({ ...s, group_keys: groupKeysOf(n) })), grouping }),
-      })
+      return { ...cycleTime, samples: cycleTime.samples.map((s, n) => ({ ...s, group_keys: groupKeysOf(n) })), grouping }
     })
     await page.getByRole('button', { name: 'Break down by swimlane' }).scrollIntoViewIfNeeded()
     await expect(page.getByRole('button', { name: 'Break down by swimlane' })).toBeVisible()

@@ -215,6 +215,7 @@ Which sub-column is "last" is read from the stage as it is now. Each recorded ga
 - **Loading.** Each region shows a gray skeleton the size of its final panel (a chart panel gets a title, a summary line, the 260px chart and two note lines), the first chart panel says "Loading flow metrics…", and the filters stay usable. The pulse stops under reduced motion. A refetch keeps the previous numbers on screen, dimmed.
 - **Nothing has moved yet.** A board with no card movement shows a short explanation, a dimmed example bar labeled as an example, and **Go to board**.
 - **Too little data.** The page still renders. The bottleneck panel says "Too early to say" with the reason, and a tile marks its value **Provisional** and says what is withheld and when it appears.
+- **Could not load.** The Overview's charts come from one request (*changed in 1.3*, #2426), so they load, and fail, together: each chart and tile then says it could not load, the page shows **Some panels failed to load.** with **Retry**, and the dwell time heatmap, which has its own request, still draws.
 - **No cards match these filters.** The message names the active swimlane, label and period, with one removable chip per filter. **Show last 90 days** appears when the period is shorter than 90 days, and **Clear all filters** resets everything. It does not predict how many cards a wider filter would match.
 
 ### Dwell time heatmap
@@ -309,7 +310,7 @@ Click **Export CSV**, at the right of the filter bar, to download the heatmap da
 
 ### API reference
 
-**API:** `GET /api/v1/boards/{id}/analytics/?days=30`. The charts use the [flow metrics endpoints](../api/boards.md#flow-metrics).
+**API:** `GET /api/v1/boards/{id}/analytics/?days=30`. The charts use the [flow metrics endpoints](../api/boards.md#flow-metrics): the Overview reads all of them through one [`metrics/overview`](../api/boards.md#get-apiv1boardsidmetricsoverview) request, which loads the board's history once instead of once per chart (#2426).
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|

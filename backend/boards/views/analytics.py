@@ -424,6 +424,14 @@ class ThroughputQuerySerializer(GroupedFlowMetricsQuerySerializer):
     period = serializers.ChoiceField(choices=["day", "week"], required=False, default="week")
 
 
+class FlowOverviewQuerySerializer(ThroughputQuerySerializer):
+    """``metrics/overview`` (#2426): the filters, ``group_by`` and throughput's ``period``.
+
+    No cumulative-flow ``date``: that drill-down reads the whole history and
+    stays on its own endpoint; a stray one is ignored like any unknown parameter.
+    """
+
+
 class CumulativeFlowQuerySerializer(FlowMetricsQuerySerializer):
     date = serializers.DateField(required=False)
 
@@ -1016,6 +1024,62 @@ _ATTENTION_RESPONSE = inline_serializer(
     },
 )
 
+_OVERVIEW_RESPONSE = inline_serializer(
+    name="FlowOverview",
+    help_text=(
+        "Each section is exactly what its own `metrics/*` endpoint returns for the same query (#2426): "
+        "`group_by` breaks down cycle_time, throughput, wip_age and dwell, and `period` buckets throughput."
+    ),
+    fields={
+        "cycle_time": _CYCLE_TIME_RESPONSE,
+        "throughput": _THROUGHPUT_RESPONSE,
+        "cumulative_flow": _CUMULATIVE_FLOW_RESPONSE,
+        "wip_age": _WIP_AGE_RESPONSE,
+        "dwell": _DWELL_RESPONSE,
+        "blocked": _BLOCKED_RESPONSE,
+        "attention": _ATTENTION_RESPONSE,
+    },
+)
+
+
+def _cycle_time_payload(flow, flow_range, grouping):
+    payload = flow_metrics.cycle_time(flow, flow_range)
+    if grouping is not None:
+        flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
+    payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
+    return payload
+
+
+def _throughput_payload(flow, flow_range, period, grouping):
+    payload = flow_metrics.throughput(flow, flow_range, period)
+    if grouping is not None:
+        flow_grouping.group_throughput(payload, flow, flow_range, grouping, period)
+    payload["cards"] = flow_metrics.card_directory(
+        flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
+    )
+    return payload
+
+
+def _wip_age_payload(flow, flow_range, grouping):
+    payload = flow_metrics.age(flow, flow_range)
+    if grouping is not None:
+        flow_grouping.group_wip_age(payload, flow, flow_range, grouping)
+    payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
+    return payload
+
+
+def _dwell_payload(flow, flow_range, grouping):
+    payload = flow_metrics.column_dwell(flow, flow_range)
+    if grouping is not None:
+        flow_grouping.group_dwell(payload, flow, flow_range, grouping)
+    return payload
+
+
+def _attention_payload(board, flow, flow_range):
+    payload = flow_metrics.needs_attention(flow, flow_range, stalled_days=board.staleness_threshold_days)
+    payload["cards"] = flow_metrics.card_directory(flow, (item["card_uid"] for item in payload["items"]))
+    return payload
+
 
 class BoardAnalyticsMixin:
     """Mixin providing summary and analytics @action methods for BoardViewSet."""
@@ -1589,12 +1653,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        payload = flow_metrics.cycle_time(flow, flow_range)
-        grouping = _grouping(board, params, flow)
-        if grouping is not None:
-            flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
-        payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
-        return Response(payload)
+        return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow)))
 
     @extend_schema(
         summary="Per-swimlane cycle time, trend, blocked share and status against the board",
@@ -1651,14 +1710,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        payload = flow_metrics.throughput(flow, flow_range, params["period"])
-        grouping = _grouping(board, params, flow)
-        if grouping is not None:
-            flow_grouping.group_throughput(payload, flow, flow_range, grouping, params["period"])
-        payload["cards"] = flow_metrics.card_directory(
-            flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
-        )
-        return Response(payload)
+        return Response(_throughput_payload(flow, flow_range, params["period"], _grouping(board, params, flow)))
 
     @extend_schema(
         summary="Cards per column at the end of each UTC day, or the cards behind one day",
@@ -1716,12 +1768,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        payload = flow_metrics.age(flow, flow_range)
-        grouping = _grouping(board, params, flow)
-        if grouping is not None:
-            flow_grouping.group_wip_age(payload, flow, flow_range, grouping)
-        payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
-        return Response(payload)
+        return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow)))
 
     @extend_schema(
         summary="Completed dwell time per column, with percentiles",
@@ -1736,11 +1783,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        payload = flow_metrics.column_dwell(flow, flow_range)
-        grouping = _grouping(board, params, flow)
-        if grouping is not None:
-            flow_grouping.group_dwell(payload, flow, flow_range, grouping)
-        return Response(payload)
+        return Response(_dwell_payload(flow, flow_range, _grouping(board, params, flow)))
 
     @extend_schema(
         summary="Blocked time per column and reason, and the cards blocked now",
@@ -1773,9 +1816,59 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        payload = flow_metrics.needs_attention(flow, flow_range, stalled_days=board.staleness_threshold_days)
-        payload["cards"] = flow_metrics.card_directory(flow, (item["card_uid"] for item in payload["items"]))
-        return Response(payload)
+        return Response(_attention_payload(board, flow, flow_range))
+
+    @extend_schema(
+        summary="Every Analytics overview chart from one history load",
+        description=(
+            "Added in 1.3 (#2426). The cycle-time, throughput, cumulative-flow, wip-age, dwell, blocked and "
+            "attention responses for one query, each exactly what its own endpoint returns, computed from "
+            "one load of the board's history instead of seven. The cumulative-flow `date` drill-down and "
+            "`metrics/swimlanes` stay on their own endpoints."
+        ),
+        parameters=[
+            *_FLOW_FILTER_PARAMETERS,
+            *_FLOW_GROUP_PARAMETERS,
+            OpenApiParameter(
+                name="period", type={"type": "string", "enum": ["day", "week"]},
+                location=OpenApiParameter.QUERY, required=False,
+                description="Bucket size of the `throughput` section (default `week`).",
+            ),
+        ],
+        responses={200: _OVERVIEW_RESPONSE, 400: _FLOW_400},
+    )
+    @action(detail=True, methods=["get"], url_path="metrics/overview")
+    def metrics_overview(self, request, pk=None):
+        """The overview's seven sections from one range load (#2426).
+
+        WHY one load serves all seven: ``load_cumulative_flow`` is
+        ``load_range_flow`` plus the settled cumulative-flow bands, which only
+        ``cumulative_flow`` reads, so cycle time, throughput, WIP age, dwell
+        and attention see exactly the snapshot their endpoints load. Blocked
+        reads its block rows by its own query and counts ``blocked_now`` over
+        the live not-done cards, which every range load keeps (``can_affect_range``
+        keeps every live card), so it matches ``load_live_wip`` too. The
+        metric functions only read the snapshot, so sharing it cannot leak one
+        section into another; ``FlowOverviewTests`` pins every section against
+        its own endpoint.
+        """
+        board, _ = get_board_for_user(pk, request.user, slim=True)
+        params = _flow_query(FlowOverviewQuerySerializer, request, board)
+        now = timezone.now()
+        flow_range = _flow_range(params, now)
+        flow = flow_metrics.load_cumulative_flow(
+            board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+        )
+        grouping = _grouping(board, params, flow)
+        return Response({
+            "cycle_time": _cycle_time_payload(flow, flow_range, grouping),
+            "throughput": _throughput_payload(flow, flow_range, params["period"], grouping),
+            "cumulative_flow": flow_metrics.cumulative_flow(flow, flow_range),
+            "wip_age": _wip_age_payload(flow, flow_range, grouping),
+            "dwell": _dwell_payload(flow, flow_range, grouping),
+            "blocked": flow_metrics.blocked_summary(flow, flow_range),
+            "attention": _attention_payload(board, flow, flow_range),
+        })
 
     @extend_schema(
         summary="List board-level movement history with filtering and offset pagination",

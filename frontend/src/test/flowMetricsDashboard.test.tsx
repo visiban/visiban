@@ -18,7 +18,7 @@ import type {
   FlowAttention, FlowBlocked, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
 } from '../types'
 
-vi.mock('../api/flowMetrics', () => ({
+vi.mock('../api/flowMetrics', async () => (await import('./flowMetricsStubs')).withOverview({
   getFlowCycleTime: vi.fn(),
   getFlowThroughput: vi.fn(),
   getFlowCumulativeFlow: vi.fn(),
@@ -218,9 +218,9 @@ describe('FlowMetricsDashboard states', () => {
     cycleMock.mockRejectedValueOnce(new Error('no'))
     render(<FlowMetricsDashboard {...props} />)
     expect(await screen.findByRole('alert')).toHaveTextContent('Some panels failed to load.')
-    // The failed panel says so in its own frame; the others still draw.
-    expect(screen.getByTestId('flow-throughput')).toBeInTheDocument()
-    expect(screen.getByText('Could not load this panel.')).toBeInTheDocument()
+    // The charts come in one request (#2426), so they fail together, each saying so in its own frame.
+    expect(screen.queryByTestId('flow-throughput')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Could not load this panel.').length).toBeGreaterThan(1)
     expect(screen.getByText('Some panels failed to load.').className).toContain('text-danger-on-tint')
     expect(screen.getByRole('button', { name: 'Retry' }).className).toContain('bg-surface')
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -1029,15 +1029,15 @@ describe('the headline tiles (#2261)', () => {
     expect(tile('Work in progress')).not.toHaveTextContent('The 85th-percentile age appears')
   })
 
-  it('shows a per-tile and a bottleneck error when one endpoint fails, and the other panels still render', async () => {
+  it('shows a per-tile and a bottleneck error when the charts fail to load', async () => {
     mockAll()
-    cumulativeMock.mockRejectedValue(new Error('no'))
+    // Any one chart failing fails the one overview request that carries them all (#2426).
     blockedMock.mockRejectedValue(new Error('no'))
-    await renderLoaded()
-    expect(screen.getByTestId('analytics-bottleneck')).toHaveTextContent('Could not load the bottleneck.')
+    render(<FlowMetricsDashboard {...props} />)
+    expect(await screen.findByTestId('analytics-bottleneck')).toHaveTextContent('Could not load the bottleneck.')
     expect(tile('Blocked time')).toHaveTextContent('Could not load.')
-    expect(tile('Cycle time')).toHaveTextContent('4.0days')
-    expect(screen.getByTestId('flow-wip-age')).toBeInTheDocument()
+    expect(tile('Cycle time')).toHaveTextContent('Could not load.')
+    expect(screen.queryByTestId('flow-wip-age')).not.toBeInTheDocument()
   })
 })
 

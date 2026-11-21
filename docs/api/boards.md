@@ -546,9 +546,9 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/` and [`.../swimlanes/`](#get-apiv1boardsidmetricsswimlanes) (eight endpoints) return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`. The swimlane comparison's own numbers (blocked share, the rolling median, status and trend) are defined in [Swimlane comparison](../architecture/decisions.md#swimlane-comparison-2266).
+`GET /api/v1/boards/{id}/metrics/cycle-time/`, `.../throughput/`, `.../cumulative-flow/`, `.../wip-age/`, `.../dwell/`, `.../blocked/`, `.../attention/` and [`.../swimlanes/`](#get-apiv1boardsidmetricsswimlanes) and `.../overview/` (nine endpoints) return flow numbers for the [Analytics](../features/analytics.md#flow-metrics) tab, for any board member, viewers included. Every number follows the [flow metric definitions](../architecture/decisions.md#flow-metric-definitions), and each response quotes its definition in `definition`. The swimlane comparison's own numbers (blocked share, the rolling median, status and trend) are defined in [Swimlane comparison](../architecture/decisions.md#swimlane-comparison-2266).
 
-**Query parameters** (`days`, `from_date`, `to_date` and `label_id` on all eight; `swimlane_id` on the first seven):
+**Query parameters** (`days`, `from_date`, `to_date` and `label_id` on all nine; `swimlane_id` on all but `swimlanes`):
 
 | Parameter | Type | Default | Constraint |
 |---|---|---|---|
@@ -557,8 +557,8 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 | `to_date` | date | Today (UTC) | Last UTC day, inclusive. A range holds at most 366 days. |
 | `swimlane_id` | integer | none | Cards now in this swimlane of this board. |
 | `label_id` | integer | none | Cards now carrying this label of this board. |
-| `group_by` | `swimlane`, `label` or `custom_field` | none | Break the numbers down (see [Breakdowns](#flow-metric-breakdowns)). On cycle-time, throughput, wip-age and dwell; ignored elsewhere. |
-| `group_by_field_id` | integer | none | A dropdown or checkbox custom field of this board. On cycle-time, throughput, wip-age and dwell it names a card field, is required with `group_by=custom_field` and is refused with any other `group_by`. On `metrics/swimlanes` it names a swimlane field and is honored on its own, with no `group_by`. Ignored on the other endpoints. |
+| `group_by` | `swimlane`, `label` or `custom_field` | none | Break the numbers down (see [Breakdowns](#flow-metric-breakdowns)). On cycle-time, throughput, wip-age, dwell and overview; ignored elsewhere. |
+| `group_by_field_id` | integer | none | A dropdown or checkbox custom field of this board. On cycle-time, throughput, wip-age, dwell and overview it names a card field, is required with `group_by=custom_field` and is refused with any other `group_by`. On `metrics/swimlanes` it names a swimlane field and is honored on its own, with no `group_by`. Ignored on the other endpoints. |
 
 A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A `group_by_field_id` that does not exist, is on another board, or is not a dropdown or checkbox field of the right kind (card field, or swimlane field on `metrics/swimlanes`) gets one and the same `400` (`group_by_field_id: Not a dropdown or checkbox card field on this board.`, or `... swimlane field ...` on `metrics/swimlanes`), so the answer says nothing about the field. A board you cannot access returns `404`.
 
@@ -809,6 +809,30 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
 - Items run oldest first by `age_days`, then by `unmoved_days`, `null` `age_days` last, then by card.
 
 It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed. A card with no movement is judged the same way in both, from its creation date.
+
+#### `GET /api/v1/boards/{id}/metrics/overview/`
+
+*Added in 1.3 (#2426).* Every chart of the Analytics overview in one response, computed from **one** load of the board's history. Calling `cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked` and `attention` separately loads and replays that history seven times, which on a board with years of archived work holds several copies of it in the server process at once; the Analytics page uses this endpoint instead. The single-metric endpoints are unchanged and still answer on their own.
+
+**Query parameters:** the [shared filters](#flow-metrics) (`days`, or `from_date`/`to_date`, plus `swimlane_id`, `label_id`), `group_by` and `group_by_field_id` as on the four breakdown endpoints, and `period` (`day` or `week`, default `week`) as on `throughput`. A bad value gets the same `400` (`code: invalid_query_param`) as on those endpoints. The cumulative-flow `date` drill-down is not taken here; use `metrics/cumulative-flow/?date=` for it.
+
+```json
+{
+  "cycle_time": { "definition": "...", "sample_size": 12, "percentiles": { "p50": 4.2, "p85": 8.1, "p95": null }, "samples": [], "cards": [] },
+  "throughput": { "definition": "...", "period": "week", "total": 12, "samples": [], "cards": [] },
+  "cumulative_flow": { "definition": "...", "columns": [], "days": [], "bottleneck_column_uid": null },
+  "wip_age": { "definition": "...", "sample_size": 3, "samples": [], "cards": [] },
+  "dwell": { "definition": "...", "sample_size": 20, "columns": [] },
+  "blocked": { "definition": "...", "total": { "days": 3.5, "blocks": 2 }, "blocked_now": 1, "columns": [], "reasons": [], "reason_count": 2 },
+  "attention": { "definition": "...", "stalled_threshold_days": 7, "items": [], "cards": [] }
+}
+```
+
+- Each section is exactly the response its own endpoint returns for the same query string (shortened above). `group_by` breaks down `cycle_time`, `throughput`, `wip_age` and `dwell`, and `period` buckets `throughput`; the other sections ignore both, as their endpoints do.
+- The request succeeds or fails as a whole: there is no partial response.
+- `metrics/swimlanes` is not included; the Swimlanes view calls it on its own.
+
+**Permissions:** any board member (`viewer` and above), as on every `metrics/*` endpoint.
 
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.
