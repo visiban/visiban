@@ -33,7 +33,7 @@ const BASELINE: Partial<Record<StateName, Record<string, { issue: string; maxNod
   },
   'card detail dialog': {
     'button-name': { issue: '#2468', maxNodes: 1 },
-    'color-contrast': { issue: '#2466', maxNodes: 28 },
+    'color-contrast': { issue: '#2466', maxNodes: 5 },
     'label-content-name-mismatch': { issue: '#2467', maxNodes: 5 },
     'label': { issue: '#2468', maxNodes: 1 },
   },
@@ -68,7 +68,20 @@ const BASELINE: Partial<Record<StateName, Record<string, { issue: string; maxNod
   },
 }
 
+/**
+ * Waits for finite CSS/Web animations (dialog and sheet open transitions) to finish so axe
+ * measures the final colors and geometry. Infinite animations (spinners) are ignored.
+ */
+async function settleAnimations(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((a) => a.effect?.getComputedTiming().iterations === Infinity || a.playState !== 'running'),
+  )
+}
+
 async function scan(page: Page, state: StateName): Promise<void> {
+  await settleAnimations(page)
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
   const baseline = BASELINE[state] ?? {}
   const found = new Set(results.violations.map((v) => v.id))
