@@ -290,6 +290,11 @@ NOT_A_GATE_NAMES = frozenset({
     "lock_group_for_board_placement",
     "lock_group_for_child_write",
     "lock_membership_for_removal_or_demotion",
+    # Rollup snapshot + ids-only parent ping around a column write (#2500): a
+    # read of two column facts and a broadcast, handed a board, deciding nothing
+    # about who is asking.
+    "column_rollup_state",
+    "announce_column_rollup_changed",
 })
 
 # Names an argument must mention for its call to be a possible authorization
