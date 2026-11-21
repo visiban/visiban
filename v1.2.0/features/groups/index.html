@@ -1442,6 +1442,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-group-page-and-group-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The group page and Group settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ancestor-breadcrumb-chain" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4620,16 +4631,28 @@
 </tr>
 </tbody>
 </table>
-<p>Only the group owner or a site administrator can delete a group; other group admins see a note naming the owner in <strong>Settings → Danger zone</strong> instead of the Delete button.</p>
-<p>The group owner's row in <strong>Settings → Members</strong> shows the role as plain text, with no role dropdown or Remove button; transfer ownership first to change the owner. If the server refuses a member removal or role change (for example the last remaining admin), the panel shows the server's reason instead of a generic error.</p>
+<p>Only the group owner or a site administrator can delete a group; other group admins see a note naming the owner in <strong>Group settings → Danger zone</strong> instead of the Delete button. The owner confirms by typing the group's name.</p>
+<p>The group owner's row in <strong>Group settings → Members</strong> shows the role as plain text, with no role dropdown or Remove button; transfer ownership first to change the owner. If the server refuses a member removal or role change (for example the last remaining admin), the panel shows the server's reason instead of a generic error.</p>
 <p>Membership is <strong>inherited</strong>: a member of "Acme Corp" is automatically a member of "Engineering" and all its descendants, with no need to add users to each subgroup. See <a href="../rbac/inheritance/">Group Inheritance</a>.</p>
 <h2 id="board-roles-vs-group-roles">Board roles vs group roles<a class="headerlink" href="#board-roles-vs-group-roles" title="Permanent link">&para;</a></h2>
 <p>All four roles (<code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code>) are valid at both the group and board level. A group role is inherited by every board in the group. A board admin can override a user's role on a specific board from the <strong>Members</strong> button in the board toolbar. See <a href="../rbac/roles/">Roles &amp; Permissions</a>.</p>
 <h2 id="group-description">Group description<a class="headerlink" href="#group-description" title="Permanent link">&para;</a></h2>
-<p>Each group has an optional <strong>description</strong>: a short free-text summary of its purpose. It appears on the group detail page. Click it to edit inline, then press <strong>Enter</strong> (or click outside) to save, or <strong>Escape</strong> to cancel.</p>
+<p>Each group has an optional <strong>description</strong>: a short free-text summary of its purpose. It appears on the group detail page, under the name. Group admins click it to edit inline, then press <strong>Enter</strong> (or click outside) to save, or <strong>Escape</strong> to cancel.</p>
 <p>The description is returned as <code>description</code> in <code>GET /api/v1/groups/{id}/</code> and is writable via <code>PUT /api/v1/groups/{id}/</code> (group admin required).</p>
+<h2 id="the-group-page-and-group-settings">The group page and Group settings<a class="headerlink" href="#the-group-page-and-group-settings" title="Permanent link">&para;</a></h2>
+<p><em>(1.3+, #2478)</em> The group page uses the same Overview layout as <a href="../navigation/#home">Home</a>. The header shows the breadcrumb <strong>Home / ancestors / the group</strong>, with the group's name as the page title, and <strong>Import</strong> and <strong>New board</strong> for anyone who can place boards in the group. Under it:</p>
+<ul>
+<li>the group's name (admins click it or the pencil to rename), its health status, a star, and the description (admins click it to edit);</li>
+<li>"N members · N boards · N subgroups" and the live connection status;</li>
+<li><strong>Invite</strong> and <strong>Group settings</strong> (group admins only; on a phone they are in the <strong>⋯</strong> menu);</li>
+<li><strong>Boards</strong>, with <strong>Show subgroup boards</strong>. Each row shows the name, description, card count and health status. The <strong>⋯</strong> menu holds <strong>Move to another group</strong> (group admins) and <strong>Delete</strong> (the board's owner or a user with all-content access). A board owner who is not a group admin sees the menu with <strong>Delete</strong> only;</li>
+<li><strong>Subgroups</strong>, as cards with board and member counts and the "Not reviewed in N days" cue, plus <strong>+ New subgroup</strong> for group admins;</li>
+<li><strong>Members</strong>, a side column (below the content on a phone) that everyone in the group sees, with role chips. <strong>Manage</strong> (group admins only) opens Group settings → Members.</li>
+</ul>
+<p>Group admins reach <strong>Group settings</strong> from the header, or at <code>/groups/{id}?tab=settings</code>. It lists six sections, with <strong>Find a setting</strong> above them: <strong>Members</strong>, <strong>Invite links</strong>, <strong>Health status review</strong>, <strong>Board defaults</strong>, <strong>Shared labels</strong> and <strong>Danger zone</strong>. A section has its own address, for example <code>?tab=settings&amp;section=danger-zone</code>. People who are not group admins who open a settings link see the group page instead.</p>
+<p>A group you can see only because you belong to one of its subgroups (a navigation-only group) shows its name and nothing else: no counts, health status or members.</p>
 <h2 id="ancestor-breadcrumb-chain">Ancestor breadcrumb chain<a class="headerlink" href="#ancestor-breadcrumb-chain" title="Permanent link">&para;</a></h2>
-<p>For a group with a parent, the detail page shows a breadcrumb chain above the group name: every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.</p>
+<p>For a group with a parent, the header's breadcrumb shows every ancestor from the root down to the immediate parent, each a clickable link. It orients you and lets you navigate up deep hierarchies.</p>
 <p>The full ancestor list is also in the API: <code>GET /api/v1/groups/{id}/</code> returns an <code>ancestors</code> array (see <a href="../../api/groups/">Groups API</a>).</p>
 <h2 id="boards-inside-groups">Boards inside groups<a class="headerlink" href="#boards-inside-groups" title="Permanent link">&para;</a></h2>
 <p>Boards in a group are visible to all group members. This includes <code>viewer</code> members, who get read access to every board in the group; see <a href="../rbac/roles/#group-membership-board-visibility">Group membership implies board access</a>. Group admins can create boards from the group detail page, or <strong>import</strong> a board from a previously exported JSON or CSV file directly into the group. Move a board between groups (or back to personal) with the move button that appears on hover.</p>
@@ -4733,18 +4756,18 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>The dialog lists every group you can see, but groups you can't place boards in are shown disabled, with <strong>Group admins only</strong> next to the name. Their subgroups stay listed, and a parent group opens automatically when a subgroup you can use sits under it. If the board's current group is one you can't place boards in, it is not disabled; it shows <strong>Current group</strong> so you can switch back to it. If you can't place boards in any group, the dialog says so. On a group page, <strong>+ New board</strong> and <strong>Import</strong> appear only when you can place boards in that group.</p>
+<p>The dialog lists every group you can see, but groups you can't place boards in are shown disabled, with <strong>Group admins only</strong> next to the name. Their subgroups stay listed, and a parent group opens automatically when a subgroup you can use sits under it. If the board's current group is one you can't place boards in, it is not disabled; it shows <strong>Current group</strong> so you can switch back to it. If you can't place boards in any group, the dialog says so. On a group page, <strong>New board</strong> and <strong>Import</strong> appear only when you can place boards in that group.</p>
 <p><strong>API:</strong> <code>POST /api/v1/boards/{id}/move-group/</code> with <code>{ "group_id": 5 }</code> or <code>{ "group_id": null }</code> for personal.</p>
 <h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Group admins define a shared label library in the <strong>Settings</strong> tab on the group detail page. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.</p>
+<p>Group admins define a shared label library in <strong>Group settings → Shared labels</strong>. New boards created in the group inherit these labels, so your team starts with a consistent tagging vocabulary.</p>
 <p>Each label's color is a preset swatch or a <a href="../board/#custom-colors">custom color</a>.</p>
 <p><strong>Watch out:</strong> inheritance is a one-time copy at board-creation time, not a live link. Renaming, recoloring, or deleting a group label only changes the group's shared library and future boards — boards that already inherited the label keep their own independent copy, unaffected by later edits or deletion.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
 <h2 id="group-board-defaults">Group board defaults<a class="headerlink" href="#group-board-defaults" title="Permanent link">&para;</a></h2>
-<p>Group admins configure defaults for new boards in the group, in the <strong>Settings</strong> tab on the group detail page. The default member role is deprecated and has no effect. Allowed priorities is also deprecated (#1429): it is copied onto new boards but not enforced.</p>
+<p>Group admins see the defaults for new boards in <strong>Group settings → Board defaults</strong>. The default member role is deprecated and has no effect. Allowed priorities is also deprecated (#1429): it is copied onto new boards but not enforced, and since 1.3 the page no longer shows it (the API field is unchanged).</p>
 <table>
 <thead>
 <tr>
@@ -4765,7 +4788,7 @@
 </table>
 <p><strong>API:</strong> <code>PATCH /api/v1/groups/{id}/board-defaults/</code></p>
 <h2 id="transferring-group-ownership">Transferring group ownership<a class="headerlink" href="#transferring-group-ownership" title="Permanent link">&para;</a></h2>
-<p>Only the <strong>current owner</strong> can transfer ownership, and only to an existing group <strong>admin</strong>. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.</p>
+<p>Only the <strong>current owner</strong> can transfer ownership, and only to an existing group <strong>admin</strong>. Open <strong>Group settings → Danger zone → Transfer ownership</strong>; the form opens in place below the button. Confirm by typing the group name exactly as shown. The previous owner becomes a regular admin and is not removed from the group.</p>
 <p>If the owner has left or been deactivated, a superuser can transfer the group from the Django admin; see <a href="../../administration/django-admin/#transferring-a-groups-ownership">Transferring a group's ownership</a>.</p>
 <p><strong>API:</strong> <code>POST /api/v1/groups/{id}/transfer-ownership/</code> with <code>{ "new_owner_id": 42, "confirmation": "Group Name" }</code></p>
 <h2 id="starring-groups">Starring groups<a class="headerlink" href="#starring-groups" title="Permanent link">&para;</a></h2>

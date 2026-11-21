@@ -4445,7 +4445,7 @@
 <p>Reach for maintenance mode when the thing you want to prevent is <strong>concurrent writes</strong>, not the upgrade itself. Examples: running a data-integrity script, or a migration that is technically zero-downtime-safe but you'd rather nobody move a card while it runs. It is the softer alternative to taking the instance fully offline.</p>
 <p><strong>Yes, but:</strong> if you're following the <a href="../upgrade/#standard-upgrade-steps">Standard upgrade steps</a> or the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>, most 1.x releases don't need a maintenance window at all, because Visiban's migrations are additive-only by rule. Turn maintenance mode on only when you specifically want to freeze writes, and off again once you're done.</p>
 <h2 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h2>
-<p>From <strong>Admin → Settings → Maintenance</strong>:</p>
+<p>From <strong>Site admin → General → Maintenance</strong>:</p>
 <table>
 <thead>
 <tr>
@@ -4524,7 +4524,7 @@ treat an empty log as "no audited path made this change", not as proof the setti
 never touched.</p>
 </div>
 <p>Setting a value to the one it already holds is not recorded. The log holds real transitions only, so the gap between an <code>enabled</code> entry and the next <code>disabled</code> entry is the actual maintenance window.</p>
-<p>The log covers the instance-wide settings on the Admin → Settings tab. It does <strong>not</strong> yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.</p>
+<p>The log covers the instance-wide settings on the Site admin → General section. It does <strong>not</strong> yet cover user management: granting site admin, deactivating an account, or issuing an invite link leaves no entry.</p>
 <div class="admonition warning">
 <p class="admonition-title">The audit write is part of the change</p>
 <p>A setting change and its log entry commit together: if the entry cannot be written, the
@@ -4555,7 +4555,7 @@ cleared from any container with database access:</p>
 <p>The <a href="../django-admin/">Django admin</a> is a second break-glass route: <code>Site settings</code> has exactly one row, and edits there use the same save path, so cache invalidation still fires.</p>
 <h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../admin-panel/#settings-tab">Admin Panel</a> — the Settings tab this control lives on, and the
+<li><a href="../admin-panel/#maintenance-mode">Admin Panel</a> — the General section this control lives on, and the
   other instance-wide toggles alongside it</li>
 <li><a href="../../api/admin/#maintenance-mode">Maintenance mode</a> — the API reference: request/response
   shapes, the <code>503</code> error body, and MCP behavior</li>

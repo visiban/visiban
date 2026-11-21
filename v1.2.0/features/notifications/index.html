@@ -4779,7 +4779,7 @@ also be delivered by email (#1295).</p>
 <li><strong>Never for your own comment.</strong> Commenting on a card you created or are assigned to does not notify you.</li>
 <li><strong>One notification per comment.</strong> If the same comment @mentions you, you get only the @mention notification, not this one as well.</li>
 <li><strong>Only while you can see the board.</strong> If you created a card but have since been removed from the board, or your account is deactivated, you are not notified.</li>
-<li><strong>Email is optional.</strong> Turn on <strong>Also send by email</strong> under <em>Comment on a watched card</em> to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See <a href="#email-notifications">Email notifications</a>.</li>
+<li><strong>Email is optional.</strong> Turn on the <strong>Email</strong> switch in the <em>Comment on a watched card</em> row to get a copy by email as well. It is off by default and, like every email preference, inert while the in-app toggle is off. See <a href="#email-notifications">Email notifications</a>.</li>
 </ul>
 <h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
 <p>Cards that haven't moved between columns in a configurable number of days are <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and notifies assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
@@ -4822,30 +4822,30 @@ also be delivered by email (#1295).</p>
 <tbody>
 <tr>
 <td>Card assigned to me</td>
-<td><strong>Also send by email</strong> under <em>Card assigned to me</em></td>
+<td><strong>Email</strong> switch in the <em>Card assigned to me</em> row</td>
 </tr>
 <tr>
 <td>Someone @mentions me</td>
-<td><strong>Also send by email</strong> under <em>Someone @mentions me</em></td>
+<td><strong>Email</strong> switch in the <em>Someone @mentions me</em> row</td>
 </tr>
 <tr>
 <td>Due date approaching</td>
-<td><strong>Also send by email</strong> under <em>Due date approaching</em></td>
+<td><strong>Email</strong> switch in the <em>Due date approaching</em> row</td>
 </tr>
 <tr>
 <td>Card I'm watching is moved</td>
-<td><strong>Also send by email</strong> under <em>Card I'm watching is moved</em></td>
+<td><strong>Email</strong> switch in the <em>Card I'm watching is moved</em> row</td>
 </tr>
 <tr>
 <td>Comment on a watched card</td>
-<td><strong>Also send by email</strong> under <em>Comment on a watched card</em></td>
+<td><strong>Email</strong> switch in the <em>Comment on a watched card</em> row</td>
 </tr>
 </tbody>
 </table>
 <h3 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h3>
 <p>Two things have to be true before any email is sent:</p>
 <ol>
-<li><strong>A superuser has configured outgoing email</strong> — either the <code>EMAIL_*</code> environment variables or <strong>Admin → Settings → Email</strong>. See <a href="../../administration/configuration/#email-smtp">Configuration</a>. Nothing is sent, and nothing is queued, if email is unconfigured.</li>
+<li><strong>A superuser has configured outgoing email</strong> — either the <code>EMAIL_*</code> environment variables or <strong>Site admin → Email</strong>. See <a href="../../administration/configuration/#email-smtp">Configuration</a>. Nothing is sent, and nothing is queued, if email is unconfigured.</li>
 <li><strong>You turned the event's email toggle on</strong> in <strong>Settings → Notifications</strong>.</li>
 </ol>
 <p>One notice ignores the toggles <em>(1.3+)</em>: when a <a href="../webhooks/">webhook</a> on a board you administer is turned off automatically, you get it in the bell and by email, as long as your address is verified. It names the board, the webhook's number and why it stopped.</p>
@@ -4892,7 +4892,7 @@ not on, but <code>EMAIL_VERIFICATION=mandatory</code> closes both, and
 <li>the failure is logged with a sanitized error code. Logs never contain a recipient address.</li>
 </ul>
 <p>The send runs on a thread rather than inline because the timeout is applied per socket operation, not as a wall-clock total. A tarpitting relay can spend it again at every step of the conversation, which inline would mean a card assignment or drag-and-drop appearing to hang. The trade-off is that delivery is explicitly <strong>best-effort</strong>: restarting or recycling a worker mid-send drops that batch. Set <code>NOTIFICATION_EMAIL_ASYNC=false</code> to send inline instead. Scheduled commands such as <code>notify_due_soon</code> do not need that: they wait up to 30 seconds for mail still being sent before they exit.</p>
-<p>There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — <strong>Admin → Settings → Email</strong> has a <strong>Send test email</strong> button.</p>
+<p>There is no retry and no queue: a notification email is only useful promptly, and a durable queue is not a dependency the OSS core takes on. If mail is failing, fix the SMTP configuration — <strong>Site admin → Email</strong> has a <strong>Send test email</strong> button.</p>
 <h3 id="extending-delivery">Extending delivery<a class="headerlink" href="#extending-delivery" title="Permanent link">&para;</a></h3>
 <p>Notification creation fires a <code>post_notification_created</code> signal, which is a stable extension point: additional delivery backends attach to it without modifying any file in this repository. See <a href="../../architecture/open-core-boundary/#oss-extension-points-implementation-status">Open core boundary</a>.</p>
 <hr />

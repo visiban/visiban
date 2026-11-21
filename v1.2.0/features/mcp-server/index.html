@@ -4494,7 +4494,7 @@
 </ul>
 <h2 id="generating-a-bearer-token">Generating a Bearer token<a class="headerlink" href="#generating-a-bearer-token" title="Permanent link">&para;</a></h2>
 <p>The MCP server reuses Visiban's existing <a href="../personal-access-tokens/">Personal Access Token</a> system; there's no separate "API Tokens" screen in Django admin.</p>
-<p>In <strong>Settings &gt; Access Tokens</strong>, tick <strong>mcp:read</strong> (plus <code>mcp:write</code> only if you want the agent to create, move, update, or archive cards) before generating the token. The default <code>read</code> and <code>write</code> scopes alone are refused at <code>/mcp</code>.</p>
+<p>In <strong>Settings &gt; Access tokens</strong>, tick <strong>mcp:read</strong> (plus <code>mcp:write</code> only if you want the agent to create, move, update, or archive cards) before generating the token. The default <code>read</code> and <code>write</code> scopes alone are refused at <code>/mcp</code>.</p>
 <p>To do the same through the API:</p>
 <ol>
 <li>Log in to get a session token: <code>POST /api/v1/auth/login/</code> with your username and password.</li>

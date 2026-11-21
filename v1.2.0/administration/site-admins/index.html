@@ -4460,10 +4460,10 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Grant admin panel access only — board/group access unchanged</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Then immediately revoke content access if the user should not have it:</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># (Site Admin → Users → Revoke all-content in the admin panel)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># (Site admin → Users → Revoke all-content in the admin panel)</span>
 </code></pre></div>
 <p>Or use <strong>Make admin</strong> in the admin panel, which sets <code>is_site_admin</code> alone.</p>
-<p>To let a user (e.g. a support engineer) see all boards <strong>without</strong> admin panel access, a superuser enables <code>can_access_all_content</code> in the admin panel (<strong>Site Admin → Users → Grant all-content</strong>) and leaves <code>is_site_admin</code> off.</p>
+<p>To let a user (e.g. a support engineer) see all boards <strong>without</strong> admin panel access, a superuser enables <code>can_access_all_content</code> in the admin panel (<strong>Site admin → Users → Grant all-content</strong>) and leaves <code>is_site_admin</code> off.</p>
 <blockquote>
 <p><strong>Changed in 1.3</strong> (#1830)</p>
 </blockquote>
@@ -4481,17 +4481,17 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Revoke both flags</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;<span class="w"> </span>--revoke
 </code></pre></div>
-<p>To manage the flags independently for accounts that are not superusers, use <strong>Site Admin → Users</strong> in the admin panel. Granting all-content access there takes a superuser.</p>
+<p>To manage the flags independently for accounts that are not superusers, use <strong>Site admin → Users</strong> in the admin panel. Granting all-content access there takes a superuser.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave <code>can_access_all_content</code> off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). <strong>Site Admin → Users</strong> therefore does not show <strong>Demote admin</strong> or <strong>Revoke all-content</strong> on a superuser's row.
+<p>Superuser status implies both flags. The admin API refuses to clear either flag on an account that is still a superuser, and a save that would leave <code>can_access_all_content</code> off on a superuser sets both flags again. Remove superuser status first (which also clears both flags). <strong>Site admin → Users</strong> therefore does not show <strong>Demote admin</strong> or <strong>Revoke all-content</strong> on a superuser's row.
 Existing superusers that have <code>can_access_all_content</code> switched off regain it the next time their account is saved, for example at sign-in.</p>
 </div>
 <h2 id="first-site-admin">First site admin<a class="headerlink" href="#first-site-admin" title="Permanent link">&para;</a></h2>
 <p>On first boot, the <code>ensure_site_admin</code> management command creates an admin account automatically and prints a one-time password. See <a href="../../getting-started/first-boot/">First Boot</a>.</p>
 <h2 id="granting-site-admin">Granting site admin<a class="headerlink" href="#granting-site-admin" title="Permanent link">&para;</a></h2>
 <p><strong>Admin panel (recommended)</strong></p>
-<p>Go to <strong>Site Admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Make admin</strong> in their row.</p>
+<p>Go to <strong>Site admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Make admin</strong> in their row.</p>
 <p><strong>Management command</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
@@ -4502,7 +4502,7 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <p>The user form at <code>/admin/accounts/user/</code> (the Django admin — see <a href="../django-admin/">Django Admin</a> for why this differs from the <code>/admin</code> site-admin panel above) has no site admin checkbox. A superuser can turn on <strong>Superuser status</strong> there, which also gives the account site admin and all-content access.</p>
 <h2 id="revoking-site-admin">Revoking site admin<a class="headerlink" href="#revoking-site-admin" title="Permanent link">&para;</a></h2>
 <p><strong>Admin panel (recommended)</strong></p>
-<p>Go to <strong>Site Admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Demote admin</strong> in their row.</p>
+<p>Go to <strong>Site admin → Users</strong> (<code>/admin</code>), find the user, and click <strong>Demote admin</strong> in their row.</p>
 <p><strong>Management command</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>set_site_admin<span class="w"> </span>&lt;username&gt;<span class="w"> </span>--revoke
 </code></pre></div>
@@ -4515,7 +4515,7 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <p>A site admin cannot demote themselves, which prevents locking yourself out. To revoke your own status, ask another site admin. The last active site admin cannot be demoted through the admin API or the site-admin panel.</p>
 </div>
 <h2 id="restricting-registration">Restricting registration<a class="headerlink" href="#restricting-registration" title="Permanent link">&para;</a></h2>
-<p>By default, anyone can create an account. Change this in the admin panel's <strong>Settings</strong> tab (<code>/admin</code>):</p>
+<p>By default, anyone can create an account. Change this under <strong>Site admin → General</strong> (<code>/admin</code>):</p>
 <table>
 <thead>
 <tr>
@@ -4542,18 +4542,18 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <p><strong>What changes when invite-only or closed is enabled:</strong></p>
 <ul>
 <li><strong>Invite-only:</strong> <code>POST /api/v1/auth/registration/</code> refuses a sign-up without a valid invite token with <code>400 Bad Request</code>, and OAuth sign-up (Google, GitHub, GitLab, OIDC) is refused the same way. With a valid invite — a site invite link, or <em>(1.2+)</em> an emailed group or board invite sent by a site admin — both work.</li>
-<li><strong>Closed:</strong> <code>POST /api/v1/auth/registration/</code> returns <code>403 Forbidden</code> for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is <strong>Admin → Users → Add user</strong>.</li>
+<li><strong>Closed:</strong> <code>POST /api/v1/auth/registration/</code> returns <code>403 Forbidden</code> for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is <strong>Site admin → Users → Add user</strong>.</li>
 <li>Existing users, including OAuth-linked accounts, can still log in either way.</li>
 <li>The sign-in card says <em>"Registration is invite-only."</em> (invite-only) or <em>"Registration is closed. Ask an admin for an account."</em> (closed). In register mode, it also says <em>"An invite link is required to create an account."</em></li>
 </ul>
 <p><strong>Inviting users when invite-only is on:</strong></p>
-<p>Go to <strong>Site Admin → Invite Links</strong> to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.</p>
+<p>Go to <strong>Site admin → Invite links</strong> to generate a new invite link. Send the link to the prospective user, who follows it to complete self-registration. Each link can be configured with an expiry and optional use limit. Up to 50 shareable links can be active at once.</p>
 <p><em>(1.2+)</em> A site invite link creates accounts only while the admin who created it is still an active site admin. These stop their links from working:</p>
 <ul>
 <li>deactivating or deleting that admin (by any means, including the Django admin's <strong>Active</strong> checkbox)</li>
 <li>removing their site admin status (<strong>Demote admin</strong> in the admin panel, <code>set_site_admin --revoke</code>, or removing their superuser status in the Django admin)</li>
 </ul>
-<p><strong>Site Admin → Invite Links</strong> then lists those links as <strong>Revoked</strong> and no longer counts them toward the 50-link limit. <strong>Demote admin</strong>, <code>set_site_admin --revoke</code>, removing superuser status and deactivation from the admin panel also mark the pending links revoked.</p>
+<p><strong>Site admin → Invite links</strong> then lists those links as <strong>Revoked</strong> and no longer counts them toward the 50-link limit. <strong>Demote admin</strong>, <code>set_site_admin --revoke</code>, removing superuser status and deactivation from the admin panel also mark the pending links revoked.</p>
 <p><strong>Yes, but:</strong> a link shown as <strong>Revoked</strong> only because its creator lost standing is not permanently revoked. If the creator's standing is restored, it becomes usable again. To retire such a link for good, revoke it explicitly while its creator is in good standing (the <strong>Revoke</strong> action is shown only for pending links), or at any time through <code>DELETE /api/v1/admin/invite-links/{id}/</code> (see the <a href="../../api/admin/">Admin API</a>).</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
@@ -4572,7 +4572,7 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p><strong>Shareable board invite links never create accounts on an invite-only instance</strong> — not even one a site admin created. They let people who already have an account join the board; on an <strong>open</strong> instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under <strong>Site Admin → Board Invites</strong> (see <a href="../admin-panel/#board-invites-tab">Admin Panel</a>).</p>
+<p><strong>Shareable board invite links never create accounts on an invite-only instance</strong> — not even one a site admin created. They let people who already have an account join the board; on an <strong>open</strong> instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under <strong>Site admin → Board invites</strong> (see <a href="../admin-panel/#board-invites-section">Admin Panel</a>).</p>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
@@ -4595,18 +4595,18 @@ Existing superusers that have <code>can_access_all_content</code> switched off r
 <li><strong>Shareable links are unchanged.</strong> They are not tied to anyone and work for whoever holds them, within their role, expiry and single-use settings. Use a shareable link when you want "link, not email" behavior.</li>
 <li><strong>Invites emailed before the upgrade</strong> carry no fingerprint and keep working for whoever holds them until they are used, expire or are revoked. Revoke and resend any you want tied to an address.</li>
 <li><strong>Changing <code>DJANGO_SECRET_KEY</code></strong> makes pending emailed site, group and board invites unusable, because their fingerprints no longer match. Resend them after a key change. Visiban has no environment variable for keeping an old key around. If you set Django's <code>SECRET_KEY_FALLBACKS</code> in your own settings override, invites made under a key listed there keep matching.</li>
-<li><em>(New in 1.2)</em> <strong>Emailed site invites</strong> (<strong>Invite by email</strong> under <strong>Site Admin → Invite Links</strong>) are bound the same way (#1703): the sign-up address, or the address the OAuth provider reports, must be the invited one, and a mismatch leaves the invite unused. Shareable site invite links are not tied to an address, and neither are site invites emailed before the upgrade.</li>
+<li><em>(New in 1.2)</em> <strong>Emailed site invites</strong> (<strong>Invite by email</strong> under <strong>Site admin → Users → Invite people</strong>) are bound the same way (#1703): the sign-up address, or the address the OAuth provider reports, must be the invited one, and a mismatch leaves the invite unused. Shareable site invite links are not tied to an address, and neither are site invites emailed before the upgrade.</li>
 </ul>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Site admins can also have Visiban <strong>email an invite</strong> straight to an address. Under <strong>Site Admin → Invite Links</strong>, enter the address in <strong>Invite by email</strong> and select <strong>Send invite</strong> (also available as <code>POST /api/v1/admin/invite-links/send/</code>; see the <a href="../../api/admin/">Admin API</a>).</p>
+<p>Site admins can also have Visiban <strong>email an invite</strong> straight to an address. Under <strong>Site admin → Users</strong>, select <strong>Invite people</strong>, enter the address in <strong>Invite by email</strong> and select <strong>Send invite</strong> (also available as <code>POST /api/v1/admin/invite-links/send/</code>; see the <a href="../../api/admin/">Admin API</a>).</p>
 <ul>
 <li><strong>What it creates:</strong> a single-use link that expires in 7 days (the API also accepts 1 or 30), sent from the instance's sender address.</li>
 <li><strong>Limits:</strong> emailed links have their own limit of 200 pending, and don't count against the 50 shareable links.</li>
 <li><strong>What's stored:</strong> the address is not stored. The <code>202</code> response includes <code>already_registered</code>, saying whether it already belongs to an account (the email is sent either way), and never the raw token.</li>
 <li><strong>On failure:</strong> if the mail server rejects the message, the endpoint returns <code>502</code> with a sanitized error <code>code</code> and revokes the link automatically.</li>
-<li><strong>Availability:</strong> <code>invite_email_available</code> on <code>GET /api/v1/auth/site-config/</code> tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with <code>INVITE_EMAIL_ENABLED=false</code> (see <a href="../configuration/">Configuration</a>). If emailing isn't available (email isn't set up, or <code>INVITE_EMAIL_ENABLED</code> is off), the section points you to <strong>Settings → Email</strong> instead; on a demo site it just says email invites are disabled.</li>
+<li><strong>Availability:</strong> <code>invite_email_available</code> on <code>GET /api/v1/auth/site-config/</code> tells clients whether sending is currently possible. Emailing requires working outbound email and can be switched off with <code>INVITE_EMAIL_ENABLED=false</code> (see <a href="../configuration/">Configuration</a>). If emailing isn't available (email isn't set up, or <code>INVITE_EMAIL_ENABLED</code> is off), the section points you to <strong>Site admin → Email</strong> instead; on a demo site it just says email invites are disabled.</li>
 <li><strong>Binding:</strong> the invite is bound to the address you entered. Only a sign-up with that address (capitalization and surrounding spaces ignored) can use it.</li>
 </ul>
 <p><strong>Yes, but:</strong> following the link does not verify the recipient's address. Registration still follows the normal email-verification setting.</p>

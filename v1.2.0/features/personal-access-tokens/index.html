@@ -4505,7 +4505,7 @@
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
 </blockquote>
-<p>Open <strong>Settings → Access Tokens</strong>, fill in the <strong>New token</strong> form, and click <strong>Generate token</strong>. Then send it as <code>Authorization: Token vbn_...</code> on API requests.</p>
+<p>Open <strong>Settings → Account → Access tokens</strong>, fill in the <strong>New token</strong> form, and click <strong>Generate token</strong>. Then send it as <code>Authorization: Token vbn_...</code> on API requests.</p>
 <p><strong>Why it matters:</strong> Each token acts on your behalf, limited to your own access rights and narrowed by its <a href="#scopes">scopes</a>. Scripts, CI pipelines, and integrations never need your password or a browser session cookie.</p>
 <p><strong>When to use a PAT:</strong></p>
 <ul>
@@ -4520,7 +4520,7 @@
 <h2 id="create-a-token">Create a token<a class="headerlink" href="#create-a-token" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open your avatar menu (top right) and select <strong>Settings</strong>.</li>
-<li>Go to <strong>Access Tokens</strong> in the left sidebar.</li>
+<li>Go to <strong>Access tokens</strong> under Account in the left navigation.</li>
 <li>Use the <strong>New token</strong> form above the token list.</li>
 <li>Enter a descriptive name, for example <code>deploy-script</code> or <code>ci-pipeline</code>.</li>
 <li>Optionally set an expiry date (see <a href="#expiry">Expiry</a> below).</li>
@@ -4535,7 +4535,7 @@
 <p>Tokens are prefixed with <code>vbn_</code> so they're easy to spot in logs and configuration files. The full format is <code>vbn_</code> followed by 40 hex characters (44 characters total), generated with <code>secrets.token_hex</code>. Validate it with the regex <code>^vbn_[0-9a-f]{40}$</code>.</p>
 <hr />
 <h2 id="identifying-tokens-after-creation">Identifying tokens after creation<a class="headerlink" href="#identifying-tokens-after-creation" title="Permanent link">&para;</a></h2>
-<p>Since the full value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> (the first 8 characters, for example <code>vbn_a3f1...</code>). Together with the token's name and its <strong>last used</strong> timestamp, that usually tells tokens apart.</p>
+<p>Since the full value is shown only once, the Access tokens list identifies each token by its <strong>prefix</strong> (the first 8 characters, for example <code>vbn_a3f1...</code>). Together with the token's name and its <strong>last used</strong> timestamp, that usually tells tokens apart.</p>
 <p><strong>Last used</strong> shows when the token last authenticated a request; tokens never used show "Never". To avoid a database write on every request, the timestamp is refreshed at most about once a minute, so it is accurate to roughly 60 seconds.</p>
 <hr />
 <h2 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h2>
@@ -4583,7 +4583,7 @@
 <p>A token created without specific scopes gets <code>read</code> and <code>write</code>: enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
 <h3 id="tokens-created-before-12">Tokens created before 1.2<a class="headerlink" href="#tokens-created-before-12" title="Permanent link">&para;</a></h3>
 <p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you're a site administrator, so upgrading doesn't break a running integration.</p>
-<p>The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with <code>mcp:read</code> (tick it in Settings &gt; Access Tokens, or use <code>POST /api/v1/auth/tokens/</code> with <code>"scopes": ["mcp:read"]</code>; see <a href="../mcp-server/#generating-a-bearer-token">MCP Server</a>).</p>
+<p>The MCP server refuses them: an agent credential has to be issued deliberately, so a token created before MCP scopes existed can't be used as one. To connect an MCP client, create a new token with <code>mcp:read</code> (tick it in Settings &gt; Access tokens, or use <code>POST /api/v1/auth/tokens/</code> with <code>"scopes": ["mcp:read"]</code>; see <a href="../mcp-server/#generating-a-bearer-token">MCP Server</a>).</p>
 <p>Replace pre-1.2 tokens with scoped ones as you rotate them.</p>
 <h3 id="what-a-scope-cannot-do">What a scope cannot do<a class="headerlink" href="#what-a-scope-cannot-do" title="Permanent link">&para;</a></h3>
 <p>Scopes are a ceiling, never a floor: they narrow a token's authority and never widen it. Every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
@@ -4594,7 +4594,7 @@
 <li><strong>Leave blank</strong> — the token never expires, and stays valid until revoked manually or your password changes.</li>
 <li><strong>Set a date</strong> — the maximum expiry is <strong>one year from today</strong>. Past that date the token is rejected with <code>401 Unauthorized</code>.</li>
 </ul>
-<p>Expired tokens stay visible in the Access Tokens list and can be revoked there.</p>
+<p>Expired tokens stay visible in the Access tokens list and can be revoked there.</p>
 <hr />
 <h2 id="use-a-token-in-api-requests">Use a token in API requests<a class="headerlink" href="#use-a-token-in-api-requests" title="Permanent link">&para;</a></h2>
 <p>Pass the token in the <code>Authorization</code> header using the <code>Token</code> scheme:</p>
@@ -4623,7 +4623,7 @@
 <hr />
 <h2 id="revoke-a-token">Revoke a token<a class="headerlink" href="#revoke-a-token" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Go to <strong>Settings → Access Tokens</strong>.</li>
+<li>Go to <strong>Settings → Account → Access tokens</strong>.</li>
 <li>Find the token you want to remove.</li>
 <li>Click <strong>Revoke</strong> next to it.</li>
 </ol>

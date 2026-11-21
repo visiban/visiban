@@ -4555,7 +4555,7 @@ never reuse it across environments.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Rotating this key invalidates a stored SMTP password</p>
-<p>If you configured outbound email through <strong>Admin → Settings → Email</strong> (rather than
+<p>If you configured outbound email through <strong>Site admin → Email</strong> (rather than
 the <code>EMAIL_*</code> environment variables), the SMTP password is encrypted at rest using a
 key derived from <code>SECRET_KEY</code>. Rotating <code>SECRET_KEY</code> makes that stored password
 permanently unrecoverable, and outbound email will stop working.</p>
@@ -4608,7 +4608,7 @@ secret. Set <code>VISIBAN_SECRET_ENCRYPTION_KEY</code> before webhooks are in us
 </li>
 <li>
 <p><strong>If you configured SMTP in the admin UI, re-enter the password.</strong> Open
-   <strong>Admin → Settings → Email</strong>. If the stored password can no longer be decrypted the
+   <strong>Site admin → Email</strong>. If the stored password can no longer be decrypted the
    page says so explicitly and outbound mail is blocked until you re-enter it. Type the
    password again and save, then use <strong>Send test email</strong> to confirm delivery.</p>
 <p>Instances configured via the <code>EMAIL_*</code> environment variables are unaffected — skip
@@ -4623,7 +4623,7 @@ this step.</p>
 <blockquote>
 <p><strong>Added in 1.2</strong> (#306)</p>
 </blockquote>
-<p>Optional. When set, this key (rather than one derived from <code>SECRET_KEY</code>) encrypts secrets Visiban stores at rest: the SMTP password set in <strong>Admin → Settings → Email</strong> and, from 1.3, the URL and signing secret of every <a href="../../features/webhooks/">outbound webhook</a>. It lets you rotate <code>SECRET_KEY</code> on its own schedule without invalidating stored secrets.</p>
+<p>Optional. When set, this key (rather than one derived from <code>SECRET_KEY</code>) encrypts secrets Visiban stores at rest: the SMTP password set in <strong>Site admin → Email</strong> and, from 1.3, the URL and signing secret of every <a href="../../features/webhooks/">outbound webhook</a>. It lets you rotate <code>SECRET_KEY</code> on its own schedule without invalidating stored secrets.</p>
 <h3 id="steps_1">Steps<a class="headerlink" href="#steps_1" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
@@ -4636,7 +4636,7 @@ this step.</p>
    backend refuses to start if the value is not 32 bytes of URL-safe base64.</p>
 </li>
 <li>
-<p>Re-enter any stored SMTP password in <strong>Admin → Settings → Email</strong> — existing secrets
+<p>Re-enter any stored SMTP password in <strong>Site admin → Email</strong> — existing secrets
    were encrypted under the old key and are not migrated automatically. Webhooks must
    be recreated by their boards' admins (they turn off on their own, see above).</p>
 </li>

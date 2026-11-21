@@ -4476,7 +4476,7 @@
 <p>The response's <code>token</code> field is the <code>vbn_...</code> value. Copy it now; it is shown once.</p>
 </li>
 </ol>
-<p><strong>Yes, but:</strong> this step uses the API so the walkthrough is scriptable. In the web app you would tick <strong>mcp:read</strong> under Settings &gt; Access Tokens instead (see the <a href="../../api/mcp/">API Reference</a>).</p>
+<p><strong>Yes, but:</strong> this step uses the API so the walkthrough is scriptable. In the web app you would tick <strong>mcp:read</strong> under Settings &gt; Access tokens instead (see the <a href="../../api/mcp/">API Reference</a>).</p>
 <p>A token with only <code>mcp:read</code> can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>, <code>block_card</code>, <code>unblock_card</code>) fails with a structured error. Scopes are not hierarchical; see <a href="../personal-access-tokens/#scopes">Personal Access Tokens</a>.</p>
 <h2 id="4-connect-your-agent">4. Connect your agent<a class="headerlink" href="#4-connect-your-agent" title="Permanent link">&para;</a></h2>
 <p><strong>Claude Code:</strong></p>
@@ -4532,7 +4532,7 @@
 </tr>
 </tbody>
 </table>
-<p>When you are done, delete the token from <strong>Settings</strong>, <strong>Access Tokens</strong> and run <code>docker compose down -v</code> to discard the local data.</p>
+<p>When you are done, delete the token from <strong>Settings</strong>, <strong>Access tokens</strong> and run <code>docker compose down -v</code> to discard the local data.</p>
 
 
 

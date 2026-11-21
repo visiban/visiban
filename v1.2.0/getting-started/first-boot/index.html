@@ -4589,7 +4589,7 @@
 <p><a id="subsequent-boots"></a></p>
 <p><strong>On later boots:</strong> <code>ensure_site_admin</code> still runs every time. Once a site admin exists the bootstrap does nothing, and credentials are never printed again. The command also re-syncs the Sites framework's domain from <code>SITE_DOMAIN</code> on every run, so a changed <code>SITE_DOMAIN</code> takes effect as soon as you restart the backend, with no extra step.</p>
 <h2 id="inviting-your-team">Inviting your team<a class="headerlink" href="#inviting-your-team" title="Permanent link">&para;</a></h2>
-<p>Choose how people join <strong>before</strong> you share the URL. Go to <strong>Admin → Settings</strong> and set the registration mode:</p>
+<p>Choose how people join <strong>before</strong> you share the URL. Go to <strong>Site admin → General</strong> and set the registration mode:</p>
 <table>
 <thead>
 <tr>
@@ -4608,7 +4608,7 @@
 </tr>
 <tr>
 <td><strong>Closed</strong></td>
-<td>Self-registration is off. Site admins create accounts by hand under <strong>Admin → Users → Add user</strong>.</td>
+<td>Self-registration is off. Site admins create accounts by hand under <strong>Site admin → Users → Add user</strong>.</td>
 </tr>
 </tbody>
 </table>
@@ -4618,7 +4618,7 @@
 <p><strong>The big picture:</strong> Invite links work for both password and OAuth sign-up. If a user follows an invite link and signs up with Google, GitHub, GitLab, or OIDC, the token rides through the OAuth redirect and is consumed when sign-up succeeds. Nobody has to enter a token by hand.</p>
 <p>To create a link:</p>
 <ol>
-<li>Open the <strong>Admin</strong> panel (<code>/admin</code>) and go to the <strong>Invite Links</strong> tab.</li>
+<li>Open the <strong>Admin</strong> panel (<code>/admin</code>) and go to <strong>Invite links</strong> under <strong>People</strong>.</li>
 <li>Click <strong>Generate invite link</strong>.</li>
 <li>Choose an expiry: <strong>1 day</strong>, <strong>7 days</strong>, <strong>30 days</strong>, or <strong>Never expires</strong>.</li>
 <li>Optionally turn on <strong>Single-use</strong>, which consumes the link on the first registration so it can't be reused.</li>
@@ -4657,7 +4657,7 @@
 </div>
 <p><a id="creating-accounts-manually-closed-mode"></a></p>
 <h3 id="create-accounts-by-hand-closed-mode">Create accounts by hand (Closed mode)<a class="headerlink" href="#create-accounts-by-hand-closed-mode" title="Permanent link">&para;</a></h3>
-<p>Use <strong>Admin → Users → Add user</strong>. Set a temporary password and turn on <strong>Force password reset</strong> so the user picks their own password on first login.</p>
+<p>Use <strong>Site admin → Users → Add user</strong>. Set a temporary password and turn on <strong>Force password reset</strong> so the user picks their own password on first login.</p>
 <div class="admonition warning">
 <p class="admonition-title">Copy the temporary password before you close the dialog</p>
 <p>The Create User dialog doesn't show it again. Send it to the new user over a secure channel.</p>
