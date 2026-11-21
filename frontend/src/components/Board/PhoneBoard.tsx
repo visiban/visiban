@@ -574,60 +574,60 @@ export default function PhoneBoard({
                     )}
                   </div>
                 )}
-              {hasActions && (
-                // #2498: the actions are the band's last line, inside the tinted box behind a divider, so a lane's
-                // health, Add card and Lane actions read as that lane's. Not in the collapse button (line one is the only target).
-                <div data-testid="phone-lane-footer" className="flex flex-col gap-2 border-t border-line-subtle px-3 pb-2.5 pt-2">
-                <div className="flex flex-wrap gap-2" data-testid="phone-lane-actions">
-                  <PhoneLaneHealth lane={lane} boardId={boardId} isAdmin={isAdmin} autoEnabled={healthAutoEnabled} onSwimlaneUpdated={onSwimlaneUpdated} />
-                  {canAdd && (
-                    <button type="button" className={ACTION_BTN} onClick={() => { setAddingLane(lane.id); setDraft(""); setAddError(null); if (collapsed) onToggleSwimlane(lane.id); }}>
-                      <span aria-hidden="true" className="mr-1">+</span>Add card<span className="sr-only"> to {column.name} in {lane.name}</span>
-                    </button>
-                  )}
-                  {hasLaneMenu && (
-                    <button
-                      type="button"
-                      data-testid="phone-lane-actions-toggle"
-                      className={ACTION_BTN}
-                      aria-label={`Lane actions for ${lane.name}`}
-                      aria-expanded={laneActionsOpen}
-                      aria-controls={laneActionsOpen ? `${uid}-lane-actions-${lane.id}` : undefined}
-                      onClick={() => toggleLaneActions(lane.id)}
-                    >
-                      Lane actions
-                    </button>
-                  )}
-                </div>
-                {hasLaneMenu && laneActionsOpen && (
-                  <div id={`${uid}-lane-actions-${lane.id}`} className="flex flex-wrap gap-2" data-testid="phone-lane-actions-menu">
-                    {isAdmin && (
-                      <button type="button" className={ACTION_BTN} aria-label={`Edit swimlane ${lane.name}`} onClick={() => setEditingLane(lane.id)}>Edit</button>
-                    )}
-                    {isAdmin && onEditFieldOrder && (
-                      <button type="button" className={ACTION_BTN} aria-label={`Field order for ${lane.name}`} data-testid="phone-lane-field-order" onClick={onEditFieldOrder}>Field order</button>
-                    )}
-                    {showFocus && (
-                      <button
-                        type="button"
-                        className={ACTION_BTN}
-                        aria-pressed={focusedSwimlaneId === lane.id}
-                        aria-label={focusedSwimlaneId === lane.id ? "Exit focus" : `Focus on ${lane.name}`}
-                        onClick={() => (focusedSwimlaneId === lane.id ? onExitFocus?.() : onFocusLane?.(lane.id))}
-                      >
-                        {focusedSwimlaneId === lane.id ? "Exit focus" : "Focus"}
+                {hasActions && (
+                  // #2498: the actions are the band's last line, inside the tinted box behind a divider, so a lane's
+                  // health, Add card and Lane actions read as that lane's. Not in the collapse button (line one is the only target).
+                  <div data-testid="phone-lane-footer" className="flex flex-col gap-2 border-t border-line-subtle px-3 pb-2.5 pt-2">
+                  <div className="flex flex-wrap gap-2" data-testid="phone-lane-actions">
+                    <PhoneLaneHealth lane={lane} boardId={boardId} isAdmin={isAdmin} autoEnabled={healthAutoEnabled} onSwimlaneUpdated={onSwimlaneUpdated} />
+                    {canAdd && (
+                      <button type="button" className={ACTION_BTN} onClick={() => { setAddingLane(lane.id); setDraft(""); setAddError(null); if (collapsed) onToggleSwimlane(lane.id); }}>
+                        <span aria-hidden="true" className="mr-1">+</span>Add card<span className="sr-only"> to {column.name} in {lane.name}</span>
                       </button>
                     )}
-                    {canReorderLanes && (
-                      <>
-                        <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-earlier" aria-label={`Move swimlane ${lane.name} earlier`} disabled={laneIdx === 0} onClick={() => moveLane(lane.id, -1)}>Move earlier</button>
-                        <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-later" aria-label={`Move swimlane ${lane.name} later`} disabled={laneIdx === swimlanes.length - 1} onClick={() => moveLane(lane.id, 1)}>Move later</button>
-                      </>
+                    {hasLaneMenu && (
+                      <button
+                        type="button"
+                        data-testid="phone-lane-actions-toggle"
+                        className={ACTION_BTN}
+                        aria-label={`Lane actions for ${lane.name}`}
+                        aria-expanded={laneActionsOpen}
+                        aria-controls={laneActionsOpen ? `${uid}-lane-actions-${lane.id}` : undefined}
+                        onClick={() => toggleLaneActions(lane.id)}
+                      >
+                        Lane actions
+                      </button>
                     )}
                   </div>
+                  {hasLaneMenu && laneActionsOpen && (
+                    <div id={`${uid}-lane-actions-${lane.id}`} className="flex flex-wrap gap-2" data-testid="phone-lane-actions-menu">
+                      {isAdmin && (
+                        <button type="button" className={ACTION_BTN} aria-label={`Edit swimlane ${lane.name}`} onClick={() => setEditingLane(lane.id)}>Edit</button>
+                      )}
+                      {isAdmin && onEditFieldOrder && (
+                        <button type="button" className={ACTION_BTN} aria-label={`Field order for ${lane.name}`} data-testid="phone-lane-field-order" onClick={onEditFieldOrder}>Field order</button>
+                      )}
+                      {showFocus && (
+                        <button
+                          type="button"
+                          className={ACTION_BTN}
+                          aria-pressed={focusedSwimlaneId === lane.id}
+                          aria-label={focusedSwimlaneId === lane.id ? "Exit focus" : `Focus on ${lane.name}`}
+                          onClick={() => (focusedSwimlaneId === lane.id ? onExitFocus?.() : onFocusLane?.(lane.id))}
+                        >
+                          {focusedSwimlaneId === lane.id ? "Exit focus" : "Focus"}
+                        </button>
+                      )}
+                      {canReorderLanes && (
+                        <>
+                          <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-earlier" aria-label={`Move swimlane ${lane.name} earlier`} disabled={laneIdx === 0} onClick={() => moveLane(lane.id, -1)}>Move earlier</button>
+                          <button type="button" className={`${ACTION_BTN} disabled:opacity-40 disabled:cursor-not-allowed`} data-testid="phone-lane-later" aria-label={`Move swimlane ${lane.name} later`} disabled={laneIdx === swimlanes.length - 1} onClick={() => moveLane(lane.id, 1)}>Move later</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  </div>
                 )}
-                </div>
-              )}
               </div>
               {canAdd && addingLane === lane.id && !collapsed && (
                 <div className="flex flex-col gap-2" data-testid="phone-add-card">
