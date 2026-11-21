@@ -32,26 +32,26 @@ type StateName =
 const BASELINE: Partial<Record<StateName, Record<string, { maxNodes: number }>>> = {
   'board view': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'card detail dialog': {
     'button-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
     'label': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
   },
   'command palette': {
     'aria-required-attr': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'filter bar expanded': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
@@ -63,12 +63,12 @@ const BASELINE: Partial<Record<StateName, Record<string, { maxNodes: number }>>>
   'member management modal': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
     'aria-valid-attr-value': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
-    'color-contrast': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'mobile navigation': {
-    'color-contrast': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2466)
+    'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
     'label-content-name-mismatch': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2467)
   },
 }
@@ -187,9 +187,9 @@ test.describe('a11y: axe-core WCAG 2.1 AA scans (#1423)', () => {
     test('mobile navigation', async ({ page }) => {
       await routeAuth(page)
       await page.goto('/')
-      const hamburger = page.getByRole('button', { name: 'Open navigation menu' })
+      const hamburger = page.getByRole('button', { name: 'Open navigation' })
       await hamburger.click()
-      await expect(page.getByRole('button', { name: 'Close navigation menu' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Close navigation' })).toBeVisible()
       await scan(page, 'mobile navigation')
     })
   })
