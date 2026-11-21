@@ -19,6 +19,9 @@ from boards.services import flow_metrics as fm
 from boards.tests.test_flow_metrics import FlowFixture
 
 _CORRELATED_MOVEMENTS = re.compile(r'EXISTS\s*\(\s*SELECT[^()]*FROM\s+"card_movements"', re.IGNORECASE)
+# The correlation itself, however the subquery is phrased (EXISTS, IN, a scalar):
+# a card_movements alias compared to the outer cards row.
+_OUTER_CARD_REF = re.compile(r'U\d+\."card_id"\s*=\s*\(?"cards"\."id"\)?')
 
 
 class RangeLoadPlanShapeTests(FlowFixture):
@@ -49,11 +52,13 @@ class RangeLoadPlanShapeTests(FlowFixture):
                 self.assertTrue(movement_terms, "the range predicate should read card_movements in a subquery")
                 for sql in statements:
                     self.assertIsNone(_CORRELATED_MOVEMENTS.search(sql), sql)
+                    self.assertIsNone(_OUTER_CARD_REF.search(sql), sql)
 
     def test_the_movement_subquery_reads_only_this_boards_cards(self):
         """Uncorrelated, so it must carry its own board bound, or it would read every board's movements."""
         _, statements = self.range_queries()
-        cards_statement = next(sql for sql in statements if sql.lstrip().startswith("SELECT") and '"card_movements"' in sql)
+        # The card rows statement itself (the movement and gate reads embed it too).
+        cards_statement = next(sql for sql in statements if sql.lstrip().startswith('SELECT "cards"."id"'))
         subquery = cards_statement[cards_statement.index('"card_movements"'):]
         self.assertRegex(subquery, r'INNER JOIN "cards" (U\d+ )?ON')
         self.assertRegex(subquery, rf'"board_id" = {self.board.pk}\b')
