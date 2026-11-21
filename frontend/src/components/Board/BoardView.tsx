@@ -593,6 +593,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Declared here, ahead of its other readers further down, because the preset
   // hook needs it; one instance so two functional updates never race.
   const [searchParams, setSearchParams] = useSearchParams();
+  // An in-app link to another board (`/boards/9?card=301`, `?settings=rules`) changes the URL while
+  // this, the previous board's view, is still mounted until the new board loads. Its deep-link
+  // effects must leave those params for the board they name, or they strip them and report the
+  // card as missing here (#2210). A path that names no board (a bare render) means this board.
+  const routeBoardId = /^\/boards\/(\d+)/.exec(location.pathname)?.[1];
+  const isRouteBoard = routeBoardId === undefined || Number(routeBoardId) === board.id;
   const boardPreset = useBoardPreset({
     boardId: board.id,
     board,
@@ -1350,20 +1356,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // cards blockers: it opens this board's Rules tab, same admin-only silence.
     const target = searchParams.get("settings");
     if (target !== "webhooks" && target !== "rules") return;
+    if (!isRouteBoard) return;
     if (isAdmin && !demoMode) {
       setSettingsInitialTab(target);
       if (target === "webhooks") setWebhookDeepLink(true);
       setShowSettings(true);
     }
     setSearchParams((prev) => { prev.delete("settings"); return prev; }, { replace: true });
-  }, [isAdmin, demoMode, searchParams, setSearchParams]);
+  }, [isAdmin, demoMode, isRouteBoard, searchParams, setSearchParams]);
 
   // Auto-open card from ?card= query param (e.g. from notification deep-link).
   // When the card is not in the active board view, call the /status/ endpoint to
   // distinguish "archived" (show targeted message) from "deleted/missing" (generic).
   useEffect(() => {
     const cardId = Number(searchParams.get("card"));
-    if (!cardId) return;
+    if (!cardId || !isRouteBoard) return;
     const card = board.cards.find((c) => c.id === cardId);
     if (card) {
       // `&tab=comments|history|details` (#967) overrides the session's
@@ -1399,7 +1406,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // feedback at all for their deep link.
         .catch(() => showCardNotFound("Card not found — it may have been deleted."));
     }
-  }, [board.cards, board.id, searchParams, setSearchParams, showCardNotFound]);
+  }, [board.cards, board.id, isRouteBoard, searchParams, setSearchParams, showCardNotFound]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   // When non-null, new column is inserted at this index (0 = first)
   const [insertPosition, setInsertPosition] = useState<number | null>(null);

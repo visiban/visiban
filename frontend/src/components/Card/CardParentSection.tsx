@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import { getCardParent, getParentBoards, unlinkCardParent } from "../../api/cards";
 import type { BoardFull, Card, CardParent, ParentBoardOption } from "../../types";
 import LockGlyph from "./LockGlyph";
@@ -34,6 +35,7 @@ const UNLINK_CLASS =
  * offered for a parent the viewer can't open too.
  */
 export default function CardParentSection({ board, card, canEdit, demoMode = false }: Props) {
+  const inRouter = useInRouterContext();
   const childBoard = !board.cards_can_have_children;
   const canWrite = canEdit && !demoMode && childBoard;
   const [parentBoards, setParentBoards] = useState<ParentBoardOption[]>([]);
@@ -146,14 +148,15 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
       ) : (
         <div className="flex items-center gap-2">
           <span className="flex-1 min-w-0">
-            {/* Opens the parent on its own board; its column never changes this card's. */}
-            <a
-              href={`/boards/${parent.board_id}?card=${parent.id}`}
-              title={parent.title}
-              className={`block text-sm text-info hover:underline truncate rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${parent.archived ? "line-through" : ""}`}
-            >
-              {parent.title}
-            </a>
+            {/* Opens the parent on its own board; its column never changes this card's. Router
+                navigation, no full page load; a bare render with no router (a unit test) keeps an anchor. */}
+            {(() => {
+              const to = `/boards/${parent.board_id}?card=${parent.id}`;
+              const cls = `block text-sm text-info hover:underline truncate rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${parent.archived ? "line-through" : ""}`;
+              return inRouter
+                ? <Link to={to} title={parent.title} className={cls}>{parent.title}</Link>
+                : <a href={to} title={parent.title} className={cls}>{parent.title}</a>;
+            })()}
             <span className="block text-xs text-fg-muted truncate">
               {parent.board_name} › {parent.column_name}{parent.archived ? " · Archived" : ""}
             </span>

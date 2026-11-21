@@ -15,6 +15,7 @@ import * as dndCore from '@dnd-kit/core'
 // Controllable search params — initial params can be set before render; the stateful mock
 // updates them on setSearchParams calls so the component re-renders with the new params.
 let mockSearchParams = new URLSearchParams()
+let mockPathname = '/'
 let mockLiveSetParams: ((p: URLSearchParams) => void) | undefined
 // Spy on setSearchParams calls so tests can assert the arguments passed (e.g. replace:true).
 const mockSetSearchParams = vi.fn()
@@ -56,7 +57,7 @@ vi.mock('@dnd-kit/sortable', () => ({
 
 vi.mock('react-router-dom', () => ({
   // BoardView reads navigation state for the board-invite joined notice (#1444).
-  useLocation: () => ({ pathname: '/', search: '', hash: '', state: null, key: 'default' }),
+  useLocation: () => ({ pathname: mockPathname, search: '', hash: '', state: null, key: 'default' }),
   // Stateful mock: useSearchParams returns live params backed by React state so that
   // setSearchParams calls (from tab switches / Escape) trigger re-renders in tests.
   useSearchParams: () => {
@@ -457,6 +458,7 @@ describe('BoardView', () => {
     vi.clearAllMocks()
     vi.mocked(getCardStatus).mockResolvedValue({ archived: false })
     mockSearchParams = new URLSearchParams()
+    mockPathname = '/'
     mockSearchTruncation = null
     localStorage.clear()
     mockBoardContextValue = defaultContext()
@@ -1627,6 +1629,26 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('card-detail')).not.toBeInTheDocument()
     expect(lane).toHaveAttribute('data-current-card-id', '')
     expect(capturedSensors?.length).toBeGreaterThan(0)
+  })
+
+  it('leaves ?card= and ?settings= for the board the URL names while the previous board is still mounted (#2210)', async () => {
+    // An in-app Link to /boards/<other>?card=… lands here first: the old view must not strip the
+    // param or look the card up on its own board, or the new board never opens it.
+    const board = makeBoard({ current_user_role: 'admin' })
+    mockBoardContextValue = defaultContext({ board })
+    mockSearchParams = new URLSearchParams('card=424242&settings=webhooks')
+    mockPathname = `/boards/${board.id + 1}`
+    const { unmount } = render(<BoardView {...defaultProps()} />)
+    await act(async () => {})
+    expect(mockSetSearchParams).not.toHaveBeenCalled()
+    expect(mockedGetCardStatus).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+    unmount()
+    // The same params on this board's own path are consumed as before.
+    mockPathname = `/boards/${board.id}`
+    render(<BoardView {...defaultProps()} />)
+    expect(await screen.findByTestId('settings-modal')).toBeInTheDocument()
+    await waitFor(() => expect(mockedGetCardStatus).toHaveBeenCalledWith(board.id, 424242))
   })
 
   it('?settings=webhooks opens Board settings on Webhooks for an admin and strips the param (#863)', async () => {

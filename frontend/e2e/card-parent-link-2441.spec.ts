@@ -128,11 +128,20 @@ test.describe('child-side card link at 390px', () => {
     for (const name of ['Back to card', 'Close']) {
       expect((await picker.getByRole('button', { name }).boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     }
-    // Stand-in for the on-screen keyboard: it shrinks the visual viewport, and the sheet follows it.
-    await page.setViewportSize({ width: 390, height: 420 })
+    // The on-screen keyboard shrinks only `visualViewport`; the layout viewport stays 844px, so an
+    // `h-full` sheet would still be 844px tall with its footer under the keyboard. Shrinking the
+    // layout viewport (setViewportSize) would let that sheet pass too, so only visualViewport moves.
+    await page.evaluate(() => {
+      const vv = window.visualViewport!
+      Object.defineProperty(vv, 'height', { configurable: true, get: () => 420 })
+      vv.dispatchEvent(new Event('resize'))
+    })
+    expect(await page.evaluate(() => window.innerHeight)).toBe(844)
     await expect.poll(async () => (await picker.boundingBox())!.height).toBeLessThanOrEqual(420)
     await expect(picker.getByPlaceholder('Search cards…')).toBeVisible()
-    await expect(picker.getByRole('button', { name: /^Link/ }).last()).toBeInViewport()
+    // The footer stays above the keyboard: inside the 420px the user can see, not merely in the layout viewport.
+    const linkButton = (await picker.getByRole('button', { name: /^Link/ }).last().boundingBox())!
+    expect(linkButton.y + linkButton.height).toBeLessThanOrEqual(420)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
 
@@ -142,5 +151,26 @@ test.describe('child-side card link at 390px', () => {
     const unlink = page.getByRole('button', { name: 'Unlink parent Launch epic' })
     expect((await unlink.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+})
+
+test.describe('parent link navigation', () => {
+  test('the Parent row link opens the parent on its board in-app, without a full page load', async ({ page }) => {
+    await openCard(page, 'light', VISIBLE_PARENT)
+    const parentBoard = { ...BOARD_FULL, id: 9, name: 'Roadmap', cards: [{ ...CARD, id: 301, uid: 'card000301c', title: 'Launch epic', parent: null }] }
+    await routeBoard(page, parentBoard)
+    await page.evaluate(() => { (window as unknown as { __noReload2441?: boolean }).__noReload2441 = true })
+    await page.getByText(CARD.title).first().click()
+    await page.getByTestId('card-parent-section').getByRole('link', { name: 'Launch epic' }).click()
+    await expect(page).toHaveURL(/\/boards\/9(\?|$)/)
+    // The parent's own detail opens on its board: the child's dialog (which also names
+    // "Launch epic" in its Parent row) is gone, and the ?card= deep link was consumed.
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toHaveCount(1, { timeout: 10_000 })
+    await expect(dialog.getByText(CARD.title)).toHaveCount(0)
+    await expect(dialog.getByTestId('card-parent-section')).toHaveCount(0)
+    await expect(dialog.locator('input').first()).toHaveValue('Launch epic')
+    await expect(page).not.toHaveURL(/card=/)
+    expect(await page.evaluate(() => (window as unknown as { __noReload2441?: boolean }).__noReload2441)).toBe(true)
   })
 })

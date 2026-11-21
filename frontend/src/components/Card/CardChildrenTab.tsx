@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import axios from "axios";
 import { getChildBoardOptions, moveCard, unlinkCardChild } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -55,6 +56,7 @@ interface Props {
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
 export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs }: Props) {
+  const inRouter = useInRouterContext();
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -333,7 +335,10 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-2 flex-wrap">
             <h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4>
-            <a href={`/boards/${childBoard?.id}?f_parent=${cardId}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</a>
+            {/* Router navigation, no full page load; a bare render with no router (a unit test) keeps an anchor. */}
+            {inRouter
+              ? <Link to={`/boards/${childBoard?.id}?f_parent=${cardId}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</Link>
+              : <a href={`/boards/${childBoard?.id}?f_parent=${cardId}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</a>}
           </div>
           <p className="text-xs text-fg-muted">A filtered view of {boardName}. Columns, limits and history are {boardName}&apos;s own.</p>
         </div>
