@@ -39,13 +39,14 @@ function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-export default function BoardInvitesTab() {
+export default function BoardInvitesTab({ onPendingCount }: { onPendingCount?: (n: number) => void } = {}) {
   const [statusFilter, setStatusFilter] = useState<AdminBoardInviteStatusFilter>("pending");
   const [rows, setRows] = useState<AdminBoardInviteLink[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const pendingTotalRef = useRef<number | null>(null);
   const [error, setError] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
@@ -83,6 +84,7 @@ export default function BoardInvitesTab() {
       const data = await getAdminBoardInviteLinks({ status: filter, offset: offsetVal });
       setRows(data.results);
       setTotal(data.count);
+      if (filter === "pending") pendingTotalRef.current = data.count;
       // The server's page size keeps the footer in sync if its default changes.
       setPageSize(data.page_size);
     } catch {
@@ -117,6 +119,11 @@ export default function BoardInvitesTab() {
     setRevokeError(null);
     try {
       await revokeAdminBoardInviteLink(row.id);
+      // The nav count is the pending total; only a pending row was counted in it.
+      if (row.status === "pending" && pendingTotalRef.current !== null) {
+        pendingTotalRef.current = Math.max(0, pendingTotalRef.current - 1);
+        onPendingCount?.(pendingTotalRef.current);
+      }
       setConfirmId(null);
       if (statusFilter === "pending") {
         // No longer pending: it leaves this view.

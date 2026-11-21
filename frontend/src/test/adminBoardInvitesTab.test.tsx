@@ -135,6 +135,17 @@ describe('BoardInvitesTab (#439)', () => {
     expect(screen.getByText('Showing 1–1 of 1')).toBeInTheDocument()
   })
 
+  it('reports the new pending total to the nav after a revoke (#2476)', async () => {
+    const user = userEvent.setup()
+    const onPendingCount = vi.fn()
+    mockList.mockResolvedValue(page([row({ id: 1 }), row({ id: 2, prefix: 'vbnb_rm2' })], { count: 2 }))
+    mockRevoke.mockResolvedValue(undefined)
+    render(<BoardInvitesTab onPendingCount={onPendingCount} />)
+    await user.click(await screen.findByRole('button', { name: 'Revoke invite vbnb_ab1 for Launch Plan' }))
+    await user.click(screen.getByRole('button', { name: 'Revoke invite' }))
+    await waitFor(() => expect(onPendingCount).toHaveBeenCalledWith(1))
+  })
+
   it('a failed revoke fills the slot mounted with the prompt; the question is in no live region (#2232)', async () => {
     const user = userEvent.setup()
     mockList.mockResolvedValue(page([row({ id: 1 })]))

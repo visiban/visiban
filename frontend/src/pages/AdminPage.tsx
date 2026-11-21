@@ -1380,22 +1380,22 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
                             {/* Deactivate / Reactivate and Make / Demote admin stay on the row (#1291). */}
                             {canToggleActive(u) && (
                               u.is_active ? (
-                                <Button variant="quiet" onClick={() => handleDeactivate(u)}>
+                                <Button variant="quiet" aria-label={`Deactivate ${nameOf(u)}`} onClick={() => handleDeactivate(u)}>
                                   Deactivate
                                 </Button>
                               ) : (
-                                <Button variant="quiet" onClick={() => void applyPatch(u.id, { is_active: true })}>
+                                <Button variant="quiet" aria-label={`Reactivate ${nameOf(u)}`} onClick={() => void applyPatch(u.id, { is_active: true })}>
                                   Reactivate
                                 </Button>
                               )
                             )}
                             {canToggleAdmin(u) && (
                               u.is_site_admin ? (
-                                <Button variant="quiet" onClick={() => handleDemote(u)}>
+                                <Button variant="quiet" aria-label={`Demote admin ${nameOf(u)}`} onClick={() => handleDemote(u)}>
                                   Demote admin
                                 </Button>
                               ) : (
-                                <Button variant="quiet" onClick={() => handleMakeAdmin(u)}>
+                                <Button variant="quiet" aria-label={`Make admin ${nameOf(u)}`} onClick={() => handleMakeAdmin(u)}>
                                   Make admin
                                 </Button>
                               )
@@ -1584,7 +1584,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
       group: "People",
       count: counts.boardInvites,
       keywords: ["board", "revoke", "pending"],
-      render: () => <BoardInvitesTab />,
+      render: () => <BoardInvitesTab onPendingCount={(n) => setCounts((c) => ({ ...c, boardInvites: n }))} />,
     },
   ];
 

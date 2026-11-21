@@ -536,7 +536,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   }
 
   const inputClass =
-    "w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition";
+    "w-full bg-surface border border-line-strong rounded px-3 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted transition";
   const labelClass = "block text-xs font-medium text-fg-tertiary uppercase tracking-wide";
 
   return (
@@ -705,7 +705,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                   disabled={locked}
                   aria-invalid={!!errors.port}
                   aria-describedby={`smtp-port-help${noteSuffix}`}
-                  className="w-24 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
+                  className="w-24 bg-surface border border-line-strong rounded px-3 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis transition"
                 />
               </div>
               <div className="flex flex-col gap-1">
@@ -724,7 +724,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                     disabled={locked}
                     aria-invalid={!!errors.timeout}
                     aria-describedby={`smtp-timeout-help${noteSuffix}`}
-                    className="w-20 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition"
+                    className="w-20 bg-surface border border-line-strong rounded px-3 py-1.5 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis transition"
                   />
                   <span className="text-sm text-fg-tertiary">seconds</span>
                 </div>

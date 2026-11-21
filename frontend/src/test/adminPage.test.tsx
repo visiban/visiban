@@ -661,9 +661,9 @@ describe('AdminPage — Users tab', () => {
 
     const superRow = screen.getByText('@alice').closest('li') as HTMLElement
     const holderRow = screen.getByText('@bob').closest('li') as HTMLElement
-    expect(within(superRow).queryByRole('button', { name: 'Demote admin' })).not.toBeInTheDocument()
-    expect(within(superRow).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
-    expect(within(holderRow).getByRole('button', { name: 'Demote admin' })).toBeInTheDocument()
+    expect(within(superRow).queryByRole('button', { name: /^Demote admin / })).not.toBeInTheDocument()
+    expect(within(superRow).getByRole('button', { name: /^Deactivate / })).toBeInTheDocument()
+    expect(within(holderRow).getByRole('button', { name: /^Demote admin / })).toBeInTheDocument()
 
     await openRowMenu('Alice')
     expect(screen.queryByRole('menuitem', { name: 'Revoke all-content' })).not.toBeInTheDocument()
@@ -738,8 +738,8 @@ describe('AdminPage — Users tab', () => {
 
     it('leaves out every refused action and says why in text a screen reader reaches', async () => {
       const row = await openUsersTab(adminUser, superuserRow({ can_access_all_content: false }))
-      expect(within(row).queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
-      expect(within(row).queryByRole('button', { name: 'Demote admin' })).not.toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: /^Deactivate / })).not.toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: /^Demote admin / })).not.toBeInTheDocument()
       // In the row's text, not a tooltip or title: no hover or focus needed.
       expect(within(row).getByText(EXPLANATION)).toBeVisible()
 
@@ -751,7 +751,7 @@ describe('AdminPage — Users tab', () => {
 
     it('leaves out Reactivate on an inactive superuser', async () => {
       const row = await openUsersTab(adminUser, superuserRow({ is_active: false }))
-      expect(within(row).queryByRole('button', { name: 'Reactivate' })).not.toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: /^Reactivate / })).not.toBeInTheDocument()
       expect(within(row).getByText(EXPLANATION)).toBeVisible()
     })
 
@@ -760,14 +760,14 @@ describe('AdminPage — Users tab', () => {
         adminUser,
         superuserRow({ owned_boards: [{ id: 9, uid: 'owned', name: 'Owned' }] }),
       )
-      expect(within(row).queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument()
+      expect(within(row).queryByRole('button', { name: /^Deactivate / })).not.toBeInTheDocument()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     })
 
     it('keeps the actions the server still permits', async () => {
       mockPatchAdminUser.mockResolvedValue(superuserRow({ has_completed_tour: false }))
       const row = await openUsersTab(adminUser, superuserRow({ is_site_admin: false }))
-      expect(within(row).getByRole('button', { name: 'Make admin' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: /^Make admin / })).toBeInTheDocument()
 
       await openRowMenu('Alice')
       fireEvent.click(screen.getByRole('menuitem', { name: 'Restart onboarding tour' }))
@@ -784,7 +784,7 @@ describe('AdminPage — Users tab', () => {
 
     it('leaves an ordinary row untouched', async () => {
       const row = await openUsersTab(superuserActor, { ...fakeAdminUsers[1] })
-      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: /^Deactivate / })).toBeInTheDocument()
       expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
 
       await openRowMenu('Alice')
@@ -795,7 +795,7 @@ describe('AdminPage — Users tab', () => {
 
     it('offers a superuser actor every action the API allows them', async () => {
       const row = await openUsersTab(superuserActor, superuserRow({ can_access_all_content: false }))
-      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: /^Deactivate / })).toBeInTheDocument()
       expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
 
       await openRowMenu('Alice')
@@ -806,7 +806,7 @@ describe('AdminPage — Users tab', () => {
 
     it('offers Reactivate on an inactive superuser to a superuser actor', async () => {
       const row = await openUsersTab(superuserActor, superuserRow({ is_active: false }))
-      expect(within(row).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: /^Reactivate / })).toBeInTheDocument()
     })
 
     it('hides nothing when the actor\'s status is unknown and leaves the answer to the server', async () => {
@@ -815,7 +815,7 @@ describe('AdminPage — Users tab', () => {
       const unknownActor: User = { ...adminUser }
       delete unknownActor.is_superuser
       const row = await openUsersTab(unknownActor, superuserRow())
-      expect(within(row).getByRole('button', { name: 'Deactivate' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: /^Deactivate / })).toBeInTheDocument()
       expect(within(row).queryByText(EXPLANATION)).not.toBeInTheDocument()
     })
   })
