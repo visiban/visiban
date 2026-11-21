@@ -16,7 +16,7 @@
         <link rel="prev" href="../suppressions/">
       
       
-        <link rel="next" href="../authorization-entry-points/">
+        <link rel="next" href="../card-detail-extensions/">
       
       
         
@@ -2403,6 +2403,8 @@
       
         
       
+        
+      
     
     
     
@@ -3163,10 +3165,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#rule-12-extension-panels-are-filtered-on-the-callers-role-before-they-run" class="md-nav__link">
+  <a href="#rule-12-extension-panels-and-card-sections-are-filtered-on-the-callers-role-before-they-run" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Rule 12: Extension panels are filtered on the caller's role before they run
+        Rule 12: Extension panels and card sections are filtered on the caller's role before they run
       
     </span>
   </a>
@@ -3254,6 +3256,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../card-detail-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card-Detail Extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5810,9 +5840,11 @@ like any non-member. A superuser repairs it with the Django admin transfer,
 which offers only the group's other active members as the new owner; for a
 group with no other member, someone with access to all content first adds
 one through the API.</p>
-<h2 id="rule-12-extension-panels-are-filtered-on-the-callers-role-before-they-run">Rule 12: Extension panels are filtered on the caller's role before they run<a class="headerlink" href="#rule-12-extension-panels-are-filtered-on-the-callers-role-before-they-run" title="Permanent link">&para;</a></h2>
-<p><strong>Rule.</strong> Every surface that renders <code>ANALYTICS_EXTENSIONS</code> panels gets the
-callables to run from <code>boards/permissions.py</code> <code>analytics_extensions_for_role</code>,
+<h2 id="rule-12-extension-panels-and-card-sections-are-filtered-on-the-callers-role-before-they-run">Rule 12: Extension panels and card sections are filtered on the caller's role before they run<a class="headerlink" href="#rule-12-extension-panels-and-card-sections-are-filtered-on-the-callers-role-before-they-run" title="Permanent link">&para;</a></h2>
+<p><strong>Rule.</strong> Every surface that renders <code>ANALYTICS_EXTENSIONS</code> panels or
+<code>CARD_DETAIL_EXTENSIONS</code> sections (#2212) gets the entries to run from
+<code>boards/permissions.py</code> (<code>analytics_extensions_for_role</code> or
+<code>card_detail_extensions_for_role</code>, which share one filter, <code>_registered_for_role</code>),
 passing the board role it authorized the request with. A panel whose declared
 <code>min_role</code> ranks above that role (on the <code>boards/invites.py</code> <code>ROLE_RANK</code> ladder)
 is never called. A missing, <code>None</code> or invalid <code>min_role</code> means <code>admin</code>, and a
@@ -5838,6 +5870,11 @@ author opts it in.</p>
 <td><code>boards/views/analytics.py</code> <code>BoardAnalyticsMixin.summary</code></td>
 <td><code>analytics_extensions_for_role(role)</code> with the role from <code>get_board_for_user</code>, before any panel is called</td>
 </tr>
+<tr>
+<td>Card extension sections (REST, #2212)</td>
+<td><code>boards/views/cards.py</code> <code>CardViewSet.extensions</code> → <code>boards/services/card_extensions.py</code> <code>sections_for_card</code></td>
+<td><code>card_detail_extensions_for_role(role)</code> with the role from <code>get_board_for_user</code> (<code>404</code> without access, Rule 7), before any <code>section()</code> is called; absent card, user or role returns <code>[]</code></td>
+</tr>
 </tbody>
 </table>
 <p>No other surface calls the panels: <code>BoardAnalyticsMixin.analytics</code>, MCP, the
@@ -5847,7 +5884,13 @@ A new surface that does is added to this table and calls the same function.</p>
 with call counts, owner, all-content access, group-inherited and overridden
 roles, non-member <code>404</code>, unset and invalid <code>min_role</code>, and
 <code>AnalyticsExtensionsEntryPointTests</code>, which scans the backend for any reference
-to <code>ANALYTICS_EXTENSIONS</code> outside <code>boards/hooks.py</code> and <code>boards/permissions.py</code>).</p>
+to <code>ANALYTICS_EXTENSIONS</code> outside <code>boards/hooks.py</code> and <code>boards/permissions.py</code>).
+<code>boards/tests/test_card_detail_extensions_2212.py</code> covers the card sections the
+same way (role matrix with call counts, fail-closed <code>min_role</code>, absent inputs,
+<code>404</code> parity, no other read calls an extension) plus
+<code>CardDetailExtensionsEntryPointTests</code>, the sibling scan for
+<code>CARD_DETAIL_EXTENSIONS</code>. Card sections are never on MCP, export, the public
+share, the card payload or <code>/full/</code>.</p>
 <h2 id="rule-13-an-invite-never-grants-admin-and-a-shared-link-always-expires">Rule 13: An invite never grants admin, and a shared link always expires<a class="headerlink" href="#rule-13-an-invite-never-grants-admin-and-a-shared-link-always-expires" title="Permanent link">&para;</a></h2>
 <p><strong>Rule.</strong> An invite link, shared or emailed, on a board or a group, can't grant
 the <code>admin</code> role and has an expiry of at most 30 days. A request for <code>admin</code> or

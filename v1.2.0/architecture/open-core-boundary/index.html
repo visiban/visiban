@@ -2403,6 +2403,8 @@
       
         
       
+        
+      
     
     
     
@@ -3247,6 +3249,34 @@
     
   
     Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/card-detail-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card-Detail Extensions
   
 
     
@@ -4998,6 +5028,16 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>Card-detail extension sections (<code>boards.hooks.CARD_DETAIL_EXTENSIONS</code>)</td>
+<td>Typed records an extension attaches to a card (an opportunity, a contract, an initiative's budget), #2212, epic #2206</td>
+<td>✅ Implemented in 1.3, <strong>experimental</strong>: read-only, the shape may change until the first real extension ships, then stable. Object protocol <code>id</code>, <code>min_role</code> (fail closed to admin), <code>section(card, user, role) -&gt; dict | None</code>; filtered by role before the call (Security Invariants Rule 12), validated against a closed field set (text, number, date, choice), isolated per extension, served only by <code>GET /boards/{b}/cards/{c}/extensions/</code>. The slot is OSS; the domain records and their models are not. See <a href="../../development/card-detail-extensions/">Card-detail extensions</a></td>
+</tr>
+<tr>
+<td>Parent-item naming (<code>Board.parent_name_singular</code>, <code>Board.parent_name_plural</code>)</td>
+<td>What a parent-tier board calls its cards, #2212</td>
+<td>✅ Implemented in 1.3, <strong>stable</strong>: plain terminology, no schema. Empty means "Parent" / "Parents". Not on the public share or MCP</td>
+</tr>
 <tr>
 <td>Enterprise URL extension point (<code>enterprise.urls.enterprise_urlpatterns</code>)</td>
 <td>All enterprise URL registrations</td>

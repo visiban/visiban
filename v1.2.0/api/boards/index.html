@@ -3883,6 +3883,8 @@
       
         
       
+        
+      
     
     
     
@@ -4456,6 +4458,34 @@
     
   
     Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/card-detail-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card-Detail Extensions
   
 
     
@@ -5981,6 +6011,16 @@
 <td>Whether cards on this board can have child cards on another board: <code>true</code> for a parent-tier board, <code>false</code> (the default) for a child-tier board. The two-tier card hierarchy never lets a board be both. Readable by every board member; admin-only when writing (a non-admin <code>PATCH</code> is <code>403</code>). A change that would invalidate existing <a href="../cards/#parent-and-children-since-13">parent/child card links</a> is refused with <code>400</code> (keyed <code>cards_can_have_children</code>), here and in the Django admin (#1104). Turning it on is also refused while another board names this one as its <code>default_child_board</code>, and turning it off clears this board's own <code>default_child_board</code> in the same write. <a href="#children-setting-blockers-since-13"><code>GET /boards/{id}/children-setting-blockers/</code></a> lists the reasons. On the board payloads and <code>/full/</code> (read-only there), and on the <code>board.updated</code> <a href="../websockets/">WebSocket event</a> and change feed; not on the public share-link payload. Added in 1.3 (#2208).</td>
 </tr>
 <tr>
+<td><code>parent_name_singular</code></td>
+<td>string</td>
+<td>What a parent card on this board is called, for example <code>"Initiative"</code> (#2212). Empty (the default) means the client says "Parent". Stripped; at most 24 characters; control, format (bidi, zero-width) and surrogate characters are refused with <code>400</code>. Admin-only when writing. The character and length rules are enforced on API writes only (ORM, import and migration writes skip them; the Django admin shows the field read-only). Shown on the child side of a link (<code>board_parent_name_singular</code> on <a href="../cards/#parent-on-a-card"><code>parent</code></a>). On the board payloads and <code>/full/</code> (read-only there) and <code>board.updated</code>; not on the public share-link payload or MCP. Stable from 1.3.</td>
+</tr>
+<tr>
+<td><code>parent_name_plural</code></td>
+<td>string</td>
+<td>The plural, for example <code>"Initiatives"</code> (#2212). Empty means "Parents". Same rules as <code>parent_name_singular</code>; each falls back on its own. Shown in the parent picker's helper line through <code>GET /boards/{id}/parent-boards/</code>. Stable from 1.3. The character and length rules are enforced on API writes only (ORM, import and migration writes skip them; the Django admin shows the field read-only).</td>
+</tr>
+<tr>
 <td><code>default_child_board</code></td>
 <td>integer | null</td>
 <td>Id of the board where <strong>Add child</strong> on this board's cards creates the new child card, in that board's first column and first lane; <code>null</code> (the default) asks each time. A preference, not a link: setting, changing or clearing it never touches an existing parent/child link, and a parent whose children are already on another board keeps them there (one child board per parent). <strong>Setting</strong> it needs board admin on both boards, this board's <code>cards_can_have_children</code> on, and a target whose <code>cards_can_have_children</code> is off and whose first column allows card creation; an unknown id, a board you cannot open or do not administer, and a board that does not qualify all get the same <code>400</code> (<code>{"default_child_board": ["Unknown board, or not a board you administer that can take child cards."]}</code>). Re-sending the current value is a no-op, and <strong>clearing</strong> it (<code>null</code>) needs admin on this board only. Refused on <code>POST /boards/</code> (set it after creating the board). When the target board is deleted it becomes <code>null</code>. Id only, never a name. On the board payloads and <code>/full/</code> (read-only there), and on <code>board.updated</code>; not on the public share-link payload. Read-only in the Django admin. Added in 1.3 (#2208).</td>
@@ -5990,7 +6030,7 @@
 <p>The health fields are on every board payload: list, retrieve, create and update responses, <code>/full/</code>, <a href="../groups/#get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code></a>, <code>descendant-boards/</code> and its paged form, and the <code>board.created</code> / <code>board.updated</code> <a href="../websockets/">WebSocket events</a>. A list resolves every row's inherited value from one ancestor lookup for the whole page.</p>
 <h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Update board fields. <code>PUT</code> and <code>PATCH</code> are both accepted, and every field is optional in either. Requires board admin. <em>(1.3+, #2009)</em> A caller below admin gets <code>403</code> before the body is validated, so an invalid body no longer answers <code>400</code> with the field errors for them; a caller with no access to the board still gets <code>404</code>.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>lane_details_cap</code> (1.3+), <code>health_status</code> (1.3+), <code>health_review_days</code> (1.3+), <code>default_preset</code> (1.3+), <code>swimlane_rollup_field</code> (1.3+), <code>commitment_column_uid</code> (1.3+), <code>cards_can_have_children</code> (1.3+), <code>default_child_board</code> (1.3+), <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>, <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, <code>card_density</code>, <code>show_wip_at_limit</code>, <code>show_row_chip_field_names</code>, <code>lane_details_cap</code> (1.3+), <code>health_status</code> (1.3+), <code>health_review_days</code> (1.3+), <code>default_preset</code> (1.3+), <code>swimlane_rollup_field</code> (1.3+), <code>commitment_column_uid</code> (1.3+), <code>cards_can_have_children</code> (1.3+), <code>default_child_board</code> (1.3+), <code>parent_name_singular</code> (1.3+), <code>parent_name_plural</code> (1.3+), <code>group</code> (see below; since 1.2, changing it to a different group also requires admin of that group). The whole request requires board admin (or site admin); no field is editable by a non-admin, so even a one-field <code>description</code> PATCH from a non-admin gets <code>403 Forbidden</code>.</p>
 <p><strong><code>group</code> on update:</strong> <a href="#post-apiv1boardsidmove-group"><code>POST /api/v1/boards/{id}/move-group/</code></a> is the preferred way to change it. Since 1.2, setting <code>group</code> to a different group requires admin of that group or of one of its ancestor groups (or a site admin with all-content access). Otherwise, or if the group does not exist, the request returns <code>400</code> with <code>{"group": ["Unknown group, or you are not an admin of it."]}</code> and changes nothing. The check runs against the board's group when the update is applied. Sending the current <code>group</code> unchanged (for example in an echoing <code>PUT</code>) or <code>null</code> (detach to a personal board) needs only board admin. Since 1.2, a <code>group</code> change made this way sends the same <a href="../websockets/#group-channel-since-11">group-channel events</a> as move-group: <code>board.deleted</code> to the old group and <code>board.created</code> to the new one.</p>
 <h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Delete a board. Requires the board owner or a user with <code>can_access_all_content</code> (the <code>site_admin</code> role). A board admin who is not the owner gets <code>403 Forbidden</code>; see the <a href="../../features/rbac/roles/">role matrix</a>. Deletes every card, <strong>including archived cards</strong> (see <code>archived_card_count</code> above).</p>
@@ -9972,8 +10012,9 @@ GA). The boards whose cards this board's cards can take as a parent (#1104):
 boards whose cards can have children and on which you are <code>member</code> or <code>admin</code>,
 ordered by name, uncapped. <code>member</code> or higher on this board (<code>403</code> below it,
 <code>404</code> without access). On a board whose cards can have children: <code>{"results": []}</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="p">{</span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Portfolio"</span><span class="p">}]}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="p">{</span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Portfolio"</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent_name_singular"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Initiative"</span><span class="p">,</span><span class="w"> </span><span class="nt">"parent_name_plural"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Initiatives"</span><span class="p">}]}</span>
 </code></pre></div>
+<p><code>parent_name_singular</code> and <code>parent_name_plural</code> (#2212) are that board's raw names; empty means it set none.</p>
 <p>Cards on <code>GET .../full/</code> carry a <code>parent</code> key; see
 <a href="../cards/#parent-on-a-card">Cards: <code>parent</code> on a card</a>.</p>
 <h2 id="public-share-endpoint">Public share endpoint<a class="headerlink" href="#public-share-endpoint" title="Permanent link">&para;</a></h2>

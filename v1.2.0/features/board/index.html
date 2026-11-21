@@ -1092,6 +1092,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Child cards setting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-a-parent-card-is-called" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a parent card is called
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1119,6 +1136,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extension-sections-in-card-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extension sections in card details
+      
+    </span>
+  </a>
   
 </li>
       
@@ -3428,6 +3456,8 @@
       
         
       
+        
+      
     
     
     
@@ -4001,6 +4031,34 @@
     
   
     Security Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/card-detail-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card-Detail Extensions
   
 
     
@@ -5399,6 +5457,9 @@
 <p><em>Added in 1.3 (#2208).</em> Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board is either a parent board, whose cards can have child cards on another board, or a child board, which can only hold children. A board never plays both roles.</p>
 <p>A board admin chooses which one in <strong>Board settings → Rules &amp; limits → Child cards</strong> with the <strong>Cards on this board can have children</strong> switch. It is off by default, so every existing board is a child board and nothing changes until an admin turns it on. Other members see the choice as a read-only line.</p>
 <p>The switch can be refused, and then it stays focusable but dimmed (<code>aria-disabled</code>). Activating it moves focus to a <strong>"A child can't also have children"</strong> list that says why: cards on this board are children of cards on another board, or another board names this one as its default child board (with a <strong>Change on <board></strong> link when you administer that board, or "Ask an admin of that board" when you do not, or cannot open it). Turning it <strong>off</strong> is refused while cards on this board still have children; the list says so. Fix the cause and the line clears. If the server still refuses the change (for example a card was linked a moment ago), the reason is shown under the switch.</p>
+<h3 id="what-a-parent-card-is-called">What a parent card is called<a class="headerlink" href="#what-a-parent-card-is-called" title="Permanent link">&para;</a></h3>
+<p><em>New in 1.3.</em> While <strong>Cards on this board can have children</strong> is on, a board admin can name the parent cards under <strong>What do you call a parent card on this board?</strong>: a <strong>Singular</strong> and a <strong>Plural</strong> field, for example "Initiative" and "Initiatives". Both start empty, so the board says "Parent". The <strong>Opportunity</strong>, <strong>Initiative</strong> and <strong>Release</strong> suggestions fill both fields; choosing the active one again clears them. Any text works, up to 24 characters.</p>
+<p>The name appears in two places: on a child card, the parent row is labeled with the parent board's singular name once a parent is linked; and in <strong>Link a parent card</strong>, the line under the Board picker reads, for example, "Pipeline calls these Initiatives". The word "Children", the Children tab, the rollup, the Parent filter and the public share link never change.</p>
 <h2 id="parent-card-child-side">Parent card (child side)<a class="headerlink" href="#parent-card-child-side" title="Permanent link">&para;</a></h2>
 <p><em>Added in 1.3 (#1104).</em> On a child board, a card can be linked to one <strong>parent</strong> card on a parent board. The parent's own columns and this card's columns stay independent: moving one never moves the other.</p>
 <ul>
@@ -5415,14 +5476,12 @@
 <li><strong>Who can set it:</strong> an admin of both boards. In <strong>Board settings → Rules &amp; limits → Child cards</strong>, the <strong>Default child board</strong> select appears while the switch is on and lists only boards you administer that qualify; choose <strong>None (ask each time)</strong> to clear it. Clearing needs admin on the parent board only. The same value is writable through the board PATCH API.</li>
 <li><strong>Which boards qualify:</strong> a board whose cards cannot have children and whose first column allows card creation. A board named as another board's default cannot turn on "cards can have children" until that default is cleared.</li>
 <li><strong>Turning children off</strong> on the parent board clears its default.</li>
-<li>
-<p><strong>Deleting the child board</strong> clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.</p>
-</li>
-<li>
-<p><strong>Add child chooser:</strong> a card on a parent board with member access or above shows an <strong>Add child</strong> button in its detail panel. It opens a dialog (a full-screen sheet on a phone) titled <strong>Add child</strong> with the subtitle "Where should this child go?". With a default, the board is preselected and the button reads <strong>Add to <board></strong>; without one, members see <strong>Choose a board</strong> and the button stays disabled until a board and a title are given. Admins of both boards also get <strong>Use <board> as the default for <this board></strong>, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read.</p>
-</li>
+<li><strong>Deleting the child board</strong> clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.</li>
+<li><strong>Add child chooser:</strong> a card on a parent board with member access or above shows an <strong>Add child</strong> button in its detail panel. It opens a dialog (a full-screen sheet on a phone) titled <strong>Add child</strong> with the subtitle "Where should this child go?". With a default, the board is preselected and the button reads <strong>Add to <board></strong>; without one, members see <strong>Choose a board</strong> and the button stays disabled until a board and a title are given. Admins of both boards also get <strong>Use <board> as the default for <this board></strong>, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read.</li>
 <li><strong>Delete confirm:</strong> the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.</li>
 </ul>
+<h2 id="extension-sections-in-card-details">Extension sections in card details<a class="headerlink" href="#extension-sections-in-card-details" title="Permanent link">&para;</a></h2>
+<p><em>New in 1.3, experimental.</em> An installed extension (for example an Enterprise module) can add a read-only section to a card's <strong>Details</strong> tab, after Weight. Each section has its own heading and shows plain label and value rows. Without an extension nothing is shown, and the tab looks as it always has.</p>
 <h2 id="collapsed-columns">Collapsed columns<a class="headerlink" href="#collapsed-columns" title="Permanent link">&para;</a></h2>
 <p>Click a column header to collapse it to a narrow vertical strip. When collapsed:</p>
 <ul>
