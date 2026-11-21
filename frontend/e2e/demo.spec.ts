@@ -159,7 +159,7 @@ test.describe('hosted demo visitor loop', () => {
 
     // 5. Creating a board is refused up front, with the reason, and nothing is sent.
     await page.goto('/')
-    const newBoard = page.getByRole('main').getByRole('button', { name: /^New board\./ })
+    const newBoard = page.getByRole('button', { name: /^New board\./ }).first()
     await expect(newBoard).toHaveAttribute('aria-disabled', 'true', { timeout: 10_000 })
     await expect(newBoard).toHaveAttribute('title', "This is a shared demo — boards can't be created here.")
     await newBoard.focus()

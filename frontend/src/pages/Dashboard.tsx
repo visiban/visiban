@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listBoards, createBoard, deleteBoard, importBoard } from "../api/boards";
+import { listBoards, createBoard, deleteBoard, importBoard, starBoard, unstarBoard } from "../api/boards";
 import { updateDefaultBoard } from "../api/auth";
 import { listGroups } from "../api/groups";
 import Navbar from "../components/Layout/Navbar";
+import OverflowMenu from "../components/Layout/OverflowMenu";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
-import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoardModal";
@@ -13,25 +13,62 @@ import { canDeleteBoard } from "../utils/canDeleteBoard";
 import BoardDeleteImpactNotice from "../components/Board/BoardDeleteImpact";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
-import SectionEmptyState from "../components/Common/SectionEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
+import Avatar from "../components/Common/Avatar";
+import { Button, CardHeading, FilterPill, ListRow, ListWell, OverviewLayout, PageHeading, StatusPill } from "../components/Page";
+import type { StatusTone } from "../components/Page";
+import { HEALTH_STATUS_LABELS } from "../constants/healthStatus";
 import type { Board, Group, ImportOptions, User } from "../types";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
-import Spinner from "../components/Common/Spinner";
 import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON } from "../constants/demoCopy";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
-import { HealthListingPill } from "../components/Common/HealthStatusPill";
+import { useShellNavData } from "../contexts/ShellNavContext";
 import { healthReviewCue } from "../utils/healthStatus";
+import { formatRelativeTime } from "../utils/date";
 import { isImeComposing } from "../utils/imeComposition";
+import {
+  EMPTY_COPY, NO_DATA_TITLE, boardSignals, filterBoards, filterCounts, firstName, greeting, needsAttention, openedAgo,
+  phoneSummary, recentTiles, sortBoards, summarize, summaryClauses, type BoardFilter,
+} from "../components/Dashboard/homeModel";
 
 interface Props {
   user: User;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
+  /** Tells the shell to reload its Starred list after a star toggle (#2473). */
+  onStarToggled?: () => void;
 }
 
-export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
+const FILTERS: { id: BoardFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "starred", label: "Starred" },
+  { id: "personal", label: "Personal" },
+  { id: "at_risk", label: "At risk" },
+];
+
+/** A board's status as a pill, or nothing: listings never show "No status" (health rule 3). */
+function BoardStatusPill({ board }: { board: Board }) {
+  const status = board.effective_health_status;
+  if (!status) return null;
+  return <StatusPill tone={status as StatusTone} label={HEALTH_STATUS_LABELS[status]} />;
+}
+
+/** "5 stale · 3 blocked", or "Stale, blocked: no data" where auto health is off. Never 0 for no data. */
+function SignalsText({ board, className = "" }: { board: Board; className?: string }) {
+  const s = boardSignals(board);
+  if (!s) {
+    return <span className={`text-fg-tertiary ${className}`} title={NO_DATA_TITLE}>Stale, blocked: no data</span>;
+  }
+  return (
+    <span className={`text-fg-secondary tabular-nums ${className}`}>
+      {s.stale} stale<span aria-hidden="true"> · </span><span className="sr-only">, </span>{s.blocked} blocked
+    </span>
+  );
+}
+
+export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
+  const { recentBoards } = useShellNavData();
   const navigate = useNavigate();
   const [boards, setBoards] = useState<Board[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -47,6 +84,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [joinToken, setJoinToken] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<BoardFilter>("all");
 
   // True when the initial boards or groups fetch rejected. Drives the error state
   // (with Retry) and keeps a failed load from masquerading as "no data" (#487).
@@ -60,7 +98,14 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   // clear a loading flag after the retry round succeeded (#487).
   const loadGenRef = useRef(0);
   const retryButtonRef = useRef<HTMLButtonElement>(null);
-  const groupsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusAfterRecoveryRef = useRef(false);
+  // The All boards section is the stable focus target after a retry recovers or a delete
+  // confirms (#2204 class): the opener unmounts, so focus must not fall to <body>.
+  const allBoardsRef = useRef<HTMLElement>(null);
+
+  // The All boards section, or the first-run heading when nothing is listed (deleting the last
+  // board lands there): focus always has somewhere stable to go.
+  const focusAnchor = (): HTMLElement | null => allBoardsRef.current ?? document.getElementById("first-run-heading");
 
   const loadAll = useCallback((isRetry = false) => {
     const gen = ++loadGenRef.current;
@@ -92,8 +137,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     void Promise.all([boardsRound, groupsRound]).then(() => {
       if (!isCurrent() || failed || !isRetry) return;
       // The retry recovered: the error and its Retry button unmount, so move focus that was
-      // on Retry to the first section heading instead of letting it fall to <body>.
-      if (document.activeElement === retryButtonRef.current) groupsHeadingRef.current?.focus();
+      // on Retry to the first section instead of letting it fall to <body>.
+      if (document.activeElement === retryButtonRef.current) focusAfterRecoveryRef.current = true;
       setLoadFailed(false);
       setLoadError(null);
       setRetrying(false);
@@ -103,6 +148,15 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Focus that was on Retry moves to the first section once the recovered page has rendered:
+  // the section may not exist until the error state clears.
+  useEffect(() => {
+    if (focusAfterRecoveryRef.current && !loadFailed && !loadingBoards && !loadingGroups) {
+      focusAfterRecoveryRef.current = false;
+      focusAnchor()?.focus();
+    }
+  });
 
   const handleRetry = () => {
     if (retrying) return;
@@ -123,10 +177,6 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     // the board was already created and there is nothing to roll back.
     void navigate(`/boards/${board.id}`);
   };
-
-  // #2204 class: a confirmed delete unmounts the board row's Delete button (the opener), so the
-  // dialog restores focus to the stable "My Boards" heading instead of <body>.
-  const myBoardsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleDeleteBoard = async (boardId: number) => {
     const removedIndex = boards.findIndex((b) => b.id === boardId);
@@ -158,6 +208,20 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     }
   };
 
+  // Optimistic star toggle; reverts just this board on failure so a concurrent change to
+  // another row is never overwritten.
+  const handleToggleStar = async (b: Board) => {
+    const next = !b.is_starred;
+    setBoards((prev) => prev.map((x) => (x.id === b.id ? { ...x, is_starred: next } : x)));
+    try {
+      if (next) await starBoard(b.id); else await unstarBoard(b.id);
+      onStarToggled?.();
+    } catch {
+      setBoards((prev) => prev.map((x) => (x.id === b.id ? { ...x, is_starred: !next } : x)));
+      setLoadError(`Failed to ${next ? "star" : "unstar"} the board. Please try again.`);
+    }
+  };
+
   const handleImportBoard = async (file: File, name?: string, options?: ImportOptions, meta?: ImportMeta) => {
     const board = options ? await importBoard(file, name, undefined, options) : await importBoard(file, name);
     setImportingBoard(false);
@@ -174,69 +238,24 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     }
   };
 
-  const personalBoards = boards.filter((b) => !b.group);
-  const favoriteBoards = boards
-    .filter((b) => b.is_starred)
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
-  // #2309: a board in a group that is not starred has no row of its own here, so
-  // its "Not reviewed" cue (#2244) would never show. List exactly those boards,
-  // with the same cue rule (healthReviewCue), from the board list already loaded:
-  // no request of its own. Starred and ungrouped boards keep their cue in place.
-  const needsReviewBoards = boards
-    .filter((b) => b.group && !b.is_starred && healthReviewCue(b) !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  // Subgroups too (#2309 scope: boards and groups). The group tree starts collapsed,
-  // so a subgroup past its review date is hidden there by default; a top-level group
-  // is always visible in the tree with its own cue, so it is not repeated here.
-  const needsReviewGroups = groups
-    .filter((g) => g.parent !== null && !g.navigation_only && healthReviewCue(g) !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
   const isLoaded = !loadingBoards && !loadingGroups;
   const isEmpty = isLoaded && !loadFailed && boards.length === 0 && groups.length === 0;
-
-  const renderBoardRow = (b: Board) => (
-    <div key={b.id} className="group relative">
-      <button
-        onClick={() => navigate(`/boards/${b.id}`)}
-        className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-      >
-        {/* Left-aligned beside the name: the hover actions sit absolute right-3 (#1133). */}
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="font-medium truncate">{b.name}</p>
-          <HealthListingPill fields={b} />
-        </div>
-        {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
-      </button>
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition">
-        <button type="button"
-          onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
-          className="text-fg-muted hover:text-info p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-          title="Move to group"
-          aria-label={`Move ${b.name} to group`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
-            <path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
-          </svg>
-        </button>
-        {canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true }) && (
-          <button type="button"
-            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-            className="text-fg-muted hover:text-danger p-1 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
-            title="Delete board"
-            aria-label={`Delete ${b.name}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </button>
-        )}
-      </div>
-    </div>
+  const listedGroups = useMemo(
+    () => groups.filter((g) => !g.navigation_only).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [groups],
   );
+  const counts = useMemo(() => filterCounts(boards), [boards]);
+  const visibleBoards = useMemo(() => sortBoards(filterBoards(boards, filter)), [boards, filter]);
+  const attention = useMemo(() => needsAttention(boards, groups), [boards, groups]);
+  const tiles = useMemo(() => recentTiles(recentBoards, boards), [recentBoards, boards]);
+  const summary = useMemo(() => summarize(boards, groups), [boards, groups]);
+  const clauses = summaryClauses(summary);
+  const phone = phoneSummary(summary);
 
-  const handleJoinGroup = () => setJoiningGroup(true);
+  const requestNewBoard = () => { if (!demoMode) setCreatingBoard(true); };
+  const requestImport = () => { if (!demoMode) setImportingBoard(true); };
+  const demoNew = demoMode ? { "aria-disabled": true as const, "aria-label": `New board. ${DEMO_NEW_BOARD_REASON}`, title: DEMO_NEW_BOARD_REASON, className: "opacity-40 cursor-not-allowed" } : {};
+  const demoImport = demoMode ? { "aria-disabled": true as const, "aria-label": `Import. ${DEMO_IMPORT_REASON}`, title: DEMO_IMPORT_REASON, className: "opacity-40 cursor-not-allowed" } : {};
 
   const handleJoinSubmit = () => {
     const raw = joinToken.trim();
@@ -249,165 +268,280 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
     if (token) void navigate(`/join/${token}`);
   };
 
+  const renderBoardRow = (b: Board) => {
+    const cue = healthReviewCue(b);
+    const canDelete = canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true });
+    const group = b.group_name ?? null;
+    return (
+      <ListRow key={b.id} as="li">
+        <div className="flex items-center gap-2 px-2 py-2 min-w-0">
+          {/* The star is a row control on desktop; on phones it moves into the ⋯ menu. */}
+          <button
+            type="button"
+            aria-pressed={b.is_starred}
+            aria-label={`${b.is_starred ? "Unstar" : "Star"} ${b.name}`}
+            onClick={() => void handleToggleStar(b)}
+            className="max-sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill={b.is_starred ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5">
+              <path d="M10 2.5l2.3 4.7 5.2.8-3.8 3.6.9 5.1L10 14.2l-4.6 2.5.9-5.1L2.5 8l5.2-.8L10 2.5z" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/boards/${b.id}`)}
+            className="flex-1 min-w-0 text-left rounded px-1 py-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            <span className="block truncate text-sm font-medium text-fg">{b.name}</span>
+            {group && <span className="block truncate text-xs text-fg-tertiary">{group}</span>}
+            {b.description && <span className="block truncate text-xs text-fg-tertiary max-sm:hidden">{b.description}</span>}
+            {cue && <span className="block text-xs text-warning-on-tint">{cue.text}</span>}
+          </button>
+          <SignalsText board={b} className="max-sm:hidden shrink-0 text-xs" />
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <BoardStatusPill board={b} />
+            <span className="text-xs text-fg-tertiary">Updated {formatRelativeTime(b.updated_at)}</span>
+          </div>
+          <OverflowMenu
+            ariaLabel={`More actions for ${b.name}`}
+            triggerClassName="shrink-0 h-9 w-9 max-sm:h-11 max-sm:w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            items={[
+              { id: "star", label: b.is_starred ? "Unstar" : "Star", onSelect: () => void handleToggleStar(b) },
+              { id: "move", label: "Move to group", onSelect: () => setMovingBoard(b) },
+              ...(canDelete
+                ? [{ id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => { setConfirmDeleteId(b.id); setDeleteConfirmInput(""); } }]
+                : []),
+            ]}
+          />
+        </div>
+      </ListRow>
+    );
+  };
+
+  const newBoardAction = (
+    <Button variant="primary" onClick={requestNewBoard} {...demoNew} className={`max-sm:hidden ${demoMode ? demoNew.className : ""}`}>
+      New board
+    </Button>
+  );
+
+  const skeleton = (
+    <div data-testid="home-skeleton" aria-hidden="true" className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-[10px] bg-surface-hover animate-pulse" />)}
+      </div>
+      {[0, 1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-surface-hover animate-pulse" />)}
+    </div>
+  );
+
+  const heading = isEmpty ? undefined : (
+    <PageHeading
+      title={greeting(user)}
+      description={
+        isLoaded && !loadFailed ? (
+          <>
+            <span className="max-sm:hidden">
+              {clauses.lead}
+              {clauses.atRisk && <> <span className="text-warning-on-tint font-semibold">{clauses.atRisk}</span></>}
+              {clauses.signals && <> {clauses.signals}</>}
+            </span>
+            <span className="sm:hidden">{phone ?? clauses.lead}</span>
+          </>
+        ) : undefined
+      }
+      actions={
+        <>
+          <Button variant="secondary" onClick={requestImport} {...demoImport}>Import</Button>
+          <Button variant="secondary" onClick={() => setShowCreateGroup(true)}>New group</Button>
+        </>
+      }
+    />
+  );
+
+  const aside = isEmpty ? undefined : (
+    <>
+      <section aria-labelledby="home-groups-heading" className="bg-surface border border-line rounded-[10px] p-[18px] max-sm:order-1">
+        <CardHeading as="h2" id="home-groups-heading">Groups</CardHeading>
+        {loadingGroups ? (
+          <div className="mt-3 h-16 rounded-lg bg-surface-hover animate-pulse" aria-hidden="true" />
+        ) : listedGroups.length === 0 ? (
+          loadFailed ? null : <p data-testid="groups-empty" className="mt-2 text-sm text-fg-secondary">No groups yet. Create one to collaborate with others.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {listedGroups.map((g) => (
+              <li key={g.id}>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/groups/${g.id}`)}
+                  className="w-full text-left rounded-lg border border-line bg-canvas px-3 py-2 hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  <span className="block truncate text-sm font-medium text-fg">{g.name}</span>
+                  <span className="mt-0.5 flex items-center justify-between gap-2 text-xs text-fg-secondary">
+                    <span>
+                      {g.board_count} {g.board_count === 1 ? "board" : "boards"} · {g.member_count} {g.member_count === 1 ? "member" : "members"}
+                    </span>
+                    <span className="flex items-center -space-x-1" aria-hidden="true">
+                      <Avatar user={g.owner} size="xs" className="ring-2 ring-canvas" />
+                      {g.member_count > 1 && (
+                        <span className="h-5 min-w-5 px-1 rounded-full bg-surface-hover text-[10px] leading-5 text-center text-fg-secondary ring-2 ring-canvas">+{g.member_count - 1}</span>
+                      )}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {isLoaded && !loadFailed && attention.length > 0 && (
+        <section aria-labelledby="home-attention-heading" className="bg-surface border border-line rounded-[10px] p-[18px] max-sm:order-2">
+          <CardHeading as="h2" id="home-attention-heading">Needs attention</CardHeading>
+          <p className="mt-1 text-xs text-fg-secondary">Boards and subgroups with stale or blocked cards, or overdue for review, worst first</p>
+          <ul className="mt-3 flex flex-col gap-1">
+            {attention.map((a) => (
+              <li key={`${a.kind}-${a.id}`}>
+                <button
+                  type="button"
+                  onClick={() => navigate(a.kind === "board" ? `/boards/${a.id}` : `/groups/${a.id}`)}
+                  className="w-full flex items-start gap-2 text-left rounded-lg px-2 py-2 hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  {/* Severity, not health status: decorative, the meta line carries the words. */}
+                  <span aria-hidden="true" data-severity={a.severity} className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${a.severity === "danger" ? "bg-danger" : "bg-warning"}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-fg">{a.name}</span>
+                    <span className="block text-xs text-fg-secondary">{a.meta}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+
   return (
     <div className="h-full bg-sunken flex flex-col">
-      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
+      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} primaryAction={newBoardAction} />
 
-      <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-
-        {/* The alert is always mounted and only its text changes: a region that mounts together
-            with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
-        <div className={loadFailed ? "flex flex-wrap items-center gap-3 mb-4" : undefined}>
-          <p
-            id="dashboard-load-error"
-            role="alert"
-            aria-atomic="true"
-            className="text-sm text-danger"
-            data-testid="dashboard-load-error"
-          >
-            {loadError}
-          </p>
-          {/* Retry sits beside the alert, never inside it, and stays mounted while retrying (#1772). */}
-          {loadFailed && (
-            <button
-              ref={retryButtonRef}
-              type="button"
-              onClick={handleRetry}
-              aria-disabled={retrying || undefined}
-              aria-describedby="dashboard-load-error"
-              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+      <main className="flex-1 overflow-y-auto">
+        <OverviewLayout heading={heading} aside={aside}>
+          {/* The alert is always mounted and only its text changes: a region that mounts together
+              with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
+          <div className={loadFailed ? "flex flex-wrap items-center gap-3" : undefined}>
+            <p
+              id="dashboard-load-error"
+              role="alert"
+              aria-atomic="true"
+              className="text-sm text-danger"
+              data-testid="dashboard-load-error"
             >
-              {retrying ? "Retrying…" : "Retry"}
-            </button>
-          )}
-        </div>
-
-        {isEmpty && (
-          <OnboardingEmptyState
-            onCreateBoard={() => setCreatingBoard(true)}
-            onJoinGroup={handleJoinGroup}
-          />
-        )}
-
-        {/* Groups */}
-        <section className="mb-10" aria-labelledby="groups-heading">
-          <div className="flex items-center justify-between mb-4">
-            <h2 id="groups-heading" ref={groupsHeadingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">Groups</h2>
-            <button
-              onClick={() => setShowCreateGroup(true)}
-              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              + New top-level group
-            </button>
+              {loadError}
+            </p>
+            {/* Retry sits beside the alert, never inside it, and stays mounted while retrying (#1772). */}
+            {loadFailed && (
+              <Button
+                variant="quiet"
+                buttonRef={retryButtonRef}
+                onClick={handleRetry}
+                aria-disabled={retrying || undefined}
+                aria-describedby="dashboard-load-error"
+                className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+              >
+                {retrying ? "Retrying…" : "Retry"}
+              </Button>
+            )}
           </div>
-          {loadingGroups ? (
-            <Spinner />
-          ) : groups.length === 0 ? (
-            // The onboarding state above already says "nothing here yet"; don't repeat it.
-            isEmpty || loadFailed ? null : (
-              <SectionEmptyState
-                testId="groups-empty"
-                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
-                heading="No groups yet"
-                description="Create one to collaborate with others."
-              />
-            )
-          ) : (
-            <div className="bg-surface/50 rounded-lg border border-line/50 px-2 py-1">
-              <GroupTree
-                nodes={buildGroupTree(groups)}
-                onGroupCreated={(g) => setGroups((prev) => [...prev, g])}
-              />
-            </div>
-          )}
-        </section>
 
-        {/* Boards in groups that need a health review (#2309) */}
-        {isLoaded && (needsReviewBoards.length > 0 || needsReviewGroups.length > 0) && (
-          <section className="mb-10" aria-labelledby="dashboard-needs-review-heading">
-            <div className="mb-4">
-              <h2 id="dashboard-needs-review-heading" className="text-fg text-lg font-semibold">Needs review</h2>
-              <p className="text-sm text-fg-tertiary mt-0.5">Boards and subgroups whose health status is past its review date.</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {needsReviewGroups.map((g) => (
-                <button
-                  key={`group-${g.id}`}
-                  onClick={() => navigate(`/groups/${g.id}`)}
-                  className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          {!isLoaded && skeleton}
+
+          {isEmpty && (
+            <OnboardingEmptyState
+              name={firstName(user)}
+              onCreateBoard={requestNewBoard}
+              onJoinGroup={() => setJoiningGroup(true)}
+              onImport={requestImport}
+              disabledReason={demoMode ? DEMO_NEW_BOARD_REASON : null}
+              importDisabledReason={demoMode ? DEMO_IMPORT_REASON : null}
+            />
+          )}
+
+          {isLoaded && !isEmpty && tiles.length > 0 && (
+            <section aria-labelledby="home-jump-heading">
+              <CardHeading as="h2" id="home-jump-heading">Jump back in</CardHeading>
+              <p className="mt-0.5 text-xs text-fg-secondary">Recently opened on this device</p>
+              <ul className="mt-3 flex gap-3 overflow-x-auto sm:grid sm:grid-cols-3 sm:overflow-visible">
+                {tiles.map(({ board: b, entry }) => (
+                  <li key={b.id} className="min-w-[240px] sm:min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/boards/${b.id}`)}
+                      className="w-full h-full text-left bg-surface border border-line rounded-[10px] p-3 hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs text-fg-tertiary">{b.group_name ?? entry.groupAncestors?.[0] ?? "Personal"}</span>
+                          <span className="block truncate text-sm font-medium text-fg">{b.name}</span>
+                        </span>
+                        <BoardStatusPill board={b} />
+                      </span>
+                      <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-secondary">
+                        <span className="tabular-nums">Cards {b.card_count}</span>
+                        <SignalsText board={b} />
+                      </span>
+                      {openedAgo(entry.openedAt) && (
+                        <span className="mt-1 block text-xs text-fg-tertiary">Opened {openedAgo(entry.openedAt)}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {isLoaded && !isEmpty && (
+            <section ref={allBoardsRef} tabIndex={-1} aria-labelledby="home-boards-heading" className="focus:outline-none">
+              <CardHeading as="h2" id="home-boards-heading">All boards</CardHeading>
+              <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filter boards">
+                <div className="flex flex-wrap gap-2 max-sm:hidden">
+                  {FILTERS.map((f) => (
+                    <FilterPill key={f.id} label={f.label} count={counts[f.id]} selected={filter === f.id} onClick={() => setFilter(f.id)} />
+                  ))}
+                </div>
+                <select
+                  aria-label="Filter boards"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as BoardFilter)}
+                  className="sm:hidden h-11 w-full rounded border border-line-strong bg-surface px-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <p className="font-medium truncate">{g.name}</p>
-                    <HealthListingPill fields={g} />
-                  </div>
-                  <p className="text-sm text-fg-tertiary mt-0.5">Subgroup of {g.parent_name}</p>
-                </button>
-              ))}
-              {needsReviewBoards.map(renderBoardRow)}
-            </div>
-          </section>
-        )}
-
-        {/* Favorite boards */}
-        {isLoaded && favoriteBoards.length > 0 && (
-          <section className="mb-10" aria-labelledby="dashboard-favorite-boards-heading">
-            <div className="flex items-center justify-between mb-4">
-              <h2 id="dashboard-favorite-boards-heading" className="text-fg text-lg font-semibold">Favorite Boards</h2>
-            </div>
-            <div className="flex flex-col gap-2">
-              {favoriteBoards.map(renderBoardRow)}
-            </div>
-          </section>
-        )}
-
-        {/* Personal boards */}
-        <section aria-labelledby="my-boards-heading">
-          <div className="flex items-center justify-between mb-4">
-            <h2 id="my-boards-heading" ref={myBoardsHeadingRef} tabIndex={-1} className="text-fg text-lg font-semibold focus:outline-none">My Boards</h2>
-            <div className="flex items-center gap-2">
-              {/* Hosted demo (#1179): both create a whole board, which the server
-                  fence refuses — aria-disabled, reason in title + aria-label. */}
-              <button
-                onClick={() => { if (!demoMode) setImportingBoard(true); }}
-                aria-disabled={demoMode ? true : undefined}
-                aria-label={demoMode ? `Import. ${DEMO_IMPORT_REASON}` : undefined}
-                title={demoMode ? DEMO_IMPORT_REASON : undefined}
-                className={`text-sm text-fg-tertiary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                  demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg hover:bg-surface-hover"
-                }`}
-              >
-                Import
-              </button>
-              <button
-                onClick={() => { if (!demoMode) setCreatingBoard(true); }}
-                aria-disabled={demoMode ? true : undefined}
-                aria-label={demoMode ? `New board. ${DEMO_NEW_BOARD_REASON}` : undefined}
-                title={demoMode ? DEMO_NEW_BOARD_REASON : undefined}
-                className={`text-sm bg-button-primary text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium ${
-                  demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"
-                }`}
-              >
-                + New board
-              </button>
-            </div>
-          </div>
-          {loadingBoards ? (
-            <Spinner />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {personalBoards.length === 0 && !isEmpty && !loadFailed && (
-                <SectionEmptyState
-                  testId="personal-boards-empty"
-                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4a1 1 0 011-1h3a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h3a1 1 0 011 1v8a1 1 0 01-1 1h-3a1 1 0 01-1-1V4zm6 0a1 1 0 011-1h1a1 1 0 011 1v5a1 1 0 01-1 1h-1a1 1 0 01-1-1V4z" /></svg>}
-                  heading="No personal boards yet"
-                  description="Use New board to create one."
-                />
-              )}
-              {personalBoards.map(renderBoardRow)}
-            </div>
+                  {FILTERS.map((f) => <option key={f.id} value={f.id}>{`${f.label} (${counts[f.id]})`}</option>)}
+                </select>
+              </div>
+              <div className="mt-3">
+                {visibleBoards.length === 0 ? (
+                  // A failed load never reads as "no boards" (#487): the error and Retry say so.
+                  loadFailed && boards.length === 0 ? null : <p data-testid="boards-empty" className="rounded-[10px] border border-line bg-canvas px-4 py-8 text-center text-sm text-fg-secondary">
+                    {EMPTY_COPY[filter]}
+                  </p>
+                ) : (
+                  <ListWell as="ul" label="All boards">{visibleBoards.map(renderBoardRow)}</ListWell>
+                )}
+              </div>
+            </section>
           )}
-        </section>
+        </OverviewLayout>
       </main>
+
+      {!isEmpty && (
+        <button
+          type="button"
+          onClick={requestNewBoard}
+          {...(demoMode ? { "aria-disabled": true, "aria-label": `New board. ${DEMO_NEW_BOARD_REASON}`, title: DEMO_NEW_BOARD_REASON } : {})}
+          className={`sm:hidden fixed bottom-4 right-4 z-30 h-12 px-5 rounded-full bg-button-primary text-on-primary text-sm font-medium shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"}`}
+        >
+          New board
+        </button>
+      )}
 
       {creatingBoard && (
         <CreateBoardModal
@@ -500,7 +634,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             title="Delete board?"
             maxWidth="max-w-sm"
             labelId="delete-board-title"
-            restoreFocusTo={() => myBoardsHeadingRef.current}
+            restoreFocusTo={focusAnchor}
           >
             <p className="text-fg-tertiary text-sm mb-1">
               <span className="text-fg font-medium">{board?.name}</span> and all its data, including archived cards, will be permanently deleted.

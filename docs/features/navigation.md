@@ -39,6 +39,19 @@ A section with nothing in it is hidden. While your boards load, the sections sho
 
 To close the drawer, press `Escape`, press `[` again, click the X, or click outside it. Focus goes back to the menu button.
 
+## Home
+
+Home (`/`) is a status page, not just a list of boards *(new in 1.3, #2474)*. The header shows **Home**; the page greets you ("Good morning, Jane") and sums up your workspace: how many boards across how many groups, how many boards are at risk, and the stale and blocked cards on the boards that have [auto health](health-status.md) on. A clause with a count of 0 is left out. The counts are a snapshot from each board's last health calculation, not a weekly total.
+
+- **Jump back in** shows the last three boards you opened *on this device*, with the group (or "Personal"), the status, the card count, stale and blocked counts, and when you opened it. It is stored in this browser only, so it is empty on a new device, and the section is hidden when it has nothing to show.
+- **All boards** lists every board you can open, personal and in groups. Filter by **All**, **Starred**, **Personal** or **At risk** (each shows its count; on a phone the filter is a select). Each row has a star toggle, the name and description, the "Not reviewed in N days" cue, stale and blocked counts, the status, and when the board was last updated. A board without auto health shows "Stale, blocked: no data" rather than 0. The **...** menu has **Move to group** and, if you may delete the board, **Delete**; on a phone it also holds **Star**. **At risk** includes boards whose status is Off track.
+- **Groups** lists the groups you can see with their board and member counts.
+- **Needs attention** lists boards and subgroups with stale or blocked cards, or whose health status is overdue for review, worst first (blocked, then stale, then days overdue). It is hidden when nothing needs attention.
+
+**Import**, **New group** and **New board** sit beside the heading and in the header. In a hosted demo, creating and importing boards is disabled with the reason shown.
+
+**First run.** With no boards and no groups, Home leads with joining a team: **I have an invite link** (paste a link or token), then the options for a board of your own: **Start from a template**, **Import a board** (Visiban or Trello) and **Blank board**. Boards you start there are personal. If you are in a group that has no boards yet, you see the normal page with its empty list.
+
 ## Switch boards
 
 On a board, the board name in the header opens **Switch board**. Type to filter by name, use the arrow keys to move, `Enter` to open a board, and `Escape` to close. It lists, in order:
@@ -57,7 +70,7 @@ Visiban remembers the last 5 boards you opened, most recent first. The list is s
 
 ## Starring boards and groups
 
-The star button (☆/★) sits beside the board or group name in the header. Starred groups are not listed in the drawer. Starred boards appear in the drawer's **Starred** section, at the top of the board switcher, on the Dashboard, and first in the command palette when you open it with an empty query.
+The star button (☆/★) sits beside the board or group name in the header. Starred groups are not listed in the drawer. Starred boards appear in the drawer's **Starred** section, at the top of the board switcher, under **Starred** on Home, and first in the command palette when you open it with an empty query.
 
 ## Keyboard shortcuts
 

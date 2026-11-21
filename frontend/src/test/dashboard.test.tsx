@@ -19,6 +19,8 @@ vi.mock('../api/boards', () => ({
   // #2208 — the Rules switch's blockers and the delete confirm's impact read.
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
   getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  starBoard: vi.fn().mockResolvedValue(undefined),
+  unstarBoard: vi.fn().mockResolvedValue(undefined),
   getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   // The import modal fetches the sample list on open (#1452); empty = gallery unavailable.
   listSampleBoards: vi.fn().mockResolvedValue([]),
@@ -105,6 +107,16 @@ function renderDashboard() {
   )
 }
 
+async function startDelete(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await openRowMenu(user, name)
+  await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+}
+
+async function openRowMenu(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await screen.findByText(name)
+  await user.click(screen.getByRole('button', { name: `More actions for ${name}` }))
+}
+
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -113,26 +125,22 @@ describe('Dashboard', () => {
     mockNavigate.mockReset()
   })
 
-  it('renders Groups and My Boards sections', async () => {
+  const sprint = { id: 1, name: 'Sprint Board', description: 'Current sprint', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+
+  it('renders the Groups and All boards sections once something exists', async () => {
+    mockListBoards.mockResolvedValue([sprint])
     renderDashboard()
-    expect(await screen.findByText('Groups')).toBeInTheDocument()
-    expect(screen.getByText('My Boards')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'All boards' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Groups' })).toBeInTheDocument()
+    expect(screen.getByTestId('groups-empty')).toHaveTextContent('No groups yet')
   })
 
-  it('shows the canonical empty state when no personal boards (groups exist)', async () => {
-    mockListGroups.mockResolvedValue([{ id: 1, name: 'G', slug: 'g', parent: null, parent_name: null } as never])
+  it('a user in a group with no boards gets the normal page, not the first-run state', async () => {
+    mockListGroups.mockResolvedValue([{ id: 1, name: 'G', slug: 'g', parent: null, parent_name: null, owner: fakeUser, member_count: 1, board_count: 0, navigation_only: false } as never])
     renderDashboard()
-    expect(await screen.findByTestId('personal-boards-empty')).toHaveTextContent('No personal boards yet')
-  })
-
-  it('shows the canonical empty state when no groups (boards exist)', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
-    renderDashboard()
-    const empty = await screen.findByTestId('groups-empty')
-    expect(empty).toHaveTextContent('No groups yet')
-    expect(empty).toHaveTextContent('Create one to collaborate with others.')
+    expect(await screen.findByTestId('boards-empty')).toHaveTextContent('No boards yet. Use New board, or Import one.')
+    expect(screen.queryByText(/^Welcome to Visiban/)).not.toBeInTheDocument()
+    expect(screen.getByText('G')).toBeInTheDocument()
   })
 
   it.each([
@@ -149,16 +157,22 @@ describe('Dashboard', () => {
     renderDashboard()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(/^Failed to load (boards|groups)\.$/)
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
-    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('boards-empty')).not.toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
-    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Welcome to Visiban/)).not.toBeInTheDocument()
   })
 
-  it('hides the redundant section empty states below the onboarding state', async () => {
+  it('first run: an h2 welcome that leads with joining a team, then the personal options (#2474)', async () => {
     renderDashboard()
-    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: 'Welcome to Visiban, Jane' })).toBeInTheDocument()
+    const headings = screen.getAllByRole('heading').map((h) => h.textContent)
+    expect(headings.indexOf('Waiting to join a team?')).toBeLessThan(headings.indexOf('Or start a board of your own'))
+    expect(screen.getByRole('button', { name: 'I have an invite link' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start from a template' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Import a board/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Blank board' })).toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('boards-empty')).not.toBeInTheDocument()
   })
 
   it('shows an error with Retry, not the onboarding or empty states, when loads fail, and Retry recovers', async () => {
@@ -166,11 +180,11 @@ describe('Dashboard', () => {
     mockListGroups.mockRejectedValueOnce(new Error('x'))
     renderDashboard()
     expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(/^Failed to load (boards|groups)\.$/)
-    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Welcome to Visiban/)).not.toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('personal-boards-empty')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('boards-empty')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(await screen.findByText(/^Welcome to Visiban/)).toBeInTheDocument()
     // The alert stays mounted (#1435/#1437); only its text is cleared.
     expect(screen.getByTestId('dashboard-load-error')).toBeEmptyDOMElement()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
@@ -202,9 +216,10 @@ describe('Dashboard', () => {
     expect(mockListBoards).toHaveBeenCalledTimes(2)
 
     resolveBoards([])
-    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(await screen.findByText(/^Welcome to Visiban/)).toBeInTheDocument()
     expect(alert).toBeEmptyDOMElement()
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Groups' }))
+    // Nothing is listed, so focus lands on the first-run heading rather than <body>.
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: /^Welcome to Visiban/ }))
   })
 
   it('announces a repeat failure: clears the alert text while retrying, then writes it again (#487)', async () => {
@@ -233,7 +248,7 @@ describe('Dashboard', () => {
     expect(again).toBe(retry)
     expect(again).not.toHaveAttribute('aria-disabled')
     expect(document.activeElement).toBe(retry)
-    expect(screen.queryByText('Welcome to Visiban')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Welcome to Visiban/)).not.toBeInTheDocument()
   })
 
   it('ignores a late rejection from the first load round after the retry succeeded (#487)', async () => {
@@ -246,14 +261,14 @@ describe('Dashboard', () => {
     mockListBoards.mockResolvedValueOnce([])
     mockListGroups.mockResolvedValueOnce([])
     await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(await screen.findByText(/^Welcome to Visiban/)).toBeInTheDocument()
 
     // Round 1's groups fetch now rejects late; it must not resurrect the error or the Retry button.
     rejectGroups1(new Error('late'))
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.getByTestId('dashboard-load-error')).toBeEmptyDOMElement()
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-    expect(screen.getByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(screen.getByText(/^Welcome to Visiban/)).toBeInTheDocument()
   })
 
   it('ignores a late success from the first load round after the retry round loaded newer data (#487)', async () => {
@@ -264,67 +279,58 @@ describe('Dashboard', () => {
     mockListBoards.mockResolvedValueOnce([])
     mockListGroups.mockResolvedValueOnce([])
     await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
-    expect(await screen.findByText('Welcome to Visiban')).toBeInTheDocument()
+    expect(await screen.findByText(/^Welcome to Visiban/)).toBeInTheDocument()
     resolveGroups1([{ id: 9, name: 'Stale Group', description: '', owner: fakeUser, parent: null, parent_name: null, member_count: 1, board_count: 0, subgroup_count: 0, created_at: '' }])
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByText('Stale Group')).not.toBeInTheDocument()
   })
 
   it('renders boards when available', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Sprint Board', description: 'Current sprint', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
+    mockListBoards.mockResolvedValue([sprint])
     renderDashboard()
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
     expect(screen.getByText('Current sprint')).toBeInTheDocument()
   })
 
-  it('filters out grouped boards from personal list', async () => {
+  it('lists every board the user can open, grouped boards included', async () => {
     mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Personal Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-      { id: 2, name: 'Group Board', description: '', owner: fakeUser, group: 5, group_name: 'Eng', member_count: 1, created_at: '', updated_at: '' },
+      { ...sprint, id: 1, name: 'Personal Board' },
+      { ...sprint, id: 2, name: 'Group Board', description: '', group: 5, group_name: 'Eng' },
     ])
     renderDashboard()
     expect(await screen.findByText('Personal Board')).toBeInTheDocument()
-    expect(screen.queryByText('Group Board')).not.toBeInTheDocument()
+    expect(screen.getByText('Group Board')).toBeInTheDocument()
   })
 
-  it('shows new board button', async () => {
+  it('shows new board and import buttons beside the heading', async () => {
+    mockListBoards.mockResolvedValue([sprint])
     renderDashboard()
-    expect(await screen.findByText('+ New board')).toBeInTheDocument()
-  })
-
-  it('shows new group button', async () => {
-    renderDashboard()
-    expect(await screen.findByText('+ New top-level group')).toBeInTheDocument()
-  })
-
-  it('shows import button', async () => {
-    renderDashboard()
-    expect(await screen.findByText('Import')).toBeInTheDocument()
+    expect((await screen.findAllByRole('button', { name: 'New board' })).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New group' })).toBeInTheDocument()
   })
 
   it('opens create board modal on new board click', async () => {
     const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('+ New board')
-    await user.click(screen.getByText('+ New board'))
+    await screen.findAllByRole('button', { name: 'New board' })
+    await user.click(screen.getAllByRole('button', { name: 'New board' })[0])
     expect(screen.getByText('New Board')).toBeInTheDocument()
   })
 
   it('opens import modal on import click', async () => {
     const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     expect(screen.getByText('Import Board')).toBeInTheDocument()
   })
 
   it('switches from the import modal to the Trello import wizard', async () => {
     const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     await user.click(screen.getByRole('button', { name: 'Import a Trello export' }))
     expect(screen.queryByText('Import Board')).not.toBeInTheDocument()
     expect(screen.getByText('Import from Trello')).toBeInTheDocument()
@@ -332,20 +338,22 @@ describe('Dashboard', () => {
   })
 
   it('opens create group modal on new group click', async () => {
+    mockListBoards.mockResolvedValue([sprint])
     const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('+ New top-level group')
-    await user.click(screen.getByText('+ New top-level group'))
+    await screen.findByRole('button', { name: 'New group' })
+    await user.click(screen.getByRole('button', { name: 'New group' }))
     expect(screen.getByText('New Group')).toBeInTheDocument()
   })
 
   it('hides delete from a non-owner and shows it to an all-content user (#2034)', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Other Board', description: '', owner: { ...fakeUser, id: 99 }, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
+    mockListBoards.mockResolvedValue([{ ...sprint, name: 'Other Board', owner: { ...fakeUser, id: 99 } }])
+    const user = userEvent.setup()
     const { unmount } = renderDashboard()
     await screen.findByText('Other Board')
-    expect(screen.queryByTitle('Delete board')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'More actions for Other Board' }))
+    expect(screen.getByRole('menuitem', { name: 'Move to group' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
     unmount()
     render(
       <MemoryRouter>
@@ -353,94 +361,35 @@ describe('Dashboard', () => {
       </MemoryRouter>
     )
     await screen.findByText('Other Board')
-    expect(screen.getByTitle('Delete board')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'More actions for Other Board' }))
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
   })
 
-  it('shows delete button on board hover', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
-    renderDashboard()
-    await screen.findByText('Sprint Board')
-    // Delete button should exist (hidden by CSS, but in DOM)
-    expect(screen.getByTitle('Delete board')).toBeInTheDocument()
-    // accessible name must not depend on title alone (Firefox/VoiceOver skip it)
-    expect(screen.getByRole('button', { name: 'Delete Sprint Board' })).toBeInTheDocument()
-  })
-
-  it('shows delete confirmation on delete click', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
+  it('shows the delete confirmation from the row menu', async () => {
+    mockListBoards.mockResolvedValue([sprint])
     const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('Sprint Board')
-    await user.click(screen.getByTitle('Delete board'))
+    await openRowMenu(user, 'Sprint Board')
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
     expect(screen.getByText('Delete board?')).toBeInTheDocument()
   })
 
-  it('shows move button for boards', async () => {
-    mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
-    ])
+  it('opens Move to group from the row menu', async () => {
+    mockListBoards.mockResolvedValue([sprint])
+    const user = userEvent.setup()
     renderDashboard()
-    await screen.findByText('Sprint Board')
-    expect(screen.getByTitle('Move to group')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Move Sprint Board to group' })).toBeInTheDocument()
+    await openRowMenu(user, 'Sprint Board')
+    await user.click(screen.getByRole('menuitem', { name: 'Move to group' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('renders groups when available', async () => {
     mockListGroups.mockResolvedValue([
-      { id: 1, name: 'Engineering', owner: fakeUser, parent: null, parent_name: null, member_count: 3, board_count: 2, subgroup_count: 0, created_at: '' },
+      { id: 1, name: 'Engineering', owner: fakeUser, parent: null, parent_name: null, member_count: 3, board_count: 2, subgroup_count: 0, created_at: '', navigation_only: false },
     ])
     renderDashboard()
     expect(await screen.findByText('Engineering')).toBeInTheDocument()
-  })
-
-  describe('Favorite Boards section', () => {
-    it('hides the section entirely when no boards are starred', async () => {
-      mockListBoards.mockResolvedValue([
-        { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
-      ])
-      renderDashboard()
-      await screen.findByText('Sprint Board')
-      expect(screen.queryByText('Favorite Boards')).not.toBeInTheDocument()
-    })
-
-    it('renders starred boards above My Boards, alphabetically sorted', async () => {
-      mockListBoards.mockResolvedValue([
-        { id: 1, name: 'Zeta Plans', description: '', owner: fakeUser, group: null, group_name: null, is_starred: true, member_count: 1, created_at: '', updated_at: '' },
-        { id: 2, name: 'Alpha Roadmap', description: '', owner: fakeUser, group: null, group_name: null, is_starred: true, member_count: 1, created_at: '', updated_at: '' },
-        { id: 3, name: 'Unstarred Board', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
-      ])
-      renderDashboard()
-      expect(await screen.findByText('Favorite Boards')).toBeInTheDocument()
-      // Starred rows appear in alphabetical order above the My Boards heading.
-      const rendered = screen.getAllByText(/Zeta Plans|Alpha Roadmap|Unstarred Board|My Boards/).map((n) => n.textContent)
-      const alphaIdx = rendered.indexOf('Alpha Roadmap')
-      const zetaIdx = rendered.indexOf('Zeta Plans')
-      const myBoardsIdx = rendered.indexOf('My Boards')
-      expect(alphaIdx).toBeLessThan(zetaIdx)
-      expect(zetaIdx).toBeLessThan(myBoardsIdx)
-    })
-
-    it('includes starred boards that live inside groups (not just personal)', async () => {
-      mockListBoards.mockResolvedValue([
-        { id: 1, name: 'Team Planning', description: '', owner: fakeUser, group: 7, group_name: 'Eng', is_starred: true, member_count: 3, created_at: '', updated_at: '' },
-        { id: 2, name: 'Personal Draft', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
-      ])
-      renderDashboard()
-      // Starred group board appears under Favorite Boards heading.
-      expect(await screen.findByText('Favorite Boards')).toBeInTheDocument()
-      expect(screen.getByText('Team Planning')).toBeInTheDocument()
-      // Personal (unstarred) board still appears under My Boards.
-      expect(screen.getByText('Personal Draft')).toBeInTheDocument()
-      // Team Planning should NOT appear under My Boards (filtered by !b.group).
-      const personalRowHeading = screen.getByText('My Boards')
-      const mySection = personalRowHeading.closest('section')
-      expect(mySection).not.toBeNull()
-      expect(mySection!.textContent).not.toContain('Team Planning')
-    })
+    expect(screen.getByText('2 boards · 3 members')).toBeInTheDocument()
   })
 
   describe('join group modal — token extraction', () => {
@@ -452,8 +401,8 @@ describe('Dashboard', () => {
       renderDashboard()
 
       // Wait for the empty-state to appear, then open the join modal
-      await screen.findByText('Join a group with an invite link')
-      await user.click(screen.getByText('Join a group with an invite link'))
+      await screen.findByRole('button', { name: 'I have an invite link' })
+      await user.click(screen.getByRole('button', { name: 'I have an invite link' }))
 
       // The modal should now be open
       expect(screen.getByText('Join a group')).toBeInTheDocument()
@@ -474,8 +423,8 @@ describe('Dashboard', () => {
       const user = userEvent.setup({ delay: null })
       renderDashboard()
 
-      await screen.findByText('Join a group with an invite link')
-      await user.click(screen.getByText('Join a group with an invite link'))
+      await screen.findByRole('button', { name: 'I have an invite link' })
+      await user.click(screen.getByRole('button', { name: 'I have an invite link' }))
 
       expect(screen.getByText('Join a group')).toBeInTheDocument()
 
@@ -508,7 +457,7 @@ describe('Dashboard — hosted demo (#1179)', () => {
     const newBoard = await screen.findByRole('button', { name: /^New board\./ })
     expect(newBoard).toHaveAttribute('aria-disabled', 'true')
     expect(newBoard).toHaveAttribute('title', "This is a shared demo — boards can't be created here.")
-    const importBtn = screen.getByRole('button', { name: /^Import\./ })
+    const importBtn = screen.getByRole('button', { name: /^Import a board\./ })
     expect(importBtn).toHaveAttribute('aria-disabled', 'true')
     expect(importBtn).toHaveAttribute('title', "This is a shared demo — boards can't be imported here.")
     await user.click(newBoard)
@@ -525,14 +474,15 @@ describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
     mockListGroups.mockResolvedValue([])
   })
 
-  async function openDeleteDialog(card_count: number, archived_card_count: number) {
+  async function openDeleteDialog(card_count: number, archived_card_count: number, withSibling = false) {
     mockListBoards.mockResolvedValue([
+      ...(withSibling ? [{ id: 2, name: 'Other Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }] : []),
       { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count, archived_card_count, created_at: '', updated_at: '' },
     ])
     const user = userEvent.setup()
     renderDashboard()
     await screen.findByText('Sprint Board')
-    await user.click(screen.getByTitle('Delete board'))
+    await startDelete(user, 'Sprint Board')
     return { user, dialog: screen.getByRole('dialog', { name: 'Delete board?' }) }
   }
 
@@ -550,12 +500,12 @@ describe('Dashboard — delete confirmation and archived cards (#1289)', () => {
     expect(dialog).toHaveTextContent('This board has 1 card and 3 archived cards. Type the board name to confirm deletion.')
   })
 
-  it('moves focus to the My Boards heading after a confirmed delete, not <body> (#2204)', async () => {
+  it('moves focus to the All boards section after a confirmed delete, not <body> (#2204)', async () => {
     mockDeleteBoard.mockResolvedValue(undefined)
-    const { user } = await openDeleteDialog(0, 0)
+    const { user } = await openDeleteDialog(0, 0, true)
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'My Boards' }))
+    expect(document.activeElement).toBe(screen.getByRole('region', { name: 'All boards' }))
   })
 
   it('mentions archived cards and allows single-click delete for an empty board', async () => {
@@ -603,7 +553,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     const user = userEvent.setup()
     renderDashboard()
     await screen.findByText('Sprint Board')
-    await user.click(screen.getByTitle('Delete board'))
+    await startDelete(user, 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     // Board reappears after the reconciling refetch, and the error is shown.
@@ -624,7 +574,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     const user = userEvent.setup()
     renderDashboard()
     await screen.findByText('Sprint Board')
-    await user.click(screen.getByTitle('Delete board'))
+    await startDelete(user, 'Sprint Board')
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     // The board is re-inserted by id rather than left missing.
@@ -652,9 +602,9 @@ describe('Dashboard — rejection paths (#1374)', () => {
     await screen.findByText('Board Alpha')
 
     // Start deleting A (stays in flight), then delete B successfully.
-    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await startDelete(user, 'Board Alpha')
     await user.click(screen.getByRole('button', { name: 'Delete' }))
-    await user.click(screen.getByRole('button', { name: 'Delete Board Beta' }))
+    await startDelete(user, 'Board Beta')
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(screen.queryByText('Board Beta')).not.toBeInTheDocument())
 
@@ -684,11 +634,11 @@ describe('Dashboard — rejection paths (#1374)', () => {
     const user = userEvent.setup()
     renderDashboard()
     await screen.findByText('Board Alpha')
-    await user.click(screen.getByRole('button', { name: 'Delete Board Alpha' }))
+    await startDelete(user, 'Board Alpha')
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(screen.queryByText('Board Alpha')).not.toBeInTheDocument())
 
-    await user.click(screen.getByText('+ New board'))
+    await user.click(screen.getAllByRole('button', { name: 'New board' })[0])
     await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'Board Alpha')
     await user.click(screen.getByRole('button', { name: 'Create Board' }))
     await screen.findByText('Board Alpha')
@@ -719,8 +669,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
       group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
     })
     renderDashboard()
-    await screen.findByText('+ New board')
-    await user.click(screen.getByText('+ New board'))
+    await screen.findAllByRole('button', { name: 'New board' })
+    await user.click(screen.getAllByRole('button', { name: 'New board' })[0])
     await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'New Board')
     await user.click(screen.getByRole('button', { name: 'Create Board' }))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/boards/42'))
@@ -733,8 +683,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
       group: null, group_name: null, member_count: 1, created_at: '', updated_at: '',
     })
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     const dialog = await screen.findByRole('dialog')
     const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
@@ -757,8 +707,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
       import_summary: importSummary,
     })
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     const dialog = await screen.findByRole('dialog')
     const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(fileInput, new File(['{}'], 'board.json', { type: 'application/json' }))
@@ -792,8 +742,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
       ;(getSampleBoardFile as ReturnType<typeof vi.fn>).mockResolvedValueOnce(new Blob(['{}'], { type: 'application/json' }))
     }
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     const dialog = await screen.findByRole('dialog')
     if (viaSample) {
       await user.click(await within(dialog).findByRole('button', { name: /^Use this sample: / }))
@@ -823,8 +773,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
       import_summary: importSummary,
     })
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     const dialog = await screen.findByRole('dialog')
     const fileInput = dialog.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['{}'], 'board.json', { type: 'application/json' })
@@ -844,8 +794,8 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
     mockPreviewTrelloImport.mockResolvedValue(trelloPreview())
     mockConfirmTrelloImport.mockResolvedValue({ board: { id: 77, name: 'Product Roadmap' }, summary: {} })
     renderDashboard()
-    await screen.findByText('Import')
-    await user.click(screen.getByText('Import'))
+    await screen.findByRole('button', { name: /^Import/ })
+    await user.click(screen.getByRole('button', { name: /^Import/ }))
     await user.click(screen.getByRole('button', { name: 'Import a Trello export' }))
     await screen.findByText('Import from Trello')
 
@@ -859,96 +809,3 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
   })
 })
 
-describe('Dashboard health status (#1133)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockListGroups.mockResolvedValue([])
-  })
-
-  it('board rows show a pill beside the name only when a status applies', async () => {
-    mockListBoards.mockResolvedValue([
-      {
-        id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
-        created_at: '', updated_at: '', health_status: 'off_track', effective_health_status: 'off_track', health_status_source: null,
-      },
-      {
-        id: 2, name: 'Quiet Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
-        created_at: '', updated_at: '', health_status: null, effective_health_status: null, health_status_source: null,
-      },
-    ])
-    renderDashboard()
-    const name = await screen.findByText('Sprint Board')
-    expect(name.nextElementSibling).toHaveAttribute('data-health-status', 'off_track')
-    expect(screen.getByText('Quiet Board').nextElementSibling).toBeNull()
-    expect(screen.getByRole('button', { name: /Sprint Board Health status: Off track/ })).toBeInTheDocument()
-  })
-
-  it('lists the not-reviewed cue beside a status past its review time (#2244)', async () => {
-    const day = 24 * 60 * 60 * 1000
-    mockListBoards.mockResolvedValue([
-      {
-        id: 1, name: 'Stale Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1,
-        created_at: '', updated_at: '', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
-        health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
-        health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
-      },
-    ])
-    renderDashboard()
-    expect(await screen.findByText('Not reviewed in 18 days')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Stale Board Health status: At risk ?, Not reviewed in 18 days$/ })).toBeInTheDocument()
-  })
-
-  describe('Needs review list (#2309)', () => {
-    const day = 24 * 60 * 60 * 1000
-    const board = (id: number, name: string, extra: Record<string, unknown>) => ({
-      id, name, description: '', owner: fakeUser, group: 7, group_name: 'Team', member_count: 1,
-      created_at: '', updated_at: '', health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
-      health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
-      health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
-      is_starred: false,
-      ...extra,
-    })
-
-    it('lists a grouped, unstarred board past its review date, with its cue', async () => {
-      mockListBoards.mockResolvedValue([board(1, 'Grouped Board', {})])
-      renderDashboard()
-      const section = await screen.findByRole('region', { name: 'Needs review' })
-      expect(within(section).getByText('Grouped Board')).toBeInTheDocument()
-      expect(within(section).getByText('Not reviewed in 18 days')).toBeInTheDocument()
-    })
-
-    it('lists a nested subgroup past its review date, not a top-level or reviewed one', async () => {
-      mockListBoards.mockResolvedValue([])
-      const group = (id: number, name: string, parent: number | null, extra: Record<string, unknown> = {}) => ({
-        id, name, parent, parent_name: parent ? 'Top' : null, navigation_only: false,
-        health_status: 'at_risk', effective_health_status: 'at_risk', health_status_source: null,
-        health_status_changed_at: new Date(Date.now() - 18 * day).toISOString(),
-        health_review_due_at: new Date(Date.now() - 4 * day).toISOString(),
-        ...extra,
-      })
-      mockListGroups.mockResolvedValue([
-        group(1, 'Top', null),
-        group(2, 'Stale Sub', 1),
-        group(3, 'Fresh Sub', 1, { health_review_due_at: new Date(Date.now() + 4 * day).toISOString() }),
-      ] as never)
-      renderDashboard()
-      const section = await screen.findByRole('region', { name: 'Needs review' })
-      expect(within(section).getByText('Stale Sub')).toBeInTheDocument()
-      expect(within(section).getByText('Not reviewed in 18 days')).toBeInTheDocument()
-      expect(within(section).queryByText('Top')).toBeNull()
-      expect(within(section).queryByText('Fresh Sub')).toBeNull()
-    })
-
-    it('leaves out boards that already have a row, are reviewed, or are computed', async () => {
-      mockListBoards.mockResolvedValue([
-        board(1, 'Starred Board', { is_starred: true }),
-        board(2, 'Ungrouped Board', { group: null, group_name: null }),
-        board(3, 'Reviewed Board', { health_review_due_at: new Date(Date.now() + 4 * day).toISOString() }),
-        board(4, 'Auto Board', { health_status_origin: 'computed' }),
-      ])
-      renderDashboard()
-      await screen.findByText('Ungrouped Board')
-      expect(screen.queryByRole('region', { name: 'Needs review' })).toBeNull()
-    })
-  })
-})

@@ -963,7 +963,7 @@ This per-board export log is a data-exfiltration safeguard scoped to individual 
 
 ### Import
 
-Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.
+Click **Import** on Home to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.
 
 **JSON import** restores full card history:
 
@@ -979,7 +979,7 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 **Board name:** the new board is named **Imported: &lt;name&gt;**, where the name is the board name stored in a JSON file, or the filename without its extension for a CSV file (for example, `Q3 plan.csv` becomes **Imported: Q3 plan**).
 
-- If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under **My Boards**), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on.
+- If a board with that name already exists in the same place (the group you import into, or — without a group — any board you can access that is not in a group, as listed under **All boards** with the **Personal** filter), a number is added: **Imported: Q3 plan - 1**, then **- 2**, and so on.
 - To choose the name yourself, type it in **Board name** when importing; it is used exactly as typed.
 
 !!! note "Changed in 1.2"

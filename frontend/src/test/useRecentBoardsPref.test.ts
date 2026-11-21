@@ -35,6 +35,17 @@ describe('useRecentBoardsPref', () => {
     expect(result.current.recentBoards[1].id).toBe(1)
   })
 
+  it('recordVisit stamps openedAt (#2474) and tolerates stored entries without one', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([board(1)]))
+    const { result } = renderHook(() => useRecentBoardsPref(1))
+    expect(result.current.recentBoards[0].openedAt).toBeUndefined()
+    const before = Date.now()
+    act(() => { result.current.recordVisit(board(2)) })
+    expect(result.current.recentBoards[0].openedAt).toBeGreaterThanOrEqual(before)
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)[0].openedAt).toBeGreaterThanOrEqual(before)
+    expect(result.current.recentBoards[1].openedAt).toBeUndefined()
+  })
+
   it('recordVisit deduplicates by id — re-visiting moves entry to front', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([board(1), board(2), board(3)]))
     const { result } = renderHook(() => useRecentBoardsPref(1))
