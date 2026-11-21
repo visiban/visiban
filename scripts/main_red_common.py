@@ -113,3 +113,11 @@ def latest_finished_main(client: Client) -> "dict | None":
         if pipe.get("status") in FINISHED:
             return pipe
     return None
+
+
+def fake_page(items: list, url: str) -> list:
+    """Self-test helper: slice `items` the way the API pages a list (page/per_page
+    query params, defaults 1/20), so the fakes exercise Client.jobs' paging."""
+    q = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
+    page, per_page = int(q.get("page", ["1"])[0]), int(q.get("per_page", ["20"])[0])
+    return items[(page - 1) * per_page : page * per_page]

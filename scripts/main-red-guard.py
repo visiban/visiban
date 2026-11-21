@@ -76,7 +76,7 @@ def _self_test() -> int:
             if "/merge_requests/" in url:
                 return json.dumps({"labels": list(mr_labels)}).encode()
             if "/jobs" in url:
-                return json.dumps(jobs).encode()
+                return json.dumps(c.fake_page(jobs, url)).encode()
             if "/pipelines?" in url:
                 return json.dumps(pipes).encode()
             if "/issues?" in url:
@@ -123,6 +123,11 @@ def _self_test() -> int:
     check("failed pipeline with no blocking job fails open", rc == 0 and "WARNING" in log, log)
     rc, log = go(fake(red, red_jobs, issues=[]))
     check("red without a tracking issue still fails, naming it generically", rc == 1 and "open 'main is red' issue" in log, log)
+    # Paging: 100 passing jobs on page 1, the blocking failure only on page 2.
+    paged = [{"name": f"ok-{i}", "status": "success", "allow_failure": False} for i in range(c.PER_PAGE)]
+    paged.append({"name": "page-two-job", "status": "failed", "allow_failure": False})
+    rc, log = go(fake(red, paged, issues=issue))
+    check("a failure on jobs page 2 still fails the guard", rc == 1 and "page-two-job" in log, log)
     if problems:
         print("self-test FAILED:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1

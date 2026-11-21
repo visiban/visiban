@@ -488,8 +488,11 @@ pipelines while seven merges landed on top, because every MR pipeline was green.
 has no merge trains or merged-results pipelines, so the brake is built from jobs:
 
 - **Tripwire.** `main-red-tripwire` runs in GitLab's built-in `.post` stage (after every other stage) of every
-  `main` push pipeline (never `schedule`), and treats a pipeline with any other job still
+  `main` *push* pipeline (never `schedule`, `web`, `api` or `trigger`), and treats a pipeline with any other job still
   `running`/`pending`/`created` as not judgeable: it never closes the issue then, it only logs.
+  Tripwires are serialized (`resource_group: main-red-tripwire`), and one skips every write when
+  a *newer* `main` push pipeline has already finished, so a slow older pipeline can neither close
+  the issue over a newer red one nor open a second issue.
   If a non-`allow_failure` job failed it opens the single `main is red` issue, or comments on
   it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no such
   failure comments and closes it. Writing needs an `api`-scope token: it uses `KAIZEN_API_TOKEN`
@@ -502,6 +505,11 @@ has no merge trains or merged-results pipelines, so the brake is built from jobs
 **Fix:** fix `main` first. The fix MR carries the **`main-fix`** label; the guard reads labels
 live, so add the label and retry `main-red-guard` (no new pipeline needed). Do not label an
 unrelated MR `main-fix` to get around the brake.
+
+**After main is green again:** the guard only runs when an MR pipeline runs, so every other
+open MR whose `main-red-guard` failed while main was red keeps a failed pipeline. Retry that
+MR's `main-red-guard` job (or re-run its pipeline) once the tripwire has closed the issue;
+nothing re-runs it automatically.
 
 **Fails open:** a network error, a 5xx, or no finished `main` pipeline makes the guard print
 `WARNING: ... FAILING OPEN` and pass, the same convention as

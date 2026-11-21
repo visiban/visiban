@@ -679,7 +679,13 @@ def _main_outcome(blocks: dict[str, list[str]], name: str) -> str:
         if effective_when == "manual":
             manual = True
         if c is None:
-            return "manual-possible" if manual else "unknown"
+            if manual:
+                return "manual-possible"
+            # Possibly true (e.g. `$CI_PIPELINE_SOURCE == "push"`, since a judged main
+            # pipeline may be push or web) with a non-manual `when`: it may or may not
+            # match, but it can never make the job manual, so it reads like a
+            # `changes:` rule and evaluation falls through to the next item (#2460).
+            continue
         if conditional:
             continue
         if effective_when == "never":
@@ -1080,6 +1086,18 @@ def _self_test() -> int:
     check("HEAD as a symbolic ref resolves through packed-refs", rc == 0, log)
     set_head(sha40)
     repo_tmp.cleanup()
+
+    # 15b. A possibly-true rule with a non-manual `when` (push-only on main) is
+    # "conditional", never "unknown"; a possibly-true manual rule stays manual (#2460).
+    push_only = _all_blocks(
+        "push-only:\n  rules:\n    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == \"push\"'\n"
+        "      when: always\n"
+        "push-manual:\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"push\"'\n      when: manual\n"
+    )
+    check("a push-only rule on main reads as conditional", _main_outcome(push_only, "push-only") == "conditional",
+          _main_outcome(push_only, "push-only"))
+    check("a possibly-true manual rule reads as manual-possible",
+          _main_outcome(push_only, "push-manual") == "manual-possible", _main_outcome(push_only, "push-manual"))
 
     # 16. --check-ci-file on fixtures
     with tempfile.TemporaryDirectory(prefix="wfmp-1154-") as tmp:

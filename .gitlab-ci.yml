@@ -4310,11 +4310,12 @@ release-main-pipeline-guard-selftest:
 main-red-tripwire:
   interruptible: false  # files/closes the tracking issue
   retry: 0  # posts issue comments; a retry would double-post
+  resource_group: main-red-tripwire  # one tripwire at a time: no two pipelines open two issues
   stage: .post  # built-in last stage: runs after every other stage, so it never reads a still-running pipeline as green
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   allow_failure: true  # never turns a green main red; the script fails open
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"'  # schedules have their own handling
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'  # push only: the guard judges push pipelines; web/api/trigger/schedule runs must not open or close the issue
       when: always  # on_failure alone could never close the issue on a green pipeline
   script:
     - python3 scripts/main-red-tripwire.py

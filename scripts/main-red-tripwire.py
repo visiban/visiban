@@ -37,6 +37,14 @@ def run(client: c.Client, env: dict, out=print) -> int:
         # issue on a pipeline that has not finished could turn red later. A failure is
         # decisive on its own, so this only gates the green (close) path.
         unfinished = sorted({j["name"] for j in jobs if j.get("status") in UNFINISHED and j.get("name") != own})
+        # A newer main push pipeline that already finished owns the issue state: an
+        # older pipeline's late .post job must not close (or reopen) over it. The
+        # job's resource_group serializes concurrent tripwires; this check orders them.
+        newest = c.latest_finished_main(client)
+        if newest is not None and int(newest["id"]) > int(pipeline_id):
+            out(f"Skipping: newer main pipeline {newest['id']} already finished ({newest.get('status')}); "
+                f"pipeline {pipeline_id} is stale, so the tracking issue is left as is.")
+            return 0
         issue = client.tracking_issue()
         if failed:
             body = (
@@ -75,7 +83,7 @@ def _self_test() -> int:
 
     problems: list = []
 
-    def make(jobs, issues, fail_writes=False):
+    def make(jobs, issues, fail_writes=False, pipelines=()):
         calls: list = []
 
         def fetch(method, url, headers, body):
@@ -83,7 +91,9 @@ def _self_test() -> int:
             if method != "GET" and fail_writes:
                 raise c.ApiError("HTTP 403")
             if "/jobs" in url:
-                return json.dumps(jobs).encode()
+                return json.dumps(c.fake_page(jobs, url)).encode()
+            if url.split("?")[0].endswith("/pipelines"):
+                return json.dumps(list(pipelines)).encode()
             if url.split("?")[0].endswith("/issues") and method == "GET":
                 return json.dumps(issues).encode()
             return json.dumps({"web_url": "http://x/issues/1"}).encode()
@@ -141,6 +151,25 @@ def _self_test() -> int:
     cl, calls = make(red, [], fail_writes=True)
     rc, log = go(cl)
     check("write failure fails open loudly", rc == 0 and "WARNING" in log and "FAILING OPEN" in log, log)
+    newer_done = [{"id": 10, "status": "success"}, {"id": 9, "status": "running"}]
+    cl, calls = make(red, open_issue, pipelines=newer_done)
+    rc, log = go(cl)
+    check("a newer finished main pipeline exists: no writes, logs why",
+          rc == 0 and all(x[0] == "GET" for x in calls) and "newer main pipeline 10" in log, (calls, log))
+    cl, calls = make(green, open_issue, pipelines=[{"id": 10, "status": "failed"}])
+    go(cl)
+    check("an older green pipeline never closes over a newer red one", all(x[0] == "GET" for x in calls), calls)
+    newer_running = [{"id": 11, "status": "running"}, {"id": 10, "status": "pending"}, {"id": 8, "status": "failed"}]
+    cl, calls = make(red, [], pipelines=newer_running)
+    go(cl)
+    check("a newer pipeline still running: proceeds and writes",
+          [x[:2] for x in calls if x[0] != "GET"] == [("POST", "/issues")], calls)
+    paged = [{"name": f"ok-{i}", "status": "success", "allow_failure": False} for i in range(c.PER_PAGE)]
+    paged.append({"name": "page-two-job", "status": "failed", "allow_failure": False})
+    cl, calls = make(paged, open_issue)
+    go(cl)
+    check("a failure on jobs page 2 reads as red (comments, never closes)",
+          [x[:2] for x in calls if x[0] != "GET"] == [("POST", "/issues/7/notes")] and "page-two-job" in calls[-1][2], calls)
     if problems:
         print("self-test FAILED:\n  " + "\n  ".join(map(str, problems)), file=sys.stderr)
         return 1
