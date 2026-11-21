@@ -338,7 +338,19 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
               <section key={col.id} aria-label={col.name} className="flex flex-col gap-2 min-w-0">
                 <div className="flex flex-col gap-0.5 border-t-2 pt-1.5" style={{ borderTopColor: col.color }}>
                   {wide && <span className="text-xs font-semibold text-fg-secondary uppercase">{col.name}</span>}
-                  <span className="text-xs text-fg-muted">{list.length} of {col.card_count} on {boardName}{limit}</span>
+                  {/* Narrow (one column at a time): the limit line under the column buttons (#2209 row 12). */}
+                  <span className="text-xs text-fg-muted" data-testid="children-limit-line">
+                    {wide ? `${list.length} of ${col.card_count} on ${boardName}${limit}` : `${list.length} of ${col.card_count} on ${boardName} are this card's${limit}`}
+                  </span>
+                  {col.wip_limit != null && col.wip_limit > 0 && (
+                    // The child board's own WIP meter for the whole column; the line above says it in words.
+                    <span aria-hidden="true" data-testid="children-wip-meter" className="block h-1 w-full rounded bg-surface-hover overflow-hidden">
+                      <span
+                        className={`block h-full ${col.card_count > col.wip_limit ? "bg-warning" : "bg-fg-tertiary"}`}
+                        style={{ width: `${Math.min(100, (col.card_count / col.wip_limit) * 100)}%` }}
+                      />
+                    </span>
+                  )}
                 </div>
                 {list.map((child, i) => (
                   <div key={child.id} className="flex flex-col gap-1 rounded border border-line bg-surface p-2">

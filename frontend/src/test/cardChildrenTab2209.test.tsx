@@ -225,6 +225,22 @@ describe('CardChildrenTab scoped board (#2209)', () => {
       await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toBeInTheDocument())
       expect(screen.getByRole('button', { name: /Done/, pressed: true })).toHaveFocus()
     })
+
+    it("puts the child board's limit line and WIP meter under the column buttons (#2209 row 12)", async () => {
+      const over = read([row({ id: 20, column_id: 101, column_name: 'Doing' })])
+      over.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, card_count: 6 } : c))
+      renderTab(state({ data: over }))
+      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("1 of 6 on Delivery are this card's · limit 5")
+      const meter = screen.getByTestId('children-wip-meter')
+      expect(meter).toHaveAttribute('aria-hidden', 'true')
+      // Over the limit: the meter is full and warning-colored, as on the child board.
+      expect(meter.firstElementChild).toHaveClass('bg-warning')
+      expect((meter.firstElementChild as HTMLElement).style.width).toBe('100%')
+      // A column with no limit has no meter.
+      await userEvent.click(screen.getByRole('button', { name: /To do/ }))
+      expect(screen.getByTestId('children-limit-line')).toHaveTextContent("0 of 9 on Delivery are this card's")
+      expect(screen.queryByTestId('children-wip-meter')).toBeNull()
+    })
   })
 })
 
