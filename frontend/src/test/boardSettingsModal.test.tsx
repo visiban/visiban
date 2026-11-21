@@ -2055,6 +2055,19 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] })
     await userEvent.setup().click(within(note).getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(screen.queryByTestId('children-blockers-unavailable')).toBeNull())
+    // Retry unmounted with the line: focus lands on the switch it explained, never <body>.
+    await waitFor(() => expect(sw).toHaveFocus())
+  })
+
+  it('a Retry that fails again keeps Retry, and focus on it (#2448)', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockRejectedValue(new Error('boom'))
+    await openRules(fakeBoard)
+    const note = await screen.findByTestId('children-blockers-unavailable')
+    const retry = within(note).getByRole('button', { name: 'Retry' })
+    await userEvent.setup().click(retry)
+    await waitFor(() => expect(getChildrenSettingBlockers).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('children-blockers-unavailable')).toContainElement(retry)
+    expect(retry).toHaveFocus()
   })
 
   it('turning off with live parent links is a blocked state, not a confirm', async () => {

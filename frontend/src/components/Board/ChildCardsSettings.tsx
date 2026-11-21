@@ -45,13 +45,26 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   // The server still refuses a bad flip on save, so this only explains; it does not gate.
   const [blockersFailed, setBlockersFailed] = useState(false);
   const [blockersTry, setBlockersTry] = useState(0);
+  // Retry unmounts once the read succeeds; focus then moves to the switch it explains instead of
+  // falling to <body> (frontend/CLAUDE.md, focus anchors). A failed retry keeps Retry, and focus.
+  const switchRef = useRef<HTMLButtonElement>(null);
+  const focusSwitchAfterRetry = useRef(false);
 
   // Re-read after every flip or default change: another admin's link or default move changes the answer.
   useEffect(() => {
     let live = true;
     getChildrenSettingBlockers(board.id)
-      .then((b) => { if (live) { setBlockers(b); setBlockersFailed(false); } })
-      .catch(() => { if (live) { setBlockers(null); setBlockersFailed(true); } });
+      .then((b) => {
+        if (!live) return;
+        setBlockers(b);
+        setBlockersFailed(false);
+        if (focusSwitchAfterRetry.current) {
+          focusSwitchAfterRetry.current = false;
+          // After the commit that removes Retry, so the focus is not lost with it.
+          window.setTimeout(() => switchRef.current?.focus(), 0);
+        }
+      })
+      .catch(() => { if (live) { setBlockers(null); setBlockersFailed(true); focusSwitchAfterRetry.current = false; } });
     return () => { live = false; };
   }, [board.id, checked, board.default_child_board, blockersTry]);
 
@@ -120,6 +133,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
     <div className="flex flex-col gap-3">
       <button
         type="button"
+        ref={switchRef}
         role="switch"
         aria-checked={checked}
         aria-disabled={blocked ? true : undefined}
@@ -154,7 +168,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
             Couldn't check whether this can change. The server will still refuse a change that isn't allowed.{" "}
             <button
               type="button"
-              onClick={() => setBlockersTry((n) => n + 1)}
+              onClick={() => { focusSwitchAfterRetry.current = true; setBlockersTry((n) => n + 1); }}
               className="max-sm:min-h-11 rounded underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Retry
