@@ -43,6 +43,7 @@ import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
+import CardExtensionSections from "./CardExtensionSections";
 import CardRelationsSection from "./CardRelationsSection";
 import CardParentSection from "./CardParentSection";
 import CardAddChildSection from "./CardAddChildSection";
@@ -2214,6 +2215,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               </div>
 
               <div className="border-t border-line" />
+
+              {/* Extension sections (#2212, experimental): after Weight, before Relations. Each section
+                  renders its own trailing divider; with none registered nothing renders at all. */}
+              <CardExtensionSections boardId={board.id} cardId={localCard.id} userDateFormat={userDateFormat} />
 
               {/* Relations (#449) — the last thing that is *about* the card
                   rather than *inside* it, so it closes the classification arc

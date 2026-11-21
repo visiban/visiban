@@ -8,6 +8,8 @@ import { rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
 import type { Card, BoardFull, User, CustomFieldDefinition } from '../types'
 
 vi.mock('../api/cards', () => ({
+  // Extension sections (#2212): CardExtensionSections fetches on mount; none registered.
+  getCardExtensions: vi.fn().mockResolvedValue({ sections: [] }),
   blockCard: vi.fn(),
   unblockCard: vi.fn(),
   getCardBlocks: vi.fn().mockResolvedValue([]),

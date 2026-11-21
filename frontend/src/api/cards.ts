@@ -160,6 +160,10 @@ export const getCard = (boardId: number, cardId: number) =>
   client.get<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/`).then((r) => r.data);
 
 /** Read `parent` for one card: `null` (none), hidden, or the visible parent. */
+/** Card-detail extension sections (#2212, experimental, read-only). Unvalidated: parse before rendering. */
+export const getCardExtensions = (boardId: number, cardId: number): Promise<unknown> =>
+  client.get(`/api/v1/boards/${boardId}/cards/${cardId}/extensions/`).then((r) => r.data);
+
 export const getCardParent = (boardId: number, cardId: number): Promise<CardParent | null> =>
   getCard(boardId, cardId).then((c) => c.parent ?? null);
 
