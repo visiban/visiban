@@ -584,7 +584,7 @@ This step is therefore **unattributed**. It's 0.8-2.1ms per request on the three
 
 ## The November 2026 flow-metric regression — #2502
 
-The 2026-11-21 scheduled run failed on `flow_wip_age` (p95 577.4 ms against a 510 ms budget). Every range metric moved with it: from 2026-11-16 to 11-20 `flow_wip_age` sat at 360-375 ms, then the first run at `cafd0ad9e` measured 530.7 ms. The non-flow endpoints, and `flow_blocked`, which does not use the range loader, stayed within the run-to-run noise.
+The 2026-11-21 scheduled run failed on `flow_wip_age` (p95 577.4 ms against a 510 ms budget). Every range metric moved with it: from 2026-11-16 to 11-20 `flow_wip_age` sat at 360-375 ms, then the first run at `cafd0ad9e` measured 530.7 ms. The non-flow endpoints stayed within the run-to-run noise. `flow_blocked` did not: its nightly p95 went 282.2 ms (11-20) to 316.8 ms (11-21) to 361.6 ms (the retry), +12% and +28%, about the size of the rise on `throughput` (302.0 to 372.9 ms) and `cycle_time` (306.8 to 377.0 ms). The range-loader predicate change below can't explain that rise on `flow_blocked`, because it reads through `load_live_wip` and never touches the range loader. This section has no local measurement of `flow_blocked`, so the cause of its nightly rise is not attributed. It is the same unattributed residual described at the end of this section.
 
 ### Root cause, measured
 
@@ -613,3 +613,5 @@ DRF client, local, warm, 20 requests per arm, p50 / p95 in ms:
 | `cumulative-flow` | 135.5 / 150.9 | 161.2 / 182.1 | 138.1 / 161.8 |
 
 The aged board keeps the #2425 win. Its `wip-age` was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over `2655a9f81` on the load-test board wasn't attributed. It's inside the 1.4x budget factor.
+
+The closing check is the manual `nightly-load-test` job on the NUC: its p95 for all eight flow scenarios (`cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked`, `attention`, `swimlanes`) must come back under their budgets. The local DRF-client table above covers only four of the eight (`wip-age`, `attention`, `cycle-time`, `cumulative-flow`); `throughput`, `dwell`, `blocked` and `swimlanes` were not measured locally.
