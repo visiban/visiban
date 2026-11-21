@@ -113,3 +113,31 @@ class ParentSettingsRoundTripTests(TestCase):
             f"/api/v1/boards/{self.board.id}/", {"parent_name_singular": "A‮B"}, format="json"
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_explicit_null_keys_fall_back_to_defaults(self):
+        data = self._export()
+        for key in ("parent_name_singular", "parent_name_plural", "cards_can_have_children"):
+            data[key] = None
+        resp = self._import(data)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        new = Board.objects.get(pk=resp.json()["id"])
+        self.assertEqual(new.parent_name_singular, "")
+        self.assertEqual(new.parent_name_plural, "")
+        self.assertFalse(new.cards_can_have_children)
+
+    def test_empty_and_blank_names_store_empty_like_the_api(self):
+        """_clean_parent_name strips and stores "" on both transports."""
+        data = self._export()
+        data["parent_name_singular"] = ""
+        data["parent_name_plural"] = "   "
+        resp = self._import(data)
+        self.assertEqual(resp.status_code, 201, resp.content)
+        new = Board.objects.get(pk=resp.json()["id"])
+        self.assertEqual(new.parent_name_singular, "")
+        self.assertEqual(new.parent_name_plural, "")
+        api = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/", {"parent_name_singular": ""}, format="json"
+        )
+        self.assertEqual(api.status_code, 200, api.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.parent_name_singular, "")
