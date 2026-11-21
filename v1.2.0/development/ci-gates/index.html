@@ -4578,6 +4578,36 @@ reference on a non-comment line, and fails if any of them:</p>
 <td>Self-test plants a test file only mentioned in a comment, a reasonless allowlist entry, a wired-but-allowlisted file and a stale entry. Fails when a <code>scripts/tests/*.test.sh</code> is neither run by a non-comment <code>bash scripts/tests/&lt;name&gt;</code> line in <code>.gitlab-ci.yml</code> nor listed in <code>scripts/tests/unwired-allowlist.txt</code> with a reason (#2117). The <code>script-tests</code> job also runs the tests that have no gate job of their own.</td>
 </tr>
 <tr>
+<td><code>scripts/check-ci-retry.sh</code></td>
+<td><code>script-tests</code></td>
+<td>#2462: parses <code>.gitlab-ci.yml</code> as YAML (PyYAML, <code>py3-yaml</code> in the job; anchors and <code>&lt;&lt;:</code> merges resolved) and fails when any <code>retry:</code> could retry a script failure: a <code>when:</code> naming <code>script_failure</code>, <code>unknown_failure</code> or <code>always</code>; a nonzero <code>retry: N</code> or a retry mapping without <code>when:</code> (GitLab then retries every failure class); an unresolvable <code>!reference</code> retry; or a <code>default:</code> without an infrastructure-only <code>when:</code> list. <code>retry: 0</code> passes. Exits 3 when no Python with PyYAML is found. Self-test covers each failing shape (block, inline, alias, merge, <code>!reference</code>, empty <code>when:</code>, default without <code>when:</code>), the passing shapes (<code>retry: 0</code>, <code>{max: 0}</code>, an alias to a safe mapping, unrelated mentions) and the real file.</td>
+</tr>
+<tr>
+<td><code>scripts/check-ci-poison-list.sh</code></td>
+<td><code>script-tests</code></td>
+<td>#2461: fails when <code>.gitlab-ci.yml</code> or a script under <code>scripts/</code> (not <code>scripts/tests/</code> fixtures, the poison/canary files or itself) references a <code>*_TOKEN</code> variable that <code>scripts/ci-poison-env.sh</code> neither poisons nor exempts with a reason; several tokens (<code>GH_TOKEN</code>, <code>KAIZEN_API_TOKEN</code>, ...) are read only inside a script. Self-test plants a listed token, an exempted token, a new unlisted token (must fail), a comment-only mention (must pass), and a token named only in a script (must fail) next to a <code>tests/</code> fixture and a skipped file (must pass). <code>ci-poison-env.sh</code> itself is a sourced env file and carries <code>gate-selftest-exempt:</code>; <code>scripts/tests/ci-poison-env.test.sh</code> covers it under every POSIX shell available, because <code>script-tests</code> sources it with busybox <code>sh</code>.</td>
+</tr>
+<tr>
+<td><code>scripts/ci-api-canary.py</code></td>
+<td><code>script-tests</code>, <code>script-tests-glibc</code>, and every job below that runs <code>scripts/ci-hermetic-run.sh</code></td>
+<td>#2461: loopback listener that answers every API request with <code>200 []</code> and logs it; the job fails if any test reached the API with inherited CI variables. <code>--self-test</code> starts it, checks a clean log passes, a logged request fails and a missing log errors; <code>scripts/tests/ci-api-canary.test.sh</code> also replays the #2412 regression (the <code>env -u</code> scrub reverted in <code>resolve-docs-version.test.sh</code>) and requires the canary to flag it.</td>
+</tr>
+<tr>
+<td><code>scripts/ci-hermetic-run.sh</code></td>
+<td><code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code>, <code>security-deferred-verdict-selftest</code>, <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code>, <code>registry-keep-regex-test</code></td>
+<td>#2461: runs one CI-script test command hermetically: in a child shell it sources <code>scripts/ci-poison-env.sh</code>, starts the canary, runs the command, and fails the line if the command reached the API with inherited variables (otherwise it passes the command's exit status through). Every <code>scripts/tests/*.test.sh</code> invocation in <code>.gitlab-ci.yml</code> goes through it (<code>ci-api-canary.test.sh</code> excepted, it runs its own listener). Only the wrapped command is poisoned, so a job's real step (<code>check-suppression-issues.sh</code> against the live API, for example) keeps its real variables. POSIX <code>sh</code> for busybox; carries <code>gate-selftest-exempt:</code> (a wrapper, not a gate); <code>scripts/tests/ci-hermetic-run.test.sh</code> covers poisoning, exit-status pass-through, a flagged API call, and an unchanged caller environment under every POSIX shell found.</td>
+</tr>
+<tr>
+<td><code>scripts/main-red-guard.py</code></td>
+<td><code>main-red-guard</code> (MR pipelines)</td>
+<td>#2460: fails an MR while the latest finished <code>main</code> push pipeline is red, unless the MR carries <code>main-fix</code>; fails open on API trouble. <code>--self-test</code> (run in <code>script-tests</code>) covers a red latest pipeline, the <code>main-fix</code> label (including live label reads and look-alike names), a green latest pipeline ignoring older red, and the fail-open paths (no finished pipeline, empty list, API error, failed pipeline with no blocking job).</td>
+</tr>
+<tr>
+<td><code>scripts/main-red-tripwire.py</code></td>
+<td><code>main-red-tripwire</code> (<code>.post</code> stage of <code>main</code> push pipelines)</td>
+<td>#2460: opens, comments on or closes the single <code>main is red</code> issue. <code>--self-test</code> (run in <code>script-tests</code>) covers red with none/one open issue, a non-exact title, green closing, green with none open, a still-running job blocking the close, its own job being ignored, and a refused write failing open loudly.</td>
+</tr>
+<tr>
 <td><code>scripts/check-nginx-security-headers.sh</code></td>
 <td><code>nginx-security-headers</code></td>
 <td>Self-test mutates copies of the two nginx templates: an <code>add_header</code> in a location of either template (block and one-line forms), the CSP removed from either, <code>always</code> dropped, X-Frame-Options weakened in one, CSP drift between the two and the HSTS placeholder removed must each fail; a location that re-declares the full set must pass. The same job also runs <code>--runtime</code>, which boots each template and the frontend image's default config in <code>nginx:1.27-alpine</code> against a stub upstream, asserts status and headers per path, and ends with its own negative control (a location <code>add_header</code> on <code>/api/</code> must be detected) (#1073).</td>

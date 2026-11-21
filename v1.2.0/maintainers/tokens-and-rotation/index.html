@@ -4455,7 +4455,7 @@ describe where it lives instead.</p>
 <td>GitLab personal access token <code>visiban-release-guard-read</code>, <code>read_api</code> scope only. Owner has <strong>Maintainer</strong> on <code>visiban/visiban</code> (the guard needs Reporter; <code>schedule-config-check</code> needs Maintainer to see schedule variables) and is <strong>not</strong> a member of <code>visiban/visiban-enterprise</code>. Project access tokens need Premium on GitLab.com and the <code>visiban</code> group is on Free</td>
 <td><code>visiban-ci-bot</code></td>
 <td>GitLab CI/CD variable (protected, masked, expand off)</td>
-<td><code>release-main-pipeline-guard</code> (#1154): every <code>v*</code> tag pipeline refuses to publish without it. Also <code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot; see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback. See <a href="#gitlab_api_token-and-the-release-guard">below</a>. The enterprise project does not have one yet (see below)</td>
+<td><code>release-main-pipeline-guard</code> (#1154): every <code>v*</code> tag pipeline refuses to publish without it. Also <code>schedule-config-check</code> (reads pipeline schedules; <code>CI_JOB_TOKEN</code> cannot; see <a href="../../development/ci-gates/#scheduled-pipelines">Scheduled pipelines</a>) and <code>suppressions-check</code> / <code>kaizen-yield-watch</code> as a read fallback, and <code>main-red-tripwire</code> (#2460) as a fallback when <code>KAIZEN_API_TOKEN</code> is unset (its writes are then refused, since this token is <code>read_api</code> only, and the tripwire warns and passes). See <a href="#gitlab_api_token-and-the-release-guard">below</a>. The enterprise project does not have one yet (see below)</td>
 <td><strong>2027-10-30</strong></td>
 </tr>
 <tr>
@@ -4471,7 +4471,7 @@ describe where it lives instead.</p>
 <td>GitLab personal access token, <code>api</code> scope, owner Reporter or higher</td>
 <td>TBD</td>
 <td>GitLab CI/CD variable (protected, masked)</td>
-<td><code>kaizen-yield-watch</code> issue filing (only with <code>KAIZEN_FILE_ISSUES=true</code>); also the fallback filer token for <code>backend-schema-fuzz-deep</code></td>
+<td><code>kaizen-yield-watch</code> issue filing (only with <code>KAIZEN_FILE_ISSUES=true</code>); also the fallback filer token for <code>backend-schema-fuzz-deep</code>, and the writer for <code>main-red-tripwire</code> (opens/closes the <code>main is red</code> issue, #2460; the tripwire is inert until this exists, creation tracked in #2470)</td>
 <td>n/a until created</td>
 </tr>
 </tbody>

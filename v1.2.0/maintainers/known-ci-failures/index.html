@@ -4226,6 +4226,39 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#main-red-guard-fails-an-mr-main-is-red" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        main-red-guard fails an MR: "main is red"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hermetic-ci-script-tests-protected-variables-are-poisoned-2461" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hermetic CI-script tests: protected variables are poisoned (#2461)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runner_system_failure-is-auto-retried-script-failures-never-are-2462" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        runner_system_failure is auto-retried; script failures never are (#2462)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4874,6 +4907,85 @@ failed a required job (#2160).</p>
 download line with curl's own error (<code>curl: (22) ... error: 504</code>). If you see that error after the
 retries, the upstream is genuinely down or the pinned version URL is wrong; re-run later or fix
 the version pin. New tool downloads in <code>.gitlab-ci.yml</code> must follow the same pattern.</p>
+<h2 id="main-red-guard-fails-an-mr-main-is-red"><code>main-red-guard</code> fails an MR: "main is red"<a class="headerlink" href="#main-red-guard-fails-an-mr-main-is-red" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> the <code>main-red-guard</code> job (#2460) fails with <code>ERROR: main is red: &lt;job&gt; failed in
+main pipeline ...</code> and names the open <strong><code>main is red</code></strong> issue (label <code>ci</code>).</p>
+<p><strong>Why it exists:</strong> in the 2026-11-21 audit, <code>script-tests</code> stayed red on 7 consecutive <code>main</code>
+pipelines while seven merges landed on top, because every MR pipeline was green. GitLab Free
+has no merge trains or merged-results pipelines, so the brake is built from jobs:</p>
+<ul>
+<li><strong>Tripwire.</strong> <code>main-red-tripwire</code> runs in GitLab's built-in <code>.post</code> stage (after every other stage) of every
+  <code>main</code> <em>push</em> pipeline (never <code>schedule</code>, <code>web</code>, <code>api</code> or <code>trigger</code>), and treats a pipeline with any other job still
+  <code>running</code>/<code>pending</code>/<code>created</code> as not judgeable: it never closes the issue then, it only logs.
+  Tripwires are serialized (<code>resource_group: main-red-tripwire</code>), and one skips every write when
+  a <em>newer</em> <code>main</code> push pipeline has already finished, so a slow older pipeline can neither close
+  the issue over a newer red one nor open a second issue.
+  If a non-<code>allow_failure</code> job failed it opens the single <code>main is red</code> issue, or comments on
+  it if one is open, naming the failing jobs, commit and pipeline. A later pipeline with no such
+  failure comments and closes it. Writing needs an <code>api</code>-scope token: it uses <code>KAIZEN_API_TOKEN</code>
+  (falling back to <code>GITLAB_API_TOKEN</code>, which is <code>read_api</code> only, so the write is refused and the
+  job prints a <code>WARNING</code> and passes). Until the token exists the tripwire is inert (it cannot open
+  or close the issue); creating it is tracked in #2470. See <a href="../tokens-and-rotation/">Tokens and Rotation</a>.</li>
+<li><strong>Guard.</strong> <code>main-red-guard</code> runs in MR pipelines, reads the latest <em>finished</em>
+  (<code>success</code>/<code>failed</code>) <code>main</code> push pipeline anonymously, and fails if it failed.</li>
+</ul>
+<p><strong>Fix:</strong> fix <code>main</code> first. The fix MR carries the <strong><code>main-fix</code></strong> label; the guard reads labels
+live, so add the label and retry <code>main-red-guard</code> (no new pipeline needed). Do not label an
+unrelated MR <code>main-fix</code> to get around the brake.</p>
+<p><strong>After main is green again:</strong> the guard only runs when an MR pipeline runs, so every other
+open MR whose <code>main-red-guard</code> failed while main was red keeps a failed pipeline. Retry that
+MR's <code>main-red-guard</code> job (or re-run its pipeline) once the tripwire has closed the issue;
+nothing re-runs it automatically.</p>
+<p><strong>Fails open:</strong> a network error, a 5xx, or no finished <code>main</code> pipeline makes the guard print
+<code>WARNING: ... FAILING OPEN</code> and pass, the same convention as
+<code>scripts/check-suppression-issues.sh</code>. A green latest <code>main</code> pipeline is authoritative even if
+a change-conditional job that failed earlier did not re-run in it.</p>
+<h2 id="hermetic-ci-script-tests-protected-variables-are-poisoned-2461">Hermetic CI-script tests: protected variables are poisoned (#2461)<a class="headerlink" href="#hermetic-ci-script-tests-protected-variables-are-poisoned-2461" title="Permanent link">&para;</a></h2>
+<p>Protected variables (<code>GITLAB_API_TOKEN</code>, ...) exist on <code>main</code> pipelines but not in MR pipelines
+from unprotected branches, so a test that quietly reads one passed on the MR and failed only
+after merge (#2412, <code>resolve-docs-version.test.sh</code>). Every <code>scripts/tests/*.test.sh</code> invocation in
+<code>.gitlab-ci.yml</code> (in <code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code>,
+<code>security-deferred-verdict-selftest</code>, <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code> and
+<code>registry-keep-regex-test</code>) now runs as <code>sh scripts/ci-hermetic-run.sh bash scripts/tests/&lt;name&gt;</code>,
+which sources <code>scripts/ci-poison-env.sh</code> in a child shell, on <strong>both</strong> pipelines. Only that command
+is poisoned: a job's real step after its tests (<code>suppressions-check</code> querying the live API) keeps
+its real variables. In the wrapped command every listed token is the
+sentinel <code>poisoned-by-ci-poison-env-2461</code> and <code>CI_API_V4_URL</code> is <code>http://127.0.0.1:9/api/v4</code>
+(a dead endpoint, so an accidental API call fails fast). A test that needs a variable must set
+it itself, as the <code>runrt()</code> helper in <code>resolve-docs-version.test.sh</code> does.</p>
+<p><code>scripts/ci-poison-env.sh</code> is the one place the list lives. <code>scripts/check-ci-poison-list.sh</code>
+(run in <code>script-tests</code>) fails when <code>.gitlab-ci.yml</code> or a script under <code>scripts/</code> references a <code>*_TOKEN</code> variable that is in
+neither <code>CI_POISON_VARS</code> nor <code>CI_POISON_EXEMPT</code> (which needs a reason). Fix a failure by adding
+the variable to the right list.</p>
+<p><strong>Loopback canary.</strong> A dead endpoint fails closed exactly like a missing token, so poison alone
+cannot catch a test that quietly depends on a protected variable. The wrapper therefore starts
+<code>scripts/ci-api-canary.py</code> (stdlib listener on 127.0.0.1, answers every request <code>200 []</code> and logs
+it) and points <code>CI_API_V4_URL</code> at it. After the command runs, <code>ci-api-canary.py verify</code> fails the line and
+prints every requested path when the log is non-empty: "a test reached the API with inherited CI
+variables". A test that talks to a fake API (<code>runapi</code> in <code>resolve-docs-version.test.sh</code>) sets its own
+URL and never touches the canary; fix a flagged test by setting its own URL and token, or unsetting
+the inherited ones. <code>scripts/tests/ci-api-canary.test.sh</code> replays #2412: with the <code>env -u</code> scrub
+reverted in <code>resolve-docs-version.test.sh</code>, the canary flags the call
+(<code>GET /api/v4/projects/1/pipelines?ref=v1.3.0...</code>).</p>
+<h2 id="runner_system_failure-is-auto-retried-script-failures-never-are-2462"><code>runner_system_failure</code> is auto-retried; script failures never are (#2462)<a class="headerlink" href="#runner_system_failure-is-auto-retried-script-failures-never-are-2462" title="Permanent link">&para;</a></h2>
+<p><code>default: retry:</code> (max 2) covers infrastructure failure classes only: <code>runner_system_failure</code>,
+<code>runner_unsupported</code>, <code>stuck_or_timeout_failure</code>, <code>scheduler_failure</code>, <code>api_failure</code>,
+<code>data_integrity_failure</code>, <code>stale_schedule</code>. A week in November 2026 had 42 <code>runner_system_failure</code>
+failures, all on <code>gitlab-runner-nuc-2-visiban</code> (host root cause: #2406 / #2148), mostly
+<code>clients-contract</code>. <code>script_failure</code> and <code>unknown_failure</code> are <strong>never</strong> retried: red tests here
+have repeatedly been real bugs. <code>scripts/check-ci-retry.sh</code> (run in <code>script-tests</code>) fails if any
+<code>retry:</code> in <code>.gitlab-ci.yml</code> includes <code>script_failure</code>, <code>unknown_failure</code>, or <code>always</code>, and also
+if a retry has no <code>when:</code> at all (<code>retry: 2</code>, <code>retry: {max: 2}</code>): GitLab then retries every
+failure class, script failures included. Use <code>retry: 0</code> to opt out.</p>
+<p>A job-level <code>retry:</code> replaces the default. Non-idempotent jobs set <code>retry: 0</code> with a reason on the
+line: <code>helm-publish</code>, <code>github-release</code>, <code>docs-deploy</code>, <code>pages</code>, the image-attest jobs,
+<code>cleanup-merged-branches</code>, <code>seed-demo-data</code>, <code>kaizen-yield-watch</code>, <code>main-red-tripwire</code> (posts issue
+comments) and <code>backend-schema-fuzz-deep</code> (files issues in <code>after_script</code>). The kaniko
+build/push jobs and the manifest jobs keep the default retry because re-pushing the same digest is
+idempotent; <code>gitleaks-commits</code> keeps it too, as it only reads the diff and writes nothing (it has no
+upload step). Add the same to any new job
+whose side effect is not safe to repeat. A job that still shows a <code>runner_system_failure</code> after
+two retries points at the runner, not the job; see #2406.</p>
 
 
 
