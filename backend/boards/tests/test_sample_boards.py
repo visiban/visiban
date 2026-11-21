@@ -48,9 +48,12 @@ CARRIED_EVENT_TYPES = {
     CardActivity.EventType.ATTACHMENT_ADDED, CardActivity.EventType.ATTACHMENT_DELETED,
     # Link events (#1104) record a cross-board parent/child link. A sample is
     # one board, so a link entry would name a card on a board that is not in
-    # the file.
+    # the file. The board-deleted removals (#2208) are the same: each one
+    # records a link to a card on another board that was deleted.
     CardActivity.EventType.PARENT_LINKED, CardActivity.EventType.PARENT_UNLINKED,
     CardActivity.EventType.CHILD_LINKED, CardActivity.EventType.CHILD_UNLINKED,
+    CardActivity.EventType.PARENT_REMOVED_BOARD_DELETED,
+    CardActivity.EventType.CHILDREN_REMOVED_BOARD_DELETED,
 }
 
 # (title regex, columns the card may legitimately sit in) per template.
