@@ -3931,9 +3931,11 @@ kaizen-yield-watch:
 #
 # Self-hosted Renovate opens the dependency-bump MRs that the scanners
 # (backend-dep-scan, frontend-dep-scan, dep-scan-osv, trivy-scan) only report.
-# Inert unless BOTH hold: the pipeline is a schedule AND the masked/protected
-# RENOVATE_TOKEN variable exists. Without the token (forks, a fresh install,
-# every MR pipeline) the job is simply not created. Renovate never automerges:
+# Inert unless ALL hold: the pipeline is the Nightly schedule (the one that
+# sets CVE_SCAN=true, like check-release-attestations; never the load-test or
+# mutation schedules) AND the masked/protected RENOVATE_TOKEN variable exists.
+# Without the token (forks, a fresh install, every MR pipeline) the job is
+# simply not created. Renovate never automerges:
 # policy lives in renovate.json. Setup: docs/maintainers/renovate.md.
 # Keep the image tag in step with the renovate-config-validator pin in
 # renovate-config-check.
@@ -3946,7 +3948,7 @@ renovate:
     entrypoint: [""]
   allow_failure: true
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_TOKEN'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CVE_SCAN == "true" && $RENOVATE_TOKEN'
   variables:
     RENOVATE_PLATFORM: gitlab
     RENOVATE_ENDPOINT: ${CI_API_V4_URL}

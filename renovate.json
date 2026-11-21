@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Self-hosted Renovate (#2464): runs from the scheduled `renovate` job in .gitlab-ci.yml. See docs/maintainers/renovate.md. Never automerge: every bump is reviewed and merged by a human. Majors are never grouped: the group rules above match minor/patch only, so each major is its own MR.",
+  "description": "Self-hosted Renovate (#2464): runs from the scheduled `renovate` job in .gitlab-ci.yml. See docs/maintainers/renovate.md. Never automerge: every bump is reviewed and merged by a human. Only the managers in enabledManagers run (Renovate's defaults would otherwise also pick up scripts/, docs/, docs-site/, .github/ and every image via gitlabci); ignorePaths keeps those trees out of the enabled managers' default file patterns. Majors are never grouped: the group rules match minor/patch only, so each major is its own MR. The one exception is the Playwright pair, which always moves together.",
   "extends": [
     "config:recommended",
     ":disableDependencyDashboard"
@@ -21,6 +21,22 @@
   "automerge": false,
   "platformAutomerge": false,
   "rangeStrategy": "auto",
+  "enabledManagers": [
+    "pip_requirements",
+    "npm",
+    "dockerfile",
+    "docker-compose",
+    "helm-values",
+    "custom.regex"
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "scripts/**",
+    "docs/**",
+    "docs-site/**",
+    ".github/**",
+    "clients/python/**"
+  ],
   "pip_requirements": {
     "managerFilePatterns": [
       "/^backend/requirements[^/]*\\.txt$/"
@@ -58,11 +74,22 @@
         "\\$\\{DOCKERHUB_MIRROR(?::-[^}]*)?\\}/(?<depName>[^\\s:@\"']+):(?<currentValue>[^\\s@\"'#]+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "description": "The Playwright browser image in .gitlab-ci.yml (playwright-e2e). It is not behind ${DOCKERHUB_MIRROR}, so the rule above misses it, and the gitlabci manager is disabled; the 'playwright' package rule groups it with @playwright/test",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.gitlab-ci\\.yml$/"
+      ],
+      "matchStrings": [
+        "image:\\s*[\"']?(?<depName>mcr\\.microsoft\\.com/playwright):(?<currentValue>v[^\\s@\"'#]+)"
+      ],
+      "datasourceTemplate": "docker"
     }
   ],
   "packageRules": [
     {
-      "description": "Group minor and patch updates per ecosystem",
+      "description": "Group minor and patch updates per ecosystem. Python: Renovate edits backend/requirements*.txt but does not regenerate the hash-pinned backend/requirements.lock, so backend-lock-check goes red until a reviewer runs scripts/lock-backend-requirements.sh on the branch; automating that is #2482",
       "matchManagers": [
         "pip_requirements"
       ],
@@ -112,6 +139,24 @@
         "renovate/renovate"
       ],
       "enabled": false
+    },
+    {
+      "description": "A PostgreSQL major changes the on-disk format and needs pg_upgrade or a dump and restore; it is never proposed automatically, in Compose, Dockerfiles, CI images or the Helm values",
+      "matchDepNames": [
+        "postgres"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "@playwright/test and the mcr.microsoft.com/playwright CI image must be the same version (the client refuses browsers from another release), so they move in one MR, majors included. Last, so it overrides the per-ecosystem groups",
+      "matchDepNames": [
+        "@playwright/test",
+        "mcr.microsoft.com/playwright"
+      ],
+      "groupName": "playwright"
     }
   ],
   "vulnerabilityAlerts": {
@@ -121,8 +166,7 @@
     ],
     "labels": [
       "dependencies",
-      "security",
-      "no-changelog"
+      "security"
     ],
     "automerge": false
   }
