@@ -2405,6 +2405,8 @@
       
         
       
+        
+      
     
     
     
@@ -2926,6 +2928,34 @@
     
   
     Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/upgrade-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrade Drills & PostgreSQL Matrix
   
 
     
@@ -4365,7 +4395,7 @@
 
 <p><a id="architecture-overview"></a></p>
 <h1 id="one-django-backend-one-react-spa-two-datastores">One Django backend, one React SPA, two datastores<a class="headerlink" href="#one-django-backend-one-react-spa-two-datastores" title="Permanent link">&para;</a></h1>
-<p>A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL 17 and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.</p>
+<p>A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL (15 to 18 supported, 17 bundled) and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.</p>
 <p><strong>Why it matters:</strong> no microservices, queues, or search index: a self-hoster operates two datastores.</p>
 <p><strong>Go deeper:</strong> <a href="../data-model/">Data Model</a>, <a href="../deployment/">Deployment</a>, <a href="../decisions/">Technology Decisions</a>.</p>
 <h2 id="system-components">System components<a class="headerlink" href="#system-components" title="Permanent link">&para;</a></h2>
@@ -4406,7 +4436,7 @@
 </tr>
 <tr>
 <td>Database</td>
-<td>PostgreSQL 17</td>
+<td>PostgreSQL 15 to 18 supported (17 bundled)</td>
 </tr>
 <tr>
 <td>Cache / Pub-Sub</td>

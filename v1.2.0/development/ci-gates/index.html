@@ -2405,6 +2405,8 @@
       
         
       
+        
+      
     
     
     
@@ -2785,6 +2787,34 @@
     
   
     Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrade-drills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrade Drills & PostgreSQL Matrix
   
 
     
@@ -4503,6 +4533,18 @@ reference on a non-comment line, and fails if any of them:</p>
 <td>Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE cases are the known-bad-input assertions, run against the real <code>init-prod.sh</code> and <code>docker-compose.prod.yml</code> instead of a fixture: a boot with the placeholder <code>DJANGO_SECRET_KEY</code> must be rejected, and <code>init-prod.sh</code> must reject a <code>/</code>-bearing <code>DB_PASSWORD</code> or <code>REDIS_PASSWORD</code> before anything boots, with the specific error message (<a href="https://gitlab.com/visiban/visiban/-/issues/1229">#1229</a>). A static check also asserts <code>init-prod.sh</code> restarts nginx after its final <code>up -d</code>. See <a href="https://gitlab.com/visiban/visiban/-/issues/1152">#1152</a>.</td>
 </tr>
 <tr>
+<td><code>scripts/compose-upgrade-drill.sh</code></td>
+<td>Live Docker Compose upgrade drill (last GA release to HEAD, <a href="https://gitlab.com/visiban/visiban/-/issues/2463">#2463</a>) — a synthetic self-test would have to boot two real releases, which is the drill. Its known-bad guards are in the run: an empty seed, a <code>backend-init</code> that ran the old image, unapplied migrations, or changed counts each fail it. See <a href="../upgrade-drills/">Upgrade Drills</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/helm-upgrade-drill.sh</code></td>
+<td>Live kind-cluster <code>helm upgrade</code> drill, same reasoning and the same in-run guards, plus the HEAD pod's <code>migrate</code> init container exit code.</td>
+</tr>
+<tr>
+<td><code>scripts/upgrade-drill-probe.py</code></td>
+<td>Not a gate: the probe both upgrade drills pipe into a running backend container. Listed only because the drills' <code>changes:</code> rules name it.</td>
+</tr>
+<tr>
 <td><code>scripts/oidc_provision.py</code></td>
 <td>Provisioning against a live Keycloak Admin REST API — setup, not detection logic. Its correctness is exercised end-to-end by <code>oidc_smoke_test.py</code>.</td>
 </tr>
@@ -4566,6 +4608,16 @@ reference on a non-comment line, and fails if any of them:</p>
 <td><code>scripts/check-memory-index.sh</code></td>
 <td>not currently a CI job</td>
 <td>Self-test builds a synthetic memory store.</td>
+</tr>
+<tr>
+<td><code>scripts/resolve-last-ga-tag.sh</code></td>
+<td><code>compose-upgrade-drill</code>, <code>helm-upgrade-drill</code>, <code>script-tests</code></td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2463">#2463</a>: <code>--self-test</code> proves pre-release tags (<code>-alpha</code>/<code>-beta</code>/<code>-rc</code>) newer than the GA are excluded, ordering is numeric (<code>v1.10.0</code> &gt; <code>v1.9.3</code>), malformed and unprefixed tags are ignored, <code>git ls-remote</code> lines parse, and an input with no GA tag exits non-zero.</td>
+</tr>
+<tr>
+<td><code>scripts/pg-matrix-check.sh</code></td>
+<td><code>backend-test-pg-matrix</code>, <code>backend-test-pg-matrix-nightly</code>, <code>script-tests</code></td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2463">#2463</a>: <code>--self-test</code> covers <code>server_version_num</code> to major (<code>150004</code> to 15), the rotating pytest-split group, and a rejected out-of-range <code>PG_TEST_GROUP</code>. The real run fails when the service is not the expected major. The MR and <code>main</code> <code>backend-test-pg-matrix</code> legs are advisory (<code>allow_failure: true</code>) until the first all-green nightly matrix run; <a href="https://gitlab.com/visiban/visiban/-/issues/2481">#2481</a> tracks making them blocking. A failed <code>backend-test-pg-matrix</code> main leg on a release commit still refuses the release tag, though: <code>release-main-pipeline-guard</code> treats any failed job on that pipeline as blocking, and that is intentional while 15–18 is the documented support range.</td>
 </tr>
 <tr>
 <td><code>scripts/check-gate-selftest-parity.sh</code></td>
