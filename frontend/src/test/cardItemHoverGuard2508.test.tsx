@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
+import type { CustomFieldDefinition } from '../types'
 import type { Card } from '../types'
 
 // Mock dnd-kit — CardItem calls useDraggable unconditionally (hook rules).
@@ -184,13 +185,11 @@ describe('Card hover guard (#2508)', () => {
   it('leaving the peek ends the whole hover, not just the peek', async () => {
     const { container } = render(<CardItem card={makeCard()} />)
     const cardEl = await hoverUntilPeek(container)
-    // A fast move straight from the card onto the peek: React dispatches the
-    // card's leave and the peek's enter from one native event, so it stays.
-    act(() => {
-      fireEvent.mouseLeave(cardEl)
-      fireEvent.mouseEnter(screen.getByRole('tooltip'))
-    })
-    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    // The pointer is on the peek while the card still counts as hovered (no
+    // card mouseleave ran): only the peek's own leave can end the hover, so a
+    // bare setPeekVisible(false) there would leave the card expanded.
+    act(() => { fireEvent.mouseEnter(screen.getByRole('tooltip')) })
+    expect(cardEl.style.boxShadow).toContain(LIFTED)
     act(() => { fireEvent.mouseLeave(screen.getByRole('tooltip')) })
     expectHoverEnded(cardEl)
     // A fresh hover still works afterwards.
@@ -243,5 +242,28 @@ describe('Card hover guard (#2508)', () => {
     } finally {
       if (original) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', original)
     }
+  })
+
+  it('an arrow key in the card\'s open quick-edit list keeps the hover (the exemption)', async () => {
+    const def = {
+      id: 5, uid: 'cfuid005', name: 'Stage', field_type: 'dropdown', choices: ['Beta', 'GA'],
+      position: 0, show_on_card: true, is_required: false, help_text: '',
+      number_prefix: '', number_suffix: '', number_decimals: null, choice_colors: {},
+      threshold_direction: '', threshold_warn: null, threshold_alert: null,
+      threshold_warn_days: null, threshold_alert_days: null, created_at: '2026-01-01T00:00:00Z',
+    } as CustomFieldDefinition
+    const { container } = render(
+      <CardItem
+        card={makeCard({ custom_field_values: [{ field_definition: 5, value: 'Beta' }] })}
+        customFieldDefinitions={[def]}
+        boardId={7}
+        onCardUpdated={vi.fn()}
+      />,
+    )
+    const cardEl = await hoverUntilPeek(container)
+    act(() => { fireEvent.click(screen.getByRole('button', { name: /Stage: Beta/ })) })
+    act(() => { fireEvent.keyDown(document.body, { key: 'ArrowDown' }) })
+    expect(cardEl.style.boxShadow).toContain(LIFTED)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
   })
 })

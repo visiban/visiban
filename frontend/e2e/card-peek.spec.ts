@@ -33,10 +33,29 @@ test.describe('card peek popover', () => {
     await expect(peek).toHaveCount(0, { timeout: 2_000 })
   })
 
-  // #2508: opening the filter row with F pushes the board down under a still
-  // pointer, so the card never gets a mouseleave; the peek must close anyway
-  // and must not sit over the filter row it just opened.
-  test('pressing F to open the filter row dismisses a visible peek', async ({ page }) => {
+  // #2508: a hover must end on a key press even though the pointer never
+  // moves and no layout shifts. Browsers send no leave event for a key, so
+  // only the keydown guard can close the peek; this fails without it
+  // (verified red with the listener removed). Not Escape: an app-level Escape
+  // handler closes the peek on its own, so Escape would pass without the guard.
+  test('a non-modifier key with a still pointer dismisses a visible peek', async ({ page }) => {
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const cardText = page.getByText(CARD.title).first()
+    await expect(cardText).toBeVisible({ timeout: 10_000 })
+
+    await cardText.hover()
+    const peek = page.getByRole('tooltip').filter({ hasText: CARD.description })
+    await expect(peek).toBeVisible({ timeout: 3_000 })
+
+    await page.keyboard.press('q')
+    await expect(peek).toHaveCount(0, { timeout: 2_000 })
+  })
+
+  // #2508 regression guard for the reported filter-row path (F opens the
+  // filter row and pushes the board down under a still pointer). Chromium
+  // usually self-heals after a layout shift, so this does NOT prove the
+  // mechanism; the Escape test above and the Vitest guard tests do.
+  test('regression guard: pressing F to open the filter row leaves no peek over it', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const cardText = page.getByText(CARD.title).first()
     await expect(cardText).toBeVisible({ timeout: 10_000 })

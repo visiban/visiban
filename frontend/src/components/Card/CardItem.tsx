@@ -437,11 +437,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
   // #2508 — a hover (the in-place expansion, the aging tooltip and the peek)
   // must never outlive the pointer. React's onMouseLeave is synthesized from a
-  // native `mouseout` on the card, and browsers do not always send one: a card
-  // node that React moves or re-inserts while hovered (a filter or socket update
-  // reordering a cell) loses its hover tracking for good, and a layout shift
-  // under a still pointer (the filter row opening pushes the board down) sends
-  // nothing until the pointer moves. The peek is `fixed` at the rect captured
+  // native `mouseout` on the card, and nothing else ends a hover: no key press,
+  // scroll or window blur dismisses it. Browsers (Chromium) usually self-heal
+  // after a layout shift under a still pointer (the filter row opening) by
+  // sending a mouse event, so that is not the demonstrated mechanism.
+  // Hypothesis, not demonstrated: a card node React moves or re-inserts while
+  // hovered (a filter or socket update reordering a cell) gets no leave at all.
+  // The peek is `fixed` at the rect captured
   // when it opened, so a scroll leaves it floating over whatever is there now,
   // the toolbar and filter row included. So, while a hover is live, one set of
   // window listeners re-checks it instead of trusting mouseleave alone: a
