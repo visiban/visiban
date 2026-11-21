@@ -436,6 +436,17 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
       expect(opener).toHaveFocus()
     })
 
+    it('a wrong typed name with an admin picked never reaches the API', async () => {
+      renderPage(setup({ owner: admin }, admin), '/groups/1?tab=settings&section=danger-zone')
+      fireEvent.click(await screen.findByRole('button', { name: 'Transfer ownership' }))
+      const panel = screen.getByRole('group', { name: 'Transfer ownership details' })
+      fireEvent.click(within(panel).getByRole('combobox'))
+      fireEvent.click(await screen.findByRole('option', { name: 'Owen' }))
+      fireEvent.change(within(panel).getByLabelText(/Type the group name/), { target: { value: 'Wrong' } })
+      fireEvent.click(within(panel).getByRole('button', { name: 'Transfer ownership' }))
+      expect(mockTransfer).not.toHaveBeenCalled()
+    })
+
     it('Escape closes the inline transfer panel and refocuses its opener', async () => {
       renderPage(setup({ owner: admin }, admin), '/groups/1?tab=settings&section=danger-zone')
       const opener = await screen.findByRole('button', { name: 'Transfer ownership' })
