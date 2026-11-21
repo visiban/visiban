@@ -233,7 +233,7 @@ class IsolationAndValidationTests(_Base):
             [_field(type="text", value="x" * 501)],
             [_field(type="text", value="a\x00b")],
             [_field(type="text", value="\ud800")],
-            [_field(label="Am‮ount")],
+            [_field(label="Am\u202eount")],
             [_field(label="")],
             [_field(type="date", value="2026-13-01")],
             [_field(type="date", value="12/01/2026")],

@@ -73,7 +73,7 @@ class WriteTests(_Base):
         self.assertEqual(self._patch(self.owner, {"parent_name_plural": " " + "y" * 24 + " "}).status_code, 200)
 
     def test_control_bidi_and_zero_width_characters_refused(self):
-        for bad in ("Init\x00", "Ini\ttiative", "Init‮evitaitini", "Ini​tiative", "Init⁦x", "\x7f"):
+        for bad in ("Init\x00", "Ini\ttiative", "Init\u202eevitaitini", "Ini\u200btiative", "Init\u2066x", "\x7f"):
             res = self._patch(self.owner, {"parent_name_singular": bad})
             self.assertEqual(res.status_code, 400, repr(bad))
         self.board.refresh_from_db()
