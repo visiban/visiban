@@ -3154,7 +3154,8 @@ added-files-coverage-check-self-test:
 
 # ─── Frontend — E2E (Playwright) ─────────────────────────────────────────────
 #
-# Runs the Playwright suite against the Vite dev server using the official
+# Runs the Playwright suite against a production build served by `vite preview`
+# (#2485) using the official
 # Microsoft Playwright Docker image (browsers pre-installed, no download step).
 # API calls are intercepted by page.route() so no backend is required.
 #
@@ -3165,8 +3166,12 @@ added-files-coverage-check-self-test:
 # flip. A red job here now blocks the MR; release-main-pipeline-guard already
 # counted it as a failure either way.
 #
-# Uses workers: 1 (via playwright.config.ts) to stay within the 2 GB runner
-# memory budget (Chromium ~500 MB + Vite dev server ~400 MB).
+# Uses workers: 2 (via playwright.config.ts). Serving the prebuilt bundle with
+# `vite preview` instead of the dev server (~400 MB) frees the memory for a
+# second Chromium (~500 MB each) within the 2 GB runner budget. The build runs
+# as its own script step so a build failure is attributed clearly and its time
+# is visible; VITE_API_URL is baked in at build time because preview cannot
+# inject it (all API calls are mocked via page.route()).
 
 playwright-e2e:
   stage: test
@@ -3186,6 +3191,7 @@ playwright-e2e:
     - cd frontend
     - npm ci --prefer-offline
   script:
+    - VITE_API_URL=http://localhost:8000 npm run build
     - npx playwright test --output=test-results
   artifacts:
     when: always
