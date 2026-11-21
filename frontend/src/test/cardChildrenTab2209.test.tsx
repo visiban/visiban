@@ -109,7 +109,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
       </MemoryRouter>,
     )
     const link = screen.getByRole('link', { name: 'Open on Delivery' })
-    expect(link).toHaveAttribute('href', '/boards/7')
+    expect(link).toHaveAttribute('href', '/boards/7?f_parent=5')
     await userEvent.setup().click(link)
     expect(await screen.findByText('at /boards/7')).toBeInTheDocument()
   })
