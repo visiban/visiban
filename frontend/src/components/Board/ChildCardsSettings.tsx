@@ -2,11 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../api/boards";
 import type { Board, ChildrenSettingBlockers } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
+import ParentNameSettings from "./ParentNameSettings";
 
 interface Props {
-  board: Pick<Board, "id" | "cards_can_have_children" | "default_child_board">;
+  board: Pick<Board, "id" | "cards_can_have_children" | "default_child_board"> &
+    Partial<Pick<Board, "parent_name_singular" | "parent_name_plural">>;
   /** Board admins only: the section is not rendered for anyone else (the page shows a read-only line). */
-  onUpdate: (patch: Record<string, unknown>) => void;
+  onUpdate: (patch: Record<string, unknown>) => void | Promise<unknown>;
   /** Server refusal of the last flip (#1104), shown inline so a race past the blockers read is not silent. */
   error?: string | null;
 }
@@ -195,6 +197,17 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
             options={selectOptions}
           />
         </div>
+      )}
+
+      {checked && (
+        <ParentNameSettings
+          board={{
+            id: board.id,
+            parent_name_singular: board.parent_name_singular ?? "",
+            parent_name_plural: board.parent_name_plural ?? "",
+          }}
+          onUpdate={onUpdate}
+        />
       )}
     </div>
   );
