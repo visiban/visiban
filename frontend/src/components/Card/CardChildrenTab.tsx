@@ -20,8 +20,13 @@ function segmentOf(child: CardChildRow, columns: CardChildrenColumn[]): Segment 
   return columns[0]?.id === child.column_id ? "todo" : "doing";
 }
 
+/** The board treats a `wip_limit` of 0 as no limit (ColumnHeader, PhoneBoard); so does this tab. */
+function hasLimit(col: CardChildrenColumn): col is CardChildrenColumn & { wip_limit: number } {
+  return col.wip_limit != null && col.wip_limit > 0;
+}
+
 function atLimit(col: CardChildrenColumn): boolean {
-  return col.wip_limit != null && col.card_count >= col.wip_limit;
+  return hasLimit(col) && col.card_count >= col.wip_limit;
 }
 
 interface Props {
@@ -36,7 +41,8 @@ interface Props {
   /**
    * Bumps on every `card.children_changed` ping. The ping carries no actor, so this tab cannot tell its own echo
    * from someone else's; it therefore treats every re-read that lands while one of its own writes is pending as
-   * that write's (rule C's accepted trade-off) and reads the counter only to keep the prop contract.
+   * that write's (rule C's accepted trade-off). Accepted for compatibility with the caller's prop contract and
+   * currently unused.
    */
   remoteSignal?: number;
 }
@@ -362,8 +368,8 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           {shownColumns.map((col) => {
             const list = byColumn(col.id);
             // WIP state in words, never color alone (frontend/CLAUDE.md § Children tab (#2209), rule B): at the limit and over it are both said.
-            const wipState = col.wip_limit != null && col.wip_limit > 0 ? (col.card_count > col.wip_limit ? "over limit" : col.card_count === col.wip_limit ? "at limit" : "") : "";
-            const limit = col.wip_limit != null ? ` · limit ${col.wip_limit}${wipState ? `, ${wipState}` : ""}` : "";
+            const wipState = hasLimit(col) ? (col.card_count > col.wip_limit ? "over limit" : col.card_count === col.wip_limit ? "at limit" : "") : "";
+            const limit = hasLimit(col) ? ` · limit ${col.wip_limit}${wipState ? `, ${wipState}` : ""}` : "";
             return (
               <section key={col.id} aria-label={col.name} className="flex flex-col gap-2 min-w-0">
                 <div className="flex flex-col gap-0.5 border-t-2 pt-1.5" style={{ borderTopColor: col.color }}>
@@ -372,7 +378,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                   <span className="text-xs text-fg-muted" data-testid="children-limit-line">
                     {wide ? `${list.length} of ${col.card_count} on ${boardName}${limit}` : `${list.length} of ${col.card_count} on ${boardName} are this card's${limit}`}
                   </span>
-                  {col.wip_limit != null && col.wip_limit > 0 && (
+                  {hasLimit(col) && (
                     // The child board's own WIP meter for the whole column; the line above says it in words.
                     <span aria-hidden="true" data-testid="children-wip-meter" className="block h-1 w-full rounded bg-surface-hover overflow-hidden">
                       <span
@@ -474,6 +480,8 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           cardId={cardId}
           parentTitle={cardTitle}
           parentColumn={cardColumnName}
+          onWriteStart={beginWrite}
+          onWriteFailed={() => { localWrite.current = false; }}
           onClose={() => { setAdding(false); queueMicrotask(() => addRef.current?.focus()); }}
           onAdded={({ boardName: b, title, defaultNotSet }) => {
             setAdding(false);
@@ -491,6 +499,8 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           cardId={cardId}
           cardTitle={cardTitle}
           boards={linkBoards}
+          onWriteStart={beginWrite}
+          onWriteFailed={() => { localWrite.current = false; }}
           onClose={() => { setLinkBoards(null); queueMicrotask(() => linkRef.current?.focus()); }}
           onLinked={(child) => {
             setLinkBoards(null);
@@ -540,7 +550,7 @@ function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }:
         {columns.map((c) => {
           const current = c.id === child.column_id;
           const full = !current && atLimit(c);
-          const label = current ? `${c.name} · current` : c.wip_limit != null ? `${c.name} ${c.card_count} of ${c.wip_limit}` : c.name;
+          const label = current ? `${c.name} · current` : hasLimit(c) ? `${c.name} ${c.card_count} of ${c.wip_limit}` : c.name;
           return (
             <label key={c.id} className={`min-h-11 flex items-center gap-2 px-2 rounded ${full ? "text-fg-muted cursor-not-allowed" : "text-fg cursor-pointer hover:bg-surface-hover"}`}>
               <input

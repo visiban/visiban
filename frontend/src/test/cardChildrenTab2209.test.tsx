@@ -515,3 +515,100 @@ describe('Children tab review fixes (#2209)', () => {
     }
   })
 })
+
+describe('own-write echo before the write resolves (#2209 rule R-C)', () => {
+  const tab = (s: ChildrenState) => <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={s} onExitToTabs={vi.fn()} />
+
+  it('Add child: an echo re-read while the default write is pending is not announced as someone else\'s', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: true,
+      boards: [{ id: 7, name: 'Delivery', can_set_default: true }],
+    })
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    let release!: () => void
+    vi.mocked(patchBoard).mockReturnValue(new Promise<never>((res) => { release = () => res({} as never) }))
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.click(screen.getByRole('checkbox'))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(patchBoard).toHaveBeenCalled())
+    // The echo ping's re-read lands while patchBoard is still pending.
+    rerender(tab(state({ data: read([...kids, row({ id: 13, title: 'Task' })]), reload })))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    release()
+    await waitFor(() => expect(screen.getByText('Added "Task" to Delivery.')).toBeInTheDocument())
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('Link existing: an echo re-read while the link is pending is not announced; only Linked is', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: { hidden: false, id: 7, name: 'Delivery', can_add: true }, default: null, can_set_default: false, boards: [],
+    })
+    vi.mocked(getChildCandidates).mockResolvedValue([{
+      id: 20, title: 'Loose task', column_id: 100, column_name: 'To do', swimlane_id: 50, swimlane_name: 'Lane',
+      assignee: null, disabled_reason: null, parent_title: null,
+    }])
+    let release!: () => void
+    vi.mocked(linkCardParent).mockReturnValue(new Promise<never>((res) => { release = () => res({ parent_id: 5, child_id: 20 } as never) }))
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await userEvent.click(screen.getByRole('button', { name: 'Link existing' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Link existing card' })
+    await userEvent.type(within(dialog).getByRole('combobox'), 'task')
+    await waitFor(() => expect(getChildCandidates).toHaveBeenCalled())
+    await within(dialog).findByText('Loose task')
+    await userEvent.keyboard('{ArrowDown}{Enter}')
+    await waitFor(() => expect(linkCardParent).toHaveBeenCalled())
+    rerender(tab(state({ data: read([...kids, row({ id: 20, title: 'Loose task' })]), reload })))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    release()
+    await waitFor(() => expect(screen.getByText('Linked Loose task.')).toBeInTheDocument())
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('a refused Add child clears the pending mark so the next remote change is announced', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: null, default: null, can_set_default: false, boards: [{ id: 7, name: 'Delivery', can_set_default: false }],
+    })
+    vi.mocked(addChild).mockRejectedValue({ isAxiosError: true, response: { status: 403, data: {} } })
+    const user = userEvent.setup()
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload })))
+    await user.click(screen.getByRole('button', { name: 'Add child' }))
+    await user.click(await screen.findByRole('combobox', { name: /Child board/ }))
+    await user.click(await screen.findByRole('option', { name: 'Delivery' }))
+    await user.type(screen.getByLabelText('Title'), 'Task')
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(addChild).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add to Delivery' })).toBeEnabled())
+    rerender(tab(state({ data: read(kids.slice(1)), reload })))
+    expect(screen.getByText('Children updated. 1 of 2 done.')).toBeInTheDocument()
+  })
+})
+
+describe('a WIP limit of 0 is no limit (#2209, as on the board)', () => {
+  const zero = () => {
+    const d = read(kids)
+    d.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, wip_limit: 0, card_count: 0 } : c))
+    return d
+  }
+
+  it('shows no limit text and keeps the Move option enabled', async () => {
+    renderTab(state({ data: zero() }))
+    expect(screen.queryByText(/· limit/)).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    const group = screen.getByRole('radiogroup', { name: 'Column on Delivery' })
+    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeEnabled()
+    expect(within(group).queryByText(/At its limit/)).toBeNull()
+  })
+
+  it('still shows a positive limit', () => {
+    renderTab(state({ data: read(kids) }))
+    expect(screen.getByText(/limit 5, at limit/)).toBeInTheDocument()
+  })
+})

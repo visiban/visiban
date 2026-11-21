@@ -84,7 +84,7 @@ for (const width of [880, 540, 390]) {
           await expect(tab.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', `/boards/7?f_parent=${CARD.id}`)
           await expect(tab.getByRole('img', { name: '2 done, 1 doing, 1 blocked, 1 to do' })).toBeVisible()
           // The card sheet is 540px at every viewport above the phone and full screen at or below 640px
-          // (useCardSheetPlacement), so the tab never gets the 840px of container the side-by-side layout
+          // (useCardSheetPlacement), so the tab never gets the 800px of container the side-by-side layout
           // needs: asserted, not recorded. The side-by-side layout is pinned in cardChildrenTab2209.test.tsx
           // at a measured 840px container (no sheet is that wide today).
           const box = await tab.boundingBox()
