@@ -534,3 +534,194 @@ class AdminChildPingTests(_RollupFixture, TestCase):
         # The count, then the ids: two however many parents the column holds.
         self.assertEqual(len(reads), 2, reads)
         self.assertEqual(len(self._rows("card.parent_changed")), 1)
+
+
+class ColumnBulkPingTests(_RollupFixture, TestCase):
+    """#2500: a child-board column ``is_done`` toggle or first-column change.
+
+    One bounded, ids-only ``card.children_bulk_changed`` per PARENT board,
+    deferred to commit, from the REST update and reorder and the Django admin,
+    and only when a child's rollup bucket actually changed.
+    """
+
+    EVT = "card.children_bulk_changed"
+
+    def setUp(self):
+        self._setup_rollup()
+        self.client = self._client(self.owner)
+        self.cols = f"/api/v1/boards/{self.cboard.pk}/columns/"
+
+    def _pings(self):
+        return list(BoardEvent.objects.filter(event=self.EVT).order_by("pk").values_list("board_id", "data"))
+
+    def _expect_one(self, parent_ids=None):
+        self.assertEqual(self._pings(), [(self.pboard.pk, {"parent_ids": parent_ids or [self.parent.pk]})])
+        BoardEvent.objects.filter(event=self.EVT).delete()
+
+    def _patch(self, column, body, board=None):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.patch(f"/api/v1/boards/{(board or self.cboard).pk}/columns/{column.pk}/", body, format="json")
+        self.assertEqual(res.status_code, 200, res.content)
+
+    def _reorder(self, cols):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.post(f"{self.cols}reorder/", {"order": [c.pk for c in cols]}, format="json")
+        self.assertEqual(res.status_code, 200, res.content)
+
+    def test_is_done_toggle_pings_the_parent_board_once(self):
+        self._patch(self.col_doing, {"is_done": True})
+        self._expect_one()
+        self._patch(self.col_doing, {"is_done": False})
+        self._expect_one()
+        # The per-parent event is not sent for a column-wide change.
+        self.assertFalse(BoardEvent.objects.filter(event="card.children_changed").exists())
+
+    def test_unchanged_is_done_other_fields_and_unlinked_columns_ping_nothing(self):
+        self._patch(self.col_done, {"is_done": True})  # already done
+        self._patch(self.col_doing, {"name": "Doing 2", "color": "#123456"})
+        loose = _make_column(self.cboard, name="Loose", order=7)
+        _make_card(loose, self.lane_c, title="unlinked")
+        self._patch(loose, {"is_done": True})  # no linked child
+        only_archived = _make_column(self.cboard, name="Old", order=8)
+        self.archived.column = only_archived
+        self.archived.save(update_fields=["column"])
+        self._patch(only_archived, {"is_done": True})  # archived children leave the rollup
+        other_board, other_card = _board_with_card(self.owner, parent_tier=False, name="Solo", title="s")
+        self._patch(other_card.column, {"is_done": True}, board=other_board)  # no parent links at all
+        self.assertEqual(self._pings(), [])
+
+    def test_reorder_that_changes_the_first_column_pings_once(self):
+        self._reorder([self.col_c, self.col_doing, self.col_done])  # same order
+        self._reorder([self.col_c, self.col_done, self.col_doing])  # first column kept
+        self.assertEqual(self._pings(), [])
+        self._reorder([self.col_doing, self.col_c, self.col_done])
+        self._expect_one()
+
+    def test_parent_tier_column_writes_ping_nothing_and_read_nothing(self):
+        self._patch(self.parent.column, {"is_done": True}, board=self.pboard)
+        self.assertEqual(self._pings(), [])
+        with self.assertNumQueries(0):
+            self.assertIsNone(card_links.column_rollup_state(self.pboard))
+            card_links.announce_columns_children_changed(self.pboard, [self.parent.column_id], actor_id=None)
+
+    def test_absent_input_sends_and_reads_nothing(self):
+        # #1075: no snapshot, no columns, or only a missing id fail safe.
+        with self.assertNumQueries(0):
+            card_links.announce_column_rollup_changed(self.cboard, None, actor_id=None)
+            card_links.announce_columns_children_changed(self.cboard, [], actor_id=None)
+            card_links.announce_columns_children_changed(self.cboard, [None], actor_id=None)
+        self.assertEqual(self._pings(), [])
+
+    def test_scoped_to_each_affected_parent_board_and_its_readers(self):
+        pboard2, parent2 = _board_with_card(self.owner, parent_tier=True, name="Portfolio 2", title="p2")
+        CardParentLink.objects.create(
+            parent=parent2, child=_make_card(self.col_done, self.lane_c, title="c2"), created_by=self.owner,
+        )
+        with mock.patch("boards.broadcast.broadcast_board_event") as sent:
+            self._patch(self.col_doing, {"is_done": True})
+        # Only the parent with a child in the toggled column; never the child board.
+        self.assertEqual(self._pings(), [(self.pboard.pk, {"parent_ids": [self.parent.pk]})])
+        self.assertEqual(
+            sorted({c.args[0] for c in sent.call_args_list if c.args[1] == self.EVT}), [self.pboard.pk],
+        )
+        BoardEvent.objects.filter(event=self.EVT).delete()
+        self._patch(self.col_done, {"is_done": False})
+        self.assertEqual(sorted(self._pings()), sorted([
+            (self.pboard.pk, {"parent_ids": [self.parent.pk]}), (pboard2.pk, {"parent_ids": [parent2.pk]}),
+        ]))
+        # A reader with no role on the parent board cannot read its feed; a
+        # parent-board viewer reads only ids.
+        child_only = self._user("bulk_child_only", child_role=Role.VIEWER)
+        res = self._client(child_only).get(f"/api/v1/boards/{self.pboard.pk}/events/")
+        self.assertIn(res.status_code, (403, 404))
+        child_feed = self._client(child_only).get(f"/api/v1/boards/{self.cboard.pk}/events/")
+        self.assertNotIn(self.EVT, json.dumps(child_feed.json()))
+        viewer = self._user("bulk_parent_viewer", parent_role=Role.VIEWER)
+        feed = json.dumps(self._client(viewer).get(f"/api/v1/boards/{self.pboard.pk}/events/").json())
+        self.assertIn(self.EVT, feed)
+        self.assertNotIn("SECRET-C", feed)
+
+    def _parents_with_children_in(self, column, n):
+        pboard, first = _board_with_card(self.owner, parent_tier=True, name=f"Wide {n}", title="w0")
+        parents = [first] + [_make_card(first.column, first.swimlane, title=f"w{i}") for i in range(1, n)]
+        CardParentLink.objects.bulk_create([
+            CardParentLink(parent=p, child=_make_card(column, self.lane_c, title=f"k{p.pk}"), created_by=self.owner)
+            for p in parents
+        ])
+        return pboard, sorted(p.pk for p in parents)
+
+    def test_cap_boundary_lists_100_ids_and_101_reloads_in_one_fixed_read(self):
+        self.assertEqual(card_links.CONTAINER_RENAME_ID_CAP, 100)
+        col_a = _make_column(self.cboard, name="A", order=11)
+        col_b = _make_column(self.cboard, name="B", order=12)
+        board_100, ids_100 = self._parents_with_children_in(col_a, 100)
+        board_101, _ids = self._parents_with_children_in(col_b, 101)
+        for cols, expected in (
+            ([col_a], [(board_100.pk, {"parent_ids": ids_100})]),
+            ([col_b], [(board_101.pk, {"parent_ids": [], "reload": True})]),
+        ):
+            with CaptureQueriesContext(connection) as ctx, transaction.atomic():
+                card_links.announce_columns_children_changed(self.cboard, [c.pk for c in cols], actor_id=None)
+            reads = [q for q in ctx.captured_queries if "card_parent_links" in q["sql"]]
+            self.assertEqual(len(reads), 1, reads)
+            self.assertEqual(self._pings(), expected)
+            BoardEvent.objects.filter(event=self.EVT).delete()
+
+    def test_read_count_does_not_grow_with_parents_or_children(self):
+        col_a = _make_column(self.cboard, name="A", order=11)
+        col_b = _make_column(self.cboard, name="B", order=12)
+        self._parents_with_children_in(col_a, 2)
+        self._parents_with_children_in(col_b, 20)
+        counts = []
+        for col in (col_a, col_b):
+            with CaptureQueriesContext(connection) as ctx, transaction.atomic():
+                card_links.announce_columns_children_changed(self.cboard, [col.pk], actor_id=None)
+            counts.append(len(ctx.captured_queries))
+        self.assertEqual(counts[0], counts[1])
+
+    def test_ping_is_deferred_and_rolls_back(self):
+        with mock.patch("boards.broadcast.broadcast_board_event") as sent:
+            with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError):
+                with transaction.atomic():
+                    card_links.announce_columns_children_changed(self.cboard, [self.col_doing.pk], actor_id=None)
+                    raise RuntimeError
+            sent.assert_not_called()
+            self.assertEqual(self._pings(), [])
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                card_links.announce_columns_children_changed(
+                    self.cboard, [self.col_doing.pk, self.col_done.pk], actor_id=None,
+                )
+            sent.assert_not_called()
+            for cb in callbacks:
+                cb()
+        # Children of one parent in two columns coalesce into one frame.
+        self.assertEqual([c.args[1:3] for c in sent.call_args_list], [(self.EVT, {"parent_ids": [self.parent.pk]})])
+
+    def _admin_save(self, column, change=True, **fields):
+        from django.contrib import admin as django_admin
+        from django.test import RequestFactory
+
+        from boards.admin import ColumnAdmin
+        from boards.models import Column
+
+        request = RequestFactory().post("/")
+        request.user = self.owner
+        for name, value in fields.items():
+            setattr(column, name, value)
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            ColumnAdmin(Column, django_admin.site).save_model(request, column, None, change)
+
+    def test_admin_is_done_position_and_add_ahead_ping_and_no_ops_do_not(self):
+        from boards.models import Column
+
+        self._admin_save(Column.objects.get(pk=self.col_doing.pk))  # no-op save
+        self._admin_save(Column.objects.get(pk=self.col_done.pk), position=40)  # still not first
+        self._admin_save(Column.objects.get(pk=self.col_doing.pk), name="Doing 3")
+        self.assertEqual(self._pings(), [])
+        self._admin_save(Column.objects.get(pk=self.col_doing.pk), is_done=True)
+        self._expect_one()
+        self._admin_save(Column.objects.get(pk=self.col_c.pk), position=50)  # col_doing becomes first
+        self._expect_one()
+        # An admin add ahead of the first column re-buckets its children.
+        self._admin_save(Column(board=self.cboard, name="Inbox", position=-1), change=False)
+        self._expect_one()

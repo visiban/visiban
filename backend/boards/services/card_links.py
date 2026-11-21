@@ -26,8 +26,10 @@ column or id.
 """
 
 from django.db import connection, transaction
-from django.db.models import Case, Count, Exists, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
-from django.db.models.functions import Lower
+from django.db.models import (
+    Case, Count, Exists, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When, Window,
+)
+from django.db.models.functions import Lower, RowNumber
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from visiban.exceptions import CodedValidationError
@@ -1537,4 +1539,87 @@ def announce_parent_container_renamed(board, *, column_id=None, swimlane_id=None
             data = {"card_ids": [], "reload": True}
         _broadcast.record_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED, data, actor_id=actor_id,
+        )
+
+
+# ─── Column writes that re-bucket many children at once (#2500) ──────────────
+
+
+def column_rollup_state(board):
+    """The two column facts a child's rollup bucket reads, for one board (#2500).
+
+    Returns ``(first_column_id, frozenset(done_column_ids))``, or ``None`` on a
+    parent-tier board, whose cards cannot be children (zero queries then; one
+    small read of the board's columns otherwise). Take it before a column
+    write and hand it to :func:`announce_column_rollup_changed` after, under
+    the same board lock, so the diff is the write's own.
+    """
+    if board.cards_can_have_children:
+        return None
+    rows = list(Column.objects.filter(board_id=board.pk).values_list("pk", "position", "is_done"))
+    first = min(rows, key=lambda r: (r[1], r[0]))[0] if rows else None
+    return first, frozenset(pk for pk, _pos, is_done in rows if is_done)
+
+
+def announce_column_rollup_changed(board, before, *, actor_id):
+    """Ping parents whose children a column write re-bucketed (#2500).
+
+    ``before`` is :func:`column_rollup_state` taken before the write. The
+    columns whose children changed bucket are those whose ``is_done`` flipped,
+    plus the old and the new first column when the first column changed (a
+    reorder that keeps the first column, or any other position change, moves
+    no child between "to do" and "doing", so it sends nothing). Absent input
+    fails safe (#1075): ``before`` of ``None`` (a parent tier, or no snapshot
+    taken) sends nothing and reads nothing.
+    """
+    if before is None:
+        return
+    after = column_rollup_state(board)
+    if after is None:
+        return
+    changed = set(before[1] ^ after[1])
+    if before[0] != after[0]:
+        changed |= {before[0], after[0]} - {None}
+    announce_columns_children_changed(board, changed, actor_id=actor_id)
+
+
+def announce_columns_children_changed(board, column_ids, *, actor_id):
+    """One ``card.children_bulk_changed`` per parent board for a column-wide change (#2500).
+
+    An ``is_done`` toggle or a first-column change re-buckets every live child
+    in the column at once, so a ``card.children_changed`` per parent would be
+    an unbounded fan-out. Instead each affected PARENT board gets ONE frame:
+    ``{"parent_ids": [...]}`` with up to :data:`CONTAINER_RENAME_ID_CAP` ids,
+    or ``{"parent_ids": [], "reload": true}`` above it (the client re-reads the
+    board). Ids only, never a count, title or state (Rule 8 and its timing
+    residual, like ``card.children_changed``). Call inside the write's
+    transaction: ``record_board_event`` writes the feed row there and
+    publishes on commit, so a rollback sends nothing.
+
+    Cost: zero queries for no columns or a parent-tier board; else ONE read,
+    of the distinct parents of the columns' live children ranked per parent
+    board and cut at cap + 1, so the rows are bounded by the parent boards,
+    not by the parents or children.
+    """
+    ids = sorted({c for c in column_ids if c is not None})
+    if not ids or board.cards_can_have_children:
+        return
+    links = CardParentLink.objects.filter(child__column_id__in=ids, child__archived_at__isnull=True)
+    rows = (
+        Card.objects.filter(pk__in=links.values("parent_id"))
+        .annotate(_rank=Window(RowNumber(), partition_by=[F("board_id")], order_by=F("pk").asc()))
+        .filter(_rank__lte=CONTAINER_RENAME_ID_CAP + 1)
+        .values_list("board_id", "pk")
+    )
+    by_board = {}
+    for parent_board_id, parent_id in rows:
+        by_board.setdefault(parent_board_id, []).append(parent_id)
+    for parent_board_id in sorted(by_board):
+        parent_ids = sorted(by_board[parent_board_id])
+        if len(parent_ids) <= CONTAINER_RENAME_ID_CAP:
+            data = {"parent_ids": parent_ids}
+        else:
+            data = {"parent_ids": [], "reload": True}
+        _broadcast.record_board_event(
+            parent_board_id, _broadcast.EVT_CARD_CHILDREN_BULK_CHANGED, data, actor_id=actor_id,
         )

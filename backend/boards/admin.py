@@ -654,7 +654,16 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
             Column.objects.filter(pk=obj.pk).values_list("name", flat=True).first()
             if change else None
         )
+        # is_done and position bucket a child in its parent's rollup (#2500):
+        # the board's column state before this write, under the board lock,
+        # diffed after it as ColumnViewSet.perform_update and reorder do. On an
+        # add too: unlike the REST create, which always appends, the admin
+        # form can insert a column ahead of the current first one.
+        from .services.card_links import announce_column_rollup_changed, column_rollup_state
+
+        rollup_before = column_rollup_state(obj.board)
         super().save_model(request, obj, form, change)
+        announce_column_rollup_changed(obj.board, rollup_before, actor_id=request.user.pk)
         # A parent's column name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change, published on commit.

@@ -392,6 +392,16 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "before the loop. "
         "record_board_event() defers each publish with on_commit."
     ),
+    "backend/boards/services/card_links.py::announce_columns_children_changed": (
+        "One ids-only card.children_bulk_changed per distinct PARENT board when a "
+        "child-board column's is_done flips or the first column changes (#2500). "
+        "Each frame goes to a distinct parent board's channel and carries only "
+        "that board's parent ids (capped at CONTAINER_RENAME_ID_CAP, else "
+        "{parent_ids: [], reload: true}), so they cannot be collapsed. Bounded by "
+        "the distinct parent boards of the columns' live children; one ranked "
+        "read however many parents. record_board_event() defers each publish "
+        "with on_commit."
+    ),
     "backend/boards/services/card_links.py::announce_parent_container_renamed": (
         "One card.parent_changed per distinct child board when a parent-tier "
         "board, column or lane is renamed (#2416). Each frame goes to a distinct "

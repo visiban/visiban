@@ -88,6 +88,13 @@ EVT_CARD_UNARCHIVED = "card.unarchived"
 # Rule 8, and its named timing residual).
 EVT_CARD_CHILDREN_CHANGED = "card.children_changed"
 EVT_CARD_PARENT_CHANGED = "card.parent_changed"
+# Additive (#2500): ``{parent_ids: [...]}`` (at most CONTAINER_RENAME_ID_CAP
+# ids) or ``{parent_ids: [], reload: true}``, to the PARENT's board, when a
+# child-board column write re-buckets many children at once (an ``is_done``
+# toggle, or a reorder that changes the first column). A new name rather than a
+# new shape of ``card.children_changed``, whose ``{parent_id}`` is frozen and
+# whose only handler reads that one field. Ids only, like the two above.
+EVT_CARD_CHILDREN_BULK_CHANGED = "card.children_bulk_changed"
 
 EVT_MEMBER_ADDED = "member.added"
 EVT_MEMBER_UPDATED = "member.updated"
@@ -167,6 +174,7 @@ BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
     EVT_CARD_UNARCHIVED,
     EVT_CARD_CHILDREN_CHANGED,
     EVT_CARD_PARENT_CHANGED,
+    EVT_CARD_CHILDREN_BULK_CHANGED,
     EVT_MEMBER_ADDED,
     EVT_MEMBER_UPDATED,
     EVT_MEMBER_REMOVED,

@@ -1388,8 +1388,9 @@ values blank). Neither stores the deleted board's name, so every reader sees
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
 ids only. `card.parent_changed` is also sent when a parent is renamed, moved to
 another column or lane, archived or restored, or when its board, column or lane
-is renamed (#2416, one frame per child board; a rename made in the Django admin sends no frame, so those names refresh on the next read). `card.children_changed` is also
-sent when a child changes a rollup state (#2210). See [WebSockets](websockets.md).
+is renamed (#2416, one frame per child board; since #2500 a Django-admin rename sends it too). `card.children_changed` is also
+sent when a child changes a rollup state (#2210), and `card.children_bulk_changed {parent_ids}` (#2500) when a child-board column's
+`is_done` is toggled or the first column changes, one frame per parent board. See [WebSockets](websockets.md).
 
 ---
 

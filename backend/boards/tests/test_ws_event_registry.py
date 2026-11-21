@@ -61,6 +61,7 @@ FROZEN_BOARD_EVENTS = {
     "EVT_CARD_UNARCHIVED": "card.unarchived",
     "EVT_CARD_CHILDREN_CHANGED": "card.children_changed",
     "EVT_CARD_PARENT_CHANGED": "card.parent_changed",
+    "EVT_CARD_CHILDREN_BULK_CHANGED": "card.children_bulk_changed",  # 1.3, #2500
     "EVT_MEMBER_ADDED": "member.added",
     "EVT_MEMBER_UPDATED": "member.updated",
     "EVT_MEMBER_REMOVED": "member.removed",
