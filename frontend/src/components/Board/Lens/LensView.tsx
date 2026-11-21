@@ -25,6 +25,8 @@ interface Props {
   cardLayout: CardLayout;
   /** Filter-row visibility (toggled by the Filters button on the shared Row 2). */
   showFilters: boolean;
+  /** Closes the filter row from its own trailing control (#2459). */
+  onHideFilters?: () => void;
   /** Reports the live lane count up to the shared toolbar for its lane announcements (#2323). */
   onLaneCountChange?: (count: number | undefined) => void;
 }
@@ -36,7 +38,7 @@ interface Props {
  * banners, the filter row, and the grid. Pivot/filter values are read from the
  * URL (?column_dim=&swimlane_dim=&state=&milestone=&q=).
  */
-export default function LensView({ boardId, connection, cardLayout, showFilters, onLaneCountChange }: Props) {
+export default function LensView({ boardId, connection, cardLayout, showFilters, onHideFilters, onLaneCountChange }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const compact = cardLayout === "compact";
 
@@ -271,6 +273,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
           onAssigneeChange={setAssignee}
           onQChange={setQ}
           onClear={clearFilters}
+          onHide={onHideFilters}
         />
       )}
 

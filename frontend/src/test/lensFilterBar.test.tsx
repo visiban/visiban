@@ -29,6 +29,23 @@ function setup(overrides: Partial<React.ComponentProps<typeof LensFilterBar>> = 
   return props
 }
 
+describe('LensFilterBar hide control (#2459)', () => {
+  afterEach(cleanup)
+
+  it('renders the trailing hide chevron only when onHide is given, and calls it on click', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: 'Hide filter bar' })).not.toBeInTheDocument()
+    cleanup()
+    const onHide = vi.fn()
+    setup({ onHide })
+    const btn = screen.getByRole('button', { name: 'Hide filter bar' })
+    expect(btn).toHaveAttribute('aria-keyshortcuts', 'f')
+    expect(btn).toHaveClass('max-sm:w-11', 'max-sm:h-11')
+    fireEvent.click(btn)
+    expect(onHide).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('LensFilterBar', () => {
   afterEach(() => {
     cleanup()

@@ -580,7 +580,7 @@ The toolbar's **Filter** button opens a panel with:
 - Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar**), for search, scope, **My cards** and saving a filter.
 
-The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other and in saved filters. Most filters also show in the page address; **Sub-column** and **Track state** do not (see [Sub-columns and tracks](#sub-columns-and-tracks-13)). Pressing `f` still toggles the filter bar, not the panel.
+The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other and in saved filters. Most filters also show in the page address; **Sub-column** and **Track state** do not (see [Sub-columns and tracks](#sub-columns-and-tracks-13)). Pressing `f` still toggles the filter bar, not the panel. While the filter bar is shown, a chevron at its right end (**Hide filter bar**) closes it in one click and returns focus to the Filter button. Hiding the bar does not clear filters: they keep applying, and the Filter button keeps its count.
 
 ## Filtering
 

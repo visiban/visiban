@@ -782,24 +782,31 @@ export default function FilterPanel({
           onClick={() => { close(); onToggleFilterBar(); }}
           className={`w-full text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded px-2 py-1.5 text-left ${MENU_ITEM_FOCUS_RING}`}
         >
-          {filterBarShown ? "Hide filter bar" : "Show filter bar (search, saved filters, Lanes)"}
+          {filterBarShown ? "Hide filter bar (F)" : "Show filter bar (search, saved filters, Lanes)"}
         </button>
       </div>
     </div>
   ) : null;
 
+  // The bar's visibility no longer tints the button; when filters keep applying behind a hidden bar, say so (#2459).
+  const tooltipText = !filterBarShown && activeCount > 0
+    ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active (bar hidden)`
+    : onOpenViewOptions ? "Filters and view options" : "Filters";
+
   return (
     <>
       {/* Tooltip clones its child and takes over the child's ref, so the trigger ref lives on the button inside this span. */}
-      <Tooltip content={onOpenViewOptions ? "Filters and view options" : "Filters"} disabled={open}>
+      <Tooltip content={tooltipText} disabled={open}>
         <span className="inline-flex shrink-0">
         <button
           ref={triggerRef}
           type="button"
           data-tour-step="filter"
+          data-filters-trigger
+          aria-pressed={filterBarShown}
           onClick={toggle}
           onKeyDown={onTriggerKeyDown}
-          className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${open || filterBarShown || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
+          className={`inline-flex items-center justify-center gap-1.5 h-9 px-3 max-sm:h-11 max-sm:min-w-11 max-sm:px-0 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${open || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"}`}
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-controls={open ? `${id}-panel` : undefined}

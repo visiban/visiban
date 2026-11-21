@@ -371,7 +371,7 @@ describe('FilterPanel (#2301)', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     await u.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('button', { name: 'Hide filter bar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide filter bar (F)' })).toBeInTheDocument()
   })
 
   it('an active row and the active saved filter use the persistent-active fill, never bg-info (#2301)', async () => {
@@ -851,5 +851,39 @@ describe('FilterPanel search (#2437)', () => {
     await open(u)
     expect(screen.getByRole('button', { name: /^Region/ })).toBeInTheDocument()
     expect(screen.queryByText(/Values matching/)).toBeNull()
+  })
+})
+
+describe('FilterPanel trigger and the hidden filter bar (#2459)', () => {
+  const renderPanel = (over: { activeCount: number; filterBarShown: boolean }) =>
+    render(
+      <FilterPanel board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} activeCount={over.activeCount} icon={null}
+        savedFilters={[]} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={over.filterBarShown}
+        onToggleFilterBar={vi.fn()} onOpenLaneFilters={vi.fn()} />,
+    )
+
+  it('exposes the bar state via aria-pressed without tinting on it', () => {
+    renderPanel({ activeCount: 0, filterBarShown: true })
+    const t = screen.getByRole('button', { name: 'Filters' })
+    expect(t).toHaveAttribute('aria-pressed', 'true')
+    expect(t.className).not.toContain('bg-info/10')
+  })
+
+  it('still tints for active filters', () => {
+    renderPanel({ activeCount: 2, filterBarShown: false })
+    const t = screen.getByRole('button', { name: 'Filters, 2 active' })
+    expect(t).toHaveAttribute('aria-pressed', 'false')
+    expect(t.className).toContain('bg-info/10')
+  })
+
+  it('tooltip names the active count when the bar is hidden (singular and plural)', async () => {
+    const u = userEvent.setup()
+    const { unmount } = renderPanel({ activeCount: 1, filterBarShown: false })
+    await u.hover(screen.getByRole('button', { name: 'Filters, 1 active' }))
+    expect(await screen.findByText('1 filter active (bar hidden)')).toBeInTheDocument()
+    unmount()
+    renderPanel({ activeCount: 3, filterBarShown: false })
+    await u.hover(screen.getByRole('button', { name: 'Filters, 3 active' }))
+    expect(await screen.findByText('3 filters active (bar hidden)')).toBeInTheDocument()
   })
 })

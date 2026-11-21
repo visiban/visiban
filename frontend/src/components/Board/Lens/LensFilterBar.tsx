@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useInlineEditEscape } from "../../../hooks/useInlineEditEscape";
 import CheckboxDropdown from "../../Common/CheckboxDropdown";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
+import HideFilterBarButton from "../HideFilterBarButton";
 import { LENS_NONE, MAX_LENS_LABELS } from "./lensDims";
 
 export type LensState = "all" | "open" | "closed";
@@ -27,6 +28,8 @@ interface Props {
   onAssigneeChange: (a: string) => void;
   onQChange: (q: string) => void;
   onClear: () => void;
+  /** When given, a trailing chevron closes the row (#2459). */
+  onHide?: () => void;
 }
 
 const STATE_OPTIONS = [
@@ -77,6 +80,7 @@ export default function LensFilterBar({
   onAssigneeChange,
   onQChange,
   onClear,
+  onHide,
 }: Props) {
   // Milestone and assignee are server-side filters (refetch), so debounce the
   // typed value — committing per keystroke would fire a fetch (and mint a distinct
@@ -229,6 +233,7 @@ export default function LensFilterBar({
           </button>
         </span>
       )}
+      {onHide && <HideFilterBarButton onHide={onHide} />}
     </div>
   );
 }

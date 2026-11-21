@@ -68,6 +68,7 @@ import SavedFilterTabs from "./SavedFilterTabs";
 import FilterPanel from "./FilterPanel";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
+import HideFilterBarButton, { focusFiltersTrigger } from "./HideFilterBarButton";
 import BulkActionToolbar from "./BulkActionToolbar";
 import CardContextMenu, { type CardMenuAnchor, type CardMenuCloseReason } from "../Card/CardContextMenu";
 import CardDeleteConfirm from "../Card/CardDeleteConfirm";
@@ -2079,14 +2080,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // The lens has its own filter row on the shared Row 2; `f` must toggle
         // whichever one is actually on screen. Without this the shortcut
         // silently toggled the hidden board row while the lens was showing.
+        // Closing with focus inside the row would drop it to <body>; hand it to the
+        // toolbar Filters trigger, matching the row's own hide button (#2459).
+        const focusInRow = !!document.activeElement?.closest('[role="search"]');
         if (viewRef.current === "lens") {
           setLensShowFilters((v) => !v);
+          if (focusInRow) focusFiltersTrigger();
           return;
         }
         setShowFilters((v) => {
           if (!v) {
             // Opening: focus first interactive element in the filter bar
             setTimeout(() => filterBarFirstRef.current?.focus(), 0);
+          } else if (focusInRow) {
+            focusFiltersTrigger();
           }
           return !v;
         });
@@ -2988,6 +2995,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             connection={lensConnection}
             cardLayout={cardLayout}
             showFilters={lensShowFilters}
+            onHideFilters={() => { setLensShowFilters(false); focusFiltersTrigger(); }}
             onLaneCountChange={setLensLaneCount}
           />
         </SectionErrorBoundary>
@@ -3341,6 +3349,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onScopeChange={setScope}
               userDateFormat={userDateFormat}
             />
+            <HideFilterBarButton onHide={() => { setShowFilters(false); focusFiltersTrigger(); }} />
           </div>
         </>
       )}

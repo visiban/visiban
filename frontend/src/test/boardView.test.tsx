@@ -247,8 +247,8 @@ vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
 }))
 vi.mock('../api/gitLens', () => ({ getLensConnection: vi.fn() }))
 vi.mock('../components/Board/Lens/LensView', () => ({
-  default: ({ cardLayout, showFilters }: { cardLayout?: string; showFilters?: boolean }) => (
-    <div data-testid="lens-view" data-card-layout={cardLayout} data-show-filters={String(!!showFilters)}>Lens</div>
+  default: ({ cardLayout, showFilters, onHideFilters }: { cardLayout?: string; showFilters?: boolean; onHideFilters?: () => void }) => (
+    <div data-testid="lens-view" data-card-layout={cardLayout} data-show-filters={String(!!showFilters)}>Lens<button onClick={onHideFilters}>Hide lens filter row</button></div>
   ),
 }))
 // Exposes the two toggles BoardView wires so a test can drive them (#2302).
@@ -1342,6 +1342,46 @@ describe('BoardView', () => {
       rerender(<BoardView {...defaultProps()} />)
       expect(localStorage.getItem('board:2:filters')).toBeNull()
       expect(localStorage.getItem('board:1:filters')).toBe(before)
+    })
+  })
+
+  describe('#2459 — hide control on the filter row', () => {
+    const filtersTrigger = () => document.querySelector('[data-filters-trigger]') as HTMLElement
+
+    it('shows the chevron only while the row is shown; click hides it and returns focus to the Filters trigger', async () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByRole('button', { name: 'Hide filter bar' })).not.toBeInTheDocument()
+      expect(filtersTrigger()).toHaveAttribute('aria-pressed', 'false')
+      fireEvent.keyDown(document, { key: 'f' })
+      const hide = screen.getByRole('button', { name: 'Hide filter bar' })
+      expect(hide).toHaveAttribute('aria-keyshortcuts', 'f')
+      expect(hide).toHaveClass('max-sm:w-11', 'max-sm:h-11')
+      expect(filtersTrigger()).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.click(hide)
+      expect(screen.queryByRole('search', { name: 'Board filters' })).not.toBeInTheDocument()
+      await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
+      expect(filtersTrigger()).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('F and the button stay in sync: F hides, then the button reappears on the next F', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      fireEvent.click(screen.getByRole('button', { name: 'Hide filter bar' }))
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(screen.getByRole('button', { name: 'Hide filter bar' })).toBeInTheDocument()
+      // Focus inside the row when F hides it: lands on the trigger, not <body>.
+      screen.getByRole('button', { name: 'Hide filter bar' }).focus()
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(screen.queryByRole('button', { name: 'Hide filter bar' })).not.toBeInTheDocument()
+      await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
+    })
+
+    it('active filters keep applying and the count badge stays after the row is hidden', () => {
+      mockSearchParams = new URLSearchParams('f_labels=999')
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      fireEvent.click(screen.getByRole('button', { name: 'Hide filter bar' }))
+      expect(filtersTrigger().getAttribute('aria-label')).toMatch(/^Filters/)
     })
   })
 
@@ -3786,6 +3826,19 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).not.toBe(startFilters)
     await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
     expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe(startFilters)
+  })
+
+  it('the Lens filter row hide control closes the row (#2459)', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView currentUser={lensUser} />)
+    const user = userEvent.setup()
+    await screen.findByTestId('lens-view')
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('true')
+    await user.click(screen.getByRole('button', { name: 'Hide lens filter row' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('false')
   })
 
   it('shows a palette action result in the Lens view', async () => {
