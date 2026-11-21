@@ -2023,7 +2023,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     const group = screen.getByRole('group', { name: "A child can't also have children" })
     expect(group).toHaveTextContent('4 cards here are children of cards on another board.')
     expect(group).toHaveTextContent('This board is the default child board of Pipeline.')
-    expect(within(group).getByRole('link', { name: 'Change on Pipeline' })).toHaveAttribute('href', '/boards/12')
+    expect(within(group).getByRole('link', { name: 'Change on Pipeline' })).toHaveAttribute('href', '/boards/12?settings=rules')
     sw.focus()
     await user.keyboard('{Enter}')
     expect(onUpdate).not.toHaveBeenCalled()
@@ -2041,6 +2041,16 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     expect(within(group).queryAllByRole('link')).toHaveLength(0)
     expect(group.textContent?.match(/Ask an admin of that board\./g)).toHaveLength(2)
     expect(group).toHaveTextContent('1 card here is a child of cards on another board.')
+  })
+
+  it('a failed blockers read explains itself on the switch instead of looking usable (#2448)', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockRejectedValue(new Error('boom'))
+    await openRules(fakeBoard)
+    const sw = await screen.findByRole('switch', { name: SWITCH })
+    const note = await screen.findByTestId('children-blockers-unavailable')
+    expect(note).toHaveTextContent("Couldn't check whether this can change")
+    expect(sw.getAttribute('aria-describedby')).toContain(screen.getByTestId('children-status').id)
+    expect(screen.getByTestId('children-status')).toContainElement(note)
   })
 
   it('turning off with live parent links is a blocked state, not a confirm', async () => {

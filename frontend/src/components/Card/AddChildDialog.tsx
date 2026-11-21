@@ -125,7 +125,16 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
       panelClassName="max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
     >
       {loadFailed ? (
-        <p role="alert" className="text-sm text-danger">Couldn't load the boards. Close this and try again.</p>
+        <div className="flex flex-col items-start gap-3">
+          <p role="alert" className="text-sm text-danger">Couldn't load the boards.</p>
+          <button
+            type="button"
+            onClick={() => { setLoadFailed(false); setReload((n) => n + 1); }}
+            className="min-h-11 rounded border border-line-strong px-4 py-2 text-sm text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        </div>
       ) : !options ? (
         <p role="status" className="text-sm text-fg-muted">Loading…</p>
       ) : (

@@ -1346,10 +1346,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // stripped; a non-admin (or the demo, where the tab does not exist) sees no
   // error, just the board.
   useEffect(() => {
-    if (searchParams.get("settings") !== "webhooks") return;
+    // ?settings=rules (#2448) is the "Change on X" link in another board's Child
+    // cards blockers: it opens this board's Rules tab, same admin-only silence.
+    const target = searchParams.get("settings");
+    if (target !== "webhooks" && target !== "rules") return;
     if (isAdmin && !demoMode) {
-      setSettingsInitialTab("webhooks");
-      setWebhookDeepLink(true);
+      setSettingsInitialTab(target);
+      if (target === "webhooks") setWebhookDeepLink(true);
       setShowSettings(true);
     }
     setSearchParams((prev) => { prev.delete("settings"); return prev; }, { replace: true });
@@ -1408,7 +1411,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "rules" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {

@@ -1644,6 +1644,15 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
   })
 
+  it('?settings=rules opens Board settings on Rules for an admin without the webhook focus (#2448)', async () => {
+    mockSearchParams = new URLSearchParams('settings=rules')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    render(<BoardView {...defaultProps()} />)
+    expect(await screen.findByTestId('settings-modal')).toBeInTheDocument()
+    expect(capturedSettingsProps.initialTab).toBe('rules')
+    expect(capturedSettingsProps.focusFirstStoppedWebhook).toBe(false)
+  })
+
   it('?settings=webhooks is ignored quietly for a non-admin and in the demo (#863)', () => {
     mockSearchParams = new URLSearchParams('settings=webhooks')
     mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member' }) })
