@@ -381,6 +381,24 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "children per parent); record_board_event() defers each publish with "
         "on_commit."
     ),
+    "backend/boards/services/card_links.py::announce_children_changed": (
+        "One ids-only card.children_changed {parent_id} per distinct parent of "
+        "the changed child cards (#2210). A parent is one card; each frame names "
+        "one parent so a client re-reads just that card's per-viewer rollup, so "
+        "they cannot be collapsed. Bounded by the input: one card (move, "
+        "archive, restore, block, unblock, relation) or the blocked peers of one "
+        "card, at most one parent each; deduplicated before the loop. "
+        "record_board_event() defers each publish with on_commit."
+    ),
+    "backend/boards/services/card_links.py::announce_parent_container_renamed": (
+        "One card.parent_changed per distinct child board when a parent-tier "
+        "board, column or lane is renamed (#2416). Each frame goes to a distinct "
+        "board channel and carries only that board's child ids (capped at "
+        "CONTAINER_RENAME_ID_CAP, else {card_ids: [], reload: true}), so they "
+        "cannot be collapsed. Bounded by the distinct child boards of the "
+        "container's parents; two link reads however many parents. "
+        "record_board_event() defers each publish with on_commit."
+    ),
 }
 
 # Broadcasts or writes whose shape the checker cannot classify and the

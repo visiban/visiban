@@ -52,6 +52,7 @@ from ..serializers import (
     CardRelationCreateSerializer, CardRelationSerializer,
     CardExtensionSectionListSerializer, CardTimelineEntrySerializer, ChildCandidateSerializer,
     ParentCandidateSerializer,
+    CARD_CHILDREN_ROLLUP_CONTEXT_KEY,
     CARD_PARENTS_CONTEXT_KEY,
     _card_queryset,
 )
@@ -145,14 +146,18 @@ def _is_link_write(view, request):
     return action == "child_detail" and request.method == "DELETE"
 
 
-def _with_parents(ctx, rows, user):
+def _with_parents(ctx, rows, user, *, board=None):
     """Opt ``ctx`` into ``Card.parent`` for ``rows``, resolved for ``user`` (#1104).
 
     Only the reads that name a viewer call this (list, retrieve, archived).
     Write actions do not, so their responses, like every event payload built
-    from the same serializer, carry no ``parent``.
+    from the same serializer, carry no ``parent``. On a parent-tier ``board``
+    it also opts into ``children_rollup`` (#2210), resolved for the same
+    viewer; without a board the field is omitted (fails closed, #1075).
     """
     ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer([c.pk for c in rows], user)
+    if board is not None and board.cards_can_have_children:
+        ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer([c.pk for c in rows], user)
     return ctx
 
 
@@ -953,7 +958,7 @@ class CardViewSet(viewsets.ModelViewSet):
         rows = list(rows)
         serializer = self.get_serializer(
             rows, many=True,
-            context=_with_parents(self.get_serializer_context(), rows, request.user),
+            context=_with_parents(self.get_serializer_context(), rows, request.user, board=self._board()),
         )
         response = Response(serializer.data)
         response[CARD_LIST_TOTAL_HEADER] = str(total)
@@ -963,7 +968,7 @@ class CardViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         """One card, with ``parent`` resolved for the caller (#1104)."""
         card = self.get_object()
-        ctx = _with_parents(self.get_serializer_context(), [card], request.user)
+        ctx = _with_parents(self.get_serializer_context(), [card], request.user, board=self._board())
         return Response(self.get_serializer(card, context=ctx).data)
 
     def get_serializer_context(self):
@@ -3233,6 +3238,9 @@ class CardViewSet(viewsets.ModelViewSet):
         pre-write cache.
         """
         bc = self._board_context()
+        # The blocked end's rollup state may have changed (#2210): ping its
+        # parent's board, ids only. Zero queries on a parent-tier board.
+        card_links.announce_children_changed([to_card.pk], board=board, actor_id=request.user.id)
         by_id = {
             c.pk: c
             for c in _card_queryset(

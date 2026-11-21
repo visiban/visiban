@@ -1786,7 +1786,10 @@ class CardMutationQueryCountTests(TestCase):
     # +1 on update (#1587): update_card locks the card row before the write so
     # a concurrent hard delete cannot be undone by save()'s INSERT fallback.
     BUDGET_UPDATE = 35              # measured 32 (34 pre-#1883, 32 pre-#1632, 31 pre-#1587, 28 pre-#449, 26 pre-#371)
-    BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 28 (29 pre-#1883; was 25 pre-#449, 24 pre-#371)
+    # +1 on a column change (#2210): the one CardParentLink lookup that finds
+    # the moved card's parent so its board gets the ids-only
+    # card.children_changed ping. Constant: one query whatever the card.
+    BUDGET_MOVE_COLUMN_CHANGE = 32  # measured 31 (30 pre-#2210, 29 pre-#1883; was 25 pre-#449, 24 pre-#371)
     BUDGET_MOVE_REORDER = 25        # measured 24 (25 pre-#1883; was 20 pre-#449, 19 pre-#371)
     # Archive, unarchive and destroy each carry one further query: the lookup
     # of the cards this one actively blocks, whose blocker_count moves when it

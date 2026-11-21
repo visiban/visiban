@@ -621,7 +621,8 @@ class CardQuerySerializerFieldParityTests(TestCase):
         # unless the view sets CARD_PARENTS_CONTEXT_KEY, which only /full/, the
         # board card list, retrieve and archived/ do. This cross-board query names
         # no per-card parent viewer, so the key is intentionally absent here.
-        missing = card_readable_fields - query_fields - {"parent"}
+        # ``children_rollup`` (#2210) is opt-in the same way (CARD_CHILDREN_ROLLUP_CONTEXT_KEY).
+        missing = card_readable_fields - query_fields - {"parent", "children_rollup"}
         self.assertEqual(
             missing, set(),
             f"CardQuerySerializer is missing fields CardSerializer exposes: {missing}",

@@ -424,22 +424,32 @@ each surface that delivers them:
   code change, to be re-decided or closed by that date;
 - the cross-board link events `card.children_changed` (parent's board) and
   `card.parent_changed` (child's board) (#1104) carry ids only (`parent_id`,
-  `card_ids`), so there is nothing in them to filter per recipient, and the
-  child's own card events are never fanned out to the parent's board. Every
-  other detail of the other board is read over REST, through
-  `boards/services/card_links.py` `children_for_viewer`, which resolves the
-  reader's role on the child board on every request and returns a count only
-  when it resolves to none. Accepted residual (#2383; owner sign-off
-  2026-11-17, epic #2206 decision H, expires 2027-05-31): the *timing* of these
+  `card_ids`, and `reload` for a large container rename, #2416), so there is
+  nothing in them to filter per recipient, and the child's own card events are
+  never fanned out to the parent's board. Every other detail of the other board
+  is read over REST, through `boards/services/card_links.py`
+  `children_for_viewer` and, for the card-face progress chip,
+  `rollups_for_viewer` (#2210), which resolve the reader's role on the child
+  board on every request and return a count only when it resolves to none. The
+  rollup (`Card.children_rollup`) is opt-in per read like `parent` and is never
+  in a frame, feed row, webhook or `PublicBoardSerializer`. Accepted residual
+  (#2383; owner sign-off 2026-11-17, epic #2206 decision H; re-decided when the
+  #2210 UI shipped and kept, now expiring 2027-05-31 with no open code tracker:
+  the UI that consumes both pings exists, so the residual is the design, not a
+  gap): the *timing* of these
   pings reaches every subscriber, change-feed reader and webhook of the
   receiving board, including readers who cannot open the other board, so a
-  parent-board reader learns when a parent's children changed and a
+  parent-board reader learns when a parent's children changed (since #2210,
+  including when a child moved between columns, was archived or restored, or
+  was blocked or unblocked) and a
   child-board reader learns when a card's parent link changed, or when its
   parent was renamed, moved between columns or lanes, archived or restored
   (`card.parent_changed` is also sent for those parent writes, from
   `card_links.announce_parent_changed` in `update_card`, the move, `archive_card`,
-  `unarchive_card` and `CardAdmin.save_model`; never for a board, column or lane
-  rename, so a child's `parent` names stay stale until the next read: #2416). The child's own `parent` field (REST only) is resolved by
+  `unarchive_card` and `CardAdmin.save_model`, and once per child board for a
+  REST board, column or lane rename, `announce_parent_container_renamed`, #2416;
+  a Django-admin container rename still sends nothing, so those names stay
+  stale until the next read). The child's own `parent` field (REST only) is resolved by
   `card_links.parents_for_viewer`, per request, and is `{"hidden": true}` with
   no other key when the reader has no role on the parent's board; it is omitted
   from every frame, feed row and webhook (`CardParentField` raises `SkipField`

@@ -312,6 +312,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 # 400 and nothing is written.
                 _require_live_swimlane_definitions(field_pairs)
                 _require_live_limit_columns(board, serializer.validated_data)
+                old_name = serializer.instance.name
                 swimlane = serializer.save()
                 if team_ids is not None:
                     # Re-checked under the board lock: a member removed while
@@ -321,6 +322,13 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                     # prefetch from get_queryset() (DRF resets it only after
                     # perform_update returns, and the body is built after that).
                     getattr(swimlane, "_prefetched_objects_cache", {}).pop("team_members", None)
+                # A parent's lane name shows on each child (#2416): one
+                # coalesced, ids-only ping per child board, on commit.
+                if swimlane.name != old_name:
+                    from ..services.card_links import announce_parent_container_renamed
+                    announce_parent_container_renamed(
+                        board, swimlane_id=swimlane.pk, actor_id=self.request.user.id,
+                    )
                 if field_pairs:
                     apply_swimlane_custom_field_values(
                         swimlane=swimlane, pairs=field_pairs, actor=self.request.user
