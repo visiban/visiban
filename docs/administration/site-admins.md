@@ -154,7 +154,7 @@ Emailed invites from group admins who are not site admins, and every shareable g
 
 > **Added in 1.2**
 
-**Shareable board invite links never create accounts on an invite-only instance** — not even one a site admin created. They let people who already have an account join the board; on an **open** instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under **Site admin → Board invites** (see [Admin Panel](admin-panel.md#board-invites-tab)).
+**Shareable board invite links never create accounts on an invite-only instance** — not even one a site admin created. They let people who already have an account join the board; on an **open** instance a newcomer can sign up first and then joins. Their create form says which applies. Site admins can see and revoke every board's invites, emailed and shareable, under **Site admin → Board invites** (see [Admin Panel](admin-panel.md#board-invites-section)).
 
 > **Added in 1.2**
 

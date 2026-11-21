@@ -1005,7 +1005,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleTransferOwnership = async () => {
-    if (!group || transferNewOwnerId === "" || transferring) return;
+    if (!group || transferNewOwnerId === "" || transferring || transferConfirmation !== group.name) return;
     setTransferError(null);
     setTransferring(true);
     try {
