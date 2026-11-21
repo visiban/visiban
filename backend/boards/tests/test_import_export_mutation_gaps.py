@@ -1745,6 +1745,9 @@ class ExportJsonShapeTests(ExportBase):
                 "name",
                 "description",
                 "lane_details_cap",  # #2439
+                "parent_name_singular",  # #2454
+                "parent_name_plural",
+                "cards_can_have_children",
                 "columns",
                 "swimlanes",
                 "labels",

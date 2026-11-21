@@ -22,7 +22,8 @@ from boards.models import Board, BoardMembership
 
 _EXPORT = "/api/v1/boards/{id}/export/"
 _EXPORT_KEYS = [
-    "schema_version", "name", "description", "lane_details_cap", "columns", "swimlanes", "labels",
+    "schema_version", "name", "description", "lane_details_cap",
+    "parent_name_singular", "parent_name_plural", "cards_can_have_children", "columns", "swimlanes", "labels",
     "custom_fields", "swimlane_custom_fields", "cards", "deleted_card_history",
 ]
 
@@ -61,7 +62,10 @@ class ExportSchemaDeclarationTests(TestCase):
         self.assertEqual(component["properties"]["name"], {"type": "string"})
         self.assertEqual(component["properties"]["description"], {"type": "string"})
         self.assertEqual(component["properties"]["lane_details_cap"], {"type": "integer"})
-        for key in _EXPORT_KEYS[4:]:
+        self.assertEqual(component["properties"]["parent_name_singular"], {"type": "string"})
+        self.assertEqual(component["properties"]["parent_name_plural"], {"type": "string"})
+        self.assertEqual(component["properties"]["cards_can_have_children"], {"type": "boolean"})
+        for key in _EXPORT_KEYS[7:]:
             self.assertEqual(
                 component["properties"][key],
                 {"type": "array", "items": {"type": "object", "additionalProperties": {}}},

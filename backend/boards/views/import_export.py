@@ -514,6 +514,38 @@ def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, l
     return validated, None
 
 
+def _validate_import_parent_settings(data):
+    """Return ``(settings_dict, error_detail)`` for a JSON import (#2454).
+
+    The parent-item names and the child-cards flag ride along with an export.
+    The names go through the same ``_clean_parent_name`` as the API write, so
+    an import cannot smuggle in a bidi override or control character that the
+    PATCH would refuse. Absent keys (an export from before #2454) leave the
+    column defaults. A new board has no links and no board defaults to it, so
+    the flag write cannot bypass ``check_flag_flip``.
+    """
+    from rest_framework import serializers as drf
+
+    from boards.serializers import _clean_parent_name
+
+    out = {}
+    for key in ("parent_name_singular", "parent_name_plural"):
+        if key not in data or data[key] is None:
+            continue
+        raw = data[key]
+        if not isinstance(raw, str):
+            return None, f"'{key}' must be a string."
+        try:
+            out[key] = _clean_parent_name(raw)
+        except drf.ValidationError as exc:
+            return None, f"'{key}': {exc.detail[0]}"
+    if data.get("cards_can_have_children") is not None:
+        if not isinstance(data["cards_can_have_children"], bool):
+            return None, "'cards_can_have_children' must be true or false."
+        out["cards_can_have_children"] = data["cards_can_have_children"]
+    return out, None
+
+
 def _validate_import_lane_tiers(swimlane_field_defs, raw_cap):
     """Return ``(lane_details_cap, error_detail)`` for a JSON import (#2439).
 
@@ -2183,6 +2215,9 @@ class BoardImportExportMixin:
         )
         if _err:
             return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+        parent_settings, _err = _validate_import_parent_settings(data)
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
         # Stage tracks and lane exceptions (#1921) name dimension fields of
         # this file's ``custom_fields``, the way a card's column names a column.
         _dimension_names = {d["name"] for d in card_field_defs if d.get("is_dimension")}
@@ -2218,6 +2253,7 @@ class BoardImportExportMixin:
                 owner=request.user,
                 group=group,
                 lane_details_cap=lane_details_cap,
+                **parent_settings,
             )
             BoardMembershipModel.objects.create(
                 board=board, user=request.user, role=BoardMembershipModel.Role.ADMIN
@@ -3506,6 +3542,9 @@ class BoardImportExportMixin:
                         "name": drf_serializers.CharField(),
                         "description": drf_serializers.CharField(),
                         "lane_details_cap": drf_serializers.IntegerField(),
+                        "parent_name_singular": drf_serializers.CharField(),
+                        "parent_name_plural": drf_serializers.CharField(),
+                        "cards_can_have_children": drf_serializers.BooleanField(),
                         "columns": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "swimlanes": drf_serializers.ListField(child=drf_serializers.DictField()),
                         "labels": drf_serializers.ListField(child=drf_serializers.DictField()),
@@ -3821,6 +3860,10 @@ class BoardImportExportMixin:
                 "description": board.description,
                 # #2439. Additive key; an import of an export without it uses the default.
                 "lane_details_cap": board.lane_details_cap,
+                # #2454. Additive keys; an import of an export without them keeps the defaults.
+                "parent_name_singular": board.parent_name_singular,
+                "parent_name_plural": board.parent_name_plural,
+                "cards_can_have_children": board.cards_can_have_children,
                 "columns": [
                     {
                         "name": col.name,
