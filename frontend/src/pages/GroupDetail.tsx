@@ -434,6 +434,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // — e.g. a prior test render whose cleanup has not flushed — and focusing a
   // detached node is a no-op, leaving focus stranded on <body> (#753 flake).
   const rootRef = useRef<HTMLDivElement>(null);
+  // Focus anchors that outlive what had focus (#2478): the current view's h2 (a view switch
+  // unmounts the button that was pressed), the open settings section's h3 (a confirmed Remove
+  // unmounts its row) and the new-label input (its Add button must not take focus with it).
+  const viewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const sectionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const captureFocusedBoardId = useCallback(() => {
     const el = document.activeElement as HTMLElement | null;
     const raw = el?.getAttribute?.("data-board-id");
@@ -723,6 +729,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         root
           .querySelector<HTMLElement>(`[data-board-id="${firstBoard.id}"]`)
           ?.focus({ preventScroll: true });
+      } else {
+        // The last board went: the Boards section is the stable anchor.
+        root.querySelector<HTMLElement>("#group-boards-section")?.focus({ preventScroll: true });
       }
     }
   }, [boards]);
@@ -924,6 +933,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       // Local state only changes after the server confirms, so a failure leaves
       // the member listed and there is nothing to roll back.
       writeMembers((prev) => prev.filter((m) => m.user.id !== userId));
+      // The row that held the confirm is gone: focus goes to the section heading, not <body>.
+      sectionHeadingRef.current?.focus();
     } catch (err: unknown) {
       setMemberError(memberErrorMessage(err, "Failed to remove member. Please try again."));
     } finally {
@@ -965,11 +976,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setConfirmDeleteBoardId(null);
     setDeleteBoardInput("");
     setBoardActionError(null);
-    captureFocusedBoardId();
+    // pendingRefocusRef was set when the ⋯ menu item was chosen (the row's button is the anchor).
     try {
       await deleteBoard(boardId);
     } catch {
+      pendingRefocusRef.current = null;
       setBoardActionError("Failed to delete the board. Please try again.");
+      rootRef.current?.querySelector<HTMLElement>(`[data-board-id="${boardId}"]`)?.focus({ preventScroll: true });
       return;
     }
     // Through writeBoards, like the board.deleted frame it also produces (#2139).
@@ -979,7 +992,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleTransferOwnership = async () => {
-    if (!group || transferNewOwnerId === "") return;
+    if (!group || transferNewOwnerId === "" || transferring) return;
     setTransferError(null);
     setTransferring(true);
     try {
@@ -998,7 +1011,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleAddGroupLabel = async () => {
-    if (!newLabelName.trim()) return;
+    if (!newLabelName.trim() || addingLabel) return;
     setLabelError(null);
     setAddingLabel(true);
     try {
@@ -1006,6 +1019,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.some((l) => l.id === label.id) ? prev.shared_labels : [...prev.shared_labels, label] } : prev);
       setNewLabelName("");
       setNewLabelColor(DEFAULT_LABEL_COLOR);
+      labelInputRef.current?.focus();
     } catch {
       setLabelError("Failed to add label. The name may already exist.");
     } finally {
@@ -1021,6 +1035,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     try {
       await deleteGroupLabel(groupId, labelId);
       writeGroup((prev) => prev ? { ...prev, shared_labels: prev.shared_labels.filter((l) => l.id !== labelId) } : prev);
+      sectionHeadingRef.current?.focus();
     } catch {
       setLabelError("Failed to remove label. Please try again.");
     } finally {
@@ -1029,7 +1044,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   };
 
   const handleDefaultRoleChange = async (role: "admin" | "member" | "collaborator" | "viewer") => {
-    if (!group) return;
+    if (!group || savingDefaults) return;
     setDefaultsError(null);
     setSavingDefaults(true);
     try {
@@ -1123,6 +1138,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Group settings (#2478) holds what used to be the page's admin-only Settings tab. It keeps the
   // `?tab=settings` deep link; the section is `?section=` (the layout's own `?tab=` would clash).
   const view = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "overview";
+  // A view switch unmounts the control that was pressed; the new view's h2 takes focus (#2478).
+  const firstViewRef = useRef(true);
+  useEffect(() => {
+    if (firstViewRef.current) { firstViewRef.current = false; return; }
+    viewHeadingRef.current?.focus();
+  }, [view]);
   const openSettings = (section?: string) => {
     setSearchParams(section ? { tab: "settings", section } : { tab: "settings" });
   };
@@ -1183,7 +1204,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     <button
       type="button"
       onClick={handleStarToggle}
-      disabled={starLoading}
+      aria-disabled={starLoading || undefined}
       className={`h-9 w-9 max-sm:h-11 max-sm:w-11 inline-flex items-center justify-center text-lg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
       title={isStarred ? "Unstar group" : "Star group"}
       aria-label={isStarred ? "Unstar group" : "Star group"}
@@ -1199,7 +1220,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       { id: "import", label: "Import", onSelect: () => setImportingBoard(true) },
     ] : []),
     ...(isAdmin ? [
-      { id: "invite", label: "Invite", onSelect: () => openSettings("members") },
+      { id: "invite", label: "Invite", onSelect: () => openSettings("invite-links") },
       { id: "group-settings", label: "Group settings", onSelect: () => openSettings() },
     ] : []),
   ];
@@ -1220,7 +1241,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       ref={renameTriggerRef}
       type="button"
       onClick={handleRenameStart}
-      className="font-semibold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+      className="font-semibold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px max-sm:min-h-11 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
     >
       {group.name}
     </button>
@@ -1229,6 +1250,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const overviewHeading = (
     <div>
       <PageHeading
+        headingRef={viewHeadingRef}
         title={<span className="inline-flex items-center gap-2 min-w-0">{groupIcon}{nameNode}</span>}
         accessory={
           <>
@@ -1273,7 +1295,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           <>
             {isAdmin && (
               <div className="flex items-center gap-2 max-sm:hidden">
-                <Button variant="secondary" onClick={() => openSettings("members")}>Invite</Button>
+                <Button variant="secondary" onClick={() => openSettings("invite-links")}>Invite</Button>
                 <Button variant="secondary" onClick={() => openSettings()}>Group settings</Button>
               </div>
             )}
@@ -1313,7 +1335,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               type="button"
               ref={descriptionTriggerRef}
               onClick={handleDescriptionStart}
-              className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="block w-[calc(100%+1rem)] pr-8 max-sm:min-h-11 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {group.description ? (
                 <span className="block text-sm text-fg-secondary whitespace-pre-wrap">{group.description}</span>
@@ -1336,9 +1358,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         ) : group.description ? (
           <p className="text-sm text-fg-secondary whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
         ) : null}
-        <p className="text-xs min-h-4">
-          {descriptionError && <span className="text-danger">{descriptionError}</span>}
-        </p>
+        <p role="status" aria-live="polite" aria-atomic="true" className="text-xs min-h-4 text-danger">{descriptionError}</p>
       </div>
 
       {/* Counts are withheld for a navigation-only group (#1681). */}
@@ -1367,13 +1387,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   );
 
   const renderBoardRow = (b: Board) => {
-    // Delete is the owner's or an all-content user's, as on Home (#2034); Move stays in the same
-    // menu. The menu is for group admins, and for a board owner who can delete (#2478).
+    // Move is the group admin's; Delete is the owner's or an all-content user's, as on Home (#2034).
+    // The menu shows when either applies (#2478).
     const canDeleteThis = canDeleteBoard({ ownerId: b.owner?.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true });
     const items = [
-      { id: "move", label: "Move to another group", onSelect: () => setMovingBoard(b) },
+      ...(isAdmin ? [{ id: "move", label: "Move to another group", onSelect: () => setMovingBoard(b) }] : []),
       ...(canDeleteThis
-        ? [{ id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => { setConfirmDeleteBoardId(b.id); setDeleteBoardInput(""); } }]
+        ? [{ id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => { pendingRefocusRef.current = b.id; setConfirmDeleteBoardId(b.id); setDeleteBoardInput(""); } }]
         : []),
     ];
     return (
@@ -1409,12 +1429,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     );
   };
 
-  const boardsSection = (
-    <section aria-labelledby="group-boards-heading">
+  const boardsSection = group.navigation_only ? null : (
+    <section id="group-boards-section" tabIndex={-1} aria-labelledby="group-boards-heading" className="focus:outline-none">
       <div className="flex items-center gap-3 mb-3">
         <CardHeading as="h3" id="group-boards-heading">Boards</CardHeading>
         {subgroups.length > 0 && (
-          <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+          <label className="ml-auto flex items-center gap-2 cursor-pointer select-none max-sm:min-h-11">
             <span className="text-xs text-fg-secondary">Show subgroup boards</span>
             <Toggle checked={showSubgroupBoards} onChange={setShowSubgroupBoards} />
           </label>
@@ -1472,7 +1492,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         )}
       </div>
       {subgroups.length === 0 ? (
-        <SectionEmptyState
+        group.navigation_only ? null : <SectionEmptyState
           testId="subgroups-empty"
           icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
           heading="No subgroups yet"
@@ -1544,7 +1564,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // ----- Group settings ---------------------------------------------------------------------
 
   const sectionHead = (title: string, description: string) => (
-    <PageHeading level="h3" title={title} description={description} />
+    <PageHeading level="h3" title={title} description={description} headingRef={sectionHeadingRef} />
   );
 
   const membersSection = () => (
@@ -1691,7 +1711,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             ariaDescribedBy="group-default-member-role-hint"
             value={group.default_board_member_role ?? "member"}
             onChange={(v) => handleDefaultRoleChange(v as "admin" | "member" | "collaborator" | "viewer")}
-            disabled={savingDefaults}
             options={GROUP_ROLE_OPTIONS}
           />
           {/* Reserved status slot: always mounted so Saved/error does not shift the row. The
@@ -1769,6 +1788,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <input
               type="text"
               aria-label="New label name"
+              ref={labelInputRef}
               value={newLabelName}
               onChange={(e) => setNewLabelName(e.target.value)}
               // void: handleAddGroupLabel manages its own try/catch and
@@ -1777,7 +1797,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               placeholder="Label name…"
               className="flex-1 h-9 max-sm:h-11 bg-surface border border-line-strong text-fg-secondary text-sm rounded px-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
-            <Button variant="primary" onClick={handleAddGroupLabel} disabled={addingLabel || !newLabelName.trim()}>New label</Button>
+            <Button
+              variant="primary"
+              onClick={() => { void handleAddGroupLabel(); }}
+              aria-disabled={addingLabel || !newLabelName.trim() || undefined}
+              className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+            >
+              New label
+            </Button>
           </div>
         </div>
         <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-1" data-testid="group-label-error">{labelError}</p>
@@ -1859,6 +1886,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             sections={settingsSections}
             title={
               <PageHeading
+                headingRef={viewHeadingRef}
                 title="Group settings"
                 description={`Manage ${group.name}'s members, invites, defaults and labels.`}
                 actions={<Button variant="quiet" onClick={() => setSearchParams({})}>Back to group</Button>}
@@ -1982,11 +2010,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-fg-tertiary text-sm block mb-1">New owner</label>
+            <label htmlFor="group-transfer-owner" className="text-fg-tertiary text-sm block mb-1">New owner</label>
             {adminMembers.length === 0 ? (
               <p className="text-fg-muted text-sm">No other admins found. Promote a member to admin first.</p>
             ) : (
               <SelectDropdown
+                id="group-transfer-owner"
+                ariaLabel="New owner"
                 value={String(transferNewOwnerId)}
                 onChange={(v) => setTransferNewOwnerId(v === "" ? "" : Number(v))}
                 options={[
@@ -2003,11 +2033,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           </div>
 
           <div>
-            <label className="text-fg-tertiary text-sm block mb-1">
+            <label htmlFor="group-transfer-confirm" className="text-fg-tertiary text-sm block mb-1">
               Type the group name to confirm: <span className="text-fg font-medium">{group?.name}</span>
             </label>
             <input
+              id="group-transfer-confirm"
               type="text"
+              autoComplete="off"
               value={transferConfirmation}
               onChange={(e) => setTransferConfirmation(e.target.value)}
               placeholder={group?.name}
@@ -2028,7 +2060,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <Button
               variant="danger"
               onClick={handleTransferOwnership}
-              disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
+              aria-disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name || undefined}
+              className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
             >
               {transferring ? "Transferring…" : "Transfer ownership"}
             </Button>

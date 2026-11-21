@@ -366,4 +366,53 @@ describe('GroupDetail roles and Group settings (#2478)', () => {
     await h2('Engineering')
     expect(screen.getByText(/^Not reviewed in \d+ days$/)).toBeInTheDocument()
   })
+
+  describe('focus (#2478 ux-review)', () => {
+    it('moves focus to the new view heading on Group settings and on Back to group', async () => {
+      renderPage(setup({ owner: admin }, admin))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'Group settings' }))
+      await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Group settings' })).toHaveFocus())
+      fireEvent.click(screen.getByRole('button', { name: 'Back to group' }))
+      await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Engineering' })).toHaveFocus())
+    })
+
+    it('header Invite opens the Invite links section', async () => {
+      renderPage(setup({ owner: admin }, admin))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'Invite' }))
+      expect(await screen.findByTestId('probe')).toHaveTextContent('section=invite-links')
+    })
+
+    it('after a confirmed board delete the Boards section takes focus when none are left', async () => {
+      renderPage(setup({ owner: admin }, admin, { boards: [board({ owner: admin, card_count: 0 })] }))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for Roadmap' }))
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+      fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(shell.removeBoard).toHaveBeenCalledWith(5))
+      await waitFor(() => expect(document.getElementById('group-boards-section')).toHaveFocus())
+    })
+
+    it('a group admin who does not own the board gets Move without Delete; a non-admin owner gets Delete without Move', async () => {
+      const { unmount } = renderPage(setup({ owner }, admin, { boards: [board({ owner: member })] }))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for Roadmap' }))
+      expect(await screen.findByRole('menuitem', { name: 'Move to another group' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
+      unmount()
+      renderPage(setup({}, member, { boards: [board({ owner: member })] }))
+      await h2('Engineering')
+      fireEvent.click(screen.getByRole('button', { name: 'More actions for Roadmap' }))
+      expect(await screen.findByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: 'Move to another group' })).not.toBeInTheDocument()
+    })
+
+    it('a navigation-only group shows no empty Boards or Subgroups states', async () => {
+      renderPage(setup({ navigation_only: true, member_count: 0, board_count: 0, subgroup_count: 0 } as Partial<Group>, member, { boards: [], members: [], subgroups: [] }))
+      await h2('Engineering')
+      expect(screen.queryByText('No boards yet.')).not.toBeInTheDocument()
+      expect(screen.queryByText('No subgroups yet')).not.toBeInTheDocument()
+    })
+  })
 })

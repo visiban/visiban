@@ -1759,7 +1759,7 @@ describe('GroupDetail', () => {
       await screen.findByRole('heading', { name: 'Shared labels' })
 
       const addBtn = screen.getByRole('button', { name: 'New label' })
-      expect(addBtn).toBeDisabled()
+      expect(addBtn).toHaveAttribute('aria-disabled', 'true')
     })
 
     it('Add button is enabled after typing a label name', async () => {
