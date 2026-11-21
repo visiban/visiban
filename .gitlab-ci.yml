@@ -331,17 +331,46 @@ default:
     policy: pull
 
 # PIP_CACHE_DIR stores downloaded wheels/sdists. pip honors this env var
-# automatically so no extra flags are needed in before_script.
+# automatically so no extra flags are needed in before_script. UV_CACHE_DIR is
+# the same for uv (#2496), which does not read PIP_CACHE_DIR; both live in the
+# one cache. UV_LINK_MODE=copy: the cache and site-packages are on different
+# filesystems in a job container, where uv's default hardlink mode only warns
+# and falls back to copying anyway.
 
 .pip-cache:
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip"
       files: [backend/requirements.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull
+
+# Install uv for the backend dependency installs (#2496): `uv pip install
+# --system -r <file>` installs the SAME requirements files pip did, in the
+# same order (one invocation per file, so each resolves against what the
+# previous one installed, exactly like the sequential pip calls it replaces),
+# in a few seconds warm instead of ~16 s.
+#
+# Obtained the way the lock job already gets it (#1378): pip, after the
+# .pip-floor upgrade, installs the hash-pinned uv wheel from
+# scripts/uv-requirements.txt with --require-hashes, so a swapped wheel on the
+# index fails the install. One pin file for every uv in CI; bump it together
+# with UV_VERSION in scripts/lock-backend-requirements.sh.
+#
+# Deliberately NOT moved to uv: anything that verifies hashes or audits the
+# environment (pip-audit, the pip-licenses step of license-check, the
+# uv-requirements --require-hashes install itself), lock regeneration (already
+# uv), and the single-tool installs (ruff, coverage, diff-cover, bandit,
+# mutmut, requests, docs) where installing uv first would cost more than it
+# saves. Each job runs .pip-floor before this.
+.uv-install:
+  script:
+    - pip install --quiet --require-hashes -r scripts/uv-requirements.txt
+    - uv --version
 
 # Warm the caches on the default branch so feature-branch jobs can pull from
 # them without paying the push cost on every MR pipeline. Only one job per
@@ -353,15 +382,21 @@ cache-warm-pip:
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip"
       files: [backend/requirements.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull-push
   script:
     - !reference [.pip-floor, script]
+    # pip still warms .cache/pip for the jobs that stay on pip (#2496), and
+    # the uv wheel itself lands there too; uv warms .cache/uv.
     - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -371,15 +406,19 @@ cache-warm-pip-test:
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
   cache:
     key:
       prefix: "pip-test"
       files: [backend/requirements-test.txt]
-    paths: [.cache/pip/]
+    paths: [.cache/pip/, .cache/uv/]
     policy: pull-push
   script:
     - !reference [.pip-floor, script]
     - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
@@ -831,17 +870,18 @@ backend-test:
     - key:
         prefix: "pip"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
     - key:
         prefix: "pip-test"
         files: [backend/requirements-test.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
   before_script: &backend-test-before-script
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
@@ -1037,7 +1077,8 @@ api-compat-check:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     # Self-test FIRST (#1093): prove the detector still fires before trusting
     # a green run over the real schema.
@@ -1080,7 +1121,8 @@ migration-check:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py makemigrations --check --dry-run --verbosity=1
@@ -1249,7 +1291,8 @@ backend-schema-validate:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py spectacular --validate
@@ -1600,17 +1643,18 @@ backend-schema-fuzz:
     - key:
         prefix: "pip"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
     - key:
         prefix: "pip-test"
         files: [backend/requirements-test.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
     - cd backend
     - python manage.py migrate --noinput
     # Deterministic, git-diffable demo data — a real member's-eye view of a
@@ -1808,12 +1852,14 @@ clients-contract:
     # job, not skip every live test and leave it green.
     VISIBAN_CONTRACT_REQUIRED: "1"
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+    UV_LINK_MODE: "copy"
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
     - key:
         prefix: "pip-clients-contract"
         files: [backend/requirements.txt]
-      paths: [.cache/pip/]
+      paths: [.cache/pip/, .cache/uv/]
       policy: pull-push
     - key:
         prefix: "npm-clients-ts"
@@ -1825,7 +1871,8 @@ clients-contract:
     - python3 -m venv /tmp/venv
     - . /tmp/venv/bin/activate
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
     - cd backend
     - python manage.py migrate --noinput
     - python manage.py seed_demo_data --force
@@ -2136,8 +2183,9 @@ backend-mutation:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
     - pip install --quiet "mutmut==2.5.1"
   script:
     - cd backend
@@ -2227,8 +2275,9 @@ backend-test-git-lens:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     - python manage.py makemigrations --check --dry-run git_lens
@@ -2298,8 +2347,9 @@ backend-test-mcp:
     MCP_SERVER_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     # The app ships no models; assert that stays true so a future model addition
@@ -2419,7 +2469,8 @@ oidc-smoke:
       export OIDC_SERVER_URL="${KEYCLOAK_BASE}/realms/visiban-test"
       echo "keycloak reachable at ${KEYCLOAK_BASE} (IPv4)"
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt requests
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt requests
     # Provision Keycloak: waits for readiness, then creates realm/client/user.
     # 240s budget — Keycloak's JVM boot routinely exceeds the previous 120s when
     # sharing a single vCPU with postgres/redis/python on the small runner.
@@ -3318,7 +3369,8 @@ serializer-ts-parity:
     GIT_LENS_ENABLED: "True"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     # Self-test FIRST (#1093). This gate's failure mode is a GREEN pipeline over
     # a drifted contract, so prove the detection logic still fires before
@@ -6098,7 +6150,8 @@ seed-demo-data:
         exit 1
       fi
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     # Use today's date (YYYYMMDD) as the random seed so each refresh
@@ -6151,7 +6204,8 @@ backend-benchmark:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
   script:
     - cd backend
     - python manage.py migrate --noinput
@@ -6265,7 +6319,8 @@ nightly-load-test:
     VISIBAN_LOAD_TEST_SERVER_PID_FILE: "/tmp/visiban_load_test_server.pid"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
     - cd backend
     - python manage.py migrate --noinput
     # A dedicated, larger board — never the normal demo board — so this job's
