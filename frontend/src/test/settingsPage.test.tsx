@@ -715,7 +715,7 @@ describe('ProfileTab — pending email actions', () => {
     expect(await screen.findByRole('button', { name: 'Sending…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cancel change' })).toBeDisabled()
     fireEvent.change(screen.getByLabelText('Last name'), { target: { value: 'Doe-resend' } })
-    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
     resolve({ detail: 'ok' })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Resend link' })).toBeEnabled())
   })

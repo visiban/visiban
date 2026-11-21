@@ -333,7 +333,7 @@ export function SaveBar({ thing, saveLabel, dirty, saving = false, onDiscard, on
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-sunken px-4 py-3">
       <p role="status" className="flex-1 min-w-0 text-sm text-fg-secondary">You have unsaved {thing} changes.</p>
       <Button variant="quiet" onClick={onDiscard} disabled={saving}>Discard</Button>
-      <Button variant="primary" buttonRef={saveRef} onClick={onSave} disabled={saving}>{saving ? "Saving…" : (saveLabel ?? `Save ${thing}`)}</Button>
+      <Button variant="primary" buttonRef={saveRef} onClick={() => { if (!saving) onSave(); }} aria-busy={saving || undefined}>{saving ? "Saving…" : (saveLabel ?? `Save ${thing}`)}</Button>
     </div>
   );
 }

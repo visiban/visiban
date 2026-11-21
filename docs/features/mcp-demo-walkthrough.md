@@ -68,7 +68,7 @@ The seeded `demo1` to `demo5` accounts have unusable passwords, so use the site 
 
     The response's `token` field is the `vbn_...` value. Copy it now; it is shown once.
 
-**Yes, but:** this step uses the API so the walkthrough is scriptable. In the web app you would tick **mcp:read** under Settings > Access Tokens instead (see the [API Reference](../api/mcp.md)).
+**Yes, but:** this step uses the API so the walkthrough is scriptable. In the web app you would tick **mcp:read** under Settings > Access tokens instead (see the [API Reference](../api/mcp.md)).
 
 A token with only `mcp:read` can list and read boards, columns, swimlanes, cards, and card history. Calling a write tool (`create_card`, `move_card`, `update_card`, `archive_card`, `block_card`, `unblock_card`) fails with a structured error. Scopes are not hierarchical; see [Personal Access Tokens](personal-access-tokens.md#scopes).
 
@@ -118,4 +118,4 @@ Then try to break the read-only promise, to see the guardrail: "Create a card ca
 | `403` | The account still has to change its password in the web app |
 | `seed_demo_data` refuses to run | `DEBUG` is not `true` in `.env`; see the [production guard](../administration/demo-data.md#production-guard) |
 
-When you are done, delete the token from **Settings**, **Access Tokens** and run `docker compose down -v` to discard the local data.
+When you are done, delete the token from **Settings**, **Access tokens** and run `docker compose down -v` to discard the local data.

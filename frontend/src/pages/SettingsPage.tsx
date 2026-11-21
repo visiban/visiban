@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, cloneElement } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
@@ -248,6 +248,33 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
     <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <PageHeading level="h3" title="Profile" description="How you appear to your team, and how dates and numbers are shown to you." />
 
+      {/* Live region (at the top so a failed save is seen without scrolling): with an email change pending the page stays here, so
+          this line is the terminal state of the save and must be announced. */}
+      <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
+        {error && <span className="text-danger">{error}</span>}
+        {emailNotice && !error && (
+          <span
+            className={
+              emailNotice.tone === "success"
+                ? "text-success"
+                : emailNotice.tone === "warning"
+                  ? "text-warning"
+                  : "text-danger"
+            }
+          >
+            {emailNotice.text}
+          </span>
+        )}
+        {saved && !error && !emailNotice && (
+          <span className="text-success">
+            {pendingEmail
+              ? "Profile updated. Check your inbox to confirm your new email address."
+              : "Changes saved."}
+          </span>
+        )}
+      </p>
+
+
       <SettingsCard>
         <div className="flex items-center gap-3" data-testid="profile-identity">
           <Avatar user={user} size="lg" />
@@ -292,10 +319,10 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
             {`Waiting for confirmation: we sent a link to ${pendingEmail}. Your email address changes once you open it.`}
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <Button onClick={handleResend} disabled={pendingAction !== null || saving} aria-describedby="pending-email-note">
+            <Button onClick={() => { if (pendingAction === null && !saving) void handleResend() }} aria-busy={pendingAction === "resend" || undefined} aria-describedby="pending-email-note">
               {pendingAction === "resend" ? "Sending…" : "Resend link"}
             </Button>
-            <Button variant="quiet" onClick={handleCancelChange} disabled={pendingAction !== null || saving} aria-describedby="pending-email-note">
+            <Button variant="quiet" onClick={() => { if (pendingAction === null && !saving) void handleCancelChange() }} aria-busy={pendingAction === "cancel" || undefined} aria-describedby="pending-email-note">
               {pendingAction === "cancel" ? "Canceling…" : "Cancel change"}
             </Button>
           </div>
@@ -329,32 +356,6 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         </div>
       </SettingsCard>
 
-      {/* Live region: with an email change pending the page stays here, so
-          this line is the terminal state of the save and must be announced. */}
-      <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true">
-        {error && <span className="text-danger">{error}</span>}
-        {emailNotice && !error && (
-          <span
-            className={
-              emailNotice.tone === "success"
-                ? "text-success"
-                : emailNotice.tone === "warning"
-                  ? "text-warning"
-                  : "text-danger"
-            }
-          >
-            {emailNotice.text}
-          </span>
-        )}
-        {saved && !error && !emailNotice && (
-          <span className="text-success">
-            {pendingEmail
-              ? "Profile updated. Check your inbox to confirm your new email address."
-              : "Changes saved."}
-          </span>
-        )}
-      </p>
-
       <SaveBar
         thing="profile"
         saveLabel="Save profile"
@@ -368,11 +369,12 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
 }
 
 /** A labeled select row for the Profile card (the custom dropdown has no native label). */
-function ProfileSelect({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function ProfileSelect({ label, hint, children }: { label: string; hint?: string; children: React.ReactElement<{ ariaLabel?: string }> }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-sm font-medium text-fg-secondary">{label}</span>
-      {children}
+      {/* The custom dropdown has no native label, so it is named explicitly. */}
+      {cloneElement(children, { ariaLabel: label })}
       {hint && <span className="text-xs text-fg-tertiary">{hint}</span>}
     </div>
   );
@@ -385,7 +387,7 @@ interface ConnectResult {
   error: string | null;
 }
 
-const PROVIDER_ORDER: ProviderId[] = ["google", "github", "gitlab", "oidc"];
+const PROVIDER_ORDER: ProviderId[] = ["oidc", "google", "github", "gitlab"];
 
 function connectErrorMessage(code: string, label: string): string {
   if (code === "provider_already_connected") {
@@ -459,8 +461,8 @@ function ConnectedAccountRow({
               </span>
               <button
                 type="button"
-                onClick={onConfirmDisconnect}
-                disabled={disconnecting}
+                onClick={() => { if (!disconnecting) onConfirmDisconnect() }}
+                aria-busy={disconnecting || undefined}
                 className="text-xs text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 aria-label={`Confirm disconnect ${label}`}
                 data-testid={`confirm-disconnect-${provider}`}
@@ -469,8 +471,8 @@ function ConnectedAccountRow({
               </button>
               <button
                 type="button"
-                onClick={onCancelDisconnect}
-                disabled={disconnecting}
+                onClick={() => { if (!disconnecting) onCancelDisconnect() }}
+                aria-disabled={disconnecting || undefined}
                 className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
@@ -684,6 +686,7 @@ function SecurityTab({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (form.new_password !== form.confirm) {
       setError("New passwords do not match.");
       return;
@@ -746,7 +749,7 @@ function SecurityTab({
               {saved && !error && <span className="text-success">{savedText}</span>}
             </p>
             <div>
-              <Button type="submit" variant="primary" disabled={saving}>
+              <Button type="submit" variant="primary" aria-busy={saving || undefined}>
                 {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
               </Button>
             </div>
@@ -769,7 +772,7 @@ const PAT_MAX = 10;
 const PAT_SCOPE_OPTIONS: { scope: PersonalAccessTokenScope; label: string; hint: string }[] = [
   { scope: "read", label: "read", hint: "Read data over the REST API" },
   { scope: "write", label: "write", hint: "Create and change data over the REST API" },
-  { scope: "admin", label: "admin", hint: "Admin REST endpoints (site administrators only)" },
+  { scope: "admin", label: "admin", hint: "Admin REST endpoints" },
   { scope: "mcp:read", label: "mcp:read", hint: "Connect an MCP client and call its read tools" },
   { scope: "mcp:write", label: "mcp:write", hint: "Let an MCP client call write tools (also needs mcp:read)" },
 ];
@@ -959,7 +962,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
               </p>
             )}
           </fieldset>
-          <p className="text-xs min-h-4">
+          <p className="text-xs min-h-4" role={createError ? "alert" : undefined}>
             {createError
               ? <span className="text-danger">{createError}</span>
               : <span className="text-fg-secondary">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
@@ -970,14 +973,15 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
             <Button
               type="submit"
               variant="primary"
-              disabled={atLimit || !name.trim() || scopes.length === 0}
+              aria-disabled={atLimit || !name.trim() || scopes.length === 0 || undefined}
+              aria-describedby={atLimit ? "max-tokens-notice" : undefined}
               aria-busy={creating || undefined}
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}
             </Button>
             {atLimit && (
-              <p className="text-sm text-warning-on-tint" data-testid="max-tokens-notice">
+              <p id="max-tokens-notice" className="text-sm text-warning-on-tint" data-testid="max-tokens-notice">
                 You've reached the maximum of {PAT_MAX} tokens. Revoke one to create another.
               </p>
             )}
@@ -997,7 +1001,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
         <p className="text-sm text-fg-secondary" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
         <div className="flex flex-col gap-1 overflow-x-auto" data-testid="token-list">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-4 px-3 py-1.5 text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
+          <div className="grid grid-cols-[minmax(0,1fr)_88px_88px_64px] gap-x-4 px-3 py-1.5 text-xs text-fg-tertiary uppercase tracking-wide border-b border-line">
             <span>Name</span>
             <span>Created</span>
             <span>Expires</span>
@@ -1006,7 +1010,7 @@ function AccessTokensTab({ user, isSiteAdmin = false }: { user?: UserDatePrefs |
           {tokens.map((token) => (
             <div
               key={token.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded hover:bg-surface-hover"
+              className="grid grid-cols-[minmax(0,1fr)_88px_88px_64px] gap-x-4 items-center px-3 py-2 rounded hover:bg-surface-hover"
               data-testid={`token-row-${token.id}`}
             >
               <div className="flex flex-col gap-1 min-w-0">
@@ -1404,6 +1408,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           sections={sections}
           navLabel="Settings sections"
           defaultId={connectResult ? "security" : undefined}
+          replace
         />
       </main>
     </div>

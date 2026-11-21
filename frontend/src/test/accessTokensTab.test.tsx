@@ -190,7 +190,7 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId('token-scope-read'))
     await userEvent.click(screen.getByTestId('token-scope-write'))
     expect(screen.getByTestId('token-scopes-error')).toBeInTheDocument()
-    expect(screen.getByTestId('create-token-button')).toBeDisabled()
+    expect(screen.getByTestId('create-token-button')).toHaveAttribute('aria-disabled', 'true')
     fireEvent.submit(screen.getByTestId('create-token-form'))
     expect(mockCreateToken).not.toHaveBeenCalled()
   })
@@ -318,7 +318,7 @@ describe('AccessTokensTab', () => {
       expect(screen.getByTestId('max-tokens-notice')).toBeInTheDocument()
     })
     // The form stays; New token is disabled and the notice says why (#2477).
-    expect(screen.getByTestId('create-token-button')).toBeDisabled()
+    expect(screen.getByTestId('create-token-button')).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('mcp:write turns on and locks mcp:read (#2477)', async () => {
