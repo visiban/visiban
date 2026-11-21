@@ -64,11 +64,15 @@
 #      Ready and round-trips the cache and the Channels layer, `helm test`
 #      passes, and the password is in the Secret only.
 #
-# Images are BUILT FROM THE WORKING TREE and side-loaded into kind, not pulled
-# from a registry. The MR pipeline's image jobs are `--no-push`, so there is no
-# per-commit image to pull; and drilling the HEAD chart against the last released
-# image would mean a red here is version skew rather than a deploy regression —
-# which is the failure mode that makes a drill get ignored.
+# Images are THIS COMMIT's backend/Dockerfile and frontend/Dockerfile builds,
+# side-loaded into kind. In CI they are the per-commit kaniko images
+# (backend-docker-build / frontend-docker-build push them to
+# $CI_REGISTRY_IMAGE/ci/<name>), pulled by digest and checked against
+# CI_COMMIT_SHA by scripts/drill-image.sh, never rebuilt in dind (#2492); run
+# locally, or in a CI project with no container registry, they are built from
+# the working tree. Never the last RELEASED image: drilling the HEAD chart
+# against it would mean a red here is version skew rather than a deploy
+# regression — which is the failure mode that makes a drill get ignored.
 #
 # Requires: docker, kind, kubectl, helm.
 # Usage:   bash scripts/helm-install-drill.sh

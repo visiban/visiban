@@ -20,10 +20,13 @@
 #      fails) with the PUBLISHED images ghcr.io/visiban/visiban/*:<tag>.
 #   3. Seed (seed_demo_data --wipe --force), add a drill user with a known
 #      password, snapshot board/card/movement/user counts.
-#   4. `helm upgrade` to the HEAD chart with HEAD images built here from
-#      backend/Dockerfile and frontend/Dockerfile (the release Dockerfiles —
-#      MR pipelines push no per-commit image), using the SAME values file, the
-#      way an operator upgrades.
+#   4. `helm upgrade` to the HEAD chart with the HEAD images from
+#      backend/Dockerfile and frontend/Dockerfile (the release Dockerfiles,
+#      not Dockerfile.prod), using the SAME values file, the way an operator
+#      upgrades. In CI those are THIS commit's per-commit kaniko images
+#      (backend-docker-build / frontend-docker-build), pulled by digest and
+#      revision-checked by scripts/drill-image.sh, never rebuilt in dind
+#      (#2492); run locally, they are built from the working tree.
 #   5. Assert: the new backend pod's `migrate` init container exited 0 on the
 #      HEAD image, `migrate --check` is clean, counts unchanged, readiness ok,
 #      the drill user can still log in.
@@ -179,11 +182,21 @@ fi
 ok "upgrade path: ${FROM_TAG} (chart ${FROM_CHART_VERSION}) -> HEAD $(git rev-parse --short HEAD)"
 
 # ---------------------------------------------------------------------------
-step "2. Images: build HEAD, pull the release"
+step "2. Images: HEAD from this commit, pull the release"
 # ---------------------------------------------------------------------------
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$HEAD_BACKEND"  -f backend/Dockerfile  backend  >/dev/null
-docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$HEAD_FRONTEND" -f frontend/Dockerfile frontend >/dev/null
-ok "HEAD images built from the release Dockerfiles"
+# CI: the per-commit kaniko images (DRILL_BACKEND_IMAGE / DRILL_FRONTEND_IMAGE
+# from backend-docker-build / frontend-docker-build), pulled by digest and
+# checked against CI_COMMIT_SHA; locally: built from the working tree. See
+# scripts/drill-image.sh (#2492).
+# shellcheck source=scripts/drill-image.sh
+. "$REPO_ROOT/scripts/drill-image.sh"
+drill_image DRILL_BACKEND_IMAGE "$HEAD_BACKEND" "$REPO_ROOT/backend/Dockerfile" "$REPO_ROOT/backend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || die "HEAD backend image unavailable"
+drill_image DRILL_FRONTEND_IMAGE "$HEAD_FRONTEND" "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" \
+  --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+  || die "HEAD frontend image unavailable"
+ok "HEAD images ready (release Dockerfiles)"
 docker pull -q "$FROM_BACKEND" >/dev/null  || die "could not pull $FROM_BACKEND — was ${FROM_TAG} published?"
 docker pull -q "$FROM_FRONTEND" >/dev/null || die "could not pull $FROM_FRONTEND"
 ok "release images pulled"

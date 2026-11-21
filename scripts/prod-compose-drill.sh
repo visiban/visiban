@@ -54,12 +54,17 @@
 #      never fires, so the fail-closed path is asserted, not assumed;
 #   7. the stack survives `docker compose restart backend`.
 #
-# Images are BUILT FROM THE WORKING TREE with the exact production
-# Dockerfiles (backend/Dockerfile.prod, frontend/Dockerfile.prod) and
-# retagged as the ghcr.io/visiban/visiban/{backend,frontend}:${APP_VERSION}
-# references docker-compose.prod.yml resolves — same approach
-# scripts/helm-install-drill.sh already uses, and for the same reason: no
-# override compose file, no CI-only env var read by the prod file.
+# Images are THIS COMMIT's builds of the exact production Dockerfiles
+# (backend/Dockerfile.prod, frontend/Dockerfile.prod), retagged as the
+# ghcr.io/visiban/visiban/{backend,frontend}:${APP_VERSION} references
+# docker-compose.prod.yml resolves — same approach
+# scripts/helm-install-drill.sh uses, and for the same reason: no override
+# compose file, no CI-only env var read by the prod file. In CI they are the
+# per-commit kaniko images (backend-docker-build-prod /
+# frontend-docker-build-prod), pulled by digest and checked against
+# CI_COMMIT_SHA by scripts/drill-image.sh, never rebuilt in dind (#2492); run
+# locally, or in a CI project with no container registry, they are built from
+# the working tree.
 #
 # TLS is a PARAMETER (TLS_MODE=none, the default, or selfsigned — never
 # letsencrypt in CI: that profile needs a real domain and ACME reachability

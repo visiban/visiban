@@ -1,7 +1,9 @@
 # shellcheck shell=bash
 # gate-selftest-exempt: a sourced library, not a gate; covered by scripts/tests/drill-image.test.sh
 # Sourced (not executed) by the drills that boot the product images:
-# helm-install-drill.sh, helm-netpol-drill.sh and prod-compose-drill.sh (#2492).
+# helm-install-drill.sh, helm-netpol-drill.sh, prod-compose-drill.sh,
+# helm-upgrade-drill.sh and compose-upgrade-drill.sh (#2492; the upgrade
+# drills' HEAD images only — their last-GA FROM images are pulled as published).
 #
 # In CI the drill must test the image built from ITS OWN commit, and must not
 # rebuild it: the per-commit kaniko jobs (backend-docker-build,
@@ -23,6 +25,13 @@
 # the needs:/dotenv wiring broke, and a quiet fallback would put the 170 s back
 # without anyone noticing (absent-input rule, #1075). DRILL_ALLOW_LOCAL_BUILD=1
 # is the explicit opt-out for running a drill script by hand inside a CI job.
+#
+# The one in-CI exception: a project with NO container registry (e.g. a fork
+# with the registry disabled), where GitLab leaves CI_REGISTRY_IMAGE undefined.
+# There the kaniko jobs build with --no-push and hand over no image (see
+# .kaniko-ci-image), so there is nothing to pull, and the drill falls back to
+# the local dind build with a loud log line. Where the registry exists, the
+# unset variable still fails.
 
 # drill_image <var-name> <local-tag> <dockerfile> <context> [docker build args...]
 drill_image() {
@@ -58,7 +67,9 @@ drill_image() {
     return 0
   fi
 
-  if [ -n "${GITLAB_CI:-}" ] && [ "${DRILL_ALLOW_LOCAL_BUILD:-}" != "1" ]; then
+  if [ -n "${GITLAB_CI:-}" ] && [ -z "${CI_REGISTRY_IMAGE:-}" ]; then
+    echo "drill-image: WARNING: $var is unset and CI_REGISTRY_IMAGE is empty: this project has no container registry, so the kaniko job pushed no per-commit image. Falling back to a LOCAL dind build of $tag from $dockerfile (slow, uncached; #2492)." >&2
+  elif [ -n "${GITLAB_CI:-}" ] && [ "${DRILL_ALLOW_LOCAL_BUILD:-}" != "1" ]; then
     echo "drill-image: $var is unset in CI. The per-commit kaniko build job (#2492) did not hand this drill its image; check the drill's needs: and the build job's dotenv report. Refusing to rebuild in dind." >&2
     return 1
   fi

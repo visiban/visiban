@@ -1188,8 +1188,10 @@ backend-test-pg-matrix:
     ALLOWED_HOSTS: "localhost"
   before_script:
     - !reference [.pip-floor, script]
-    - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet -r backend/requirements-test.txt
+    # uv like backend-test (#2496): the same requirements files, in order.
+    - !reference [.uv-install, script]
+    - uv pip install --system --quiet -r backend/requirements.txt
+    - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - bash scripts/pg-matrix-check.sh --self-test
     - bash scripts/pg-matrix-check.sh
@@ -2755,8 +2757,12 @@ helm-template:
 # DRILL_FRONTEND_IMAGE). scripts/drill-image.sh pulls that digest, asserts the
 # image's org.opencontainers.image.revision label equals $CI_COMMIT_SHA and its
 # architecture matches the daemon, and FAILS (never rebuilds) if the variable
-# is missing in CI. Run locally, the scripts still build from the working tree.
-# The build jobs' rules mirror these drills' rules, so `needs:` always resolves.
+# is missing in CI — except on a project with no container registry
+# (CI_REGISTRY_IMAGE empty, e.g. a fork with it disabled), where the build jobs
+# run --no-push and the drill builds locally with a warning. Run locally, the
+# scripts still build from the working tree. The build jobs' rules mirror
+# these drills' rules, so `needs:` always resolves. helm-upgrade-drill and
+# compose-upgrade-drill (#2463) take their HEAD images the same way.
 #
 # kind needs a Docker daemon, so these two are the only jobs in this file that
 # use docker:dind. That is not a reversal of the kaniko decision for image
@@ -2770,8 +2776,9 @@ helm-template:
 # per-commit image (#2492). CI_REGISTRY_PASSWORD is the job's own short-lived
 # registry token (read and write access to this project's registry, expires with the
 # job); --password-stdin keeps it out of the process list. Skipped where the
-# project has no registry (CI_REGISTRY empty); scripts/drill-image.sh then
-# fails loudly on the pull rather than this step failing obscurely.
+# project has no registry (CI_REGISTRY empty): the kaniko jobs then push
+# nothing (--no-push) and scripts/drill-image.sh, seeing CI_REGISTRY_IMAGE
+# empty, logs a warning and builds the image locally in this dind instead.
 .drill-registry-login:
   script:
     - |
@@ -3035,8 +3042,9 @@ compose-prod-drill:
 #
 # The drills above install HEAD on an EMPTY database. These install the latest
 # GA tag (resolved by scripts/resolve-last-ga-tag.sh, never hardcoded) from its
-# PUBLISHED images, seed it, upgrade to HEAD images built here from the release
-# Dockerfiles, and assert migrate exit 0, seeded counts unchanged, readiness
+# PUBLISHED images, seed it, upgrade to THIS commit's images from the release
+# Dockerfiles (the per-commit kaniko images, #2492 — see the build jobs), and
+# assert migrate exit 0, seeded counts unchanged, readiness
 # and login. See docs/development/upgrade-drills.md.
 #
 # MRs: only the upgrade surface (migrations, chart, compose, Dockerfiles,
@@ -3064,6 +3072,7 @@ compose-upgrade-drill:
         - scripts/compose-upgrade-drill.sh
         - scripts/helm-upgrade-drill.sh
         - scripts/upgrade-drill-probe.py
+        - scripts/drill-image.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: &upgrade-drill-main-paths
         - .gitlab-ci.yml
@@ -3075,8 +3084,14 @@ compose-upgrade-drill:
         - scripts/compose-upgrade-drill.sh
         - scripts/helm-upgrade-drill.sh
         - scripts/upgrade-drill-probe.py
+        - scripts/drill-image.sh
   timeout: 30m
-  needs: []
+  # This commit's backend-docker-build image (release Dockerfile), pulled by
+  # digest and revision-checked by scripts/drill-image.sh instead of rebuilt
+  # in dind (#2492). The FROM (last GA) image is still pulled from ghcr.io.
+  needs:
+    - job: backend-docker-build
+      artifacts: true
   script:
     # git: the tag resolver and `git archive` of the release's compose file.
     - apk add --no-cache git tar curl
@@ -3098,7 +3113,10 @@ helm-upgrade-drill:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *upgrade-drill-main-paths
   timeout: 40m
-  needs: []
+  # The HEAD images: this commit's backend-docker-build / frontend-docker-build
+  # (release Dockerfiles), same as helm-install (#2492). The FROM (last GA)
+  # images are still pulled from ghcr.io.
+  needs: *helm-drill-image-needs
   script:
     - apk add --no-cache git tar openssl curl
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -4529,8 +4547,12 @@ sonar:rules-check:
 # Rules: each build job must exist whenever a drill that needs it exists, or
 # the pipeline fails to create. So each job's rules are the UNION of its old
 # MR-time verification rule and its drills' rules, in the drills' order. Keep
-# them in step with helm-install / helm-netpol / compose-prod-drill (including
-# whatever #2471 does to the drills' schedule legs).
+# them in step with helm-install / helm-netpol / compose-prod-drill /
+# compose-upgrade-drill / helm-upgrade-drill (including whatever #2471 does to
+# the drills' schedule legs). backend-docker-build feeds helm-install,
+# helm-netpol, helm-upgrade-drill and compose-upgrade-drill (which upgrades to
+# the release Dockerfile's image, not Dockerfile.prod); frontend-docker-build
+# feeds the three helm drills; the -prod pair feeds compose-prod-drill only.
 #
 # No resource_group and needs: [] (#2492). They used to share the project-wide
 # `kaniko-build` resource_group and wait for the lint stage, to keep kaniko off
@@ -4538,7 +4560,7 @@ sonar:rules-check:
 # resource_group serializes kaniko across EVERY concurrent pipeline, which
 # would queue each drill behind other MRs' image builds. On DRILL pipelines net
 # RAM pressure goes down: each drill used to run two uncached `docker build`s
-# inside its own dind (up to six concurrent builds with all three drills). On
+# inside its own dind (up to nine concurrent builds with all five drills). On
 # non-drill (backend-only / frontend-only) MRs it goes the other way: kaniko
 # now starts at t=0 alongside lint and the test shards. Not redesigned here;
 # the first MR pipeline's shard timings are the check on that.
@@ -4565,19 +4587,41 @@ sonar:rules-check:
       # DOCKERHUB_USERNAME/TOKEN as a fallback in case a FROM line is ever
       # pointed back at docker.io directly. CI_DEPENDENCY_PROXY_SERVER is empty
       # on a project with no working group Dependency Proxy (e.g. a
-      # personal-namespace fork), hence the guards.
+      # personal-namespace fork), and CI_REGISTRY on a project with its
+      # container registry disabled, hence the guards.
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
-      AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
-      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
-        AUTHS="${AUTHS},\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
+      AUTHS=""
+      add_auth() { [ -n "$AUTHS" ] && AUTHS="${AUTHS},"; AUTHS="${AUTHS}\"$1\":{\"auth\":\"$(b64 "$2" "$3")\"}"; }
+      if [ -n "${CI_REGISTRY:-}" ]; then
+        add_auth "${CI_REGISTRY}" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}"
       fi
-      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        AUTHS="${AUTHS},\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        add_auth "${CI_DEPENDENCY_PROXY_SERVER}" "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}"
+      fi
+      if [ -n "${DOCKERHUB_USERNAME:-}" ] && [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+        add_auth "https://index.docker.io/v1/" "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}"
       fi
       printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
   script:
     - |
       set -eu
+      if [ -z "${CI_REGISTRY_IMAGE:-}" ]; then
+        # No container registry on this project (e.g. a fork with it
+        # disabled): GitLab leaves CI_REGISTRY_IMAGE undefined, so there is
+        # nowhere to push. Keep the build verification (as before #2492) and
+        # hand over no image; scripts/drill-image.sh then builds locally in
+        # the drill's dind, which it allows in CI ONLY in this case.
+        echo "NOTE: CI_REGISTRY_IMAGE is empty (no container registry on this project): building ${CI_IMAGE_NAME} with --no-push and writing no dotenv; the drills fall back to a local dind build."
+        # shellcheck disable=SC2086 — CI_IMAGE_EXTRA_ARGS is a word list on purpose.
+        /kaniko/executor \
+          --context="${CI_IMAGE_CONTEXT}" \
+          --dockerfile="${CI_IMAGE_DOCKERFILE}" \
+          --no-push \
+          --snapshot-mode=redo \
+          --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" \
+          ${CI_IMAGE_EXTRA_ARGS:-}
+        exit 0
+      fi
       REPO="${CI_REGISTRY_IMAGE}/ci/${CI_IMAGE_NAME}"
       # shellcheck disable=SC2086 — CI_IMAGE_EXTRA_ARGS is a word list on purpose.
       /kaniko/executor \
@@ -4624,6 +4668,11 @@ backend-docker-build:
       changes: *helm-paths
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *helm-paths
+    # compose-upgrade-drill / helm-upgrade-drill need this image too.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *upgrade-drill-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *upgrade-drill-main-paths
 
 frontend-docker-build:
   extends: .kaniko-ci-image
@@ -4640,10 +4689,15 @@ frontend-docker-build:
       changes:
         - frontend/**/*
         - frontend/Dockerfile
+    # helm-install / helm-netpol / helm-upgrade-drill need this image.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: *helm-paths
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *helm-paths
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *upgrade-drill-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *upgrade-drill-main-paths
 
 # Dockerfile.prod images for compose-prod-drill only. Same build args the drill
 # used for its in-dind build (BASE_REGISTRY only). Rules mirror the drill's.
@@ -4654,7 +4708,7 @@ backend-docker-build-prod:
     CI_IMAGE_CONTEXT: backend
     CI_IMAGE_DOCKERFILE: backend/Dockerfile.prod
     CI_IMAGE_DOTENV_VAR: DRILL_BACKEND_PROD_IMAGE
-  rules: &compose-drill-image-rules
+  rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -4669,7 +4723,16 @@ frontend-docker-build-prod:
     CI_IMAGE_CONTEXT: frontend
     CI_IMAGE_DOCKERFILE: frontend/Dockerfile.prod
     CI_IMAGE_DOTENV_VAR: DRILL_FRONTEND_PROD_IMAGE
-  rules: *compose-drill-image-rules
+  # Same rules as backend-docker-build-prod, spelled out rather than aliased:
+  # scripts/wait-for-main-pipeline.py --check-ci-file reads rules as text and
+  # fails closed on an aliased rules value (see backend-test-migrations).
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED != "true"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *compose-prod-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *compose-prod-paths
 
 # ─── Release guard: the tag's commit must have passed main (#1154) ───────────
 #
