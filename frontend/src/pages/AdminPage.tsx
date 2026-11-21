@@ -22,6 +22,7 @@ import Avatar from "../components/Common/Avatar";
 import EmailInviteForm from "../components/Common/EmailInviteForm";
 import BoardInvitesTab from "../components/Admin/BoardInvitesTab";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
+import UserActionsSheet, { type SheetAction } from "../components/Admin/UserActionsSheet";
 import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
 import ModalWrapper from "../components/shared/ModalWrapper";
@@ -447,6 +448,8 @@ interface OffboardingModalProps {
   user: AdminUser;
   onDeactivated: (updated: AdminUser) => void;
   onClose: () => void;
+  /** Focus target on close when the opener is gone (the phone sheet's item leaves with the sheet). */
+  restoreFocusTo?: () => HTMLElement | null;
 }
 
 /**
@@ -478,7 +481,7 @@ function TransferResultsPanel({ anchor, count, onDismiss, children }: {
   );
 }
 
-function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
+function OffboardingModal({ user, onDeactivated, onClose, restoreFocusTo }: OffboardingModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   // ModalWrapper owns the Tab trap; this only picks the first focus target.
   useEffect(() => {
@@ -556,7 +559,16 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   };
 
   return (
-    <ModalWrapper open onClose={onClose} title="Transfer boards & deactivate" maxWidth="max-w-lg" headerBorder>
+    // On a phone the transfer opens full screen (#2476, "Phone row actions" artboard).
+    <ModalWrapper
+      open
+      onClose={onClose}
+      title="Transfer boards & deactivate"
+      maxWidth="max-w-lg"
+      headerBorder
+      restoreFocusTo={restoreFocusTo}
+      panelClassName="max-sm:fixed max-sm:inset-0 max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:overflow-y-auto max-sm:pb-[env(safe-area-inset-bottom)]"
+    >
       <div ref={contentRef}>
         <p className="text-sm text-fg-secondary mb-4">
           <span className="font-medium text-fg">{user.display_name || user.username}</span> owns the boards below.
@@ -976,6 +988,12 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   // can't be fired twice for the same user from a stray double-click.
   const [restartingTourIds, setRestartingTourIds] = useState<Set<number>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Phone row actions (#2476): the row whose ⋯ bottom sheet is open, and that ⋯ for focus return.
+  const [sheetUserId, setSheetUserId] = useState<number | null>(null);
+  const sheetTriggerRef = useRef<HTMLElement | null>(null);
+  // Set by confirmAndRun so a sheet action can tell "opened a confirm" (the sheet stays, showing
+  // it) from "ran" (the sheet closes) without each action saying which it is.
+  const confirmOpenedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -1062,6 +1080,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
           (el) => el.getAttribute("aria-controls") === menuId,
         ) ?? null
       : active;
+    confirmOpenedRef.current = true;
     setConfirm({
       userId: user.id,
       returnFocusTo,
@@ -1202,29 +1221,42 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     u.is_superuser && actorIsKnownNonSuperuser;
 
   // The two highest-frequency actions (#1291) stay on the row on wider screens; on a phone they
-  // move into the row's ⋯ menu with the rest, so nothing sits beside the row.
+  // move into the row's ⋯ bottom sheet with the rest, so nothing sits beside the row.
   const canToggleActive = (u: AdminUser) => u.id !== currentUser.id && !isSuperuserOnlyRow(u);
   // Demote is omitted on a superuser row: superuser status implies site admin and the API
   // refuses to clear it, so the action is context-gated out.
   const canToggleAdmin = (u: AdminUser) => u.id !== currentUser.id && !(u.is_site_admin && u.is_superuser);
 
+  // The phone sheet's primary group: the same two actions, under the same gates, as the row's
+  // inline buttons. A board owner's Deactivate goes straight to the full-screen transfer dialog,
+  // its item saying why (the "Phone row actions" artboard), instead of the wider screens' confirm.
+  const buildPrimaryActions = (u: AdminUser): SheetAction[] => {
+    const items: SheetAction[] = [];
+    if (canToggleAdmin(u)) {
+      items.push(u.is_site_admin
+        ? { id: "demote-admin", label: "Demote admin", onSelect: () => handleDemote(u) }
+        : { id: "make-admin", label: "Make admin", onSelect: () => handleMakeAdmin(u) });
+    }
+    if (canToggleActive(u)) {
+      const n = u.owned_boards.length;
+      items.push(u.is_active
+        ? n > 0
+          ? {
+              id: "deactivate",
+              label: "Transfer boards and deactivate…",
+              description: `Choose a new owner for each of their ${n} ${n === 1 ? "board" : "boards"} first`,
+              onSelect: () => setOffboardingUser(u),
+              danger: true,
+            }
+          : { id: "deactivate", label: "Deactivate", onSelect: () => handleDeactivate(u), danger: true }
+        : { id: "reactivate", label: "Reactivate", onSelect: () => void applyPatch(u.id, { is_active: true }) });
+    }
+    return items;
+  };
+
+  // The support actions: behind ⋯ on wider screens, the sheet's second group on a phone.
   const buildOverflowItems = (u: AdminUser): OverflowItem[] => {
     const items: OverflowItem[] = [];
-
-    if (isPhone) {
-      if (canToggleAdmin(u)) {
-        items.push(u.is_site_admin
-          ? { id: "demote-admin", label: "Demote admin", onSelect: () => handleDemote(u) }
-          : { id: "make-admin", label: "Make admin", onSelect: () => handleMakeAdmin(u) });
-      }
-      if (canToggleActive(u)) {
-        items.push(u.is_active
-          ? u.owned_boards.length > 0
-            ? { id: "deactivate", label: "Transfer boards and deactivate…", onSelect: () => handleDeactivate(u), danger: true }
-            : { id: "deactivate", label: "Deactivate", onSelect: () => handleDeactivate(u), danger: true }
-          : { id: "reactivate", label: "Reactivate", onSelect: () => void applyPatch(u.id, { is_active: true }) });
-      }
-    }
 
     if (!isSuperuserOnlyRow(u)) {
       // Superuser status implies all-content access and the API refuses to
@@ -1281,6 +1313,34 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
 
     return items;
   };
+
+  const closeSheet = () => {
+    setSheetUserId(null);
+    setConfirm(null);
+  };
+
+  const openSheet = (u: AdminUser, trigger: HTMLElement) => {
+    sheetTriggerRef.current = trigger;
+    setConfirm(null);
+    setSheetUserId(u.id);
+  };
+
+  // A sheet action that opens a confirm keeps the sheet (the confirm replaces its list); one that
+  // runs at once (Reactivate, Force password reset, Restart onboarding tour, Transfer) closes it.
+  const toSheetAction = (a: SheetAction | OverflowItem): SheetAction => ({
+    id: a.id,
+    label: a.label,
+    description: "description" in a ? a.description : undefined,
+    danger: a.danger,
+    disabled: a.disabled,
+    onSelect: () => {
+      confirmOpenedRef.current = false;
+      a.onSelect();
+      if (!confirmOpenedRef.current) setSheetUserId(null);
+    },
+  });
+
+  const sheetUser = isPhone && sheetUserId !== null ? users.find((u) => u.id === sheetUserId) ?? null : null;
 
   const totalPages = Math.ceil(total / pageSize);
   const first = total === 0 ? 0 : offset + 1;
@@ -1423,16 +1483,38 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
                         )}
                         {/* The support actions live behind this menu (#1291). OverflowMenu renders
                             nothing when a row has no applicable actions (#1644). */}
-                        <OverflowMenu
-                          items={buildOverflowItems(u)}
-                          ariaLabel={`More actions for ${nameOf(u)}`}
-                          triggerDescribedBy={
-                            isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined
-                          }
-                        />
+                        {isPhone ? (
+                          // Phone (#2476): ⋯ opens the row's bottom sheet with every action. No
+                          // trigger when the row has none, as OverflowMenu renders nothing (#1644).
+                          (buildPrimaryActions(u).length > 0 || buildOverflowItems(u).length > 0) && (
+                            <button
+                              type="button"
+                              aria-label={`More actions for ${nameOf(u)}`}
+                              aria-haspopup="dialog"
+                              aria-expanded={sheetUserId === u.id}
+                              aria-describedby={isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined}
+                              onClick={(e) => openSheet(u, e.currentTarget)}
+                              className="inline-flex items-center justify-center min-h-11 min-w-11 rounded transition shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                            >
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <circle cx="12" cy="5" r="1.75" />
+                                <circle cx="12" cy="12" r="1.75" />
+                                <circle cx="12" cy="19" r="1.75" />
+                              </svg>
+                            </button>
+                          )
+                        ) : (
+                          <OverflowMenu
+                            items={buildOverflowItems(u)}
+                            ariaLabel={`More actions for ${nameOf(u)}`}
+                            triggerDescribedBy={
+                              isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined
+                            }
+                          />
+                        )}
                       </div>
                     </ListRow>
-                    {confirm?.userId === u.id && (
+                    {confirm?.userId === u.id && sheetUser?.id !== u.id && (
                       <div className="px-3 pb-2">
                         <InlineConfirm
                           message={confirm.message}
@@ -1484,9 +1566,31 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         />
       )}
 
+      {sheetUser && (
+        <UserActionsSheet
+          user={sheetUser}
+          primary={buildPrimaryActions(sheetUser).map(toSheetAction)}
+          support={buildOverflowItems(sheetUser).map(toSheetAction)}
+          note={isSuperuserOnlyRow(sheetUser) ? "Only a superuser can change this account's access or sign-in." : undefined}
+          confirm={confirm?.userId === sheetUser.id ? {
+            message: confirm.message,
+            actionLabel: confirm.actionLabel,
+            onConfirm: () => {
+              const run = confirm.onConfirm;
+              closeSheet();
+              void run();
+            },
+          } : null}
+          onCancelConfirm={() => setConfirm(null)}
+          onClose={closeSheet}
+          restoreFocusTo={() => sheetTriggerRef.current}
+        />
+      )}
+
       {offboardingUser && (
         <OffboardingModal
           user={offboardingUser}
+          restoreFocusTo={isPhone ? () => sheetTriggerRef.current : undefined}
           onDeactivated={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
             setOffboardingUser(null);
