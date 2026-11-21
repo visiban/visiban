@@ -986,9 +986,10 @@ test.describe('phone board settings modal (#2404)', () => {
 
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
 // lifted to 44px at 390px through it. Swept here, one test per modal, from the existing mocked routes: Keyboard shortcuts,
-// Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board. NOT swept per modal: Move board,
-// Export, Import, Trello import, Edit/Add field modals inside Board settings (Board settings is swept in #2404), Lens
-// connection, Policy confirm, Create group, invite link and the Admin page modals.
+// Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board, Export Board and
+// Import board (dashboard). Not swept yet (they need group, Lens or force-change server state the mocks do not serve): Move
+// board, Trello import, Create group, Lens connection, Policy confirm, Add child, Connect provider, Force password and
+// username changes, the Edit/Add field modals inside Board settings, and the Admin page modals (#2407 stays open for them).
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -1007,6 +1008,13 @@ test.describe('phone ModalWrapper modals (#2407)', () => {
     ['Delete card confirm', '', async (page) => {
       await page.locator(`[data-card-id="${CARD.id}"]`).tap()
       await page.getByRole('button', { name: 'Delete card', exact: true }).dispatchEvent('click')
+    }],
+    ['Export Board', 'Export Board', async (page) => {
+      await page.getByRole('button', { name: 'Export', exact: true }).dispatchEvent('click')
+    }],
+    ['Import board', 'Import Board', async (page) => {
+      await page.goto('/')
+      await page.getByRole('button', { name: /^Import/ }).first().click()
     }],
     ['New Board', 'New Board', async (page) => {
       await page.getByRole('button', { name: 'Open navigation menu' }).dispatchEvent('click')
