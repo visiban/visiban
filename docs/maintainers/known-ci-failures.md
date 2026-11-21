@@ -527,7 +527,7 @@ sentinel `poisoned-by-ci-poison-env-2461` and `CI_API_V4_URL` is `http://127.0.0
 it itself, as the `runrt()` helper in `resolve-docs-version.test.sh` does.
 
 `scripts/ci-poison-env.sh` is the one place the list lives. `scripts/check-ci-poison-list.sh`
-(run in `script-tests`) fails when `.gitlab-ci.yml` references a `*_TOKEN` variable that is in
+(run in `script-tests`) fails when `.gitlab-ci.yml` or a script under `scripts/` references a `*_TOKEN` variable that is in
 neither `CI_POISON_VARS` nor `CI_POISON_EXEMPT` (which needs a reason). Fix a failure by adding
 the variable to the right list.
 
