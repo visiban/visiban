@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
-import { contrastRatio, surfaceColor, textColor } from './contrast'
+import { contrastRatio, effectiveBackground, surfaceColor, textColor } from './contrast'
 
 // #2448 — child-board settings (Rules > Child cards) and the Add child chooser:
 // router navigation from "Change on X", the blockers-read failure line, the
@@ -104,12 +104,13 @@ test.describe('child board settings at 390px', () => {
   })
 })
 
-for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390px', width: 390, height: 844 }]) {
-  test.describe(`Add child chooser (${size.name})`, () => {
+for (const theme of ['light', 'dark'] as const) for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390px', width: 390, height: 844 }]) {
+  test.describe(`Add child chooser (${theme}, ${size.name})`, () => {
     test.use({ viewport: { width: size.width, height: size.height } })
     test('a failed boards read shows Retry, which recovers', async ({ page }) => {
       const board = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: true }
       await routeAuth(page)
+      await page.addInitScript((t) => localStorage.setItem('user:prefs:theme', t), theme)
       await routeBoard(page, board)
       await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/children/`, (route) =>
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, visible: true, offset: 0, limit: 50, results: [] }) }))
@@ -128,7 +129,17 @@ for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390p
       await expect(dialog.getByRole('alert')).toContainText("Couldn't load the boards")
       const retry = dialog.getByRole('button', { name: 'Retry' })
       if (size.width < 640) expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+      const alert = dialog.getByRole('alert')
+      const ratios = {
+        alert: contrastRatio(await textColor(alert), await effectiveBackground(alert)),
+        retry: contrastRatio(await textColor(retry), await effectiveBackground(retry)),
+      }
+      // eslint-disable-next-line no-console
+      console.log(`CONTRAST ${theme} ${size.name} add-child-retry ${JSON.stringify(ratios)}`)
+      for (const [name, r] of Object.entries(ratios)) expect(r, name).toBeGreaterThanOrEqual(4.5)
       await retry.click()
+      // Retry unmounts on click; focus goes to the dialog heading, not <body>.
+      await expect(dialog.getByRole('heading', { level: 2 })).toBeFocused()
       await expect(dialog.getByLabel('Title')).toBeVisible()
       expect(reads).toBe(3)
     })
