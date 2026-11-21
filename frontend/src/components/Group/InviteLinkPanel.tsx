@@ -933,7 +933,7 @@ export default function InviteLinkPanel({
             <Button variant="primary" buttonRef={copyButtonRef} onClick={() => void handleCopy(revealedLink)}>
               {copyErrorId === revealedLink.id ? "Failed — try again" : copiedId === revealedLink.id ? "Copied!" : "Copy"}
             </Button>
-            <Button variant="quiet" onClick={() => handleDismissReveal(revealedLink.id)}>Done</Button>
+            <Button variant="quiet" onClick={() => { handleDismissReveal(revealedLink.id); setPendingFocus(allowShareableLinks && !atLimit ? "newLink" : "heading"); }}>Done</Button>
           </div>
         </div>
       )}
@@ -988,6 +988,7 @@ export default function InviteLinkPanel({
                       variant="quiet"
                       buttonRef={revokeTriggerRef(link.id)}
                       onClick={() => { setRevokeError(null); setConfirmRevokeId(link.id); }}
+                      aria-label={`Revoke invite link ${link.name || "Default"} ${link.prefix}`}
                     >
                       Revoke
                     </Button>
@@ -1006,9 +1007,11 @@ export default function InviteLinkPanel({
                   </div>
                 )}
                 {/* Failure slot only: the question is announced by useConfirmAnnouncement. */}
-                <p role="status" aria-live="polite" aria-atomic="true" className={failed === GENERIC_REVOKE_ERROR || failed === ALREADY_USED_REVOKE_ERROR ? "px-3 pb-2 text-xs text-danger" : "sr-only"}>
-                  {failed === GENERIC_REVOKE_ERROR || failed === ALREADY_USED_REVOKE_ERROR ? failed : ""}
+                <p role="status" aria-live="polite" aria-atomic="true" className={failed === GENERIC_REVOKE_ERROR ? "px-3 pb-2 text-xs text-danger" : "sr-only"}>
+                  {failed === GENERIC_REVOKE_ERROR ? failed : ""}
                 </p>
+                {/* The already-used outcome is announced by the always-mounted region above; show it, silently. */}
+                {failed === ALREADY_USED_REVOKE_ERROR && <p aria-hidden="true" className="px-3 pb-2 text-xs text-danger">{failed}</p>}
               </li>
             );
           })}

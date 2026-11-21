@@ -1570,7 +1570,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             onClick={() => setMembersOpenPhone((v) => !v)}
             aria-expanded={membersOpenPhone}
             aria-controls="group-members-list"
-            aria-label={membersOpenPhone ? "Hide members" : "Show members"}
+            aria-label="Members list"
             data-testid="group-members-disclosure"
             className="sm:hidden h-11 w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
@@ -1863,8 +1863,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 variant="secondary"
                 buttonRef={transferTriggerRef}
                 aria-expanded={showTransfer}
+                aria-controls="group-transfer-panel"
                 className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
-                onClick={() => { setTransferError(null); setShowTransfer((v) => !v); }}
+                onClick={() => { if (showTransfer) { closeTransfer(); return; } setTransferError(null); setShowTransfer(true); }}
               >
                 Transfer ownership
               </Button>
@@ -1882,7 +1883,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           )}
         </div>
         {showTransfer && group.owner.id === user.id && (
-          <div role="group" aria-label="Transfer ownership details" className="mt-4 flex flex-col gap-4 max-w-md rounded-[10px] border border-danger/40 bg-danger/10 p-3">
+          <div id="group-transfer-panel" role="group" aria-label="Transfer ownership details" className="mt-4 flex flex-col gap-4 max-w-md rounded-[10px] border border-danger/40 bg-danger/10 p-3">
             <p className="text-sm text-fg">
               Transfer ownership of <span className="font-medium">{group.name}</span> to another admin.
               You will remain as an admin after the transfer.
@@ -1907,7 +1908,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   className="w-full"
                 />
               )}
-              <p className="text-fg-secondary text-xs mt-1">The new owner must already be a group admin.</p>
             </div>
             <div>
               <label htmlFor="group-transfer-confirm" className="text-sm font-medium text-fg-secondary block mb-1">

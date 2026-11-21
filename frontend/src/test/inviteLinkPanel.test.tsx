@@ -246,7 +246,7 @@ describe('InviteLinkPanel', () => {
     mockListInviteLinks.mockResolvedValue([fakeUsedLink])
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Used')
-    expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Revoke invite link/ })).not.toBeInTheDocument()
   })
 
   it('shows "1-use" indicator for a pending single-use link', async () => {
@@ -270,14 +270,14 @@ describe('InviteLinkPanel', () => {
     // Confirm the link is visible
     expect(await screen.findByText('Existing link')).toBeInTheDocument()
     // Click Revoke to enter confirm mode, then confirm
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Revoke link' }))
     // The row should still be visible showing the Revoked badge
     expect(await screen.findByText('Revoked')).toBeInTheDocument()
     expect(screen.getByText('Existing link')).toBeInTheDocument()
     // The revoke button should no longer be visible for a revoked row
-    expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Revoke invite link/ })).not.toBeInTheDocument()
   })
 
   it('refetches links when reloadSignal changes (invite_link.revoked convergence)', async () => {
@@ -335,13 +335,13 @@ describe('InviteLinkPanel', () => {
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
     // Enter confirm mode
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     // Cancel — the Cancel button appears in the inline confirm row
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     // API must not have been called
     expect(mockRevokeInviteLink).not.toHaveBeenCalled()
     // The original Revoke trigger should be visible again
-    expect(await screen.findByRole('button', { name: 'Revoke' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /^Revoke invite link/ })).toBeInTheDocument()
   })
 
   it('Cancel on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
@@ -349,9 +349,9 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Revoke invite link/ })).toHaveFocus()
   })
 
   it('Escape on the revoke confirm returns focus to the Revoke trigger (#1367)', async () => {
@@ -359,12 +359,12 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel scope={{ kind: "group", id: 1 }} />)
     await screen.findByText('Existing link')
-    await user.click(screen.getByRole('button', { name: 'Revoke' }))
+    await user.click(screen.getByRole('button', { name: /^Revoke invite link/ }))
     // Move focus onto the prompt, as a keyboard user tabbing into it would.
     screen.getByRole('button', { name: 'Cancel' }).focus()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Revoke' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Revoke invite link/ })).toHaveFocus()
   })
 
   it('shows createError UI when createInviteLink rejects', async () => {
@@ -615,7 +615,7 @@ describe('InviteLinkPanel', () => {
     }
     const user = userEvent.setup()
     render(<Host />)
-    await user.click(await screen.findByRole('button', { name: 'Revoke' }))
+    await user.click(await screen.findByRole('button', { name: /^Revoke invite link/ }))
     expect(screen.getByText(/Anyone holding it will no longer be able to join/)).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByText(/Anyone holding it will no longer be able to join/)).not.toBeInTheDocument()
