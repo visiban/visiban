@@ -3,8 +3,11 @@ import type { CardChildrenRollup as Rollup, CardChildrenRollupVisible, CardDensi
 import { ROLLUP_SEGMENT_MAX, movementLine, rollupSentence, type Tone } from "./childrenRollup";
 import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
 
-/** Same footprint as the comfortable footer so a card never jumps (#2210). Announced once. */
-export function CardChildrenRollupSkeleton() {
+/**
+ * Same footprint as the real footer at each density so a card never jumps (#2210):
+ * comfortable draws two rows, standard and dense one. Announced once.
+ */
+export function CardChildrenRollupSkeleton({ density = "comfortable" }: { density?: CardDensity }) {
   return (
     <div role="status" aria-busy="true" data-testid="card-children-rollup-loading" className="mt-1.5 pt-1.5 border-t border-line">
       <span className="sr-only">Loading children</span>
@@ -13,9 +16,11 @@ export function CardChildrenRollupSkeleton() {
         <span className="h-2.5 w-14 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
         <span className="h-1.5 flex-1 rounded-sm bg-surface-hover animate-pulse motion-reduce:animate-none" />
       </div>
-      <div aria-hidden="true" className="mt-0.5 flex items-center h-4">
-        <span className="h-2.5 w-32 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
-      </div>
+      {density === "comfortable" && (
+        <div aria-hidden="true" className="mt-0.5 flex items-center h-4">
+          <span className="h-2.5 w-32 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+        </div>
+      )}
     </div>
   );
 }

@@ -42,6 +42,13 @@ describe("children rollup helpers (#2210)", () => {
   });
 });
 
+describe("CardChildrenRollupSkeleton footprint (#2210)", () => {
+  it.each([["comfortable", 2], ["standard", 1], ["dense", 1]] as const)("%s draws %i row(s), matching the real footer", (density, rows) => {
+    const { container } = render(<CardChildrenRollupSkeleton density={density} />);
+    expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(rows);
+  });
+});
+
 describe("CardChildrenRollup (#2210)", () => {
   it("comfortable: group name, both rows, one segment per child, blocked in danger", () => {
     render(<CardChildrenRollup rollup={r()} density="comfortable" stalenessDays={14} now={NOW} />);

@@ -1666,6 +1666,20 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
   })
 
+  it('?settings=rules is ignored quietly for a non-admin and in the demo, and the param is stripped (#2448)', () => {
+    mockSearchParams = new URLSearchParams('settings=rules')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'member' }) })
+    const { unmount } = render(<BoardView {...defaultProps()} />)
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+    const call = mockSetSearchParams.mock.calls.find((c) => typeof c[0] === 'function')
+    expect((call?.[0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams('settings=rules')).has('settings')).toBe(false)
+    unmount()
+    mockSearchParams = new URLSearchParams('settings=rules')
+    mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'admin' }) })
+    render(<BoardView {...defaultProps()} />, { wrapper: flagsWrapper({ demo_mode: true }) })
+    expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+  })
+
   describe('View menu "On the card" footer wiring (#2388)', () => {
     const pinned = (name: string) => ({
       id: 1, uid: 'cfuid000001', name, field_type: 'text', choices: [], position: 0,

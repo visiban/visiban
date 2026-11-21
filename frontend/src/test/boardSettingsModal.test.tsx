@@ -2051,6 +2051,10 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     expect(note).toHaveTextContent("Couldn't check whether this can change")
     expect(sw.getAttribute('aria-describedby')).toContain(screen.getByTestId('children-status').id)
     expect(screen.getByTestId('children-status')).toContainElement(note)
+    // Retry re-reads the blockers; a good read clears the line.
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] })
+    await userEvent.setup().click(within(note).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.queryByTestId('children-blockers-unavailable')).toBeNull())
   })
 
   it('turning off with live parent links is a blocked state, not a confirm', async () => {

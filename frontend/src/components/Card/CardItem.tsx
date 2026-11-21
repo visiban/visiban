@@ -1411,7 +1411,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {!compact && card.children_rollup && (
           <CardChildrenRollup rollup={card.children_rollup} density={density} stalenessDays={staleness_threshold_days} />
         )}
-        {!compact && !card.children_rollup && rollupLoading && <CardChildrenRollupSkeleton />}
+        {!compact && !card.children_rollup && rollupLoading && <CardChildrenRollupSkeleton density={density} />}
 
         {/* Assignee avatar — positioned against the content wrapper
             (`relative`, above), not a flex child of the metadata row. The row

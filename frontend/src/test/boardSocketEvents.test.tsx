@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, screen } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
 import * as cardsApi from '../api/cards'
+import { useRollupLoading } from '../components/Card/rollupLoading'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { BoardEvent } from '../hooks/useBoardSocket'
 import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
@@ -76,8 +77,12 @@ vi.mock('../components/Board/AnalyticsView', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/ColumnHeader', () => ({
   default: ({ column }: { column: { name: string } }) => <div>{column.name}</div>,
 }))
+// Stands in for the card the rollup loading context feeds (#2210): parent 7.
+function RollupProbe() {
+  return useRollupLoading(7) ? <span data-testid="card-children-rollup-loading" /> : null
+}
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onExitFocus: _onExitFocus, compact: _compact }: { swimlane: { name: string }; onExitFocus?: () => void; compact?: boolean }) => <div>{swimlane.name}</div>,
+  default: ({ swimlane, onExitFocus: _onExitFocus, compact: _compact }: { swimlane: { name: string }; onExitFocus?: () => void; compact?: boolean }) => <div>{swimlane.name}<RollupProbe /></div>,
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({
@@ -1138,6 +1143,53 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
     // The ping does not refetch comments, checklist or attachments.
     expect(detail()).toHaveAttribute('data-refresh-signal', '0')
     spy.mockRestore()
+  })
+
+  describe('first-read loading ids (#2210)', () => {
+    const parentCard = { id: 7, uid: 'crd007', title: 'Parent', column: 10, swimlane: 20 } as unknown as Card
+
+    it('shows the loading state for a parent with no rollup, then clears it when the read resolves', async () => {
+      let resolve: (r: typeof rollup) => void = () => {}
+      const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockImplementation(() => new Promise((res) => { resolve = res }))
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [parentCard] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      expect(screen.queryByTestId('card-children-rollup-loading')).toBeNull()
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      expect(screen.getByTestId('card-children-rollup-loading')).toBeInTheDocument()
+      await act(async () => { resolve(rollup) })
+      expect(screen.queryByTestId('card-children-rollup-loading')).toBeNull()
+      spy.mockRestore()
+    })
+
+    it('clears the loading state when the read fails, without crashing', async () => {
+      let reject: (e: Error) => void = () => {}
+      const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockImplementation(() => new Promise((_res, rej) => { reject = rej }))
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [parentCard] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      expect(screen.getByTestId('card-children-rollup-loading')).toBeInTheDocument()
+      await act(async () => { reject(new Error('x')) })
+      expect(screen.queryByTestId('card-children-rollup-loading')).toBeNull()
+      spy.mockRestore()
+    })
+
+    it('does not show loading when the parent already has a rollup or the board cannot have children', async () => {
+      const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockImplementation(() => new Promise(() => {}))
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: true, cards: [{ ...parentCard, children_rollup: rollup } as Card] }) })
+      const { unmount } = render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      expect(screen.queryByTestId('card-children-rollup-loading')).toBeNull()
+      unmount()
+      mockBoardContextValue = makeContext({ board: makeBoard({ cards_can_have_children: false, cards: [parentCard] }) })
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      expect(screen.queryByTestId('card-children-rollup-loading')).toBeNull()
+      spy.mockRestore()
+    })
   })
 
   it('ignores a malformed ping, an absent rollup, a failed read and a stale read', async () => {
