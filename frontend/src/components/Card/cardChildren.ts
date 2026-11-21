@@ -20,8 +20,9 @@ export const CHILDREN_BOARD_ESCAPE_PRIORITY = 30.5;
 export const CHILD_MOVE_ESCAPE_PRIORITY = 36;
 /**
  * At or above this width of the tab's own container the scoped board shows its columns side by side (canvas 2a).
- * It is compared with the measured container, which sits inside the 880px sheet's 20px side padding and a
- * scrollbar gutter, so the threshold is 880 less that (840, less ~16 for a scrollbar) with slack at the boundary.
+ * It is compared with the measured container, so side by side needs a Children tab at least this wide. The
+ * current 540px sheet never gives that, so today it shows one column at a time; 800 leaves slack under a
+ * hypothetical 880px sheet's 840px content width (less ~16 for a scrollbar).
  */
 export const WIDE_MIN_PX = 800;
 

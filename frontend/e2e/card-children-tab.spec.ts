@@ -2,8 +2,10 @@ import { test, expect, type Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
-// The Children tab (#2209 row 14): every state at the 880px sheet, the anchored 540px sheet and the phone,
-// in light and dark. Each state must render its own content and never scroll the sheet sideways.
+// The Children tab (#2209 row 14): every state at three viewport widths (880, 540 and 390px), in light and
+// dark. The card sheet is 540px at every viewport above the phone, so the tab never reaches the 800px that the
+// side-by-side layout needs and always shows one column at a time; that layout is pinned in Vitest on a measured
+// container. Each state must render its own content and never scroll the sheet sideways.
 const PARENT_BOARD = { ...BOARD_FULL, cards_can_have_children: true }
 
 const columns = [
@@ -70,6 +72,11 @@ for (const width of [880, 540, 390]) {
         await page.goto(`/boards/${PARENT_BOARD.id}?card=${CARD.id}&tab=children`)
         const tab = page.getByTestId('card-children-tab')
         await expect(tab, m).toBeVisible({ timeout: 10_000 })
+        // The dark run must really render dark (the theme resolves "system" from prefers-color-scheme).
+        const html = page.locator('html')
+        if (scheme === 'dark') await expect(html, `${m} dark`).toHaveClass(/\bdark\b/)
+        else await expect(html, `${m} light`).not.toHaveClass(/\bdark\b/)
+        await expect(html).toHaveAttribute('data-theme', scheme)
         if (m === 'loading') await expect(page.getByRole('status', { name: 'Loading children' })).toBeVisible()
         else await expect(tab).toContainText(expected[m])
         if (m === 'error') await expect(tab.getByRole('alert').filter({ hasText: "didn't load" })).toBeVisible()
@@ -79,7 +86,7 @@ for (const width of [880, 540, 390]) {
           // The card sheet is 540px at every viewport above the phone and full screen at or below 640px
           // (useCardSheetPlacement), so the tab never gets the 840px of container the side-by-side layout
           // needs: asserted, not recorded. The side-by-side layout is pinned in cardChildrenTab2209.test.tsx
-          // at a measured 840px container (open on #2209: no sheet is 880px wide).
+          // at a measured 840px container (no sheet is that wide today).
           const box = await tab.boundingBox()
           expect(box!.width, `tab width at ${width}px`).toBeLessThan(800)
           await expect(tab.getByRole('region')).toHaveCount(1)
