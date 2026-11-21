@@ -1,7 +1,7 @@
 {
   "_readme": "Committed p95 latency budgets for the nightly-load-test CI job (#1082). See docs/development/nightly-load-test.md for the full contract: fixture size, budget-derivation rule, and how to re-derive this file at each release. DO NOT hand-edit budget_p95_ms to a round number — every value here must trace to a measured_p95_ms via the stated formula.",
   "status": "ci-derived",
-  "status_note": "Re-derived 2026-11-19 (#2110, #2237, #2063) from job 18170442650 -- the 2026-11-19 scheduled nightly-load-test run on main at f863f39ff on gitlab-runner-nuc-2-visiban (tag nuc). Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; the ten flow/summary/analytics scenarios (#2110) and card_list/cards_archived (#2237) get their first budgets and their pending_budget keys are gone. card_timeline_counts (#2195) and the three board_movements scenarios (#2237) were added after that run, so they are measured but not gated (pending_budget) until a NUC run that includes them re-derives the whole file again. This is a single run: board_full measured 824.5ms against 1227.5ms in the previous derivation, so its budget fell from 1720 to 1155ms; the two derivations were taken on the same runner class but a different commit and a different date, so the change is not attributed here. Peak replay memory for the flow scenarios (#2110) is not recorded: the script measures latency only. History: 2026-10-21 (#1808) from job 17348200339 on gitlab-runner-nuc-2-visiban; 2026-10-20 (#1767) from job 17304593759 on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105. Re-derive again at the next release per docs/development/nightly-load-test.md#re-deriving-the-baseline.",
+  "status_note": "Re-derived 2026-11-19 (#2110, #2237, #2063) from job 18170442650 -- the 2026-11-19 scheduled nightly-load-test run on main at f863f39ff on gitlab-runner-nuc-2-visiban (tag nuc). Values below are that run's measured p95/p99 per endpoint, unchanged from the artifact, with budget_p95_ms recomputed via the formula for the whole file in one pass; the ten flow/summary/analytics scenarios (#2110) and card_list/cards_archived (#2237) get their first budgets and their pending_budget keys are gone. card_timeline_counts (#2195) and the three board_movements scenarios (#2237) were added after that run, so they are measured but not gated (pending_budget) until a NUC run that includes them re-derives the whole file again. This is a single run: board_full measured 824.5ms against 1227.5ms in the previous derivation, so its budget fell from 1720 to 1155ms; the two derivations were taken on the same runner class but a different commit and a different date, so the change is not attributed here. Peak memory (#2110, #2430): the script records the server's peak RSS per scenario when given --server-pid-file; every memory budget is pending (budget_peak_rss_mb null, pending_memory_budget) until a NUC run assigns it. History: 2026-10-21 (#1808) from job 17348200339 on gitlab-runner-nuc-2-visiban; 2026-10-20 (#1767) from job 17304593759 on runner-04-NUC; 2026-09-30 (#1233) from job 16796708105. Re-derive again at the next release per docs/development/nightly-load-test.md#re-deriving-the-baseline. #2430/#2424 added the aged-board, linked-board and overview fan-out scenarios; they have no measurement yet, so they are all pending_budget against #2430 until that NUC run.",
   "measured_at": "2026-11-19T05:15:38.543375+00:00",
   "fixture": {
     "board_name": "Visiban Load Test Board",
@@ -13,7 +13,8 @@
     "member_count": 20,
     "extra_board_count": 199,
     "multi_board_accessible_boards": 200,
-    "multi_board_note": "#1810: --extra-boards 199 adds 199 small boards (8 cards each, 1,592 cards) owned by demo3, so demo3 can access 200 boards with the load-test board. The extra boards belong to demo3 alone, so the demo1 board_list and demo2 scenarios see the same boards as before. Every measured_p95_ms in this file was taken with the extra boards present (#1808)."
+    "multi_board_note": "#1810: --extra-boards 199 adds 199 small boards (8 cards each, 1,592 cards) owned by demo3, so demo3 can access 200 boards with the load-test board. The extra boards belong to demo3 alone, so the demo1 board_list and demo2 scenarios see the same boards as before. Every measured_p95_ms in this file was taken with the extra boards present (#1808).",
+    "aged_and_linked": "#2430/#2424: seed_demo_data also gets --aged-generations N and --linked-boards. Both fixtures live on boards only the loadtest_analytics user can open, so every measured_p95_ms above was taken with data those flags add absent from the viewers' reach."
   },
   "measurement_method": {
     "script": "scripts/nightly_load_test.py",
@@ -130,7 +131,9 @@
       "measured_p95_ms": 198.1,
       "measured_p99_ms": 203.6,
       "budget_p95_ms": 280,
-      "note": "Per-swimlane counts plus a replay of the cards that entered a done column in the last 30 days (#448). Before #448 this was SQL aggregates only."
+      "note": "Per-swimlane counts plus a replay of the cards that entered a done column in the last 30 days (#448). Before #448 this was SQL aggregates only.",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "board_analytics": {
       "method": "GET",
@@ -138,7 +141,9 @@
       "measured_p95_ms": 886.7,
       "measured_p99_ms": 958.8,
       "budget_p95_ms": 1245,
-      "note": "Heatmap, stalled cards and blocked time, with a replay of the cards relevant to the default 30-day window plus the frozen avg_days_per_column prefetch (#448)."
+      "note": "Heatmap, stalled cards and blocked time, with a replay of the cards relevant to the default 30-day window plus the frozen avg_days_per_column prefetch (#448).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_cycle_time": {
       "method": "GET",
@@ -146,7 +151,9 @@
       "measured_p95_ms": 298.6,
       "measured_p99_ms": 305.5,
       "budget_p95_ms": 420,
-      "note": "Replays every movement of the fixture board in Python (one query), then samples completions in the default 90-day range (#448)."
+      "note": "Replays every movement of the fixture board in Python (one query), then samples completions in the default 90-day range (#448).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_throughput": {
       "method": "GET",
@@ -154,7 +161,9 @@
       "measured_p95_ms": 311.3,
       "measured_p99_ms": 320.7,
       "budget_p95_ms": 440,
-      "note": "Same replay as flow_cycle_time, bucketed into whole ISO weeks (#448)."
+      "note": "Same replay as flow_cycle_time, bucketed into whole ISO weeks (#448).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_cumulative_flow": {
       "method": "GET",
@@ -162,7 +171,9 @@
       "measured_p95_ms": 320.1,
       "measured_p99_ms": 327.4,
       "budget_p95_ms": 450,
-      "note": "Same replay; 90 days x columns from a difference array, never a per-day query (#448)."
+      "note": "Same replay; 90 days x columns from a difference array, never a per-day query (#448).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_wip_age": {
       "method": "GET",
@@ -170,7 +181,9 @@
       "measured_p95_ms": 361.4,
       "measured_p99_ms": 464.4,
       "budget_p95_ms": 510,
-      "note": "Same replay plus one query each for block rows and blocking relations (#448)."
+      "note": "Same replay plus one query each for block rows and blocking relations (#448).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_dwell": {
       "method": "GET",
@@ -178,7 +191,9 @@
       "measured_p95_ms": 432.6,
       "measured_p99_ms": 440.0,
       "budget_p95_ms": 610,
-      "note": "Same replay as cumulative flow, then completed dwell percentiles per column (#2260)."
+      "note": "Same replay as cumulative flow, then completed dwell percentiles per column (#2260).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_blocked": {
       "method": "GET",
@@ -186,7 +201,9 @@
       "measured_p95_ms": 281.9,
       "measured_p99_ms": 285.0,
       "budget_p95_ms": 395,
-      "note": "Same replay plus block rows and blocking relations (#2260)."
+      "note": "Same replay plus block rows and blocking relations (#2260).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_attention": {
       "method": "GET",
@@ -194,7 +211,9 @@
       "measured_p95_ms": 419.6,
       "measured_p99_ms": 430.2,
       "budget_p95_ms": 590,
-      "note": "Same replay plus blocking relations and the card directory (#2260)."
+      "note": "Same replay plus blocking relations and the card directory (#2260).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
     },
     "flow_swimlanes": {
       "method": "GET",
@@ -202,7 +221,170 @@
       "measured_p95_ms": 330.3,
       "measured_p99_ms": 337.4,
       "budget_p95_ms": 465,
-      "note": "Same replay as cycle time plus block rows, bucketed per swimlane (#2266)."
+      "note": "Same replay as cycle time plus block rows, bucketed per swimlane (#2266).",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430"
+    },
+    "aged_board_summary": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/summary/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_board_analytics": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/analytics/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_board_analytics_365": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/analytics/?days=365",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_cycle_time": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/cycle-time/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_throughput": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/throughput/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_cumulative_flow": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/cumulative-flow/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_wip_age": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/wip-age/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_dwell": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/dwell/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_blocked": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/blocked/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_attention": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/attention/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "aged_flow_swimlanes": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/swimlanes/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
+    "linked_board_full": {
+      "method": "GET",
+      "path": "/api/v1/boards/{linked_id}/full/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "note": "Linked child board (#2424): 500 cards, each with a parent on one of 5 parent boards. Not gated until a NUC run assigns the budget."
+    },
+    "linked_card_list": {
+      "method": "GET",
+      "path": "/api/v1/boards/{linked_id}/cards/",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "note": "Linked child board (#2424): 500 cards, each with a parent on one of 5 parent boards. Not gated until a NUC run assigns the budget."
+    },
+    "analytics_overview": {
+      "method": "GET",
+      "path": "8 reads: summary, analytics, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked} on the load-test board",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "The overview open on the active-only board (#2430). The overview's eight reads fired at once (#2426); wall time to the last response, peak RSS of the one server process."
+    },
+    "aged_analytics_overview": {
+      "method": "GET",
+      "path": "the same 8 reads on the aged board",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "The overview open on the aged board (#2430). The overview's eight reads fired at once (#2426); wall time to the last response, peak RSS of the one server process."
     }
   }
 }

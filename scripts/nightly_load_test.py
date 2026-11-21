@@ -30,6 +30,13 @@ cursor page, as a one-board user (#1805).
   - cards_archived          GET  /api/v1/boards/{id}/cards/archived/ (#2239, budget: #2237)
   - notifications_list      GET  /api/v1/notifications/
   - notifications_unread    GET  /api/v1/notifications/unread-count/
+  - linked_board_full       GET  .../{linked board}/full/            (#2424, 500 cards each with a parent)
+  - linked_card_list        GET  .../{linked board}/cards/           (#2424)
+  - aged_*                  the summary, analytics and eight metrics/* reads on the AGED board (#2430)
+  - analytics_overview, aged_analytics_overview   the overview's eight reads fired at once (#2430)
+
+Peak memory (#2430): with --server-pid-file the script also records the server
+process's peak RSS (VmHWM, reset before each scenario) per scenario. Linux only.
 
 Usage (CI — nightly-load-test job in .gitlab-ci.yml):
     python scripts/nightly_load_test.py \\
@@ -76,6 +83,7 @@ import os
 import re
 import statistics
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -135,6 +143,182 @@ def _pending_budget(name, budgets):
         return None
     ref = entry.get("pending_budget")
     return ref if isinstance(ref, str) and _PENDING_REF.match(ref) else None
+
+
+# ── Peak memory (#2430) ────────────────────────────────────────────────────────
+#
+# The analytics endpoints break on memory before they break on latency: 186-691 MB
+# for one request against a 512Mi pod. Python's RSS is a high-water mark of the
+# heap, so the measure is the server process's VmHWM, reset immediately before a
+# scenario (Linux: writing "5" to /proc/<pid>/clear_refs), read straight after.
+# It is an absolute peak, so it includes the server's baseline and whatever the
+# earlier scenarios left allocated; the scenario order is fixed, which keeps it
+# comparable run to run. It needs the server's PID, so CI starts runserver with
+# --noreload (no reloader parent) and writes `$!` to a file.
+
+_STATUS_KB = re.compile(r"^(VmRSS|VmHWM):\s+(\d+)\s+kB\s*$", re.MULTILINE)
+
+
+def _parse_proc_status(text):
+    """Return {"rss_mb", "hwm_mb"} from the text of /proc/<pid>/status."""
+    found = {key: int(kb) for key, kb in _STATUS_KB.findall(text)}
+    if "VmRSS" not in found or "VmHWM" not in found:
+        raise RuntimeError("no VmRSS/VmHWM in /proc status (not Linux, or not a live process)")
+    return {"rss_mb": found["VmRSS"] / 1024.0, "hwm_mb": found["VmHWM"] / 1024.0}
+
+
+class _ServerMemory:
+    """Reads and resets the server process's peak RSS. ``pid=None`` disables it."""
+
+    def __init__(self, pid, proc_root="/proc"):
+        self.pid = pid
+        self.proc_root = proc_root
+
+    @classmethod
+    def from_pid_file(cls, path):
+        if not path:
+            return cls(None)
+        with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
+            pid = int(fh.read().strip())
+        mem = cls(pid)
+        mem.read()  # fail now, not after twenty minutes, if the PID is wrong
+        return mem
+
+    @property
+    def enabled(self):
+        return self.pid is not None
+
+    def read(self):
+        with open(f"{self.proc_root}/{self.pid}/status", encoding="utf-8") as fh:
+            return _parse_proc_status(fh.read())
+
+    def reset_peak(self):
+        """Make VmHWM start again from the current RSS."""
+        with open(f"{self.proc_root}/{self.pid}/clear_refs", "w", encoding="utf-8") as fh:
+            fh.write("5")
+
+
+def _evaluate_memory_budget(name, peak_mb, budgets):
+    """Return (budget_mb, within_budget, violation_msg) for one scenario's peak RSS.
+
+    No ``budget_peak_rss_mb`` (or null) is measure-only, exactly as for latency.
+    """
+    budget_mb = budgets.get(name, {}).get("budget_peak_rss_mb")
+    if budget_mb is None:
+        return None, None, None
+    within = peak_mb <= budget_mb
+    msg = None if within else f"{name}: peak RSS {peak_mb:.0f}MB exceeds budget {budget_mb}MB"
+    return budget_mb, within, msg
+
+
+def _pending_memory_budget(name, budgets):
+    """The issue reference when *name* has an explicit pending memory budget, else None."""
+    entry = budgets.get(name)
+    if not isinstance(entry, dict) or entry.get("budget_peak_rss_mb") is not None:
+        return None
+    ref = entry.get("pending_memory_budget")
+    return ref if isinstance(ref, str) and _PENDING_REF.match(ref) else None
+
+
+# Scenarios whose peak memory is gated (or pending): every scenario that replays
+# movement history, on the active-only board and on the aged one.
+_FLOW_SCENARIOS = (
+    "flow_cycle_time", "flow_throughput", "flow_cumulative_flow", "flow_wip_age",
+    "flow_dwell", "flow_blocked", "flow_attention", "flow_swimlanes",
+)
+_AGED_SCENARIOS = (
+    "aged_board_summary", "aged_board_analytics", "aged_board_analytics_365",
+    "aged_flow_cycle_time", "aged_flow_throughput", "aged_flow_cumulative_flow",
+    "aged_flow_wip_age", "aged_flow_dwell", "aged_flow_blocked", "aged_flow_attention",
+    "aged_flow_swimlanes",
+)
+_LINKED_SCENARIOS = ("linked_board_full", "linked_card_list")
+_FANOUT_SCENARIOS = ("analytics_overview", "aged_analytics_overview")
+_MEMORY_GATED = (
+    ("board_summary", "board_analytics") + _FLOW_SCENARIOS + _AGED_SCENARIOS + _FANOUT_SCENARIOS
+)
+
+# The overview opens with these eight reads at once, into one server process (#2426).
+_OVERVIEW_PATHS = (
+    "summary/", "analytics/", "metrics/cycle-time/", "metrics/throughput/",
+    "metrics/cumulative-flow/", "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/",
+)
+
+
+def _aged_endpoints(base_url, board_id):
+    """The scenarios measured on the aged board (#2430), name -> URL."""
+    root = f"{base_url}/api/v1/boards/{board_id}"
+    return {
+        "aged_board_summary": f"{root}/summary/",
+        "aged_board_analytics": f"{root}/analytics/",
+        # The widest range: 691 MB at 12k active cards in the stress run (#2427).
+        "aged_board_analytics_365": f"{root}/analytics/?days=365",
+        "aged_flow_cycle_time": f"{root}/metrics/cycle-time/",
+        "aged_flow_throughput": f"{root}/metrics/throughput/",
+        # #2444: cumulative flow still reads the whole history for any range.
+        "aged_flow_cumulative_flow": f"{root}/metrics/cumulative-flow/",
+        "aged_flow_wip_age": f"{root}/metrics/wip-age/",
+        "aged_flow_dwell": f"{root}/metrics/dwell/",
+        "aged_flow_blocked": f"{root}/metrics/blocked/",
+        "aged_flow_attention": f"{root}/metrics/attention/",
+        "aged_flow_swimlanes": f"{root}/metrics/swimlanes/",
+    }
+
+
+def _linked_endpoints(base_url, board_id):
+    """The scenarios measured on the linked child board (#2424), name -> URL."""
+    root = f"{base_url}/api/v1/boards/{board_id}"
+    return {"linked_board_full": f"{root}/full/", "linked_card_list": f"{root}/cards/"}
+
+
+def _overview_urls(base_url, board_id):
+    return [f"{base_url}/api/v1/boards/{board_id}/{path}" for path in _OVERVIEW_PATHS]
+
+
+def _fan_out(fetch, urls):
+    """Run ``fetch(url)`` for every URL at once; return wall time to the LAST one, in ms.
+
+    Raises the first error: a failed request has no meaningful latency.
+    """
+    errors = []
+
+    def worker(url):
+        try:
+            fetch(url)
+        except Exception as exc:  # noqa: BLE001 -- re-raised on the calling thread below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker, args=(u,)) for u in urls]
+    start = time.perf_counter()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    if errors:
+        raise errors[0]
+    return elapsed_ms
+
+
+def _fan_out_samples(headers, urls, iterations, warmup):
+    """Wall time of ``iterations`` overview-style fan-outs, after ``warmup`` discarded ones."""
+
+    def fetch(url):
+        # One Session per request: a Session is not documented as thread-safe.
+        with requests.Session() as sess:
+            sess.headers.update(headers)
+            sess.get(url, timeout=120).raise_for_status()
+
+    for _ in range(warmup):
+        _fan_out(fetch, urls)
+    return [_fan_out(fetch, urls) for _ in range(iterations)]
+
+
+def _count_of(body):
+    """``count`` of a paginated body, the list length of a bare list, else None."""
+    if isinstance(body, dict):
+        return body.get("count") if "count" in body else len(body.get("results", []))
+    return len(body) if isinstance(body, list) else None
 
 
 def _self_test():
@@ -269,6 +453,69 @@ def _self_test():
     _b, _w, _msg = _evaluate_budget("board_full", 2000, {"board_full": {"budget_p95_ms": 1000}})
     if _w is not False or not _msg:
         failures.append("_evaluate_budget did not flag an over-budget scenario")
+
+    # #2430 / #2424: peak memory, the aged and linked boards and the overview fan-out.
+    sample_status = "Name:\tpython\nVmHWM:\t  524288 kB\nVmRSS:\t  262144 kB\n"
+    if _parse_proc_status(sample_status) != {"rss_mb": 256.0, "hwm_mb": 512.0}:
+        failures.append("_parse_proc_status did not read VmRSS/VmHWM in MB")
+    try:
+        _parse_proc_status("Name:\tpython\n")
+        failures.append("_parse_proc_status accepted a status with no VmRSS/VmHWM")
+    except RuntimeError:
+        pass
+    _mem = {"m": {"budget_peak_rss_mb": 400}, "p": {"budget_peak_rss_mb": None, "pending_memory_budget": "#2430"}}
+    if _evaluate_memory_budget("m", 401.0, _mem)[1] is not False or _evaluate_memory_budget("m", 400.0, _mem)[1] is not True:
+        failures.append("_evaluate_memory_budget must flag > budget and pass == budget")
+    if _evaluate_memory_budget("p", 10**6, _mem) != (None, None, None) or _evaluate_memory_budget("x", 1, _mem) != (None, None, None):
+        failures.append("a pending or missing memory budget must be measure-only")
+    if _pending_memory_budget("p", _mem) != "#2430" or _pending_memory_budget("m", _mem) is not None:
+        failures.append("_pending_memory_budget must need a null budget and a '#NNNN' reference")
+    for bad in ({"s": {"budget_peak_rss_mb": None}}, {"s": {"budget_peak_rss_mb": None, "pending_memory_budget": "x"}}):
+        if _pending_memory_budget("s", bad) is not None:
+            failures.append(f"{bad!r} must not count as a pending memory budget")
+    # _ServerMemory against a fake /proc: reads the status, writes "5" to clear_refs.
+    import tempfile
+    with tempfile.TemporaryDirectory() as fake_proc:
+        os.makedirs(os.path.join(fake_proc, "123"))
+        with open(os.path.join(fake_proc, "123", "status"), "w", encoding="utf-8") as fh:
+            fh.write(sample_status)
+        _sm = _ServerMemory(123, proc_root=fake_proc)
+        _sm.reset_peak()
+        with open(os.path.join(fake_proc, "123", "clear_refs"), encoding="utf-8") as fh:
+            if fh.read() != "5":
+                failures.append("_ServerMemory.reset_peak must write 5 to clear_refs")
+        if _sm.read()["hwm_mb"] != 512.0 or _ServerMemory(None).enabled:
+            failures.append("_ServerMemory misreads the status, or a None pid is not disabled")
+    aged = _aged_endpoints("http://x", 7)
+    if set(aged) != set(_AGED_SCENARIOS) or not aged["aged_board_analytics_365"].endswith("/boards/7/analytics/?days=365"):
+        failures.append("_aged_endpoints and _AGED_SCENARIOS disagree, or the 365-day scenario lost its range")
+    if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
+        failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
+    if len(_overview_urls("http://x", 1)) != 8 or len(set(_overview_urls("http://x", 1))) != 8:
+        failures.append("the overview fan-out must be eight distinct reads")
+    # The fan-out measures the LAST response, not the sum: four 50ms requests at once
+    # must take about 50ms, never 200.
+    _wall = _fan_out(lambda _u: time.sleep(0.05), ["a", "b", "c", "d"])
+    if not 40 <= _wall < 150:
+        failures.append(f"_fan_out wall time {_wall:.0f}ms is not the longest request (expected ~50ms)")
+    try:
+        _fan_out(lambda _u: (_ for _ in ()).throw(RuntimeError("boom")), ["a"])
+        failures.append("_fan_out swallowed a failed request")
+    except RuntimeError:
+        pass
+    if (_count_of({"count": 7, "results": []}), _count_of([1, 2]), _count_of({"results": [1]}), _count_of("x")) != (7, 2, 1, None):
+        failures.append("_count_of misreads a page body")
+    for name in _AGED_SCENARIOS + _LINKED_SCENARIOS + _FANOUT_SCENARIOS:
+        if not isinstance(committed.get(name), dict):
+            failures.append(f"scenario {name!r} has no entry in nightly-load-test-baseline.json (#2430)")
+        elif committed[name].get("budget_p95_ms") is None and _pending_budget(name, committed) is None:
+            failures.append(f"scenario {name!r} has no budget_p95_ms and no pending_budget issue reference (#2430)")
+    for name in _MEMORY_GATED:
+        entry = committed.get(name) if isinstance(committed.get(name), dict) else {}
+        if entry.get("budget_peak_rss_mb") is None and _pending_memory_budget(name, committed) is None:
+            failures.append(
+                f"scenario {name!r} has no budget_peak_rss_mb and no pending_memory_budget issue reference (#2430)"
+            )
 
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
@@ -465,6 +712,12 @@ def run(args):
             multi_session.headers["Authorization"] = f"Token {fh.read().strip()}"
         sessions["card_search_multi_board"] = multi_session
 
+    analytics_session = None
+    if args.analytics_token_file:
+        with open(resolve_within(cli_roots(), args.analytics_token_file), encoding="utf-8") as fh:
+            analytics_session = requests.Session()
+            analytics_session.headers["Authorization"] = f"Token {fh.read().strip()}"
+
     # Fail loudly rather than silently measure board_list as demo2: the committed
     # board_list budget was derived as the owner, so a plain-member run would
     # compare a cheaper path against it and hide a regression (#1767). Measure-only
@@ -537,9 +790,17 @@ def run(args):
     results = {}
     violations = []
     pending = []
-    for name, url in endpoints.items():
-        print(f"Measuring {name} ({args.iterations} requests, {args.warmup} warmup)...")
-        samples_ms = _time_requests(sessions.get(name, session), url, args.iterations, args.warmup)
+    server_mem = _ServerMemory.from_pid_file(args.server_pid_file)
+    if not server_mem.enabled:
+        print("NOTE: no --server-pid-file; peak memory is NOT measured or gated (#2430).")
+
+    def measure(name, sample, iterations, warmup, extra=None):
+        """Run ``sample()`` (a list of ms), then record, print and gate its p95 and peak RSS."""
+        print(f"Measuring {name} ({iterations} timed, {warmup} warmup)...")
+        if server_mem.enabled:
+            server_mem.reset_peak()
+            rss_before = server_mem.read()["rss_mb"]
+        samples_ms = sample()
         p50 = _percentile(samples_ms, 50)
         p95 = _percentile(samples_ms, 95)
         p99 = _percentile(samples_ms, 99)
@@ -551,6 +812,7 @@ def run(args):
             "mean_ms": round(statistics.mean(samples_ms), 1),
             "max_ms": round(max(samples_ms), 1),
         }
+        entry.update(extra or {})
         budget_ms, within_budget, violation = _evaluate_budget(name, p95, budgets)
         pending_ref = _pending_budget(name, budgets)
         if pending_ref:
@@ -561,12 +823,95 @@ def run(args):
             entry["within_budget"] = within_budget
             if violation:
                 violations.append(violation)
+        mem_line = ""
+        if server_mem.enabled:
+            after = server_mem.read()
+            entry["peak_rss_mb"] = round(after["hwm_mb"], 1)
+            entry["rss_growth_mb"] = round(after["hwm_mb"] - rss_before, 1)
+            mem_budget, mem_within, mem_violation = _evaluate_memory_budget(
+                name, entry["peak_rss_mb"], budgets
+            )
+            mem_pending = _pending_memory_budget(name, budgets)
+            if mem_budget is not None:
+                entry["budget_peak_rss_mb"] = mem_budget
+                entry["within_memory_budget"] = mem_within
+                if mem_violation:
+                    violations.append(mem_violation)
+            if mem_pending:
+                entry["memory_budget_pending"] = mem_pending
+                pending.append((f"{name} (peak RSS)", mem_pending, entry["peak_rss_mb"]))
+            mem_line = f" peak_rss={entry['peak_rss_mb']}MB (+{entry['rss_growth_mb']}MB)"
         results[name] = entry
-        print(f"  p50={entry['p50_ms']}ms p95={entry['p95_ms']}ms p99={entry['p99_ms']}ms"
+        print(f"  p50={entry['p50_ms']}ms p95={entry['p95_ms']}ms p99={entry['p99_ms']}ms{mem_line}"
               + (f" (budget {budget_ms}ms)" if budget_ms is not None else " (no budget — measure-only)"))
         if pending_ref:
             print(f"  PENDING BUDGET: {name} is measured but NOT gated until {pending_ref} "
                   "assigns its budget.")
+        if server_mem.enabled and entry.get("memory_budget_pending"):
+            print(f"  PENDING MEMORY BUDGET: {name} peak RSS is measured but NOT gated until "
+                  f"{entry['memory_budget_pending']} assigns its budget.")
+
+    for name, url in endpoints.items():
+        sess = sessions.get(name, session)
+        measure(name, lambda sess=sess, url=url: _time_requests(sess, url, args.iterations, args.warmup),
+                args.iterations, args.warmup)
+
+    # The overview, as a plain member: eight reads at once on the active-only board.
+    measure(
+        "analytics_overview",
+        lambda: _fan_out_samples(dict(session.headers), _overview_urls(base_url, board_id),
+                                 args.fanout_iterations, args.fanout_warmup),
+        args.fanout_iterations, args.fanout_warmup, {"requests_per_sample": len(_OVERVIEW_PATHS)},
+    )
+
+    # Aged and linked boards (#2430, #2424): owned by their own user so no existing
+    # scenario's data changes; skipped, loudly, when that user has no token.
+    if analytics_session is None:
+        print("NOTE: no --analytics-token-file; the aged-board and linked-board scenarios "
+              "(#2430, #2424) are NOT measured.")
+    else:
+        aged_board = _find_board(analytics_session, base_url, args.aged_board_name)
+        linked_board = _find_board(analytics_session, base_url, args.linked_board_name)
+        archived_page = analytics_session.get(
+            f"{base_url}/api/v1/boards/{aged_board['id']}/cards/archived/", timeout=60)
+        archived_page.raise_for_status()
+        archived_count = _count_of(archived_page.json())
+        if not isinstance(archived_count, int) or archived_count < args.min_aged_archived:
+            raise RuntimeError(
+                f"The aged board has {archived_count} archived cards, fewer than "
+                f"--min-aged-archived={args.min_aged_archived}. Seed with "
+                "`manage.py seed_demo_data --force --scale N --aged-generations G` (#2430)."
+            )
+        linked_full = analytics_session.get(f"{base_url}/api/v1/boards/{linked_board['id']}/full/", timeout=60)
+        linked_full.raise_for_status()
+        linked_cards = linked_full.json().get("cards", [])
+        if len(linked_cards) < args.min_linked_cards or not all(c.get("parent") for c in linked_cards):
+            raise RuntimeError(
+                f"The linked board has {len(linked_cards)} cards (need >= {args.min_linked_cards}, "
+                "all with a parent). Seed with `manage.py seed_demo_data --force --scale N "
+                "--linked-boards` (#2424)."
+            )
+        fixture["aged_board_id"] = aged_board["id"]
+        fixture["aged_archived_cards"] = archived_count
+        fixture["linked_board_id"] = linked_board["id"]
+        fixture["linked_cards"] = len(linked_cards)
+        print(f"Fixture (aged/linked): {{'aged_archived_cards': {archived_count}, "
+              f"'linked_cards': {len(linked_cards)}}}")
+
+        for name, url in _linked_endpoints(base_url, linked_board["id"]).items():
+            measure(name, lambda url=url: _time_requests(analytics_session, url, args.iterations, args.warmup),
+                    args.iterations, args.warmup)
+        # Few iterations: each aged request costs seconds, and p95 over ten samples is
+        # the slowest one, which is what a "does it still fit" gate wants anyway.
+        for name, url in _aged_endpoints(base_url, aged_board["id"]).items():
+            measure(name, lambda url=url: _time_requests(analytics_session, url, args.aged_iterations, args.aged_warmup),
+                    args.aged_iterations, args.aged_warmup)
+        measure(
+            "aged_analytics_overview",
+            lambda: _fan_out_samples(dict(analytics_session.headers), _overview_urls(base_url, aged_board["id"]),
+                                     args.fanout_iterations, args.fanout_warmup),
+            args.fanout_iterations, args.fanout_warmup, {"requests_per_sample": len(_OVERVIEW_PATHS)},
+        )
 
     output = {
         "measured_at": datetime.now(timezone.utc).isoformat(),
@@ -586,8 +931,9 @@ def run(args):
               "(x1.3-1.5) to (re-)derive backend/nightly-load-test-baseline.json.")
         return 0
 
-    for name, ref, p95_ms in pending:
-        print(f"\nWARNING: PENDING BUDGET — {name} p95={p95_ms}ms is not gated; "
+    for name, ref, value in pending:
+        what = f"{value}MB" if name.endswith("(peak RSS)") else f"p95={value}ms"
+        print(f"\nWARNING: PENDING BUDGET — {name} {what} is not gated; "
               f"{ref} assigns the budget.", file=sys.stderr)
 
     if violations:
@@ -623,6 +969,31 @@ def main():
     parser.add_argument(
         "--min-multi-boards", type=int, default=50,
         help="Fail if the multi-board user can access fewer boards than this (default: 50).",
+    )
+    parser.add_argument(
+        "--analytics-token-file", default=None,
+        help="PAT for loadtest_analytics, the sole member of the aged and linked boards "
+             "(#2430, #2424). Without it those scenarios are skipped, loudly.",
+    )
+    parser.add_argument("--aged-board-name", default="Visiban Load Test Aged Board")
+    parser.add_argument("--linked-board-name", default="Visiban Load Test Linked Board")
+    parser.add_argument(
+        "--min-aged-archived", type=int, default=1000,
+        help="Fail if the aged board has fewer archived cards than this (default: 1000).",
+    )
+    parser.add_argument(
+        "--min-linked-cards", type=int, default=500,
+        help="Fail if the linked board has fewer cards than this, or any lacks a parent (default: 500).",
+    )
+    parser.add_argument("--aged-iterations", type=int, default=10,
+                        help="Timed requests per aged-board scenario (default: 10; each costs seconds).")
+    parser.add_argument("--aged-warmup", type=int, default=2)
+    parser.add_argument("--fanout-iterations", type=int, default=10,
+                        help="Timed overview fan-outs per board (default: 10).")
+    parser.add_argument("--fanout-warmup", type=int, default=2)
+    parser.add_argument(
+        "--server-pid-file", default=None,
+        help="File holding the server's PID. Enables peak-RSS measurement (Linux, same host) (#2430).",
     )
     parser.add_argument("--board-name", default="Visiban Load Test Board")
     parser.add_argument("--budget-file", default="backend/nightly-load-test-baseline.json")

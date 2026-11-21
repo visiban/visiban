@@ -27,6 +27,9 @@
 | Notifications unread count | `GET /api/v1/notifications/unread-count/` | Same polling cadence as the list endpoint |
 | Summary and Analytics | `GET /api/v1/boards/{id}/summary/`, `GET /api/v1/boards/{id}/analytics/` | Both replay movement history in Python since [#448](https://gitlab.com/visiban/visiban/-/issues/448), for the cards relevant to their window: a query-count guard cannot see that cost. Gated since [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigned their budgets from NUC job 18170442650 |
 | Flow metrics | `GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/` | Each replays movement history in Python ([#448](https://gitlab.com/visiban/visiban/-/issues/448)). Since [#2425](https://gitlab.com/visiban/visiban/-/issues/2425) only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. `cumulative-flow` still reads every older card's movements once, folded card by card, because finished work stays in the done band for ever: it keeps one dict entry per skipped card (per-card, not per-movement), and its latency still grows with the board's history. Gated since [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigned their budgets from NUC job 18170442650 |
+| Aged-board reads | The summary, `analytics/`, `analytics/?days=365` and the eight `metrics/*` reads on the aged board (`aged_board_summary`, `aged_board_analytics`, `aged_board_analytics_365`, `aged_flow_*`) | The same active cards as the load-test board plus years of archived history ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430)). Analytics breaks on board *age*, not on the shape of the active board: in the 2026-11-20 stress run the same 2.4k active cards cost 8-10x more per `metrics/*` request with three years of archived cards behind them. `aged_flow_cumulative_flow` also makes [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) visible (it reads the whole history for any range). Run as `loadtest_analytics`, 10 timed requests each (an aged request costs seconds), so its p95 is the slowest sample |
+| Overview fan-out | Eight reads at once (`summary`, `analytics`, `cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked`): `analytics_overview` on the load-test board and `aged_analytics_overview` on the aged board | What opening the analytics overview does to one server process ([#2426](https://gitlab.com/visiban/visiban/-/issues/2426)). The sample is the wall time to the LAST response, never the sum, and the peak RSS is of the one process, where the per-request figures add up |
+| Linked child board | `GET /api/v1/boards/{id}/full/` and `GET /api/v1/boards/{id}/cards/` on the linked board (`linked_board_full`, `linked_card_list`) | 500 cards, every one linked to a parent on one of 5 parent boards ([#2424](https://gitlab.com/visiban/visiban/-/issues/2424)), so `Card.parent`'s parent-board role batch runs. Query count and p95 are correlated, not equivalent; the query counts are in `perf-bench` (`FULL_LINKED_BUDGET`, `CARD_LIST_LINKED_BUDGET`), the latency is here |
 
 This job is additive. `perf-check` and `perf-bench` are unchanged and still run where they already did. `perf-check`'s own description ([`.claude/agents/perf-check.md`](https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md)) now states the division of labor: a query-count guard doesn't satisfy a latency budget.
 
@@ -38,6 +41,8 @@ python3 scripts/nightly_load_test.py \
     --token-file /tmp/visiban_load_test_token \
     --owner-token-file /tmp/visiban_load_test_owner_token \
     --multi-board-token-file /tmp/visiban_load_test_multi_board_token \
+    --analytics-token-file /tmp/visiban_load_test_analytics_token \
+    --server-pid-file /tmp/visiban_load_test_server.pid \
     --board-name "Visiban Load Test Board" \
     --budget-file backend/nightly-load-test-baseline.json \
     --iterations 40 --warmup 5 \
@@ -51,6 +56,9 @@ The other flags shown are the script's defaults. The CI job provisions three tok
 | `--token-file` | `demo2` (a plain member) | every scenario except two |
 | `--owner-token-file` | `demo1` (the board owner) | `board_list` alone |
 | `--multi-board-token-file` | `demo3` (can access 200 boards) | `card_search_multi_board` alone |
+| `--analytics-token-file` | `loadtest_analytics` (sole member of the aged, linked and parent boards) | the `aged_*`, `linked_*` and `aged_analytics_overview` scenarios ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430), [#2424](https://gitlab.com/visiban/visiban/-/issues/2424)) |
+
+`--analytics-token-file` is optional: without it the aged and linked scenarios are skipped, with a `NOTE` line, so a local run against a plain fixture still works. CI always passes it, and the script fails before timing anything if the aged board has fewer than `--min-aged-archived` archived cards (default 1,000) or the linked board has fewer than `--min-linked-cards` cards (default 500) or any without a parent.
 
 `--owner-token-file` and `--multi-board-token-file` have no default, and the script refuses to run without them. `board_list`'s 60ms budget was derived as the owner, whose access query spans all 20 memberships, so measuring it as `demo2` would compare a cheaper path against that budget and hide a regression. Measured as `demo2`, `card_search_multi_board` would time the one-board plan again and report a number that says nothing about the many-board plan.
 
@@ -64,6 +72,19 @@ The other flags shown are the script's defaults. The CI job provisions three tok
 
 **Self-test.** Like every bespoke gate script here, it ships `python scripts/nightly_load_test.py --self-test`. It proves the percentile calculation and budget-comparison logic still fire on a known-bad and known-good input, and CI runs it immediately before the real invocation (see [CI gate self-tests](ci-gates.md)). It fails if any scenario the script measures has no `budget_p95_ms` in the committed baseline, so a new scenario can't silently stay measure-only, unless the entry carries an explicit pending budget (below). The `nightly-load-test-selftest` job runs it on merge requests that touch the script or the baseline.
 
+### Peak memory
+
+> **Added in 1.3** ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430), which [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) had also asked for).
+
+Memory is what breaks first on the analytics endpoints: 186-691 MB for one request against a 512Mi pod, and 1.1-2.0 GB for one overview open. Latency alone cannot see it.
+
+With `--server-pid-file`, the script reads the server process's peak resident set size around every scenario: it writes `5` to `/proc/<pid>/clear_refs` (which restarts `VmHWM` at the current RSS) before the scenario, and reads `VmHWM` and `VmRSS` after it. Each result carries `peak_rss_mb` (the high-water mark) and `rss_growth_mb` (that mark minus the RSS before the scenario). Linux only, same host as the server; if the file is given and the PID cannot be read the run fails rather than silently dropping the measurement.
+
+- **The gated number is the absolute peak** (`budget_peak_rss_mb`), not the growth. It includes the server's baseline and what the scenarios before it left allocated, so the scenario order is part of the fixture: do not reorder `run()` without re-deriving. Python rarely hands heap back to the OS, so a delta would read near zero once an earlier scenario had grown the heap.
+- **CI starts `runserver --noreload`** so `$!` is the server and not the reloader parent, and writes it to `VISIBAN_LOAD_TEST_SERVER_PID_FILE`. The job runs with `DEBUG=True`, which keeps every query in memory, so these numbers are higher than a production pod's; the budget is derived on the same setting, so it still moves with the code.
+- **The budget rule is the p95 one**: `budget_peak_rss_mb = ceil(measured_peak_rss_mb * 1.4 / 5) * 5`, from a NUC run, never by hand.
+- **A memory budget can be pending on its own**: `"budget_peak_rss_mb": null` with `"pending_memory_budget": "#NNNN"`. It behaves like a pending p95 budget (measured, loud, never a failure), and the self-test requires one or the other for every scenario in `_MEMORY_GATED`.
+
 ### Pending budgets
 
 A budget may only come from a NUC run, so a new scenario can land before its budget can. For that case a baseline entry may set `"budget_p95_ms": null` together with `"pending_budget": "#NNNN"`, the issue that will assign the budget. The script then:
@@ -75,7 +96,8 @@ A budget may only come from a NUC run, so a new scenario can land before its bud
 It isn't a silent default. The self-test fails a scenario whose budget is null without a valid `#NNNN` reference, or with no baseline entry at all, and asserts that a pending scenario can never produce a violation.
 
 - When the issue assigns the budget, replace `budget_p95_ms` and delete `pending_budget` in the same whole-file re-derivation.
-- Pending now: `card_timeline_counts` until [#2195](https://gitlab.com/visiban/visiban/-/issues/2195), and `board_movements`, `board_movements_deep` and `board_movements_dated` until [#2237](https://gitlab.com/visiban/visiban/-/issues/2237). All four were added after the last NUC run, so the next NUC run on `main` produces their numbers; re-derive the whole file from it.
+- Pending now, from [#2430](https://gitlab.com/visiban/visiban/-/issues/2430) and [#2424](https://gitlab.com/visiban/visiban/-/issues/2424): every new scenario (`aged_*`, `linked_*`, `analytics_overview`, `aged_analytics_overview`) has no p95 budget, and every flow, summary, analytics and aged scenario has no memory budget, because none has been measured on a NUC runner. They all cite #2430, which therefore stays open until the NUC run derives them; the `suppressions-check` job fails the day it is closed with any of them still pending.
+- Pending before that: `card_timeline_counts` until [#2195](https://gitlab.com/visiban/visiban/-/issues/2195), and `board_movements`, `board_movements_deep` and `board_movements_dated` until [#2237](https://gitlab.com/visiban/visiban/-/issues/2237). All four were added after the last NUC run, so the next NUC run on `main` produces their numbers; re-derive the whole file from it.
 - The flow, summary and analytics scenarios ([#2110](https://gitlab.com/visiban/visiban/-/issues/2110)) and `card_list` and `cards_archived` ([#2237](https://gitlab.com/visiban/visiban/-/issues/2237)) got their budgets from NUC job 18170442650 (the 2026-11-19 scheduled run on `main`). That derivation records p95 latency only: peak replay memory for the flow scenarios, also asked for in #2110, is not measured by this script.
 - The first scenario to use this was `card_search_multi_board` ([#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added the scenario), which got its budget in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808).
 - The `suppressions-check` CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending ([#1812](https://gitlab.com/visiban/visiban/-/issues/1812); see [Suppression markers](suppressions.md#what-ci-enforces)).
@@ -154,7 +176,8 @@ The job seeds a dedicated, larger board, never the real demo board:
 
 ```bash
 cd backend
-python manage.py seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications
+python manage.py seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications \
+    --aged-generations 4 --linked-boards
 ```
 
 The large fixture is regenerated fresh in an ephemeral CI database on every run and is never committed anywhere.
@@ -169,6 +192,9 @@ The large fixture is regenerated fresh in an ephemeral CI database on every run 
     - The `cards` table does grow by about 67% (about 3,980 cards in total), so those scenarios are expected, not proven, to be unaffected. [#1808](https://gitlab.com/visiban/visiban/-/issues/1808) re-derived the whole file from the first NUC run with this fixture (job 17348200339).
     - The job's `LOAD_TEST_EXTRA_BOARDS` variable sets the count. The script fails before timing anything if `demo3` can access fewer than `--min-multi-boards` boards (default 50). The CI job passes `LOAD_TEST_EXTRA_BOARDS + 1`, so a seed that silently shrinks fails.
     - The baseline's `fixture` block records `extra_board_count` and `multi_board_accessible_boards`.
+- **`--aged-generations N`** ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430)) seeds a SEPARATE board, "Visiban Load Test Aged Board": the same shape as the load-test board (about 2,400 active cards) plus `N` archived generations. Generation `g` is every active card copied with its movements shifted `90 * g` days back and archived at that point, so 4 is about a year of history (about 12k cards, 125k movements) and 12 is about three years (the stress run's size, 31k cards, 323k movements). `LOAD_TEST_AGED_GENERATIONS` sets it in CI (4, to keep the job short; raise it in a manual run to see the cliff). A separate board, because adding history to the load-test board would silently change every committed budget derived without it. Requires `--scale > 1`. Seeding takes about as long as the load-test board itself, since the copies are bulk-inserted.
+- **`--linked-boards`** ([#2424](https://gitlab.com/visiban/visiban/-/issues/2424)) seeds 5 parent boards (`cards_can_have_children` on, 5 cards each) and "Visiban Load Test Linked Board", a 500-card child board where every card has a parent: 20 children per parent, spread across the 5 parent boards. The links are bulk-written but only between boards that satisfy `link_allowed` and under `CHILDREN_PER_PARENT_LIMIT`. Requires `--scale > 1`.
+- **The aged, linked and parent boards belong to `loadtest_analytics`, and to nobody else.** `card_search` filters on the viewer's accessible board ids, so giving `demo2` or `demo3` access would change a gated plan. One account with its own token leaves every existing scenario's data exactly as its budget was derived. The user has an unusable password, like the filler accounts.
 - **Deep movement history.** With `--scale > 1`, every card that has moved off the first column also gets 10 extra back-and-forth moves right after creation, so cards carry ~12-16 lifetime movements. Card-serving reads must not scale with that history ([#1883](https://gitlab.com/visiban/visiban/-/issues/1883)); a regression to loading every movement per card is invisible to query-count guards but shows up here as latency. The extra moves predate the real stage transitions, so each card's current column and `last_moved_at` are unchanged.
 - **`--with-notifications`** seeds 60 unread `Notification` rows for the `demo2` user. That is more than the 50-row cap `NotificationListView` applies (`NotificationUnreadCountView` is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.
 - **A fixture size with no stated card/swimlane count is meaningless**: a p95 is only interpretable next to its data volume. `nightly-load-test-results.json` (the job's artifact) records the actual card and swimlane count with the timings, and `backend/nightly-load-test-baseline.json` records what the committed budgets were derived against.
@@ -235,7 +261,8 @@ budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
 2. Download its `nightly-load-test-results.json` artifact.
 3. For each endpoint, recompute `budget_p95_ms` from that run's `p95_ms` using the formula above.
 4. Update `backend/nightly-load-test-baseline.json`'s `measured_p95_ms`, `measured_p99_ms`, and `budget_p95_ms` fields (and, for an entry with a `pending_budget` key, delete that key once its budget is set), its top-level `measured_at`, and its `fixture` block if the fixture size changed. Recompute the whole file in one pass. Never hand-adjust a single `budget_p95_ms` without also updating the `measured_p95_ms` it supposedly came from.
-5. Flip `status` from `"provisional"` to `"ci-derived"` the first time this is done from a real scheduled pipeline run (see the note below).
+5. For every scenario with a `pending_memory_budget` key, set `budget_peak_rss_mb = ceil(peak_rss_mb * 1.4 / 5) * 5` from the same artifact and delete that key. The first NUC run with the aged and linked boards ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430), [#2424](https://gitlab.com/visiban/visiban/-/issues/2424)) is also what assigns the new scenarios' first p95 budgets; a budget that would fail today because of an open fix ([#2444](https://gitlab.com/visiban/visiban/-/issues/2444), [#2426](https://gitlab.com/visiban/visiban/-/issues/2426), [#2427](https://gitlab.com/visiban/visiban/-/issues/2427)) stays pending against that issue rather than being loosened. Only then close #2430.
+6. Flip `status` from `"provisional"` to `"ci-derived"` the first time this is done from a real scheduled pipeline run (see the note below).
 
 !!! note "Re-derived from the first real CI run — #1233"
     The baseline committed alongside #1082 was measured locally (a development machine, not a

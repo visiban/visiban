@@ -5823,6 +5823,15 @@ nightly-load-test:
     VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE: "/tmp/visiban_load_test_multi_board_token"
     # Extra boards demo3 owns (#1810): 199 + the load-test board = 200 accessible ids.
     LOAD_TEST_EXTRA_BOARDS: "199"
+    # Fourth token, for loadtest_analytics, the only member of the aged and linked
+    # boards (#2430, #2424): their own account keeps every other scenario's data as
+    # the committed budgets were derived on it.
+    VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE: "/tmp/visiban_load_test_analytics_token"
+    # Archived generations on the aged board, 90 days apart: 4 is about a year of
+    # history (about 12k cards, 125k movements) behind 2.4k active cards (#2430).
+    LOAD_TEST_AGED_GENERATIONS: "4"
+    # runserver's PID, so the script can read its peak RSS from /proc (#2430).
+    VISIBAN_LOAD_TEST_SERVER_PID_FILE: "/tmp/visiban_load_test_server.pid"
   before_script:
     - !reference [.pip-floor, script]
     - pip install --quiet -r backend/requirements.txt
@@ -5831,16 +5840,20 @@ nightly-load-test:
     # A dedicated, larger board — never the normal demo board — so this job's
     # fixture size is independent of and cannot collide with seed-demo-data's
     # manual refresh of "Visiban Demo Board".
-    - python manage.py seed_demo_data --force --scale ${LOAD_TEST_SCALE} --extra-boards ${LOAD_TEST_EXTRA_BOARDS} --with-notifications
+    - python manage.py seed_demo_data --force --scale ${LOAD_TEST_SCALE} --extra-boards ${LOAD_TEST_EXTRA_BOARDS} --with-notifications --aged-generations ${LOAD_TEST_AGED_GENERATIONS} --linked-boards
     # --set-random-password: same defense in depth as backend-schema-fuzz
     # (#1607, #1609); the load profile does not change passwords today, but the
     # token must not be revocable by one. Throwaway CI database only.
     - python manage.py provision_fuzz_token --username demo2 --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username demo1 --token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username demo3 --token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}" --set-random-password
+    - python manage.py provision_fuzz_token --username loadtest_analytics --token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" --set-random-password
     # Server output goes to an artifact, not the job log (#1611), same as
     # backend-schema-fuzz (#1607). after_script tails it on failure.
-    - python manage.py runserver 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+    # --noreload: the autoreloader would make $! the reloader parent, whose RSS is not
+    # the server's. The PID file is how the script reads the server's peak RSS (#2430).
+    - python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+    - echo $! > "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}"
     # Poll liveness instead of a fixed sleep, same pattern as oidc-smoke /
     # backend-schema-fuzz.
     - |
@@ -5863,6 +5876,8 @@ nightly-load-test:
         --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" \
         --owner-token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}" \
         --multi-board-token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}" \
+        --analytics-token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" \
+        --server-pid-file "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}" \
         --min-multi-boards "$((LOAD_TEST_EXTRA_BOARDS + 1))" \
         --board-name "Visiban Load Test Board" \
         --budget-file backend/nightly-load-test-baseline.json \

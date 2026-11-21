@@ -28,7 +28,6 @@ from boards.models import (
     Card,
     CardMovement,
     CardParentLink,
-    Column,
     Swimlane,
 )
 from boards.services.card_links import CHILDREN_PER_PARENT_LIMIT, link_allowed
