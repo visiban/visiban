@@ -497,7 +497,7 @@ function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }:
       </div>
       <p role="alert" className={error ? "text-xs text-danger" : "sr-only"}>{error ?? ""}</p>
       <div className="flex justify-end gap-3">
-        <button type="button" onClick={onClose} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Cancel</button>
+        <button type="button" onClick={onClose} className="min-h-11 px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           type="button"
           disabled={!target || choice === child.column_id}
