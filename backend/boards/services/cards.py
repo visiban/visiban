@@ -322,6 +322,10 @@ def _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many=None
     """
     if not peer_ids:
         return
+    # Each peer's blocked state just changed, which its parent's rollup reads
+    # (#2210): ping the parents' boards, ids only, whatever the render path.
+    from .card_links import announce_children_changed
+    announce_children_changed(peer_ids, actor_id=getattr(actor, "id", None))
     if render_many is not None:
         payloads = render_many(peer_ids)
     elif render is not None:
@@ -2183,6 +2187,11 @@ def _move_card_attempt(
         if column_changed or swimlane_changed:
             from .card_links import announce_parent_changed
             announce_parent_changed(card.pk, board, actor_id=actor.id)
+        # A child's column is its rollup state on the parent (#2210): ping the
+        # parent's board, ids only. A lane change alone changes no state.
+        if column_changed:
+            from .card_links import announce_children_changed
+            announce_children_changed([card.pk], board=board, actor_id=actor.id)
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 
@@ -2369,8 +2378,10 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
                 _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
                 _broadcast_after_commit(board_id, _broadcast.EVT_CARD_ARCHIVED, {"card_uid": card_uid}, actor.id)
                 # The children show their parent as archived (#1104).
-                from .card_links import announce_parent_changed
+                from .card_links import announce_children_changed, announce_parent_changed
                 announce_parent_changed(card.pk, board, actor_id=actor.id)
+                # An archived child leaves its parent's rollup (#2210).
+                announce_children_changed([card.pk], board=board, actor_id=actor.id)
                 # Archiving a blocker drops its targets' blocker_count (#449).
                 # Rendered after the save so each peer payload reflects the new
                 # state, and inside the transaction so it rolls back with it.
@@ -2443,8 +2454,10 @@ def unarchive_card(
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UNARCHIVED, payload, actor.id)
         # The children show their parent as restored (#1104).
-        from .card_links import announce_parent_changed
+        from .card_links import announce_children_changed, announce_parent_changed
         announce_parent_changed(card.pk, board, actor_id=actor.id)
+        # A restored child rejoins its parent's rollup (#2210).
+        announce_children_changed([card.pk], board=board, actor_id=actor.id)
         # Restoring a blocker puts its targets back into a blocked state (#449)
         # — the mirror of the archive case above.
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
@@ -2551,6 +2564,9 @@ def block_card(*, actor, board, card_id, reason, render, role=None):
         )
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
+        # Blocked is a rollup state on the parent (#2210): ping its board, ids only.
+        from .card_links import announce_children_changed
+        announce_children_changed([card.pk], board=board, actor_id=actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
@@ -2601,6 +2617,9 @@ def unblock_card(*, actor, board, card_id, render, resolution="", role=None):
         )
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
+        # Blocked is a rollup state on the parent (#2210): ping its board, ids only.
+        from .card_links import announce_children_changed
+        announce_children_changed([card.pk], board=board, actor_id=actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 

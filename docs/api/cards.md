@@ -1288,6 +1288,34 @@ board store replaces a card wholesale on `card.updated`, so a client must carry
 `parent` over from its previous copy, or every edit of a child blanks its parent
 line. Refetch on `card.parent_changed`.
 
+#### `children_rollup` (since 1.3)
+
+On a board with `cards_can_have_children`, each card carries `children_rollup`
+(#2210), the progress of its children **computed for the caller**:
+
+```json
+{"visible": true, "total": 5, "done": 2, "doing": 1, "todo": 1, "blocked": 1,
+ "last_moved_at": "2026-11-19T14:02:00Z"}
+```
+
+The states partition `total`: a child that is blocked (a manual block or an
+open `blocks` relation, the same rule as `is_blocked`) counts as `blocked`
+whatever its column; otherwise `done` when its column has `is_done`, `todo`
+when it is in the child board's first column, else `doing`. Archived children
+are not counted. `last_moved_at` is the latest movement of any counted child,
+or `null`. A card with no children reads `total: 0`.
+
+When the caller cannot open the child board, the rollup is
+`{"visible": false, "total": N}` and nothing else: no state, time, title,
+board or id (an accepted count-only disclosure, #1104).
+
+`children_rollup` is **present** on `GET .../full/`, the per-board card list and
+`GET .../cards/{id}/`, on cards of a parent-tier board only. It is **absent**
+from every other board's cards, `archived/`, the cross-board `GET /api/v1/cards/`,
+write responses, every event payload, change-feed row and webhook, and share
+links. Refetch the card on `card.children_changed`, and carry the last value
+over when a frame replaces the card, as for `parent`.
+
 ### `GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&search=`
 
 Since 1.3 (same stability note). Up to 20 cards on the parent board `board` that
@@ -1359,7 +1387,9 @@ values blank). Neither stores the deleted board's name, so every reader sees
 "N children removed: their board was deleted" (#2208). Each link change publishes `card.children_changed {parent_id}` on the
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
 ids only. `card.parent_changed` is also sent when a parent is renamed, moved to
-another column or lane, archived or restored. See [WebSockets](websockets.md).
+another column or lane, archived or restored, or when its board, column or lane
+is renamed (#2416, one frame per child board; a rename made in the Django admin sends no frame, so those names refresh on the next read). `card.children_changed` is also
+sent when a child changes a rollup state (#2210). See [WebSockets](websockets.md).
 
 ---
 

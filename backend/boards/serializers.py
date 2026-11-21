@@ -3678,6 +3678,80 @@ class CardParentField(serializers.Field):
         return value
 
 
+#: Serializer-context key holding ``card_links.rollups_for_viewer``'s result
+#: (#2210). Set ONLY by the reads that name a viewer on a parent-tier board
+#: (``/full/``, the card list and retrieve). Absent, ``children_rollup`` is
+#: omitted (#1075): every event payload, feed row, webhook, MCP tool, export and
+#: ``PublicBoardSerializer`` carries none, because the rollup describes boards
+#: the reader of a shared frame may not be able to open (threat model risk 1).
+CARD_CHILDREN_ROLLUP_CONTEXT_KEY = "card_children_rollups"
+
+
+@extend_schema_field({
+    "readOnly": True,
+    "description": (
+        "Progress of this card's children (#2210, since 1.3), resolved for the caller. "
+        "Present only on cards of a board with `cards_can_have_children`, on `/full/`, "
+        "the card list and retrieve; absent from write responses, every event payload, "
+        "feed row and webhook, and share links. `visible: false` when the caller cannot "
+        "open the child board: then only `total` is sent. States partition `total`: "
+        "blocked overrides the column, then done (`is_done` column), to do (first "
+        "column), else doing. Archived children are not counted. Refetch on "
+        "`card.children_changed`."
+    ),
+    "oneOf": [
+        {
+            "type": "object",
+            "properties": {
+                "visible": {"type": "boolean", "enum": [True]},
+                "total": {"type": "integer"},
+                "done": {"type": "integer"},
+                "doing": {"type": "integer"},
+                "todo": {"type": "integer"},
+                "blocked": {"type": "integer"},
+                "last_moved_at": {"type": "string", "format": "date-time", "nullable": True},
+            },
+            "required": ["visible", "total", "done", "doing", "todo", "blocked", "last_moved_at"],
+        },
+        {
+            "type": "object",
+            "properties": {
+                "visible": {"type": "boolean", "enum": [False]},
+                "total": {"type": "integer"},
+            },
+            "required": ["visible", "total"],
+            "additionalProperties": False,
+        },
+    ],
+})
+class CardChildrenRollupField(serializers.Field):
+    """``Card.children_rollup``: read-only, opt-in per call (#2210).
+
+    Same shape of guard as :class:`CardParentField`: ``get_attribute`` raises
+    ``SkipField`` without ``CARD_CHILDREN_ROLLUP_CONTEXT_KEY``, so a caller
+    that names no viewer gets no rollup rather than the actor's (#1075).
+    """
+
+    _datetime = serializers.DateTimeField()
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("source", "*")
+        kwargs["read_only"] = True
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        rollups = self.context.get(CARD_CHILDREN_ROLLUP_CONTEXT_KEY)
+        if rollups is None or instance.pk not in rollups:
+            raise serializers.SkipField()
+        return rollups[instance.pk]
+
+    def to_representation(self, value):
+        if "last_moved_at" not in value:
+            return dict(value)
+        moved = value["last_moved_at"]
+        return {**value, "last_moved_at": self._datetime.to_representation(moved) if moved else None}
+
+
 class ParentBoardOptionSerializer(serializers.Serializer):
     """Schema only (#1104): a row of ``GET /boards/{id}/parent-boards/``.
 
@@ -3832,6 +3906,8 @@ class CardSerializer(serializers.ModelSerializer):
     external_ref = ExternalRefSerializer(allow_null=True, required=False)
     # Parent card (#1104). Omitted unless the caller set CARD_PARENTS_CONTEXT_KEY.
     parent = CardParentField()
+    # Child rollup (#2210). Omitted unless the caller set CARD_CHILDREN_ROLLUP_CONTEXT_KEY.
+    children_rollup = CardChildrenRollupField()
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -3904,7 +3980,7 @@ class CardSerializer(serializers.ModelSerializer):
             "gates_passed",
             # Parent card (#1104, since 1.3). Read-only and opt-in per call;
             # see CardParentField.
-            "parent",
+            "parent", "children_rollup",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
@@ -5194,6 +5270,12 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
                 [c.pk for c in cards], self.context["card_parent_viewer"],
             )
+            # ``children_rollup`` (#2210), for the same viewer, only on a
+            # parent-tier board: zero queries on every other board.
+            if obj.cards_can_have_children:
+                ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer(
+                    [c.pk for c in cards], self.context["card_parent_viewer"],
+                )
         return CardSerializer(cards, many=True, context=ctx).data
 
     # Schema only (#1137): these rows are the effective roster, not

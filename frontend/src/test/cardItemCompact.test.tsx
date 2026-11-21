@@ -358,3 +358,31 @@ describe('CardItem — embedded label changes (#1888)', () => {
     expect(dot().outerHTML).not.toBe(before)
   })
 })
+
+describe('CardItem — child progress footer gate and memo (#2210)', () => {
+  const rollup = (done: number): NonNullable<Card['children_rollup']> => ({
+    visible: true, total: 3, done, doing: 0, todo: 3 - done, blocked: 0, last_moved_at: null,
+  })
+
+  it('renders the footer for a card with a rollup', () => {
+    render(<CardItem density="comfortable" card={makeCard({ children_rollup: rollup(1) })} />)
+    expect(screen.getByTestId('card-children-rollup')).toBeInTheDocument()
+  })
+
+  it('renders no footer in the compact layout', () => {
+    render(<CardItem density="comfortable" card={makeCard({ children_rollup: rollup(1) })} compact />)
+    expect(screen.queryByTestId('card-children-rollup')).not.toBeInTheDocument()
+  })
+
+  it('renders no footer for a card without a rollup', () => {
+    render(<CardItem density="comfortable" card={makeCard()} />)
+    expect(screen.queryByTestId('card-children-rollup')).not.toBeInTheDocument()
+  })
+
+  it('re-renders when only the rollup changes', () => {
+    const { rerender } = render(<CardItem density="comfortable" card={makeCard({ children_rollup: rollup(1) })} />)
+    expect(screen.getByTestId('card-children-rollup')).toHaveAttribute('aria-label', expect.stringContaining('1 of 3 done'))
+    rerender(<CardItem density="comfortable" card={makeCard({ children_rollup: rollup(2) })} />)
+    expect(screen.getByTestId('card-children-rollup')).toHaveAttribute('aria-label', expect.stringContaining('2 of 3 done'))
+  })
+})

@@ -4,7 +4,7 @@ import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
 import { useBoard, reorderWithinCellOptimistically } from '../hooks/useBoard'
 import { mergeSwimlaneFromBroadcast, swimlaneForRole } from '../utils/swimlaneMerge'
-import type { BoardFull, Card, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
+import type { BoardFull, Card, CardChildrenRollup, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
 const mockNavigate = vi.fn()
 
@@ -2362,6 +2362,35 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     expect(byId(result.current.board, 1)?.parent).toEqual(parentA)
     await fetch.resolve(makeBoard({ cards: [card(1, 1, { parent: parentB })] }))
     expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, parent: parentB })
+  })
+
+  const rollup = (done: number): CardChildrenRollup => ({ visible: true, total: 3, done, doing: 0, todo: 3 - done, blocked: 0, last_moved_at: null })
+
+  it('a snapshot racing a newer frame fills the children_rollup the kept copy lacks (#2210)', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    const fetch = startFetch(result)
+    // The frame is newer and carries no `children_rollup` (per-reader, never in a frame).
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    await fetch.resolve(makeBoard({ cards: [card(1, 1, { children_rollup: rollup(1) }), card(2, 1)] }))
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', version: 2, children_rollup: rollup(1) })
+  })
+
+  it('a frame without children_rollup keeps the stored rollup through a wholesale replace (#2210)', async () => {
+    const { result } = await renderBoard([card(1, 1, { children_rollup: rollup(2) })])
+    act(() => { result.current.updateCard(card(1, 2, { title: 'Remote edit' })) })
+    expect(byId(result.current.board, 1)).toMatchObject({ title: 'Remote edit', children_rollup: rollup(2) })
+  })
+
+  it('applyCardChildrenRollups sets only the named cards and is a no-op otherwise (#2210)', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    const before = result.current.board!
+    act(() => { result.current.applyCardChildrenRollups(new Map()) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardChildrenRollups(new Map([[999999, rollup(1)]])) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardChildrenRollups(new Map([[1, rollup(3)]])) })
+    expect(byId(result.current.board, 1)).toEqual({ ...before.cards.find((c) => c.id === 1), children_rollup: rollup(3) })
+    expect(byId(result.current.board, 2)).toBe(before.cards.find((c) => c.id === 2))
   })
 
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {

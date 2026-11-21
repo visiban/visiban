@@ -7,7 +7,7 @@ import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "..
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
-import type { BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
 export type MoveOutcome = { ok: true } | { ok: false; error: unknown };
@@ -175,8 +175,14 @@ function mergeMemberRow(prev: EffectiveBoardMember, incoming: BoardMembership, o
  * what refreshes it (applyCardParents).
  */
 export function carryParent(incoming: Card, previous: Card | undefined): Card {
-  if (incoming.parent !== undefined || previous?.parent === undefined) return incoming;
-  return { ...incoming, parent: previous.parent };
+  let out = incoming;
+  if (incoming.parent === undefined && previous?.parent !== undefined) out = { ...out, parent: previous.parent };
+  // `children_rollup` (#2210) is per-reader the same way; `card.children_changed`
+  // refreshes it (applyCardChildrenRollups).
+  if (incoming.children_rollup === undefined && previous?.children_rollup !== undefined) {
+    out = { ...out, children_rollup: previous.children_rollup };
+  }
+  return out;
 }
 
 function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
@@ -382,7 +388,11 @@ function mergeSnapshotCards(prev: BoardFull, snapshot: BoardFull, touches: Fetch
       // The kept copy came from a frame or write response, which never
       // carries `parent` (a copy that has one only carried an older read
       // forward); the snapshot's is the newest read, so it always wins (#1104).
-      cards.push(card.parent !== undefined ? { ...mine, parent: card.parent } : mine);
+      cards.push({
+        ...mine,
+        ...(card.parent !== undefined ? { parent: card.parent } : {}),
+        ...(card.children_rollup !== undefined ? { children_rollup: card.children_rollup } : {}),
+      });
       changed = true;
     } else if (
       touches.siblingPositions.has(card.id) && card.version === mine.version && card.position !== mine.position
@@ -1503,6 +1513,22 @@ export function useBoard() {
     });
   }, [writeBoard]);
 
+  // `card.children_changed` refetch results (#2210): sets only
+  // `children_rollup`, for the same reason as applyCardParents.
+  const applyCardChildrenRollups = useCallback((rollups: ReadonlyMap<number, CardChildrenRollup>) => {
+    if (rollups.size === 0) return;
+    writeBoard((b) => {
+      let changed = false;
+      const cards = b.cards.map((c) => {
+        const r = rollups.get(c.id);
+        if (r === undefined) return c;
+        changed = true;
+        return { ...c, children_rollup: r };
+      });
+      return changed ? { ...b, cards } : b;
+    });
+  }, [writeBoard]);
+
   const mergeBoardState = useCallback((patch: Partial<BoardFull>) => {
     // archived_card_count is deliberately NOT merged (#1289). board.updated
     // payloads are full BoardSerializer snapshots taken at emit time, so one
@@ -1548,5 +1574,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

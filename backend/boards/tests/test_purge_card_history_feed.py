@@ -929,7 +929,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     # per read path (CardParentField) and never in an event payload, feed row or
     # webhook, so no history row holds it and there is nothing for a purge to redact.
     # Adding it to a persisted payload would need a redaction rule first.
-    CARD_NEVER_PERSISTED = {"parent"}
+    # #2210: ``children_rollup`` is opt-in the same way and holds only counts.
+    CARD_NEVER_PERSISTED = {"parent", "children_rollup"}
 
     def test_card_fields(self):
         self.assertEqual(

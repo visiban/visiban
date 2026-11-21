@@ -144,7 +144,15 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 # instance predates the lock, so a rename that queued behind
                 # a reorder would write the old position back.
                 serializer.instance.refresh_from_db()
+                old_name = serializer.instance.name
                 column = serializer.save()
+                # A parent's column name shows on each child (#2416): one
+                # coalesced, ids-only ping per child board, on commit.
+                if column.name != old_name:
+                    from ..services.card_links import announce_parent_container_renamed
+                    announce_parent_container_renamed(
+                        board, column_id=column.pk, actor_id=self.request.user.id,
+                    )
                 prefetch_related_objects([column], "sub_columns", "stage_tracks__field_definition")
                 column_data = ColumnSerializer(column).data
                 board_id = column.board_id

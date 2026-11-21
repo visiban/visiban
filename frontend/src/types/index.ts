@@ -854,7 +854,33 @@ export interface Card {
    * store that replaces a card wholesale must carry the last value read over.
    */
   parent?: CardParent | null;
+  /**
+   * Progress of this card's children, resolved for the viewer (#2210, since 1.3).
+   * Present only on a parent-tier board's `/full/`, card list and retrieve;
+   * absent from write responses, frames and share links, so a store that
+   * replaces a card wholesale carries the last value over (like `parent`).
+   */
+  children_rollup?: CardChildrenRollup;
 }
+
+/** Child progress when the viewer can open the child board (#2210). States partition `total`. */
+export interface CardChildrenRollupVisible {
+  visible: true;
+  total: number;
+  done: number;
+  doing: number;
+  todo: number;
+  blocked: number;
+  last_moved_at: string | null;
+}
+
+/** Children on a board the viewer cannot open: the count only (#2210). */
+export interface CardChildrenRollupHidden {
+  visible: false;
+  total: number;
+}
+
+export type CardChildrenRollup = CardChildrenRollupVisible | CardChildrenRollupHidden;
 
 /** A parent card the viewer can open (#1104). */
 export interface CardParentVisible {

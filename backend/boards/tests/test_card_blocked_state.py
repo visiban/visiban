@@ -440,7 +440,7 @@ class BlockBroadcastTests(_BlockTestBase):
         # a broadcast is built with the actor's request, so a parent resolved for
         # the actor would reach every reader of the frame.
         self.assertEqual(
-            set(payload), set(CardSerializer().fields) - {"label_ids", "assignee_id", "parent"},
+            set(payload), set(CardSerializer().fields) - {"label_ids", "assignee_id", "parent", "children_rollup"},
         )
 
     def test_unblock_broadcasts_card_updated(self):

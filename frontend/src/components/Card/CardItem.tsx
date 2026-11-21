@@ -1,5 +1,6 @@
 import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
 import LockGlyph from "./LockGlyph";
+import CardChildrenRollup from "./CardChildrenRollup";
 import { LINKED_CARD_HIDDEN } from "./cardParent";
 import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
@@ -144,6 +145,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.updated_at !== next.card.updated_at ||
     prev.card.title !== next.card.title ||
     prev.card.parent !== next.card.parent ||
+    prev.card.children_rollup !== next.card.children_rollup ||
     prev.card.column !== next.card.column ||
     prev.card.swimlane !== next.card.swimlane ||
     prev.card.position !== next.card.position ||
@@ -1337,6 +1339,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           >
             {statusNode}
           </div>
+        )}
+
+        {/* Child progress footer (#2210): only a parent-tier board's per-viewer
+            reads carry `children_rollup`, so a plain board and a share link
+            draw nothing. Under the status line, after a hairline. */}
+        {!compact && card.children_rollup && (
+          <CardChildrenRollup rollup={card.children_rollup} density={density} stalenessDays={staleness_threshold_days} />
         )}
 
         {/* Assignee avatar — positioned against the content wrapper

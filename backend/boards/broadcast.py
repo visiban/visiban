@@ -197,11 +197,6 @@ INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
         "group channel (where it does drive the boards list) and to put the row "
         "in the change feed; BoardView has nothing to do with it."
     ),
-    EVT_CARD_CHILDREN_CHANGED: (
-        "Backend-first (#1104): the parent-side Children tab and rollup that "
-        "refetch on this ping ship in #2209/#2210. Until then no client view "
-        "shows children, so there is nothing to refresh."
-    ),
 }
 
 

@@ -208,6 +208,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     applyCardParents: vi.fn(),
+    applyCardChildrenRollups: vi.fn(),
     silentReload: vi.fn(),
     ...overrides,
   }

@@ -254,7 +254,7 @@ describe('warning-action button (#2169)', () => {
 
 // CardItem plus every component it mounts inside the metadata row (nested ones included:
 // MultiSelectChips mounts ChoiceValue). The #1844 import guard below keeps this list complete.
-const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark', 'TrackChips', 'LockGlyph']
+const CARD_FACE_FILES = ['CardItem', 'CustomFieldLink', 'MultiSelectChips', 'ChoiceValue', 'ExternalRefGlyph', 'AgingCue', 'UrgencyGlyph', 'ThresholdMark', 'TrackChips', 'LockGlyph', 'CardChildrenRollup']
 // `text-<x>` utilities that are not a color: size, alignment, wrap and overflow.
 const NOT_COLOR = new Set([
   'xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl',
@@ -280,7 +280,7 @@ describe('card metadata on an aging tint (#1844)', () => {
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
   // Sibling components CardItem imports that never render inside the row: they are portaled.
   // Plain .ts modules CardItem imports values from: no markup, so no text color to scan (#1104).
-  const NO_MARKUP = ['cardParent'] // cardParent.ts: the hidden-parent copy and the re-read event name
+  const NO_MARKUP = ['cardParent', 'childrenRollup'] // cardParent.ts: the hidden-parent copy and the re-read event name
   const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover', 'CardContextMenu'] // CardContextMenu: type-only import in CardItem; the menu itself is portaled (#2059)
   const themes = [
     ['dark', darkBlock],
@@ -407,6 +407,8 @@ describe('card metadata on an aging tint (#1844)', () => {
       'border-fg-tertiary', // dotted quick-edit underline under a chip value: follows the rescoped text tone
       'ring-info', // transient context-menu target outline on the card root (#2059), outside the metadata row
       'bg-info', // context-target bg-info/10 fill on the card root (CardItem), outside the metadata row (and dropped under a tint)
+      'border-info', // CardChildrenRollup Doing segment outline (#2210): a >=3:1 non-text mark (5.75 dark / 5.17 light on the card), drawn in the footer, not the metadata row
+      'border-danger', // CardChildrenRollup blocked segment outline (#2210): 4.83:1 light / 5.29 dark non-text mark
       'bg-success', // TrackChips done chip bg-success/20 (#2278): its text is the explicit text-success-on-tint token, an explicit on-tint token (not rescoped)
     ])
     // Literal regex (no RegExp constructor); the token list must match the rescope exactly.

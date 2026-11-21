@@ -367,9 +367,11 @@ def mark_deprecated_fields(result, generator, request, public):
 # in the component's ``required``. drf-spectacular marks every read-only field
 # required, but ``Card.parent`` (#1104) is opt-in per call: it is present on
 # the reads that name a viewer and absent from write responses and every
-# event payload. Left required, every write response would fail the schema.
+# event payload. ``Card.children_rollup`` (#2210) is opt-in the same way.
+# Left required, every write response would fail the schema.
 _OMITTABLE_RESPONSE_PROPERTIES = (
     ("Card", "parent"),
+    ("Card", "children_rollup"),
 )
 
 

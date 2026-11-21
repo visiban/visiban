@@ -546,8 +546,13 @@ class BoardViewSet(
             old_auto = board.health_auto_enabled
             old_off_track_cards = board.health_off_track_cards
             old_staleness_days = board.staleness_threshold_days
+            old_name = board.name
             serializer.save()
             board = serializer.instance
+            # A parent board's name shows on each child (#2416): one coalesced,
+            # ids-only ping per child board, published on commit.
+            if board.name != old_name:
+                card_links.announce_parent_container_renamed(board, actor_id=self.request.user.id)
             record_if_changed(
                 board, change_model=BoardHealthChange, from_status=old_health_status, user=self.request.user,
             )

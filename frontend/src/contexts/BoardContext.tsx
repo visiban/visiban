@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
-import type { BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 export interface BoardContextType {
   board: BoardFull | null;
@@ -63,6 +63,8 @@ export interface BoardContextType {
   mergeBoardState: (patch: Partial<BoardFull>) => void;
   /** Set only `parent` on the given cards: the `card.parent_changed` re-read (#1104). */
   applyCardParents: (parents: ReadonlyMap<number, CardParent | null>) => void;
+  /** Set only `children_rollup` on the given cards: the `card.children_changed` re-read (#2210). */
+  applyCardChildrenRollups: (rollups: ReadonlyMap<number, CardChildrenRollup>) => void;
 }
 
 const BoardContext = createContext<BoardContextType | null>(null);

@@ -240,6 +240,7 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     evictCardByUid: vi.fn(),
     mergeBoardState: vi.fn(),
     applyCardParents: vi.fn(),
+    applyCardChildrenRollups: vi.fn(),
     ...overrides,
   }
 }

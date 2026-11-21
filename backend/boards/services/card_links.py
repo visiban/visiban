@@ -26,14 +26,16 @@ column or id.
 """
 
 from django.db import connection, transaction
-from django.db.models import Case, Count, F, IntegerField, OuterRef, Prefetch, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, F, IntegerField, Min, OuterRef, Prefetch, Q, Subquery, Value, When
 from django.db.models.functions import Lower
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from visiban.exceptions import CodedValidationError
 
 from .. import broadcast as _broadcast
-from ..models import Board, BoardMembership, Card, CardActivity, CardParentLink, CardRelation, Column
+from ..models import (
+    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardRelation, Column,
+)
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from .errors import LinksChanged
 
@@ -1343,4 +1345,196 @@ def announce_parent_changed(card_id, board, *, actor_id):
         _broadcast.record_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": sorted(by_board[child_board_id])}, actor_id=actor_id,
+        )
+
+
+# ─── Parent-side rollup and child-side pings (#2210, #2416) ──────────────────
+
+
+def _empty_rollup():
+    return {
+        "visible": True, "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
+        "last_moved_at": None,
+    }
+
+
+def rollups_for_viewer(parent_ids, user):
+    """The one parent-side child rollup for every transport (Rule 10). Per viewer.
+
+    Returns ``{parent_id: rollup}`` with an entry for EVERY id in
+    ``parent_ids`` (a parent with no children gets the zero rollup, which the
+    card face shows as "No children"). A rollup is either
+
+    * ``{"visible": True, "total", "done", "doing", "todo", "blocked",
+      "last_moved_at"}`` when ``user`` holds a role on the child board, or
+    * ``{"visible": False, "total"}`` when it does not: the accepted count-only
+      disclosure (owner sign-off 2026-11-17, decision B). No state, timestamp,
+      board, column or id of a child the viewer cannot open is returned.
+
+    **Why per viewer and never stored or broadcast** (threat model 2026-11-14,
+    risk 1): one shared number would hand every parent-board member, webhook
+    and share-link viewer a live signal about a board they may not be able to
+    open. So the event is the ids-only ``card.children_changed`` ping and each
+    client re-reads this over REST, resolved with ``get_board_roles`` on every
+    call (Rules 2 and 3: losing the child board hides the states on the next
+    read). Absent viewer fails closed (#1075): no user, or an anonymous one,
+    gets every non-empty rollup as hidden.
+
+    The states partition ``total``: blocked (a manual block or an open
+    ``blocks`` relation from a live same-board card, the #449 predicate)
+    overrides the column; else done (``Column.is_done``); else to do (the
+    child board's first column); else doing. Archived children leave the
+    rollup (#2209). Like :func:`children_for_viewer`, only the board of a
+    parent's first link is read.
+
+    **Cost is fixed, not per card** (perf-check, #2210): one query for every
+    live child row of every parent in ``parent_ids`` (the write side caps a
+    parent at ``CHILDREN_PER_PARENT_LIMIT`` links under its row lock; the read
+    itself has no LIMIT, so rows grow with parents x live children), one for the child boards with
+    their first column, plus ``get_board_roles``'s fixed two. Zero queries for
+    an empty ``parent_ids``.
+    """
+    ids = list(parent_ids)
+    if not ids:
+        return {}
+    out = {pid: _empty_rollup() for pid in ids}
+    open_blocker = CardRelation.objects.filter(
+        to_card_id=OuterRef("child_id"),
+        relation_type=CardRelation.Type.BLOCKS,
+        from_card__archived_at__isnull=True,
+        from_card__board_id=OuterRef("child__board_id"),
+    )
+    last_move = (
+        CardMovement.objects.filter(card_id=OuterRef("child_id"))
+        .order_by("-moved_at").values("moved_at")[:1]
+    )
+    rows = list(
+        # Archived children leave the rollup in SQL, so their correlated
+        # subqueries never run and archived history does not grow the read.
+        CardParentLink.objects.filter(parent_id__in=ids, child__archived_at__isnull=True)
+        .annotate(_has_blocker=Exists(open_blocker), _last_moved=Subquery(last_move))
+        .order_by("pk")
+        .values_list(
+            "parent_id", "child__board_id", "child__blocked_at",
+            "_has_blocker", "child__column__is_done", "child__column__position", "_last_moved",
+        )
+    )
+    if not rows:
+        return out
+    board_of = {}  # parent -> the board of its first link, the only board read
+    for parent_id, child_board_id, *_ in rows:
+        board_of.setdefault(parent_id, child_board_id)
+    boards = list(
+        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk__in=set(board_of.values()))
+        .annotate(_first_position=Min("columns__position"))
+    )
+    first_position = {b.pk: b._first_position for b in boards}
+    if user is None or not getattr(user, "is_authenticated", False):
+        roles = {}
+    else:
+        roles = get_board_roles(user, boards)
+    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved in rows:
+        if board_of[parent_id] != child_board_id:
+            continue
+        r = out[parent_id]
+        r["total"] += 1
+        if blocked_at is not None or has_blocker:
+            r["blocked"] += 1
+        elif is_done:
+            r["done"] += 1
+        elif position == first_position.get(child_board_id):
+            r["todo"] += 1
+        else:
+            r["doing"] += 1
+        if moved is not None and (r["last_moved_at"] is None or moved > r["last_moved_at"]):
+            r["last_moved_at"] = moved
+    for parent_id, child_board_id in board_of.items():
+        if roles.get(child_board_id) is None:
+            # Count only: every other key would describe a board the viewer
+            # cannot open.
+            out[parent_id] = {"visible": False, "total": out[parent_id]["total"]}
+    return out
+
+
+def announce_children_changed(card_ids, *, board=None, actor_id):
+    """Ping each parent's board that some of its children changed state (#2210).
+
+    For the child-side writes the rollup reads: a move between columns,
+    archive and restore, block and unblock, and a ``blocks`` relation gained
+    or lost (directly or by its blocker being archived, restored or deleted).
+    Create, delete, link and unlink already ping through :func:`_announce` and
+    :func:`announce_cards_removal`.
+
+    Ids only, ``{parent_id}``: never a count, title or state, and never the
+    child's own card event (threat model 2026-11-16, risk 2; Rule 8 row). Call
+    inside the write's transaction: ``record_board_event`` writes the feed row
+    there and publishes on commit, so a rollback sends nothing. Zero queries
+    when ``board`` is a parent tier (its cards cannot be children); else one,
+    and at most one event per parent.
+    """
+    ids = list(card_ids)
+    if not ids or (board is not None and board.cards_can_have_children):
+        return
+    pairs = sorted(set(
+        CardParentLink.objects.filter(child_id__in=ids).values_list("parent__board_id", "parent_id")
+    ))
+    for parent_board_id, parent_id in pairs:
+        _broadcast.record_board_event(
+            parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
+            {"parent_id": parent_id}, actor_id=actor_id,
+        )
+
+
+#: Above this many linked children on one child board, a parent container
+#: rename pings that board with ``{"card_ids": [], "reload": true}`` instead of
+#: listing every id (#2416, bounded fan-out). Same as the per-parent cap, so a
+#: rename of a single parent's lane always lists its children.
+CONTAINER_RENAME_ID_CAP = CHILDREN_PER_PARENT_LIMIT
+
+
+def announce_parent_container_renamed(board, *, column_id=None, swimlane_id=None, actor_id):
+    """Ping each child board once when a parent's board, column or lane is renamed (#2416).
+
+    ``Card.parent`` carries ``board_name``, ``column_name`` and
+    ``swimlane_name``, so a rename makes them stale on every child board of
+    every parent in the container. One rename can reach many parents, so the
+    fan-out is coalesced and bounded: ONE ``card.parent_changed`` per child
+    board, carrying the affected child ids up to
+    :data:`CONTAINER_RENAME_ID_CAP`, or ``{"card_ids": [], "reload": true}``
+    above it (the client re-reads the board). Ids only, the accepted timing
+    disclosure (Rule 8 residual). Call inside the write's transaction;
+    ``record_board_event`` publishes on commit.
+
+    Cost: zero queries on a board that cannot have children; else at most
+    two (a per-child-board count, then the ids of the boards under the cap),
+    however many parents the container holds.
+    """
+    if not board.cards_can_have_children:
+        return
+    links = CardParentLink.objects.filter(parent__board_id=board.pk)
+    if column_id is not None:
+        links = links.filter(parent__column_id=column_id)
+    if swimlane_id is not None:
+        links = links.filter(parent__swimlane_id=swimlane_id)
+    counts = dict(
+        links.order_by().values("child__board_id").annotate(n=Count("pk"))
+        .values_list("child__board_id", "n")
+    )
+    if not counts:
+        return
+    listed = sorted(b for b, n in counts.items() if n <= CONTAINER_RENAME_ID_CAP)
+    by_board = {b: [] for b in listed}
+    if listed:
+        for child_id, child_board_id in links.filter(child__board_id__in=listed).values_list(
+            "child_id", "child__board_id",
+        ):
+            by_board[child_board_id].append(child_id)
+    for child_board_id in sorted(counts):
+        if child_board_id in by_board:
+            data = {"card_ids": sorted(by_board[child_board_id])}
+        else:
+            data = {"card_ids": [], "reload": True}
+        _broadcast.record_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED, data, actor_id=actor_id,
         )
