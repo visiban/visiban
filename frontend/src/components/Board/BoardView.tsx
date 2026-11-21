@@ -2081,8 +2081,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // whichever one is actually on screen. Without this the shortcut
         // silently toggled the hidden board row while the lens was showing.
         // Closing with focus inside the row would drop it to <body>; hand it to the
-        // toolbar Filters trigger, matching the row's own hide button (#2459).
-        const focusInRow = !!document.activeElement?.closest('[role="search"]');
+        // toolbar Filters trigger, matching the row's own hide button (#2459). The saved-filter
+        // tab pills sit outside role="search" but unmount with the row, so they carry data-filter-row.
+        const focusInRow = !!document.activeElement?.closest('[role="search"], [data-filter-row]');
         if (viewRef.current === "lens") {
           setLensShowFilters((v) => !v);
           if (focusInRow) focusFiltersTrigger();
@@ -3292,7 +3293,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <>
           {/* Preset tab pills — one-click load of saved filters, above the chip row */}
           {savedFilters.length > 0 && (
-            <div className="px-3 pt-1.5 bg-surface border-t border-line shrink-0">
+            <div data-filter-row className="px-3 pt-1.5 bg-surface border-t border-line shrink-0">
               <SavedFilterTabs
                 savedFilters={savedFilters}
                 activeFilterId={activeFilterId}
@@ -3314,7 +3315,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           )}
           {/* Phone (#2333): every control in the bar is a 44px target; the text inputs are lifted but a checkbox or radio is not (its row is the target); the facet menus are CheckboxDropdown and carry their own rules (#2350); the Lanes popover is not portaled, so its checkbox label row carries its own max-sm:min-h-11. */}
-          <div role="search" aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11">
+          <div role="search" data-filter-row aria-label="Board filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap max-sm:[&_button]:min-h-11 max-sm:[&_input:not([type=checkbox]):not([type=radio])]:min-h-11">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={effectiveFilters}

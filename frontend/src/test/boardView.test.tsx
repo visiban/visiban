@@ -238,7 +238,8 @@ vi.mock('../components/Board/FilterBar', () => ({
     return <div data-testid="filter-bar" data-scope={props.scope}>FilterBar</div>
   },
   EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
-  countActiveFilters: () => 0,
+  // Real enough for #2459: labels and assignees count, so the trigger's "N active" label tracks the filters.
+  countActiveFilters: (f: { labelIds?: number[]; assigneeIds?: number[] }) => (f.labelIds?.length ?? 0) + (f.assigneeIds?.length ?? 0),
   // Real enough for the #1928 tests: only a non-empty text query counts as active.
   isCustomFieldFilterActive: (v: { kind: string; query?: string }) => v.kind === 'text' && !!v.query,
 }))
@@ -1385,6 +1386,23 @@ describe('BoardView', () => {
       await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
     })
 
+    it('F with focus on a saved-filter tab pill hands focus to the Filters trigger', async () => {
+      mockSavedFilters = [{ id: 5, name: 'High only', state_json: {}, state_version: 1, created_at: '' }]
+      try {
+        render(<BoardView {...defaultProps()} />)
+        fireEvent.keyDown(document, { key: 'f' })
+        await new Promise((r) => setTimeout(r, 10))
+        const pill = screen.getByRole('button', { name: 'High only' })
+        pill.focus()
+        expect(document.activeElement).toBe(pill)
+        fireEvent.keyDown(document, { key: 'f' })
+        expect(screen.queryByRole('button', { name: 'High only' })).not.toBeInTheDocument()
+        await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
+      } finally {
+        mockSavedFilters = []
+      }
+    })
+
     it('F with focus outside the row hides it without stealing focus to the Filters trigger', async () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
@@ -1398,11 +1416,13 @@ describe('BoardView', () => {
     })
 
     it('active filters keep applying and the count badge stays after the row is hidden', () => {
-      mockSearchParams = new URLSearchParams('f_labels=999')
+      mockSearchParams = new URLSearchParams('f_labels=100')
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
+      const before = filtersTrigger().getAttribute('aria-label')
+      expect(before).toMatch(/^Filters, 1 active/)
       fireEvent.click(screen.getByRole('button', { name: 'Hide filter bar' }))
-      expect(filtersTrigger().getAttribute('aria-label')).toMatch(/^Filters/)
+      expect(filtersTrigger().getAttribute('aria-label')).toBe(before)
     })
   })
 
@@ -3889,6 +3909,26 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
       await waitFor(() => expect(document.activeElement).toBe(trigger))
     } finally {
       row.remove()
+      trigger.remove()
+    }
+  })
+
+  it('the Lens hide control hands focus to the Filters trigger (#2459)', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView currentUser={lensUser} />)
+    const user = userEvent.setup()
+    await screen.findByTestId('lens-view')
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    // The lens toolbar is mocked; stand in for its Filters trigger.
+    const trigger = document.createElement('button')
+    trigger.setAttribute('data-filters-trigger', '')
+    document.body.appendChild(trigger)
+    try {
+      await user.click(screen.getByRole('button', { name: 'Hide lens filter row' }))
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
+    } finally {
       trigger.remove()
     }
   })
