@@ -3758,6 +3758,30 @@ class ParentCandidateSerializer(serializers.Serializer):
     )
 
 
+class ChildCandidateSerializer(serializers.Serializer):
+    """Schema only (#2209): a row of ``.../cards/{id}/child-candidates/``.
+
+    ``card_links.child_candidates_for_viewer`` returns dicts; a test pins
+    their keys to these fields.
+    """
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    column_id = serializers.IntegerField()
+    column_name = serializers.CharField()
+    swimlane_id = serializers.IntegerField()
+    swimlane_name = serializers.CharField()
+    assignee = BoardUserSerializer(allow_null=True)
+    disabled_reason = serializers.ChoiceField(
+        choices=["link_exists", "already_has_parent", "children_limit"], allow_null=True,
+        help_text="Why this card cannot be linked under this parent; `null` when it can. Same codes as the link write's 400.",
+    )
+    parent_title = serializers.CharField(
+        allow_null=True,
+        help_text="For `already_has_parent`, that parent's title when the caller can open its board; else `null`.",
+    )
+
+
 class CardSerializer(serializers.ModelSerializer):
     # ParkedLabelListSerializer (#1223, same pattern as custom_field_values
     # below, #1212) reads the to_attr list _card_queryset() parks the labels

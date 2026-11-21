@@ -3,7 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
 import AddChildDialog from '../components/Card/AddChildDialog'
-import CardAddChildSection from '../components/Card/CardAddChildSection'
 import { addChild, getChildBoardOptions } from '../api/cards'
 import { patchBoard } from '../api/boards'
 import type { ChildBoardOptions } from '../types'
@@ -188,47 +187,5 @@ describe('AddChildDialog (#2208)', () => {
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.type(await screen.findByLabelText('Title'), 'Quick{Enter}')
     expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Quick' })
-  })
-})
-
-describe('CardAddChildSection (#2208)', () => {
-  const board = { id: 1, name: 'Pipeline', cards_can_have_children: true, current_user_role: 'member' as const }
-
-  it('renders nothing for a board whose cards cannot have children, or below member', () => {
-    const { container, rerender } = render(<CardAddChildSection board={{ ...board, cards_can_have_children: false }} cardId={5} />)
-    expect(container).toBeEmptyDOMElement()
-    rerender(<CardAddChildSection board={{ ...board, current_user_role: 'collaborator' }} cardId={5} />)
-    expect(container).toBeEmptyDOMElement()
-    rerender(<CardAddChildSection board={{ ...board, current_user_role: null }} cardId={5} />)
-    expect(container).toBeEmptyDOMElement()
-  })
-
-  it('tells the user when the default could not be set', async () => {
-    vi.mocked(getChildBoardOptions).mockResolvedValue({ ...BASE, can_set_default: true, boards: [{ id: 7, name: 'Delivery', can_set_default: true }] })
-    vi.mocked(addChild).mockResolvedValue({} as never)
-    vi.mocked(patchBoard).mockRejectedValue(new Error('nope'))
-    const user = userEvent.setup()
-    render(<CardAddChildSection board={board} cardId={5} />)
-    await user.click(screen.getByRole('button', { name: 'Add child' }))
-    await choose(user, 'Delivery')
-    await user.click(screen.getByRole('checkbox'))
-    await user.type(screen.getByLabelText('Title'), 'Task')
-    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(screen.getByRole('status')).toHaveTextContent('Added "Task" to Delivery; the default was not changed.')
-  })
-
-  it('opens the dialog, announces the result and returns focus to the button', async () => {
-    vi.mocked(getChildBoardOptions).mockResolvedValue({ ...BASE, default: { id: 7, name: 'Delivery' } })
-    vi.mocked(addChild).mockResolvedValue({} as never)
-    const user = userEvent.setup()
-    render(<CardAddChildSection board={board} cardId={5} />)
-    const open = screen.getByRole('button', { name: 'Add child' })
-    await user.click(open)
-    await user.type(await screen.findByLabelText('Title'), 'Task')
-    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(screen.getByRole('status')).toHaveTextContent('Added "Task" to Delivery.')
-    await waitFor(() => expect(open).toHaveFocus())
   })
 })

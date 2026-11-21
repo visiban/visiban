@@ -31,7 +31,9 @@ import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 import ActivityTabPanel from "./ActivityTabPanel";
-import { CARD_DETAIL_TABS, HISTORY_PAGE_LIMIT, getRememberedCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "./cardDetailTabMemory";
+import { HISTORY_PAGE_LIMIT, cardDetailTabsFor, getRememberedCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "./cardDetailTabMemory";
+import CardChildrenTab from "./CardChildrenTab";
+import { childrenCount, useCardChildren } from "./cardChildren";
 import { lastActivitySummary } from "../../utils/cardTimelineLabels";
 import { dropUnknownLabels } from "../../utils/cardLabels";
 import { isStaleCard } from "../../utils/cardVersion";
@@ -46,7 +48,6 @@ import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardExtensionSections from "./CardExtensionSections";
 import CardRelationsSection from "./CardRelationsSection";
 import CardParentSection from "./CardParentSection";
-import CardAddChildSection from "./CardAddChildSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import CardBlockSection, { type BlockFormMode } from "./CardBlockSection";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
@@ -191,7 +192,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
   );
 }
 
-const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", comments: "Comments", history: "History" };
+const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", children: "Children", comments: "Comments", history: "History" };
 
 export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
@@ -213,7 +214,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [commentDeleteError, setCommentDeleteError] = useState<string | null>(null);
   const [commentBody, setCommentBody] = useState("");
   // Opens on the tab chosen last this session, or a deep link's (#967).
-  const [tab, setTab] = useState<CardDetailTab>(getRememberedCardDetailTab);
+  const [rawTab, setTab] = useState<CardDetailTab>(getRememberedCardDetailTab);
+  // Children is only on a parent-tier board (#2209); a remembered or linked
+  // Children tab on any other board opens Details.
+  const CARD_DETAIL_TABS = cardDetailTabsFor(board);
+  const tab: CardDetailTab = CARD_DETAIL_TABS.includes(rawTab) ? rawTab : "details";
+  const childrenState = useCardChildren(board.id, card.id, !!board.cards_can_have_children, refreshSignal);
   const selectTab = (t: CardDetailTab) => {
     if (t !== tab && bodyScrollRef.current) bodyScrollRef.current.scrollTop = 0;
     setTab(t);
@@ -1807,7 +1813,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             unknown, never shown as 0. */}
         <div role="tablist" aria-label="Card sections" className="flex border-b border-line text-sm">
           {CARD_DETAIL_TABS.map((t) => {
-            const count = t === "comments" ? commentCount : t === "history" ? historyCount : undefined;
+            const count = t === "comments" ? commentCount : t === "history" ? historyCount : t === "children" ? childrenCount(childrenState.data) : undefined;
             return (
               <button
                 key={t}
@@ -2251,7 +2257,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               />
 
               {/* Add child (#2208) — on a parent-tier board only; renders its own trailing divider. */}
-              <CardAddChildSection board={board} cardId={localCard.id} />
+              {/* Add child moved to the Children tab (#2209). */}
 
               {/* MR/PR link (#352) — right after relations: both are "what this
                   card connects to". Renders its own trailing divider, and
@@ -2548,6 +2554,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               )}
 
             </div>
+          ) : tab === "children" ? (
+            <CardChildrenTab
+              board={board}
+              cardId={card.id}
+              cardTitle={card.title}
+              state={childrenState}
+              onExitToTabs={() => tabRefs.current.children?.focus()}
+            />
           ) : tab === "comments" ? (
             <div>
                 {pendingSections.comments && <SectionSkeleton rows={2} testId="comments-skeleton" />}
