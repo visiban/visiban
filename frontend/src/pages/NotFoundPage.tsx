@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Layout/Navbar";
 import type { User } from "../types";
+import { buttonClasses } from "../components/Page";
 
 interface Props {
   user: User;
@@ -29,19 +30,28 @@ export default function NotFoundPage({ user, onLogout, onUserUpdated }: Props) {
   }, []);
 
   return (
-    <div className="h-full bg-sunken flex flex-col">
+    <div className="h-full bg-page flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Page not found" }]} />
-      <main className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+      <main className="flex-1 flex flex-col items-center justify-center gap-3 px-4 py-8 text-center">
         <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-bold focus:outline-none">Page not found</h1>
-        <p className="text-sm text-fg-tertiary max-w-sm">
-          This page doesn&apos;t exist, or the link is mistyped or out of date.
+        <p className="text-sm text-fg-secondary max-w-sm">
+          There&apos;s no page at this address. Check it for typos, or go back to Home.
         </p>
-        <Link
-          to="/"
-          className="mt-2 px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis transition"
-        >
-          Go to dashboard
-        </Link>
+        {/* Go to Home (Primary) and Search boards (Secondary); full width and stacked on phones (#2480). */}
+        <div className="mt-2 flex w-full max-w-sm flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">
+          <Link to="/" className={buttonClasses("primary", { className: "max-sm:w-full" })}>
+            Go to Home
+          </Link>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
+            aria-keyshortcuts="Meta+K Control+K"
+            className={buttonClasses("secondary", { className: "max-sm:w-full" })}
+          >
+            Search boards
+            <kbd aria-hidden="true" className="rounded bg-surface-hover px-1.5 text-xs text-fg-secondary font-sans">⌘K</kbd>
+          </button>
+        </div>
       </main>
     </div>
   );

@@ -126,8 +126,11 @@ describe('BoardPage unavailable state (#2041)', () => {
     const h1 = screen.getByRole('heading', { level: 1, name: "This board isn't available" })
     expect(h1).toHaveFocus()
     expect(document.title).toBe('Not available – Visiban')
-    expect(screen.getByText(/It may have been deleted, or you may not have access to it/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to dashboard' })).toHaveAttribute('href', '/')
+    expect(screen.getByText(/It may have been deleted, or you don.t have access to it/)).toHaveTextContent('ask them to add you to the board or its group.')
+    // #2480: never says which reason applies, and offers search beside Home.
+    expect(screen.queryByText(/was deleted|no access|revoked/i)).toBeNull()
+    expect(screen.getByRole('button', { name: /Search boards/ })).toHaveAttribute('aria-keyshortcuts', 'Meta+K Control+K')
+    expect(screen.getByRole('link', { name: 'Go to Home' })).toHaveAttribute('href', '/')
     expect(screen.queryByTestId('board-view')).toBeNull()
     expect(screen.queryByTestId('dashboard')).toBeNull()
   })
