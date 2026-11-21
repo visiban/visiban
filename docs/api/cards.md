@@ -1313,7 +1313,7 @@ board or id (an accepted count-only disclosure, #1104).
 `GET .../cards/{id}/`, on cards of a parent-tier board only. It is **absent**
 from every other board's cards, `archived/`, the cross-board `GET /api/v1/cards/`,
 write responses, every event payload, change-feed row and webhook, and share
-links. Refetch the card on `card.children_changed`, and carry the last value
+links. Refetch the card on `card.children_changed` or `card.children_bulk_changed` (#2500), and carry the last value
 over when a frame replaces the card, as for `parent`.
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&search=`

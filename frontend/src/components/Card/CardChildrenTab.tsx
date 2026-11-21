@@ -39,7 +39,7 @@ interface Props {
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
   /**
-   * Bumps on every `card.children_changed` ping. The ping carries no actor, so this tab cannot tell its own echo
+   * Bumps on every `card.children_changed` or `card.children_bulk_changed` (#2500) ping. The ping carries no actor, so this tab cannot tell its own echo
    * from someone else's; it therefore treats every re-read that lands while one of its own writes is pending as
    * that write's (rule C's accepted trade-off). Accepted for compatibility with the caller's prop contract and
    * currently unused.

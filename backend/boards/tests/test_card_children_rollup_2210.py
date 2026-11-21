@@ -744,8 +744,14 @@ class ColumnBulkPingTests(_RollupFixture, TestCase):
                     f"{self.cols}reorder/", {"order": [self.col_doing.pk, self.col_c.pk, self.col_done.pk]},
                     format="json",
                 )
-            self.assertEqual((patched.status_code, reordered.status_code), (403, 403), role)
+                deleted = client.delete(f"{self.cols}{self.col_c.pk}/")
+            self.assertEqual(
+                (patched.status_code, reordered.status_code, deleted.status_code), (403, 403, 403), role
+            )
         self.assertEqual(self._pings(), [])
+        from boards.models import Column
+
+        self.assertTrue(Column.objects.filter(pk=self.col_c.pk).exists())
 
 
 class ColumnDeleteBulkPingTests(_RollupFixture, TestCase):

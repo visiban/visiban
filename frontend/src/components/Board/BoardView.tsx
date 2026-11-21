@@ -1196,7 +1196,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
   const [cardDetailRefreshTick, setCardDetailRefreshTick] = useState(0);
-  // Bumped by a `card.children_changed` ping for the open card, so only its Children tab re-reads (#2209).
+  // Bumped by a `card.children_changed` or `card.children_bulk_changed` (#2500) ping for the open card, so only its Children tab re-reads (#2209).
   const [childrenRefreshTick, setChildrenRefreshTick] = useState(0);
   // Mirrors selectedCard's id into a ref so handleSocketEvent (defined above,
   // before selectedCard exists) can consult it without joining the callback's
