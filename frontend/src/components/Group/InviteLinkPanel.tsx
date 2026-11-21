@@ -424,6 +424,8 @@ export default function InviteLinkPanel({
   };
 
   const handleCreate = async () => {
+    // Guard, not `disabled`: the focused submit button must stay in the tab order while saving (#2476).
+    if (creating) return;
     setCreateError(null);
     setCreating(true);
     try {
@@ -900,7 +902,7 @@ export default function InviteLinkPanel({
             {/* Reserved error slot, always mounted (a live region announces a failure). */}
             <p role="status" aria-live="polite" aria-atomic="true" className="text-sm text-danger min-h-5">{createError}</p>
             <div className="flex gap-2">
-              <Button variant="primary" type="submit" disabled={creating}>{creating ? "Creating…" : "Create link"}</Button>
+              <Button variant="primary" type="submit" aria-disabled={creating || undefined} aria-busy={creating || undefined} className="aria-disabled:opacity-40">{creating ? "Creating…" : "Create link"}</Button>
               <Button
                 variant="quiet"
                 onClick={() => {
