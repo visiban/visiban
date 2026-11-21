@@ -187,6 +187,10 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 
 - **Who can set it:** an admin of both boards. In **Board settings → Rules & limits → Child cards**, the **Default child board** select appears while the switch is on and lists only boards you administer that qualify; choose **None (ask each time)** to clear it. Clearing needs admin on the parent board only. The same value is writable through the board PATCH API.
 - **Which boards qualify:** a board whose cards cannot have children and whose first column allows card creation. A board named as another board's default cannot turn on "cards can have children" until that default is cleared.
+- **Turning children off** on the parent board clears its default.
+- **Deleting the child board** clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.
+- **Add child chooser:** a card on a parent board with member access or above shows an **Add child** button in its detail panel. It opens a dialog (a full-screen sheet on a phone) titled **Add child** with the subtitle "Where should this child go?". With a default, the board is preselected and the button reads **Add to <board>**; without one, members see **Choose a board** and the button stays disabled until a board and a title are given. Admins of both boards also get **Use <board> as the default for <this board>**, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read.
+- **Delete confirm:** the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.
 
 ### What a parent card is called
 
@@ -197,11 +201,6 @@ The name appears in two places: on a child card, the parent row is labeled with 
 ### Extension sections in card details
 
 *New in 1.3, experimental.* An installed extension (for example an Enterprise module) can add a read-only section to a card's **Details** tab, after Weight. Each section has its own heading and shows plain label and value rows. Without an extension nothing is shown, and the tab looks as it always has.
-- **Turning children off** on the parent board clears its default.
-- **Deleting the child board** clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.
-
-- **Add child chooser:** a card on a parent board with member access or above shows an **Add child** button in its detail panel. It opens a dialog (a full-screen sheet on a phone) titled **Add child** with the subtitle "Where should this child go?". With a default, the board is preselected and the button reads **Add to <board>**; without one, members see **Choose a board** and the button stays disabled until a board and a title are given. Admins of both boards also get **Use <board> as the default for <this board>**, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read.
-- **Delete confirm:** the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.
 
 ## Collapsed columns
 

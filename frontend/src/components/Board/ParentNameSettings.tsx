@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Board } from "../../types";
 import ActiveMark from "../Common/ActiveMark";
 import { DEFAULT_PARENT_PLURAL, DEFAULT_PARENT_SINGULAR } from "../../utils/parentItemNames";
@@ -9,7 +9,7 @@ interface Props {
   onUpdate: (patch: Record<string, unknown>) => void | Promise<unknown>;
 }
 
-/** Suggestions only: OSS ships no domain word as a default (#2212, Rule 12 of #2206). */
+/** Suggestions only: OSS ships no domain word as a default (#2212: no domain-specific default word ships in OSS). */
 const SUGGESTIONS = [
   { singular: "Opportunity", plural: "Opportunities" },
   { singular: "Initiative", plural: "Initiatives" },
@@ -43,12 +43,23 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
   const [singular, setSingular] = useState(board.parent_name_singular ?? "");
   const [plural, setPlural] = useState(board.parent_name_plural ?? "");
   const [error, setError] = useState<string | null>(null);
+  const errorId = `${uid}-error`;
+  // Saves run one at a time: a later save waits for the earlier one, so a failed earlier save
+  // can never roll state back after a later save has started.
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const describedBy = error ? `${helpId} ${errorId}` : helpId;
 
   // A board.updated frame or another tab can change the stored value: follow it.
   useEffect(() => setSingular(board.parent_name_singular ?? ""), [board.parent_name_singular]);
   useEffect(() => setPlural(board.parent_name_plural ?? ""), [board.parent_name_plural]);
 
-  const save = async (patch: Record<string, string>, rollback: () => void) => {
+  const save = (patch: Record<string, string>, rollback: () => void) => {
+    const run = chain.current.then(() => doSave(patch, rollback));
+    chain.current = run.catch(() => undefined);
+    return run;
+  };
+
+  const doSave = async (patch: Record<string, string>, rollback: () => void) => {
     setError(null);
     // useBoard.updateBoardSettings resolves with the error (null on success) rather than rejecting.
     let failure: unknown = null;
@@ -96,6 +107,8 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
             value={singular}
             maxLength={MAX}
             placeholder={DEFAULT_PARENT_SINGULAR}
+            aria-describedby={describedBy}
+            aria-invalid={error ? true : undefined}
             onChange={(e) => setSingular(e.target.value)}
             onBlur={(e) => blur("parent_name_singular", e.target.value, setSingular)}
             className={inputClass}
@@ -108,6 +121,8 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
             value={plural}
             maxLength={MAX}
             placeholder={DEFAULT_PARENT_PLURAL}
+            aria-describedby={describedBy}
+            aria-invalid={error ? true : undefined}
             onChange={(e) => setPlural(e.target.value)}
             onBlur={(e) => blur("parent_name_plural", e.target.value, setPlural)}
             className={inputClass}
@@ -123,7 +138,7 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
               type="button"
               aria-pressed={pressed}
               onClick={() => choose(s, pressed)}
-              className={`inline-flex min-h-11 items-center gap-1.5 rounded border border-line-boundary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${pressed ? "bg-primary-emphasis/10 text-fg-secondary" : "text-fg-tertiary hover:bg-surface-hover"}`}
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded border border-line-boundary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${pressed ? "bg-primary-emphasis/15 text-fg-secondary" : "text-fg-tertiary hover:bg-surface-hover"}`}
             >
               <ActiveMark active={pressed} testId={`parent-name-mark-${s.singular}`} />
               {s.singular}
@@ -134,7 +149,7 @@ export default function ParentNameSettings({ board, onUpdate }: Props) {
       <p id={helpId} className="text-sm text-fg-muted">
         Starts empty, so the board says &ldquo;Parent&rdquo;. Suggestions fill both fields. Any text works, up to 24 characters.
       </p>
-      {error && <p role="alert" className="text-sm text-danger" data-testid="parent-name-error">{error}</p>}
+      {error && <p id={errorId} role="alert" className="text-sm text-danger" data-testid="parent-name-error">{error}</p>}
     </fieldset>
   );
 }

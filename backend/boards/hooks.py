@@ -86,7 +86,9 @@ ANALYTICS_EXTENSIONS: list = []
 # Each entry is an OBJECT (not a bare callable) with:
 #   id        a slug matching ^[a-z][a-z0-9_-]{0,63}$. OSS stamps it onto the
 #             section, so an extension cannot claim another's id. When two entries
-#             share an id the first registered wins and the later one is skipped.
+#             share an id, the one a given viewer is allowed to see first is
+#             shown (de-duplication runs after role filtering, so a viewer below
+#             the first entry's min_role can see the later entry under that id).
 #   min_role  "viewer" | "collaborator" | "member" | "admin" | "site_admin".
 #             FAIL CLOSED: missing, None or invalid means "admin" (logged).
 #   section(card, user, role) -> dict | None

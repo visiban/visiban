@@ -82,6 +82,39 @@ describe("ParentNameSettings (#2212)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't save the parent name. Please try again.");
     expect(screen.getByLabelText("Plural")).toHaveValue("");
   });
+
+  it("points both inputs at the help text, and at the alert with aria-invalid while an error shows", async () => {
+    const { user } = setup({}, vi.fn().mockResolvedValue({ response: { data: { detail: "Nope." } } }));
+    const singular = screen.getByLabelText("Singular");
+    const plural = screen.getByLabelText("Plural");
+    const help = screen.getByText(/Starts empty, so the board says/);
+    expect(singular).toHaveAttribute("aria-describedby", help.id);
+    expect(singular).not.toHaveAttribute("aria-invalid");
+    await user.type(singular, "Epic");
+    await user.tab();
+    const alert = await screen.findByRole("alert");
+    for (const input of [singular, plural]) {
+      expect(input).toHaveAttribute("aria-describedby", `${help.id} ${alert.id}`);
+      expect(input).toHaveAttribute("aria-invalid", "true");
+    }
+  });
+
+  it("runs saves one at a time so an earlier failure cannot roll back after a later save started", async () => {
+    let rejectFirst: (v: unknown) => void = () => {};
+    const onUpdate = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((r) => { rejectFirst = r; }))
+      .mockResolvedValue(null);
+    const { user } = setup({}, onUpdate);
+    await user.type(screen.getByLabelText("Singular"), "Epic");
+    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Release" }));
+    // The second save has not started: the first is still in flight.
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    rejectFirst(new Error("boom"));
+    await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+    expect(onUpdate).toHaveBeenLastCalledWith({ parent_name_singular: "Release", parent_name_plural: "Releases" });
+  });
 });
 
 describe("ChildCardsSettings hosts the parent name (#2212)", () => {

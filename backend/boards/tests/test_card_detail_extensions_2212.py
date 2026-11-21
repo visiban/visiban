@@ -92,6 +92,17 @@ class RoleFilterTests(_Base):
                 self.assertEqual(ext.calls - before, 1 if visible else 0, role)
             self.assertEqual(len(self._get(self.owner).json()["sections"]), 1)
 
+    def test_site_admin_without_membership_sees_site_admin_extension(self):
+        su = _make_user()
+        su.is_superuser = True
+        su.save(update_fields=["is_superuser"])
+        ext = _Ext(min_role="site_admin")
+        with self._patch(ext):
+            self.assertEqual(len(self._get(su).json()["sections"]), 1)
+            before = ext.calls
+            self.assertEqual(self._get(self.users[Role.ADMIN]).json()["sections"], [])
+            self.assertEqual(ext.calls, before)
+
     def test_undeclared_min_role_fails_closed_to_admin(self):
         ext = _Ext(min_role=...)
         self.assertFalse(hasattr(ext, "min_role"))

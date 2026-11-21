@@ -59,6 +59,15 @@ class DefaultChildBoardModelTests(TestCase):
         readonly = BoardAdmin(Board, AdminSite()).get_readonly_fields(request, board)
         self.assertIn("default_child_board", readonly)
 
+    def test_django_admin_cannot_write_parent_names_2212(self):
+        site_admin = User.objects.create_superuser(username="dcb_m_su2", password="pass")
+        request = RequestFactory().get("/")
+        request.user = site_admin
+        board = make_board(site_admin, "B2")
+        readonly = BoardAdmin(Board, AdminSite()).get_readonly_fields(request, board)
+        self.assertIn("parent_name_singular", readonly)
+        self.assertIn("parent_name_plural", readonly)
+
 
 from unittest.mock import patch  # noqa: E402
 

@@ -1134,10 +1134,12 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
     # #2208: default_child_board is written only by PATCH /boards/{id}/, which
     # checks ADMIN on both boards and that the target qualifies; fields="__all__"
     # would otherwise make this form a second, unchecked write path.
+    # #2212: the parent names are validated in BoardSerializer (stripped, no
+    # control or bidi characters), so they are read-only here for the same reason.
     readonly_fields = (
         "health_status_changed_at", "health_status_changed_by", "health_status_note",
         "computed_health_status", "health_computed_at", "health_computed_counts",
-        "default_child_board",
+        "default_child_board", "parent_name_singular", "parent_name_plural",
     )
     stale_save_message = (
         "This board was changed after this page was opened, so nothing was saved. "

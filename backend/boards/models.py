@@ -349,8 +349,9 @@ class Board(models.Model):
     # What this board calls its cards when they are parents (#2212), e.g.
     # "Initiative" / "Initiatives". Plain terminology, no schema: empty means
     # the UI says "Parent" / "Parents", and each field falls back on its own.
-    # Written only by board admins through PATCH /boards/{id}/ (validated in
-    # BoardSerializer: stripped, no control or bidi characters, 24 max).
+    # Validated on API writes only (BoardSerializer: stripped, no control or
+    # bidi characters, 24 max); ORM, import and migration writes skip those rules.
+    # Read-only in the Django admin.
     # Stable extension point from 1.3. db_default keeps the add zero-downtime.
     parent_name_singular = models.CharField(
         max_length=24, blank=True, default="", db_default="",

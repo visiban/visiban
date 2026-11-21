@@ -83,8 +83,15 @@ validates every section on the server and again in the browser:
 - An extension that raises is logged with its class name and the exception
   class only (never values, labels or exception text) and left out; the other
   sections still render.
-- At most 10 extensions are called per card; a later one sharing an earlier
-  one's `id` is skipped.
+- At most 10 extensions are called per card. Ids must be unique across
+  registered extensions; if two share an id, the one a given viewer is allowed
+  to see first is shown (de-duplication runs after role filtering, so a viewer
+  below the first entry's `min_role` can see the later entry under that id).
+
+## Appearance
+
+Field rows deliberately match the card Details custom-field rows (same label
+and value styling), so an extension section reads as part of the tab.
 
 ## Where sections appear
 
