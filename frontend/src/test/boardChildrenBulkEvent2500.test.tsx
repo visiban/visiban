@@ -8,7 +8,7 @@
  * open branches editing that file; the mock setup below is copied from it.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, screen } from '@testing-library/react'
 import BoardView from '../components/Board/BoardView'
 import * as cardsApi from '../api/cards'
 import type { BoardEvent } from '../hooks/useBoardSocket'
@@ -81,8 +81,8 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
 }))
 vi.mock('../components/Card/CardItem', () => ({ default: () => <div /> }))
 vi.mock('../components/Card/CardDetail', () => ({
-  default: ({ refreshSignal }: { refreshSignal?: number }) => (
-    <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} />
+  default: ({ refreshSignal, childrenRefreshSignal }: { refreshSignal?: number; childrenRefreshSignal?: number }) => (
+    <div data-testid="card-detail" data-refresh-signal={refreshSignal ?? 0} data-children-refresh-signal={childrenRefreshSignal ?? 0} />
   ),
 }))
 const settingsDeleteHooks: { deleting?: () => void; failed?: () => void } = {}
@@ -298,6 +298,54 @@ describe('BoardView — card.children_bulk_changed (#2500)', () => {
     act(() => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { reload: 'yes' } }) })
     expect(spy).not.toHaveBeenCalled()
     expect(ctx.silentReload).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('reads each shown parent once however often it is listed', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const ctx = makeContext({ board: parentBoard() })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => {
+      getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [7, 7, 8, 7, 8] } })
+    })
+    expect(spy.mock.calls.map((c) => c[1]).sort()).toEqual([7, 8])
+    spy.mockRestore()
+  })
+
+  it('reloads instead of reading card by card when more than 20 listed parents are shown', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const cards = Array.from({ length: 21 }, (_, i) => makeCard({ id: 100 + i, uid: `crd1${i}` }))
+    const ctx = makeContext({ board: makeBoard({ cards_can_have_children: true, cards }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const ids = cards.map((c) => c.id)
+    act(() => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: ids.slice(0, 20) } }) })
+    expect(ctx.silentReload).not.toHaveBeenCalled()
+    expect(spy).toHaveBeenCalledTimes(20)
+    spy.mockClear()
+    act(() => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [...ids, ...ids, 9999] } }) })
+    expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it("refreshes the open parent's Children tab when listed, or on reload, and not otherwise", async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    mockBoardContextValue = makeContext({ board: parentBoard() })
+    render(<BoardView />)
+    await act(async () => {})
+    act(() => { window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 7 } })) })
+    const signal = () => screen.getByTestId('card-detail').getAttribute('data-children-refresh-signal')
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [8] } }) })
+    expect(signal()).toBe('0')
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [7, 8] } }) })
+    expect(signal()).toBe('1')
+    await act(async () => { getOnEvent.dispatch({ event: 'card.children_bulk_changed', data: { parent_ids: [], reload: true } }) })
+    expect(signal()).toBe('2')
+    expect(screen.getByTestId('card-detail').getAttribute('data-refresh-signal')).toBe('0')
     spy.mockRestore()
   })
 })

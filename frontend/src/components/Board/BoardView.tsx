@@ -878,10 +878,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
     } else if (event.event === "card.children_bulk_changed") {
       // A child-board column change (#2500): this board's parent ids, or `reload` above the cap.
+      // Only ids shown here are read, each once, and above the same cap as the ids-list
+      // `card.parent_changed` the board reloads instead of reading card by card.
       const ids = (d as { parent_ids?: unknown }).parent_ids;
-      const shown = new Set(boardRef.current?.cards.map((c) => c.id));
-      if ((d as { reload?: unknown }).reload === true) silentReload();
-      else if (Array.isArray(ids)) ids.forEach((id) => { if (typeof id === "number" && shown.has(id)) refetchChildrenRollup(id); });
+      const open = selectedCardIdRef.current;
+      if ((d as { reload?: unknown }).reload === true) {
+        silentReload();
+        // The open card's Children tab shows each child's column `is_done`; it re-reads over REST.
+        if (open != null) setChildrenRefreshTick((t) => t + 1);
+      } else if (Array.isArray(ids)) {
+        const shown = new Set(boardRef.current?.cards.map((c) => c.id));
+        const wanted = [...new Set(ids.filter((id): id is number => typeof id === "number" && shown.has(id)))];
+        if (wanted.length > PARENT_REFETCH_MAX_CARDS) silentReload();
+        else wanted.forEach(refetchChildrenRollup);
+        if (open != null && wanted.includes(open)) setChildrenRefreshTick((t) => t + 1);
+      }
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
