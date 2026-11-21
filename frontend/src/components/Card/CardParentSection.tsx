@@ -131,7 +131,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
           </button>
         </div>
       ) : parent.hidden ? (
-        <div className="flex items-center gap-2 border border-dashed border-line-strong rounded px-3 py-2" data-testid="card-parent-hidden">
+        <div className="flex items-center gap-2 border border-dashed border-fg-tertiary rounded px-3 py-2" data-testid="card-parent-hidden">
           <LockGlyph className="w-4 h-4 shrink-0 text-fg-muted" />
           <span className="flex-1 min-w-0">
             <span className="block text-sm text-fg-secondary">{LINKED_CARD_HIDDEN}</span>

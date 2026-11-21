@@ -8,8 +8,8 @@ import { contrastRatio, surfaceColor, textColor } from './contrast'
 // chooser Retry; verified at desktop and 390px, light and dark, with the text
 // and link contrast measured (4.5:1, #2206 rule 8).
 
-const ADMIN_BOARD = { ...BOARD_FULL, current_user_role: 'admin', cards_can_have_children: false }
-const OTHER_BOARD = { ...BOARD_FULL, id: 12, name: 'Pipeline', current_user_role: 'admin', cards_can_have_children: true }
+const ADMIN_BOARD = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: false }
+const OTHER_BOARD = { ...BOARD_FULL, id: 12, name: 'Pipeline', current_user_role: 'admin' as const, cards_can_have_children: true }
 
 async function openRules(page: Page, theme: 'light' | 'dark', blockers: 'ok' | 'default-of' | 'fail') {
   await routeAuth(page)
@@ -90,7 +90,7 @@ for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390p
   test.describe(`Add child chooser (${size.name})`, () => {
     test.use({ viewport: { width: size.width, height: size.height } })
     test('a failed boards read shows Retry, which recovers', async ({ page }) => {
-      const board = { ...BOARD_FULL, current_user_role: 'admin', cards_can_have_children: true }
+      const board = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: true }
       await routeAuth(page)
       await routeBoard(page, board)
       await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/children/`, (route) =>

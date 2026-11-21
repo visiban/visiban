@@ -39,3 +39,22 @@ export function surfaceColor(el: Locator): Promise<string> {
 export const textColor = (el: Locator) => el.evaluate((n) => getComputedStyle(n).color)
 export const borderColor = (el: Locator) => el.evaluate((n) => getComputedStyle(n).borderTopColor)
 export const fillColor = (el: Locator) => el.evaluate((n) => getComputedStyle(n).backgroundColor)
+
+/**
+ * The background the element actually sits on: every ancestor's background composited
+ * (alpha-blended) from the root down, so a `bg-x/10` tint is measured as the color seen.
+ */
+export function effectiveBackground(el: Locator): Promise<string> {
+  return el.evaluate((node) => {
+    const layers: number[][] = []
+    for (let cur: Element | null = node; cur; cur = cur.parentElement) {
+      const m = getComputedStyle(cur).backgroundColor.match(/rgba?\(([^)]+)\)/)
+      if (!m) continue
+      const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number)
+      layers.push([p[0], p[1], p[2], p.length > 3 ? p[3] : 1])
+    }
+    let out = [255, 255, 255]
+    for (const [r, g, b, a] of layers.reverse()) out = [r * a + out[0] * (1 - a), g * a + out[1] * (1 - a), b * a + out[2] * (1 - a)]
+    return `rgb(${out.map(Math.round).join(', ')})`
+  })
+}
