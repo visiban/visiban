@@ -28,23 +28,28 @@
 When a section header (e.g. "My Boards", "Groups") carries action buttons:
 - Place them right-aligned in a `flex items-center gap-2` group
 - Primary action (e.g. "+ New board"): primary button variant
-- Secondary action (e.g. "Import"): secondary button variant — **not** `text-info`; that color is reserved for active filter/selection states
+- Secondary action (e.g. "Import"): Secondary (bordered) or Quiet button variant — **not** `text-info`; that color is reserved for active filter/selection states
 - Do **not** use a full-width dashed bottom button as the primary creation affordance when the section already has content — that pattern reads as an empty state
 
 ## Buttons
 
-Three variants — use no others:
+Six variants — use no others (#2475). `components/Page/buttonClasses.ts` (`buttonClasses(variant)`, `<Button variant>` in `components/Page`) is the source of truth for new code; existing call sites spell the same classes out.
 
-| Variant | Classes |
-|---|---|
-| Primary | `bg-button-primary hover:bg-button-primary-hover text-on-primary` |
-| Secondary | bare text (`text-fg-secondary`) + `hover:text-fg hover:bg-surface-hover` |
-| Icon-only | `hover:bg-surface-hover` with icon content |
+| Variant | Use | Classes |
+|---|---|---|
+| Primary | the one main action (at most one in a header) | `bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium` |
+| Secondary | other actions; the board toolbar's style | bordered: `bg-surface border border-line-strong text-fg font-medium hover:bg-surface-hover` |
+| Quiet | Cancel, Discard, low-emphasis actions | bare text: `text-fg-secondary hover:text-fg hover:bg-surface-hover` |
+| Danger | destructive actions | `bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium` |
+| Warning | reversible but consequential actions (#2169) | `bg-warning-bg hover:bg-warning-bg-hover text-on-warning font-medium` |
+| Icon-only | a glyph with an `aria-label` | `hover:bg-surface-hover` with icon content |
+
+- **Renamed in #2475: the old "Secondary" (bare text) is now Quiet; Secondary is the bordered style.** Nothing was restyled by the rename: a call site that spells out the bare-text classes is Quiet, one that spells out the bordered classes is Secondary. When an older rule below says "secondary variant" for a bare-text control (Mode indicator exit controls, a "Done" button), read Quiet.
+- **Shared-look size: 36px, 44px on phones** (`h-9 max-sm:h-11`; the Centered layout's auth controls are 48px on phones, `size: "lg"`). Older dense contexts keep `px-3 py-1.5 text-sm` until their page is redesigned.
 
 - Consistent sizing: `px-3 py-1.5 text-sm rounded` for most buttons
-- **Every Cancel button is the secondary variant (#484)** — modal footers and inline Confirm/Cancel prompts alike: `text-fg-secondary hover:text-fg hover:bg-surface-hover` + `rounded`, never `text-fg-tertiary` and never without the hover fill. Sizing follows the context (`px-3 py-1.5 text-sm` in a footer; an inline prompt with no padding gets `px-1` so the fill does not clip the text). `src/test/cancelButtonHover.test.ts` scans every `.tsx` under `src/` and fails on a Cancel button that drifts.
+- **Every Cancel button is the Quiet variant (#484, #2475)** — never the bordered Secondary — modal footers and inline Confirm/Cancel prompts alike: `text-fg-secondary hover:text-fg hover:bg-surface-hover` + `rounded`, never `text-fg-tertiary` and never without the hover fill. Sizing follows the context (`px-3 py-1.5 text-sm` in a footer; an inline prompt with no padding gets `px-1` so the fill does not clip the text). `src/test/cancelButtonHover.test.ts` scans every `.tsx` under `src/` (native `<button>`s, `className={buttonClasses("…")}` and the shared `<Button variant>`) and fails on a Cancel button that drifts, including one with a `border-line-strong` border (the three bordered Cancels in `WebhookDetail` moved to Quiet in #2475).
 - Focus state: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (use `focus:ring-danger-emphasis` for danger buttons) — always use `focus:` not `focus-visible:` for consistency
-- Danger variant (destructive actions): `bg-danger-bg hover:bg-danger-bg-hover text-on-danger`
 - **Warning variant (reversible but consequential actions, e.g. Archive; also the GitLab sign-in button) (#2169):** `bg-warning-bg hover:bg-warning-bg-hover text-on-warning font-medium`. Never `text-fg` on `bg-warning-bg`: with the old amber-600 fill it was 2.58:1 in dark mode, and it is 3.56 light / 4.07 dark on amber-700. `--warning-bg` is amber-700 `180 83 9` in both themes and `--warning-bg-hover` amber-800 `146 64 14`; white text is 5.02:1 at rest and 7.09:1 on hover (amber-600 gave 3.19 at rest). Focus ring `focus:ring-warning-emphasis`, or `focus:ring-primary-emphasis` on the sign-in buttons, which match their siblings. In dark mode the fill is 2.91:1 against `bg-surface`, about the same as the danger fill (3.03); the label carries the control. Pinned in `onTintTokens.test.ts`, which also fails on any other text color on a `bg-warning-bg` fill in the four files that use one as a button.
 - Disabled state: `disabled:opacity-40 disabled:cursor-not-allowed` — never `disabled:opacity-50`
 - Primary and danger buttons always include `font-medium`
@@ -55,6 +60,15 @@ Three variants — use no others:
 **Why `--button-primary` is a separate token from `--primary`:** CTAs use `blue-900` (`#1e3a8a`, 10.36:1 on white) in light mode for comfortable AAA contrast, with `--button-primary-hover` one step darker at `blue-950` (`#172554`) so a primary button **darkens** on hover in both themes (#484; `blue-800` made light-mode buttons lighten, and `src/test/primaryButtonTokens.test.ts` pins hover darker than rest with white text ≥4.5:1 in both), while `--primary` stays `blue-600` for brand-tint surfaces (avatars, active tabs, toggle tracks, saved-filter tabs). Do not consolidate these back into a single token — issue #855 intentionally split them so primary CTAs read as strong actions without desaturating the app's blue accents. Dark mode assigns both tokens the same blue-600 value; the split only matters on light backgrounds. Never use `bg-primary` on a button-shaped element, and never use `text-fg` on a `bg-button-primary` fill — `text-on-primary` is the only permitted text color on primary CTAs.
 
 - **Every per-row text-button action in an admin table must carry the full button compliance set — `rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (or `focus:ring-danger-emphasis` for a destructive action) — even though it renders as bare text, not a filled button.** The Admin → Users per-row actions cell (`AdminPage.tsx`) is the reference: as of #1291 only the two highest-frequency actions — Deactivate/Reactivate and Make/Demote admin — stay as inline bare-text buttons, with `focus:ring-danger-emphasis` reserved for Deactivate and Demote admin (the two that remove access). Every remaining low-frequency action (Grant/Revoke all-content, Force reset, Clear lockout, Restart onboarding tour) moved into that row's `OverflowMenu` — see § Admin table row overflow menu below. A bare-text action is still a real button and needs a visible focus indicator and consistent corner radius like any other (#1280).
+
+## Shared page layouts and parts (#2475)
+
+`components/Page` (barrel `index.ts`: `buttonClasses.ts`, `parts.tsx`, `layouts.tsx`) holds the Consistency sheet's layouts and parts. Page redesigns (#2473, #2474, #2476–#2480) import them instead of restating classes; `src/test/pageParts.test.tsx` pins them and fails on a hard-coded color in the folder.
+
+- **Colors map to tokens, no new token.** Page `bg-page`; Chrome (header, drawer, Save bar) the Row 1 surface `bg-sunken`; Panel `bg-surface`; Well `bg-canvas`; Sunken (a box inside a panel) `bg-sunken`; Chip `bg-surface-hover` (its text is `fg-secondary`, § Color tokens); borders `border-line` (panels) / `border-line-strong` (controls), `border-line-boundary` where a border is the only cue (the hollow No status pill, an off switch track). Every pairing reuses one already measured above: status pills use the `/15` on-tint pairs (§ Color tokens #2029), Pending and the selected settings nav row use the Filter panel's `bg-primary-emphasis/10 text-info-on-tint` (7.78 light / 7.15 dark). The Analytics canvas's own `--inset`, warning tint and light danger `#dc2626` are canvas drift, not tokens.
+- **Layouts.** `WorkspaceLayout` (full width; Board, Analytics), `OverviewLayout` (max 1200px, a 320px side column from `lg`, below the content otherwise; Home, group page), `SettingsLayout` (max 1240px, a 240px nav with Find a setting, one section per view, a `<select>` below `md`; the active section is `?tab=` so deep links keep working), `CenteredLayout` (one card, max 380px, from `sm`; on phones no card, the content on the page ground with 48px controls). Pages outside the app shell (Centered, the shared board) keep their own `h1`; inside the shell the header owns the `h1` (#2473) and the page heading is `PageHeading`, an `h2` at 24/650 with a one-line description.
+- **Parts.** `CardHeading` (15/650), `SectionLabel` (13px uppercase, 0.06em, `fg-tertiary`), `StatusPill` (static, 24px at 12px: On track, At risk, Off track, Pending; its type has no "No status", health rule 3) and `StatusControl` (30px at 13px, adds the hollow No status), `FilterPill` (the Show chips: 34px, selected `bg-primary/[0.22] border-info font-semibold` plus `aria-pressed`, a count in every pill), `ListWell`/`ListRow` (8px rows, hover to `bg-surface`, wide content scrolls in the well), `SettingsCard` (panel, 10px radius, 18px padding), `Switch` (44×26, saves on change), `SettingSwitchRow`, `SettingTwoSwitchRow` (+ `SettingTwoSwitchHeader`; switches named "<event>, in-app" / "<event>, email"; Email off and disabled while in-app is off), `SaveBar` (only while dirty; `role="status"` "You have unsaved <thing> changes.", Discard Quiet, "Save <thing>" Primary), `InlineConfirm` (danger tint, one sentence naming target and consequence, Cancel Quiet + Danger; only for the change that removes access), `EmptyState` (what is missing and the one action that fills it), `Field` (visible label, required `autoComplete`), `OrDivider`, `BrandTile`, `CenteredHeader`, `StatusCard` (a terminal state in a Centered card; the heading says the outcome, the tone colors only a small mark).
+- **Radius and weight.** The canvas's 6px buttons are `rounded`; its weight 650 is `font-semibold`.
 
 ## Admin table row overflow menu (#1291)
 
