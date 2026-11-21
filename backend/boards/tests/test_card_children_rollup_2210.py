@@ -398,3 +398,139 @@ class ContainerRenameTests(_RollupFixture, TestCase):
     def test_plain_board_costs_zero_queries(self):
         with self.assertNumQueries(0):
             card_links.announce_parent_container_renamed(self.cboard, actor_id=None)
+
+
+class AdminChildPingTests(_RollupFixture, TestCase):
+    """#2500: Django-admin writes send the same pings as the REST paths.
+
+    ``CardAdmin.save_model`` edits of a child's column or archived state ping
+    the parent's board (``card.children_changed``); board, column and lane
+    admin renames of a parent's container send the bounded
+    ``card.parent_changed`` of #2416. Each has a negative control.
+    """
+
+    def setUp(self):
+        from django.contrib import admin as django_admin
+        from django.test import RequestFactory
+
+        self._setup_rollup()
+        self.site = django_admin.site
+        self.request = RequestFactory().post("/")
+        self.request.user = self.owner
+        self.kids = sorted(CardParentLink.objects.filter(parent=self.parent).values_list("child_id", flat=True))
+
+    def _rows(self, event):
+        return list(BoardEvent.objects.filter(event=event).values_list("board_id", "data"))
+
+    def _save(self, admin_cls, model, obj):
+        with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
+            admin_cls(model, self.site).save_model(self.request, obj, None, True)
+
+    def _card_save(self, card_id, **fields):
+        from boards.admin import CardAdmin
+        from boards.models import Card
+
+        card = Card.objects.get(pk=card_id)
+        for name, value in fields.items():
+            setattr(card, name, value)
+        self._save(CardAdmin, Card, card)
+
+    def test_card_admin_column_and_archive_edits_ping_the_parent_board_once(self):
+        for fields in (
+            {"column": self.col_doing},
+            {"archived_at": timezone.now()},
+            {"archived_at": None},
+        ):
+            self._card_save(self.todo.pk, **fields)
+            self.assertEqual(
+                self._rows("card.children_changed"), [(self.pboard.pk, {"parent_id": self.parent.pk})], fields,
+            )
+            BoardEvent.objects.filter(event="card.children_changed").delete()
+
+    def test_card_admin_no_op_title_and_lane_edits_ping_nothing(self):
+        lane2 = _make_swimlane(self.cboard, name="lane two")
+        self._card_save(self.doing.pk)
+        self._card_save(self.doing.pk, title="renamed child")
+        self._card_save(self.doing.pk, swimlane=lane2)
+        self.assertEqual(self._rows("card.children_changed"), [])
+
+    def test_card_admin_edit_of_an_unlinked_card_pings_nothing(self):
+        loose = _make_card(self.col_c, self.lane_c, title="loose")
+        self._card_save(loose.pk, column=self.col_doing)
+        self.assertEqual(self._rows("card.children_changed"), [])
+
+    def test_card_admin_ping_is_deferred_and_rolls_back(self):
+        from boards.admin import CardAdmin
+        from boards.models import Card
+
+        card = Card.objects.get(pk=self.doing.pk)
+        card.column = self.col_done
+        with mock.patch("boards.broadcast.broadcast_board_event") as sent:
+            with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError):
+                with transaction.atomic():
+                    CardAdmin(Card, self.site).save_model(self.request, card, None, True)
+                    raise RuntimeError
+            sent.assert_not_called()
+            self.assertEqual(self._rows("card.children_changed"), [])
+            card = Card.objects.get(pk=self.doing.pk)
+            card.column = self.col_done
+            with self.captureOnCommitCallbacks(execute=False) as callbacks, transaction.atomic():
+                CardAdmin(Card, self.site).save_model(self.request, card, None, True)
+            sent.assert_not_called()  # nothing before the commit
+            for cb in callbacks:
+                cb()
+        published = [c.args[:2] for c in sent.call_args_list if c.args[1] == "card.children_changed"]
+        self.assertEqual(published, [(self.pboard.pk, "card.children_changed")])
+
+    def test_admin_board_column_and_lane_renames_ping_each_child_board_once(self):
+        from boards.admin import BoardAdmin, ColumnAdmin, SwimlaneAdmin
+        from boards.models import Board, Column, Swimlane
+
+        for admin_cls, model, pk, name in (
+            (BoardAdmin, Board, self.pboard.pk, "Portfolio 2"),
+            (ColumnAdmin, Column, self.parent.column_id, "Renamed col"),
+            (SwimlaneAdmin, Swimlane, self.parent.swimlane_id, "Renamed lane"),
+        ):
+            obj = model.objects.get(pk=pk)
+            obj.name = name
+            self._save(admin_cls, model, obj)
+            self.assertEqual(self._rows("card.parent_changed"), [(self.cboard.pk, {"card_ids": self.kids})], model)
+            BoardEvent.objects.filter(event="card.parent_changed").delete()
+
+    def test_admin_unchanged_name_other_container_and_child_tier_renames_ping_nothing(self):
+        from boards.admin import BoardAdmin, ColumnAdmin, SwimlaneAdmin
+        from boards.models import Board, Column, Swimlane
+
+        elsewhere = _make_column(self.pboard, name="Elsewhere", order=3)
+        for admin_cls, model, pk, name in (
+            (BoardAdmin, Board, self.pboard.pk, None),  # unchanged name
+            (ColumnAdmin, Column, self.parent.column_id, None),
+            (SwimlaneAdmin, Swimlane, self.parent.swimlane_id, None),
+            (ColumnAdmin, Column, elsewhere.pk, "x"),  # no parent in it
+            (BoardAdmin, Board, self.cboard.pk, "Delivery 2"),  # child tier
+            (ColumnAdmin, Column, self.col_doing.pk, "Doing 2"),
+            (SwimlaneAdmin, Swimlane, self.lane_c.pk, "lane c 2"),
+        ):
+            obj = model.objects.get(pk=pk)
+            if name is not None:
+                obj.name = name
+            self._save(admin_cls, model, obj)
+        self.assertEqual(self._rows("card.parent_changed"), [])
+
+    def test_admin_rename_reads_links_a_fixed_number_of_times(self):
+        from boards.admin import ColumnAdmin
+        from boards.models import Column
+
+        for i in range(3):
+            parent = _make_card(self.parent.column, self.parent.swimlane, title=f"p{i}")
+            CardParentLink.objects.create(
+                parent=parent, child=_make_card(self.col_c, self.lane_c, title=f"k{i}"), created_by=self.owner,
+            )
+        col = Column.objects.get(pk=self.parent.column_id)
+        col.name = "Renamed col"
+        with CaptureQueriesContext(connection) as ctx:
+            self._save(ColumnAdmin, Column, col)
+        reads = [q for q in ctx.captured_queries if "card_parent_links" in q["sql"]]
+        # The count, then the ids: two however many parents the column holds.
+        self.assertEqual(len(reads), 2, reads)
+        self.assertEqual(len(self._rows("card.parent_changed")), 1)

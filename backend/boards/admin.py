@@ -493,6 +493,22 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                     from .services.card_links import announce_parent_changed
 
                     announce_parent_changed(obj.pk, obj.board, actor_id=request.user.pk)
+                # A child's column and archived state are what its parent's
+                # rollup reads (#2210), so an admin edit of either pings the
+                # parent's board as move_card / archive_card / unarchive_card
+                # do (#2500). Decided from the row read under the lock, not
+                # from ``form.changed_data``, so a programmatic save with no
+                # form still pings. A board change already pinged the parent
+                # through unlink_all above. The block fields are read-only
+                # here; a blocker archived or restored here pings its blocked
+                # peers' parents through publish_blocked_peers below.
+                if stored is not None and stored.board_id == obj.board_id and (
+                    stored.column_id != obj.column_id
+                    or (stored.archived_at is None) != (obj.archived_at is None)
+                ):
+                    from .services.card_links import announce_children_changed
+
+                    announce_children_changed([obj.pk], board=obj.board, actor_id=request.user.pk)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it
@@ -632,7 +648,22 @@ class ColumnAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
         # snapshotted the columns a card could enter through.
         # changeform_view's transaction holds the lock until the save commits.
         _lock_board_for_admin_save(obj.board_id, Column, obj.pk if change else None)
+        # The name before this write, read under the column lock (as
+        # ColumnViewSet.perform_update reads it), not from ``obj``.
+        old_name = (
+            Column.objects.filter(pk=obj.pk).values_list("name", flat=True).first()
+            if change else None
+        )
         super().save_model(request, obj, form, change)
+        # A parent's column name shows on each child (#2416): the same one
+        # coalesced, ids-only ping per child board as the REST rename (#2500),
+        # only on a real name change, published on commit.
+        if old_name is not None and obj.name != old_name:
+            from .services.card_links import announce_parent_container_renamed
+
+            announce_parent_container_renamed(
+                obj.board, column_id=obj.pk, actor_id=request.user.pk,
+            )
         event = _broadcast.EVT_COLUMN_UPDATED if change else _broadcast.EVT_COLUMN_CREATED
         column_data = ColumnSerializer(obj).data
         board_id = obj.board_id
@@ -936,6 +967,21 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
     def _delete_payload(self, obj):
         return {"swimlane_uid": obj.uid}
 
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # A parent's lane name shows on each child (#2416): the same one
+        # coalesced, ids-only ping per child board as the REST rename (#2500),
+        # only on a real name change. The old name was read under the lane
+        # lock (_lock_for_save); changeform_view's transaction is still open,
+        # so the ping publishes on commit.
+        old_name = getattr(obj, "_rename_old_name", None)
+        if old_name is not None and obj.name != old_name:
+            from .services.card_links import announce_parent_container_renamed
+
+            announce_parent_container_renamed(
+                obj.board, swimlane_id=obj.pk, actor_id=request.user.pk,
+            )
+
     def _lock_for_save(self, obj, change):
         """Lock order for a lane save: board rows, then the lane (#2245).
 
@@ -972,10 +1018,12 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
         # The lane's board before this write (see _after_save), read under the
         # lane lock. On the instance, not the admin: one ModelAdmin serves
         # every request.
-        obj._health_old_board_id = (
-            Swimlane.objects.filter(pk=obj.pk).values_list("board_id", flat=True).first()
+        # The name too, for the rename ping in save_model (#2500), from the
+        # same locked read.
+        obj._health_old_board_id, obj._rename_old_name = (
+            Swimlane.objects.filter(pk=obj.pk).values_list("board_id", "name").first()
             if change else None
-        )
+        ) or (None, None)
         if obj._health_old_board_id is not None and obj._health_old_board_id not in locked:
             Board.objects.select_for_update(no_key=True).filter(pk=obj._health_old_board_id).first()
 
@@ -1204,12 +1252,14 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
         old_auto_settings = (
             None if change else (False, obj.health_off_track_cards, obj.staleness_threshold_days)
         )
+        old_name = None
         if change:
             # Read from the locked row (#2242), like old_group_id above. The
-            # auto health settings too (#2245), for apply_auto_health_change.
-            old_health_status, *old_auto_settings = (
+            # auto health settings too (#2245), for apply_auto_health_change,
+            # and the name, for the rename ping below (#2500).
+            old_health_status, old_name, *old_auto_settings = (
                 Board.objects.filter(pk=obj.pk).values_list(
-                    "health_status", "health_auto_enabled", "health_off_track_cards",
+                    "health_status", "name", "health_auto_enabled", "health_off_track_cards",
                     "staleness_threshold_days",
                 ).first()
             )
@@ -1241,6 +1291,13 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             if not obj.cards_can_have_children and obj.default_child_board_id is not None:
                 obj.default_child_board = None
         super().save_model(request, obj, form, change)
+        # A parent board's name shows on each child (#2416): the same one
+        # coalesced, ids-only ping per child board as the REST rename (#2500),
+        # only on a real name change, published on commit.
+        if old_name is not None and obj.name != old_name:
+            from .services.card_links import announce_parent_container_renamed
+
+            announce_parent_container_renamed(obj, actor_id=request.user.pk)
         if old_auto_settings is not None:
             # The REST PATCH's path (#2245): turning auto off clears every
             # computed value, on or a rule-input change computes now; the

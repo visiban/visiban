@@ -443,15 +443,17 @@ each surface that delivers them:
   parent-board reader learns when a parent's children changed (since #2210,
   including when a child moved between columns, was archived or restored, was
   blocked or unblocked, or gained or lost an open `blocks` relation, among
-  them by its blocker being archived, restored or deleted) and a
+  them by its blocker being archived, restored or deleted; since #2500, also
+  when a Django-admin card edit changes a child's column or archived state,
+  from `CardAdmin.save_model`) and a
   child-board reader learns when a card's parent link changed, or when its
   parent was renamed, moved between columns or lanes, archived or restored
   (`card.parent_changed` is also sent for those parent writes, from
   `card_links.announce_parent_changed` in `update_card`, the move, `archive_card`,
   `unarchive_card` and `CardAdmin.save_model`, and once per child board for a
-  REST board, column or lane rename, `announce_parent_container_renamed`, #2416;
-  a Django-admin container rename still sends nothing, so those names stay
-  stale until the next read). The child's own `parent` field (REST only) is resolved by
+  board, column or lane rename, `announce_parent_container_renamed`, #2416,
+  from the REST updates and, since #2500, the Django-admin `BoardAdmin`,
+  `ColumnAdmin` and `SwimlaneAdmin` saves alike). The child's own `parent` field (REST only) is resolved by
   `card_links.parents_for_viewer`, per request, and is `{"hidden": true}` with
   no other key when the reader has no role on the parent's board; it is omitted
   from every frame, feed row and webhook (`CardParentField` raises `SkipField`
