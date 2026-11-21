@@ -30,8 +30,8 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
   const popoverRef = useRef<HTMLDivElement>(null);
   // Top-aligned with the card, sliding up only as far as its measured height
   // needs to stay on screen (#1457): a card near the bottom of the board would
-  // otherwise push the peek off the viewport. Hover-only, so no resize or
-  // scroll dismissal: mouse-leave already closes it.
+  // otherwise push the peek off the viewport. Hover-only: CardItem's hover
+  // guard (#2508) closes it on scroll, blur, a key or a pointer outside.
   const top = useAnchoredPlacement(popoverRef, {
     anchor: { top: anchorRect.top, bottom: anchorRect.bottom },
     mode: "side",
@@ -85,6 +85,8 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
     <div
       ref={popoverRef}
       role="tooltip"
+      // CardItem's hover guard (#2508) treats a pointer over the peek as still hovering.
+      data-card-peek=""
       style={style}
       className={`bg-surface border border-line-strong rounded-lg shadow-xl p-3 text-sm pointer-events-auto select-none
         ${prefersReducedMotion ? "" : "animate-fade-in"}
