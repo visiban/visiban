@@ -1743,10 +1743,15 @@ def delete_boards_locked(boards):
         )
         # The link rows CASCADE with the cards: tell each surviving peer
         # first, as every other card-deleting path does.
-        from .card_links import announce_cards_removal
+        from .card_links import (
+            REASON_BOARD_DELETED, announce_cards_removal, announce_default_cleared, boards_losing_default,
+        )
 
-        announce_cards_removal(Card.objects.filter(board_id__in=board_pks))
-        return locked.delete()
+        announce_cards_removal(Card.objects.filter(board_id__in=board_pks), reason=REASON_BOARD_DELETED)
+        losing_default = boards_losing_default(board_pks)
+        result = locked.delete()
+        announce_default_cleared(losing_default)
+        return result
 
 
 # How many times lock_cards_for_cascade re-takes its locks when a card entered

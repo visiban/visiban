@@ -695,7 +695,7 @@ Use it for one list combining moves, comments, field edits, checklist events, at
 | `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change`, and since 1.3 `blocked`, `unblocked` (#1149) and `custom_field_changed` (#1921) |
 | `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
 | `attachment` | `attachment_added`, `attachment_deleted` |
-| `system` | `archived`, `reactivated`, and since 1.3 `parent_linked`, `parent_unlinked`, `child_linked`, `child_unlinked` (#1104) |
+| `system` | `archived`, `reactivated`, and since 1.3 `parent_linked`, `parent_unlinked`, `child_linked`, `child_unlinked` (#1104), `children_removed_board_deleted`, `parent_removed_board_deleted` (#2208) |
 
 An `unblocked` entry's `data` also carries `block_duration_seconds` (*added in 1.3*, #1149): how long the block it closed lasted, or `null` when no closed block matches (an imported entry whose block history was not imported).
 
@@ -1109,8 +1109,8 @@ one. The rules:
   Deleting either card deletes the link.
 - Links are not exported or imported, and the [public share link](boards.md)
   shows none of this.
-- **Rate limit.** The three link writes below (link, child-side unlink,
-  parent-side unlink) share a per-user limit, the `card_link_write` throttle
+- **Rate limit.** The four link writes below (link, Add child, child-side
+  unlink, parent-side unlink) share a per-user limit, the `card_link_write` throttle
   scope (default 300 per hour, `CARD_LINK_THROTTLE_WRITE_RATE`), on top of the
   general per-user API limit. Over it, a write gets `429 Too Many Requests`
   with a `Retry-After` header and changes nothing. Reading children does not
@@ -1149,6 +1149,59 @@ Query: `offset` (pages of 50).
 
 When you cannot open the child board, `visible` is `false`, `results` is empty
 and only `count` is given: no title, board, column or id.
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/children/`
+
+**Add child** (#2208): create a new card on another board and link it under
+this card, in one request and one transaction. Body:
+`{"board_id": <int>, "title": "<text>"}`. The card goes in that board's first
+column (which must allow card creation) and first lane, and that cell's WIP
+and weight limits apply as for any create. `201` returns the new card, as
+`POST .../cards/` does.
+
+- **Roles:** `member` or higher on both boards. A viewer or collaborator on
+  this card's board gets `403` before the body is read.
+- **Target:** a `board_id` that does not exist, one you cannot open, one where
+  you are below `member`, one whose cards can have children, one whose first
+  column does not allow card creation, and this card's own board all answer the
+  same `404`.
+- **Rules:** the same `400` codes as linking (`link_not_allowed`,
+  `parent_is_child`, `children_on_other_board`, `children_limit`), decided
+  under the same locks. A parent's children always stay on one board, so once
+  it has a child, Add child only accepts that board. A blank or missing
+  `title` is `400` (keyed `title`). Nothing is created when it is refused.
+- **Limits:** a hard WIP or weight limit on the target cell answers `409`
+  (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
+  `swimlane_*` forms), with the same body as `POST .../cards/`.
+- **Events:** `card.created` on the child's board, plus the same ids-only
+  `card.children_changed` and `card.parent_changed` pings as a link.
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/child-board-options/`
+
+Where Add child may put a new child of this card, computed for you (#2208).
+Any role on this card's board.
+
+```json
+{"fixed_board": null,
+ "default": {"id": 7, "name": "Delivery"},
+ "can_set_default": true,
+ "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}]}
+```
+
+- `fixed_board`: the board this card's children are already on, as
+  `{"hidden": false, "id", "name", "can_add"}`, or `{"hidden": true}` when you
+  cannot open it (Add child is then unavailable to you). `can_add` is false when
+  you are below `member` there or its first column no longer allows card
+  creation: Add child would be refused, so the dialog disables it. `null` when it has no children.
+- `default`: the board's [`default_child_board`](boards.md), only when you are
+  `member` or higher there and it still qualifies; otherwise `null`, and the
+  client asks which board to use.
+- `boards`: every board where you are `member` or higher whose cards cannot
+  have children and whose first column allows card creation, by name.
+  `can_set_default` is true when you administer both boards.
+- `can_set_default` (top level): you administer this card's board.
+
+Empty lists and `null`s when this card's board cannot have children.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/`
 
@@ -1211,7 +1264,12 @@ Branch on `code`.
 
 Both cards record `parent_linked` / `child_linked` (and `parent_unlinked` /
 `child_unlinked`) in their [history](#history), with `from_value` and
-`to_value` blank: a history row never names the other card, not even by id. Each link change publishes `card.children_changed {parent_id}` on the
+`to_value` blank: a history row never names the other card, not even by id.
+When the other end's whole board is deleted, the surviving card records
+`children_removed_board_deleted` instead (on a parent; `to_value` is how many
+children it lost, as a number) or `parent_removed_board_deleted` (on a child,
+values blank). Neither stores the deleted board's name, so every reader sees
+"N children removed: their board was deleted" (#2208). Each link change publishes `card.children_changed {parent_id}` on the
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
 ids only. `card.parent_changed` is also sent when a parent is renamed, moved to
 another column or lane, archived or restored. See [WebSockets](websockets.md).

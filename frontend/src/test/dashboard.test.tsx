@@ -16,6 +16,10 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../api/boards', () => ({
+  // #2208 — the Rules switch's blockers and the delete confirm's impact read.
+  getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   // The import modal fetches the sample list on open (#1452); empty = gallery unavailable.
   listSampleBoards: vi.fn().mockResolvedValue([]),
   getSampleBoardFile: vi.fn(),

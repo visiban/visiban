@@ -40,7 +40,10 @@ from .broadcast import (
     without_admin_only_board_fields,
 )
 from .permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
     MODERATOR_BEARING_EVENTS,
+    SITE_ADMIN,
+    get_board_roles,
     invite_field_visible,
     moderator_field_visible,
     site_admin_field_visible,
@@ -4085,6 +4088,15 @@ class AllowedPrioritiesField(serializers.JSONField):
 # One message for an unknown group id and for a group the caller may not place
 # a board in (BoardSerializer.validate_group), so the two are indistinguishable.
 _BOARD_GROUP_NOT_ALLOWED_MSG = "Unknown group, or you are not an admin of it."
+# #2208: one body for an unknown board, one the caller cannot open, one they
+# are not ADMIN of, and one that does not qualify, so the write is not an
+# oracle for boards outside the caller's reach.
+DEFAULT_CHILD_BOARD_NOT_ALLOWED_MSG = (
+    "Unknown board, or not a board you administer that can take child cards."
+)
+DEFAULT_CHILD_BOARD_FLAG_OFF_MSG = (
+    "Turn on \"Cards on this board can have children\" before choosing a default child board."
+)
 
 
 def _group_name_for_board(board) -> str | None:
@@ -4246,9 +4258,29 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
         allow_null=True, required=False, help_text=SWIMLANE_ROLLUP_FIELD_HELP,
     )
 
+    # #2208 part 2: where Add child creates a new child card. ID only, never a
+    # nested name: board.updated carries this payload to every member of
+    # this board, who may be unable to open the target. Writable by board
+    # admins (perform_update) who are also ADMIN on the target; see
+    # validate_default_child_board.
+    default_child_board = serializers.PrimaryKeyRelatedField(
+        queryset=Board.objects.all(), allow_null=True, required=False,
+        help_text=(
+            "Id of the board where Add child on this board's cards creates the new "
+            "child, or null to ask each time (#2208, since 1.3). Setting it needs "
+            "admin on both boards; the target must be a board whose cards cannot "
+            "have children and whose first column allows card creation. Clearing "
+            "it needs admin on this board only."
+        ),
+        error_messages={
+            "does_not_exist": DEFAULT_CHILD_BOARD_NOT_ALLOWED_MSG,
+            "incorrect_type": DEFAULT_CHILD_BOARD_NOT_ALLOWED_MSG,
+        },
+    )
+
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -4358,6 +4390,77 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
             # Same message as an unknown id (Meta.extra_kwargs above), so the
             # response does not reveal whether the group exists.
             raise serializers.ValidationError(_BOARD_GROUP_NOT_ALLOWED_MSG, code="does_not_exist")
+
+    def validate_default_child_board(self, value):
+        """Accept a clear, an echo, or a target the caller administers (#2208).
+
+        * ``None`` clears it: ADMIN on this board only, which
+          ``BoardViewSet.perform_update`` already enforces.
+        * Re-sending the current value is a no-op, so a round-tripped
+          representation keeps working (as ``validate_group``).
+        * Otherwise the caller needs ADMIN on the target too (the dual check
+          board moves use), and the target must qualify
+          (``card_links.board_qualifies_as_child``). Every refusal is the same
+          body. Without an authenticated request there is no caller to
+          authorize, so it is refused (#1075). On create it is refused: the
+          board's flag and its admin are only settled once it exists.
+        """
+        if value is None:
+            return value
+        if self.instance is not None and value.pk == self.instance.default_child_board_id:
+            return value
+        self._check_default_child_board(value)
+        return value
+
+    def _check_default_child_board(self, value):
+        from .services.card_links import board_qualifies_as_child
+
+        refuse = serializers.ValidationError(DEFAULT_CHILD_BOARD_NOT_ALLOWED_MSG, code="does_not_exist")
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated or self.instance is None:
+            raise refuse
+        if value.pk == self.instance.pk:
+            raise refuse
+        target = (
+            Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=value.pk).first()
+        )
+        if target is None:
+            raise refuse
+        role = get_board_roles(user, [target])[target.pk]
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN) or not board_qualifies_as_child(target):
+            raise refuse
+
+    def recheck_default_child_board_under_lock(self, board):
+        """Re-apply the default-child-board rule against the locked rows (#2208).
+
+        Call after both boards are locked and ``board`` refreshed, before
+        ``save()``. A write that turns the flag off also clears the default in
+        the same write (a child tier has no child board). A non-null value
+        needs the flag on as it will be stored, and, unless it is an echo of
+        the stored value, the target re-judged as stored now: a flag turned on
+        or an admin role lost while this request waited is the same 400.
+        """
+        flag = self.validated_data.get("cards_can_have_children", board.cards_can_have_children)
+        if "default_child_board" not in self.validated_data:
+            if not flag and board.default_child_board_id is not None:
+                self.validated_data["default_child_board"] = None
+            return
+        value = self.validated_data["default_child_board"]
+        if value is None:
+            return
+        if value.pk == board.default_child_board_id:
+            # An echo of the stored value is accepted even as the flag turns
+            # off: a child tier has no child board, so the write clears it.
+            if not flag:
+                self.validated_data["default_child_board"] = None
+            return
+        if not flag:
+            raise serializers.ValidationError({"default_child_board": [DEFAULT_CHILD_BOARD_FLAG_OFF_MSG]})
+        try:
+            self._check_default_child_board(value)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"default_child_board": exc.detail})
 
     def recheck_group_under_lock(self, board):
         """Re-apply the group rule against ``board`` as re-read under its row lock.
@@ -4772,10 +4875,12 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             "commitment_column_uid",
             # Additive (#2208): two-tier card links; written via PATCH /boards/{id}/.
             "cards_can_have_children",
+            # Additive (#2208 part 2): id only; written via PATCH /boards/{id}/.
+            "default_child_board",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.
-        read_only_fields = ["uid", "group", "commitment_column_uid", "cards_can_have_children"]
+        read_only_fields = ["uid", "group", "commitment_column_uid", "cards_can_have_children", "default_child_board"]
         extra_kwargs = _BOARD_ENFORCEMENT_EXTRA_KWARGS
 
     def get_archived_card_count(self, obj) -> int:

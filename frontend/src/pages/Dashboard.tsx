@@ -10,6 +10,7 @@ import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoardModal";
 import { canDeleteBoard } from "../utils/canDeleteBoard";
+import BoardDeleteImpactNotice from "../components/Board/BoardDeleteImpact";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import SectionEmptyState from "../components/Common/SectionEmptyState";
@@ -505,6 +506,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
               <span className="text-fg font-medium">{board?.name}</span> and all its data, including archived cards, will be permanently deleted.
             </p>
             <p className="text-danger text-sm mb-4">This cannot be undone.</p>
+            <BoardDeleteImpactNotice boardId={confirmDeleteId} />
             {hasCards && (
               <div className="mb-4">
                 <p className="text-fg-tertiary text-xs mb-2">

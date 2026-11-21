@@ -70,7 +70,11 @@ class ContainerDeleteLinkPeerLockOrderTests(_LinkFixture, TransactionTestCase):
         self.assertFalse(CardParentLink.objects.exists())
         # The surviving peer still records the unlink (#1104).
         self.assertTrue(
-            CardActivity.objects.filter(card=self.parent, event_type="child_unlinked").exists()
+            CardActivity.objects.filter(
+                card=self.parent,
+                # A whole-board delete records the count row instead (#2208).
+                event_type__in=["child_unlinked", "children_removed_board_deleted"],
+            ).exists()
         )
 
     def test_rest_column_delete(self):

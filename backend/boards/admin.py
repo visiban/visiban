@@ -27,7 +27,13 @@ from .services.cards import (
     enforce_column_limits, lock_board_for_card_write, lock_card_cell_entry,
     lock_card_for_write, lock_card_row, lock_cards_for_cascade, require_swimlane_exists,
 )
-from .services.card_links import announce_cards_removal, lock_card_and_link_peers
+from .services.card_links import (
+    REASON_BOARD_DELETED,
+    announce_cards_removal,
+    announce_default_cleared,
+    boards_losing_default,
+    lock_card_and_link_peers,
+)
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
 from .services.errors import (
     LinksChanged,
@@ -1125,9 +1131,13 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
     # #2245: the computed columns are written only by
     # boards.services.health_compute (with their history rows); the admin
     # applies the same service when the auto settings change (save_model).
+    # #2208: default_child_board is written only by PATCH /boards/{id}/, which
+    # checks ADMIN on both boards and that the target qualifies; fields="__all__"
+    # would otherwise make this form a second, unchecked write path.
     readonly_fields = (
         "health_status_changed_at", "health_status_changed_by", "health_status_note",
         "computed_health_status", "health_computed_at", "health_computed_counts",
+        "default_child_board",
     )
     stale_save_message = (
         "This board was changed after this page was opened, so nothing was saved. "
@@ -1214,6 +1224,19 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
                         f"Cannot change \"cards can have children\" while {blocking} "
                         "card link(s) depend on it. Remove those links first."
                     )
+                # #2208 part 2: the REST rule (card_links.flag_flip_refusal).
+                if obj.cards_can_have_children:
+                    from .services.card_links import boards_defaulting_to
+
+                    if boards_defaulting_to(obj).exists():
+                        raise _FlagFlipRefused(
+                            "Cannot turn on \"cards can have children\" while this "
+                            "board is another board's default child board."
+                        )
+            # A board that can no longer have children has no default child
+            # board (#2208), as on the REST PATCH.
+            if not obj.cards_can_have_children and obj.default_child_board_id is not None:
+                obj.default_child_board = None
         super().save_model(request, obj, form, change)
         if old_auto_settings is not None:
             # The REST PATCH's path (#2245): turning auto off clears every
@@ -1298,8 +1321,12 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             peers = blocked_peers_of(Card.objects.filter(board_id=obj.pk))
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
-            announce_cards_removal(Card.objects.filter(board_id=obj.pk), actor=request.user)
+            announce_cards_removal(
+                Card.objects.filter(board_id=obj.pk), actor=request.user, reason=REASON_BOARD_DELETED,
+            )
+            losing_default = boards_losing_default([obj.pk])
             super().delete_model(request, obj)
+            announce_default_cleared(losing_default)
             _record_board_and_group_event(
                 board_id, group_id, _broadcast.EVT_BOARD_DELETED, {"board_uid": board_uid},
                 actor_id=request.user.pk,
@@ -1345,8 +1372,13 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             peers = blocked_peers_of(Card.objects.filter(board__in=queryset.values("pk")))
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
-            announce_cards_removal(Card.objects.filter(board__in=queryset.values("pk")), actor=request.user)
+            announce_cards_removal(
+                Card.objects.filter(board__in=queryset.values("pk")), actor=request.user,
+                reason=REASON_BOARD_DELETED,
+            )
+            losing_default = boards_losing_default(list(queryset.values_list("pk", flat=True)))
             super().delete_queryset(request, queryset)
+            announce_default_cleared(losing_default)
             for board_id, board_uid, group_id in deleted:
                 _record_board_and_group_event(
                     board_id, group_id, _broadcast.EVT_BOARD_DELETED, {"board_uid": board_uid},

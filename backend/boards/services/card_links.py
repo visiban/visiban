@@ -76,21 +76,116 @@ def links_blocking_flag_flip(board, new_value: bool) -> int:
     return CardParentLink.objects.filter(parent__board_id=board.pk).count()
 
 
+def boards_defaulting_to(board):
+    """The other boards whose ``default_child_board`` is ``board`` (#2208 part 2).
+
+    While any exist, ``board`` must stay a child tier: turning its flag ON
+    would leave those boards' Add child pointing at a parent tier. Callers that
+    must be exact hold ``board``'s row lock, which the default write also takes
+    on its target (``BoardViewSet.perform_update``), so a flip and a default
+    write serialize.
+    """
+    return Board.objects.filter(default_child_board_id=board.pk).exclude(pk=board.pk)
+
+
+def flag_flip_refusal(board, new_value: bool):
+    """The message refusing a flip of ``board``'s flag to ``new_value``, or ``None``.
+
+    One rule for the REST PATCH and the Django admin. A no-op (``None``) when
+    the value is unchanged. Turning the flag off on a board whose cards have
+    children stays refused (the turn-off confirm is a later step of #2208).
+    """
+    if new_value == board.cards_can_have_children:
+        return None
+    blocking = links_blocking_flag_flip(board, new_value)
+    if blocking:
+        return (
+            f"Cannot change this setting while {blocking} card link(s) depend on it. "
+            "Remove those links first."
+        )
+    if new_value and boards_defaulting_to(board).exists():
+        return (
+            "This board is the default child board of another board. Clear that "
+            "default first."
+        )
+    return None
+
+
 def check_flag_flip(board, new_value: bool) -> None:
     """Raise a 400 when changing the flag to ``new_value`` would break existing links.
 
-    A no-op when the value is unchanged.
+    Also refused (#2208 part 2): turning it ON while this board is another
+    board's ``default_child_board``. A no-op when the value is unchanged.
     """
-    if new_value == board.cards_can_have_children:
-        return
-    blocking = links_blocking_flag_flip(board, new_value)
-    if blocking:
-        raise ValidationError({
-            "cards_can_have_children": [
-                f"Cannot change this setting while {blocking} card link(s) depend on it. "
-                "Remove those links first."
-            ]
-        })
+    message = flag_flip_refusal(board, new_value)
+    if message:
+        raise ValidationError({"cards_can_have_children": [message]})
+
+
+# ─── Default child board (#2208 part 2) ──────────────────────────────────────
+
+
+def first_column_and_lane(board):
+    """``(column, swimlane)`` where Add child puts a new child on ``board``.
+
+    The first column by position and the first lane by position, as the board
+    renders them. Either is ``None`` when the board has none.
+    """
+    from ..models import Column, Swimlane
+
+    column = Column.objects.filter(board_id=board.pk).order_by("position", "pk").first()
+    lane = Swimlane.objects.filter(board_id=board.pk).order_by("position", "pk").first()
+    return column, lane
+
+
+def board_qualifies_as_child(board) -> bool:
+    """True when ``board`` can be a default child board / Add child target.
+
+    It must be a child tier (two tiers, never three) and its first column
+    must allow card creation, since that is where Add child puts the card. A
+    missing board fails closed (#1075). Judged at use, never cached: a later
+    column edit makes a stored default stop qualifying without clearing it.
+    """
+    if board is None or board.cards_can_have_children:
+        return False
+    column, lane = first_column_and_lane(board)
+    return column is not None and lane is not None and column.allow_card_creation
+
+
+def default_child_blockers_for_viewer(board, user):
+    """What stands in the way of turning ``board``'s flag ON, for the Rules page.
+
+    ``{"child_cards": N, "parent_cards": M, "default_of": [...]}``:
+    ``child_cards`` are this board's cards that are children of other cards
+    (blocks ON), ``parent_cards`` this board's cards that have children (blocks
+    OFF, the shipped refusal), and ``default_of`` the boards whose default
+    child board this is (blocks ON). Each ``default_of`` entry is
+    ``{"id", "name", "can_change"}`` when ``user`` can open that board, else
+    ``{"hidden": True}``: no name or id for a board the viewer cannot open
+    (Rule 8). The caller has already checked ADMIN on ``board``. No user
+    fails closed to every source hidden (#1075).
+    """
+    child_cards = CardParentLink.objects.filter(child__board_id=board.pk).count()
+    parent_cards = (
+        CardParentLink.objects.filter(parent__board_id=board.pk)
+        .values("parent_id").distinct().count()
+    )
+    sources = list(
+        boards_defaulting_to(board).select_related(GROUP_ANCESTOR_SELECT_RELATED).order_by(Lower("name"), "pk")
+    )
+    viewer = user is not None and getattr(user, "is_authenticated", False)
+    roles = get_board_roles(user, sources) if sources and viewer else {}
+    default_of = []
+    for b in sources:
+        role = roles.get(b.pk)
+        if role is None:
+            default_of.append({"hidden": True})
+        else:
+            default_of.append({
+                "hidden": False, "id": b.pk, "name": b.name,
+                "can_change": role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+            })
+    return {"child_cards": child_cards, "parent_cards": parent_cards, "default_of": default_of}
 
 
 # ─── Lookup ──────────────────────────────────────────────────────────────────
@@ -127,6 +222,22 @@ def resolve_card_for_user(user, card_id):
 
 
 # ─── Write path ──────────────────────────────────────────────────────────────
+
+
+def lock_board_rows(board_pks):
+    """Lock ``board_pks`` ``FOR NO KEY UPDATE`` in pk order (no-op on SQLite).
+
+    The board half of :func:`_lock_endpoints`, for writes that hold boards but
+    no card: the default-child-board PATCH and :func:`create_child`.
+    """
+    if not connection.features.has_select_for_update:
+        return
+    list(
+        Board.objects.select_for_update(no_key=True)
+        .filter(pk__in=sorted(set(board_pks)))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
 
 def _lock_endpoints(parent_pk, child_pk, board_pks=()):
@@ -285,6 +396,54 @@ def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
     )
 
 
+def _check_link_rules_under_lock(parent, child_board, *, child=None):
+    """Every link rule that reads other rows, for :func:`create_link` and :func:`create_child`.
+
+    Call with both boards and the parent card locked (``child`` too, when it
+    exists). One helper so the two writes refuse with the same codes in the
+    same precedence. ``child`` is ``None`` for Add child: a card created in
+    this transaction has no links to check.
+    """
+    flags = dict(
+        Board.objects.filter(pk__in=[parent.board_id, child_board.pk])
+        .values_list("pk", "cards_can_have_children")
+    )
+    parent.board.cards_can_have_children = flags[parent.board_id]
+    child_board.cards_can_have_children = flags[child_board.pk]
+    if not link_allowed(parent.board, child_board):
+        raise CodedValidationError(
+            "link_not_allowed",
+            "A parent must be on a board whose cards can have children, and "
+            "the child on a board whose cards cannot.",
+        )
+    # Defense in depth for "exactly two tiers": the board predicate makes
+    # these unreachable while every flag flip goes through check_flag_flip.
+    if child is not None and CardParentLink.objects.filter(parent_id=child.pk).exists():
+        raise CodedValidationError("child_is_parent", "This card has children, so it cannot have a parent.")
+    if CardParentLink.objects.filter(child_id=parent.pk).exists():
+        raise CodedValidationError("parent_is_child", "That card has a parent, so it cannot have children.")
+    if child is not None:
+        existing = CardParentLink.objects.filter(child_id=child.pk).first()
+        if existing is not None:
+            if existing.parent_id == parent.pk:
+                raise CodedValidationError("link_exists", "This card is already linked to that parent.")
+            raise CodedValidationError("already_has_parent", "This card already has a parent. Unlink it first.")
+    siblings = CardParentLink.objects.filter(parent_id=parent.pk)
+    # One child board per parent (epic #2206 decision A): nothing ever splits
+    # a parent's children across boards, not a link and not Add child.
+    if siblings.exclude(child__board_id=child_board.pk).exists():
+        raise CodedValidationError(
+            "children_on_other_board",
+            "That parent's children are on another board. All of a parent's "
+            "children live on one board.",
+        )
+    if siblings.count() >= CHILDREN_PER_PARENT_LIMIT:
+        raise CodedValidationError(
+            "children_limit",
+            f"That parent has {CHILDREN_PER_PARENT_LIMIT} children (the limit).",
+        )
+
+
 def create_link(*, user, child, child_role, parent_id):
     """Link ``child`` (already resolved on a board the user can open) to a parent.
 
@@ -309,48 +468,215 @@ def create_link(*, user, child, child_role, parent_id):
         # board the role checks above were not made against.
         if boards_now.get(child.pk) != child.board_id or boards_now.get(parent.pk) != parent.board_id:
             raise NotFound()
-        flags = dict(
-            Board.objects.filter(pk__in=[parent.board_id, child.board_id])
-            .values_list("pk", "cards_can_have_children")
-        )
-        parent.board.cards_can_have_children = flags[parent.board_id]
-        child.board.cards_can_have_children = flags[child.board_id]
-        if not link_allowed(parent.board, child.board):
-            raise CodedValidationError(
-                "link_not_allowed",
-                "A parent must be on a board whose cards can have children, and "
-                "the child on a board whose cards cannot.",
-            )
-        # Defense in depth for "exactly two tiers": the board predicate makes
-        # these unreachable while every flag flip goes through check_flag_flip.
-        if CardParentLink.objects.filter(parent_id=child.pk).exists():
-            raise CodedValidationError("child_is_parent", "This card has children, so it cannot have a parent.")
-        if CardParentLink.objects.filter(child_id=parent.pk).exists():
-            raise CodedValidationError("parent_is_child", "That card has a parent, so it cannot have children.")
-        existing = CardParentLink.objects.filter(child_id=child.pk).first()
-        if existing is not None:
-            if existing.parent_id == parent.pk:
-                raise CodedValidationError("link_exists", "This card is already linked to that parent.")
-            raise CodedValidationError("already_has_parent", "This card already has a parent. Unlink it first.")
-        siblings = CardParentLink.objects.filter(parent_id=parent.pk)
-        # One child board per parent (epic #2206 decision A, enforced pending
-        # the owner's confirmation; relaxing it later is backward compatible).
-        if siblings.exclude(child__board_id=child.board_id).exists():
-            raise CodedValidationError(
-                "children_on_other_board",
-                "That parent's children are on another board. All of a parent's "
-                "children live on one board.",
-            )
-        if siblings.count() >= CHILDREN_PER_PARENT_LIMIT:
-            raise CodedValidationError(
-                "children_limit",
-                f"That parent has {CHILDREN_PER_PARENT_LIMIT} children (the limit).",
-            )
+        _check_link_rules_under_lock(parent, child.board, child=child)
         link = CardParentLink.objects.create(parent=parent, child=child, created_by=user)
         _record(child.pk, CardActivity.EventType.PARENT_LINKED, user)
         _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
         _announce(parent.board_id, parent.pk, child.board_id, child.pk, user.id)
     return link
+
+
+def _positive_id(value):
+    """``value`` as a positive int id, or ``None`` (a bool, float or text is not an id)."""
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    try:
+        pk = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return pk if 0 < pk < 2**63 else None
+
+
+def resolve_child_board(user, parent_board, board_id):
+    """The board Add child may create a child on, with the user's role, or ``NotFound``.
+
+    Looked up only among the boards ``user`` can open. A missing id, a board
+    the user cannot open, one where they hold less than MEMBER, one that does
+    not qualify (:func:`board_qualifies_as_child`) and the parent's own board
+    all raise the SAME ``NotFound`` (Rule 7). No user fails closed (#1075).
+    """
+    pk = _positive_id(board_id)
+    if pk is None or user is None or not getattr(user, "is_authenticated", False):
+        raise NotFound()
+    board = (
+        _accessible_boards(user).select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=pk).first()
+    )
+    if board is None or board.pk == parent_board.pk:
+        raise NotFound()
+    role = get_board_roles(user, [board])[board.pk]
+    if role not in LINK_WRITE_ROLES or not board_qualifies_as_child(board):
+        raise NotFound()
+    return board, role
+
+
+def create_child(*, user, parent, parent_role, board_id, make_card):
+    """Add child (#2208): create a card on ``board_id`` and link it under ``parent``, atomically.
+
+    One request, one transaction: a child that cannot be linked is never
+    created. Authorization: MEMBER or higher on both boards
+    (``LINK_WRITE_ROLES``). The card goes in the target board's first column,
+    which must allow card creation, and first lane; that cell's limits apply
+    as for any create (``make_card`` is the view's closure over
+    ``services.cards.create_card``, which enforces them).
+
+    **Lock order:** both boards ``FOR NO KEY UPDATE`` in pk order, then the
+    parent card ``FOR UPDATE``, then (inside ``create_card``) the child board
+    ``FOR SHARE`` (already held more strongly, so no wait) and the target
+    column. Boards first is the order every container delete
+    (``lock_cards_for_cascade``) and :func:`create_link` take, so Add child
+    racing a board delete, a flag flip, a default write or a link of the same
+    parent queues at the board rows instead of deadlocking. Calling
+    ``create_card`` and then :func:`create_link` as two steps would take the
+    child board ``FOR SHARE`` and then ask to upgrade it, which deadlocks two
+    concurrent Add childs.
+
+    Returns the ``CardMutationResult`` of the create.
+    """
+    if parent_role not in LINK_WRITE_ROLES:
+        raise PermissionDenied(_PERM_DENIED)
+    child_board, child_role = resolve_child_board(user, parent.board, board_id)
+    with transaction.atomic():
+        lock_board_rows([parent.board_id, child_board.pk])
+        if connection.features.has_select_for_update:
+            locked = (
+                Card.objects.select_for_update().filter(pk=parent.pk)
+                .values_list("board_id", flat=True).first()
+            )
+        else:
+            locked = Card.objects.filter(pk=parent.pk).values_list("board_id", flat=True).first()
+        if locked != parent.board_id:
+            raise NotFound()
+        # The roles were read before the locks: re-derive them now, so a member
+        # removed or demoted in that window cannot still put a card on the board.
+        roles = get_board_roles(user, [parent.board, child_board])
+        if roles.get(parent.board_id) not in LINK_WRITE_ROLES:
+            raise PermissionDenied(_PERM_DENIED)
+        if roles.get(child_board.pk) not in LINK_WRITE_ROLES:
+            raise NotFound()
+        child_role = roles[child_board.pk]
+        _check_link_rules_under_lock(parent, child_board)
+        column, lane = first_column_and_lane(child_board)
+        if column is None or lane is None or not column.allow_card_creation:
+            # The target stopped qualifying after the lookup (a column edit).
+            raise NotFound()
+        result = make_card(board=child_board, role=child_role, column=column, swimlane=lane)
+        CardParentLink.objects.create(parent=parent, child=result.card, created_by=user)
+        _record(result.card.pk, CardActivity.EventType.PARENT_LINKED, user)
+        _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
+        _announce(parent.board_id, parent.pk, child_board.pk, result.card.pk, user.id)
+    return result
+
+
+def _qualifying(boards_qs):
+    """``boards_qs`` narrowed to boards that qualify as child boards, in one query.
+
+    The bulk form of :func:`board_qualifies_as_child`: same rule.
+    """
+    from django.db.models import Exists
+
+    from ..models import Column, Swimlane
+
+    first_creates = Subquery(
+        Column.objects.filter(board_id=OuterRef("pk")).order_by("position", "pk")
+        .values("allow_card_creation")[:1]
+    )
+    return (
+        boards_qs.filter(cards_can_have_children=False)
+        .annotate(_first_creates=first_creates, _has_lane=Exists(Swimlane.objects.filter(board_id=OuterRef("pk"))))
+        .filter(_first_creates=True, _has_lane=True)
+    )
+
+
+def child_board_options_for_viewer(parent, user):
+    """What the Add child chooser offers ``user`` for ``parent`` (#2208). Per viewer.
+
+    ``{"fixed_board", "default", "boards", "can_set_default"}``:
+
+    * ``fixed_board``: the board ``parent``'s children are already on (one
+      child board per parent: Add child must use it), ``{"id", "name"}`` when
+      the viewer can open it, ``{"hidden": True}`` when not (Add child is then
+      unavailable to them), ``None`` when the parent has no children yet.
+    * ``default``: the parent board's ``default_child_board`` as ``{"id",
+      "name"}``, only when the viewer holds MEMBER or higher there and it still
+      qualifies; else ``None``, and the chooser asks.
+    * ``boards``: every qualifying board where the viewer holds MEMBER or
+      higher, by name, each with ``can_set_default`` (ADMIN on both boards).
+    * ``can_set_default``: ADMIN on the parent's board.
+
+    Empty (no boards, no default) when the parent's board is not a parent
+    tier. No user fails closed to the empty answer (#1075).
+    """
+    out = {"fixed_board": None, "default": None, "boards": [], "can_set_default": False}
+    if user is None or not getattr(user, "is_authenticated", False):
+        return out
+    parent_board = parent.board
+    if not parent_board.cards_can_have_children:
+        return out
+    parent_role = get_board_roles(user, [parent_board])[parent_board.pk]
+    if parent_role is None:
+        return out
+    admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
+    out["can_set_default"] = admin_here
+    fixed_id = (
+        CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
+        .values_list("child__board_id", flat=True).first()
+    )
+    if fixed_id is not None:
+        fixed = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=fixed_id).first()
+        fixed_role = get_board_roles(user, [fixed])[fixed.pk] if fixed is not None else None
+        if fixed_role is None:
+            out["fixed_board"] = {"hidden": True}
+        else:
+            # ``can_add`` is the POST's own rule, so the dialog never offers a
+            # target the write always refuses (a viewer there, or a first
+            # column that stopped allowing card creation).
+            out["fixed_board"] = {
+                "hidden": False, "id": fixed.pk, "name": fixed.name,
+                "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),
+            }
+    candidates = list(
+        _qualifying(_accessible_boards(user).exclude(pk=parent_board.pk))
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, candidates) if candidates else {}
+    for b in candidates:
+        role = roles.get(b.pk)
+        if role not in LINK_WRITE_ROLES:
+            continue
+        out["boards"].append({
+            "id": b.pk, "name": b.name,
+            "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+        })
+        if b.pk == parent_board.default_child_board_id:
+            out["default"] = {"id": b.pk, "name": b.name}
+    return out
+
+
+def default_child_board_options_for_admin(board, user):
+    """Boards ``user`` may pick as ``board``'s default child board (#2208). Per viewer.
+
+    Qualifying boards (not a parent tier, first column creates cards, has a
+    lane) where the viewer is ADMIN: setting a default needs ADMIN on both
+    boards. Same rule the write's validator applies, so the select never offers
+    a board the PATCH would refuse. ``[]`` when the viewer is not ADMIN on
+    ``board`` or there is no viewer (#1075 fail closed).
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return []
+    if get_board_roles(user, [board])[board.pk] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+        return []
+    candidates = list(
+        _qualifying(_accessible_boards(user).exclude(pk=board.pk))
+        .select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .order_by(Lower("name"), "pk")
+    )
+    roles = get_board_roles(user, candidates) if candidates else {}
+    return [
+        {"id": b.pk, "name": b.name}
+        for b in candidates
+        if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
+    ]
 
 
 def remove_link(link, *, actor, moved_from=None):
@@ -413,7 +739,20 @@ def announce_card_removal(card, *, actor=None):
     announce_cards_removal(Card.objects.filter(pk=card.pk), actor=actor)
 
 
-def announce_cards_removal(cards, *, actor=None):
+#: ``announce_cards_removal(reason=...)`` for a whole-board delete (#2208).
+REASON_BOARD_DELETED = "board_deleted"
+
+
+def _record_count(card_id, event_type, actor, count):
+    """Write one history row whose only value is a count (#2208).
+
+    Like :func:`_record`, no reference to the other card or its board: a
+    number of children lost is all a parent's reader learns.
+    """
+    CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor, to_value=str(count))
+
+
+def announce_cards_removal(cards, *, actor=None, reason=None):
     """Record what deleting the ``cards`` queryset does to their links, before the delete.
 
     The link rows CASCADE away with the cards, so this must run first, inside
@@ -443,8 +782,15 @@ def announce_cards_removal(cards, *, actor=None):
     their link peers in one pk-ordered statement in
     ``services.cards.lock_cards_for_cascade`` (#2409), so it holds every peer
     too before this runs.
+
+    ``reason=REASON_BOARD_DELETED`` (every whole-board delete, #2208) records
+    one ``children_removed_board_deleted`` row per surviving parent carrying
+    how many children it lost, and ``parent_removed_board_deleted`` on each
+    surviving child, instead of the plain unlink rows: "5 children removed:
+    their board was deleted" for every reader, with no board name stored.
     """
     actor_id = getattr(actor, "id", None)
+    board_deleted = reason == REASON_BOARD_DELETED
     links = list(
         CardParentLink.objects.filter(Q(child__in=cards) | Q(parent__in=cards))
         .values_list("parent_id", "parent__board_id", "child_id", "child__board_id")
@@ -454,14 +800,21 @@ def announce_cards_removal(cards, *, actor=None):
         return
     deleted = set(cards.values_list("pk", flat=True))
     parents = {}  # parent_id -> its board, for each surviving parent of a deleted child
+    lost = {}  # parent_id -> how many of its children are deleted
     children_by_board = {}  # child board -> surviving child ids of a deleted parent
     for parent_id, parent_board_id, child_id, child_board_id in links:
         if child_id in deleted and parent_id not in deleted:
             parents[parent_id] = parent_board_id
+            lost[parent_id] = lost.get(parent_id, 0) + 1
         elif parent_id in deleted and child_id not in deleted:
             children_by_board.setdefault(child_board_id, []).append(child_id)
     for parent_id in sorted(parents):
-        _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
+        if board_deleted:
+            _record_count(
+                parent_id, CardActivity.EventType.CHILDREN_REMOVED_BOARD_DELETED, actor, lost[parent_id],
+            )
+        else:
+            _record(parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         _broadcast.record_board_event(
             parents[parent_id], _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
@@ -469,11 +822,84 @@ def announce_cards_removal(cards, *, actor=None):
     for child_board_id in sorted(children_by_board):
         child_ids = sorted(children_by_board[child_board_id])
         for child_id in child_ids:
-            _record(child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
+            _record(child_id, (
+                CardActivity.EventType.PARENT_REMOVED_BOARD_DELETED if board_deleted
+                else CardActivity.EventType.PARENT_UNLINKED
+            ), actor)
         _broadcast.record_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": child_ids}, actor_id=actor_id,
         )
+
+
+def boards_losing_default(board_pks):
+    """``[(pk, group_id)]`` of surviving boards whose default child board is in ``board_pks``.
+
+    Read inside a board delete's transaction before the delete; after it the
+    ``SET_NULL`` has cleared their default and each gets a ``board.updated``
+    (:func:`announce_default_cleared`), so their clients drop it and Add child
+    falls back to the chooser.
+
+    The REST delete locks the referencing boards with the deleted one
+    (``lock_container_cascade``), so a default PATCH cannot slip in between
+    this read and the delete. The Django admin and ``delete_boards_locked``
+    lock only the deleted boards: there, a PATCH that commits in that window
+    still has its default cleared by ``SET_NULL``, and the only loss is that
+    its ``board.updated`` is not announced (a client sees the cleared default
+    on its next read).
+    """
+    return list(
+        Board.objects.filter(default_child_board_id__in=board_pks)
+        .exclude(pk__in=board_pks).order_by("pk").values_list("pk", "group_id")
+    )
+
+
+def announce_default_cleared(rows):
+    """Record a system ``board.updated`` for each ``(pk, group_id)`` in ``rows`` (#2208).
+
+    A loop fan-out, one event per board, published on commit by
+    ``record_board_updated``. Call after the delete, inside its transaction.
+    """
+    from .board_events import record_board_updated, system_board_payload
+
+    for pk, group_id in rows:
+        record_board_updated(
+            pk, system_board_payload(pk), old_group_id=group_id, new_group_id=group_id, actor_id=None,
+        )
+
+
+def board_delete_impact_for_viewer(board, user):
+    """What deleting ``board`` does to card links elsewhere, for its delete confirm (#2208).
+
+    ``{"child_cards", "parent_boards", "hidden_parent_boards", "parent_cards"}``:
+    ``child_cards`` is how many of this board's cards are children of cards on
+    other boards; ``parent_boards`` the boards those parents are on that
+    ``user`` can open (``{"id", "name"}``, by name); ``hidden_parent_boards``
+    whether any parent is on a board ``user`` cannot open (named nowhere, and
+    no count per board: decision E, warn only, discloses nothing about a
+    board the deleter cannot open); ``parent_cards`` how many of this board's
+    cards have children elsewhere. The caller holds the delete gate. No user
+    fails closed to every parent board hidden (#1075).
+    """
+    child_cards = CardParentLink.objects.filter(child__board_id=board.pk).exclude(parent__board_id=board.pk)
+    parent_board_ids = set(child_cards.values_list("parent__board_id", flat=True))
+    parent_cards = (
+        CardParentLink.objects.filter(parent__board_id=board.pk).exclude(child__board_id=board.pk)
+        .values("parent_id").distinct().count()
+    )
+    boards = list(
+        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk__in=parent_board_ids).order_by(Lower("name"), "pk")
+    )
+    viewer = user is not None and getattr(user, "is_authenticated", False)
+    roles = get_board_roles(user, boards) if boards and viewer else {}
+    visible = [{"id": b.pk, "name": b.name} for b in boards if roles.get(b.pk) is not None]
+    return {
+        "child_cards": child_cards.count(),
+        "parent_boards": visible,
+        "hidden_parent_boards": len(visible) < len(boards),
+        "parent_cards": parent_cards,
+    }
 
 
 # ─── Read path ───────────────────────────────────────────────────────────────

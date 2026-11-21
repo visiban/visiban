@@ -89,6 +89,16 @@ export function activityLabel(
       return "Child linked";
     case "child_unlinked":
       return "Child unlinked";
+    // #2208: the whole board on the other end was deleted. The parent's row
+    // carries only a count (to_value); neither row names the board, so every
+    // reader gets the same sentence whether or not they could open it.
+    case "children_removed_board_deleted": {
+      const n = Number.parseInt(d.to_value ?? "", 10);
+      const count = Number.isFinite(n) && n > 0 ? n : 1;
+      return `${count} ${count === 1 ? "child" : "children"} removed: their board was deleted`;
+    }
+    case "parent_removed_board_deleted":
+      return "Parent removed: its board was deleted";
     case "archived":
       return "Card archived";
     case "reactivated":

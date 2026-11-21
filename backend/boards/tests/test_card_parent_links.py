@@ -258,23 +258,30 @@ class ContainerDeleteLinkTests(_LinkFixture, TestCase):
         self.request = RequestFactory().post("/")
         self.request.user = self.owner
 
-    def _assert_parent_told(self):
+    def _assert_parent_told(self, board_deleted=False):
         rows = list(BoardEvent.objects.filter(board_id=self.pboard.pk))
         self.assertEqual(
             [(r.event, r.data) for r in rows],
             [("card.children_changed", {"parent_id": self.parent.pk})],
         )
+        # A whole-board delete records how many children were lost (#2208),
+        # a count only: never the deleted board's name.
+        if board_deleted:
+            row = CardActivity.objects.get(card=self.parent, event_type="children_removed_board_deleted")
+            self.assertEqual((row.from_value, row.to_value), ("", "1"))
+            return
         row = CardActivity.objects.get(card=self.parent, event_type="child_unlinked")
         self.assertEqual((row.from_value, row.to_value), ("", ""))
 
-    def _assert_child_told(self):
+    def _assert_child_told(self, board_deleted=True):
         self.assertTrue(Card.objects.filter(pk=self.child.pk).exists())
         rows = list(BoardEvent.objects.filter(board_id=self.cboard.pk))
         self.assertEqual(
             [(r.event, r.data) for r in rows],
             [("card.parent_changed", {"card_ids": [self.child.pk]})],
         )
-        row = CardActivity.objects.get(card=self.child, event_type="parent_unlinked")
+        event_type = "parent_removed_board_deleted" if board_deleted else "parent_unlinked"
+        row = CardActivity.objects.get(card=self.child, event_type=event_type)
         self.assertEqual((row.from_value, row.to_value), ("", ""))
 
     def test_rest_column_delete_tells_the_parent(self):
@@ -291,7 +298,7 @@ class ContainerDeleteLinkTests(_LinkFixture, TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             res = self._client(self.owner).delete(f"/api/v1/boards/{self.cboard.pk}/")
         self.assertEqual(res.status_code, 204, res.content)
-        self._assert_parent_told()
+        self._assert_parent_told(board_deleted=True)
 
     def test_rest_parent_board_delete_leaves_children_as_ordinary_cards(self):
         with self.captureOnCommitCallbacks(execute=True):
@@ -333,7 +340,7 @@ class ContainerDeleteLinkTests(_LinkFixture, TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             delete_boards_locked(Board.objects.filter(pk=self.cboard.pk))
         self.assertFalse(Card.objects.filter(pk=self.child.pk).exists())
-        self._assert_parent_told()
+        self._assert_parent_told(board_deleted=True)
 
 
 class ChildrenReadTests(_LinkFixture, TestCase):

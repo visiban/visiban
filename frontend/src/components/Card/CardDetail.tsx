@@ -45,6 +45,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
 import CardParentSection from "./CardParentSection";
+import CardAddChildSection from "./CardAddChildSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import CardBlockSection, { type BlockFormMode } from "./CardBlockSection";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
@@ -2243,6 +2244,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 }
                 refreshSignal={refreshSignal}
               />
+
+              {/* Add child (#2208) — on a parent-tier board only; renders its own trailing divider. */}
+              <CardAddChildSection board={board} cardId={localCard.id} />
 
               {/* MR/PR link (#352) — right after relations: both are "what this
                   card connects to". Renders its own trailing divider, and
