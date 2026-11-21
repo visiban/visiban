@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
-import type { User } from '../types'
+import type { Board, Group, User } from '../types'
 
 const mockListGroups = vi.fn()
 const mockListBoards = vi.fn()
@@ -32,7 +32,7 @@ describe('useLoadShellNavData (#2473)', () => {
     expect(result.current.boards).toHaveLength(2)
     await waitFor(() => expect(result.current.starredBoards.map((b) => b.id)).toEqual([2]))
     // The inaccessible entry is pruned; the viewed board is recorded with its group.
-    await waitFor(() => expect(result.current.recentBoards).toEqual([{ id: 1, name: 'Alpha', groupAncestors: ['Team'] }]))
+    await waitFor(() => expect(result.current.recentBoards).toEqual([expect.objectContaining({ id: 1, name: 'Alpha', groupAncestors: ['Team'] })]))
   })
 
   it('records nothing off a board, and survives a failed load', async () => {
@@ -42,5 +42,23 @@ describe('useLoadShellNavData (#2473)', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.boards).toEqual([])
     expect(result.current.recentBoards).toEqual([])
+  })
+
+  it('addBoard shows a new board and records its visit; removeBoard drops it everywhere (#2473)', async () => {
+    const { result } = renderHook(() => useLoadShellNavData(user, 0), { wrapper: wrapAt('/') })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.addBoard({ id: 3, name: 'Fresh', group: null, group_name: null } as unknown as Board))
+    expect(result.current.boards.map((b) => b.id)).toEqual([3, 1, 2])
+    expect(result.current.recentBoards.map((b) => b.id)).toContain(3)
+    act(() => result.current.removeBoard(3))
+    expect(result.current.boards.map((b) => b.id)).toEqual([1, 2])
+    expect(result.current.recentBoards.map((b) => b.id)).not.toContain(3)
+  })
+
+  it('addGroup shows a new group', async () => {
+    const { result } = renderHook(() => useLoadShellNavData(user, 0), { wrapper: wrapAt('/') })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.addGroup({ id: 11, name: 'New', parent: null } as unknown as Group))
+    expect(result.current.groups.map((g) => g.id)).toEqual([11, 10])
   })
 })

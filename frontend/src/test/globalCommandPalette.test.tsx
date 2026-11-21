@@ -153,16 +153,16 @@ describe("GlobalCommandPalette — shell wiring", () => {
 });
 
 describe("GlobalCommandPalette — off-board mode (no BoardProvider)", () => {
-  it("shows the jump-to-board placeholder on the Dashboard", () => {
+  it("shows the boards-and-actions placeholder on the Dashboard", () => {
     renderOffBoard("/");
     fireEvent.keyDown(document, { key: "k", metaKey: true });
-    expect(screen.getByPlaceholderText(/jump to board/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Jump to a board or action')).toBeInTheDocument();
   });
 
-  it("shows the generic jump placeholder on Settings/Admin", () => {
+  it("shows the same boards-and-actions placeholder on Settings/Admin", () => {
     renderOffBoard("/settings");
     fireEvent.keyDown(document, { key: "k", metaKey: true });
-    expect(screen.getByPlaceholderText(/jump to…/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Jump to a board or action')).toBeInTheDocument();
   });
 
   it("lists boards (fetched via listBoards) in the results", async () => {

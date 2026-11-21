@@ -44,8 +44,8 @@ An explicit `BoardMembership` always takes precedence over inherited group membe
 
 Parent-group membership implies visibility into all descendant sub-groups and their boards. A user added to a parent group can:
 
-- See descendant sub-groups listed under the parent (in the sidebar tree and the Group detail page)
+- See descendant sub-groups listed under the parent (in the navigation drawer's group tree and the Group detail page)
 - See and navigate to boards inside those sub-groups
 - Have their effective role on those boards resolved by the inheritance rules above
 
-**Watch out:** there's no way to grant membership on a parent group while hiding a specific sub-group from that member. If a sub-group holds content that shouldn't be visible to parent-group members, move it to a separate top-level group instead. This visibility model applies consistently across the sidebar, the Group detail page, and the `/api/v1/groups/{id}/subgroups/`, `/api/v1/groups/{id}/descendant-boards/` and `/api/v1/groups/{id}/descendant-boards/paged/` endpoints.
+**Watch out:** there's no way to grant membership on a parent group while hiding a specific sub-group from that member. If a sub-group holds content that shouldn't be visible to parent-group members, move it to a separate top-level group instead. This visibility model applies consistently across the navigation drawer, the Group detail page, and the `/api/v1/groups/{id}/subgroups/`, `/api/v1/groups/{id}/descendant-boards/` and `/api/v1/groups/{id}/descendant-boards/paged/` endpoints.

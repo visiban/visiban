@@ -3,7 +3,7 @@ import { Button } from "../Page";
 interface Props {
   /** First name (or display name) for the heading. */
   name?: string;
-  /** Opens the create-board flow (template gallery and blank board). */
+  /** Opens the create-board modal (template picker; the default is a plain Kanban board). */
   onCreateBoard: () => void;
   /** Opens the invite link / token entry. */
   onJoinGroup: () => void;
@@ -50,11 +50,11 @@ export default function OnboardingEmptyState({ name, onCreateBoard, onJoinGroup,
         <h3 id="first-run-own" className="text-[15px] leading-5 font-semibold text-fg">Or start a board of your own</h3>
         <p className="mt-1 text-sm text-fg-secondary">Boards you start here are personal. You can move one into a group later.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={guard(onCreateBoard)} {...disabledProps("Start from a template")}>Start from a template</Button>
+          {/* One action, one label: the create modal is the template picker, and its default is a plain Kanban board. */}
+          <Button variant="secondary" onClick={guard(onCreateBoard)} {...disabledProps("Create a board")}>Create a board</Button>
           {onImport && (
             <Button variant="secondary" onClick={guard(onImport)} {...disabledProps("Import a board", importDisabledReason ?? disabledReason)}>Import a board (Visiban or Trello)</Button>
           )}
-          <Button variant="secondary" onClick={guard(onCreateBoard)} {...disabledProps("Blank board")}>Blank board</Button>
         </div>
       </section>
     </div>

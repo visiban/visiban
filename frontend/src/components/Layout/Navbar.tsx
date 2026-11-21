@@ -8,7 +8,7 @@ import { useNavbarSearchLabel } from "../../hooks/useNavbarSearchLabel";
 import { DEMO_MARK_READ_REASON } from "../../constants/demoCopy";
 import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { useNavDrawer } from "../../contexts/ShellNavContext";
-import { shouldIgnoreShortcut } from "../../utils/keyboard";
+import { shouldIgnoreGlobalShortcut } from "../../utils/keyboard";
 import { LogoTile, MenuIcon, SearchIcon } from "./shellIcons";
 
 interface BreadcrumbItem {
@@ -21,13 +21,15 @@ interface BreadcrumbItem {
 interface Props {
   user: User;
   breadcrumb?: BreadcrumbItem[];
+  /** The page has no board loaded (e.g. Unavailable on a board URL): search copy never promises cards. */
+  searchBoardsOnly?: boolean;
   onLogout: () => void;
   onUserUpdated: (user: User) => void;
   /** The page's one primary action (for example New board), placed before notifications. */
   primaryAction?: React.ReactNode;
 }
 
-export default function Navbar({ user, breadcrumb, onLogout, primaryAction }: Props) {
+export default function Navbar({ user, breadcrumb, onLogout, primaryAction, searchBoardsOnly }: Props) {
   // Hosted demo (#1193): mark-read is not on DEMO_ALLOWED_WRITES.
   const demoMode = useInstanceFlags().demo_mode;
   const [unreadCount, setUnreadCount] = useState(0);
@@ -36,7 +38,7 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction }: Pr
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const searchLabel = useNavbarSearchLabel();
+  const searchLabel = useNavbarSearchLabel(searchBoardsOnly);
   // The header carries the drawer's menu button (#2473); the shell shows its
   // fallback bar only while no header is registered.
   const drawer = useNavDrawer();
@@ -124,7 +126,7 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction }: Pr
     let primedAt = 0;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (shouldIgnoreShortcut(e.target)) return;
+      if (shouldIgnoreGlobalShortcut(e.target)) return;
       if (e.key === "g") {
         primedAt = Date.now();
         return;

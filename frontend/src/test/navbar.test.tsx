@@ -190,8 +190,8 @@ describe('Navbar', () => {
 describe('Navbar — global search entry (#852 / #869)', () => {
   // #869 — the visible label and accessible name adapt per route via
   // useNavbarSearchLabel so the copy matches what the palette can do on
-  // that surface. On the Dashboard / Group routes, the copy is "Jump to
-  // board". On the Settings / Admin routes, it's "Jump to…". On a board
+  // that surface. Off a board (Home, Groups, Settings, Admin) the copy is
+  // "Jump to a board or action". On a board
   // route, it's "Search cards". MemoryRouter defaults to "/" ⇒ dashboard.
 
   beforeEach(() => {
@@ -207,9 +207,19 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     )
   }
 
-  it('renders the Row 1 global search button on the Dashboard with the Jump-to-board label', () => {
+  it('renders the Row 1 global search button on the Dashboard with the Jump-to-a-board-or-action label', () => {
     renderNavbarAt('/')
     expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+  })
+
+  it('never promises cards on the Unavailable page, which sits on a board URL (#2473)', () => {
+    render(
+      <MemoryRouter initialEntries={['/boards/42']}>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} searchBoardsOnly />
+      </MemoryRouter>
+    )
+    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Search cards/ })).not.toBeInTheDocument()
   })
 
   it('adapts the label to "Search cards" on a board route', () => {
@@ -217,7 +227,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     expect(screen.getByRole('button', { name: /Search cards \(Cmd\+K\)/ })).toBeInTheDocument()
   })
 
-  it('adapts the label to "Jump to…" on Settings (palette acts only as a nav surface there)', () => {
+  it('uses the boards-and-actions label on Settings (the palette is a nav surface there)', () => {
     renderNavbarAt('/settings')
     expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
   })
@@ -384,5 +394,32 @@ describe('Navbar menu button and breadcrumb (#2473)', () => {
     fireEvent.keyDown(document.body, { key: 'g' })
     fireEvent.keyDown(document.body, { key: 'u' })
     expect(screen.getByRole('menu', { name: 'Account menu' })).toBeInTheDocument()
+  })
+
+  it('g then u does not open the account menu behind an open modal or the nav drawer (#2473)', () => {
+    render(
+      <MemoryRouter>
+        <div role="dialog" aria-modal="true" aria-label="Some dialog" />
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    fireEvent.keyDown(document.body, { key: 'g' })
+    fireEvent.keyDown(document.body, { key: 'u' })
+    expect(screen.queryByRole('menu', { name: 'Account menu' })).toBeNull()
+  })
+
+  it('g then u does not open the account menu from inside a popover scope (#2301)', () => {
+    render(
+      <MemoryRouter>
+        <div data-shortcut-scope="popover"><button>Inside</button></div>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+      { wrapper: flagsWrapper({}) },
+    )
+    const inside = screen.getByRole('button', { name: 'Inside' })
+    fireEvent.keyDown(inside, { key: 'g' })
+    fireEvent.keyDown(inside, { key: 'u' })
+    expect(screen.queryByRole('menu', { name: 'Account menu' })).toBeNull()
   })
 })

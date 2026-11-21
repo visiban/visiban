@@ -37,6 +37,14 @@ export interface ShellNavData {
   boards: Board[];
   starredBoards: Board[];
   recentBoards: RecentBoardEntry[];
+  /**
+   * Mutation API for pages that create, import or delete boards, so the drawer,
+   * switcher and Recent list reflect it without a reload. `addBoard` also
+   * records the visit for the new board (the old sidebar did the same).
+   */
+  addBoard: (board: Board) => void;
+  removeBoard: (boardId: number) => void;
+  addGroup: (group: Group) => void;
 }
 
 export const EMPTY_SHELL_NAV_DATA: ShellNavData = {
@@ -45,6 +53,9 @@ export const EMPTY_SHELL_NAV_DATA: ShellNavData = {
   boards: [],
   starredBoards: [],
   recentBoards: [],
+  addBoard: () => {},
+  removeBoard: () => {},
+  addGroup: () => {},
 };
 
 export const ShellNavDataContext = createContext<ShellNavData>(EMPTY_SHELL_NAV_DATA);

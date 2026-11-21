@@ -28,7 +28,7 @@ New gated features will be added to this table.
 
 ## Managing toggles
 
-1. Go to `/admin` (the **Site Admin** link in the sidebar).
+1. Go to `/admin` (the **Site admin** link in the navigation drawer footer).
 2. Click the **Settings** tab.
 3. Find the feature under **Features** and flip the toggle.
 

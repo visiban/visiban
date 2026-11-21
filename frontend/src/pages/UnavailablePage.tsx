@@ -33,7 +33,7 @@ export default function UnavailablePage({ user, onLogout, onUserUpdated, kind }:
 
   return (
     <div className="h-full bg-page flex flex-col">
-      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Not available" }]} />
+      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Not available" }]} searchBoardsOnly={kind === "board"} />
       <main className="flex-1 flex flex-col items-center justify-center gap-3 px-4 py-8 text-center">
         <h1 ref={headingRef} tabIndex={-1} className="text-fg text-2xl font-semibold focus:outline-none">
           This {kind} isn&apos;t available

@@ -31,6 +31,9 @@ const data: ShellNavData = {
   boards,
   starredBoards: [boards[1]],
   recentBoards: [{ id: 3, name: 'Gamma', openedAt: Date.now() - 5 * 60000 }, { id: 2, name: 'Beta' }, { id: 1, name: 'Alpha' }],
+  addBoard: () => {},
+  removeBoard: () => {},
+  addGroup: () => {},
 }
 
 describe('buildSwitcherSections (#2473)', () => {

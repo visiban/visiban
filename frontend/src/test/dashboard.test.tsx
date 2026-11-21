@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../pages/Dashboard'
+import { ShellNavDataContext, EMPTY_SHELL_NAV_DATA } from '../contexts/ShellNavContext'
 import type { User } from '../types'
 
 const mockNavigate = vi.fn()
@@ -168,9 +169,8 @@ describe('Dashboard', () => {
     const headings = screen.getAllByRole('heading').map((h) => h.textContent)
     expect(headings.indexOf('Waiting to join a team?')).toBeLessThan(headings.indexOf('Or start a board of your own'))
     expect(screen.getByRole('button', { name: 'I have an invite link' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start from a template' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create a board' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Import a board/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Blank board' })).toBeInTheDocument()
     expect(screen.queryByTestId('groups-empty')).not.toBeInTheDocument()
     expect(screen.queryByTestId('boards-empty')).not.toBeInTheDocument()
   })
@@ -809,3 +809,84 @@ describe('Dashboard — navigates to the new board after create/import (#1374)',
   })
 })
 
+
+describe('Dashboard — hosted demo, group and star controls (#2474 AC8)', () => {
+  const starBoardFixture = { id: 1, name: 'Alpha', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, is_starred: false, created_at: '', updated_at: '' }
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListBoards.mockResolvedValue([starBoardFixture])
+    mockListGroups.mockResolvedValue([])
+  })
+
+  it('in demo mode New group and the Home star are aria-disabled with their reasons and do nothing', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter><Dashboard user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} /></MemoryRouter>,
+      { wrapper: flagsWrapper({ demo_mode: true }) }
+    )
+    const newGroup = await screen.findByRole('button', { name: /^New group\./ })
+    expect(newGroup).toHaveAttribute('aria-disabled', 'true')
+    expect(newGroup).toHaveAttribute('title', "This is a shared demo — groups can't be created here.")
+    const star = screen.getByRole('button', { name: /^Star Alpha\./ })
+    expect(star).toHaveAttribute('aria-disabled', 'true')
+    expect(star).toHaveAttribute('title', "This is a shared demo — boards can't be starred here.")
+    await user.click(newGroup)
+    await user.click(star)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const { starBoard } = await import('../api/boards')
+    expect(starBoard).not.toHaveBeenCalled()
+  })
+
+  it('outside demo mode New group opens its modal and the star toggles', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    const star = await screen.findByRole('button', { name: 'Star Alpha' })
+    expect(star).not.toHaveAttribute('aria-disabled')
+    await user.click(star)
+    const { starBoard } = await import('../api/boards')
+    expect(starBoard).toHaveBeenCalledWith(1)
+    await user.click(screen.getByRole('button', { name: 'New group' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+  })
+})
+
+describe('Dashboard — tells the shell about board changes (#2473)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListGroups.mockResolvedValue([])
+  })
+
+  function renderWithShell(shell: Partial<typeof EMPTY_SHELL_NAV_DATA>) {
+    return render(
+      <ShellNavDataContext.Provider value={{ ...EMPTY_SHELL_NAV_DATA, ...shell }}>
+        <MemoryRouter><Dashboard user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} /></MemoryRouter>
+      </ShellNavDataContext.Provider>
+    )
+  }
+
+  it('adds a created board to the shell nav data', async () => {
+    const user = userEvent.setup()
+    const addBoard = vi.fn()
+    mockListBoards.mockResolvedValue([])
+    const created = { id: 42, name: 'New Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    mockCreateBoard.mockResolvedValue(created)
+    renderWithShell({ addBoard })
+    await screen.findAllByRole('button', { name: 'New board' })
+    await user.click(screen.getAllByRole('button', { name: 'New board' })[0])
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/), 'New Board')
+    await user.click(screen.getByRole('button', { name: 'Create Board' }))
+    await waitFor(() => expect(addBoard).toHaveBeenCalledWith(created))
+  })
+
+  it('removes a deleted board from the shell nav data', async () => {
+    const user = userEvent.setup()
+    const removeBoard = vi.fn()
+    mockListBoards.mockResolvedValue([{ id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 2, archived_card_count: 0, created_at: '', updated_at: '' }])
+    mockDeleteBoard.mockResolvedValue(undefined)
+    renderWithShell({ removeBoard })
+    await startDelete(user, 'Sprint Board')
+    await user.type(screen.getByPlaceholderText('Type "Sprint Board" to confirm'), 'Sprint Board')
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(removeBoard).toHaveBeenCalledWith(1))
+  })
+})

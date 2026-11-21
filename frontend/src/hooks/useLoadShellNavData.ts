@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { Board, Group, User } from "../types";
 import { listGroups } from "../api/groups";
@@ -24,6 +24,13 @@ export function useLoadShellNavData(user: User, starVersion: number): ShellNavDa
   const [starredBoards, setStarredBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
   const { recentBoards, recordVisit, pruneByIds } = useRecentBoardsPref(user.id);
+  // Latest board list and prune fn for the stable mutation callbacks below.
+  const boardsRef = useRef<Board[]>([]);
+  boardsRef.current = boards;
+  const recordVisitRef = useRef(recordVisit);
+  recordVisitRef.current = recordVisit;
+  const pruneRef = useRef(pruneByIds);
+  pruneRef.current = pruneByIds;
 
   useEffect(() => {
     Promise.all([listGroups(), listBoards()])
@@ -59,5 +66,19 @@ export function useLoadShellNavData(user: User, starVersion: number): ShellNavDa
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recordVisit intentionally excluded, see comment above
   }, [activeBoardId, boards, groups]);
 
-  return { loading, groups, boards, starredBoards, recentBoards };
+  const addBoard = useCallback((board: Board) => {
+    setBoards((prev) => (prev.some((b) => b.id === board.id) ? prev : [board, ...prev]));
+    // Record the visit now: the caller navigates straight into the new board.
+    recordVisitRef.current({ id: board.id, name: board.name, groupAncestors: board.group_name ? [board.group_name] : [] });
+  }, []);
+  const removeBoard = useCallback((boardId: number) => {
+    setBoards((prev) => prev.filter((b) => b.id !== boardId));
+    setStarredBoards((prev) => prev.filter((b) => b.id !== boardId));
+    pruneRef.current(new Set(boardsRef.current.filter((b) => b.id !== boardId).map((b) => b.id)));
+  }, []);
+  const addGroup = useCallback((group: Group) => {
+    setGroups((prev) => (prev.some((g) => g.id === group.id) ? prev : [group, ...prev]));
+  }, []);
+
+  return { loading, groups, boards, starredBoards, recentBoards, addBoard, removeBoard, addGroup };
 }

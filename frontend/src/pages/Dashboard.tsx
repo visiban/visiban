@@ -20,7 +20,7 @@ import type { StatusTone } from "../components/Page";
 import { HEALTH_STATUS_LABELS } from "../constants/healthStatus";
 import type { Board, Group, ImportOptions, User } from "../types";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
-import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON } from "../constants/demoCopy";
+import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON, DEMO_STAR_REASON } from "../constants/demoCopy";
 import { useInstanceFlags } from "../contexts/InstanceFlagsContext";
 import { useShellNavData } from "../contexts/ShellNavContext";
 import { healthReviewCue } from "../utils/healthStatus";
@@ -68,7 +68,7 @@ function SignalsText({ board, className = "" }: { board: Board; className?: stri
 
 export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const demoMode = useInstanceFlags().demo_mode;
-  const { recentBoards } = useShellNavData();
+  const { recentBoards, addBoard: shellAddBoard, removeBoard: shellRemoveBoard, addGroup: shellAddGroup } = useShellNavData();
   const navigate = useNavigate();
   const [boards, setBoards] = useState<Board[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -168,6 +168,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   const handleCreateBoard = async (name: string, template: string, swimlaneName: string, setAsDefault: boolean) => {
     const board = await createBoard({ name, template, swimlane_name: swimlaneName });
     setBoards((prev) => [board, ...prev]);
+    shellAddBoard(board);
     setCreatingBoard(false);
     if (setAsDefault) {
       // Best-effort: patch the default board preference. Failure is non-fatal.
@@ -189,6 +190,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
     setDeleteConfirmInput("");
     try {
       await deleteBoard(boardId);
+      shellRemoveBoard(boardId);
     } catch {
       // The delete failed after the board was optimistically removed from the
       // list — refetch to reconcile with the server, and if that also fails,
@@ -228,6 +230,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
 
   const handleImportBoard = async (file: File, name?: string, options?: ImportOptions, meta?: ImportMeta) => {
     const board = options ? await importBoard(file, name, undefined, options) : await importBoard(file, name);
+    shellAddBoard(board);
     setImportingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already imported and there is nothing to roll back.
@@ -258,6 +261,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
 
   const requestNewBoard = () => { if (!demoMode) setCreatingBoard(true); };
   const requestImport = () => { if (!demoMode) setImportingBoard(true); };
+  const requestNewGroup = () => { if (!demoMode) setShowCreateGroup(true); };
+  const demoNewGroup = demoMode ? { "aria-disabled": true as const, "aria-label": `New group. ${DEMO_NEW_GROUP_REASON}`, title: DEMO_NEW_GROUP_REASON, className: "opacity-40 cursor-not-allowed" } : {};
   const demoNew = demoMode ? { "aria-disabled": true as const, "aria-label": `New board. ${DEMO_NEW_BOARD_REASON}`, title: DEMO_NEW_BOARD_REASON, className: "opacity-40 cursor-not-allowed" } : {};
   const demoImport = demoMode ? { "aria-disabled": true as const, "aria-label": `Import. ${DEMO_IMPORT_REASON}`, title: DEMO_IMPORT_REASON, className: "opacity-40 cursor-not-allowed" } : {};
 
@@ -283,9 +288,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
           <button
             type="button"
             aria-pressed={b.is_starred}
-            aria-label={`${b.is_starred ? "Unstar" : "Star"} ${b.name}`}
-            onClick={() => void handleToggleStar(b)}
-            className="max-sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            aria-label={`${b.is_starred ? "Unstar" : "Star"} ${b.name}${demoMode ? `. ${DEMO_STAR_REASON}` : ""}`}
+            aria-disabled={demoMode ? true : undefined}
+            title={demoMode ? DEMO_STAR_REASON : undefined}
+            onClick={() => { if (!demoMode) void handleToggleStar(b); }}
+            className={`${demoMode ? "opacity-40 cursor-not-allowed " : ""}max-sm:hidden shrink-0 h-9 w-9 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
           >
             <svg aria-hidden="true" className="h-4 w-4" viewBox="0 0 20 20" fill={b.is_starred ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5">
               <path d="M10 2.5l2.3 4.7 5.2.8-3.8 3.6.9 5.1L10 14.2l-4.6 2.5.9-5.1L2.5 8l5.2-.8L10 2.5z" strokeLinejoin="round" />
@@ -310,7 +317,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
             ariaLabel={`More actions for ${b.name}`}
             triggerClassName="shrink-0 h-9 w-9 max-sm:h-11 max-sm:w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             items={[
-              { id: "star", label: b.is_starred ? "Unstar" : "Star", onSelect: () => void handleToggleStar(b) },
+              { id: "star", label: b.is_starred ? "Unstar" : "Star", onSelect: () => { if (!demoMode) void handleToggleStar(b); }, ...(demoMode ? { disabled: true, disabledReason: DEMO_STAR_REASON } : {}) },
               { id: "move", label: "Move to group", onSelect: () => setMovingBoard(b) },
               ...(canDelete
                 ? [{ id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => { setConfirmDeleteId(b.id); setDeleteConfirmInput(""); } }]
@@ -356,7 +363,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
       actions={
         <>
           <Button variant="secondary" onClick={requestImport} {...demoImport}>Import</Button>
-          <Button variant="secondary" onClick={() => setShowCreateGroup(true)}>New group</Button>
+          <Button variant="secondary" onClick={requestNewGroup} {...demoNewGroup}>New group</Button>
         </>
       }
     />
@@ -577,6 +584,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
           onCancel={() => setTrelloImporting(false)}
           onImported={(b) => {
             setTrelloImporting(false);
+            shellAddBoard(b);
             // void: navigate() can return a Promise in React Router v7; fire-and-forget,
             // the board was already imported and there is nothing to roll back.
             void navigate(`/boards/${b.id}`);
@@ -597,7 +605,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
 
       {showCreateGroup && (
         <CreateGroupModal
-          onCreated={(g) => { setGroups((prev) => [g, ...prev]); }}
+          onCreated={(g) => { setGroups((prev) => [g, ...prev]); shellAddGroup(g); }}
           onClose={() => setShowCreateGroup(false)}
         />
       )}

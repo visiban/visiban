@@ -50,7 +50,7 @@ Home (`/`) is a status page, not just a list of boards *(new in 1.3, #2474)*. Th
 
 **Import**, **New group** and **New board** sit beside the heading and in the header. In a hosted demo, creating and importing boards is disabled with the reason shown.
 
-**First run.** With no boards and no groups, Home leads with joining a team: **I have an invite link** (paste a link or token), then the options for a board of your own: **Start from a template**, **Import a board** (Visiban or Trello) and **Blank board**. Boards you start there are personal. If you are in a group that has no boards yet, you see the normal page with its empty list.
+**First run.** With no boards and no groups, Home leads with joining a team: **I have an invite link** (paste a link or token), then the options for a board of your own: **Create a board** (pick a template or start from the plain Kanban default) and **Import a board** (Visiban or Trello). Boards you start there are personal. If you are in a group that has no boards yet, you see the normal page with its empty list.
 
 ## Switch boards
 

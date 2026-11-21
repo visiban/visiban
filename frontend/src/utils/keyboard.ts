@@ -15,3 +15,16 @@ export function shouldIgnoreShortcut(target: EventTarget | null): boolean {
   if (target.closest?.('[contenteditable="true"]')) return true;
   return false;
 }
+
+/**
+ * Guard for the shell's global shortcuts (`?`, `g u`): ignore them while typing,
+ * inside a popover that owns its own keys (`data-shortcut-scope="popover"`, #2301),
+ * or while any modal/dialog (`aria-modal`, which includes the open nav drawer)
+ * is on screen, so a shortcut never opens a surface behind or over another.
+ * Absent target counts as "not inside a popover"; the modal check is global.
+ */
+export function shouldIgnoreGlobalShortcut(target: EventTarget | null): boolean {
+  if (shouldIgnoreShortcut(target)) return true;
+  if (target instanceof HTMLElement && target.closest?.('[data-shortcut-scope="popover"]')) return true;
+  return document.querySelector('[aria-modal="true"]') !== null;
+}
