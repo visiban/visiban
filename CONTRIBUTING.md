@@ -101,6 +101,7 @@ Every push triggers a GitLab CI pipeline that builds and validates the project. 
 | **lint** | `backend-lint` | Ruff linter + CodeClimate quality report |
 | **lint** | `frontend-lint` | ESLint + TypeScript type checking (`tsc --noEmit`) |
 | **test** | `backend-test` | Django test suite with coverage (90% minimum threshold) |
+| **test** | `backend-test-migrations` | Applies the full migration graph and runs `-m migrations` tests (blocking) |
 | **test** | `frontend-test` | Vitest test suite |
 | **test** | `migration-check` | Verifies all model changes have corresponding migrations |
 | **test** | `backend-docker-build` | Kaniko image build verification (MR only) |

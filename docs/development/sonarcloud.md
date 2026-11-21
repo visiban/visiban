@@ -162,7 +162,7 @@ Two jobs declare a `coverage:` regex in `.gitlab-ci.yml`: `backend-test-coverage
 |---|---|---|
 | Source | Regexes over the job logs of `backend-test-coverage` and `frontend-test` | The imported Cobertura and LCOV reports |
 | Scope | Backend and frontend, as an **average of two percentages** | Backend and frontend, as **one combined figure weighted by lines** |
-| Denominator | Whatever each tool reports: everything `backend/.coveragerc` doesn't omit (Django imports every migration to build the test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
+| Denominator | Whatever each tool reports: everything `backend/.coveragerc` doesn't omit (`backend-test-migrations` applies every migration to build its test database, so migrations count), and no Sonar-style exclusions on either side | Product source only: tests, migrations, scripts, seed-data generators, and factories are excluded |
 | Updates | Every pipeline that runs the jobs | Nightly |
 
 - The badge averages two percentages, so a small frontend and a large backend count equally. Sonar weights each file by its lines.

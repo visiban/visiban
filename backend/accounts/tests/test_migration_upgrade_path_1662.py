@@ -7,10 +7,14 @@ drift removes or renames it, this fails loudly instead of ``migrate`` failing
 with NodeNotFoundError on an operator's install.
 """
 
+import pytest
 from django.db.migrations.loader import MigrationLoader
 from django.test import SimpleTestCase
 
 ALLAUTH_NODE = ("account", "0009_emailaddress_unique_primary_email")
+
+
+pytestmark = pytest.mark.migrations
 
 
 class AllauthMigrationDependencyTests(SimpleTestCase):

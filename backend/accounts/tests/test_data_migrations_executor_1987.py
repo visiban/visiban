@@ -6,6 +6,7 @@ notif_stale). The functions are loaded from the real migration modules and run
 against historical models from the migration loader's project state, so they
 are exercised exactly as ``migrate`` would call them.
 """
+import pytest
 import importlib
 
 from django.db import connection
@@ -22,6 +23,9 @@ def _historical_apps():
     # insert. The migration functions only use fields that exist in both.
     loader = MigrationExecutor(connection).loader
     return loader.project_state(loader.graph.leaf_nodes()).apps
+
+
+pytestmark = pytest.mark.migrations
 
 
 class CanAccessAllContentBackfillTests(TestCase):

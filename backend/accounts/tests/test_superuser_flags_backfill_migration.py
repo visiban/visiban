@@ -1,11 +1,15 @@
 """Migrate-time check of accounts/0036 using historical models (#1629)."""
 
+import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
 
 BEFORE = [("accounts", "0035_invite_link_delivery")]
 AFTER = [("accounts", "0036_backfill_superuser_flags")]
+
+
+pytestmark = pytest.mark.migrations
 
 
 class SuperuserFlagsBackfillTests(TransactionTestCase):

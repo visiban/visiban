@@ -159,6 +159,8 @@ ALWAYS_REQUIRED = (
     # Test suites: the publish path's own historical `needs:`, plus the rest.
     "backend-test",
     "backend-test-coverage",
+    # The full migration apply moved out of the backend-test shards (#2490).
+    "backend-test-migrations",
     "backend-test-git-lens",
     "backend-test-mcp",
     "frontend-test",

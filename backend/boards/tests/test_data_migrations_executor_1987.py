@@ -6,6 +6,7 @@ columns_json rewrite by slug, with a reverse that restores hardcoded
 constants). Functions come from the real migration modules and run against
 historical models from the migration loader's project state.
 """
+import pytest
 import importlib
 
 from django.db import connection
@@ -21,6 +22,9 @@ def _historical_apps():
     # Leaf state: see accounts/tests/test_data_migrations_executor_1987.py.
     loader = MigrationExecutor(connection).loader
     return loader.project_state(loader.graph.leaf_nodes()).apps
+
+
+pytestmark = pytest.mark.migrations
 
 
 class Migration0008Tests(TestCase):
