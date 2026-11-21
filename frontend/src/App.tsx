@@ -241,6 +241,7 @@ export default function App() {
                         aria-label="Open navigation"
                         aria-expanded={drawerOpen}
                         aria-keyshortcuts="["
+                        title="Menu  ["
                       >
                         <MenuIcon />
                       </button>
@@ -350,6 +351,13 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const demoMode = useInstanceFlags().demo_mode;
 
   const [renaming, setRenaming] = useState(false);
+  // After a rename closes (saved or canceled) focus goes back to the Rename button.
+  const renameButtonRef = useRef<HTMLButtonElement>(null);
+  const wasRenaming = useRef(false);
+  useEffect(() => {
+    if (wasRenaming.current && !renaming) renameButtonRef.current?.focus();
+    wasRenaming.current = renaming;
+  }, [renaming]);
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are specific fields; including the full board object causes spurious re-runs
@@ -460,11 +468,12 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
               <>
                 {isAdmin && !renaming && (
                   <button
+                    ref={renameButtonRef}
                     type="button"
                     onClick={() => setRenaming(true)}
                     aria-label="Rename board"
                     title="Rename board"
-                    className="inline-flex items-center justify-center w-7 h-7 max-sm:hidden rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="inline-flex items-center justify-center w-7 h-7 max-sm:w-11 max-sm:h-11 shrink-0 rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     <PencilIcon className="w-3.5 h-3.5" />
                   </button>

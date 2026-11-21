@@ -1,4 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useNavigate } from "react-router-dom";
 import type { Board } from "../../types";
 import { StatusDot } from "../Page";
@@ -26,6 +28,17 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
   const inputRef = useRef<HTMLInputElement>(null);
   const baseId = useId();
   const listId = `${baseId}-list`;
+
+  // The panel is portaled out of the page's h1 (a heading must not hold a
+  // listbox or a field), so it is placed from the trigger's rect on open.
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
+  const openPanel = () => {
+    const r = triggerRef.current?.getBoundingClientRect();
+    setAnchor(r ? { top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 368)) } : { top: 56, left: 8 });
+    setOpen(true);
+  };
+  // The phone sheet dims the page, so it is modal: trap Tab, restore to the trigger.
+  useFocusTrap(panelRef, open && isPhone, () => triggerRef.current);
 
   const sections = useMemo(() => buildSwitcherSections(board, data, query), [board, data, query]);
   const flat = sections.flatMap((s) => s.options);
@@ -66,7 +79,7 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
     if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(flat.length - 1, i + 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
     else if (e.key === "Enter") { e.preventDefault(); const o = flat[active]; if (o) go(o.id); }
-    else if (e.key === "Tab") { close(false); }
+    else if (e.key === "Tab" && !isPhone) { close(false); }
   };
 
   const palette = formatShortcut({ mod: true, key: "K" });
@@ -78,7 +91,7 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => (open ? close() : openPanel())}
         aria-label={`${board.name}, switch board`}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -87,18 +100,20 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
         <span className="truncate">{board.name}</span>
         <ChevronDownIcon className="w-4 h-4 text-fg-tertiary" />
       </button>
-      {open && (
+      {open && createPortal(
         <>
           {isPhone && <div className="fixed inset-0 z-40 bg-backdrop/60" aria-hidden="true" />}
           <div
             ref={panelRef}
             role="dialog"
             aria-label="Switch board"
+            aria-modal={isPhone ? true : undefined}
             data-variant={isPhone ? "sheet" : "popover"}
+            style={isPhone || !anchor ? undefined : { top: anchor.top, left: anchor.left }}
             className={`z-50 bg-surface border border-line-strong shadow-xl flex flex-col font-normal ${
               isPhone
-                ? "fixed inset-x-0 bottom-0 max-h-[80vh] rounded-t-xl"
-                : "absolute left-0 top-full mt-1 w-[360px] max-h-[28rem] rounded-lg"
+                ? "fixed inset-x-0 bottom-0 max-h-[80vh] rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+                : "fixed w-[360px] max-h-[28rem] rounded-lg"
             }`}
           >
             <div className="p-2 border-b border-line">
@@ -147,18 +162,22 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
                   })}
                 </div>
               ))}
-              {flat.length === 0 && (
+              {flat.length === 0 && query.trim() === "" && (
+                <p className="px-3 py-4 text-sm text-fg-secondary">{data.loading ? "Loading boards…" : "No other boards yet."}</p>
+              )}
+              {flat.length === 0 && query.trim() !== "" && (
                 <p className="px-3 py-4 text-sm text-fg-secondary">
                   No board named &ldquo;{query.trim()}&rdquo;. Press {palette} to search cards and actions too.
                 </p>
               )}
             </div>
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-line text-xs text-fg-tertiary">
-              <span>↑↓ move · Enter open · Esc close</span>
+              <span className="max-sm:hidden">↑↓ move · Enter open · Esc close</span>
               <span>{palette} for everything</span>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </span>
   );

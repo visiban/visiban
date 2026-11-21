@@ -110,6 +110,12 @@ describe('BoardSwitcher (#2473)', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/boards/3')
   })
 
+  it('renders the panel outside the h1', () => {
+    renderSwitcher()
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
+    expect(screen.getByRole('heading', { level: 1 })).not.toContainElement(screen.getByRole('dialog', { name: 'Switch board' }))
+  })
+
   it('says how to search wider when no board matches', () => {
     renderSwitcher()
     fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
@@ -123,6 +129,7 @@ describe('BoardSwitcher (#2473)', () => {
       renderSwitcher()
       fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
       expect(screen.getByRole('dialog', { name: 'Switch board' })).toHaveAttribute('data-variant', 'sheet')
+      expect(screen.getByRole('dialog', { name: 'Switch board' })).toHaveAttribute('aria-modal', 'true')
     } finally {
       mockIsPhone.mockReturnValue(false)
     }
