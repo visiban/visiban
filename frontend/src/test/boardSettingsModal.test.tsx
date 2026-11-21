@@ -4186,6 +4186,14 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
       expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
     })
 
+    it('activates a result from the keyboard on the option itself (#2503)', async () => {
+      const user = userEvent.setup()
+      mount()
+      await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'download')
+      fireEvent.keyDown(screen.getByRole('option', { name: /Export board/ }), { key: 'Enter' })
+      expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true')
+    })
+
     it('arrow keys change the active result', async () => {
       const user = userEvent.setup()
       mount()

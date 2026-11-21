@@ -1201,6 +1201,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   aria-selected={i === findIndex}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => jumpToSetting(r)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpToSetting(r); } }}
                   className={`flex items-center justify-between gap-3 px-3 py-1.5 text-sm cursor-pointer max-sm:min-h-11 ${i === findIndex ? "bg-surface-hover text-fg" : "text-fg-secondary hover:bg-surface-hover"}`}
                 >
                   <span className="truncate">{r.label}</span>
@@ -1768,7 +1769,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           if (v) {
                             setPendingHardWip(true);
                           } else {
-                            onUpdateBoardSettings({ enforce_wip_hard: false });
+                            // void: updateBoardSettings never rejects (it reloads and returns the error)
+                            void onUpdateBoardSettings({ enforce_wip_hard: false });
                           }
                         }}
                         aria-label="Hard mode (no admin override)"
@@ -1780,7 +1782,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <span className="text-fg-tertiary">{HARD_WIP_PROMPT}</span>
                         <button
                           onClick={() => {
-                            onUpdateBoardSettings({ enforce_wip_hard: true });
+                            void onUpdateBoardSettings({ enforce_wip_hard: true });
                             setPendingHardWip(false);
                           }}
                           className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
@@ -1963,7 +1965,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="child-cards-heading">
                 <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
                 {isAdmin ? (
-                  <ChildCardsSettings board={board} error={childCardsError} onUpdate={(patch) => { if (typeof patch.cards_can_have_children === "boolean") void flipChildCards(patch.cards_can_have_children); else return onUpdateBoardSettings?.(patch); }} />
+                  <ChildCardsSettings board={board} error={childCardsError} onUpdate={(patch) => { if (typeof patch.cards_can_have_children === "boolean") void flipChildCards(patch.cards_can_have_children); else void onUpdateBoardSettings?.(patch); }} />
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.

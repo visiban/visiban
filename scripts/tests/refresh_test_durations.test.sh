@@ -96,4 +96,8 @@ if python3 "$SCRIPT" --test-report "$WORK/report.json" --collected "$WORK/collec
 if python3 "$SCRIPT" --collected "$WORK/collected.txt" >/dev/null 2>&1; then
   bad "no timing input is refused"; else ok "no timing input is refused"; fi
 
+# #2503: the collection interpreter is a fixed repo path, not an argv value.
+if python3 "$SCRIPT" --test-report "$WORK/report.json" --collect --python /bin/sh >/dev/null 2>&1; then
+  bad "--python is no longer accepted"; else ok "--python is no longer accepted"; fi
+
 exit "$fail"

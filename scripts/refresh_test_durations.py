@@ -136,9 +136,19 @@ def latest_pipeline() -> int:
     return int(data[0]["id"])
 
 
-def collect(python: str) -> str:
+BACKEND_PYTHON = REPO_ROOT / "backend/.venv/bin/python"
+
+
+def collect() -> str:
+    """Run `pytest --collect-only` with the backend venv's interpreter.
+
+    The interpreter is a fixed repo path, never taken from argv: an argv-supplied
+    executable flowing into subprocess is a command-injection sink (#2503).
+    """
+    if not BACKEND_PYTHON.is_file():
+        raise SystemExit(f"error: {BACKEND_PYTHON} not found; set up backend/.venv or use --collected FILE")
     return subprocess.run(
-        [python, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider"],
+        [str(BACKEND_PYTHON), "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider"],
         cwd=REPO_ROOT / "backend",
         check=True,
         capture_output=True,
@@ -154,7 +164,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--suite", default=SUITE, help=f"test-report suite name (default {SUITE})")
     ap.add_argument("--collected", help="output of `pytest --collect-only -q`, run in backend/")
     ap.add_argument("--collect", action="store_true", help="run the collection here instead of --collected")
-    ap.add_argument("--python", default=str(REPO_ROOT / "backend/.venv/bin/python"), help="python for --collect")
     ap.add_argument("--output", help="write here (default: stdout)")
     args = ap.parse_args(argv)
     roots = cli_roots()
@@ -174,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("no timings: pass --pipeline, --test-report or --junit")
 
     if args.collect:
-        collected_text = collect(args.python)
+        collected_text = collect()
     elif args.collected:
         collected_text = resolve_within(roots, args.collected).read_text()
     else:
