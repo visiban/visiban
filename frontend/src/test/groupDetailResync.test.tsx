@@ -164,17 +164,15 @@ async function loadGroup() {
       </Routes>
     </MemoryRouter>,
   )
-  await screen.findByText('+ New board')
+  await screen.findByText('New board')
 }
 
-function openSettings() { fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]) }
+function openSettings(section = 'Members') {
+  fireEvent.click(screen.getAllByRole('button', { name: 'Group settings' })[0])
+  if (section !== 'Members') fireEvent.click(screen.getByRole('button', { name: section }))
+}
 function reconnect() { act(() => { capturedOnReconnected?.() }) }
 function frame(evt: BoardEvent) { act(() => { capturedOnEvent?.(evt) }) }
-
-// The #2473 shell header renders its own h1 for the last breadcrumb crumb (the group name),
-// so page headings are queried inside <main> to stay unambiguous. Revisit with #2478.
-const pageHeadingNow = (opts: Parameters<typeof screen.getByRole>[1]) =>
-  within(screen.getByRole('main')).getByRole('heading', opts)
 
 describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
   beforeEach(() => {
@@ -199,8 +197,9 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     reconnect()
     await screen.findByText('Created While Offline')
     expect(screen.queryByText('Mobile')).toBeNull()
-    openSettings()
+    openSettings('Members')
     expect(await screen.findByText('newcomer')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Shared labels' }))
     expect(await screen.findByText('Missed Label')).toBeTruthy()
     expect(mockGetGroup).toHaveBeenCalledTimes(2)
     expect(mockGetSubgroups).toHaveBeenCalledTimes(2)
@@ -267,7 +266,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
 
   it('does not let a stale group answer revert a newer one', async () => {
     await loadGroup()
-    openSettings()
+    openSettings('Shared labels')
     const first = deferred<Group>(mockGetGroup)
     frame({ event: 'group.updated', data: { id: 1 } } as BoardEvent)
     const second = deferred<Group>(mockGetGroup)
@@ -306,7 +305,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     reconnect()
     await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
     await act(async () => { answerSubgroups([sub(10, 'Platform'), sub(11, 'Mobile')]) })
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(screen.getByText('Platform')).toBeTruthy()
     expect(screen.queryByText('Mobile')).toBeNull()
   })
@@ -328,7 +327,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(2))
     frame({ event: 'group.deleted', data: { id: 11 } } as BoardEvent)
     await act(async () => { answerSubgroups([sub(10, 'Platform'), sub(11, 'Mobile')]) })
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(screen.getByText('Platform')).toBeTruthy()
     expect(screen.queryByText('Mobile')).toBeNull()
   })
@@ -351,12 +350,12 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     const label = { id: 20, name: 'Enhancement', color: '#EAB308' }
     mockCreateGroupLabel.mockResolvedValue(label)
     await loadGroup()
-    openSettings()
-    await screen.findByText('Shared label library')
+    openSettings('Shared labels')
+    await screen.findByRole('heading', { name: 'Shared labels' })
     const reread = deferred<Group>(mockGetGroup)
     frame({ event: 'group.label.created', data: {} } as BoardEvent)
     fireEvent.change(screen.getByPlaceholderText('Label name…'), { target: { value: 'Enhancement' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New label' }))
     await waitFor(() => expect(mockCreateGroupLabel).toHaveBeenCalled())
     await reread.answer({ ...fakeGroup, shared_labels: [label] })
     expect(screen.getAllByText('Enhancement')).toHaveLength(1)
@@ -364,7 +363,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
 
   it('shows a subgroup created here once when a re-read in flight already lists it', async () => {
     await loadGroup()
-    fireEvent.click(screen.getByRole('button', { name: '+ Create subgroup' }))
+    fireEvent.click(screen.getByRole('button', { name: '+ New subgroup' }))
     const reread = deferred<Group[]>(mockGetSubgroups)
     frame({ event: 'group.created', data: { id: 12 } } as BoardEvent)
     fireEvent.click(screen.getByText('Confirm create subgroup'))
@@ -399,9 +398,9 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     const input = screen.getByDisplayValue('Engineering')
     fireEvent.change(input, { target: { value: 'Renamed' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Renamed')
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Renamed')
     await reread.answer(fakeGroup)
-    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Renamed')
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Renamed')
     await act(async () => { finishSave() })
   })
 
@@ -417,7 +416,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await act(async () => { failSave(new Error('no')) })
     await reread.answer(fakeGroup)
-    expect(pageHeadingNow({ level: 1 }).textContent).toBe('Engineering')
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Engineering')
   })
 
   it('lets a descendant-boards re-read supersede the toggle load it races', async () => {
@@ -470,7 +469,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     reconnect()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Smith from group' }))
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(screen.queryByText('Alice Smith')).toBeNull())
     await reread.answer([jdoeAdmin, alice])
     expect(screen.queryByText('Alice Smith')).toBeNull()
@@ -494,12 +493,12 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     const label = { id: 20, name: 'Doomed', color: '#EAB308' }
     mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [label] })
     await loadGroup()
-    openSettings()
+    openSettings('Shared labels')
     await screen.findByText('Doomed')
     const reread = deferred<Group>(mockGetGroup)
     reconnect()
     fireEvent.click(screen.getByRole('button', { name: 'Remove Doomed from group' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(screen.queryByText('Doomed')).toBeNull())
     await reread.answer({ ...fakeGroup, shared_labels: [label] })
     expect(screen.queryByText('Doomed')).toBeNull()
@@ -511,6 +510,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     const reread = deferred<Group>(mockGetGroup)
     reconnect()
     const user = userEvent.setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Danger zone' }))
     await user.click(screen.getByRole('button', { name: 'Transfer ownership' }))
     await user.click(screen.getAllByRole('combobox').slice(-1)[0])
     await user.click(await screen.findByRole('option', { name: 'Alice Smith' }))
@@ -519,7 +519,9 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await user.click(buttons[buttons.length - 1])
     await waitFor(() => expect(mockTransfer).toHaveBeenCalled())
     await reread.answer(fakeGroup)
-    const row = screen.getByText('Alice Smith').closest('div.rounded-lg') as HTMLElement
+    // Back on Members, the new owner's row carries the Owner chip.
+    fireEvent.click(screen.getByRole('button', { name: /^Members/ }))
+    const row = screen.getByText('Alice Smith').closest('li') as HTMLElement
     expect(within(row).getByText('Owner')).toBeTruthy()
   })
 
@@ -527,6 +529,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     mockTransfer.mockRejectedValue(new Error('boom'))
     await loadWithAlice()
     const user = userEvent.setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Danger zone' }))
     await user.click(screen.getByRole('button', { name: 'Transfer ownership' }))
     const slot = screen.getByTestId('group-transfer-error')
     expect(slot).toBeEmptyDOMElement()
@@ -561,7 +564,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     reconnect()
     await waitFor(() => expect(mockGetSubgroups).toHaveBeenCalledTimes(3))
     await act(async () => { answerLoad([sub(10, 'Platform'), sub(11, 'Mobile')]) })
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(screen.getByText('Platform')).toBeTruthy()
     expect(screen.queryByText('Mobile')).toBeNull()
   })
@@ -683,7 +686,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
       reconnect()
       await act(async () => {})
       expect(unavailableHeading()).toBeNull()
-      expect(screen.getByText('+ New board')).toBeTruthy()
+      expect(screen.getByText('New board')).toBeTruthy()
     })
   })
 })

@@ -30,8 +30,8 @@ import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal, { type ImportMeta } from "../components/Board/ImportBoardModal";
 import TrelloImportModal from "../components/Board/TrelloImportModal";
-import { importBoard } from "../api/boards";
-import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, Priority, User } from "../types";
+import { importBoard, deleteBoard } from "../api/boards";
+import type { Board, BoardEventPayload, Group, GroupMembership, HealthStatus, ImportOptions, User } from "../types";
 import SectionEmptyState from "../components/Common/SectionEmptyState";
 import { forSampleImport, hasImportSkips } from "../utils/importSummary";
 import SelectDropdown from "../components/Common/SelectDropdown";
@@ -42,7 +42,13 @@ import ColorSwatchPicker from "../components/Common/ColorSwatchPicker";
 import { PALETTE_COLORS } from "../constants/colors";
 import { isImeComposing } from "../utils/imeComposition";
 import { LOCKED_MEMBERSHIP_NOTE } from "../constants/membership";
-import ActiveMark from "../components/Common/ActiveMark";
+import OverflowMenu from "../components/Layout/OverflowMenu";
+import BoardDeleteImpactNotice from "../components/Board/BoardDeleteImpact";
+import { Button, CardHeading, InlineConfirm, ListRow, ListWell, OverviewLayout, PageHeading, SettingsCard, SettingsLayout } from "../components/Page";
+import type { SettingsSection } from "../components/Page";
+import { useShellNavData } from "../contexts/ShellNavContext";
+import { canDeleteBoard } from "../utils/canDeleteBoard";
+import { colorChipStyle } from "../utils/colorContrast";
 
 interface Props {
   user: User;
@@ -149,6 +155,7 @@ function isAccessLoss(err: unknown): boolean {
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
+  const { addBoard: shellAddBoard, removeBoard: shellRemoveBoard, addGroup: shellAddGroup, removeGroup: shellRemoveGroup } = useShellNavData();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -238,6 +245,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Inline confirmation state — replaces window.confirm() for destructive actions
   const [confirmRemoveMemberId, setConfirmRemoveMemberId] = useState<number | null>(null);
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
+  const [deleteGroupInput, setDeleteGroupInput] = useState("");
+  const [confirmDeleteBoardId, setConfirmDeleteBoardId] = useState<number | null>(null);
+  const [deleteBoardInput, setDeleteBoardInput] = useState("");
+  // A failed board delete has its own always-mounted live region on the overview (not the Danger zone's).
+  const [boardActionError, setBoardActionError] = useState<string | null>(null);
   const [confirmRemoveLabelId, setConfirmRemoveLabelId] = useState<number | null>(null);
   const removingMemberIds = useRef(new Set<number>());
   const removingLabelIds = useRef(new Set<number>());
@@ -807,6 +819,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setRenameError(null);
     try {
       await updateGroup(groupId, { name: trimmed });
+      shellAddGroup({ ...group, name: trimmed });
     } catch {
       writeGroup((g) => (g ? { ...g, name: prev } : g));
       setRenameError("Failed to rename group. Please try again.");
@@ -867,6 +880,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     const board = await createGroupBoard(groupId, { name, template, swimlane_name: swimlaneName });
     // Through writeBoards, like a frame: a re-read in flight may predate the create (#2139).
     writeBoards(addBoardRow(board));
+    shellAddBoard(board);
     setCreatingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already created and there is nothing to roll back.
@@ -875,6 +889,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   const handleImportBoard = async (file: File, name?: string, options?: ImportOptions, meta?: ImportMeta) => {
     const board = options ? await importBoard(file, name, groupId, options) : await importBoard(file, name, groupId);
+    shellAddBoard(board);
     setImportingBoard(false);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the board was already imported and there is nothing to roll back.
@@ -940,9 +955,27 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       setDeleteError("Failed to delete group. Please try again.");
       return;
     }
+    shellRemoveGroup(groupId);
     // void: navigate() can return a Promise in React Router v7; fire-and-forget,
     // the group was already deleted and there is nothing to roll back.
     void navigate("/");
+  };
+
+  const handleDeleteBoard = async (boardId: number) => {
+    setConfirmDeleteBoardId(null);
+    setDeleteBoardInput("");
+    setBoardActionError(null);
+    captureFocusedBoardId();
+    try {
+      await deleteBoard(boardId);
+    } catch {
+      setBoardActionError("Failed to delete the board. Please try again.");
+      return;
+    }
+    // Through writeBoards, like the board.deleted frame it also produces (#2139).
+    writeBoards(removeBoardRows((b) => b.id === boardId));
+    writeSubgroupBoards((prev) => prev.filter((b) => b.id !== boardId));
+    shellRemoveBoard(boardId);
   };
 
   const handleTransferOwnership = async () => {
@@ -992,25 +1025,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       setLabelError("Failed to remove label. Please try again.");
     } finally {
       removingLabelIds.current.delete(labelId);
-    }
-  };
-
-  const handleTogglePriority = async (priority: Priority) => {
-    // A navigation-only group's empty allowed_priorities is withheld, not "all
-    // allowed", so it must not seed a toggle (#1681).
-    if (!group || group.navigation_only) return;
-    const current = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
-    const next = current.includes(priority)
-      ? current.filter((p) => p !== priority)
-      : [...current, priority];
-    // Keep at least one priority enabled
-    if (next.length === 0) return;
-    setDefaultsError(null);
-    try {
-      const updated = await updateGroupBoardDefaults(groupId, { allowed_priorities: next });
-      writeGroup((prev) => prev ? { ...prev, allowed_priorities: updated.allowed_priorities } : prev);
-    } catch {
-      setDefaultsError("Failed to save allowed priorities.");
     }
   };
 
@@ -1105,10 +1119,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     hasAllContentAccess: user.can_access_all_content === true,
   });
 
-  const activeTab = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "boards";
+
+  // Group settings (#2478) holds what used to be the page's admin-only Settings tab. It keeps the
+  // `?tab=settings` deep link; the section is `?section=` (the layout's own `?tab=` would clash).
+  const view = isAdmin && searchParams.get("tab") === "settings" ? "settings" : "overview";
+  const openSettings = (section?: string) => {
+    setSearchParams(section ? { tab: "settings", section } : { tab: "settings" });
+  };
 
   // Build Navbar breadcrumb from the ancestors array when available (full chain);
   // fall back to the single-level parent fields for list-endpoint group objects.
+  // A navigation-only ancestor carries only its name, as everywhere else.
   const breadcrumb = group ? [
     ...(group.ancestors
       ? group.ancestors.map((a) => ({ label: a.name, href: `/groups/${a.id}` }))
@@ -1149,682 +1170,706 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     );
   }
 
-  return (
-    <div ref={rootRef} className="h-full bg-sunken flex flex-col">
-      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
+  const memberName = (m: GroupMembership) => m.user.display_name || m.user.username;
+  const groupIcon = (
+    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+    </svg>
+  );
 
-      <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="min-w-0 flex-1 mr-4">
-            {/* Ancestor breadcrumb — only when the group has ancestors */}
-            {group.ancestors && group.ancestors.length > 0 && (
-              <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
-                {group.ancestors.map((ancestor, i) => (
-                  <span key={ancestor.id} className="flex items-center">
-                    {i > 0 && <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>}
-                    <a
-                      href={`/groups/${ancestor.id}`}
-                      // void: navigate() can return a Promise in React Router v7; fire-and-forget.
-                      onClick={(e) => { e.preventDefault(); void navigate(`/groups/${ancestor.id}`); }}
-                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
-                      title={ancestor.name}
-                    >
-                      {ancestor.name}
-                    </a>
-                  </span>
-                ))}
-                <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>
-                <span className="text-sm text-fg-secondary max-w-[12rem] truncate" title={group.name}>{group.name}</span>
-              </nav>
-            )}
+  // ----- Overview ---------------------------------------------------------------------------
 
-            {/* Group name — inline editable for admins */}
-            {isAdmin ? (
-              <div className="relative group/rename">
-                {renaming ? (
-                  <input
-                    autoFocus
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={handleRenameKeyDown}
-                    onBlur={() => { void handleRenameSave(); }}
-                    className="text-fg text-2xl font-bold w-full bg-transparent border border-primary-emphasis rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-                  />
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-fg text-2xl font-bold">
-                      {/* Button inside the heading keeps heading semantics and gives keyboard users Tab + Enter/Space rename (#1376). */}
-                      <button
-                        ref={renameTriggerRef}
-                        type="button"
-                        onClick={handleRenameStart}
-                        className="font-bold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                      >
-                        {group.name}
-                      </button>
-                    </h1>
-                    {/* Mouse-only shortcut: the name button above is the single keyboard tab stop (#1376). */}
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={handleRenameStart}
-                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-                      title="Rename group"
-                      aria-label="Rename group"
-                    >
-                      ✎
-                    </button>
-                  </div>
-                )}
-                <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-danger min-h-4 mt-0.5 -mx-1 px-1" data-testid="group-rename-error">
-                  {renameError}
-                </p>
-              </div>
-            ) : (
-              <h1 className="text-fg text-2xl font-bold">{group.name}</h1>
-            )}
+  const starButton = (
+    <button
+      type="button"
+      onClick={handleStarToggle}
+      disabled={starLoading}
+      className={`h-9 w-9 max-sm:h-11 max-sm:w-11 inline-flex items-center justify-center text-lg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
+      title={isStarred ? "Unstar group" : "Star group"}
+      aria-label={isStarred ? "Unstar group" : "Star group"}
+    >
+      {isStarred ? "★" : "☆"}
+    </button>
+  );
 
-            {/* Group description — inline editable for admins */}
-            <div className="mt-1 group/description">
-              {editingDescription ? (
-                <textarea
-                  autoFocus
-                  rows={3}
-                  value={descriptionValue}
-                  onChange={(e) => setDescriptionValue(e.target.value)}
-                  onBlur={handleDescriptionSave}
-                  className="w-full bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
-                  placeholder="Add a description…"
-                />
-              ) : isAdmin ? (
-                <div className="relative">
-                  {/* Text region is a real button (Tab + Enter/Space) rather than a click handler on a div (#1376). */}
-                  <button
-                    type="button"
-                    ref={descriptionTriggerRef}
-                    onClick={handleDescriptionStart}
-                    className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    {group.description ? (
-                      <span className="block text-sm text-fg-tertiary whitespace-pre-wrap">{group.description}</span>
-                    ) : (
-                      <span className="block text-sm text-fg-muted">Add a description…</span>
-                    )}
-                  </button>
-                  {/* Overlay pencil: mouse-only shortcut, adds no height; the text button is the single tab stop (#1376). */}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={handleDescriptionStart}
-                    className="absolute top-1 right-1 opacity-0 group-hover/description:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-                    title="Edit description"
-                    aria-label="Edit description"
-                  >
-                    ✎
-                  </button>
-                </div>
-              ) : group.description ? (
-                <p className="text-sm text-fg-tertiary whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
-              ) : null}
-              <p className="text-xs h-4">
-                {descriptionError && <span className="text-danger">{descriptionError}</span>}
-              </p>
-            </div>
+  // Phone: the header actions fold into one menu (New board, Import, Invite, Group settings).
+  const phoneItems = [
+    ...(canPlaceBoards ? [
+      { id: "new-board", label: "New board", onSelect: () => setCreatingBoard(true) },
+      { id: "import", label: "Import", onSelect: () => setImportingBoard(true) },
+    ] : []),
+    ...(isAdmin ? [
+      { id: "invite", label: "Invite", onSelect: () => openSettings("members") },
+      { id: "group-settings", label: "Group settings", onSelect: () => openSettings() },
+    ] : []),
+  ];
 
-            {/* Counts and health are withheld for a navigation-only group (#1681, #1133). */}
-            {!group.navigation_only && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-muted">
-                <HealthStatusControl
-                  entityKind="group"
-                  entityName={group.name}
-                  parentName={group.parent_name}
-                  canEdit={isAdmin}
-                  showCaption
-                  health_status={group.health_status}
-                  effective_health_status={group.effective_health_status}
-                  health_status_source={group.health_status_source}
-                  health_status_changed_at={group.health_status_changed_at}
-                  health_status_changed_by={group.health_status_changed_by}
-                  health_status_note={group.health_status_note}
-                  health_review_due_at={group.health_review_due_at}
-                  onSave={handleHealthSave}
-                  onConfirm={handleHealthSave}
-                  fetchHistory={fetchGroupHealthHistory}
-                  datePrefs={user}
-                />
-                <span>
-                  {group.member_count} member{group.member_count !== 1 ? "s" : ""}
-                  {" · "}
-                  {group.board_count} board{group.board_count !== 1 ? "s" : ""}
-                  {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <ConnectionStatus
-              status={socketStatus}
-              lastEventAt={socketLastEventAt}
-              reconnectAttempt={socketReconnectAttempt}
-            />
-            <button
-              onClick={handleStarToggle}
-              disabled={starLoading}
-              className={`text-lg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
-              title={isStarred ? "Unstar group" : "Star group"}
-              aria-label={isStarred ? "Unstar group" : "Star group"}
-            >
-              {isStarred ? "★" : "☆"}
-            </button>
-            {isAdmin && (
+  const nameNode = isAdmin && renaming ? (
+    <input
+      autoFocus
+      aria-label="Group name"
+      value={renameValue}
+      onChange={(e) => setRenameValue(e.target.value)}
+      onKeyDown={handleRenameKeyDown}
+      onBlur={() => { void handleRenameSave(); }}
+      className="text-fg text-2xl font-semibold w-full bg-transparent border border-primary-emphasis rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+    />
+  ) : isAdmin ? (
+    // Button inside the heading keeps heading semantics and gives keyboard users Tab + Enter/Space rename (#1376).
+    <button
+      ref={renameTriggerRef}
+      type="button"
+      onClick={handleRenameStart}
+      className="font-semibold text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 -my-px transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+    >
+      {group.name}
+    </button>
+  ) : group.name;
+
+  const overviewHeading = (
+    <div>
+      <PageHeading
+        title={<span className="inline-flex items-center gap-2 min-w-0">{groupIcon}{nameNode}</span>}
+        accessory={
+          <>
+            {/* Mouse-only shortcut: the name button is the single keyboard tab stop (#1376). */}
+            {isAdmin && !renaming && (
               <button
-                onClick={() => setSearchParams({ tab: "settings" })}
-                className="text-sm text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                type="button"
+                tabIndex={-1}
+                onClick={handleRenameStart}
+                className="h-9 w-9 inline-flex items-center justify-center text-fg-muted hover:text-fg-secondary text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis max-sm:hidden"
+                title="Rename group"
+                aria-label="Rename group"
               >
-                Settings
+                ✎
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Tab bar */}
-        <div className="flex gap-1 border-b border-line mb-8">
-          <button
-            onClick={() => setSearchParams({})}
-            className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
-              activeTab === "boards"
-                ? "text-fg border-primary-emphasis"
-                : "text-fg-tertiary hover:text-fg border-transparent"
-            }`}
-          >
-            Boards
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => setSearchParams({ tab: "settings" })}
-              className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
-                activeTab === "settings"
-                  ? "text-fg border-primary-emphasis"
-                  : "text-fg-tertiary hover:text-fg border-transparent"
-              }`}
-            >
-              Settings
-            </button>
-          )}
-        </div>
-
-        {activeTab === "boards" && <div className="flex flex-col gap-8">
-
-            {/* Subgroups */}
-            <section>
-              <div className="flex items-center gap-3 mb-3">
-                <h2 className="text-fg font-semibold">Subgroups</h2>
-                {isAdmin && (
-                  <button
-                    onClick={() => setShowCreateSubgroup(true)}
-                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    + Create subgroup
-                  </button>
-                )}
+            {/* Health is withheld for a navigation-only group (#1681, #1133). */}
+            {!group.navigation_only && (
+              <HealthStatusControl
+                entityKind="group"
+                entityName={group.name}
+                parentName={group.parent_name}
+                canEdit={isAdmin}
+                showCaption
+                health_status={group.health_status}
+                effective_health_status={group.effective_health_status}
+                health_status_source={group.health_status_source}
+                health_status_changed_at={group.health_status_changed_at}
+                health_status_changed_by={group.health_status_changed_by}
+                health_status_note={group.health_status_note}
+                health_review_due_at={group.health_review_due_at}
+                onSave={handleHealthSave}
+                onConfirm={handleHealthSave}
+                fetchHistory={fetchGroupHealthHistory}
+                datePrefs={user}
+              />
+            )}
+            {starButton}
+          </>
+        }
+        actions={
+          <>
+            {isAdmin && (
+              <div className="flex items-center gap-2 max-sm:hidden">
+                <Button variant="secondary" onClick={() => openSettings("members")}>Invite</Button>
+                <Button variant="secondary" onClick={() => openSettings()}>Group settings</Button>
               </div>
-              {subgroups.length === 0 ? (
-                <SectionEmptyState
-                  testId="subgroups-empty"
-                  icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
-                  heading="No subgroups yet"
-                  description="Subgroups let you organize boards and members into nested workspaces."
+            )}
+            {phoneItems.length > 0 && (
+              <div className="sm:hidden">
+                <OverflowMenu
+                  ariaLabel="Group actions"
+                  triggerClassName="shrink-0 h-11 w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  items={phoneItems}
                 />
+              </div>
+            )}
+          </>
+        }
+      />
+      <p role="status" aria-live="polite" aria-atomic="true" className="text-xs text-danger min-h-4 mt-0.5" data-testid="group-rename-error">
+        {renameError}
+      </p>
+
+      {/* Group description — inline editable for admins */}
+      <div className="mt-1 group/description max-w-3xl">
+        {editingDescription ? (
+          <textarea
+            autoFocus
+            rows={3}
+            aria-label="Group description"
+            value={descriptionValue}
+            onChange={(e) => setDescriptionValue(e.target.value)}
+            onBlur={handleDescriptionSave}
+            className="w-full bg-surface border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
+            placeholder="Add a description…"
+          />
+        ) : isAdmin ? (
+          <div className="relative">
+            {/* Text region is a real button (Tab + Enter/Space) rather than a click handler on a div (#1376). */}
+            <button
+              type="button"
+              ref={descriptionTriggerRef}
+              onClick={handleDescriptionStart}
+              className="block w-[calc(100%+1rem)] pr-8 text-left cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              {group.description ? (
+                <span className="block text-sm text-fg-secondary whitespace-pre-wrap">{group.description}</span>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {subgroups.map((sg) => (
-                    <button
-                      key={sg.id}
-                      onClick={() => navigate(`/groups/${sg.id}`)}
-                      className="bg-surface hover:bg-surface-hover border border-line rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        {/* Group/subgroup icon */}
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-                        </svg>
-                        <p className="text-fg font-medium min-w-0 truncate">{sg.name}</p>
-                        <HealthListingPill fields={sg} className="ml-auto" />
-                      </div>
-                      {/* Counts are withheld (0) for a navigation-only row (#1681). */}
-                      {!sg.navigation_only && (
-                        <p className="text-fg-muted text-xs">
-                          {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <span className="block text-sm text-fg-muted">Add a description…</span>
               )}
-            </section>
+            </button>
+            {/* Overlay pencil: mouse-only shortcut, adds no height; the text button is the single tab stop (#1376). */}
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={handleDescriptionStart}
+              className="absolute top-1 right-1 opacity-0 group-hover/description:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+              title="Edit description"
+              aria-label="Edit description"
+            >
+              ✎
+            </button>
+          </div>
+        ) : group.description ? (
+          <p className="text-sm text-fg-secondary whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
+        ) : null}
+        <p className="text-xs min-h-4">
+          {descriptionError && <span className="text-danger">{descriptionError}</span>}
+        </p>
+      </div>
 
-            {/* Boards */}
-            <section>
-              <div className="flex items-center gap-3 mb-3">
-                <h2 className="text-fg font-semibold">Boards</h2>
-                {canPlaceBoards && (
-                  <button
-                    onClick={() => setImportingBoard(true)}
-                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    Import
-                  </button>
-                )}
-                {subgroups.length > 0 && (
-                  <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
-                    <span className="text-xs text-fg-muted">Show subgroup boards</span>
-                    <Toggle checked={showSubgroupBoards} onChange={setShowSubgroupBoards} />
-                  </label>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                {boards.map((b) => (
-                  <div
-                    key={b.id}
-                    className={`group/board relative flex items-center ${
-                      animateBoardIds.has(b.id) ? "animate-fade-in motion-reduce:animate-none" : ""
-                    }`}
-                  >
+      {/* Counts are withheld for a navigation-only group (#1681). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-fg-secondary">
+        {!group.navigation_only && (
+          <span>
+            {group.member_count} member{group.member_count !== 1 ? "s" : ""}
+            {" · "}
+            {group.board_count} board{group.board_count !== 1 ? "s" : ""}
+            {group.subgroup_count > 0 && ` · ${group.subgroup_count} subgroup${group.subgroup_count !== 1 ? "s" : ""}`}
+          </span>
+        )}
+        <ConnectionStatus
+          status={socketStatus}
+          lastEventAt={socketLastEventAt}
+          reconnectAttempt={socketReconnectAttempt}
+        />
+      </div>
+    </div>
+  );
+
+  const boardIcon = (
+    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+    </svg>
+  );
+
+  const renderBoardRow = (b: Board) => {
+    // Delete is the owner's or an all-content user's, as on Home (#2034); Move stays in the same
+    // menu. The menu is for group admins, and for a board owner who can delete (#2478).
+    const canDeleteThis = canDeleteBoard({ ownerId: b.owner?.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true });
+    const items = [
+      { id: "move", label: "Move to another group", onSelect: () => setMovingBoard(b) },
+      ...(canDeleteThis
+        ? [{ id: "delete", label: "Delete", danger: true, separatorBefore: true, onSelect: () => { setConfirmDeleteBoardId(b.id); setDeleteBoardInput(""); } }]
+        : []),
+    ];
+    return (
+      <li
+        key={b.id}
+        className={animateBoardIds.has(b.id) ? "animate-fade-in motion-reduce:animate-none" : undefined}
+      >
+        <ListRow>
+          <button
+            type="button"
+            onClick={() => navigate(`/boards/${b.id}`)}
+            data-board-id={b.id}
+            data-starred={b.is_starred ? "true" : "false"}
+            className="flex-1 min-w-0 text-left rounded px-1 py-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              {boardIcon}
+              <span className="font-medium min-w-0 truncate">{b.name}</span>
+            </span>
+            {b.description && <span className="block truncate text-xs text-fg-tertiary mt-0.5 ml-6">{b.description}</span>}
+          </button>
+          <span className="shrink-0 text-xs text-fg-secondary tabular-nums max-sm:hidden">{b.card_count} {b.card_count === 1 ? "card" : "cards"}</span>
+          <HealthListingPill fields={b} />
+          {(isAdmin || canDeleteThis) && (
+            <OverflowMenu
+              ariaLabel={`More actions for ${b.name}`}
+              triggerClassName="shrink-0 h-9 w-9 max-sm:h-11 max-sm:w-11 inline-flex items-center justify-center rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              items={items}
+            />
+          )}
+        </ListRow>
+      </li>
+    );
+  };
+
+  const boardsSection = (
+    <section aria-labelledby="group-boards-heading">
+      <div className="flex items-center gap-3 mb-3">
+        <CardHeading as="h3" id="group-boards-heading">Boards</CardHeading>
+        {subgroups.length > 0 && (
+          <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-xs text-fg-secondary">Show subgroup boards</span>
+            <Toggle checked={showSubgroupBoards} onChange={setShowSubgroupBoards} />
+          </label>
+        )}
+      </div>
+      <p role="status" aria-live="assertive" aria-atomic="true" className="text-danger text-xs min-h-4 mb-1" data-testid="group-board-error">{boardActionError}</p>
+      {boards.length === 0 && !showSubgroupBoards ? (
+        <p className="rounded-[10px] border border-line bg-canvas px-4 py-8 text-center text-fg-secondary text-sm">No boards yet.</p>
+      ) : (
+        <ListWell as="ul" label="Boards">
+          {boards.map(renderBoardRow)}
+          {/* Subgroup boards */}
+          {showSubgroupBoards && (
+            loadingSubgroupBoards ? (
+              <li><Spinner /></li>
+            ) : subgroupBoards.length === 0 ? (
+              <li className="text-fg-secondary text-sm px-3 py-2">No boards in subgroups.</li>
+            ) : (
+              subgroupBoards.map((b) => (
+                <li key={b.id}>
+                  <ListRow>
                     <button
+                      type="button"
                       onClick={() => navigate(`/boards/${b.id}`)}
-                      data-board-id={b.id}
-                      data-starred={b.is_starred ? "true" : "false"}
-                      className="flex-1 bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="flex-1 min-w-0 text-left rounded px-1 py-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
-                      <div className="flex items-center gap-2">
-                        {/* Board icon */}
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        <p className="font-medium min-w-0 truncate">{b.name}</p>
-                        <HealthListingPill fields={b} />
-                      </div>
-                      {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
-                    </button>
-                    <button type="button"
-                      onClick={() => setMovingBoard(b)}
-                      title="Move to another group"
-                      aria-label={`Move ${b.name} to another group`}
-                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
-                        <path d="M12 15a1 1 0 100-2H6.414l1.293-1.293a1 1 0 10-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 15H12z" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {canPlaceBoards && (
-                  <button
-                    onClick={() => setCreatingBoard(true)}
-                    className="w-full border-2 border-dashed border-line hover:border-line-emphasis hover:bg-surface/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                  >
-                    <p className="text-fg-muted group-hover:text-fg-secondary font-medium transition">+ New board</p>
-                  </button>
-                )}
-                {!canPlaceBoards && boards.length === 0 && !showSubgroupBoards && (
-                  <p className="text-fg-muted text-sm">No boards yet.</p>
-                )}
-
-                {/* Subgroup boards */}
-                {showSubgroupBoards && (
-                  loadingSubgroupBoards ? (
-                    <Spinner />
-                  ) : subgroupBoards.length === 0 ? (
-                    <p className="text-fg-muted text-sm px-1">No boards in subgroups.</p>
-                  ) : (
-                    subgroupBoards.map((b) => (
-                      <button
-                        key={b.id}
-                        onClick={() => navigate(`/boards/${b.id}`)}
-                        className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                      >
-                        <div className="flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                          </svg>
-                          <p className="font-medium flex-1 min-w-0 truncate">{b.name}</p>
-                          <HealthListingPill fields={b} />
-                          <BoardGroupPath
-                            ancestors={b.group_detail?.ancestors ?? []}
-                            currentGroupId={groupId}
-                            directGroupName={b.group_name ?? ""}
-                          />
-                        </div>
-                        {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
-                      </button>
-                    ))
-                  )
-                )}
-              </div>
-            </section>
-          </div>}
-
-        {activeTab === "settings" && (
-          <div className="max-w-2xl flex flex-col gap-8">
-
-            {/* Members */}
-            <section>
-              <h2 className="text-fg font-semibold mb-1">Members</h2>
-              <p className="text-fg-muted text-sm mb-4">Manage who has access to this group and their roles.</p>
-              {/* Always-mounted live slot (#1437, #487): only the text changes, so the error is
-                  announced and the member list does not shift when it appears. */}
-              <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mb-2" data-testid="group-member-error">{memberError}</p>
-              <div className="flex flex-col gap-2">
-                {members.map((m) => {
-                  // The server refuses to change or remove a site admin's
-                  // membership unless the caller is a site admin too, so such a
-                  // direct row gets no role picker and no Remove for anyone else,
-                  // as on the board Members panel (#2164). The flag is sent to
-                  // group admins only, the readers who would see those controls.
-                  const isLocked = !m.is_inherited && m.is_site_admin === true && !user.is_site_admin && m.user.id !== group?.owner.id;
-                  // The owner row has no controls for anyone, so it needs no lock note.
-                  return (
-                  <div key={m.user.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar user={m.user} size="sm" />
-                      <div className="min-w-0">
-                        <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-fg"}`}>{m.user.display_name || m.user.username}</p>
-                        {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
-                          <p className="text-xs text-fg-tertiary">
-                            {groupRoleNote(m.role)}
-                          </p>
-                        )}
-                        {isLocked && (
-                          <p className="text-xs text-fg-tertiary">
-                            {LOCKED_MEMBERSHIP_NOTE}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {m.is_inherited ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {m.has_all_content_access === true ? (
-                          <GroupFullAccessChip userId={m.user.id} role={m.role} describeRole />
-                        ) : (
-                          <span className="text-xs text-fg-muted capitalize">{m.role}</span>
-                        )}
-                        <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">
-                          ↑ {m.inherited_from}
-                        </span>
-                      </div>
-                    ) : isAdmin && !isLocked && m.user.id !== user.id && m.user.id !== group?.owner.id ? (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {m.has_all_content_access === true && (
-                          // All-content access resolves to full access before any
-                          // membership is consulted, so the chip states the
-                          // effective access. The stored role is kept (#2075).
-                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
-                        )}
-                        {/* An all-content row below admin offers only the roles that have an
-                            effect: its stored role (it applies again if the access is revoked)
-                            and Admin, which counts toward the admin minimum and ownership
-                            transfer (#2165). Admin rows and rows without the flag keep the full picker. */}
-                        {(m.has_all_content_access !== true || GROUP_ROLES.includes(m.role)) && (
-                        <SelectDropdown
-                          value={m.role}
-                          onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
-                          options={GROUP_ROLE_OPTIONS.filter(
-                            (o) => m.has_all_content_access !== true || m.role === "admin" || o.value === "admin" || o.value === m.role,
-                          )}
-                          ariaLabel={`Group role for ${m.user.display_name || m.user.username}`}
-                          size="xs"
+                      <span className="flex items-center gap-2 min-w-0">
+                        {boardIcon}
+                        <span className="font-medium flex-1 min-w-0 truncate">{b.name}</span>
+                        <BoardGroupPath
+                          ancestors={b.group_detail?.ancestors ?? []}
+                          currentGroupId={groupId}
+                          directGroupName={b.group_name ?? ""}
                         />
-                        )}
-                        {m.role === "admin" && (
-                          <RoleInfoTooltip label="Group Admin info">
-                            <p className="text-xs font-semibold text-fg mb-1">Group Admin</p>
-                            <p className="text-xs text-fg-tertiary">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
-                          </RoleInfoTooltip>
-                        )}
-                        {confirmRemoveMemberId === m.user.id ? (
-                          <div className="flex flex-wrap items-center gap-2 text-xs">
-                            <span className="text-fg-tertiary">
-                              {m.has_all_content_access === true ? (
-                                "Remove this group role? Full access is not affected."
-                              ) : (
-                                <>Remove <span className="text-fg font-medium">{m.user.display_name || m.user.username}</span> from this group?</>
-                              )}
-                            </span>
-                            <button onClick={() => { void handleRemoveMember(m.user.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
-                          </div>
-                        ) : (
-                          <button
-                            ref={removeMemberTriggerRef(m.user.id)}
-                            onClick={() => setConfirmRemoveMemberId(m.user.id)}
-                            aria-label={m.has_all_content_access === true ? `Remove group role for ${m.user.display_name || m.user.username}` : `Remove ${m.user.display_name || m.user.username} from group`}
-                            className="text-fg-muted hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
+                      </span>
+                      {b.description && <span className="block truncate text-xs text-fg-tertiary mt-0.5 ml-6">{b.description}</span>}
+                    </button>
+                    <HealthListingPill fields={b} />
+                  </ListRow>
+                </li>
+              ))
+            )
+          )}
+        </ListWell>
+      )}
+    </section>
+  );
+
+  const subgroupsSection = (
+    <section aria-labelledby="group-subgroups-heading">
+      <div className="flex items-center gap-3 mb-3">
+        <CardHeading as="h3" id="group-subgroups-heading">Subgroups</CardHeading>
+        {isAdmin && (
+          <Button variant="quiet" onClick={() => setShowCreateSubgroup(true)}>+ New subgroup</Button>
+        )}
+      </div>
+      {subgroups.length === 0 ? (
+        <SectionEmptyState
+          testId="subgroups-empty"
+          icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor"><path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" /></svg>}
+          heading="No subgroups yet"
+          description="Subgroups let you organize boards and members into nested workspaces."
+        />
+      ) : (
+        <ul className="flex gap-3 overflow-x-auto sm:grid sm:grid-cols-2 sm:overflow-visible">
+          {subgroups.map((sg) => {
+            // The "Not reviewed in N days" cue (#2244) is part of HealthListingPill; a
+            // navigation-only row carries no due date, so it shows none (#1681).
+            return (
+              <li key={sg.id} className="min-w-[240px] sm:min-w-0">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/groups/${sg.id}`)}
+                  className="w-full h-full bg-surface hover:bg-surface-hover border border-line rounded-[10px] p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  <span className="flex items-center gap-2 mb-1">
+                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                    </svg>
+                    <span className="text-fg font-medium min-w-0 truncate">{sg.name}</span>
+                    <HealthListingPill fields={sg} className="ml-auto" />
+                  </span>
+                  {/* Counts are withheld (0) for a navigation-only row (#1681). */}
+                  {!sg.navigation_only && (
+                    <span className="block text-fg-secondary text-xs">
+                      {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+
+  // Members are visible to everyone in the group; managing them is admin-only (#2478).
+  // Withheld with the rest of a navigation-only group.
+  const membersAside = group.navigation_only ? undefined : (
+    <section aria-labelledby="group-members-heading" className="bg-surface border border-line rounded-[10px] p-[18px]" data-testid="group-members-card">
+      <div className="flex items-center justify-between gap-2">
+        <CardHeading as="h3" id="group-members-heading">Members · {members.length}</CardHeading>
+        {isAdmin && <Button variant="quiet" onClick={() => openSettings("members")}>Manage</Button>}
+      </div>
+      {members.length === 0 ? (
+        <p className="mt-2 text-sm text-fg-secondary">No members yet.</p>
+      ) : (
+        <ul className="mt-3 flex flex-col gap-2">
+          {members.map((m) => (
+            <li key={m.user.id} className="flex items-center gap-2 min-w-0">
+              <Avatar user={m.user} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-sm text-fg">{memberName(m)}</span>
+              <span className="shrink-0 text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap capitalize">
+                {m.user.id === group.owner.id ? "Owner" : m.role}
+              </span>
+              {m.is_inherited && m.inherited_from && (
+                <span className="shrink-0 text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">↑ {m.inherited_from}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
+  // ----- Group settings ---------------------------------------------------------------------
+
+  const sectionHead = (title: string, description: string) => (
+    <PageHeading level="h3" title={title} description={description} />
+  );
+
+  const membersSection = () => (
+    <>
+      {sectionHead("Members", "Manage who has access to this group and their roles.")}
+      <div>
+        <Button variant="secondary" onClick={() => openSettings("invite-links")}>Invite by email</Button>
+      </div>
+      {/* Always-mounted live slot (#1437, #487): only the text changes, so the error is
+          announced and the member list does not shift when it appears. */}
+      <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4" data-testid="group-member-error">{memberError}</p>
+      <ListWell as="ul" label="Group members">
+        {members.map((m) => {
+          // The server refuses to change or remove a site admin's
+          // membership unless the caller is a site admin too, so such a
+          // direct row gets no role picker and no Remove for anyone else,
+          // as on the board Members panel (#2164). The flag is sent to
+          // group admins only, the readers who would see those controls.
+          const isLocked = !m.is_inherited && m.is_site_admin === true && !user.is_site_admin && m.user.id !== group.owner.id;
+          const canManage = !m.is_inherited && isAdmin && !isLocked && m.user.id !== user.id && m.user.id !== group.owner.id;
+          return (
+            <li key={m.user.id}>
+              <ListRow>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Avatar user={m.user} size="sm" />
+                  <div className="min-w-0">
+                    <p className={`text-sm truncate ${m.is_inherited ? "text-fg-secondary" : "text-fg"}`}>{memberName(m)}</p>
+                    {!m.is_inherited && m.has_all_content_access === true && GROUP_ROLES.includes(m.role) && (
+                      <p className="text-xs text-fg-secondary">{groupRoleNote(m.role)}</p>
+                    )}
+                    {isLocked && <p className="text-xs text-fg-secondary">{LOCKED_MEMBERSHIP_NOTE}</p>}
+                  </div>
+                </div>
+                {m.is_inherited ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {m.has_all_content_access === true ? (
+                      <GroupFullAccessChip userId={m.user.id} role={m.role} describeRole />
                     ) : (
-                      <div className="flex items-center gap-2 shrink-0">
-                        {m.has_all_content_access === true ? (
-                          <GroupFullAccessChip userId={m.user.id} role={m.role} />
-                        ) : (
-                          <p className="text-fg-muted text-xs capitalize" title={isLocked ? LOCKED_MEMBERSHIP_NOTE : undefined}>{m.role}</p>
+                      <span className="text-xs text-fg-secondary capitalize">{m.role}</span>
+                    )}
+                    <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">↑ {m.inherited_from}</span>
+                  </div>
+                ) : canManage ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {m.has_all_content_access === true && (
+                      // All-content access resolves to full access before any
+                      // membership is consulted, so the chip states the
+                      // effective access. The stored role is kept (#2075).
+                      <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                    )}
+                    {/* An all-content row below admin offers only the roles that have an
+                        effect: its stored role (it applies again if the access is revoked)
+                        and Admin, which counts toward the admin minimum and ownership
+                        transfer (#2165). Admin rows and rows without the flag keep the full picker. */}
+                    {(m.has_all_content_access !== true || GROUP_ROLES.includes(m.role)) && (
+                      <SelectDropdown
+                        value={m.role}
+                        onChange={(v) => { void handleRoleChange(m.user.id, v as "admin" | "member" | "collaborator" | "viewer"); }}
+                        options={GROUP_ROLE_OPTIONS.filter(
+                          (o) => m.has_all_content_access !== true || m.role === "admin" || o.value === "admin" || o.value === m.role,
                         )}
-                        {m.user.id === group?.owner.id && (
-                          <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
-                        )}
-                      </div>
+                        ariaLabel={`Group role for ${memberName(m)}`}
+                        size="xs"
+                      />
+                    )}
+                    {m.role === "admin" && (
+                      <RoleInfoTooltip label="Group Admin info">
+                        <p className="text-xs font-semibold text-fg mb-1">Group Admin</p>
+                        <p className="text-xs text-fg-tertiary">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
+                      </RoleInfoTooltip>
+                    )}
+                    {confirmRemoveMemberId !== m.user.id && (
+                      <button
+                        ref={removeMemberTriggerRef(m.user.id)}
+                        onClick={() => setConfirmRemoveMemberId(m.user.id)}
+                        aria-label={m.has_all_content_access === true ? `Remove group role for ${memberName(m)}` : `Remove ${memberName(m)} from group`}
+                        className="text-fg-secondary hover:text-danger transition text-xs px-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                      >
+                        Remove
+                      </button>
                     )}
                   </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Invite links */}
-            <InviteLinkPanel scope={{ kind: "group", id: groupId }} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
-
-            {/* Health status review (#2244) */}
-            <section aria-labelledby="group-health-review-heading">
-              <h2 id="group-health-review-heading" className="text-fg font-semibold mb-1">Health status review</h2>
-              <p className="text-fg-muted text-sm mb-4">Ask for this group&rsquo;s health status to be confirmed or changed regularly.</p>
-              <HealthReviewDaysInput
-                entityKind="group"
-                value={group.health_review_days}
-                onSave={handleHealthReviewDaysSave}
-              />
-            </section>
-
-            {/* Board defaults */}
-            <section>
-              <h2 className="text-fg font-semibold mb-1">Board defaults</h2>
-              <p className="text-fg-muted text-sm mb-4">
-                Defaults for boards created in this group. Settings marked "Deprecated" are saved but don't take effect.
-              </p>
-
-              {/* Default member role */}
-              <div className="mb-5">
-                <label htmlFor="group-default-member-role" className="text-fg-tertiary text-sm block mb-2">Default member role for new boards</label>
-                <div className="flex items-center gap-3">
-                  <SelectDropdown
-                    id="group-default-member-role"
-                    ariaDescribedBy="group-default-member-role-hint"
-                    value={group.default_board_member_role ?? "member"}
-                    onChange={(v) => handleDefaultRoleChange(v as "admin" | "member" | "collaborator" | "viewer")}
-                    disabled={savingDefaults}
-                    options={[
-                      { value: "admin", label: "Admin" },
-                      { value: "member", label: "Member" },
-                      { value: "collaborator", label: "Collaborator" },
-                      { value: "viewer", label: "Viewer" },
-                    ]}
-                  />
-                  {/* Reserved status slot: always mounted so Saved/error does not shift the row. The
-                      live region is the slot itself (#1437), so "Saved" is announced too. */}
-                  <span
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="true"
-                    className={`text-xs min-w-[4rem] inline-block ${defaultsError ? "text-danger" : "text-success"}`}
-                    data-testid="group-defaults-status"
-                  >
-                    {defaultsError ?? (defaultsSaved ? "Saved" : "")}
-                  </span>
-                </div>
-                {/* #1430: deprecated; stored but never read. Access comes from GroupMembership.role via get_board_role(). Control kept for API compatibility. */}
-                <p id="group-default-member-role-hint" className="text-fg-muted text-xs mt-2">
-                  Deprecated. This setting has no effect: group members get their group role on every group board.
-                </p>
-              </div>
-
-              {/* Allowed priorities — hidden for a navigation-only group, whose
-                  empty list is withheld rather than "all allowed" (#1681). */}
-              {!group.navigation_only && (
-              <div className="mb-5">
-                <label id="group-allowed-priorities-label" className="text-fg-tertiary text-sm block mb-2">Allowed priorities on new boards</label>
-                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="group-allowed-priorities-label" aria-describedby="group-allowed-priorities-hint">
-                  {(["low", "medium", "high", "urgent"] as Priority[]).map((p) => {
-                    const effectivePriorities = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
-                    const active = effectivePriorities.includes(p);
-                    // #1592: mirror the board's escalation (medium=orange, high=red, urgent=dark red).
-                    // #1594: urgent has its own dark-red token pair (red-700 / on-tint), so it no
-                    // longer needs a heavier border to differ from high.
-                    const colorMap: Record<Priority, string> = {
-                      low: "bg-info/20 border-info/60 text-info-on-tint",
-                      medium: "bg-warning/20 border-warning/60 text-warning-on-tint",
-                      high: "bg-danger/20 border-danger/60 text-danger-on-tint",
-                      urgent: "bg-urgent/20 border-urgent/60 text-urgent-on-tint",
-                    };
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => { void handleTogglePriority(p); }}
-                        aria-pressed={active}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded border text-xs font-medium transition capitalize focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                          active
-                            ? colorMap[p]
-                            : "bg-surface border-line-strong text-fg-muted hover:border-line-emphasis hover:text-fg-tertiary"
-                        }`}
-                        title={active ? `Disable ${p} priority` : `Enable ${p} priority`}
-                      >
-                        <ActiveMark active={active} />
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* #1429: deprecated; copied onto new boards but never enforced. Control kept for API compatibility. */}
-                <p id="group-allowed-priorities-hint" className="text-fg-muted text-xs mt-2">
-                  Deprecated. This setting has no effect: it is copied onto new boards, but card priorities are not restricted.
-                </p>
-                <p className="text-fg-muted text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
-              </div>
-              )}
-
-              {/* Shared label library */}
-              <div>
-                <label className="text-fg-tertiary text-sm block mb-2">Shared label library</label>
-                <p className="text-fg-muted text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
-                <div className="flex flex-col gap-1.5 mb-3">
-                  {(group.shared_labels ?? []).map((label) => (
-                    <div key={label.id} className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2">
-                      <span
-                        className="color-dot w-3 h-3 rounded-full shrink-0"
-                        style={{ backgroundColor: label.color }}
-                      />
-                      <span className="text-fg text-sm flex-1">{label.name}</span>
-                      {confirmRemoveLabelId === label.id ? (
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="text-fg-tertiary">
-                            Remove <span className="text-fg font-medium">{label.name}</span> from this group?
-                          </span>
-                          <button onClick={() => { void handleDeleteGroupLabel(label.id); }} className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Confirm</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
-                        </div>
-                      ) : (
-                        <button
-                          ref={removeLabelTriggerRef(label.id)}
-                          onClick={() => setConfirmRemoveLabelId(label.id)}
-                          aria-label={`Remove ${label.name} from group`}
-                          className="text-fg-muted hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {(group.shared_labels ?? []).length === 0 && (
-                    <p className="text-fg-muted text-sm">No shared labels yet.</p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <ColorSwatchPicker
-                    colors={PALETTE_COLORS}
-                    value={newLabelColor}
-                    onChange={setNewLabelColor}
-                    size="md"
-                    allowCustom
-                    groupLabel="Label color"
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={newLabelName}
-                      onChange={(e) => setNewLabelName(e.target.value)}
-                      // void: handleAddGroupLabel manages its own try/catch and
-                      // surfaces failures via labelError, nothing further to await here.
-                      onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleAddGroupLabel(); }}
-                      placeholder="Label name…"
-                      className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-                    />
-                    <button
-                      onClick={handleAddGroupLabel}
-                      disabled={addingLabel || !newLabelName.trim()}
-                      className="text-sm text-on-primary bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      Add
-                    </button>
+                ) : (
+                  <div className="flex items-center gap-2 shrink-0">
+                    {m.has_all_content_access === true ? (
+                      <GroupFullAccessChip userId={m.user.id} role={m.role} />
+                    ) : (
+                      <p className="text-fg-secondary text-xs capitalize" title={isLocked ? LOCKED_MEMBERSHIP_NOTE : undefined}>{m.role}</p>
+                    )}
+                    {m.user.id === group.owner.id && (
+                      <span className="text-xs bg-surface-hover text-fg-secondary px-1.5 py-0.5 rounded whitespace-nowrap">Owner</span>
+                    )}
                   </div>
+                )}
+              </ListRow>
+              {canManage && confirmRemoveMemberId === m.user.id && (
+                <div className="px-3 pb-2">
+                  <InlineConfirm
+                    message={m.has_all_content_access === true
+                      ? "Remove this group role? Full access is not affected."
+                      : <>Remove <span className="font-medium">{memberName(m)}</span> from this group? They lose access to its boards.</>}
+                    actionLabel="Remove"
+                    onConfirm={() => { void handleRemoveMember(m.user.id); }}
+                    onCancel={() => setConfirmRemoveMemberId(null)}
+                  />
                 </div>
-                <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-1" data-testid="group-label-error">{labelError}</p>
-              </div>
-            </section>
-
-            {/* Danger zone */}
-            <section className="border border-danger/40 rounded-lg p-5">
-              <h2 className="text-danger font-semibold mb-1">Danger zone</h2>
-              <p className="text-fg-muted text-sm mb-4">These actions are permanent and cannot be undone.</p>
-              <div className="flex flex-wrap gap-3">
-                {group.owner.id === user.id && (
-                  <button
-                    onClick={() => { setTransferError(null); setShowTransferModal(true); }}
-                    className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                  >
-                    Transfer ownership
-                  </button>
-                )}
-                {userCanDeleteGroup && (
-                  <button
-                    onClick={() => setConfirmDeleteGroup(true)}
-                    className="text-sm text-danger border border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                  >
-                    Delete group
-                  </button>
-                )}
-              </div>
-              {/* Same wording shape as Board Settings' note (#2034): the server
-                  allows only the owner or all-content access to delete. */}
-              {!userCanDeleteGroup && (
-                <p className="text-sm text-fg-tertiary">
-                  Only the group owner ({group.owner.display_name || group.owner.username}) or a site administrator can delete this group.
-                </p>
               )}
-              <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-2" data-testid="group-delete-error">{deleteError}</p>
-            </section>
+            </li>
+          );
+        })}
+      </ListWell>
+    </>
+  );
+
+  const inviteSection = () => (
+    <>
+      {/* The panel's own "Invite links" h3 is the section heading; restyling the panel to the Site admin invite layout is tracked separately. */}
+      <InviteLinkPanel scope={{ kind: "group", id: groupId }} reloadSignal={inviteReloadKey} isSiteAdmin={user.is_site_admin} />
+    </>
+  );
+
+  const healthSection = () => (
+    <>
+      {sectionHead("Health status review", "Ask for this group’s health status to be confirmed or changed regularly.")}
+      <SettingsCard>
+        <HealthReviewDaysInput
+          entityKind="group"
+          value={group.health_review_days}
+          onSave={handleHealthReviewDaysSave}
+        />
+      </SettingsCard>
+    </>
+  );
+
+  // "Allowed priorities on new boards" (#1429) is not drawn: it is deprecated and has no effect.
+  const defaultsSection = () => (
+    <>
+      {sectionHead("Board defaults", "Defaults for boards created in this group. Settings marked “Deprecated” are saved but don't take effect.")}
+      <SettingsCard>
+        <label htmlFor="group-default-member-role" className="text-fg-secondary text-sm font-medium block mb-2">Default member role for new boards</label>
+        <div className="flex items-center gap-3">
+          <SelectDropdown
+            id="group-default-member-role"
+            ariaDescribedBy="group-default-member-role-hint"
+            value={group.default_board_member_role ?? "member"}
+            onChange={(v) => handleDefaultRoleChange(v as "admin" | "member" | "collaborator" | "viewer")}
+            disabled={savingDefaults}
+            options={GROUP_ROLE_OPTIONS}
+          />
+          {/* Reserved status slot: always mounted so Saved/error does not shift the row. The
+              live region is the slot itself (#1437), so "Saved" is announced too. */}
+          <span
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={`text-xs min-w-[4rem] inline-block ${defaultsError ? "text-danger" : "text-success"}`}
+            data-testid="group-defaults-status"
+          >
+            {defaultsError ?? (defaultsSaved ? "Saved" : "")}
+          </span>
+        </div>
+        {/* #1430: deprecated; stored but never read. Access comes from GroupMembership.role via get_board_role(). Control kept for API compatibility. */}
+        <p id="group-default-member-role-hint" className="text-fg-secondary text-xs mt-2">
+          Deprecated. This setting has no effect: group members get their group role on every group board.
+        </p>
+      </SettingsCard>
+    </>
+  );
+
+  const labelsSection = () => (
+    <>
+      {sectionHead("Shared labels", "Labels added here are copied to every new board created in this group.")}
+      <SettingsCard>
+        <ul className="flex flex-col gap-1.5 mb-3" aria-label="Shared labels">
+          {(group.shared_labels ?? []).map((label) => (
+            <li key={label.id} className="rounded-lg bg-canvas px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="cf-choice-badge inline-flex items-center text-xs px-2.5 py-1 rounded-full border font-medium"
+                  style={colorChipStyle(label.color)}
+                >
+                  {label.name}
+                </span>
+                <span className="flex-1" />
+                {confirmRemoveLabelId !== label.id && (
+                  <button
+                    ref={removeLabelTriggerRef(label.id)}
+                    onClick={() => setConfirmRemoveLabelId(label.id)}
+                    aria-label={`Remove ${label.name} from group`}
+                    className="text-fg-secondary hover:text-danger transition text-xs px-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {confirmRemoveLabelId === label.id && (
+                <div className="mt-2">
+                  <InlineConfirm
+                    message={<>Remove <span className="font-medium">{label.name}</span> from this group? Boards that already copied it keep it.</>}
+                    actionLabel="Remove"
+                    onConfirm={() => { void handleDeleteGroupLabel(label.id); }}
+                    onCancel={() => setConfirmRemoveLabelId(null)}
+                  />
+                </div>
+              )}
+            </li>
+          ))}
+          {(group.shared_labels ?? []).length === 0 && (
+            <li className="text-fg-secondary text-sm">No shared labels yet.</li>
+          )}
+        </ul>
+        <div className="flex flex-col gap-2">
+          <ColorSwatchPicker
+            colors={PALETTE_COLORS}
+            value={newLabelColor}
+            onChange={setNewLabelColor}
+            size="md"
+            allowCustom
+            groupLabel="Label color"
+          />
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              aria-label="New label name"
+              value={newLabelName}
+              onChange={(e) => setNewLabelName(e.target.value)}
+              // void: handleAddGroupLabel manages its own try/catch and
+              // surfaces failures via labelError, nothing further to await here.
+              onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) void handleAddGroupLabel(); }}
+              placeholder="Label name…"
+              className="flex-1 h-9 max-sm:h-11 bg-surface border border-line-strong text-fg-secondary text-sm rounded px-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+            />
+            <Button variant="primary" onClick={handleAddGroupLabel} disabled={addingLabel || !newLabelName.trim()}>New label</Button>
           </div>
+        </div>
+        <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-1" data-testid="group-label-error">{labelError}</p>
+      </SettingsCard>
+    </>
+  );
+
+  const dangerSection = () => (
+    <>
+      {sectionHead("Danger zone", "These actions are permanent and cannot be undone.")}
+      <section aria-label="Danger zone actions" className="border border-danger/40 rounded-[10px] p-[18px] bg-surface">
+        <div className="flex flex-wrap gap-3">
+          {group.owner.id === user.id && (
+            <div className="flex flex-col gap-1">
+              <Button
+                variant="secondary"
+                className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
+                onClick={() => { setTransferError(null); setShowTransferModal(true); }}
+              >
+                Transfer ownership
+              </Button>
+              <p className="text-xs text-fg-secondary">The new owner must already be a group admin.</p>
+            </div>
+          )}
+          {userCanDeleteGroup && (
+            <Button
+              variant="secondary"
+              className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
+              onClick={() => { setDeleteGroupInput(""); setConfirmDeleteGroup(true); }}
+            >
+              Delete group
+            </Button>
+          )}
+        </div>
+        {/* Same wording shape as Board Settings' note (#2034): the server
+            allows only the owner or all-content access to delete. */}
+        {!userCanDeleteGroup && (
+          <p className="text-sm text-fg-secondary">
+            Only the group owner ({group.owner.display_name || group.owner.username}) or a site administrator can delete this group.
+          </p>
+        )}
+        <p role="status" aria-live="polite" aria-atomic="true" className="text-danger text-xs min-h-4 mt-2" data-testid="group-delete-error">{deleteError}</p>
+      </section>
+    </>
+  );
+
+  const settingsSections: SettingsSection[] = [
+    { id: "members", label: "Members", count: members.length, keywords: ["roles", "admin", "remove", "access"], render: membersSection },
+    { id: "invite-links", label: "Invite links", keywords: ["invite", "email", "link", "expires"], render: inviteSection },
+    { id: "health-review", label: "Health status review", keywords: ["status", "review", "days"], render: healthSection },
+    { id: "board-defaults", label: "Board defaults", keywords: ["default", "role", "boards"], render: defaultsSection },
+    { id: "shared-labels", label: "Shared labels", keywords: ["labels", "library"], render: labelsSection },
+    { id: "danger-zone", label: "Danger zone", keywords: ["delete", "transfer", "ownership"], render: dangerSection },
+  ];
+
+  const boardToDelete = confirmDeleteBoardId === null ? undefined : boards.find((b) => b.id === confirmDeleteBoardId);
+  const boardHasCards = (boardToDelete?.card_count ?? 0) + (boardToDelete?.archived_card_count ?? 0) > 0;
+
+  return (
+    <div ref={rootRef} className="h-full bg-sunken flex flex-col">
+      <Navbar
+        user={user}
+        onLogout={onLogout}
+        onUserUpdated={onUserUpdated}
+        breadcrumb={breadcrumb}
+        primaryAction={view === "overview" && canPlaceBoards ? (
+          <div className="flex items-center gap-2 max-sm:hidden">
+            <Button variant="secondary" onClick={() => setImportingBoard(true)}>Import</Button>
+            <Button variant="primary" onClick={() => setCreatingBoard(true)}>New board</Button>
+          </div>
+        ) : undefined}
+      />
+
+      <main className="flex-1 overflow-y-auto">
+        {view === "settings" ? (
+          <SettingsLayout
+            param="section"
+            navLabel="Group settings sections"
+            sections={settingsSections}
+            title={
+              <PageHeading
+                title="Group settings"
+                description={`Manage ${group.name}'s members, invites, defaults and labels.`}
+                actions={<Button variant="quiet" onClick={() => setSearchParams({})}>Back to group</Button>}
+              />
+            }
+          />
+        ) : (
+          <OverviewLayout heading={overviewHeading} aside={membersAside}>
+            {boardsSection}
+            {subgroupsSection}
+          </OverviewLayout>
         )}
       </main>
 
@@ -1868,6 +1913,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           onCancel={() => setTrelloImporting(false)}
           onImported={(b) => {
             setTrelloImporting(false);
+            shellAddBoard(b);
             // void: navigate() can return a Promise in React Router v7; fire-and-forget,
             // the board was already imported and there is nothing to roll back.
             void navigate(`/boards/${b.id}`);
@@ -1878,10 +1924,50 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       {showCreateSubgroup && (
         <CreateGroupModal
           parentGroup={group}
-          onCreated={(sg) => { writeSubgroups((prev) => (prev.some((g) => g.id === sg.id) ? prev : [...prev, sg])); }}
+          onCreated={(sg) => {
+            writeSubgroups((prev) => (prev.some((g) => g.id === sg.id) ? prev : [...prev, sg]));
+            shellAddGroup(sg);
+          }}
           onClose={() => setShowCreateSubgroup(false)}
         />
       )}
+
+      <ModalWrapper
+        open={confirmDeleteBoardId !== null && boardToDelete !== undefined}
+        onClose={() => { setConfirmDeleteBoardId(null); setDeleteBoardInput(""); }}
+        title="Delete board?"
+        maxWidth="max-w-sm"
+      >
+        <p className="text-fg-tertiary text-sm mb-1">
+          <span className="text-fg font-medium">{boardToDelete?.name}</span> and all its data, including archived cards, will be permanently deleted.
+        </p>
+        <p className="text-danger text-sm mb-4">This cannot be undone.</p>
+        {confirmDeleteBoardId !== null && <BoardDeleteImpactNotice boardId={confirmDeleteBoardId} />}
+        {boardHasCards && (
+          <div className="mb-4">
+            <p className="text-fg-tertiary text-xs mb-2">This board has cards. Type the board name to confirm deletion.</p>
+            <input
+              type="text"
+              aria-label="Board name to confirm"
+              value={deleteBoardInput}
+              onChange={(e) => setDeleteBoardInput(e.target.value)}
+              placeholder={`Type "${boardToDelete?.name}" to confirm`}
+              className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+              autoFocus
+            />
+          </div>
+        )}
+        <div className="flex gap-3 justify-end">
+          <Button variant="quiet" onClick={() => { setConfirmDeleteBoardId(null); setDeleteBoardInput(""); }}>Cancel</Button>
+          <Button
+            variant="danger"
+            disabled={boardHasCards && deleteBoardInput !== boardToDelete?.name}
+            onClick={() => { if (confirmDeleteBoardId !== null) void handleDeleteBoard(confirmDeleteBoardId); }}
+          >
+            Delete
+          </Button>
+        </div>
+      </ModalWrapper>
 
       <ModalWrapper
         open={showTransferModal}
@@ -1913,6 +1999,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 className="w-full"
               />
             )}
+            <p className="text-fg-secondary text-xs mt-1">The new owner must already be a group admin.</p>
           </div>
 
           <div>
@@ -1935,19 +2022,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           </p>
 
           <div className="flex gap-3 justify-end pt-1">
-            <button
-              onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
+            <Button variant="quiet" onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="danger"
               onClick={handleTransferOwnership}
               disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
-              className="text-sm text-on-danger bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
             >
               {transferring ? "Transferring…" : "Transfer ownership"}
-            </button>
+            </Button>
           </div>
         </div>
       </ModalWrapper>
@@ -1959,10 +2043,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         title={`Delete "${group?.name}"?`}
         maxWidth="max-w-sm"
       >
-        <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
+        <p className="text-fg-tertiary text-sm mb-4">This will permanently delete the group and all its boards. This cannot be undone.</p>
+        <div className="mb-5">
+          <label htmlFor="group-delete-confirm" className="text-fg-tertiary text-sm block mb-1">Type the group&apos;s name to confirm.</label>
+          <input
+            id="group-delete-confirm"
+            type="text"
+            autoComplete="off"
+            value={deleteGroupInput}
+            onChange={(e) => setDeleteGroupInput(e.target.value)}
+            placeholder={group?.name}
+            className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+          />
+        </div>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
-          <button onClick={() => { void handleDeleteGroup(); }} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
+          <Button variant="quiet" onClick={() => setConfirmDeleteGroup(false)}>Cancel</Button>
+          <Button variant="danger" disabled={deleteGroupInput !== group?.name} onClick={() => { void handleDeleteGroup(); }}>Delete group</Button>
         </div>
       </ModalWrapper>
     </div>

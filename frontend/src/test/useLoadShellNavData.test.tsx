@@ -61,4 +61,13 @@ describe('useLoadShellNavData (#2473)', () => {
     act(() => result.current.addGroup({ id: 11, name: 'New', parent: null } as unknown as Group))
     expect(result.current.groups.map((g) => g.id)).toEqual([11, 10])
   })
+
+  it('addGroup replaces a listed group (a rename) and removeGroup drops it (#2478)', async () => {
+    const { result } = renderHook(() => useLoadShellNavData(user, 0), { wrapper: wrapAt('/') })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.addGroup({ id: 10, name: 'Renamed', parent: null } as unknown as Group))
+    expect(result.current.groups).toEqual([expect.objectContaining({ id: 10, name: 'Renamed' })])
+    act(() => result.current.removeGroup(10))
+    expect(result.current.groups).toEqual([])
+  })
 })

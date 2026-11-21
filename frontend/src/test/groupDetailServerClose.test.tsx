@@ -169,7 +169,7 @@ describe('GroupDetail with the real group socket (#2041)', () => {
 
   it('shows the unavailable page when the server closes the socket with 1000 and the group is gone', async () => {
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     mockGetGroup.mockRejectedValue({ response: { status: 404 } })
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
     expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
@@ -177,22 +177,24 @@ describe('GroupDetail with the real group socket (#2041)', () => {
 
   it('keeps the group when the re-read after a server 1000 still succeeds', async () => {
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
     await act(async () => {})
     expect(mockGetGroup.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
-    expect(screen.getByText('+ New board')).toBeInTheDocument()
+    expect(screen.getByText('New board')).toBeInTheDocument()
   })
 
   it("does not re-read on a server close or 4003 while this session is deleting the group", async () => {
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     let finish: () => void = () => {}
     mockDeleteGroup.mockImplementation(() => new Promise<void>((res) => { finish = res }))
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Group settings' }))[0])
+    fireEvent.click(await screen.findByRole('button', { name: 'Danger zone' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Delete group' }))
     const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText(/Type the group/), { target: { value: 'Engineering' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete group' }))
     const calls = mockGetGroup.mock.calls.length
     mockGetGroup.mockRejectedValue({ response: { status: 404 } })
@@ -209,7 +211,7 @@ describe('GroupDetail with the real group socket (#2041)', () => {
 
   it('does not re-read when GroupDetail itself unmounts', async () => {
     const { unmount } = renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const calls = mockGetGroup.mock.calls.length
     unmount()
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
@@ -236,10 +238,10 @@ describe('GroupDetail with the real group socket (#2041)', () => {
     }
     render(<Harness />)
     fireEvent.click(screen.getByText('go-to-2'))
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await act(async () => { rejectOne({ response: { status: 404 } }) })
     expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
-    expect(screen.getByText('+ New board')).toBeInTheDocument()
+    expect(screen.getByText('New board')).toBeInTheDocument()
   })
 
   it("drops a late failed access re-read for the previous group", async () => {
@@ -257,13 +259,13 @@ describe('GroupDetail with the real group socket (#2041)', () => {
       )
     }
     render(<Harness />)
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     // Group 1's access re-read stays pending, then the user moves to group 2.
     mockGetGroup.mockImplementationOnce(() => new Promise((_, rej) => { rejectLate = rej }))
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
     mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
     fireEvent.click(screen.getByText('go-to-2'))
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await act(async () => { rejectLate({ response: { status: 404 } }) })
     expect(screen.queryByRole('heading', { name: "This group isn't available" })).toBeNull()
   })
@@ -289,7 +291,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const counts = [mockGetGroup, mockGetSubgroups, mockGetGroupMembers].map((m) => m.mock.calls.length)
     now.mockReturnValue(1_000_000 + 1500)
     act(() => { sockets[0].onopen?.() })
@@ -303,7 +305,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const loads = mockGetGroupBoards.mock.calls.length
     now.mockReturnValue(1_000_000 + 1500)
     act(() => { sockets[0].onopen?.() })
@@ -331,7 +333,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     expect(mockGetGroupBoards.mock.calls.length).toBe(loads + 1)
     // The initial load (older snapshot) completes only now, after the re-read.
     await act(async () => { finishers.forEach((f) => f({ ...fakeGroup, can_place_boards: true })) })
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     expect(await screen.findByText('Gap Board')).toBeInTheDocument()
     now.mockRestore()
   })
@@ -348,7 +350,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
         </Routes>
       </MemoryRouter>
     )
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     let answer: (v: unknown) => void = () => {}
     mockGetGroupBoards.mockImplementationOnce(() => new Promise((res) => { answer = res }))
     now.mockReturnValue(1_000_000 + 1500)
@@ -356,7 +358,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     // Navigate to group 2 while the re-read for group 1 is in flight.
     mockGetGroupBoards.mockResolvedValue([])
     fireEvent.click(screen.getByText('go to group 2'))
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     await act(async () => { answer([staleBoard]) })
     expect(screen.queryByText('Stale Board')).toBeNull()
     now.mockRestore()
@@ -366,7 +368,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const loads = mockGetGroupBoards.mock.calls.length
     now.mockReturnValue(1_000_000 + 200)
     act(() => { sockets[0].onopen?.() })
@@ -379,7 +381,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     const now = vi.spyOn(Date, 'now')
     now.mockReturnValue(1_000_000)
     renderGroupDetail()
-    await screen.findByText('+ New board')
+    await screen.findByText('New board')
     const loads = mockGetGroupBoards.mock.calls.length
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     act(() => { sockets[0].onclose?.({ code: 1006 }) })
