@@ -161,6 +161,21 @@ describe('useSavedFilters', () => {
       expect(fs).not.toHaveProperty('trackStates')
     })
 
+    it('reads the parent filter and omits it when absent or malformed (#2209)', async () => {
+      vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
+      const { result } = renderHook(() => useSavedFilters(1))
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      const hydrate = (v: unknown) => {
+        const f = makeFilter(1, 'Parent')
+        f.state_json = { parentFilter: v }
+        return result.current.hydrateFilter(f)
+      }
+      expect(hydrate(5).parentFilter).toBe(5)
+      expect(hydrate('none').parentFilter).toBe('none')
+      expect(hydrate('x')).not.toHaveProperty('parentFilter')
+      expect(hydrate(0)).not.toHaveProperty('parentFilter')
+    })
+
     it('converts a SavedFilter back to a valid FilterState', async () => {
       vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
       const { result } = renderHook(() => useSavedFilters(1))

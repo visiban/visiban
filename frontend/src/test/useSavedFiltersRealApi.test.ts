@@ -38,10 +38,10 @@ describe('useSavedFilters posts the real FilterState shape', () => {
     const fixture = JSON.parse(
       readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8'),
     ) as { keys: string[] }
-    // #2205, #2367 — laneFilter, subColumnIds and trackStates are optional and
+    // #2205, #2367, #2209 — laneFilter, subColumnIds, trackStates and parentFilter are optional and
     // absent from EMPTY_FILTER; every other fixture key is always posted, and
     // nothing outside the fixture ever is.
-    const optionalKeys = new Set(['laneFilter', 'subColumnIds', 'trackStates'])
+    const optionalKeys = new Set(['laneFilter', 'subColumnIds', 'trackStates', 'parentFilter'])
     expect(Object.keys(body.state_json).sort()).toEqual(fixture.keys.filter((k) => !optionalKeys.has(k)).sort())
     expect(result.current.savedFilters).toHaveLength(1)
   })
