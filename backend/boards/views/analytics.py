@@ -1245,6 +1245,11 @@ class BoardAnalyticsMixin:
         current_wait = flow_metrics.current_wait_by_swimlane(flow)
         completed_wait = flow_metrics.completed_wait_by_swimlane(flow, flow_range)
         gated_columns = [col for col in active_columns if col.uid in flow.gate_last]
+        blocked = flow_metrics.blocked_time(flow, flow_range)
+        # Everything read from the flow service is now in the dicts above. Drop
+        # the board's loaded history before the heatmap's own cards and
+        # movements load below, so the two never sit in memory together (#2427).
+        del flow
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
@@ -1302,9 +1307,10 @@ class BoardAnalyticsMixin:
         ]
         # Scope the movements to a 2× analysis-window buffer: all the frozen
         # clamped-dwell logic reads (movements entering just before
-        # period_cutoff). load_recent_dwell above also holds the whole history
-        # of every card relevant to the window, as compact tuples; this query
-        # is the heatmap's own frozen avg_days_per_column path. Stall detection
+        # period_cutoff). load_recent_dwell above holds the whole history
+        # of every card relevant to the window, as compact tuples, but is
+        # released before this runs; this query is the heatmap's own frozen
+        # avg_days_per_column path. Stall detection
         # and velocity use the card-level annotations above instead, so no
         # historical data is lost. Ordered at the DB level so no per-card sort.
         movements_by_card: dict[int, list] = {}
@@ -1567,7 +1573,7 @@ class BoardAnalyticsMixin:
             "staleness_threshold_days": board.staleness_threshold_days,
             "stale_warning_pct": board.stale_warning_pct,
             # Additive (#1149): blocked time per column and top reasons.
-            "blocked": flow_metrics.blocked_time(flow, flow_range),
+            "blocked": blocked,
         })
 
     @extend_schema(
