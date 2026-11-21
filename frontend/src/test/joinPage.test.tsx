@@ -320,6 +320,21 @@ describe('JoinPage — can_register preview (#1481)', () => {
     expect(screen.queryByText(/To accept this invitation you need a Visiban account/)).not.toBeInTheDocument()
   })
 
+  it('names the role on a group invite, with a/an, and omits it when the preview has none', async () => {
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', role: 'viewer', can_register: false })
+    const { unmount } = renderJoinPage(null)
+    expect(await screen.findByText(/as a Viewer/)).toHaveTextContent('Join the group Engineering as a Viewer')
+    unmount()
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', role: 'admin', can_register: false })
+    const second = renderJoinPage(null)
+    expect(await screen.findByText(/as an Admin/)).toBeInTheDocument()
+    second.unmount()
+    mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
+    renderJoinPage(null)
+    const line = await screen.findByText(/Join the group/)
+    expect(line).toHaveTextContent(/^Join the group Engineering$/)
+  })
+
   it('Sign in stores the join return path, navigates to login, and sets no invite_token', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering', can_register: false })
     render(

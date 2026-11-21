@@ -204,6 +204,26 @@ describe('ShareBoardPage — gated stage and tracks (#2366)', () => {
     expect(chips.querySelector('[data-track-state]')).toBeNull()
   })
 
+  it('shows sub-columns and track chips on phones too', async () => {
+    const original = window.matchMedia
+    window.matchMedia = ((q: string) => ({
+      matches: true, media: q, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+    try {
+      renderSharePage()
+      const stage = await screen.findByTestId('share-phone-stage')
+      const headers = stage.querySelectorAll('[data-testid="share-sub-column-header"]')
+      expect(Array.from(headers).map((h) => h.textContent)).toEqual(['Doing2, 2 cards', 'Ready1, 1 card'])
+      const chips = stage.querySelector('[data-testid="share-track-chips"]')!
+      expect(Array.from(chips.querySelectorAll('li')).map((li) => li.textContent)).toEqual(['Technical', 'Business'])
+      fireEvent.change(screen.getByLabelText('Column'), { target: { value: '2' } })
+      expect(screen.queryByTestId('share-phone-stage')).toBeNull()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it('renders a plain column with no sub-column or track chrome', async () => {
     mockGetPublicBoard.mockResolvedValue(fakeBoard)
     renderSharePage()
@@ -248,6 +268,8 @@ describe('ShareBoardPage on the shared look (#2480)', () => {
     expect(skeleton).toHaveAttribute('role', 'status')
     expect(skeleton).toHaveAttribute('aria-busy', 'true')
     expect(skeleton).toHaveTextContent('Loading board')
+    expect(screen.getByRole('heading', { level: 1, name: 'Loading board' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toBeInTheDocument()
   })
 
   it('the revoked state is the empty-state part with an h1 and Sign in to Visiban', async () => {

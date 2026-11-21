@@ -55,6 +55,8 @@ export default function JoinPage({ user }: Props) {
   const [groupName, setGroupName] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<number | null>(null);
   const [boardRole, setBoardRole] = useState<BoardInviteRole | null>(null);
+  // Group invites: the preview's advisory role, when the backend returns one (#2479).
+  const [groupRole, setGroupRole] = useState<string | null>(null);
   const [boardGone, setBoardGone] = useState<BoardGoneCode>("revoked");
   const titleRef = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,7 @@ export default function JoinPage({ user }: Props) {
       .then((data) => {
         setGroupName(data.group_name);
         setGroupId(data.group_id);
+        setGroupRole(data.role ?? null);
         setCanRegister(data.can_register);
       })
       .catch((err) => {
@@ -235,6 +238,7 @@ export default function JoinPage({ user }: Props) {
       .finally(() => window.location.assign(`/join/${token}`));
   };
 
+  const groupRoleLabel = groupRole ? groupRole.charAt(0).toUpperCase() + groupRole.slice(1) : null;
   const roleLabel = boardRole ? boardRole.charAt(0).toUpperCase() + boardRole.slice(1) : null;
 
   if (loading) {
@@ -296,7 +300,10 @@ export default function JoinPage({ user }: Props) {
               <p className="mt-1 text-xs text-fg-tertiary">{BOARD_CAPABILITY[boardRole!]}</p>
             </>
           ) : (
-            <p>Join the group <span className="text-fg font-semibold break-words">{groupName}</span></p>
+            <p>
+              Join the group <span className="text-fg font-semibold break-words">{groupName}</span>
+              {groupRoleLabel ? ` as ${/^[AEIOU]/.test(groupRoleLabel) ? "an" : "a"} ${groupRoleLabel}` : ""}
+            </p>
           )
         }
       />

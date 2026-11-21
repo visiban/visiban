@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -133,6 +133,13 @@ describe('BoardPage unavailable state (#2041)', () => {
     expect(screen.getByRole('link', { name: 'Go to Home' })).toHaveAttribute('href', '/')
     expect(screen.queryByTestId('board-view')).toBeNull()
     expect(screen.queryByTestId('dashboard')).toBeNull()
+  })
+
+  it('Search boards actually opens the palette on the board variant (the shell palette is off on board routes)', () => {
+    renderBoardPage({ unavailable: true })
+    expect(screen.queryByLabelText('Command palette search')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Search boards/ }))
+    expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
   })
 
   it('swaps a loaded board for the same page when access is lost mid-session', () => {

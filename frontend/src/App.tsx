@@ -404,7 +404,15 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   // Deleted or access lost (#2041), at first load or mid-session: one page for
   // 404 and 403 alike. Declared after every hook above.
   if (unavailable) {
-    return <UnavailablePage kind="board" user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />;
+    // The shell palette is off on board routes (see showShellPalette), so this
+    // early return must mount the board-route palette itself or "Search boards"
+    // has no listener.
+    return (
+      <>
+        <GlobalCommandPalette userId={user.id} />
+        <UnavailablePage kind="board" user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
+      </>
+    );
   }
 
   return (

@@ -102,23 +102,12 @@ function StaticSwimlaneSidebar({ swimlane }: { swimlane: PublicSwimlane }) {
 // Static column header
 // ---------------------------------------------------------------------------
 
-/**
- * A split stage (#1102) shows its sub-columns under the name, each with its
- * own count, and its tracks (#1921) by name. The anonymous payload carries the
- * track definitions but no per-card track state (that would widen the public
- * serializer), so the chips here name the tracks a card on this stage carries
- * and never claim a state. Read-only: nothing here is interactive.
- */
-function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn; cardCount: number; cards: PublicCard[] }) {
+/** Sub-columns with counts and track names for a split stage; shared by the grid header and the phone view. */
+function StageDetail({ column, cards }: { column: PublicColumn; cards: PublicCard[] }) {
   const subs = stageSubColumns(column);
   const tracks = [...(column.tracks ?? [])].sort((a, b) => a.position - b.position);
   return (
-    <div className="bg-surface min-w-0">
-      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
-        <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
-        <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
-        <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
-      </div>
+    <>
       {subs.length > 0 && (
         <ul
           data-testid="share-sub-columns"
@@ -151,6 +140,26 @@ function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn
           ))}
         </ul>
       )}
+    </>
+  );
+}
+
+/**
+ * A split stage (#1102) shows its sub-columns under the name, each with its
+ * own count, and its tracks (#1921) by name. The anonymous payload carries the
+ * track definitions but no per-card track state (that would widen the public
+ * serializer), so the chips here name the tracks a card on this stage carries
+ * and never claim a state. Read-only: nothing here is interactive.
+ */
+function StaticColumnHeader({ column, cardCount, cards }: { column: PublicColumn; cardCount: number; cards: PublicCard[] }) {
+  return (
+    <div className="bg-surface min-w-0">
+      <div className="px-2 py-2 flex items-center gap-1.5 min-w-0">
+        <span className="color-dot w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: column.color }} />
+        <span className="text-sm font-medium text-fg truncate flex-1" title={column.name}>{column.name}</span>
+        <span className="text-xs text-fg-muted shrink-0">{cardCount}</span>
+      </div>
+      <StageDetail column={column} cards={cards} />
     </div>
   );
 }
@@ -342,6 +351,11 @@ function PhoneBoard({ board }: { board: BoardPublic }) {
           ))}
         </select>
       </div>
+      {(stageSubColumns(column).length > 0 || (column.tracks ?? []).length > 0) && (
+        <div className="rounded-lg bg-surface" data-testid="share-phone-stage">
+          <StageDetail column={column} cards={inColumn} />
+        </div>
+      )}
       {swimlanes.map((lane) => {
         const cards = inColumn.filter((c) => c.swimlane === lane.id).sort((a, b) => a.position - b.position);
         return (
@@ -368,9 +382,10 @@ function PhoneBoard({ board }: { board: BoardPublic }) {
 function ShareBoardSkeleton() {
   return (
     <div className="flex flex-col min-h-screen bg-page" role="status" aria-busy="true" data-testid="share-board-skeleton">
-      <span className="sr-only">Loading board</span>
       <div aria-hidden="true" className="h-14 bg-sunken border-b border-line" />
-      <main aria-hidden="true" className="flex gap-3 p-4 overflow-hidden">
+      <main className="flex flex-col gap-3 p-4 overflow-hidden">
+        <h1 className="sr-only">Loading board</h1>
+        <div aria-hidden="true" className="flex gap-3">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="w-[220px] shrink-0 flex flex-col gap-2">
             <div className="h-9 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
@@ -378,6 +393,7 @@ function ShareBoardSkeleton() {
             <div className="h-16 rounded-lg bg-surface-hover animate-pulse motion-reduce:animate-none" />
           </div>
         ))}
+        </div>
       </main>
     </div>
   );

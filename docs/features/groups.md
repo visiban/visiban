@@ -104,8 +104,8 @@ A shareable link works for anyone who holds it, wherever it ends up being pasted
 **How it works:**
 
 - **Unauthenticated visitors** see a full authentication interface: a **Create account and join** button (primary), an **I already have an account** button, and the sign-in providers this instance has turned on (your SSO provider first, then Google / GitHub / GitLab). *(1.3+)* The page shows only the group or board name and the role, never who sent the invite or when it expires. *(1.2+)* When the link can't create an account on this instance, they see a sign-in-only view instead, with no **Create account and join** option — see [New users on invite-only instances](#new-users-on-invite-only-instances). After authenticating, the invite is accepted automatically and they land on the group page with a "You've joined" notification at the bottom of the screen.
-- **Authenticated users** see a single **Join &lt;group name&gt;** button and are redirected to the group page right after joining. If already a member, they're silently redirected without re-joining.
-- **Invalid or expired links** show a countdown timer and auto-redirect to the dashboard after 5 seconds — no manual action needed.
+- **Authenticated users** join automatically: the page shows "Joining…" and then redirects to the group page. If already a member, they're silently redirected without re-joining.
+- **Invalid or expired links** show a countdown timer and auto-redirect after 5 seconds (to Home when signed in, to sign in when signed out) — no manual action needed.
 
 !!! tip
     Use invite links to onboard external collaborators without needing to know their username in advance. Create separate links for different roles (e.g. one `member` link for the team and one `viewer` link for stakeholders).

@@ -122,7 +122,7 @@ The change takes effect immediately — no restart required.
 - **Invite-only:** `POST /api/v1/auth/registration/` refuses a sign-up without a valid invite token with `400 Bad Request`, and OAuth sign-up (Google, GitHub, GitLab, OIDC) is refused the same way. With a valid invite — a site invite link, or *(1.2+)* an emailed group or board invite sent by a site admin — both work.
 - **Closed:** `POST /api/v1/auth/registration/` returns `403 Forbidden` for every new sign-up, invite or not, and new OAuth accounts cannot be created. The only way to add a user is **Admin → Users → Add user**.
 - Existing users, including OAuth-linked accounts, can still log in either way.
-- The login page shows: *"An invite link is required to create an account."*
+- The sign-in card says *"Registration is invite-only."* (invite-only) or *"Registration is closed. Ask an admin for an account."* (closed). In register mode, it also says *"An invite link is required to create an account."*
 
 **Inviting users when invite-only is on:**
 
