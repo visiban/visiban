@@ -2870,7 +2870,7 @@ script-tests:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *script-tests-paths
   before_script:
-    - apk add --no-cache bash git python3 jq nodejs npm perl perl-utils coreutils grep gawk patch
+    - apk add --no-cache bash git python3 py3-yaml jq nodejs npm perl perl-utils coreutils grep gawk patch  # py3-yaml: check-ci-retry.sh
     - git config --global --add safe.directory '*'
     - git config --global user.email ci@example.invalid
     - git config --global user.name ci

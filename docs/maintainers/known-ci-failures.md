@@ -550,7 +550,9 @@ reverted in `resolve-docs-version.test.sh`, the canary flags the call
 failures, all on `gitlab-runner-nuc-2-visiban` (host root cause: #2406 / #2148), mostly
 `clients-contract`. `script_failure` and `unknown_failure` are **never** retried: red tests here
 have repeatedly been real bugs. `scripts/check-ci-retry.sh` (run in `script-tests`) fails if any
-`retry:` in `.gitlab-ci.yml` includes `script_failure`, `unknown_failure`, or `always`.
+`retry:` in `.gitlab-ci.yml` includes `script_failure`, `unknown_failure`, or `always`, and also
+if a retry has no `when:` at all (`retry: 2`, `retry: {max: 2}`): GitLab then retries every
+failure class, script failures included. Use `retry: 0` to opt out.
 
 A job-level `retry:` replaces the default. Non-idempotent jobs set `retry: 0` with a reason on the
 line: `helm-publish`, `github-release`, `docs-deploy`, `pages`, the image-attest jobs,
