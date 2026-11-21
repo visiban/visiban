@@ -68,7 +68,7 @@ The chart lives in `helm/visiban/` and pulls images from the GitLab container re
 
 > **Note (Bitnami PostgreSQL):** Chart 0.8.0 removed the opt-in Bitnami `postgresql` subchart (`postgresql.subchartEnabled`), which never rendered with the chart's values; `postgresql.subchartEnabled: true` now fails the render. The chart has no subchart dependencies (#1911). See the [upgrade note](../administration/upgrade.md#upgrading-to-13x) if a release still runs it.
 
-> **Note:** Compose and Helm both run **PostgreSQL 17**. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
+> **Note:** Compose and Helm both ship **PostgreSQL 17**. PostgreSQL 15 to 18 is supported; see [Supported PostgreSQL versions](../administration/upgrade.md#supported-postgresql-versions), which also applies to an `externalDatabase`. Coming from a release that used PostgreSQL 16, export your data first: major version upgrades are not performed in-place. See [Upgrading PostgreSQL major versions](#upgrading-postgresql-major-versions).
 
 ### Install
 
@@ -249,7 +249,7 @@ helm install visiban helm/visiban \
 | `postgresql.auth.password` | `visiban` | Database password. The default is a placeholder: the render fails until you set your own password, unless `postgresql.auth.existingSecret` supplies it |
 | `backend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Backend image tag — bumped by `scripts/release.sh` on every release |
 | `frontend.image.tag` | current release tag (e.g. `vX.Y.Z`) | Frontend image tag — bumped by `scripts/release.sh` on every release |
-| `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
+| `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` (any [supported major](../administration/upgrade.md#supported-postgresql-versions)) |
 | `postgresql.subchartEnabled` | `false` | Removed in chart 0.8.0 (#1911). Must stay `false`; `true` fails the render |
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
 | `valkey.image.tag` | `8-alpine` | Official `valkey/valkey` image tag. Never `latest` or empty — the chart refuses both |

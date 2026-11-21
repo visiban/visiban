@@ -169,7 +169,10 @@ mkdir -p "$RUN_TMP/from-chart"
 if helm pull oci://ghcr.io/visiban/charts/visiban --version "$FROM_CHART_VERSION" --untar -d "$RUN_TMP/from-chart" >/dev/null 2>&1; then
   ok "chart: published oci://ghcr.io/visiban/charts/visiban:${FROM_CHART_VERSION}"
 else
-  echo "  ! OCI pull of chart ${FROM_CHART_VERSION} failed; using helm/visiban at ${FROM_TAG} (the source it was packaged from)"
+  # In CI the published chart is the thing under test: operators upgrade from
+  # it, so a missing or unpullable chart is a real failure, not a fallback.
+  [ "${CI:-}" != "true" ] || die "OCI pull of oci://ghcr.io/visiban/charts/visiban:${FROM_CHART_VERSION} failed; was the ${FROM_TAG} chart published?"
+  echo "  ! OCI pull of chart ${FROM_CHART_VERSION} failed; using helm/visiban at ${FROM_TAG} (the source it was packaged from; local runs only)"
   git archive "$FROM_TAG" helm/visiban | tar -x -C "$RUN_TMP/from-chart" --strip-components=1
 fi
 [ -f "$FROM_CHART/Chart.yaml" ] || die "no chart staged at $FROM_CHART"

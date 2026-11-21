@@ -2,7 +2,7 @@
 
 # One Django backend, one React SPA, two datastores
 
-A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL 17 and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.
+A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by PostgreSQL (15 to 18 supported, 17 bundled) and Valkey 8. Read this first if you're contributing code or evaluating self-hosting.
 
 **Why it matters:** no microservices, queues, or search index: a self-hoster operates two datastores.
 
@@ -36,7 +36,7 @@ A Django/DRF backend and a React SPA talk over REST and WebSocket, backed by Pos
 |---|---|
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI server | daphne (required for WebSocket support) |
-| Database | PostgreSQL 17 |
+| Database | PostgreSQL 15 to 18 supported (17 bundled) |
 | Cache / Pub-Sub | Valkey 8 (Docker Compose; Helm — built-in StatefulSet on `valkey/valkey:8-alpine`) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
