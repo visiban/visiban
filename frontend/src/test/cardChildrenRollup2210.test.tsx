@@ -106,7 +106,10 @@ describe("CardChildrenRollup (#2210)", () => {
       rerender(<CardChildrenRollup rollup={r({ done: 3, doing: 0 })} density="comfortable" stalenessDays={14} now={NOW} />);
       expect(screen.getByTestId("rollup-live")).toHaveTextContent("Children: 3 of 5 done");
       expect(screen.getByTestId("rollup-segments")).toHaveClass("ring-2");
-      act(() => { vi.advanceTimersByTime(2000); });
+      // A refetch with the same counts inside the window must not keep the ring on.
+      act(() => { vi.advanceTimersByTime(1000); });
+      rerender(<CardChildrenRollup rollup={r({ done: 3, doing: 0 })} density="comfortable" stalenessDays={14} now={NOW + 1000} />);
+      act(() => { vi.advanceTimersByTime(1000); });
       expect(screen.getByTestId("rollup-segments")).not.toHaveClass("ring-2");
     } finally {
       vi.useRealTimers();

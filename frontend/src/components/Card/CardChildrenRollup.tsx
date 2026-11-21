@@ -16,7 +16,7 @@ const CheckGlyph = () => (
 const BlockedGlyph = () => (
   <svg data-testid="rollup-blocked-glyph" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" className="shrink-0">
     <circle cx="8" cy="8" r="7" fill="currentColor" />
-    <path d="M4.5 8h7" stroke="var(--color-surface, #fff)" strokeWidth="2" />
+    <path d="M4.5 8h7" stroke="rgb(var(--surface))" strokeWidth="2" />
   </svg>
 );
 const ClockGlyph = () => (
@@ -82,14 +82,19 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
   const prevKey = useRef(key);
   const [ringed, setRinged] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  // The announcement is read through a ref so the effect depends on the
+  // counts alone: a refetch with the same counts (a new object) must not
+  // cancel the 2s timer and leave the ring on (ux-review, #2210).
+  const spokenRef = useRef("");
+  spokenRef.current = visible ? `Children: ${visible.done} of ${visible.total} done` : sentence;
   useEffect(() => {
     if (prevKey.current === key) return;
     prevKey.current = key;
     setRinged(true);
-    setAnnouncement(visible ? `Children: ${visible.done} of ${visible.total} done` : sentence);
+    setAnnouncement(spokenRef.current);
     const t = window.setTimeout(() => setRinged(false), 2000);
     return () => window.clearTimeout(t);
-  }, [key, visible, sentence]);
+  }, [key]);
 
   const live = <span className="sr-only" aria-live="polite" data-testid="rollup-live">{announcement}</span>;
 
@@ -116,7 +121,7 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
   const segs = segments(visible);
   const bar = density === "dense" ? null : segs.length > ROLLUP_SEGMENT_MAX ? (
     <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] overflow-hidden rounded-sm border border-fg-tertiary ${ringed ? "ring-2 ring-primary" : ""}`}>
-      {(["blocked", "doing", "done"] as const).map((s) => {
+      {(["todo", "blocked", "doing", "done"] as const).map((s) => {
         const n = visible[s];
         return n > 0 ? <span key={s} className={SEGMENT_CLASS[s]} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
       })}

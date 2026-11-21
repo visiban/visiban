@@ -1388,8 +1388,9 @@ def rollups_for_viewer(parent_ids, user):
     parent's first link is read.
 
     **Cost is fixed, not per card** (perf-check, #2210): one query for every
-    child row of every parent in ``parent_ids`` (bounded by
-    ``CHILDREN_PER_PARENT_LIMIT`` per parent), one for the child boards with
+    live child row of every parent in ``parent_ids`` (the write side caps a
+    parent at ``CHILDREN_PER_PARENT_LIMIT`` links under its row lock; the read
+    itself has no LIMIT, so rows grow with parents x live children), one for the child boards with
     their first column, plus ``get_board_roles``'s fixed two. Zero queries for
     an empty ``parent_ids``.
     """
@@ -1408,11 +1409,13 @@ def rollups_for_viewer(parent_ids, user):
         .order_by("-moved_at").values("moved_at")[:1]
     )
     rows = list(
-        CardParentLink.objects.filter(parent_id__in=ids)
+        # Archived children leave the rollup in SQL, so their correlated
+        # subqueries never run and archived history does not grow the read.
+        CardParentLink.objects.filter(parent_id__in=ids, child__archived_at__isnull=True)
         .annotate(_has_blocker=Exists(open_blocker), _last_moved=Subquery(last_move))
         .order_by("pk")
         .values_list(
-            "parent_id", "child__board_id", "child__archived_at", "child__blocked_at",
+            "parent_id", "child__board_id", "child__blocked_at",
             "_has_blocker", "child__column__is_done", "child__column__position", "_last_moved",
         )
     )
@@ -1431,8 +1434,8 @@ def rollups_for_viewer(parent_ids, user):
         roles = {}
     else:
         roles = get_board_roles(user, boards)
-    for parent_id, child_board_id, archived_at, blocked_at, has_blocker, is_done, position, moved in rows:
-        if archived_at is not None or board_of[parent_id] != child_board_id:
+    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved in rows:
+        if board_of[parent_id] != child_board_id:
             continue
         r = out[parent_id]
         r["total"] += 1
