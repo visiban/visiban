@@ -3,6 +3,7 @@ import { getCardParent, getParentBoards, unlinkCardParent } from "../../api/card
 import type { BoardFull, Card, CardParent, ParentBoardOption } from "../../types";
 import LockGlyph from "./LockGlyph";
 import ParentCardPicker from "./ParentCardPicker";
+import { parentSingular } from "../../utils/parentItemNames";
 import { LINKED_CARD_HIDDEN, LINKED_CARD_HIDDEN_DETAIL, requestCardParentRefetch } from "./cardParent";
 
 interface Props {
@@ -114,7 +115,7 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
   return (
     <section aria-labelledby={headingId} data-testid="card-parent-section" className="flex flex-col gap-1.5">
       <h3 id={headingId} ref={headingRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wide text-fg-muted focus:outline-none">
-        Parent
+        {parentSingular(parent && !parent.hidden ? parent.board_parent_name_singular : "")}
       </h3>
 
       {parent === null ? (

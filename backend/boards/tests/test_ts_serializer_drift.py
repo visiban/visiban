@@ -51,6 +51,9 @@ from boards.serializers import (
     ExternalRefSerializer,
     LabelSerializer,
     ParentBoardOptionSerializer,
+    CardExtensionFieldSerializer,
+    CardExtensionSectionSerializer,
+    CardExtensionSectionListSerializer,
     ParentCandidateSerializer,
     SavedFilterSerializer,
     SwimlaneAdminSerializer,
@@ -89,6 +92,9 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # Card-link picker rows (#1104); the services return dicts whose keys a
     # test in test_card_parent_field_1104.py pins to these serializers.
     (ParentBoardOptionSerializer, "ParentBoardOption", set()),
+    (CardExtensionFieldSerializer, "CardExtensionField", set()),
+    (CardExtensionSectionSerializer, "CardExtensionSection", set()),
+    (CardExtensionSectionListSerializer, "CardExtensionSectionList", set()),
     (ParentCandidateSerializer, "ParentCandidate", set()),
     (ColumnSerializer, "Column", set()),
     # Swimlane TS interface unions the Public and Admin shapes; contact_email

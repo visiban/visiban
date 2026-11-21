@@ -29,7 +29,7 @@ from boards.views.card_query import CardQueryRateThrottle
 
 VISIBLE_KEYS = {
     "hidden", "id", "title", "board_id", "board_name", "column_id", "column_name",
-    "swimlane_id", "swimlane_name", "archived",
+    "swimlane_id", "swimlane_name", "archived", "board_parent_name_singular",
 }
 
 
@@ -60,6 +60,7 @@ class ParentFieldReadTests(_ParentFixture, TestCase):
             "column_id": self.parent.column_id, "column_name": self.parent.column.name,
             "swimlane_id": self.parent.swimlane_id, "swimlane_name": self.parent.swimlane.name,
             "archived": False,
+            "board_parent_name_singular": "",
         })
         self.assertIsNone(cards[self.unlinked.pk]["parent"])
 
@@ -303,8 +304,8 @@ class ParentBoardsTests(_LinkFixture, TestCase):
         res = self._client(u).get(self.url)
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()["results"], [
-            {"id": b_admin.pk, "name": "alpha portfolio"},
-            {"id": self.pboard.pk, "name": "Portfolio"},
+            {"id": b_admin.pk, "name": "alpha portfolio", "parent_name_plural": ""},
+            {"id": self.pboard.pk, "name": "Portfolio", "parent_name_plural": ""},
         ])
         self.assertEqual(set(res.json()["results"][0]), set(ParentBoardOptionSerializer().fields))
 
@@ -479,7 +480,7 @@ class ParentSchemaTests(TestCase):
         visible = {
             "hidden": False, "id": 1, "title": "t", "board_id": 2, "board_name": "b",
             "column_id": 3, "column_name": "c", "swimlane_id": 4, "swimlane_name": "s",
-            "archived": False,
+            "archived": False, "board_parent_name_singular": "",
         }
         for value in (None, {"hidden": True}, visible):
             jsonschema.validate(value, prop)

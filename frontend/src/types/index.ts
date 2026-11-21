@@ -862,6 +862,8 @@ export interface CardParentVisible {
   swimlane_id: number;
   swimlane_name: string;
   archived: boolean;
+  /** What the parent's board calls its cards (#2212), raw; "" means "Parent". Use `parentItemNames`. */
+  board_parent_name_singular: string;
 }
 
 /** A parent card on a board the viewer cannot open: no other key is sent (#1104). */
@@ -875,6 +877,33 @@ export type CardParent = CardParentVisible | CardParentHidden;
 export interface ParentBoardOption {
   id: number;
   name: string;
+  /** What this board calls its cards, plural (#2212), raw; "" means "Parents". */
+  parent_name_plural: string;
+}
+
+/** Closed field types of a card-detail extension section (#2212, experimental). */
+export type CardExtensionFieldType = 'text' | 'number' | 'date' | 'choice';
+
+/** One read-only field of a card-detail extension section (#2212). */
+export interface CardExtensionField {
+  key: string;
+  label: string;
+  type: CardExtensionFieldType;
+  value: string | number | null;
+  display?: string;
+  choices?: string[];
+}
+
+/** One extension's section, `GET /boards/{b}/cards/{c}/extensions/` (#2212). */
+export interface CardExtensionSection {
+  id: string;
+  title: string;
+  fields: CardExtensionField[];
+}
+
+/** `GET /boards/{b}/cards/{c}/extensions/` (#2212). */
+export interface CardExtensionSectionList {
+  sections: CardExtensionSection[];
 }
 
 /** A row of `GET /boards/{b}/cards/{id}/parent-candidates/` (#1104). */
@@ -1263,6 +1292,10 @@ export interface Board {
   cards_can_have_children: boolean;
   // #2208: where Add child creates a new child card (id only, never a name), or null to ask.
   default_child_board: number | null;
+  /** What a parent card on this board is called (#2212), raw; "" means "Parent". */
+  parent_name_singular: string;
+  /** Plural of `parent_name_singular` (#2212), raw; "" means "Parents". */
+  parent_name_plural: string;
 }
 
 /**
@@ -1471,6 +1504,10 @@ export interface BoardFull {
   cards_can_have_children: boolean;
   // #2208: where Add child creates a new child card (id only, never a name), or null to ask.
   default_child_board: number | null;
+  /** What a parent card on this board is called (#2212), raw; "" means "Parent". */
+  parent_name_singular: string;
+  /** Plural of `parent_name_singular` (#2212), raw; "" means "Parents". */
+  parent_name_plural: string;
 
   /**
    * @deprecated Since 1.2, removed in 2.0 (#1935). Do not read it: the share

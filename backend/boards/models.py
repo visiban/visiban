@@ -346,6 +346,20 @@ class Board(models.Model):
             "child card, in its first column (#2208). Empty means ask each time."
         ),
     )
+    # What this board calls its cards when they are parents (#2212), e.g.
+    # "Initiative" / "Initiatives". Plain terminology, no schema: empty means
+    # the UI says "Parent" / "Parents", and each field falls back on its own.
+    # Written only by board admins through PATCH /boards/{id}/ (validated in
+    # BoardSerializer: stripped, no control or bidi characters, 24 max).
+    # Stable extension point from 1.3. db_default keeps the add zero-downtime.
+    parent_name_singular = models.CharField(
+        max_length=24, blank=True, default="", db_default="",
+        help_text="What a parent card on this board is called, e.g. Initiative (#2212). Empty means Parent.",
+    )
+    parent_name_plural = models.CharField(
+        max_length=24, blank=True, default="", db_default="",
+        help_text="The plural of parent_name_singular, e.g. Initiatives (#2212). Empty means Parents.",
+    )
     # Board presets (#1146): the preset a member sees on this board until they
     # choose one themselves. Presets are code-defined bundles in 1.3 (the
     # definitions live in the frontend's `boardPresets` registry), so the board

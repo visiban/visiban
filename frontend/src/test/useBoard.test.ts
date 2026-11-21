@@ -62,6 +62,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1,
     uid: 'boarduid0001',
     archived_card_count: 0,

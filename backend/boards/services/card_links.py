@@ -673,7 +673,7 @@ def default_child_board_options_for_admin(board, user):
     )
     roles = get_board_roles(user, candidates) if candidates else {}
     return [
-        {"id": b.pk, "name": b.name}
+        {"id": b.pk, "name": b.name, "parent_name_plural": b.parent_name_plural}
         for b in candidates
         if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     ]
@@ -966,7 +966,8 @@ def parents_for_viewer(child_ids, user):
     Returns ``{child_id: entry}`` for each linked card among ``child_ids``;
     an unlinked id is left out (the serializer reports it as ``null``). The
     entry is ``{"hidden": True}`` when ``user`` holds no role on the parent's
-    board, else the visible shape (``hidden`` False plus nine keys).
+    board, else the visible shape (``hidden`` False plus ten keys; the tenth,
+    ``board_parent_name_singular``, is the parent board's raw parent name, #2212).
 
     **Absent input fails closed** (#1075): with no user, or an anonymous one,
     every linked entry is hidden and no role is resolved. A broadcast frame is
@@ -1011,6 +1012,7 @@ def parents_for_viewer(child_ids, user):
             "swimlane_id": p.swimlane_id,
             "swimlane_name": p.swimlane.name,
             "archived": p.archived_at is not None,
+            "board_parent_name_singular": p.board.parent_name_singular,
         }
     return out
 
@@ -1041,7 +1043,7 @@ def parent_boards_for_viewer(user, board):
     )
     roles = get_board_roles(user, candidates)
     return [
-        {"id": b.pk, "name": b.name}
+        {"id": b.pk, "name": b.name, "parent_name_plural": b.parent_name_plural}
         for b in candidates
         if roles.get(b.pk) in LINK_WRITE_ROLES
     ]

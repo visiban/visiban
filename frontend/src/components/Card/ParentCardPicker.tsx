@@ -7,6 +7,7 @@ import { isImeComposing } from "../../utils/imeComposition";
 import Avatar from "../Common/Avatar";
 import SelectDropdown from "../Common/SelectDropdown";
 import { candidateDisabledReason, linkErrorCopy } from "./cardParent";
+import { customParentPlural } from "../../utils/parentItemNames";
 
 interface Props {
   boardId: number;
@@ -124,7 +125,11 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
     };
   }, [boardId, cardId, parentBoardId, query]);
 
-  const boardName = parentBoards.find((b) => b.id === parentBoardId)?.name ?? "";
+  const chosenBoard = parentBoards.find((b) => b.id === parentBoardId);
+  const boardName = chosenBoard?.name ?? "";
+  // "{board} calls these {plural}" (#2212): only when that board set a plural.
+  const boardPlural = customParentPlural(chosenBoard?.parent_name_plural);
+  const boardNamingId = `${ids}-board-naming`;
   const selected = results.find((r) => r.id === selectedId) ?? null;
 
   const link = async (candidate: ParentCandidate) => {
@@ -140,6 +145,7 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
         title: candidate.title,
         board_id: parentBoardId,
         board_name: boardName,
+        board_parent_name_singular: "",
         column_id: candidate.column_id,
         column_name: candidate.column_name,
         swimlane_id: candidate.swimlane_id,
@@ -235,9 +241,15 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
               }}
               options={parentBoards.map((b) => ({ value: String(b.id), label: b.name }))}
               ariaLabel="Board"
+              ariaDescribedBy={boardPlural ? boardNamingId : undefined}
               disabled={submitting}
               className="max-sm:min-h-11"
             />
+            {boardPlural && (
+              <p id={boardNamingId} className="text-xs text-fg-muted">
+                {boardName} calls these {boardPlural}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1">

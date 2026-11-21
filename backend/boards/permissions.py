@@ -613,6 +613,62 @@ def can_modify_others_content(board, role, user):
 ANALYTICS_PANEL_DEFAULT_MIN_ROLE = BoardMembership.Role.ADMIN
 
 
+def _declared_min_role(obj, label, default):
+    """The ``min_role`` *obj* declared, or *default* when absent/invalid (#1826, #2212).
+
+    Shared by ANALYTICS_EXTENSIONS and CARD_DETAIL_EXTENSIONS so both registries
+    fail closed the same way (Security Invariants Rule 12). *label* names the
+    registry in the log line; the value itself is never logged, only its type.
+    """
+    from .invites import ROLE_RANK  # invites imports this module
+
+    declared = getattr(obj, "min_role", None)
+    if declared is None:
+        return default
+    if isinstance(declared, str) and declared in ROLE_RANK:
+        return declared
+    logger.warning(
+        "%s callable %s.%s has an invalid min_role (%s); treated as %s",
+        label,
+        getattr(obj, "__module__", "?"),
+        getattr(obj, "__qualname__", type(obj).__name__),
+        type(declared).__name__,
+        default,
+    )
+    return default
+
+
+def _registered_for_role(registry, label, min_role_fn, role):
+    """The entries of *registry* a caller with board *role* may run (Rule 12).
+
+    A ``None`` or unknown *role* ranks below every entry and gets none (#1075).
+    An entry whose ``min_role`` cannot be read (a raising property) is left
+    out for everyone. The list is copied first, so an append during a request
+    cannot change what this request iterates.
+    """
+    from .invites import ROLE_RANK  # invites imports this module
+
+    caller_rank = ROLE_RANK.get(role, 0)
+    if caller_rank <= 0:
+        return []
+    allowed = []
+    for entry in list(registry):
+        try:
+            min_role = min_role_fn(entry)
+        except Exception as exc:
+            logger.warning(
+                "%s callable %s.%s skipped: min_role unreadable (%s)",
+                label,
+                getattr(entry, "__module__", "?"),
+                getattr(entry, "__qualname__", type(entry).__name__),
+                type(exc).__name__,
+            )
+            continue
+        if caller_rank >= ROLE_RANK[min_role]:
+            allowed.append(entry)
+    return allowed
+
+
 def analytics_panel_min_role(panel_fn):
     """Return the minimum board role an ANALYTICS_EXTENSIONS callable declared (#1826).
 
@@ -627,21 +683,7 @@ def analytics_panel_min_role(panel_fn):
     value. Treated as admin, the panel reaches board admins and site admins
     only, the same as a panel that declares nothing, and the summary stays up.
     """
-    from .invites import ROLE_RANK  # invites imports this module
-
-    declared = getattr(panel_fn, "min_role", None)
-    if declared is None:
-        return ANALYTICS_PANEL_DEFAULT_MIN_ROLE
-    if isinstance(declared, str) and declared in ROLE_RANK:
-        return declared
-    logger.warning(
-        "ANALYTICS_EXTENSIONS callable %s.%s has an invalid min_role (%s); treated as %s",
-        getattr(panel_fn, "__module__", "?"),
-        getattr(panel_fn, "__qualname__", type(panel_fn).__name__),
-        type(declared).__name__,
-        ANALYTICS_PANEL_DEFAULT_MIN_ROLE,
-    )
-    return ANALYTICS_PANEL_DEFAULT_MIN_ROLE
+    return _declared_min_role(panel_fn, "ANALYTICS_EXTENSIONS", ANALYTICS_PANEL_DEFAULT_MIN_ROLE)
 
 
 def analytics_extensions_for_role(role):
@@ -661,24 +703,37 @@ def analytics_extensions_for_role(role):
     reader of the list.
     """
     from . import hooks
-    from .invites import ROLE_RANK  # invites imports this module
 
-    caller_rank = ROLE_RANK.get(role, 0)
-    allowed = []
-    for panel_fn in list(hooks.ANALYTICS_EXTENSIONS):
-        try:
-            min_role = analytics_panel_min_role(panel_fn)
-        except Exception as exc:
-            logger.warning(
-                "ANALYTICS_EXTENSIONS callable %s.%s skipped: min_role unreadable (%s)",
-                getattr(panel_fn, "__module__", "?"),
-                getattr(panel_fn, "__qualname__", type(panel_fn).__name__),
-                type(exc).__name__,
-            )
-            continue
-        if caller_rank >= ROLE_RANK[min_role]:
-            allowed.append(panel_fn)
-    return allowed
+    return _registered_for_role(
+        hooks.ANALYTICS_EXTENSIONS, "ANALYTICS_EXTENSIONS", analytics_panel_min_role, role,
+    )
+
+
+# Same fail-closed default as analytics panels (#2212): an extension that
+# declares no min_role reaches board admins and site admins only.
+CARD_DETAIL_EXTENSION_DEFAULT_MIN_ROLE = BoardMembership.Role.ADMIN
+
+
+def card_detail_extension_min_role(ext):
+    """The minimum board role a CARD_DETAIL_EXTENSIONS entry declared (#2212).
+
+    Absent, ``None`` or invalid means admin (fail closed), as for analytics.
+    """
+    return _declared_min_role(ext, "CARD_DETAIL_EXTENSIONS", CARD_DETAIL_EXTENSION_DEFAULT_MIN_ROLE)
+
+
+def card_detail_extensions_for_role(role):
+    """The CARD_DETAIL_EXTENSIONS entries a caller with board *role* may run (#2212).
+
+    The only reader of ``hooks.CARD_DETAIL_EXTENSIONS`` (Security Invariants
+    Rule 12); ``boards/tests/test_card_detail_extensions_2212.py`` fails on a
+    second one. An entry above *role* is never called, not merely hidden.
+    """
+    from . import hooks
+
+    return _registered_for_role(
+        hooks.CARD_DETAIL_EXTENSIONS, "CARD_DETAIL_EXTENSIONS", card_detail_extension_min_role, role,
+    )
 
 
 def _subject_board(obj):

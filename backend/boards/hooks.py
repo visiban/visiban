@@ -77,6 +77,40 @@ MOVEMENT_EXPORT_BACKENDS: list = []
 # Called from a read-only (GET) context — no transaction.on_commit wrapping.
 ANALYTICS_EXTENSIONS: list = []
 
+# Card-detail extension sections (#2212, 1.3, EXPERIMENTAL until the first real
+# extension ships; see docs/development/card-detail-extensions.md). The card-level
+# counterpart of ANALYTICS_EXTENSIONS: an in-process app attaches a typed, read-only
+# record to a card (a contract, an initiative's budget) and OSS renders it in the
+# card's Details tab. OSS stays domain-neutral; the extension owns its own model.
+#
+# Each entry is an OBJECT (not a bare callable) with:
+#   id        a slug matching ^[a-z][a-z0-9_-]{0,63}$. OSS stamps it onto the
+#             section, so an extension cannot claim another's id. When two entries
+#             share an id the first registered wins and the later one is skipped.
+#   min_role  "viewer" | "collaborator" | "member" | "admin" | "site_admin".
+#             FAIL CLOSED: missing, None or invalid means "admin" (logged).
+#   section(card, user, role) -> dict | None
+#             {"title": str <=120, "fields": [{"key", "label", "type", "value",
+#             "display"?, "choices"?}] <=30}; None means "not for this card".
+#             Field types are closed: text, number, date, choice.
+# Read-only in v1: there is no edit path, and a field's extra keys are ignored.
+# OSS filters by the caller's resolved board role BEFORE calling section(): an
+# extension above the caller's role is never invoked. At most 10 extensions are
+# called per card. A section that fails validation is dropped whole (never
+# truncated) and an extension that raises is logged (class name and id only, no
+# content) and dropped; the others still render.
+# No request argument on purpose: headers and tokens stay out of extension code.
+# Treat card and user as read-only, do no blocking I/O, and read card links only
+# through boards.services.card_links.children_for_viewer / parents_for_viewer with
+# the same user (Security Invariants Rule 10).
+# Register via: from boards.hooks import CARD_DETAIL_EXTENSIONS
+#               CARD_DETAIL_EXTENSIONS.append(MyExtension())
+# Every reader goes through boards.permissions.card_detail_extensions_for_role(role);
+# never iterate this list directly (Security Invariants Rule 12).
+# Served only by GET /api/boards/{b}/cards/{c}/extensions/: never on the card
+# serializer, the board load, MCP, export or the public share.
+CARD_DETAIL_EXTENSIONS: list = []
+
 # Card lifecycle hook for enterprise audit-log and notification integrations.
 # Callable signature: (event: str, card_id: int, board_id: int, actor_id: int | None) -> None
 #

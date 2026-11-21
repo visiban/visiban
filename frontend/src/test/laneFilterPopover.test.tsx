@@ -41,6 +41,8 @@ function makeBoard(defs: SwimlaneCustomFieldDefinition[] = [AE, DEAL, MARGIN], r
     commitment_column_uid: null,
     cards_can_have_children: false,
     default_child_board: null,
+    parent_name_singular: "",
+    parent_name_plural: "",
     id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', group: null, group_name: null,
     archived_card_count: 0, columns: [], swimlanes: [], cards: [], labels: [],
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],

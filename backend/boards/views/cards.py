@@ -32,7 +32,7 @@ from visiban.permissions import (
 
 from ..card_signals import blocked_q, overdue_q, signal_today
 from .. import broadcast as _broadcast
-from ..services import card_links
+from ..services import card_extensions, card_links
 from ..services import cards as card_services
 from ..services.notifications import (
     card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
@@ -50,7 +50,7 @@ from ..serializers import (
     CardSerializer, CardMovementSerializer, CardGateTransitionSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
     CardRelationCreateSerializer, CardRelationSerializer,
-    CardTimelineEntrySerializer, ParentCandidateSerializer,
+    CardExtensionSectionListSerializer, CardTimelineEntrySerializer, ParentCandidateSerializer,
     CARD_PARENTS_CONTEXT_KEY,
     _card_queryset,
 )
@@ -3000,6 +3000,34 @@ class CardViewSet(viewsets.ModelViewSet):
         board, _role = self._board_and_role()
         card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
         return Response(card_links.child_board_options_for_viewer(card, request.user))
+
+    @extend_schema(
+        responses={
+            200: CardExtensionSectionListSerializer,
+            404: OpenApiResponse(description=(
+                "No access to this board, or the card is not on it (one body for both)."
+            )),
+        },
+        description=(
+            "Extension sections for this card's Details tab (#2212, since 1.3, "
+            "EXPERIMENTAL: the shape may change before it is declared stable). "
+            "Read-only. Minimum role: any role on this card's board; each "
+            "extension declares its own `min_role` (default admin) and one above "
+            "the caller's role is never called. Always `200`, with "
+            '`{"sections": []}` when nothing is registered or visible.'
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="extensions")
+    def extensions(self, request, board_pk=None, pk=None):
+        """Registered extension sections for this card, filtered by the caller's role (#2212).
+
+        A separate endpoint on purpose: extension code never runs on the card
+        serializer, the board load, MCP or the public share (Rule 10), and a
+        slow or failing extension cannot slow or break those.
+        """
+        board, role = self._board_and_role()
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        return Response({"sections": card_extensions.sections_for_card(card, request.user, role)})
 
     @extend_schema(
         operation_id="api_v1_boards_cards_parent_candidates_list",
