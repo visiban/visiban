@@ -1088,6 +1088,10 @@ migration-check:
 backend-test-pg-matrix:
   extends: .pip-cache
   stage: test
+  # Advisory until the first all-green nightly matrix run (#2481 tracks flipping
+  # this to blocking): only one eighth of the suite has ever run on PG 15/16/18,
+  # so a blocking leg would surface PG-specific failures as random reds.
+  allow_failure: true
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   parallel:
@@ -1099,12 +1103,14 @@ backend-test-pg-matrix:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - .gitlab-ci.yml
         - backend/**/migrations/**/*
         - backend/requirements*.txt
         - backend/requirements*.lock
         - scripts/pg-matrix-check.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
+        - .gitlab-ci.yml
         - backend/**/*
         - scripts/pg-matrix-check.sh
   services:
@@ -2934,6 +2940,7 @@ compose-upgrade-drill:
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: &upgrade-drill-paths
+        - .gitlab-ci.yml
         - backend/**/migrations/**/*
         - helm/**/*
         - docker-compose*.yml
@@ -2947,6 +2954,7 @@ compose-upgrade-drill:
         - scripts/upgrade-drill-probe.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: &upgrade-drill-main-paths
+        - .gitlab-ci.yml
         - backend/**/*
         - helm/**/*
         - docker-compose*.yml

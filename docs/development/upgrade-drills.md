@@ -1,10 +1,10 @@
 # Upgrade drills and the PostgreSQL matrix
 
-Two CI drills install the **last GA release**, put data in it, upgrade it to HEAD and check that the data survived. One drill covers Compose and one covers Helm. A third job runs the backend against every supported PostgreSQL major. All three come from #2463.
+Two CI drills install the **last GA release**, put data in it, upgrade it to HEAD and check that the data survived. One drill covers Compose and one covers Helm. Two more jobs run the backend against every supported PostgreSQL major: a rotating-group job on MRs and `main`, and a full-suite job on schedules. All four come from #2463.
 
 **Why it matters:** backward compatibility has been the contract since 1.0, but every other drill starts from an empty database at HEAD. A migration that works on an empty schema but breaks on a populated 1.2 one would ship unnoticed. So would a chart change that breaks `helm upgrade` but not `helm install`.
 
-**Watch out:** the "from" side is the **published** release: the GHCR images and the OCI chart. If that release was never published, the drill fails at the pull. That failure is real, because operators upgrade from what was published.
+**Watch out:** the "from" side is the **published** release: the GHCR images and the OCI chart. The resolver only picks a release whose backend image, frontend image and OCI chart are all published, and falls back to the previous GA with a warning otherwise. The upgrade itself is then a real upgrade from what operators actually pull.
 
 ## What each job proves
 
@@ -21,22 +21,23 @@ The upgrade order follows [Upgrading](../administration/upgrade.md#standard-upgr
 - **The last GA tag is resolved, never hardcoded.** `scripts/resolve-last-ga-tag.sh` lists tags with `git ls-remote` because CI clones are shallow and have no tags. It keeps only `vX.Y.Z`, skipping `-alpha`, `-beta` and `-rc`, and sorts numerically. It then fetches just that tag. `--self-test` covers the exclusions and the ordering.
 - **The HEAD images are built from the release Dockerfiles** (`Dockerfile`, not `Dockerfile.prod`). The release job publishes from those, so a fix made only in `Dockerfile.prod` never ships. MR pipelines push no per-commit image, so the drill builds HEAD itself.
 - **The chart pull is strict in CI.** With `CI=true`, an OCI chart pull failure fails the helm drill. Local runs fall back to the tag's `helm/visiban` source with a warning.
-- **The newest GA may not be published yet.** The tag pipeline publishes the images, so the resolver checks GHCR for `backend:<tag>` (anonymous manifest request) and falls back to the previous GA with a warning. It fails if no GA has images. `--no-image-check` skips this, for offline use.
+- **The newest GA may not be published yet.** The tag pipeline publishes the images first and the chart last (`helm-publish`), so the resolver checks GHCR for `backend:<tag>`, `frontend:<tag>` and the OCI chart `charts/visiban:<version>` (the version comes from the tag's `helm/visiban/Chart.yaml`), using anonymous manifest requests. If any is missing it falls back to the previous GA with a warning naming the missing artifact. It fails if no GA has all three. In a fork MR pipeline `origin` is the fork, so the resolver lists and fetches tags from `CI_MERGE_REQUEST_PROJECT_URL` instead. `--no-image-check` skips this, for offline use.
 - **The seed is deterministic.** `seed_demo_data --wipe --force` runs on a fresh database, and the drill fails if any count comes out zero. Plain `--force` silently skips an existing board.
 - **The Compose drill boots only `db`, `valkey`, `backend-init` and `backend`.** The frontend and nginx hold no data, and `compose-prod-drill` already boots them at HEAD.
 - **Helm keeps PostgreSQL persistence on.** `helm-install` turns it off. This drill needs it on, because the upgrade may recreate the database pod.
 - **A change to the shipped PostgreSQL major fails both drills.** The new major will not start on the old data directory. That is a real upgrade break: the release needs a documented dump and restore.
-- **The PG matrix rotates through the suite.** Each leg runs pytest-split group `(CI_PIPELINE_IID mod 8) + 1`, so a single pipeline covers one eighth of the suite on each major, and MR and `main` pipelines together do not cover the whole suite. The full suite takes about 110 minutes, too long to run three times per pipeline. The log names the group. Full coverage comes from `backend-test-pg-matrix-nightly`, which runs on the nightly schedule only: every group (1 to 8) on every major (15, 16, 18), 24 jobs, advisory.
+- **The MR and `main` PG matrix legs are advisory (`allow_failure: true`) for now.** Only one eighth of the suite has ever run on PostgreSQL 15, 16 and 18, so a blocking leg could surface PG-specific failures as random reds. [#2481](https://gitlab.com/visiban/visiban/-/issues/2481) tracks making them blocking after the first all-green nightly matrix run.
+- **The PG matrix rotates through the suite.** Each leg runs pytest-split group `(CI_PIPELINE_IID mod 8) + 1`, so a single pipeline covers one eighth of the suite on each major, and MR and `main` pipelines together do not cover the whole suite. The full suite takes about 110 minutes, too long to run three times per pipeline. The log names the group. Full coverage comes from `backend-test-pg-matrix-nightly`, which runs on schedules only (every schedule except the Sonar one): every group (1 to 8) on every major (15, 16, 18), 24 jobs, advisory.
 
 ## When they run
 
-| Job | MR pipelines | `main` | Nightly schedule |
+| Job | MR pipelines | `main` | Schedules (all except the Sonar one) |
 |---|---|---|---|
-| Both upgrade drills | Changes to `backend/**/migrations/**`, `helm/**`, `docker-compose*.yml`, `backend/Dockerfile*`, `frontend/Dockerfile*`, `backend/requirements*`, or the drill scripts | Also any `backend/**` change | Advisory (`allow_failure`) |
-| `backend-test-pg-matrix` (one rotating group) | Changes to migrations, `backend/requirements*`, or `scripts/pg-matrix-check.sh` | Any `backend/**` change | Does not run |
+| Both upgrade drills | Changes to `.gitlab-ci.yml`, `backend/**/migrations/**`, `helm/**`, `docker-compose*.yml`, `backend/Dockerfile*`, `frontend/Dockerfile*`, `backend/requirements*`, or the drill scripts | Also any `backend/**` change (and `.gitlab-ci.yml`) | Advisory (`allow_failure`) |
+| `backend-test-pg-matrix` (one rotating group, advisory, [#2481](https://gitlab.com/visiban/visiban/-/issues/2481)) | Changes to `.gitlab-ci.yml`, migrations, `backend/requirements*`, or `scripts/pg-matrix-check.sh` | Any `.gitlab-ci.yml` or `backend/**` change | Does not run |
 | `backend-test-pg-matrix-nightly` (all 8 groups) | Does not run | Does not run | Advisory |
 
-The `main` trigger is narrowed: a push to `main` runs the drills only when it changes a shipped path (`backend/**`, `helm/**`, `docker-compose*.yml`, `frontend/Dockerfile*` or the drill scripts), not on every push. None of them run on a docs-only MR. The three new jobs skip the Sonar nightly (`SONAR_SCHEDULED`) with an explicit first rule, because `changes:` always evaluates true on a schedule. The older drills still run on it; that is tracked in #2471.
+The `main` trigger is narrowed: a push to `main` runs the drills only when it changes `.gitlab-ci.yml` or a shipped path (`backend/**`, `helm/**`, `docker-compose*.yml`, `frontend/Dockerfile*` or the drill scripts), not on every push. None of them run on a docs-only MR. The two upgrade drills and `backend-test-pg-matrix-nightly` run on every schedule except the Sonar one (the schedule titled "Nightly"): the "Nightly load test (#1082)" and "Weekly mutation testing (#1384)" schedules run them, as advisory jobs. They skip the Sonar schedule with an explicit first rule on `SONAR_SCHEDULED`, because `changes:` always evaluates true on a schedule. `backend-test-pg-matrix` skips every schedule with `schedule` then `when: never`. The older compose and helm drills still run on the Sonar schedule; that is tracked in #2471.
 
 ## Run one locally
 
