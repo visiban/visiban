@@ -1367,13 +1367,34 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'f' })
       fireEvent.click(screen.getByRole('button', { name: 'Hide filter bar' }))
+      // Drain the click's deferred focus so only the F path can focus the trigger below.
+      await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
       fireEvent.keyDown(document, { key: 'f' })
       expect(screen.getByRole('button', { name: 'Hide filter bar' })).toBeInTheDocument()
-      // Focus inside the row when F hides it: lands on the trigger, not <body>.
-      screen.getByRole('button', { name: 'Hide filter bar' }).focus()
+    })
+
+    it('F with focus inside the row hides it and lands focus on the Filters trigger (F path only)', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      await new Promise((r) => setTimeout(r, 10)) // flush the open-focus timer
+      const chevron = screen.getByRole('button', { name: 'Hide filter bar' })
+      chevron.focus()
+      expect(document.activeElement).toBe(chevron)
       fireEvent.keyDown(document, { key: 'f' })
       expect(screen.queryByRole('button', { name: 'Hide filter bar' })).not.toBeInTheDocument()
       await waitFor(() => expect(document.activeElement).toBe(filtersTrigger()))
+    })
+
+    it('F with focus outside the row hides it without stealing focus to the Filters trigger', async () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      await new Promise((r) => setTimeout(r, 10))
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      expect(document.activeElement).toBe(document.body)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(screen.queryByRole('button', { name: 'Hide filter bar' })).not.toBeInTheDocument()
+      await new Promise((r) => setTimeout(r, 10))
+      expect(document.activeElement).not.toBe(filtersTrigger())
     })
 
     it('active filters keep applying and the count badge stays after the row is hidden', () => {
@@ -3839,6 +3860,37 @@ describe('BoardView card actions outside the board grid (#2059)', () => {
     expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('true')
     await user.click(screen.getByRole('button', { name: 'Hide lens filter row' }))
     expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('false')
+  })
+
+  it('F with focus inside the Lens filter row hands focus to the Filters trigger (#2459)', async () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    vi.mocked(getLensConnection).mockResolvedValue({ id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never)
+    mockSearchParams = new URLSearchParams()
+    render(<BoardView currentUser={lensUser} />)
+    const user = userEvent.setup()
+    await screen.findByTestId('lens-view')
+    await user.click(screen.getByRole('button', { name: 'Toggle lens filters' }))
+    expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('true')
+    // LensView is mocked, so stand in a role="search" container for the real row.
+    const row = document.createElement('div')
+    row.setAttribute('role', 'search')
+    const inner = document.createElement('button')
+    row.appendChild(inner)
+    document.body.appendChild(row)
+    // The lens toolbar is mocked too; stand in for its Filters trigger.
+    const trigger = document.createElement('button')
+    trigger.setAttribute('data-filters-trigger', '')
+    document.body.appendChild(trigger)
+    try {
+      inner.focus()
+      expect(document.activeElement).toBe(inner)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(screen.getByTestId('lens-view').getAttribute('data-show-filters')).toBe('false')
+      await waitFor(() => expect(document.activeElement).toBe(trigger))
+    } finally {
+      row.remove()
+      trigger.remove()
+    }
   })
 
   it('shows a palette action result in the Lens view', async () => {

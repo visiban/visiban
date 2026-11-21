@@ -119,6 +119,20 @@ describe('LensView', () => {
     expect(screen.queryByRole('button', { name: /clear filters/i })).not.toBeInTheDocument()
   })
 
+  it('the filter row hide control calls onHideFilters (#2459)', () => {
+    const onHideFilters = vi.fn()
+    mockUseLensData.mockReturnValue({
+      data: lensData(['v1']), error: null, loading: false, refetching: false, refresh,
+    })
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <LensView boardId={5} connection={conn} cardLayout="expanded" showFilters onHideFilters={onHideFilters} />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Hide filter bar' }))
+    expect(onHideFilters).toHaveBeenCalledTimes(1)
+  })
+
   it('renders every swimlane expanded by default', () => {
     setup('/')
     for (const k of ['v1', 'v2', 'v3']) {
