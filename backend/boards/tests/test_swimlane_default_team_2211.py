@@ -67,7 +67,7 @@ class TeamFixture(TestCase):
 
 class MigrationTests(TestCase):
     def test_creates_a_new_table_and_alters_no_existing_one(self):
-        m = importlib.import_module("boards.migrations.0128_swimlane_default_team")
+        m = importlib.import_module("boards.migrations.0129_swimlane_default_team")
         kinds = [op.__class__.__name__ for op in m.Migration.operations]
         self.assertEqual(kinds, ["CreateModel", "AddField", "AddConstraint"])
         # The AddField is the M2M declaration: no column on swimlanes.
