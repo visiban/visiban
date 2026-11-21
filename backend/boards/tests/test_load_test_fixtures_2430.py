@@ -72,16 +72,50 @@ class LoadTestFixtureTests(TestCase):
         for mv in CardMovement.objects.filter(card__in=archived[:20]):
             self.assertEqual(mv.card_uid, mv.card.uid)
 
-    def test_live_cards_keep_their_recent_history(self):
-        """The live half is the unmodified seed: its movements stay inside the seeded window."""
-        oldest_live = CardMovement.objects.filter(
-            board=self.aged, card__archived_at__isnull=True
-        ).order_by("moved_at").first()
-        newest_copy = CardMovement.objects.filter(
-            board=self.aged, card__archived_at__isnull=False
-        ).order_by("-moved_at").first()
-        self.assertIsNotNone(oldest_live)
-        self.assertLess(newest_copy.moved_at, oldest_live.moved_at + datetime.timedelta(days=GENERATION_SPACING_DAYS * 2))
+    def test_copies_are_the_live_cards_shifted_back_one_spacing_per_generation(self):
+        """Generation g's copy of live card i has created_at/updated_at (and movements) g spacings earlier.
+
+        bulk_create stamps auto_now_add/auto_now with "now"; the bulk_update that writes the
+        shifted values back is what makes the history old, so this is the line that matters.
+        """
+        live = list(Card.objects.filter(board=self.aged, archived_at__isnull=True).order_by("id"))
+        generations = sorted(
+            set(Card.objects.filter(board=self.aged, archived_at__isnull=False)
+                .values_list("archived_at", flat=True)),
+            reverse=True,  # generation 1 is archived most recently
+        )
+        self.assertEqual(len(generations), GENERATIONS)
+        for gen, archived_at in enumerate(generations, start=1):
+            shift = datetime.timedelta(days=GENERATION_SPACING_DAYS * gen)
+            copies = list(Card.objects.filter(board=self.aged, archived_at=archived_at).order_by("id"))
+            self.assertEqual(len(copies), len(live))
+            for src, copy in zip(live, copies):
+                self.assertEqual(copy.created_at, src.created_at - shift)
+                self.assertEqual(copy.updated_at, src.updated_at - shift)
+            src_moves = sorted(
+                CardMovement.objects.filter(card__in=live).values_list("moved_at", flat=True)
+            )
+            copy_moves = sorted(
+                CardMovement.objects.filter(card__in=copies).values_list("moved_at", flat=True)
+            )
+            self.assertEqual([m - shift for m in src_moves], copy_moves)
+
+    def test_copying_never_shifts_the_live_cards_history(self):
+        """The live half is the unmodified seed: another copy pass must leave it byte for byte alone."""
+        from boards.management.commands._load_test_fixtures import copy_archived_generations
+
+        def snapshot():
+            return (
+                list(Card.objects.filter(board=self.aged, archived_at__isnull=True)
+                     .order_by("id").values_list("id", "created_at", "updated_at")),
+                list(CardMovement.objects.filter(board=self.aged, card__archived_at__isnull=True)
+                     .order_by("id").values_list("id", "moved_at")),
+            )
+
+        before = snapshot()
+        self.assertTrue(before[0] and before[1])
+        copy_archived_generations(self.aged, 1, datetime.datetime(2020, 1, 1, tzinfo=datetime.timezone.utc))
+        self.assertEqual(snapshot(), before)
 
     def test_fixture_boards_are_invisible_to_every_demo_user(self):
         """card_search as demo2/demo3 filters on accessible board ids; their sets must not grow."""
@@ -153,3 +187,10 @@ class LoadTestFixtureArgumentTests(TestCase):
                 "seed_demo_data", "--force", "--scale", "2", "--aged-generations", "-1",
                 stdout=StringIO(),
             )
+
+    def test_zero_generations_seeds_no_aged_board(self):
+        call_command(
+            "seed_demo_data", "--force", "--scale", "2", "--aged-generations", "0",
+            stdout=StringIO(),
+        )
+        self.assertFalse(Board.objects.filter(name=LOAD_TEST_AGED_BOARD_NAME).exists())

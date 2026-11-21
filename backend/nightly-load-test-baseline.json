@@ -366,7 +366,7 @@
     },
     "analytics_overview": {
       "method": "GET",
-      "path": "8 reads: summary, analytics, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked} on the load-test board",
+      "path": "8 reads: analytics, metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention} on the load-test board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,

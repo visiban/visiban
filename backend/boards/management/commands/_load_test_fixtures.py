@@ -108,6 +108,11 @@ def copy_archived_generations(board, generations, anchor, spacing_days=GENERATIO
             copies.append(Card(**data))
         with transaction.atomic():
             Card.objects.bulk_create(copies, batch_size=_BULK_BATCH)
+            # bulk_create ran pre_save, which overwrote the shifted values on the instances
+            # with "now"; restore them or the bulk_update below writes "now" straight back.
+            for src, copy in zip(sources, copies):
+                copy.created_at = src.created_at - shift
+                copy.updated_at = src.updated_at - shift
             Card.objects.bulk_update(copies, ["created_at", "updated_at"], batch_size=_BULK_BATCH)
             moves, shifted = [], []
             for src, copy in zip(sources, copies):

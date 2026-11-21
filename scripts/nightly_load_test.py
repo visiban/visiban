@@ -175,13 +175,23 @@ class _ServerMemory:
         self.proc_root = proc_root
 
     @classmethod
-    def from_pid_file(cls, path):
+    def from_pid_file(cls, path, proc_root="/proc"):
         if not path:
             return cls(None)
         with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
             pid = int(fh.read().strip())
-        mem = cls(pid)
+        if not sys.platform.startswith("linux") and proc_root == "/proc":
+            print("NOTE: --server-pid-file needs Linux /proc; peak memory is NOT measured.")
+            return cls(None)
+        mem = cls(pid, proc_root=proc_root)
         mem.read()  # fail now, not after twenty minutes, if the PID is wrong
+        try:
+            # Probe the write reset_peak will do, so an unprivileged or read-only /proc
+            # is found now rather than on the first scenario after seeding.
+            mem.reset_peak()
+        except OSError as exc:
+            print(f"NOTE: cannot write /proc/{pid}/clear_refs ({exc}); peak memory is NOT measured.")
+            return cls(None)
         return mem
 
     @property
@@ -240,8 +250,9 @@ _MEMORY_GATED = (
 
 # The overview opens with these eight reads at once, into one server process (#2426).
 _OVERVIEW_PATHS = (
-    "summary/", "analytics/", "metrics/cycle-time/", "metrics/throughput/",
+    "analytics/", "metrics/cycle-time/", "metrics/throughput/",
     "metrics/cumulative-flow/", "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/",
+    "metrics/attention/",
 )
 
 
@@ -486,13 +497,61 @@ def _self_test():
                 failures.append("_ServerMemory.reset_peak must write 5 to clear_refs")
         if _sm.read()["hwm_mb"] != 512.0 or _ServerMemory(None).enabled:
             failures.append("_ServerMemory misreads the status, or a None pid is not disabled")
+    # from_pid_file (#2430): non-Linux and an unwritable clear_refs disable measurement with
+    # a NOTE; a wrong PID on Linux still fails now, not after the seeding.
+    import contextlib
+    import io
+    with tempfile.TemporaryDirectory() as work:
+        pid_file = os.path.join(work, "server.pid")
+        with open(pid_file, "w", encoding="utf-8") as fh:
+            fh.write("123")
+        fake = os.path.join(work, "proc")
+        os.makedirs(os.path.join(fake, "123"))
+        with open(os.path.join(fake, "123", "status"), "w", encoding="utf-8") as fh:
+            fh.write(sample_status)
+        real_platform = sys.platform
+
+        def _from_pid(platform, proc_root):
+            sys.platform = platform
+            out = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(out):
+                    return _ServerMemory.from_pid_file(pid_file, proc_root=proc_root), out.getvalue()
+            finally:
+                sys.platform = real_platform
+
+        _m, _out = _from_pid("darwin", "/proc")
+        if _m.enabled or "NOTE" not in _out:
+            failures.append("from_pid_file on non-Linux must print a NOTE and disable measurement")
+        _m, _out = _from_pid("linux", fake)
+        if not _m.enabled or _out:
+            failures.append("from_pid_file with a readable status and writable clear_refs must enable")
+        os.remove(os.path.join(fake, "123", "clear_refs"))
+        os.mkdir(os.path.join(fake, "123", "clear_refs"))  # opening a directory for write -> OSError
+        _m, _out = _from_pid("linux", fake)
+        if _m.enabled or "NOTE" not in _out:
+            failures.append("from_pid_file with an unwritable clear_refs must print a NOTE and disable")
+        try:
+            _from_pid("linux", os.path.join(work, "no-such-proc"))
+            failures.append("from_pid_file on Linux with an unreadable PID must fail at startup")
+        except OSError:
+            pass
     aged = _aged_endpoints("http://x", 7)
     if set(aged) != set(_AGED_SCENARIOS) or not aged["aged_board_analytics_365"].endswith("/boards/7/analytics/?days=365"):
         failures.append("_aged_endpoints and _AGED_SCENARIOS disagree, or the 365-day scenario lost its range")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
-    if len(_overview_urls("http://x", 1)) != 8 or len(set(_overview_urls("http://x", 1))) != 8:
-        failures.append("the overview fan-out must be eight distinct reads")
+    # Exactly what useAnalyticsOverviewData.ts fires (it never calls summary/); drift here
+    # means the fan-out stops measuring what the overview does.
+    _want_overview = {
+        f"http://x/api/v1/boards/1/{p}" for p in (
+            "analytics/", "metrics/cycle-time/", "metrics/throughput/", "metrics/cumulative-flow/",
+            "metrics/wip-age/", "metrics/dwell/", "metrics/blocked/", "metrics/attention/",
+        )
+    }
+    _got_overview = _overview_urls("http://x", 1)
+    if len(_got_overview) != 8 or set(_got_overview) != _want_overview:
+        failures.append("the overview fan-out must be exactly the eight reads useAnalyticsOverviewData fires")
     # The fan-out measures the LAST response, not the sum: four 50ms requests at once
     # must take about 50ms, never 200.
     _wall = _fan_out(lambda _u: time.sleep(0.05), ["a", "b", "c", "d"])
