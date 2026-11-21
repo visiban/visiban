@@ -3626,6 +3626,10 @@ class ParentBoardOptionSerializer(serializers.Serializer):
 
     id = serializers.IntegerField()
     name = serializers.CharField()
+    parent_name_singular = serializers.CharField(
+        allow_blank=True,
+        help_text="What this board calls one of its cards (#2212), raw: empty means the client says Parent.",
+    )
     parent_name_plural = serializers.CharField(
         allow_blank=True,
         help_text="What this board calls its cards, plural (#2212), raw: empty means the client says Parents.",

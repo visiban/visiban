@@ -2708,10 +2708,10 @@ ordered by name, uncapped. `member` or higher on this board (`403` below it,
 `404` without access). On a board whose cards can have children: `{"results": []}`.
 
 ```json
-{"results": [{"id": 12, "name": "Portfolio", "parent_name_plural": "Initiatives"}]}
+{"results": [{"id": 12, "name": "Portfolio", "parent_name_singular": "Initiative", "parent_name_plural": "Initiatives"}]}
 ```
 
-`parent_name_plural` (#2212) is that board's raw plural; empty means it set none.
+`parent_name_singular` and `parent_name_plural` (#2212) are that board's raw names; empty means it set none.
 
 Cards on `GET .../full/` carry a `parent` key; see
 [Cards: `parent` on a card](cards.md#parent-on-a-card).

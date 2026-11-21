@@ -169,6 +169,12 @@ A board admin chooses which one in **Board settings → Rules & limits → Child
 
 The switch can be refused, and then it stays focusable but dimmed (`aria-disabled`). Activating it moves focus to a **"A child can't also have children"** list that says why: cards on this board are children of cards on another board, or another board names this one as its default child board (with a **Change on <board>** link when you administer that board, or "Ask an admin of that board" when you do not, or cannot open it). Turning it **off** is refused while cards on this board still have children; the list says so. Fix the cause and the line clears. If the server still refuses the change (for example a card was linked a moment ago), the reason is shown under the switch.
 
+### What a parent card is called
+
+*New in 1.3.* While **Cards on this board can have children** is on, a board admin can name the parent cards under **What do you call a parent card on this board?**: a **Singular** and a **Plural** field, for example "Initiative" and "Initiatives". Both start empty, so the board says "Parent". The **Opportunity**, **Initiative** and **Release** suggestions fill both fields; choosing the active one again clears them. Any text works, up to 24 characters.
+
+The name appears in two places: on a child card, the parent row is labeled with the parent board's singular name once a parent is linked; and in **Link a parent card**, the line under the Board picker reads, for example, "Pipeline calls these Initiatives". The word "Children", the Children tab, the rollup, the Parent filter and the public share link never change.
+
 ## Parent card (child side)
 
 *Added in 1.3 (#1104).* On a child board, a card can be linked to one **parent** card on a parent board. The parent's own columns and this card's columns stay independent: moving one never moves the other.
@@ -192,13 +198,7 @@ Public share links show no parent line. On a phone the picker opens as a full-sc
 - **Add child chooser:** a card on a parent board with member access or above shows an **Add child** button in its detail panel. It opens a dialog (a full-screen sheet on a phone) titled **Add child** with the subtitle "Where should this child go?". With a default, the board is preselected and the button reads **Add to <board>**; without one, members see **Choose a board** and the button stays disabled until a board and a title are given. Admins of both boards also get **Use <board> as the default for <this board>**, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read.
 - **Delete confirm:** the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.
 
-### What a parent card is called
-
-*New in 1.3.* While **Cards on this board can have children** is on, a board admin can name the parent cards under **What do you call a parent card on this board?**: a **Singular** and a **Plural** field, for example "Initiative" and "Initiatives". Both start empty, so the board says "Parent". The **Opportunity**, **Initiative** and **Release** suggestions fill both fields; choosing the active one again clears them. Any text works, up to 24 characters.
-
-The name appears in two places: on a child card, the parent row is labeled with the parent board's singular name once a parent is linked; and in **Link a parent card**, the line under the Board picker reads, for example, "Pipeline calls these Initiatives". The word "Children", the Children tab, the rollup, the Parent filter and the public share link never change.
-
-### Extension sections in card details
+## Extension sections in card details
 
 *New in 1.3, experimental.* An installed extension (for example an Enterprise module) can add a read-only section to a card's **Details** tab, after Weight. Each section has its own heading and shows plain label and value rows. Without an extension nothing is shown, and the tab looks as it always has.
 

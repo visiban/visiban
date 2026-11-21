@@ -1043,7 +1043,12 @@ def parent_boards_for_viewer(user, board):
     )
     roles = get_board_roles(user, candidates)
     return [
-        {"id": b.pk, "name": b.name, "parent_name_plural": b.parent_name_plural}
+        {
+            "id": b.pk,
+            "name": b.name,
+            "parent_name_singular": b.parent_name_singular,
+            "parent_name_plural": b.parent_name_plural,
+        }
         for b in candidates
         if roles.get(b.pk) in LINK_WRITE_ROLES
     ]

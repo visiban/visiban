@@ -304,8 +304,8 @@ class ParentBoardsTests(_LinkFixture, TestCase):
         res = self._client(u).get(self.url)
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()["results"], [
-            {"id": b_admin.pk, "name": "alpha portfolio", "parent_name_plural": ""},
-            {"id": self.pboard.pk, "name": "Portfolio", "parent_name_plural": ""},
+            {"id": b_admin.pk, "name": "alpha portfolio", "parent_name_singular": "", "parent_name_plural": ""},
+            {"id": self.pboard.pk, "name": "Portfolio", "parent_name_singular": "", "parent_name_plural": ""},
         ])
         self.assertEqual(set(res.json()["results"][0]), set(ParentBoardOptionSerializer().fields))
 

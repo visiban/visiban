@@ -119,12 +119,13 @@ class ReadShapeTests(_Base):
     def test_absent_user_hides_the_name(self):
         self.assertEqual(parents_for_viewer([self.child.pk], None)[self.child.pk], {"hidden": True})
 
-    def test_picker_rows_carry_the_plural(self):
+    def test_picker_rows_carry_the_names(self):
         rows = parent_boards_for_viewer(self.owner, self.child_board)
-        self.assertEqual(rows, [{"id": self.board.pk, "name": "Pipeline", "parent_name_plural": "Opportunities"}])
+        self.assertEqual(rows, [{"id": self.board.pk, "name": "Pipeline", "parent_name_singular": "Opportunity", "parent_name_plural": "Opportunities"}])
         self.assertEqual(set(rows[0]), set(ParentBoardOptionSerializer().fields))
         res = self._client(self.owner).get(f"/api/v1/boards/{self.child_board.pk}/parent-boards/")
         self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()["results"][0]["parent_name_singular"], "Opportunity")
         self.assertEqual(res.json()["results"][0]["parent_name_plural"], "Opportunities")
 
     def test_picker_omits_boards_without_a_write_role(self):

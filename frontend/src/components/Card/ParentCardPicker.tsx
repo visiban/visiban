@@ -145,7 +145,7 @@ export default function ParentCardPicker({ boardId, cardId, parentBoards, onLink
         title: candidate.title,
         board_id: parentBoardId,
         board_name: boardName,
-        board_parent_name_singular: "",
+        board_parent_name_singular: chosenBoard?.parent_name_singular ?? "",
         column_id: candidate.column_id,
         column_name: candidate.column_name,
         swimlane_id: candidate.swimlane_id,

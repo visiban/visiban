@@ -877,6 +877,8 @@ export type CardParent = CardParentVisible | CardParentHidden;
 export interface ParentBoardOption {
   id: number;
   name: string;
+  /** What this board calls one of its cards (#2212), raw; "" means "Parent". */
+  parent_name_singular: string;
   /** What this board calls its cards, plural (#2212), raw; "" means "Parents". */
   parent_name_plural: string;
 }

@@ -339,6 +339,38 @@ class TransportParityTests(_Base):
         self.assertEqual(ext.calls, 0)
 
 
+class OtherSurfacesNeverCarryExtensionsTests(_Base):
+    """Docs promise extension content is never on export or the public share
+    (Rule 12 coverage paragraph). Drive both for real with a registered
+    extension whose content is distinctive, and assert it is absent."""
+
+    NEEDLE = "ZZ-EXT-NEEDLE-2212"
+
+    def _ext(self):
+        return _Ext(section=lambda c, u, r: {"title": self.NEEDLE, "fields": [_field(label=self.NEEDLE, type="text", value=self.NEEDLE)]})
+
+    def test_board_json_export_omits_extension_content(self):
+        ext = self._ext()
+        c = APIClient()
+        c.force_authenticate(self.owner)
+        with self._patch(ext):
+            res = c.get(f"/api/v1/boards/{self.board.pk}/export/?format=json")
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(self.NEEDLE.encode(), res.content)
+        self.assertEqual(ext.calls, 0)
+
+    def test_public_share_payload_omits_extension_content(self):
+        ext = self._ext()
+        self.board.issue_share_token()
+        self.board.share_enabled_by = self.owner
+        self.board.save(update_fields=["share_token", "share_token_hash", "share_enabled_by"])
+        with self._patch(ext):
+            res = APIClient().get(f"/api/share/{self.board.share_token}/")
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(self.NEEDLE.encode(), res.content)
+        self.assertEqual(ext.calls, 0)
+
+
 class CardDetailExtensionsEntryPointTests(TestCase):
     """Security Invariants Rule 12: one reader of CARD_DETAIL_EXTENSIONS."""
 
