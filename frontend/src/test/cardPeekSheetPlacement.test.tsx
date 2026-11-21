@@ -196,7 +196,10 @@ describe('CardPeekSheet card-to-card swap (#2507)', () => {
     rerender(<CardPeekSheet key={10} card={card2} {...props} />)
     // Both cards place on the right of their column: same side, so the panel slides (a translateX keyframe).
     expect(sheet()).toHaveAttribute('data-sheet-side', 'right')
-    const slid = animate.mock.calls.some((c) => JSON.stringify(c[0]).includes('translateX'))
-    expect(slid).toBe(true)
+    // The plain "open" transition also animates a translateX keyframe, so assert what only a swap does:
+    // the 220ms slide timing, and the cross-fade of the new content delayed 80ms behind the departing ghost.
+    const opts = animate.mock.calls.map((c) => c[1] as { duration?: number; delay?: number } | undefined)
+    expect(opts.some((o) => o?.duration === 220)).toBe(true)
+    expect(opts.some((o) => o?.delay === 80)).toBe(true)
   })
 })
