@@ -153,12 +153,12 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
           hint="Minimum 12 characters"
         />
 
-        <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
+        <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary max-sm:min-h-11">
           <input
             type="checkbox"
             checked={form.force_password_reset}
             onChange={set("force_password_reset")}
-            className="w-4 h-4 accent-primary"
+            className="w-4 h-4 accent-primary max-sm:w-5 max-sm:h-5"
           />
           Force password reset on first login
         </label>
@@ -220,6 +220,12 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
     return false;
   }, 40);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expiresRef = useRef<HTMLSelectElement>(null);
+
+  // Opening the form moves focus to its first field (the New link button that opened it stays put otherwise).
+  useEffect(() => {
+    if (showForm) expiresRef.current?.focus();
+  }, [showForm]);
 
   useEffect(() => {
     return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
@@ -297,6 +303,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
 
   const heading = (
     <PageHeading
+      level="h3"
       title="Invite links"
       description="Shareable links that let people join this site."
       actions={<Button variant="primary" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}>New link</Button>}
@@ -319,6 +326,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
               <label htmlFor="invite-expires" className="text-sm font-medium text-fg-secondary">Expires after</label>
               <select
                 id="invite-expires"
+                ref={expiresRef}
                 value={form.expires_in_days ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
                 className="w-full h-9 max-sm:h-11 bg-surface border border-line-strong text-fg rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -350,7 +358,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
 
       {/* One-time token reveal */}
       {newLink && (
-        <div className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
+        <div role="status" className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
           <p className="text-sm text-warning-on-tint">Copy this link now — it won't be shown again.</p>
           <div className="flex items-center gap-2">
             <span
@@ -368,7 +376,7 @@ function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => v
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
       {links.length === 0 ? (
-        <EmptyState title="No invite links yet." description="Create one to let people join without an account." />
+        <EmptyState title="No invite links yet." description="Create one to let people join without an account." headingLevel="h3" />
       ) : (
         <>
           {truncation && (
@@ -565,7 +573,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                   placeholder="Search for a member…"
                   value={memberSearch[board.id] ?? ""}
                   onChange={(e) => handleMemberSearch(board.id, e.target.value, e.currentTarget)}
-                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
+                  className="w-full bg-surface border border-line rounded px-3 py-1.5 max-sm:h-11 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                 />
                 {(memberResults[board.id] ?? []).length > 0 && (
                   <TransferResultsPanel
@@ -602,14 +610,14 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 max-sm:h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={saving || !allAssigned}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+            className="px-3 py-1.5 max-sm:h-11 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>
@@ -782,7 +790,7 @@ function GeneralSection() {
         ? "text-warning-on-tint"
         : "text-fg-secondary";
 
-  const heading = <PageHeading title="General" description="Changes save automatically." />;
+  const heading = <PageHeading level="h3" title="General" description="Changes save automatically." />;
 
   if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
   if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} /></>;
@@ -790,6 +798,12 @@ function GeneralSection() {
   return (
     <>
       {heading}
+
+      {/* Beside the heading, not under the cards: at 390px the bottom of this page is off-screen. */}
+      <p className="text-sm min-h-5" role="status">
+        {error && <span className="text-danger">{error}</span>}
+        {saved && <span className="text-success">Settings saved.</span>}
+      </p>
 
       {settings?.maintenance_mode && (
         <div role="status" className="rounded-[10px] border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-on-tint">
@@ -816,7 +830,7 @@ function GeneralSection() {
                 name="registration_mode"
                 value={value}
                 checked={settings?.registration_mode === value}
-                disabled={saving}
+                aria-busy={saving}
                 onChange={() => handleChange(value)}
               />
               <span
@@ -845,7 +859,7 @@ function GeneralSection() {
           description="Allow members to attach files to cards"
           checked={settings?.uploads_enabled ?? true}
           onChange={handleUploadsToggle}
-          disabled={saving}
+          busy={saving}
         />
       </SettingsCard>
 
@@ -861,7 +875,7 @@ function GeneralSection() {
             <MaintenanceSwitch
               checked={settings?.maintenance_mode ?? false}
               onChange={handleMaintenanceToggleClick}
-              disabled={saving}
+              busy={saving}
             />
           </div>
           {confirmingEnable && (
@@ -888,7 +902,7 @@ function GeneralSection() {
               value={maintenanceMessage}
               onChange={(e) => setMaintenanceMessage(e.target.value.slice(0, MAINTENANCE_MESSAGE_MAX))}
               onBlur={handleMaintenanceMessageBlur}
-              disabled={saving}
+              aria-busy={saving}
               placeholder="e.g. Upgrading to v1.3 — expect service back by 3:00 PM UTC."
               className="w-full bg-surface border border-line-strong rounded px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted resize-none transition"
             />
@@ -902,22 +916,18 @@ function GeneralSection() {
         </div>
       </SettingsCard>
 
-      <p className="text-sm min-h-5" role="status">
-        {error && <span className="text-danger">{error}</span>}
-        {saved && <span className="text-success">Settings saved.</span>}
-      </p>
     </>
   );
 }
 
 /** The maintenance switch, named by the row's label (the shared Switch has no label of its own). */
-function MaintenanceSwitch({ checked, onChange, disabled }: { checked: boolean; onChange: (next: boolean) => void; disabled: boolean }) {
+function MaintenanceSwitch({ checked, onChange, busy }: { checked: boolean; onChange: (next: boolean) => void; busy: boolean }) {
   return (
     <Switch
       id={MAINTENANCE_SWITCH_ID}
       checked={checked}
       onChange={onChange}
-      disabled={disabled}
+      busy={busy}
       aria-labelledby="maintenance-mode-label"
     />
   );
@@ -1279,6 +1289,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   return (
     <>
       <PageHeading
+        level="h3"
         title="Users"
         description="Add people, change roles, and deactivate accounts."
         actions={

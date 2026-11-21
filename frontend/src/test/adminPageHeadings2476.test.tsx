@@ -16,7 +16,7 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
   getAdminSettings: vi.fn().mockResolvedValue({ registration_mode: 'open', uploads_enabled: true, maintenance_mode: false, maintenance_message: '' }),
   patchAdminSettings: vi.fn(),
-  getAdminUsers: vi.fn().mockResolvedValue([]),
+  getAdminUsers: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   getAdminInviteLinksPage: vi.fn().mockResolvedValue({ links: [], total: 0, truncated: false }),
   getAdminInviteLinks: vi.fn().mockResolvedValue([]),
   getAdminEmailSettings: vi.fn().mockResolvedValue({}),

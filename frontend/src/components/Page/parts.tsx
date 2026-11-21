@@ -37,12 +37,14 @@ export function Button({ variant = "secondary", size, fullWidth, className, type
  * header (#2473); pages outside the shell use `CenteredLayout`, which keeps its own `h1`.
  * `accessory` holds the star and status control on the Overview layout, beside the heading.
  */
-export function PageHeading({ title, description, accessory, actions, id, headingRef }: {
+export function PageHeading({ title, description, accessory, actions, id, headingRef, level: Tag = "h2" }: {
   title: ReactNode;
   description?: ReactNode;
   accessory?: ReactNode;
   actions?: ReactNode;
   id?: string;
+  /** Heading level. Defaults to `h2`; a section inside a page that already has an `h2` passes `h3`. */
+  level?: "h2" | "h3";
   /** Makes the heading focusable (`tabIndex=-1`) so a page can move focus here when the row that held it goes away. */
   headingRef?: Ref<HTMLHeadingElement>;
 }) {
@@ -50,7 +52,7 @@ export function PageHeading({ title, description, accessory, actions, id, headin
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id={id} ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold text-fg break-words focus:outline-none">{title}</h2>
+          <Tag id={id} ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold text-fg break-words focus:outline-none">{title}</Tag>
           {accessory}
         </div>
         {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
@@ -201,10 +203,12 @@ export function SettingsCard({ title, description, children, id }: { title?: Rea
  * A 44×26 switch. Saves on change: the caller persists in `onChange`, there is no Save button.
  * On phones the hit area grows to 44×44 around the same track (§ Phone touch targets).
  */
-export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: {
+export function Switch({ checked, onChange, disabled, busy, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  /** In-flight save: sets `aria-busy` but keeps the switch enabled, so focus is not dropped. */
+  busy?: boolean;
   id?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -220,6 +224,7 @@ export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabe
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       disabled={disabled}
+      aria-busy={busy || undefined}
       onClick={() => onChange(!checked)}
       className="group/switch relative inline-flex h-[26px] w-11 max-sm:h-11 shrink-0 items-center justify-center rounded-full focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
     >
@@ -238,12 +243,13 @@ export function Switch({ checked, onChange, disabled, id, "aria-label": ariaLabe
 }
 
 /** Setting row: label and description on the left, a switch on the right. */
-export function SettingSwitchRow({ label, description, checked, onChange, disabled }: {
+export function SettingSwitchRow({ label, description, checked, onChange, disabled, busy }: {
   label: string;
   description?: ReactNode;
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  busy?: boolean;
 }) {
   const labelId = useId();
   const descId = useId();
@@ -253,7 +259,7 @@ export function SettingSwitchRow({ label, description, checked, onChange, disabl
         <p id={labelId} className="text-sm font-medium text-fg">{label}</p>
         {description && <p id={descId} className="mt-0.5 text-sm text-fg-secondary">{description}</p>}
       </div>
-      <Switch checked={checked} onChange={onChange} disabled={disabled} aria-labelledby={labelId} aria-describedby={description ? descId : undefined} />
+      <Switch checked={checked} onChange={onChange} disabled={disabled} busy={busy} aria-labelledby={labelId} aria-describedby={description ? descId : undefined} />
     </div>
   );
 }

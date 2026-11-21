@@ -68,6 +68,12 @@ describe("headings", () => {
     expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
   });
 
+  it("PageHeading level prop renders an h3 for in-page sections and defaults to h2", () => {
+    render(<><PageHeading title="Page" /><PageHeading level="h3" title="Section" /></>);
+    expect(screen.getByRole("heading", { level: 2, name: "Page" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Section" })).toBeInTheDocument();
+  });
+
   it("PageHeading without description or actions renders only the heading", () => {
     const { container } = render(<PageHeading title="Bare" />);
     expect(container.querySelectorAll("p")).toHaveLength(0);
