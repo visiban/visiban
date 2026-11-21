@@ -51,6 +51,12 @@ const ClockGlyph = () => (
 
 type SegmentState = "done" | "doing" | "todo" | "blocked";
 
+// The live-change ring sits outside the segment, past a 1px surface-colored offset, so it is
+// measured against the card and never against the segment's own fill: an inset ring on Doing was
+// the fill's own color (1:1) and on Done 1.04:1 light (#2210). `relative z-10` keeps a later
+// sibling from painting over it; the meter is not `overflow-hidden`, which would clip it.
+const RING_CLASS = "relative z-10 ring-2 ring-info ring-offset-1 ring-offset-surface";
+
 const SEGMENT_CLASS: Record<SegmentState, string> = {
   done: "bg-success",
   // Info outline with a left-half fill: --info is 5.75:1 (dark) / 5.17:1 (light) on the card,
@@ -160,17 +166,19 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
   const seen: Record<SegmentState, number> = { todo: 0, blocked: 0, doing: 0, done: 0 };
   const indexInState = segs.map((s) => seen[s]++);
   const bar = density === "dense" ? null : segs.length > ROLLUP_SEGMENT_MAX ? (
-    <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] overflow-hidden rounded-sm border border-fg-tertiary`}>
+    <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] rounded-sm border border-fg-tertiary`}>
       {(["todo", "blocked", "doing", "done"] as const).map((s) => {
         const n = visible[s];
-        return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? " ring-2 ring-inset ring-info" : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
+        return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? ` ${RING_CLASS}` : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
       })}
     </span>
   ) : (
-    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-0.5 rounded-sm`}>
+    // gap-1 (4px), not gap-0.5: the live ring reaches 3px past a segment (1px offset + 2px ring),
+    // so a 2px gap let it cover an unchanged neighbor's outline.
+    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-1 rounded-sm`}>
       {segs.map((s, i) => {
         const ringed = isChanged(s, indexInState[i]);
-        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? " ring-2 ring-info" : ""}`} />;
+        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
       })}
     </span>
   );
