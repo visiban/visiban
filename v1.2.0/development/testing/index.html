@@ -4618,7 +4618,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 </ol>
 <p>Mock API calls at the module boundary with Vitest (<code>vi.mock('../api/boards')</code>). Never mock <code>axios</code> directly — mock the function that uses it.</p>
 <h2 id="end-to-end-tests-playwright">End-to-end tests (Playwright)<a class="headerlink" href="#end-to-end-tests-playwright" title="Permanent link">&para;</a></h2>
-<p>E2E tests verify complete user flows against the real Vite dev server. All API calls are intercepted with <code>page.route()</code> so no Django backend or database is required — tests run anywhere Node and Chromium can.</p>
+<p>E2E tests verify complete user flows against a real Vite server: the dev server locally, and a <code>vite preview</code> production build in CI. All API calls are intercepted with <code>page.route()</code> so no Django backend or database is required — tests run anywhere Node and Chromium can.</p>
 <h3 id="running-locally">Running locally<a class="headerlink" href="#running-locally" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npx<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium<span class="w">   </span><span class="c1"># one-time</span>
@@ -4628,7 +4628,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--headed<span class="w">      </span><span class="c1"># watch Chromium as it runs</span>
 </code></pre></div>
 <p><code>npm run test:e2e</code> is the same command (<code>playwright test</code>) via a package.json alias — either form works.</p>
-<p>Playwright auto-starts the Vite dev server on port 5173 (<code>playwright.config.ts</code> → <code>webServer</code>). If you already have <code>npm run dev</code> running, Playwright reuses it.</p>
+<p>Locally, Playwright auto-starts the Vite dev server on port 5173 (<code>playwright.config.ts</code> → <code>webServer</code>). If you already have <code>npm run dev</code> running, Playwright reuses it. In CI it serves a production build with <code>vite preview</code> instead and runs 2 workers (#2485).</p>
 <h3 id="directory-layout">Directory layout<a class="headerlink" href="#directory-layout" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>frontend/e2e/
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├── fixtures/
@@ -4884,7 +4884,7 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <li>Don't raise the retry to 2 either. A second retry wouldn't have saved any of these, and it would hide the next one.</li>
 </ul>
 </li>
-<li>Playwright E2E runs in <code>playwright-e2e</code> — starts its own Vite dev server, no separate build step needed. It is blocking (<code>allow_failure: false</code>, #2392) now that the redesigned-board screenshot baseline has run green on <code>main</code>; a red e2e job fails the MR pipeline.</li>
+<li>Playwright E2E runs in <code>playwright-e2e</code> — builds the frontend (<code>VITE_API_URL=http://localhost:8000 npm run build</code>), serves it with <code>vite preview</code>, and runs 2 workers (#2485). It is blocking (<code>allow_failure: false</code>, #2392) now that the redesigned-board screenshot baseline has run green on <code>main</code>; a red e2e job fails the MR pipeline.</li>
 <li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
