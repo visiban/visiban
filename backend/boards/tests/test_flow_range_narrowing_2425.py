@@ -108,6 +108,16 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
     }
     RANGES = [{"days": "1"}, {"days": "7"}, {"days": "30"}, {"days": "90"}, {"days": "365"}]
 
+    def setUp(self):
+        super().setUp()
+        # Pin the clock to midday. EndpointFixture uses the wall clock, but
+        # aged_board places a card "done 6h before the 90-day window opens,
+        # after the midnight its first day buckets from" -- which holds only
+        # when now is past 06:00 UTC. A run between 00:00 and 06:00 put that
+        # card before the midnight and counted it as settled (52, not 51).
+        # get() patches timezone.now to this value for the endpoints.
+        self.now = datetime.datetime(2026, 11, 18, 12, 0, tzinfo=datetime.timezone.utc)
+
     def get(self, metric, params):
         with mock.patch("django.utils.timezone.now", return_value=self.now):
             resp = self.client.get(self.url(metric), params)
