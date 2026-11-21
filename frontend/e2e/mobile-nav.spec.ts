@@ -34,9 +34,11 @@ test.describe('mobile nav drawer', () => {
   test('[ toggles the drawer at desktop width too, and Escape closes it', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await expect(page.getByRole('complementary')).toHaveCount(0)
-    await page.keyboard.press('[')
+    // No permanent sidebar: the drawer is closed until asked for. (Home's own
+    // "Needs attention" column is a complementary landmark, so don't count those.)
     const drawer = page.getByRole('dialog', { name: 'Main navigation' })
+    await expect(drawer).toHaveCount(0)
+    await page.keyboard.press('[')
     await expect(drawer).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(drawer).toHaveCount(0)

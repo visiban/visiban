@@ -12,7 +12,9 @@ test.describe('theme toggle', () => {
     // tab buttons briefly detach and re-attach as ProfileTab's SelectDropdown
     // children hydrate (React StrictMode double-invokes effects in dev). Wait
     // for network to idle before interacting.
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    // The shell header breadcrumb and the page body both carry an h1 named Settings
+    // (#2473), so wait on the tab button this test clicks next instead.
+    await expect(page.getByRole('button', { name: 'Appearance' })).toBeVisible()
     await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: 'Appearance' }).click()
 

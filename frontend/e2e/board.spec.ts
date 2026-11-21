@@ -178,8 +178,10 @@ test.describe('board view', () => {
 
   // #2300: one grid template for the header row and the lanes. Below 1240px of board
   // width the grid scrolls inside its own box, and the columns stay aligned both ways.
+  // The drawer-only shell (#2473) gives the board the full viewport width, so use 1000px
+  // to leave real horizontal overflow (1240 - 1000) to scroll through.
   test('below 1240px the shared grid scrolls in its own box and stays aligned (#2300)', async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 700 })
+    await page.setViewportSize({ width: 1000, height: 700 })
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const scroller = page.locator('[data-board-scroll]')
     const headerRow = page.getByTestId('board-header-row')
