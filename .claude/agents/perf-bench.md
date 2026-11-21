@@ -36,7 +36,7 @@ A non-2xx response from `full/` or `summary/` (e.g. a rejected request) is a har
 ### 2. Run the query-count regression tests
 
 ```bash
-docker compose exec backend python manage.py test boards.tests.test_query_counts --verbosity=2 --keepdb
+docker compose exec backend pytest boards/tests/test_query_counts.py -q
 ```
 
 These tests assert two invariants per endpoint:
@@ -124,7 +124,7 @@ If a new relation is added to `CardSerializer`, **add it to `_card_queryset` in 
 
 ```bash
 docker compose exec backend python manage.py benchmark
-docker compose exec backend python manage.py test boards.tests.test_query_counts --verbosity=2 --keepdb
+docker compose exec backend pytest boards/tests/test_query_counts.py -q
 ```
 
 All three benchmarks and every test in the module must pass before proceeding (the module has dozens; do not cite a count, it goes stale).

@@ -28,7 +28,7 @@ def _assert_entry_is_secret_free(test, entry, user):
         (entry.action, entry.actor_username, entry.source, entry.metadata)
     )
     test.assertNotIn(user.password, blob)
-    test.assertNotIn("pbkdf2", blob)
+    test.assertNotRegex(blob, r"(md5|pbkdf2_sha256|argon2|bcrypt)\$")
 
 
 class EnsureSiteAdminLogTests(TestCase):

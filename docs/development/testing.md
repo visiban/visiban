@@ -30,7 +30,7 @@ Use Django's `TestCase` for anything that touches the database. If a test spawns
 
 Under `pytest`, `backend/conftest.py` swaps the preferred password hasher from the production PBKDF2 (about 1M iterations) to MD5, so `create_user()` and `set_password()` cost microseconds instead of about 100 ms each. The swap lives in the conftest and not in `visiban/settings.py`, so a production process can never pick it up; `accounts/tests/test_test_hasher_scope_2488.py` proves that.
 
-A test that asserts real hashing behavior (a `pbkdf2_sha256$` hash format, `must_update` rehash on login, timing equalization) opts back in with `@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.PBKDF2PasswordHasher", ...])`, as `accounts/tests/test_credential_row_lock.py` does. CI test jobs also run their Postgres service with `fsync=off` (the `.pg-ci-fast-flags` anchor in `.gitlab-ci.yml`); the database is discarded with the job, so durability is not needed.
+A test that asserts real hashing behavior (a `pbkdf2_sha256$` hash format, `must_update` rehash on login) opts back in with `@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.PBKDF2PasswordHasher", ...])`, as `accounts/tests/test_credential_row_lock.py` does. CI test jobs also run their Postgres service with `fsync=off` (the `.pg-ci-fast-flags` anchor in `.gitlab-ci.yml`); the database is discarded with the job, so durability is not needed.
 
 ### Serializer fallback guard *(1.3+, #1731)*
 

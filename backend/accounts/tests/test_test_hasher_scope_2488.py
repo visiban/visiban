@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import unittest
 from pathlib import Path
 
 from django.contrib.auth.hashers import make_password
@@ -12,6 +13,7 @@ MD5 = "django.contrib.auth.hashers.MD5PasswordHasher"
 
 
 class FastHasherScopeTests(SimpleTestCase):
+    @unittest.skipUnless("pytest" in sys.modules, "fast hasher is configured by backend/conftest.py, pytest only")
     def test_under_pytest_the_fast_hasher_is_active(self):
         self.assertTrue(make_password("x").startswith("md5$"))
 

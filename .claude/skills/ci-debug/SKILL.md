@@ -63,7 +63,7 @@ Map the failure to one of the known CI jobs:
 
 ### 6. Verify locally (if possible)
 Suggest the local command to reproduce and verify the fix before pushing:
-- Backend tests: `cd backend && python manage.py test <app> --verbosity=2`
+- Backend tests: `cd backend && pytest <app> -q`
 - Frontend tests: `cd frontend && npm test -- --run`
 - Lint: `ruff check backend/` or `cd frontend && npx eslint src/`
 - Type check: `cd frontend && npx tsc -p tsconfig.app.json --noEmit`

@@ -74,14 +74,14 @@ For local backend development without Docker, see the **Local Development** sect
 
 ```bash
 cd backend
-python manage.py test boards accounts groups --verbosity=2
+pytest boards accounts groups -q
 ```
 
 For coverage:
 
 ```bash
 pip install coverage
-coverage run --source=. manage.py test boards accounts groups
+coverage run --source=. -m pytest boards accounts groups
 coverage report --skip-covered
 ```
 

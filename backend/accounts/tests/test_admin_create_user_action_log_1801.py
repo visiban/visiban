@@ -29,7 +29,9 @@ class AdminCreateUserLogTests(TestCase):
         self.assertEqual(entry.actor_id, self.admin.pk)
         self.assertEqual(entry.metadata, {"target_id": user.pk, "target_username": "new1801"})
         self.assertNotIn(PW, repr(entry.metadata))
-        self.assertNotIn("pbkdf2", repr(entry.metadata))
+        user.refresh_from_db()
+        self.assertNotIn(user.password, repr(entry.metadata))
+        self.assertNotRegex(repr(entry.metadata), r"(md5|pbkdf2_sha256|argon2|bcrypt)\$")
 
     def test_invalid_payload_records_nothing(self):
         self.payload["password"] = "x"
