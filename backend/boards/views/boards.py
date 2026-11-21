@@ -1859,7 +1859,7 @@ class BoardViewSet(
             # payloads are not re-broadcast: clients drop a removed member
             # from lane teams on member_removed, and the next read agrees.
             from ..services.swimlane_team import remove_from_board_teams
-            remove_from_board_teams(board, removed_user_id)
+            remove_from_board_teams(board_id, removed_user_id)
             _broadcast.record_board_event(board_id, _broadcast.EVT_MEMBER_REMOVED, {"user_id": removed_user_id}, actor_id=request.user.id)
             # A removed admin stops holding a share link they enabled, unless
             # still an admin another way (#1865).

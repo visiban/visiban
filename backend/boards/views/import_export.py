@@ -3699,7 +3699,7 @@ class BoardImportExportMixin:
                 Prefetch(
                     "swimlanes",
                     queryset=Swimlane.objects.prefetch_related(
-                        _swimlane_custom_field_prefetch(), "track_exceptions__field_definition", "team_members",
+                        _swimlane_custom_field_prefetch(), "track_exceptions__field_definition",
                     ),
                 ),
             )

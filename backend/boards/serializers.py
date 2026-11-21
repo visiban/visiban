@@ -972,8 +972,7 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         read_only=True, allow_null=True, help_text=_HEALTH_COMPUTED_COUNTS_HELP,
     )
 
-    # Default team (#2211). On the public serializer because every member
-    # sees who a lane pre-assigns (the band's team row); writes are
+    # Default team (#2211). Every member reads it; writes are
     # admin-gated in the viewset. PublicSwimlaneSerializer lists its fields
     # explicitly and omits it.
     default_team = SwimlaneDefaultTeamField(
@@ -983,11 +982,8 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         required=False, allow_empty=True,
         help_text=(
             "User ids of the lane's default team, in team order (#2211, since 1.3). "
-            "Each must be an active, non-viewer member of the board. New cards in "
-            "the lane, and new children of its cards, are pre-assigned at creation "
-            "when the request names no assignee; a member who cannot be assigned on "
-            "the new card's board is skipped. While a card has one assignee, the "
-            "first eligible member is assigned. Writable by board admins."
+            "Each must be an active, non-viewer member of the board. Stored settings "
+            "only: the team does not pre-assign new cards yet. Writable by board admins."
         ),
     )
 

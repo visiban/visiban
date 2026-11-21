@@ -35,6 +35,7 @@ from .services.card_links import (
     lock_card_and_link_peers,
 )
 from .services.share_links import record_share_link_updated, revoke_lapsed_share_links
+from .services.swimlane_team import remove_from_board_teams
 from .services.errors import (
     LinksChanged,
     LIMIT_ERRORS, CardNotFound, SwimlaneNotFound, SwimlaneWeightLimitExceeded,
@@ -1462,15 +1463,22 @@ class BoardMembershipAdmin(RowVersionAdminMixin, _BoardEventAdminMixin, admin.Mo
 
     def delete_model(self, request, obj):
         board_id = obj.board_id
+        user_id = obj.user_id
         with transaction.atomic():
             super().delete_model(request, obj)
+            # Off the board's lane teams, as the REST removal does (#2211), so
+            # a re-added member does not return to a team silently.
+            remove_from_board_teams(board_id, user_id)
             # A removed admin stops holding a share link they enabled (#1865).
             revoke_lapsed_share_links(board_ids=[board_id])
 
     def delete_queryset(self, request, queryset):
         with transaction.atomic():
-            board_ids = set(queryset.values_list("board_id", flat=True))
+            pairs = set(queryset.values_list("board_id", "user_id"))
+            board_ids = {board_id for board_id, _ in pairs}
             super().delete_queryset(request, queryset)
+            for board_id, user_id in pairs:
+                remove_from_board_teams(board_id, user_id)
             revoke_lapsed_share_links(board_ids=board_ids)
 
     def _board_id(self, obj):

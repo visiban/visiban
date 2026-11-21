@@ -6,9 +6,7 @@ import { assignableMembers } from "../../utils/swimlaneDefaultTeam";
 
 /** Shown in Edit swimlane and checked by tests; one text on desktop and phone (#2211). */
 export const DEFAULT_TEAM_HELP =
-  "Pre-assigned to new cards and new children created in this lane. Existing cards don't change. " +
-  "A person who can't open a child board used by this lane's parents is skipped when a child is " +
-  "created there; remove them or give them access to clear this warning.";
+  "The people on this lane's default team. New cards are not pre-assigned from it yet.";
 
 interface Props {
   members: EffectiveBoardMember[];

@@ -866,13 +866,11 @@ class Swimlane(models.Model):
     )
     health_computed_at = models.DateTimeField(null=True, blank=True)
     health_computed_counts = models.JSONField(null=True, blank=True, default=None)
-    # Default team (#2211): the board members who work this row. They are
-    # pre-assigned to new cards created in the lane and to new children of
-    # its cards, at creation only (an edit of the team never rewrites a
-    # card). A join table rather than a column, so the swimlanes table is
-    # not altered; the order of the rows (``SwimlaneTeamMember.id``) is the
-    # order the team was built in, which decides who is assigned while
-    # ``Card.assignee`` holds one person (#2206 decision G).
+    # Default team (#2211): the board members who work this row. Stored
+    # settings only; nothing pre-assigns new cards from it yet (#2206
+    # decision G has no ruling). A join table rather than a column, so the
+    # swimlanes table is not altered; the order of the rows
+    # (``SwimlaneTeamMember.id``) is the order the team was built in.
     default_team = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         through="SwimlaneTeamMember",

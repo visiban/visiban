@@ -125,15 +125,11 @@ The words carry the state. A collapsed row hides the calm states but keeps the t
 
 > **Added in 1.3** (#2211)
 
-A swimlane can carry a **default team**: the board members who work that row, for example the people on one customer account. New cards created in the swimlane, and new children created from its cards with **Add child**, are pre-assigned to the team.
+A swimlane can carry a **default team**: the board members who work that row, for example the people on one customer account. The team is stored with the lane; using it to pre-assign new cards, or children created with **Add child**, is not available yet, so new cards are created exactly as before.
 
 Set it in the **Edit Swimlane** modal (board admins), under **Default team**. Each person is a row with a **Remove** button; **Add a member** lists the board's members who can be assigned cards (viewers are not listed).
 
-- **At creation only.** Changing the team later does not change any existing card.
-- **One assignee for now.** A card has one assignee, so the first person on the team who can be assigned is the one pre-assigned.
-- **Children follow the parent's lane.** A child gets the team of the lane its *parent* is in; the child board's own lanes are not consulted. A team member who is not a member of the child board (or is only a viewer there) is skipped; they are never given access to the child board.
-- **Leaving the board.** Removing someone from the board removes them from every lane team on it. Someone who loses access another way (a group change, or becoming a viewer) stays listed until the next save of the lane, and is skipped until then.
-- **Explicit choices win.** A card created with an assignee keeps that assignee, and one created explicitly unassigned stays unassigned.
+- **Leaving the board.** Removing someone from the board, in the app or in the Django admin, removes them from every lane team on it. Someone who loses access another way (a group change, or becoming a viewer) keeps their id in the lane's team in the API until someone edits that team; the Edit Swimlane modal hides them in the meantime.
 
 ### Swimlane rollup
 

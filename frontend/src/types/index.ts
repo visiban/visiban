@@ -461,10 +461,8 @@ export interface Swimlane {
   /** #2245 — the open-card counts behind `computed_health_status`. */
   health_computed_counts: HealthComputedCounts | null;
   /**
-   * #2211 — user ids of the lane's default team, in team order. Pre-assigned
-   * at creation to new cards in the lane (when the create names no assignee)
-   * and to new children of its cards (members of the child board only).
-   * While a card has one assignee, the first eligible member is assigned.
+   * #2211 — user ids of the lane's default team, in team order. Stored
+   * settings only; nothing pre-assigns new cards from it yet.
    * Optional: absent on the public share.
    */
   default_team?: number[];

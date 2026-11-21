@@ -1,10 +1,9 @@
-"""Swimlane default team (#2211): store it, and pre-assign it at creation only.
+"""Swimlane default team (#2211): stored settings only; nothing is pre-assigned.
 
 Covers the migration (a new join table only), the admin-only write and its
 validation (assignable, active members of this board; fail closed without a
-board), the broadcast payload, card create in the lane (omitted vs explicit
-assignee), the re-check at apply time, Add child (the parent lane's team,
-members of the child board only), and member removal pruning the team.
+board), the broadcast payload, card create and Add child (a lane's team must
+NOT pre-assign anyone), and member removal pruning the team (REST and admin).
 """
 import importlib
 from unittest.mock import patch
@@ -108,8 +107,29 @@ class TeamWriteTests(TeamFixture):
         self.assertFalse(SwimlaneTeamMember.objects.exists())
 
     def test_too_many_ids_is_refused(self):
-        r = self.patch_team(self.owner, list(range(1, 52)))
+        # 51 REAL eligible members, so only the cap can cause the 400.
+        ids = [
+            self.user_with(f"bulk{i}", parent=Role.MEMBER).pk
+            for i in range(51)  # the documented cap is 50
+        ]
+        r = self.patch_team(self.owner, ids)
         self.assertEqual(r.status_code, 400)
+        self.assertIn("no more than 50", r.json()["default_team"][0])
+        self.assertFalse(SwimlaneTeamMember.objects.exists())
+
+    def test_exactly_the_cap_is_accepted(self):
+        ids = [
+            self.user_with(f"bulk{i}", parent=Role.MEMBER).pk
+            for i in range(50)
+        ]
+        self.assertEqual(self.patch_team(self.owner, ids).status_code, 200)
+
+    def test_empty_list_clears_the_team(self):
+        self.set_team(self.mia, self.dan)
+        r = self.patch_team(self.owner, [])
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json()["default_team"], [])
+        self.assertFalse(SwimlaneTeamMember.objects.exists())
 
     def test_member_cannot_write_the_team(self):
         r = self.patch_team(self.mia, [self.mia.pk])
@@ -142,8 +162,36 @@ class TeamWriteTests(TeamFixture):
         self.assertEqual(r.status_code, 204)
         self.assertEqual(list(self.lane.team_members.values_list("user_id", flat=True)), [self.dan.pk])
 
+    def test_admin_delete_takes_them_off_lane_teams(self):
+        self.set_team(self.mia, self.dan)
+        from boards.admin import BoardMembershipAdmin
+        from django.contrib import admin as dj_admin
+        from django.test import RequestFactory
+
+        ma = BoardMembershipAdmin(BoardMembership, dj_admin.site)
+        req = RequestFactory().post("/")
+        req.user = self.owner
+        with patch(PATCH_BROADCAST):
+            ma.delete_model(req, BoardMembership.objects.get(board=self.parent, user=self.mia))
+        self.assertEqual(list(self.lane.team_members.values_list("user_id", flat=True)), [self.dan.pk])
+
+    def test_admin_bulk_delete_takes_them_off_lane_teams(self):
+        self.set_team(self.mia, self.dan)
+        from boards.admin import BoardMembershipAdmin
+        from django.contrib import admin as dj_admin
+        from django.test import RequestFactory
+
+        ma = BoardMembershipAdmin(BoardMembership, dj_admin.site)
+        req = RequestFactory().post("/")
+        req.user = self.owner
+        with patch(PATCH_BROADCAST):
+            ma.delete_queryset(req, BoardMembership.objects.filter(board=self.parent, user=self.dan))
+        self.assertEqual(list(self.lane.team_members.values_list("user_id", flat=True)), [self.mia.pk])
+
 
 class CardCreateTests(TeamFixture):
+    """Pre-assignment is not shipped (#2206 decision G): a team assigns nobody."""
+
     def create(self, user=None, **extra):
         body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, **extra}
         with patch(PATCH_BROADCAST):
@@ -151,45 +199,13 @@ class CardCreateTests(TeamFixture):
         self.assertEqual(r.status_code, 201, r.content)
         return Card.objects.get(pk=r.json()["id"])
 
-    def test_omitted_assignee_gets_the_first_team_member(self):
+    def test_omitted_assignee_stays_unassigned_in_a_lane_with_a_team(self):
         self.set_team(self.dan, self.mia)
-        self.assertEqual(self.create(self.mia).assignee_id, self.dan.pk)
+        self.assertIsNone(self.create(self.mia).assignee_id)
 
-    def test_explicit_null_stays_unassigned(self):
-        self.set_team(self.dan)
-        self.assertIsNone(self.create(assignee_id=None).assignee_id)
-
-    def test_explicit_assignee_wins(self):
+    def test_explicit_assignee_is_kept(self):
         self.set_team(self.dan)
         self.assertEqual(self.create(assignee_id=self.mia.pk).assignee_id, self.mia.pk)
-
-    def test_no_team_no_assignee(self):
-        self.assertIsNone(self.create().assignee_id)
-
-    def test_member_who_became_a_viewer_is_skipped_at_apply_time(self):
-        self.set_team(self.dan, self.mia)
-        BoardMembership.objects.filter(board=self.parent, user=self.dan).update(role=Role.VIEWER)
-        self.assertEqual(self.create().assignee_id, self.mia.pk)
-
-    def test_editing_the_team_does_not_rewrite_existing_cards(self):
-        self.set_team(self.dan)
-        card = self.create()
-        self.patch_team(self.owner, [self.mia.pk])
-        card.refresh_from_db()
-        self.assertEqual(card.assignee_id, self.dan.pk)
-
-
-class ApplyGuardTests(TeamFixture):
-    """Absent-input guards (#1075): with no eligible set, nobody is assigned."""
-
-    def test_no_eligible_set_assigns_nobody(self):
-        from boards.services.swimlane_team import default_assignee_id
-
-        self.set_team(self.mia)
-        self.assertIsNone(default_assignee_id(self.lane, None))
-        self.assertIsNone(default_assignee_id(self.lane, lambda: set()))
-        self.assertIsNone(default_assignee_id(None, lambda: {self.mia.pk}))
-        self.assertEqual(default_assignee_id(self.lane, lambda: {self.mia.pk}), self.mia.pk)
 
 
 class AddChildTests(TeamFixture):
@@ -206,31 +222,16 @@ class AddChildTests(TeamFixture):
                 f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/children/", body, format="json",
             )
 
-    def test_parent_lane_team_skips_a_non_member_of_the_child_board(self):
-        self.set_team(self.dan, self.mia)  # dan cannot open Delivery
-        r = self.add_child()
-        self.assertEqual(r.status_code, 201, r.content)
-        self.assertEqual(Card.objects.get(pk=r.json()["id"]).assignee_id, self.mia.pk)
-
-    def test_only_non_members_on_the_team_creates_unassigned_and_grants_nothing(self):
-        self.set_team(self.dan)
-        r = self.add_child()
-        self.assertEqual(r.status_code, 201, r.content)
-        self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)
-        self.assertFalse(BoardMembership.objects.filter(board=self.child, user=self.dan).exists())
-
-    def test_child_board_lanes_are_not_consulted(self):
-        child_lane = self.child.swimlanes.get()
-        SwimlaneTeamMember.objects.create(swimlane=child_lane, user=self.owner)
-        r = self.add_child()
-        self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)
-
-    def test_opt_out_creates_unassigned(self):
+    def test_child_is_unassigned_in_a_lane_with_a_team(self):
         self.set_team(self.mia)
-        r = self.add_child(apply_default_team=False)
+        r = self.add_child()
+        self.assertEqual(r.status_code, 201, r.content)
         self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)
 
-    def test_non_boolean_opt_out_is_refused(self):
-        r = self.add_child(apply_default_team="no")
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("apply_default_team", r.json())
+    def test_unknown_apply_default_team_key_is_ignored(self):
+        # The removed field is not special: like any unknown key it is ignored.
+        self.set_team(self.mia)
+        for value in (True, False, "no"):
+            r = self.add_child(apply_default_team=value)
+            self.assertEqual(r.status_code, 201, r.content)
+            self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)

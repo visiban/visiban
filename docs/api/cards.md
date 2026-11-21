@@ -134,9 +134,6 @@ Rows are ordered by `ordering` with the card ID as tiebreaker, so a walk over an
 A filter value that fails its type check returns `400` with the field-keyed body this endpoint has returned since 1.1, plus `detail` and `code` (*added in 1.2, #1832*): `?assignee=x` gives `{"assignee": ["Enter a number."], "detail": "assignee: Enter a number.", "code": "invalid_query_param"}`. Branch on `code`. See [Error responses](index.md#error-responses).
 
 ### `POST /api/v1/boards/{board_id}/cards/`
-
-*Since 1.3 (#2211):* when the body has no `assignee_id` key, the card is pre-assigned the first member of its swimlane's `default_team` who can be assigned on this board (see [Swimlanes](boards.md)). An explicit `"assignee_id": null` stays unassigned. Not applied by board import or the MCP `create_card` tool.
-
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
@@ -1178,13 +1175,6 @@ and weight limits apply as for any create. `201` returns the new card, as
   `swimlane_*` forms), with the same body as `POST .../cards/`.
 - **Events:** `card.created` on the child's board, plus the same ids-only
   `card.children_changed` and `card.parent_changed` pings as a link.
-- **Default team** (#2211, since 1.3): the child is pre-assigned the first
-  member of the parent's swimlane `default_team` who is an active, non-viewer
-  member of the child board. Team members without that access are skipped (never
-  refused, never given membership); the child board's own lanes are not
-  consulted. Send `"apply_default_team": false` (optional boolean, default
-  `true`) to create the child unassigned; a non-boolean is `400` (keyed
-  `apply_default_team`).
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/extensions/`
 

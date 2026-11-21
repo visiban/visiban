@@ -1,21 +1,13 @@
-"""Swimlane default team (#2211): store a lane's team and pick who a new card gets.
+"""Swimlane default team (#2211): store a lane's team and keep it honest.
 
-The team is applied at creation only. Two rules keep it from assigning anyone
-who should not be assigned:
+The team is stored settings only for now: nothing pre-assigns new cards from
+it yet (#2206 decision G, one assignee or several, has no ruling). Two rules
+keep what is stored valid:
 
-- **The card's own board decides.** A team member is a candidate only while
-  they are an assignable member (not a viewer) of the board the new card is on.
-  For a child created on another board (Add child), that is the child board,
-  not the parent's: a team member who cannot open the child board is skipped,
-  never refused and never given membership (the #1104 threat model, architect
-  item 7; recorded on the MR for the owner to confirm).
-- **Re-checked when applied.** The serializer checks the team when it is
-  written, but a member can lose access afterwards through a group or role
-  change that never touches the team row, so the stored team is filtered again
-  here every time.
-
-``Card.assignee`` is one person, so the earliest-added eligible member is the
-one assigned (#2206 decision G, option (b), pending the owner's ruling).
+- **The board decides.** A team member must be an active, assignable member
+  (not a viewer) of the lane's board when the team is written.
+- **Pruned on removal.** Removing a person from the board takes them off its
+  lane teams, through the REST endpoint and the Django admin alike.
 """
 
 from boards.models import SwimlaneTeamMember
@@ -46,28 +38,6 @@ def team_member_ids(swimlane):
     return [m.user_id for m in swimlane.team_members.all()]
 
 
-def default_assignee_id(swimlane, eligible):
-    """The first team member who may be assigned on the card's board, or ``None``.
-
-    ``eligible`` returns the target board's eligible set (``eligible_ids``);
-    it is a callable so a lane with no team, the common case, costs only the
-    team read. It is required: with no set, no member can be shown to belong
-    to the board, so nobody is assigned.
-    """
-    if swimlane is None:
-        return None
-    team = team_member_ids(swimlane)
-    if not team:
-        return None
-    allowed = eligible() if eligible is not None else None
-    if not allowed:
-        return None
-    for uid in team:
-        if uid in allowed:
-            return uid
-    return None
-
-
 def set_team(swimlane, user_ids, assignable_ids):
     """Replace the lane's team with ``user_ids`` (already validated), keeping order.
 
@@ -86,6 +56,10 @@ def set_team(swimlane, user_ids, assignable_ids):
     )
 
 
-def remove_from_board_teams(board, user_id):
-    """Take a person off every lane team on ``board`` (member removal, #2211)."""
-    SwimlaneTeamMember.objects.filter(swimlane__board=board, user_id=user_id).delete()
+def remove_from_board_teams(board_id, user_id):
+    """Take a person off every lane team on a board (member removal, #2211).
+
+    Shared by the REST member removal and the Django admin delete so a person
+    removed either way does not return to a team silently when re-added.
+    """
+    SwimlaneTeamMember.objects.filter(swimlane__board_id=board_id, user_id=user_id).delete()
