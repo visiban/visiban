@@ -386,8 +386,10 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "the changed child cards (#2210). A parent is one card; each frame names "
         "one parent so a client re-reads just that card's per-viewer rollup, so "
         "they cannot be collapsed. Bounded by the input: one card (move, "
-        "archive, restore, block, unblock, relation) or the blocked peers of one "
-        "card, at most one parent each; deduplicated before the loop. "
+        "archive, restore, block, unblock, relation), the blocked peers of one "
+        "card, or, on a container or admin delete (_helpers.py), the blocked "
+        "peers of a whole container; at most one parent each, deduplicated "
+        "before the loop. "
         "record_board_event() defers each publish with on_commit."
     ),
     "backend/boards/services/card_links.py::announce_parent_container_renamed": (

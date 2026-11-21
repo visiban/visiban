@@ -1965,7 +1965,7 @@ A parent card on a board whose cards can have children ends in a footer under a 
 | Segment | Meaning | Look |
 |---|---|---|
 | Done | the child's column is flagged done | solid `bg-success` |
-| Doing | any column between the first and done | solid `bg-primary` |
+| Doing | any column between the first and done | 1px `border-info` outline, left half filled (`text-info`; 5.75:1 dark, 5.17:1 light on the card, where `bg-primary` was 2.83:1 in dark) |
 | To do | the child board's first column | **solid** 1px `border-fg-tertiary` outline |
 | Blocked | manual block or an open `blocks` relation; overrides the column | 1px danger outline plus diagonal stripes |
 | Planned (#2371, not yet shipped) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |

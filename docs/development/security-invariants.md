@@ -433,10 +433,11 @@ each surface that delivers them:
   board on every request and return a count only when it resolves to none. The
   rollup (`Card.children_rollup`) is opt-in per read like `parent` and is never
   in a frame, feed row, webhook or `PublicBoardSerializer`. Accepted residual
-  (#2383; owner sign-off 2026-11-17, epic #2206 decision H; re-decided when the
-  #2210 UI shipped and kept, now expiring 2027-05-31 with no open code tracker:
-  the UI that consumes both pings exists, so the residual is the design, not a
-  gap): the *timing* of these
+  (#2383; owner sign-off 2026-11-17, epic #2206 decision H; the progress
+  rollup that consumes both pings now exists server-side and in the card-face
+  UI (#2210), and the residual stays accepted as recorded: the ping is how the
+  UI knows to re-read, so it is the design, not a gap. Expires 2027-05-31, and
+  #2210, which stays open, is its tracker): the *timing* of these
   pings reaches every subscriber, change-feed reader and webhook of the
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed (since #2210,
@@ -457,15 +458,16 @@ each surface that delivers them:
   retrieve and `archived` set; `boards/tests/test_card_parent_field_1104.py`,
   `test_absent_input_guards_1075.py` `CardParentAbsentInputTests`). To be
   re-decided (gated per recipient, or closed) by that date; #2210 (the
-  parent/child progress rollup UI) is its open tracker. The threat model's other
+  parent/child progress rollup) is its open tracker. The threat model's other
   three controls for these links are built (#2383): the four link writes (link,
   Add child, both unlinks) have their own
   per-user throttle scope, `card_link_write` (`boards/views/cards.py`
   `CardLinkWriteThrottle`, `boards/tests/test_card_link_hardening_2383.py`),
   the children read has a query-count case at the 100-child cap
   (`boards/tests/test_query_counts.py` `CardChildrenQueryCountTests`; the
-  rollup bench case is deferred to #2210, since no server-side rollup exists
-  yet), and the
+  server-side rollup (`rollups_for_viewer`) exists now, and its cost is pinned
+  by a query-count test in `boards/tests/test_card_children_rollup_2210.py`,
+  while the perf-bench case stays deferred to #2210), and the
   MCP/export parity test pins Rule 10
   (`boards/tests/test_card_link_transport_parity.py`);
 - card-link lock order (recorded here beside the link-event residual, since

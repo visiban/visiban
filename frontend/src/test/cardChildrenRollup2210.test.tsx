@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { act, render, screen } from "@testing-library/react";
 import CardChildrenRollup from "../components/Card/CardChildrenRollup";
 import { movementLine, relativeAge, rollupSentence } from "../components/Card/childrenRollup";
@@ -123,5 +124,32 @@ describe("carryParent keeps children_rollup across a wholesale replace (#2210)",
     expect(carryParent({ id: 1 } as unknown as Card, prev).children_rollup).toBe(prev.children_rollup);
     const fresh = { visible: false as const, total: 2 };
     expect(carryParent({ id: 1, children_rollup: fresh } as unknown as Card, prev).children_rollup).toBe(fresh);
+  });
+});
+
+describe("Doing segment token contrast (#2210)", () => {
+  // --info on the card surface must clear 3:1 in both themes (it was --primary, 2.83:1 in dark).
+  const css = readFileSync("src/index.css", "utf8");
+  const dark = css.slice(css.indexOf(":root,"), css.indexOf('[data-theme="light"] {'));
+  const light = css.slice(css.indexOf('[data-theme="light"] {'));
+  const rgb = (block: string, name: string) => {
+    const line = block.split("\n").find((l) => l.trimStart().startsWith(`--${name}:`))!;
+    return line.trim().slice(name.length + 3).trim().split(/\s+/).slice(0, 3).map((n) => parseInt(n, 10));
+  };
+  const lum = (c: number[]) => {
+    const [r, g, b] = c.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a: number[], b: number[]) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+
+  it.each([["dark", dark], ["light", light]])("--info clears 3:1 on --surface in %s", (_n, block) => {
+    expect(ratio(rgb(block, "info"), rgb(block, "surface"))).toBeGreaterThanOrEqual(3);
+  });
+
+  it("the Doing segment uses the info token, not primary", () => {
+    const { container } = render(<CardChildrenRollup rollup={r()} density="comfortable" stalenessDays={7} now={NOW} />);
+    const doing = container.querySelector('[data-segment="doing"]')!;
+    expect(doing.className).toContain("border-info");
+    expect(doing.className).not.toContain("bg-primary");
   });
 });

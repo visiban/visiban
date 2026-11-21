@@ -18,7 +18,7 @@ from django.utils import timezone
 from boards.models import BoardEvent, BoardMembership, CardMovement, CardParentLink, CardRelation
 from boards.serializers import PublicBoardSerializer
 from boards.services import card_links
-from boards.tests.conftest import _make_card, _make_column, _make_swimlane
+from boards.tests.conftest import _make_card, _make_column, _make_swimlane, _make_user
 from boards.tests.test_card_parent_links import Role, _board_with_card, _LinkFixture
 
 VISIBLE_KEYS = {"visible", "total", "done", "doing", "todo", "blocked", "last_moved_at"}
@@ -92,6 +92,38 @@ class RollupReadTests(_RollupFixture, TestCase):
         cards = self._cards(outsider)
         self.assertEqual(cards[self.parent.pk]["children_rollup"], {"visible": False, "total": 5})
         self.assertNotIn("SECRET-C", json.dumps(cards))
+
+    def test_children_on_two_boards_report_only_the_first_links_board(self):
+        """One parent, children on a viewable and an unviewable board (#2210).
+
+        The rollup reads only the board of the parent's first link, so a later
+        link on a board the viewer cannot open adds nothing at all: no count,
+        no state, no title. The viewer sees the first board's states.
+        """
+        d_owner = _make_user("ru_d_owner")
+        dboard, d_child = _board_with_card(d_owner, parent_tier=False, name="Hidden", title="Task SECRET-D")
+        CardParentLink.objects.create(parent=self.parent, child=d_child, created_by=self.owner)
+        viewer = self._user("ru_two", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        cards = self._cards(viewer)
+        r = cards[self.parent.pk]["children_rollup"]
+        self.assertEqual(
+            {k: r[k] for k in VISIBLE_KEYS - {"last_moved_at"}},
+            {"visible": True, "total": 5, "done": 1, "doing": 1, "todo": 1, "blocked": 2},
+        )
+        self.assertNotIn("SECRET-D", json.dumps(cards))
+
+    def test_first_link_on_an_unviewable_board_is_the_count_only_whatever_the_second_board(self):
+        """The mirror: the first-linked board is the hidden one, a later one is viewable."""
+        d_owner = _make_user("ru_d2_owner")
+        dboard, d_child = _board_with_card(d_owner, parent_tier=False, name="Hidden2", title="Task SECRET-D")
+        parent = _make_card(self.parent.column, self.parent.swimlane, title="two-board parent")
+        CardParentLink.objects.create(parent=parent, child=d_child, created_by=self.owner)
+        visible_child = _make_card(self.col_doing, self.lane_c, title="visible child")
+        CardParentLink.objects.create(parent=parent, child=visible_child, created_by=self.owner)
+        viewer = self._user("ru_two_b", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        cards = self._cards(viewer)
+        self.assertEqual(cards[parent.pk]["children_rollup"], {"visible": False, "total": 1})
+        self.assertNotIn("SECRET-D", json.dumps(cards))
 
     def test_losing_the_child_board_hides_states_on_the_next_read(self):
         viewer = self._user("ru_lose", parent_role=Role.VIEWER, child_role=Role.VIEWER)

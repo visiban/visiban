@@ -30,7 +30,9 @@ type SegmentState = "done" | "doing" | "todo" | "blocked";
 
 const SEGMENT_CLASS: Record<SegmentState, string> = {
   done: "bg-success",
-  doing: "bg-primary",
+  // Info outline with a left-half fill: --info is 5.75:1 (dark) / 5.17:1 (light) on the card,
+  // where --primary was 2.83:1 in dark (#2210). The half fill separates it from solid Done.
+  doing: "border border-info bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)] text-info",
   todo: "border border-fg-tertiary",
   // Outline plus diagonal stripes: color is never the only cue.
   blocked: "border border-danger bg-[repeating-linear-gradient(135deg,currentColor_0_1px,transparent_1px_3px)] text-danger",
