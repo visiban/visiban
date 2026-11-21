@@ -158,14 +158,14 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
     <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] overflow-hidden rounded-sm border border-fg-tertiary`}>
       {(["todo", "blocked", "doing", "done"] as const).map((s) => {
         const n = visible[s];
-        return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? " ring-2 ring-inset ring-primary" : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
+        return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? " ring-2 ring-inset ring-info" : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
       })}
     </span>
   ) : (
     <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-0.5 rounded-sm`}>
       {segs.map((s, i) => {
         const ringed = isChanged(s, indexInState[i]);
-        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? " ring-2 ring-primary" : ""}`} />;
+        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? " ring-2 ring-info" : ""}`} />;
       })}
     </span>
   );

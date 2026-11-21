@@ -282,7 +282,7 @@ describe('card metadata on an aging tint (#1844)', () => {
   const TINTED = ['warning', 'stale', 'stale2x', 'stale3x'] as const
   // Sibling components CardItem imports that never render inside the row: they are portaled.
   // Plain .ts modules CardItem imports values from: no markup, so no text color to scan (#1104).
-  const NO_MARKUP = ['cardParent', 'childrenRollup'] // cardParent.ts: the hidden-parent copy and the re-read event name
+  const NO_MARKUP = ['cardParent', 'childrenRollup', 'rollupLoading'] // cardParent.ts: the hidden-parent copy and the re-read event name
   const PORTALED = ['CardPeekPopover', 'CustomFieldQuickEditPopover', 'CardContextMenu'] // CardContextMenu: type-only import in CardItem; the menu itself is portaled (#2059)
   const themes = [
     ['dark', darkBlock],

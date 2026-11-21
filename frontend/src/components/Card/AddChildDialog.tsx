@@ -130,7 +130,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           <button
             type="button"
             onClick={() => { setLoadFailed(false); setReload((n) => n + 1); }}
-            className="min-h-11 rounded border border-line-strong px-4 py-2 text-sm text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="max-sm:min-h-11 rounded border border-line-strong px-4 py-2 text-sm text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
           </button>

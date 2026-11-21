@@ -44,6 +44,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // The server still refuses a bad flip on save, so this only explains; it does not gate.
   const [blockersFailed, setBlockersFailed] = useState(false);
+  const [blockersTry, setBlockersTry] = useState(0);
 
   // Re-read after every flip or default change: another admin's link or default move changes the answer.
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
       .then((b) => { if (live) { setBlockers(b); setBlockersFailed(false); } })
       .catch(() => { if (live) { setBlockers(null); setBlockersFailed(true); } });
     return () => { live = false; };
-  }, [board.id, checked, board.default_child_board]);
+  }, [board.id, checked, board.default_child_board, blockersTry]);
 
   useEffect(() => {
     if (!checked) return;
@@ -149,8 +150,15 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
           </span>
         )}
         {blockersFailed && (
-          <span className="block text-warning-on-tint mt-1" data-testid="children-blockers-unavailable">
-            Couldn't check whether this can change. The server will still refuse a change that isn't allowed.
+          <span role="status" className="block text-warning-on-tint mt-1" data-testid="children-blockers-unavailable">
+            Couldn't check whether this can change. The server will still refuse a change that isn't allowed.{" "}
+            <button
+              type="button"
+              onClick={() => setBlockersTry((n) => n + 1)}
+              className="max-sm:min-h-11 rounded underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Retry
+            </button>
           </span>
         )}
         {error && <span className="block text-danger mt-1" data-testid="children-error">{error}</span>}
@@ -179,7 +187,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
                 {r.text}
                 {r.ask && <span className="block text-fg-muted">{r.ask}</span>}
                 {r.change && (() => {
-                  const cls = "mt-1 inline-flex min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
+                  const cls = "mt-1 inline-flex max-sm:min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
                   const to = `/boards/${r.change.id}?settings=rules`;
                   return inRouter
                     ? <Link to={to} className={cls}>Change on {r.change.name}</Link>

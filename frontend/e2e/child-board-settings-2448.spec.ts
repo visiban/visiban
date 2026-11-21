@@ -109,7 +109,7 @@ for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390p
       const dialog = page.getByRole('dialog', { name: /^Add child/ })
       await expect(dialog.getByRole('alert')).toContainText("Couldn't load the boards")
       const retry = dialog.getByRole('button', { name: 'Retry' })
-      expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+      if (size.width < 640) expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
       await retry.click()
       await expect(dialog.getByLabel('Title')).toBeVisible()
       expect(reads).toBe(3)
