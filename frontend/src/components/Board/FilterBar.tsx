@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type RefObject } from "react";
 import type { TrackState } from "../../utils/stages";
+import type { ParentFilter } from "../../utils/parentFilter";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -92,6 +93,11 @@ export interface FilterState {
    * filters are unaffected; the two are AND-ed on the board.
    */
   laneFilter?: LaneFilter;
+  /**
+   * #2209 — the Parent filter on a child board: "any", "none" or a parent card id. Optional and absent
+   * from EMPTY_FILTER (absent = Any), like `subColumnIds`. Matched on `Card.parent`.
+   */
+  parentFilter?: ParentFilter;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -118,6 +124,7 @@ export function countActiveFilters(f: FilterState): number {
     !!f.blockedOnly,
     (f.subColumnIds?.length ?? 0) > 0,
     (f.trackStates?.length ?? 0) > 0,
+    f.parentFilter !== undefined,
     // #2205 — all lane rules count as one dimension; the per-rule count is on the Lanes trigger.
     isLaneFilterActive(f.laneFilter),
   ].filter(Boolean).length;

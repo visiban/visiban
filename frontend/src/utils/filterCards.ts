@@ -7,6 +7,7 @@ import { isOverdue } from "./cardUrgency";
 import { isCardBlocked } from "./blockedState";
 import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
+import { matchesParentFilter } from "./parentFilter";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -32,7 +33,8 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     Object.values(filters.customFields).some(isCustomFieldFilterActive) ||
     !!filters.blockedOnly ||
     (filters.subColumnIds?.length ?? 0) > 0 ||
-    (filters.trackStates?.length ?? 0) > 0
+    (filters.trackStates?.length ?? 0) > 0 ||
+    filters.parentFilter !== undefined
   );
 }
 
@@ -193,6 +195,9 @@ export function filterCards(
 
       // #2367 — sub-column and track state, AND-combined like every other dimension.
       if (!matchesStageFilters(card, filters.subColumnIds, filters.trackStates, stageContext)) return false;
+
+      // #2209 — the Parent filter, on the card's own `parent` (#1104).
+      if (!matchesParentFilter(card, filters.parentFilter)) return false;
 
       // #371 — custom field filters, AND-combined with everything above like
       // every other dimension. Equality-only for date; number (#2357) also

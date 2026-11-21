@@ -996,6 +996,31 @@ class SavedFilterStageFilterStateTests(TestCase):
                 r = self._post({**EMPTY_FILTER_STATE, **extra})
                 self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_parent_filter_round_trips_and_is_type_checked(self):
+        """#2209 — parentFilter is optional: "any", "none" or a positive card id."""
+        for value in ("any", "none", 42):
+            with self.subTest(value):
+                # A distinct name per save: names are unique per board.
+                r = self.client.post(
+                    self.url, {"name": f"Parent {value}", "state_json": {**EMPTY_FILTER_STATE, "parentFilter": value}},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+                self.assertEqual(r.data["state_json"]["parentFilter"], value)
+        for value in (True, 0, -1, "42", "some", None, [1], 2**31):
+            with self.subTest(value):
+                r = self._post({**EMPTY_FILTER_STATE, "parentFilter": value})
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_parent_filter_bound_matches_shared_fixture(self):
+        import json
+        from pathlib import Path
+
+        from boards.serializers import SavedFilterSerializer as S
+
+        fixture = json.loads((Path(__file__).parent / "fixtures" / "filter_state_keys.json").read_text())
+        self.assertEqual(S._PARENT_FILTER_MAX_ID, fixture["parentFilterMaxId"])
+
     def test_track_state_enum_and_bound_match_shared_fixture(self):
         import json
         from pathlib import Path

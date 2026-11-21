@@ -6,6 +6,7 @@ import { EMPTY_FILTER, type FilterState } from '../components/Board/FilterBar'
 import { TRACK_STATES, STAGE_FILTER_MAX_IDS } from '../utils/stageFilter'
 import { HEALTH_STATUS_VALUES } from '../constants/healthStatus'
 import { NUMBER_FILTER_OPS } from '../utils/numberFilter'
+import { PARENT_FILTER_MAX_ID } from '../utils/parentFilter'
 import { loadCustomFields } from '../hooks/usePersistedFilters'
 
 // #2213 — the backend pins the same fixture against
@@ -28,6 +29,7 @@ const FILTER_STATE_KEYS: Record<keyof FilterState, true> = {
   laneFilter: true,
   subColumnIds: true,
   trackStates: true,
+  parentFilter: true,
 }
 
 describe('FilterState keys parity with backend', () => {
@@ -47,6 +49,11 @@ describe('FilterState keys parity with backend', () => {
   it('stage filter enum and bound match the shared fixture (#2367)', () => {
     expect([...TRACK_STATES].sort()).toEqual([...fixture.trackStates].sort())
     expect(STAGE_FILTER_MAX_IDS).toBe(fixture.stageFilterMaxIds)
+  })
+
+  it('parent filter id bound matches the shared fixture (#2209)', () => {
+    const f = JSON.parse(readFileSync(resolve(__dirname, '../../../backend/boards/tests/fixtures/filter_state_keys.json'), 'utf8')) as { parentFilterMaxId: number }
+    expect(PARENT_FILTER_MAX_ID).toBe(f.parentFilterMaxId)
   })
 
   it('lane filter limits match the shared fixture (#2205)', () => {

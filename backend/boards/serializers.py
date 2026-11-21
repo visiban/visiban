@@ -5673,8 +5673,15 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     _STATE_V1_KEYS = {
         "search", "assigneeIds", "labelIds", "priorities", "dueDate", "blockedOnly",
         "customFields", "visibleCustomFieldFilterIds", "laneFilter",
-        "subColumnIds", "trackStates",
+        "subColumnIds", "trackStates", "parentFilter",
     }
+    # parentFilter (#2209) is additive and optional: "any", "none" or one
+    # parent card id, matched client-side on Card.parent. The id is never
+    # resolved here: the client names only parents the viewer can open, and a
+    # saved id that names any other card matches nothing on the board. The
+    # bound is mirrored in frontend/src/utils/parentFilter.ts.
+    _PARENT_FILTER_WORDS = {"any", "none"}
+    _PARENT_FILTER_MAX_ID = 2**31 - 1
     # subColumnIds / trackStates (#2367) are additive and optional: show only
     # cards in those sub-columns / with a track in one of those states. A
     # filter saved without them still loads. The state enum is mirrored in
@@ -5727,7 +5734,7 @@ class SavedFilterSerializer(serializers.ModelSerializer):
     state_json = serializers.DictField(
         help_text=(
             "Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate, "
-            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates}."
+            "blockedOnly, customFields, visibleCustomFieldFilterIds, laneFilter, subColumnIds, trackStates, parentFilter}."
         ),
     )
 
@@ -5800,6 +5807,13 @@ class SavedFilterSerializer(serializers.ModelSerializer):
             ):
                 raise serializers.ValidationError(
                     f"state_json.trackStates must be a list with values from {sorted(self._TRACK_STATES)}."
+                )
+        if "parentFilter" in value:
+            pf = value["parentFilter"]
+            is_id = isinstance(pf, int) and not isinstance(pf, bool) and 0 < pf <= self._PARENT_FILTER_MAX_ID
+            if not is_id and not (isinstance(pf, str) and pf in self._PARENT_FILTER_WORDS):
+                raise serializers.ValidationError(
+                    'state_json.parentFilter must be "any", "none" or a card id.'
                 )
         if "customFields" in value:
             self._validate_custom_fields(value["customFields"])

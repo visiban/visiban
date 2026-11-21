@@ -106,7 +106,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByText('0 of 5 on Delivery · limit 5')).toBeInTheDocument()
     expect(screen.getByText('15 other cards on Delivery are hidden by this view.')).toBeInTheDocument()
     expect(screen.getByText('New children go to Delivery · To do')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7')
+    expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7?f_parent=5')
     const card = screen.getByRole('link', { name: /^Kickoff, To do, blocked, 2 of 2/ })
     expect(card).toHaveAttribute('href', '/boards/7?card=11')
     expect(screen.getByRole('link', { name: /^Contract, Done, Sam/ })).toBeInTheDocument()

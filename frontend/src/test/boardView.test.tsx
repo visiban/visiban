@@ -1273,6 +1273,35 @@ describe('BoardView', () => {
       expect(off.get('f_blocked')).toBeNull()
     })
 
+    // #2209 — the Children tab's "Open on <board>" link lands with f_parent set.
+    it('reads the Parent filter from ?f_parent=<id>, writes it back, and removes it when cleared', () => {
+      mockSearchParams = new URLSearchParams('f_parent=5')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      const base = capturedFilterBarProps.filters as Record<string, unknown>
+      expect(base.parentFilter).toBe(5)
+      // The card has no parent, so the board is filtered empty.
+      expect(screen.getByText('No cards match the active filters')).toBeInTheDocument()
+      const onChange = (capturedFilterBarProps as { onChange?: (f: unknown) => void }).onChange!
+      const resolve = (from: string) => (mockSetSearchParams.mock.calls.at(-1)![0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams(from))
+      act(() => { onChange({ ...base, parentFilter: 'none' }) })
+      expect(resolve('').get('f_parent')).toBe('none')
+      const { parentFilter: _p, ...rest } = base
+      act(() => { onChange(rest) })
+      expect(resolve('f_parent=5').get('f_parent')).toBeNull()
+    })
+
+    it('ignores a malformed ?f_parent', () => {
+      mockSearchParams = new URLSearchParams('f_parent=-3')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect((capturedFilterBarProps.filters as Record<string, unknown>).parentFilter).toBeUndefined()
+    })
+
     it('does not persist the previous board\'s filters under the new board on a board switch', () => {
       mockSearchParams = new URLSearchParams('f_assignees=5&f_labels=100')
       mockBoardContextValue = defaultContext({ board: makeBoard({ id: 1 }) })
