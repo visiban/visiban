@@ -452,15 +452,30 @@ describe('Children tab review fixes (#2209)', () => {
     }
   })
 
-  it("announces a remote change whose re-read lands while this tab's own write is reloading", async () => {
+  it("keeps this tab's own write announcement when its own echo ping lands before the re-read", async () => {
     vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
     const reload = vi.fn()
     const { rerender } = render(tab(state({ data: read(kids), reload }), 0))
     await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
     await waitFor(() => expect(reload).toHaveBeenCalled())
-    // A ping moved the remote counter before the single re-read landed.
+    // The actor's own socket echo bumps the remote counter before the single re-read lands.
     rerender(tab(state({ data: read(kids.slice(1)), reload }), 1))
-    expect(status()).toHaveTextContent("Children updated. 1 of 2 done.")
+    expect(status()).toHaveTextContent('Unlinked Pen-test scoping call.')
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+  })
+
+  it('swallows a ping that lands before the write resolves, then announces the write', async () => {
+    let resolveUnlink: () => void = () => {}
+    vi.mocked(unlinkCardChild).mockReturnValue(new Promise<never>((r) => { resolveUnlink = () => r(undefined as never) }))
+    const reload = vi.fn()
+    const { rerender } = render(tab(state({ data: read(kids), reload }), 0))
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    // The ping and its re-read land while unlinkCardChild is still pending.
+    rerender(tab(state({ data: read(kids.slice(1)), reload }), 1))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
+    await act(async () => { resolveUnlink() })
+    await waitFor(() => expect(status()).toHaveTextContent('Unlinked Pen-test scoping call.'))
+    expect(screen.queryByText(/Children updated/)).toBeNull()
   })
 
   it('gives phone targets 44px: the card link, Move and Unlink', () => {

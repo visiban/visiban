@@ -33,7 +33,11 @@ interface Props {
   state: ChildrenState;
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
-  /** Bumps on every re-read someone else caused (a `card.children_changed` ping); lets a re-read be told from this tab's own. */
+  /**
+   * Bumps on every `card.children_changed` ping. The ping carries no actor, so this tab cannot tell its own echo
+   * from someone else's; it therefore treats every re-read that lands while one of its own writes is pending as
+   * that write's (rule C's accepted trade-off) and reads the counter only to keep the prop contract.
+   */
   remoteSignal?: number;
 }
 
@@ -44,7 +48,7 @@ interface Props {
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, remoteSignal = 0 }: Props) {
+export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs }: Props) {
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -67,12 +71,14 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const pendingFocus = useRef<number | "add" | null>(null);
   // A re-read after this tab's own write is announced by that write; any other re-read (a
   // `card.children_changed` ping, #2209 row 13) announces what changed, once.
-  const localWrite = useRef(false);
   const prevData = useRef(data);
-  // The remote-change counter at the time of this tab's own write: a ping that lands while that write's
-  // re-read is in flight moves the counter past it, so its re-read is announced, not swallowed.
-  const remoteSeen = useRef(remoteSignal);
-  const reloadAfterWrite = () => { localWrite.current = true; remoteSeen.current = remoteSignal; reload(); };
+  // Set at the START of a write, before its await: the actor's own socket receives the parent-board ping too,
+  // and that echo (or a genuine ping) landing before the write's re-read must not replace the write's message.
+  // Any re-read that lands while the flag is set is swallowed (the data still refreshes). The accepted
+  // trade-off: a truly simultaneous remote change is not announced separately.
+  const localWrite = useRef(false);
+  const beginWrite = () => { localWrite.current = true; };
+  const reloadAfterWrite = () => { localWrite.current = true; reload(); };
   const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
@@ -126,6 +132,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
 
   const unlink = async (child: CardChildRow) => {
     setActionError(null);
+    beginWrite();
     try {
       await unlinkCardChild(board.id, cardId, child.id);
       setAnnouncement(`Unlinked ${child.title}.`);
@@ -133,6 +140,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
       pendingFocus.current = list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add";
       reloadAfterWrite();
     } catch {
+      localWrite.current = false;
       setActionError(`Couldn't unlink ${child.title}. Try again.`);
     }
   };
@@ -140,6 +148,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const move = async (child: CardChildRow, col: CardChildrenColumn) => {
     if (!childBoard) return;
     setMoveError(null);
+    beginWrite();
     try {
       await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count });
       const doneAfter = counts.done
@@ -152,6 +161,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
       focusCard(child.id);
       reloadAfterWrite();
     } catch (err) {
+      localWrite.current = false;
       const detail = axios.isAxiosError(err) ? (err.response?.data as { detail?: unknown } | undefined)?.detail : undefined;
       setMoveError(typeof detail === "string" ? detail : `Couldn't move ${child.title}. Try again.`);
     }
@@ -190,17 +200,14 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   useEffect(() => {
     const prev = prevData.current;
     prevData.current = data;
-    const remoteMoved = remoteSignal !== remoteSeen.current;
-    remoteSeen.current = remoteSignal;
     if (localWrite.current) {
       localWrite.current = false;
-      if (!remoteMoved) return;
+      return;
     }
     // Access to the child board lost: drop any title the live region still holds.
     if (data && !data.visible) { setAnnouncement(""); return; }
     const msg = describeChildrenChange(prev, data);
     if (msg) setAnnouncement(msg);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the data lands; the remote counter is only read then, and re-running on it would consume the local-write flag
   }, [data]);
   // A failed re-read leaves the data as it was; the next change is someone else's.
   useEffect(() => { if (error) localWrite.current = false; }, [error]);
