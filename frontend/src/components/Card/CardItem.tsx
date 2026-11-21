@@ -290,6 +290,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Captured DOMRect of the card element at hover-start time, stored as state so
   // the popover re-renders at the correct position even if the card scrolls.
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [peekMinTop, setPeekMinTop] = useState<number | null>(null);
   // Ref to the card's outer div so we can capture its bounding rect on hover.
   const cardRef = useRef<HTMLDivElement>(null);
   // Context menu (#2059): the pointer type of the last press, so a touch
@@ -410,6 +411,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // Bail out if dragging started while we were waiting.
       if (cardRef.current) {
         setAnchorRect(cardRef.current.getBoundingClientRect());
+        // The board region's top (#2508): the peek slides up to stay on screen
+        // (#1457) but never above this, so it never covers the toolbar or the
+        // filter row. Read with the anchor, the same snapshot moment.
+        setPeekMinTop(cardRef.current.closest("[data-board-scroll]")?.getBoundingClientRect().top ?? null);
         setPeekVisible(true);
       }
     }, 600);
@@ -442,10 +447,13 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // window listeners re-checks it instead of trusting mouseleave alone: a
   // pointer move or press outside the card ends it (outside the peek too, for a
   // move, so the peek stays hoverable; a press on the peek ends it because the
-  // peek has no controls and the press was meant for what it covers), and any
-  // scroll outside the card, a non-modifier key (a shortcut such as F opening a
-  // panel) or the window losing focus ends it. Modifier keys are exempt so
-  // Shift+click still lands on the expanded card it was aimed at (#2358).
+  // peek has no controls), and any scroll outside the card and peek, any
+  // non-modifier key or the window losing focus ends it. Escape is the WCAG
+  // 1.4.13 dismiss key; the other keys end it too because a key means the
+  // user's attention has moved off the pointer (F opening the filter row is
+  // the reported case). Modifier keys are exempt so Shift+click still lands on
+  // the expanded card it was aimed at (#2358). The peek also never slides
+  // above the board region (`peekMinTop`), so it cannot sit over the toolbar.
   const hoverLive = hovered || peekVisible;
   const quickEditOpen = quickEditFieldId !== null;
   useEffect(() => {
@@ -455,7 +463,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       t instanceof Element ? !!t.closest("[data-card-peek]") : t instanceof Node && !!t.parentElement?.closest("[data-card-peek]");
     const onPointerMove = (e: Event) => { if (!inCard(e.target) && !inPeek(e.target)) endHover(); };
     const onPointerDown = (e: Event) => { if (!inCard(e.target)) endHover(); };
-    const onScroll = (e: Event) => { if (!inCard(e.target)) endHover(); };
+    const onScroll = (e: Event) => { if (!inCard(e.target) && !inPeek(e.target)) endHover(); };
     // The card's own quick-edit list (#371) takes arrow keys while the pointer
     // may still rest on the card; collapsing the card under it would be wrong.
     const onKeyDown = (e: KeyboardEvent) => { if (!quickEditOpen && !MODIFIER_KEYS.has(e.key)) endHover(); };
@@ -1423,6 +1431,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       <CardPeekPopover
         card={card}
         anchorRect={anchorRect}
+        minTop={peekMinTop}
         onMouseEnter={() => setPeekVisible(true)}
         onMouseLeave={endHover}
         customFieldDefinitions={customFieldDefinitions}

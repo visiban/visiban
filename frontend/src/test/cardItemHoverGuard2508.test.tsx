@@ -205,4 +205,43 @@ describe('Card hover guard (#2508)', () => {
     const removed = remove.mock.calls.map(([type]) => type)
     expect(removed).toEqual(expect.arrayContaining(['pointermove', 'pointerdown', 'scroll', 'keydown', 'blur']))
   })
+
+  it('Escape, the WCAG 1.4.13 dismiss key, ends the hover', async () => {
+    const { container } = render(<CardItem card={makeCard()} />)
+    const cardEl = await hoverUntilPeek(container)
+    act(() => { fireEvent.keyDown(document.body, { key: 'Escape' }) })
+    expectHoverEnded(cardEl)
+  })
+
+  it('a scroll inside the peek keeps it', async () => {
+    const { container } = render(<CardItem card={makeCard()} />)
+    await hoverUntilPeek(container)
+    act(() => { fireEvent.scroll(screen.getByRole('tooltip')) })
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+  })
+
+  it('never places the peek above the board region, so it cannot cover the filter row or toolbar', async () => {
+    // Card at the bottom of a short viewport: the #1457 slide-up would lift the
+    // peek to the viewport margin, over the toolbar above the board region.
+    const rects: Record<string, Partial<DOMRect>> = {
+      board: { top: 180, bottom: 700, left: 0, right: 1000, width: 1000, height: 520 },
+      card: { top: 640, bottom: 690, left: 50, right: 250, width: 200, height: 50 },
+    }
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
+      const r = this.hasAttribute('data-board-scroll') ? rects.board : rects.card
+      return { x: r.left, y: r.top, toJSON: () => {}, ...r } as DOMRect
+    })
+    // Taller than the room below the card, so placement pins it near the top.
+    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 700 })
+    try {
+      const { container } = render(<div data-board-scroll><CardItem card={makeCard()} /></div>)
+      fireEvent.mouseEnter(getCardEl(container))
+      await act(async () => { vi.advanceTimersByTime(600) })
+      const top = parseFloat(screen.getByRole('tooltip').style.top)
+      expect(top).toBeGreaterThanOrEqual(180)
+    } finally {
+      if (original) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', original)
+    }
+  })
 })

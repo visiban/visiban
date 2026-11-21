@@ -11,6 +11,9 @@ import { getVisibleViewport, useAnchoredPlacement } from "../../hooks/useAnchore
 interface CardPeekPopoverProps {
   card: Card;           // from ../../types
   anchorRect: DOMRect;  // captured via getBoundingClientRect() on the card element
+  /** The board region's top edge (#2508): the peek never slides above it, so it
+   *  never covers the toolbar or the filter row. Unset: no bound. */
+  minTop?: number | null;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   /** Every board custom field definition (#371) — not pre-filtered; the peek
@@ -26,7 +29,7 @@ interface CardPeekPopoverProps {
 const POPOVER_WIDTH = 288; // w-72 = 288px
 const POPOVER_GAP = 8;
 
-export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY", userTimezone = "" }: CardPeekPopoverProps) {
+export default function CardPeekPopover({ card, anchorRect, minTop = null, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY", userTimezone = "" }: CardPeekPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   // Top-aligned with the card, sliding up only as far as its measured height
   // needs to stay on screen (#1457): a card near the bottom of the board would
@@ -54,7 +57,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
 
   const style: React.CSSProperties = {
     position: "fixed",
-    top: top ?? 0,
+    top: top === null ? 0 : minTop === null ? top : Math.max(top, minTop),
     // Hidden only for the pre-paint measuring pass.
     visibility: top === null ? "hidden" : undefined,
     zIndex: 50,
