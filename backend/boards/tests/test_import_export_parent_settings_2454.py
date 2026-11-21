@@ -77,8 +77,8 @@ class ParentSettingsRoundTripTests(TestCase):
 
     def test_invalid_names_are_refused(self):
         bad = {
-            "bidi override": "Ini‮tiative",
-            "zero width": "Ini​tiative",
+            "bidi override": "Ini\u202etiative",
+            "zero width": "Ini\u200btiative",
             "control char": "Ini\x07tiative",
             "too long": "x" * 25,
         }
@@ -110,7 +110,7 @@ class ParentSettingsRoundTripTests(TestCase):
     def test_api_write_and_import_share_the_rule(self):
         """The same value the PATCH refuses, the import refuses."""
         resp = self.client.patch(
-            f"/api/v1/boards/{self.board.id}/", {"parent_name_singular": "A‮B"}, format="json"
+            f"/api/v1/boards/{self.board.id}/", {"parent_name_singular": "A\u202eB"}, format="json"
         )
         self.assertEqual(resp.status_code, 400)
 
