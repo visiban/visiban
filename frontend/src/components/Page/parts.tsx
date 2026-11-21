@@ -37,18 +37,20 @@ export function Button({ variant = "secondary", size, fullWidth, className, type
  * header (#2473); pages outside the shell use `CenteredLayout`, which keeps its own `h1`.
  * `accessory` holds the star and status control on the Overview layout, beside the heading.
  */
-export function PageHeading({ title, description, accessory, actions, id }: {
+export function PageHeading({ title, description, accessory, actions, id, headingRef }: {
   title: ReactNode;
   description?: ReactNode;
   accessory?: ReactNode;
   actions?: ReactNode;
   id?: string;
+  /** Makes the heading focusable (`tabIndex=-1`) so a page can move focus here when the row that held it goes away. */
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 id={id} className="text-2xl font-semibold text-fg break-words">{title}</h2>
+          <h2 id={id} ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-2xl font-semibold text-fg break-words focus:outline-none">{title}</h2>
           {accessory}
         </div>
         {description && <p className="mt-1 text-sm text-fg-secondary">{description}</p>}
@@ -141,11 +143,11 @@ export function StatusControl({ tone, label, onClick, "aria-label": ariaLabel, "
 // ---------------------------------------------------------------------------
 
 /**
- * Identical to the board's Show chips (#2272): 34px pills, a count in every pill. Selected is a
+ * Identical to the board's Show chips (#2272): 34px pills, a count in every pill. `count` may be omitted only when the server cannot supply one (Admin → Board invites, #2476); never show a count the page did not load. Selected is a
  * 22% primary tint with the selected (`info`) border and weight 650 plus `aria-pressed`, so the
  * state never rests on color alone; resting is the panel color with a `line-strong` border.
  */
-export function FilterPill({ label, count, selected, onClick }: { label: string; count: number; selected: boolean; onClick: () => void }) {
+export function FilterPill({ label, count, selected, onClick }: { label: string; count?: number; selected: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -156,7 +158,7 @@ export function FilterPill({ label, count, selected, onClick }: { label: string;
       }`}
     >
       <span>{label}</span>
-      <span className="text-fg-secondary tabular-nums">{count}</span>
+      {count !== undefined && <span className="text-fg-secondary tabular-nums">{count}</span>}
     </button>
   );
 }
@@ -306,19 +308,23 @@ export function SettingTwoSwitchRow({ event, description, inApp, email, onInAppC
  * For forms with several fields. Shows only while there are unsaved changes: a status message,
  * Discard (Quiet) and "Save <thing>" (Primary). Drawn on the Chrome surface (`bg-sunken`).
  */
-export function SaveBar({ thing, dirty, saving = false, onDiscard, onSave }: {
+export function SaveBar({ thing, saveLabel, dirty, saving = false, onDiscard, onSave, saveRef }: {
   thing: string;
+  /** Button text when it differs from "Save <thing>" (Email: "Save email settings"). */
+  saveLabel?: string;
   dirty: boolean;
   saving?: boolean;
   onDiscard: () => void;
   onSave: () => void;
+  /** Lets a caller return focus to Save when an inline confirm it opened closes (#1367). */
+  saveRef?: Ref<HTMLButtonElement>;
 }) {
   if (!dirty) return null;
   return (
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-sunken px-4 py-3">
       <p role="status" className="flex-1 min-w-0 text-sm text-fg-secondary">You have unsaved {thing} changes.</p>
       <Button variant="quiet" onClick={onDiscard} disabled={saving}>Discard</Button>
-      <Button variant="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : `Save ${thing}`}</Button>
+      <Button variant="primary" buttonRef={saveRef} onClick={onSave} disabled={saving}>{saving ? "Saving…" : (saveLabel ?? `Save ${thing}`)}</Button>
     </div>
   );
 }

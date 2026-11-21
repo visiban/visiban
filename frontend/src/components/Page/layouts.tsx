@@ -90,7 +90,7 @@ export function SettingsLayout({ title, sections, param = "tab", navLabel = "Set
               onChange={(e) => select(e.target.value)}
               className="w-full h-11 bg-surface border border-line-strong text-fg rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
-              {sections.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+              {sections.map((s) => <option key={s.id} value={s.id}>{s.count !== undefined ? `${s.label} (${s.count})` : s.label}</option>)}
             </select>
           </div>
           <nav aria-label={navLabel} className="hidden md:block w-[240px] shrink-0">
@@ -107,19 +107,24 @@ export function SettingsLayout({ title, sections, param = "tab", navLabel = "Set
               <p className="px-3 text-sm text-fg-muted">No settings match.</p>
             ) : (
               <ul className="flex flex-col gap-0.5">
-                {visible.map((s) => {
+                {visible.map((s, i) => {
                   const current = s.id === active?.id;
+                  const heading = s.group && s.group !== visible[i - 1]?.group ? s.group : null;
                   return (
-                    <li key={s.id}>
+                    <li key={s.id} className={heading ? (i === 0 ? "" : "mt-3") : undefined}>
+                      {heading && (
+                        <p className="px-3 pb-1 text-[13px] leading-5 font-semibold uppercase tracking-[0.06em] text-fg-tertiary">{heading}</p>
+                      )}
                       <button
                         type="button"
                         aria-current={current ? "page" : undefined}
                         onClick={() => select(s.id)}
-                        className={`w-full h-9 rounded px-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                        className={`flex w-full h-9 max-sm:h-11 items-center justify-between gap-2 rounded px-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                           current ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
                         }`}
                       >
-                        {s.label}
+                        <span>{s.label}</span>
+                        {s.count !== undefined && <span className="text-xs tabular-nums text-fg-tertiary">{s.count}</span>}
                       </button>
                     </li>
                   );

@@ -6,6 +6,7 @@ import {
   patchAdminEmailSettings,
   sendAdminTestEmail,
 } from "../../api/auth";
+import { Button, InlineConfirm, PageHeading, SaveBar, SettingsCard, StatusPill } from "../Page";
 import type {
   EmailConfigSource,
   EmailTestErrorCode,
@@ -333,8 +334,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
       .finally(() => setSaving(false));
   }
 
-  function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSave(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!draft || !server || locked) return;
 
     const found = validate(draft, server);
@@ -396,38 +397,28 @@ export default function EmailSettingsSection({ currentUser }: Props) {
       .finally(() => setTesting(false));
   }
 
-  const heading = (
-    <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
-      Email (SMTP)
-    </p>
-  );
+  const heading = <PageHeading title="Email" description="Where password resets and invites are sent from." />;
 
   if (loading) {
     return (
-      <div>
+      <>
         {heading}
-        <div className="px-4 py-3 rounded-lg border border-line bg-surface">
+        <SettingsCard>
           <p className="text-sm text-fg-tertiary">Loading…</p>
-        </div>
-      </div>
+        </SettingsCard>
+      </>
     );
   }
 
   if (loadError || !server || !draft) {
     return (
-      <div>
+      <>
         {heading}
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-line bg-surface">
-          <p className="text-sm text-danger">Failed to load email settings.</p>
-          <button
-            type="button"
-            onClick={load}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-0.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Retry
-          </button>
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
+          <p className="text-sm text-danger-on-tint">Failed to load email settings.</p>
+          <Button variant="secondary" onClick={load}>Retry</Button>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -549,9 +540,10 @@ export default function EmailSettingsSection({ currentUser }: Props) {
   const labelClass = "block text-xs font-medium text-fg-tertiary uppercase tracking-wide";
 
   return (
-    <div>
+    <>
       {heading}
-      <div className="flex flex-col gap-3 px-4 py-3 rounded-lg border border-line bg-surface">
+      <SettingsCard>
+      <div className="flex flex-col gap-3">
         {/* A. What is actually sending mail right now */}
         <div
           role="group"
@@ -566,12 +558,8 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 ⚠
               </span>
             )}
-            <p
-              id="smtp-effective-heading"
-              className="text-xs font-medium text-fg-tertiary uppercase tracking-wide"
-            >
-              Currently sending mail
-            </p>
+            <p id="smtp-effective-heading" className="sr-only">Currently sending mail</p>
+            <StatusPill tone={tone === "warning" ? "at_risk" : "on_track"} label="Currently sending with these settings" />
           </div>
           <p className={`text-sm font-medium ${tone === "warning" ? "text-warning-on-tint" : "text-fg"}`}>
             {sourceLabel}
@@ -907,55 +895,29 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 <span className="text-danger">{saveError}</span>
               ) : saved ? (
                 <span className="text-success">Email settings saved.</span>
-              ) : dirty ? (
-                <span className="text-fg-muted">Unsaved changes</span>
               ) : null}
             </p>
-            {readOnly ? null : (
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  disabled={!dirty || saving}
-                  aria-label="Discard email settings changes"
-                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Cancel
-                </button>
-                <button
-                  ref={saveTriggerRef("save")}
-                  type="submit"
-                  disabled={!dirty || saving}
-                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Save email settings
-                </button>
-              </div>
-            )}
           </div>
 
           {confirmingSourceSwitch && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-fg-tertiary">
-                Switch to database configuration? All outbound email will use these settings as
-                soon as you save.
-              </span>
-              <button
-                type="button"
-                onClick={commitSave}
-                className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-              >
-                Confirm
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmingSourceSwitch(false)}
-                aria-label="Cancel switching the email configuration source"
-                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                Cancel
-              </button>
-            </div>
+            <InlineConfirm
+              message="Switch to database configuration? All outbound email will use these settings as soon as you save."
+              actionLabel="Switch to database"
+              onConfirm={commitSave}
+              onCancel={() => setConfirmingSourceSwitch(false)}
+            />
+          )}
+
+          {!readOnly && (
+            <SaveBar
+              thing="email"
+              saveLabel="Save email settings"
+              dirty={dirty}
+              saving={saving}
+              onDiscard={handleCancel}
+              onSave={() => handleSave()}
+              saveRef={saveTriggerRef("save")}
+            />
           )}
         </form>
 
@@ -964,12 +926,11 @@ export default function EmailSettingsSection({ currentUser }: Props) {
             reads without needing a paragraph to explain it. */}
         <div className="pt-3 border-t border-line-subtle flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={handleTest}
               disabled={testing || dirty}
               title={dirty ? "Save your changes before testing." : undefined}
-              className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded text-sm disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis flex items-center gap-2"
             >
               {testing && (
                 <span
@@ -978,10 +939,10 @@ export default function EmailSettingsSection({ currentUser }: Props) {
                 />
               )}
               {testing ? "Sending…" : "Send test email"}
-            </button>
+            </Button>
           </div>
           <p className="text-xs text-fg-muted">
-            Sends a test message to your own address ({currentUser.email}) using the saved
+            Sends to your own address ({currentUser.email}) using the saved
             configuration.
           </p>
           <div role="status" aria-live="polite" aria-atomic="true">
@@ -990,6 +951,7 @@ export default function EmailSettingsSection({ currentUser }: Props) {
           </div>
         </div>
       </div>
-    </div>
+      </SettingsCard>
+    </>
   );
 }

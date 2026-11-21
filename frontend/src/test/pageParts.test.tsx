@@ -4,7 +4,8 @@
  * the Settings layout's `?tab=` deep link, and that no part hard-codes a color.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { createRef } from "react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -210,6 +211,22 @@ describe("SaveBar and InlineConfirm", () => {
     expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
   });
 
+  it("SaveBar takes a custom button label and a ref to the Save button (#2476)", () => {
+    const ref = createRef<HTMLButtonElement>();
+    render(<SaveBar thing="email" saveLabel="Save email settings" dirty onDiscard={vi.fn()} onSave={vi.fn()} saveRef={ref} />);
+    expect(screen.getByRole("status")).toHaveTextContent("You have unsaved email changes.");
+    expect(screen.getByRole("button", { name: "Save email settings" })).toBe(ref.current);
+  });
+
+  it("FilterPill omits the count when the server cannot supply one; PageHeading can take focus (#2476)", () => {
+    render(<FilterPill label="Used" selected={false} onClick={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Used" }).querySelectorAll("span")).toHaveLength(1);
+    const ref = createRef<HTMLHeadingElement>();
+    render(<PageHeading title="Board invites" headingRef={ref} />);
+    expect(ref.current).toHaveAttribute("tabindex", "-1");
+    expect(ref.current?.tagName).toBe("H2");
+  });
+
   it("InlineConfirm holds the sentence, Cancel (Quiet) and the Danger action", () => {
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
@@ -298,6 +315,20 @@ describe("layouts", () => {
     fireEvent.click(screen.getByRole("button", { name: "General & email" }));
     expect(screen.getByText("General body")).toBeInTheDocument();
     expect(screen.getByTestId("loc")).toHaveTextContent("?tab=general");
+  });
+
+  it("Settings nav shows a group heading once per run of sections and each count (#2476)", () => {
+    const grouped = [
+      { id: "a", label: "General", group: "Instance", render: () => <p>A</p> },
+      { id: "b", label: "Email", group: "Instance", render: () => <p>B</p> },
+      { id: "c", label: "Users", group: "People", count: 12, render: () => <p>C</p> },
+    ];
+    render(<MemoryRouter initialEntries={["/x"]}><SettingsLayout sections={grouped} navLabel="Grouped" /></MemoryRouter>);
+    const nav = screen.getByRole("navigation", { name: "Grouped" });
+    expect(within(nav).getAllByText("Instance")).toHaveLength(1);
+    expect(within(nav).getByText("People")).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: /^Users\s*12$/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Users (12)" })).toBeInTheDocument();
   });
 
   it("Settings falls back to the first section for an unknown or absent tab", () => {

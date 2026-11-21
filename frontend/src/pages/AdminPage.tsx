@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
+import { useIsPhoneViewport } from "../hooks/useIsPhoneViewport";
 import {
   clearAdminUserLockout,
   createAdminUser,
   deactivateAdminUser,
+  getAdminBoardInviteLinks,
   getAdminInviteLinksPage,
   getAdminSettings,
   getAdminUsers,
@@ -20,19 +21,31 @@ import {
 import Avatar from "../components/Common/Avatar";
 import EmailInviteForm from "../components/Common/EmailInviteForm";
 import BoardInvitesTab from "../components/Admin/BoardInvitesTab";
-import { INVITE_STATUS_STYLES } from "../constants/invites";
 import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
 import OverflowMenu, { type OverflowItem } from "../components/Layout/OverflowMenu";
 import ModalWrapper from "../components/shared/ModalWrapper";
-import { Toggle } from "../components/Common/Toggle";
+import {
+  Button,
+  EmptyState,
+  Field,
+  InlineConfirm,
+  ListRow,
+  ListWell,
+  PageHeading,
+  SettingSwitchRow,
+  SettingsCard,
+  SettingsLayout,
+  StatusPill,
+  Switch,
+  type SettingsSection,
+  type StatusTone,
+} from "../components/Page";
 import type { AdminInviteLinkPage } from "../api/auth";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
 import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
-
-type Tab = "settings" | "users" | "invite_links" | "board_invites";
 
 interface Props {
   user: User;
@@ -56,49 +69,23 @@ function formatDate(iso: string): string {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Confirm dialog
-// ---------------------------------------------------------------------------
-
-interface ConfirmDialogProps {
-  message: string;
-  /** Surviving element to return focus to when the opener (a menu item) unmounts. */
-  returnFocusTo?: HTMLElement | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function ConfirmDialog({ message, returnFocusTo, onConfirm, onCancel }: ConfirmDialogProps) {
-  useEscapeStack(onCancel, 40);
-  const modalRef = useRef<HTMLDivElement>(null);
-  // #1732 — shared trap (Tab wrap + focus restore) instead of a hand-rolled copy.
-  useFocusTrap(modalRef, true, returnFocusTo);
-  useEffect(() => {
-    // Safe default: land on Cancel (first button), not the destructive action.
-    modalRef.current?.querySelector<HTMLElement>("button")?.focus();
-  }, []);
+/** A section's load failure: the message and a Retry (the shared error-banner pattern). */
+function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="fixed inset-0 bg-backdrop/60 z-50 flex items-center justify-center p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" tabIndex={-1} className="bg-surface border border-line rounded-lg shadow-xl p-6 max-w-sm w-full">
-        <p id="confirm-dialog-message" className="text-sm text-fg-secondary mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
+    <div role="alert" className="flex flex-wrap items-center gap-3 rounded-[10px] border border-danger/40 bg-danger/10 px-4 py-3">
+      <p className="text-sm text-danger-on-tint">{message}</p>
+      <Button variant="secondary" onClick={onRetry}>Retry</Button>
     </div>
   );
 }
+
+const INVITE_STATUS_TONE: Record<AdminInviteLink["status"], StatusTone> = {
+  pending: "pending",
+  used: "on_track",
+  expired: "at_risk",
+  // Revoked is struck through as well as red, so the word and the strike carry it, not color alone.
+  revoked: "off_track",
+};
 
 // ---------------------------------------------------------------------------
 // Add User modal
@@ -151,83 +138,44 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
   };
 
   return (
-    <ModalWrapper open onClose={onClose} title="Add User" maxWidth="max-w-md">
+    <ModalWrapper open onClose={onClose} title="Add user" maxWidth="max-w-md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Username
-            <input
-              value={form.username}
-              onChange={set("username")}
-              required
-              autoComplete="off"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-            />
-          </label>
+        <Field label="Username" value={form.username} onChange={set("username")} required autoComplete="off" />
+        <Field label="Email address" type="email" value={form.email} onChange={set("email")} required autoComplete="off" />
+        <Field
+          label="Password"
+          type="password"
+          value={form.password}
+          onChange={set("password")}
+          required
+          minLength={12}
+          autoComplete="new-password"
+          hint="Minimum 12 characters"
+        />
 
-          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
-            Email address
-            <input
-              type="email"
-              value={form.email}
-              onChange={set("email")}
-              required
-              autoComplete="off"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-            />
-          </label>
+        <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
+          <input
+            type="checkbox"
+            checked={form.force_password_reset}
+            onChange={set("force_password_reset")}
+            className="w-4 h-4 accent-primary"
+          />
+          Force password reset on first login
+        </label>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="new-user-password" className="text-sm text-fg-tertiary">
-              Password
-            </label>
-            <input
-              id="new-user-password"
-              type="password"
-              value={form.password}
-              onChange={set("password")}
-              required
-              minLength={12}
-              autoComplete="new-password"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
-            />
-            <span className="text-xs text-fg-muted">Minimum 12 characters</span>
-          </div>
+        {error && <p className="text-sm text-danger">{error}</p>}
 
-          <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
-            <input
-              type="checkbox"
-              checked={form.force_password_reset}
-              onChange={set("force_password_reset")}
-              className="w-4 h-4 accent-primary"
-            />
-            Force password reset on first login
-          </label>
-
-          {error && <p className="text-sm text-danger">{error}</p>}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-            >
-              {saving ? "Creating…" : "Create user"}
-            </button>
-          </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="quiet" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" disabled={saving}>{saving ? "Creating…" : "Create user"}</Button>
+        </div>
       </form>
     </ModalWrapper>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Invite links tab
+// Invite links section
 // ---------------------------------------------------------------------------
 
 const TTL_OPTIONS: { label: string; value: number | null }[] = [
@@ -244,12 +192,14 @@ function formatExpiry(link: AdminInviteLink): string {
   });
 }
 
-function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => void }) {
+function InviteLinksSection({ onActiveCount }: { onActiveCount: (n: number) => void }) {
   const [links, setLinks] = useState<AdminInviteLink[]>([]);
   // Server cap notice (#2254): older used/expired links are left out of the list.
   const [truncation, setTruncation] = useState<{ total: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState<{ expires_in_days: number | null; single_use: boolean }>({
@@ -275,23 +225,26 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
     return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
   }, []);
 
+  // The nav count is the number of active (pending) links.
+  useEffect(() => {
+    onActiveCount(links.filter((l) => l.status === "pending").length);
+  }, [links, onActiveCount]);
+
   const applyPage = (page: AdminInviteLinkPage) => {
     setLinks(page.links);
     setTruncation(page.truncated ? { total: page.total } : null);
   };
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
     getAdminInviteLinksPage()
       .then(applyPage)
-      .catch(() => setError("Failed to load invite links."))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
-  // Refetch after an emailed invite so it appears in the list. Only the list is
-  // replaced: the one-time reveal lives in `newLink`, separate state.
-  const refreshLinks = () => {
-    getAdminInviteLinksPage().then(applyPage).catch(() => setError("Failed to load invite links."));
-  };
+  useEffect(() => { load(); }, [load]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -342,160 +295,139 @@ function InviteLinksTab({ onOpenEmailSettings }: { onOpenEmailSettings: () => vo
     }
   };
 
-  if (loading) return <div className="text-fg-tertiary text-sm">Loading…</div>;
+  const heading = (
+    <PageHeading
+      title="Invite links"
+      description="Shareable links that let people join this site."
+      actions={<Button variant="primary" onClick={() => setShowForm((v) => !v)} aria-expanded={showForm}>New link</Button>}
+    />
+  );
+
+  if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
+  if (loadError) return <>{heading}<LoadError message="Failed to load invite links." onRetry={load} /></>;
+
+  const linkUrl = newLink ? `${window.location.origin}/join/${newLink.raw_token}` : "";
 
   return (
-    <div className="flex flex-col gap-6">
-      <h2 className="text-fg text-lg font-semibold">Invite Links</h2>
+    <>
+      {heading}
 
-      <div className="max-w-lg">
-        <EmailInviteForm
-          surface="site"
-          send={sendAdminInviteEmail}
-          onSent={refreshLinks}
-          onOpenEmailSettings={onOpenEmailSettings}
-        />
-      </div>
+      {showForm && (
+        <SettingsCard title="New invite link">
+          <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="invite-expires" className="text-sm font-medium text-fg-secondary">Expires after</label>
+              <select
+                id="invite-expires"
+                value={form.expires_in_days ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
+                className="w-full h-9 max-sm:h-11 bg-surface border border-line-strong text-fg rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                {TTL_OPTIONS.map((o) => (
+                  <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
+                ))}
+              </select>
+              {form.expires_in_days === null && (
+                <p className="text-xs text-warning-on-tint">Never-expiring links are a security risk — use with caution.</p>
+              )}
+            </div>
 
-      {/* Create form */}
-      <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Expires after</label>
-          <select
-            value={form.expires_in_days ?? ""}
-            onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
-          >
-            {TTL_OPTIONS.map((o) => (
-              <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
-            ))}
-          </select>
-          {form.expires_in_days === null && (
-            <p className="text-xs text-warning">Never-expiring links are a security risk — use with caution.</p>
-          )}
-        </div>
+            <SettingSwitchRow
+              label="Single-use"
+              checked={form.single_use}
+              onChange={(checked) => setForm((f) => ({ ...f, single_use: checked }))}
+            />
 
-        <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
-          <Toggle
-            checked={form.single_use}
-            onChange={(checked) => setForm((f) => ({ ...f, single_use: checked }))}
-            aria-label="Single-use"
-          />
-          Single-use
-        </label>
+            {createError && <p className="text-sm text-danger">{createError}</p>}
 
-        {createError && <p className="text-sm text-danger">{createError}</p>}
-
-        <button
-          type="submit"
-          disabled={creating}
-          className="self-start px-3 py-1.5 text-sm font-medium bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          {creating ? "Creating…" : "Create link"}
-        </button>
-      </form>
+            <div className="flex gap-2">
+              <Button variant="primary" type="submit" disabled={creating}>{creating ? "Creating…" : "Create link"}</Button>
+              <Button variant="quiet" onClick={() => setShowForm(false)}>Cancel</Button>
+            </div>
+          </form>
+        </SettingsCard>
+      )}
 
       {/* One-time token reveal */}
       {newLink && (
-        <div className="flex flex-col gap-2 p-3 rounded-lg border border-warning/50 bg-sunken max-w-lg transition-all duration-150">
-          <p className="text-xs text-warning">Copy this link now — it won't be shown again.</p>
+        <div className="flex flex-col gap-2 p-3 rounded-[10px] border border-warning/50 bg-sunken">
+          <p className="text-sm text-warning-on-tint">Copy this link now — it won't be shown again.</p>
           <div className="flex items-center gap-2">
             <span
-              title={`${window.location.origin}/join/${newLink.raw_token}`}
-              className="flex-1 font-mono text-xs text-fg bg-surface border border-line rounded px-2 py-1.5 truncate"
+              title={linkUrl}
+              className="flex-1 min-w-0 font-mono text-xs text-fg bg-surface border border-line rounded px-2 py-2 truncate"
             >
-              {`${window.location.origin}/join/${newLink.raw_token}`}
+              {linkUrl}
             </span>
-            <button
-              onClick={handleCopy}
-              className="shrink-0 px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
-            <button
-              onClick={() => setNewLink(null)}
-              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Done
-            </button>
+            <Button variant="primary" onClick={handleCopy}>{copied ? "Copied!" : "Copy"}</Button>
+            <Button variant="quiet" onClick={() => setNewLink(null)}>Done</Button>
           </div>
         </div>
       )}
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      {/* Link list */}
       {links.length === 0 ? (
-        <p className="text-sm text-fg-muted">No invite links yet.</p>
+        <EmptyState title="No invite links yet." description="Create one to let people join without an account." />
       ) : (
         <>
-        {truncation && (
-          <p className="text-xs text-fg-muted" data-testid="invite-links-truncated">
-            Older used, expired, or revoked links are not shown. {truncation.total} links in total.
-          </p>
-        )}
-        <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden">
-          {links.map((link) => (
-            <div key={link.id} className="flex flex-wrap items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-fg-tertiary">{link.prefix}…</span>
-                  <span className={`px-2 py-0.5 text-xs rounded-full ${INVITE_STATUS_STYLES[link.status]}`}>
-                    {link.status}
-                  </span>
-                  {link.delivery === "email" && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">Emailed</span>
-                  )}
-                  {link.single_use && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-fg-muted/20 text-muted-on-tint">single-use</span>
-                  )}
-                </div>
-                <p className="text-xs text-fg-muted mt-0.5">
-                  Expires {formatExpiry(link)}
-                  {` · ${link.use_count} ${link.use_count === 1 ? "use" : "uses"}`}
-                  {link.created_by_username && ` · created by ${link.created_by_username}`}
-                </p>
-              </div>
-              {link.status === "pending" && (
-                revokeConfirm === link.id ? (
-                  <div className="basis-full flex flex-wrap items-center gap-2 text-xs">
-                    <span className="text-fg-tertiary">
-                      Revoke this invite link? Anyone holding it will no longer be able to join.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRevoke(link.id)}
-                      disabled={revokingId === link.id}
-                      className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                    >
-                      {revokingId === link.id ? "Revoking…" : "Confirm"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRevokeConfirm(null)}
-                      className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                    >
-                      Cancel
-                    </button>
+          {truncation && (
+            <p className="text-xs text-fg-secondary" data-testid="invite-links-truncated">
+              Older used, expired, or revoked links are not shown. {truncation.total} links in total.
+            </p>
+          )}
+          <ListWell as="ul" label="Invite links">
+            {links.map((link) => (
+              <li key={link.id}>
+                <ListRow as="div">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs text-fg-secondary">{link.prefix}…</span>
+                      {link.delivery === "email" && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">Emailed</span>
+                      )}
+                      {link.single_use && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">Single-use</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-fg-secondary mt-0.5">
+                      Created {formatDate(link.created_at)}
+                      {link.created_by_username && ` by ${link.created_by_username}`}
+                      {` · Expires ${formatExpiry(link)}`}
+                      {` · ${link.use_count} ${link.use_count === 1 ? "use" : "uses"}`}
+                    </p>
                   </div>
-                ) : (
-                  <button
-                    ref={revokeTriggerRef(link.id)}
-                    type="button"
-                    onClick={() => setRevokeConfirm(link.id)}
-                    aria-label={`Revoke invite link ${link.prefix}`}
-                    className="shrink-0 text-xs text-danger hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                  >
-                    Revoke
-                  </button>
-                )
-              )}
-            </div>
-          ))}
-        </div>
+                  <span className={link.status === "revoked" ? "line-through" : undefined}>
+                    <StatusPill tone={INVITE_STATUS_TONE[link.status]} label={link.status.charAt(0).toUpperCase() + link.status.slice(1)} />
+                  </span>
+                  {link.status === "pending" && revokeConfirm !== link.id && (
+                    <Button
+                      variant="quiet"
+                      buttonRef={revokeTriggerRef(link.id)}
+                      onClick={() => setRevokeConfirm(link.id)}
+                      aria-label={`Revoke invite link ${link.prefix}`}
+                    >
+                      Revoke
+                    </Button>
+                  )}
+                </ListRow>
+                {revokeConfirm === link.id && (
+                  <div className="px-3 pb-2">
+                    <InlineConfirm
+                      message="Revoke this invite link? Anyone holding it will no longer be able to join."
+                      actionLabel={revokingId === link.id ? "Revoking…" : "Revoke link"}
+                      busy={revokingId === link.id}
+                      onConfirm={() => void handleRevoke(link.id)}
+                      onCancel={() => setRevokeConfirm(null)}
+                    />
+                  </div>
+                )}
+              </li>
+            ))}
+          </ListWell>
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -688,7 +620,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
 }
 
 // ---------------------------------------------------------------------------
-// Settings tab
+// General section
 // ---------------------------------------------------------------------------
 
 const REGISTRATION_MODE_OPTIONS: { value: RegistrationMode; label: string; description: string }[] = [
@@ -712,10 +644,12 @@ const REGISTRATION_MODE_OPTIONS: { value: RegistrationMode; label: string; descr
 const MAINTENANCE_MESSAGE_MAX = 1000;
 // 90% of the cap, matching the 500/450 precedent in CreateGroupModal.
 const MAINTENANCE_MESSAGE_WARN = 900;
+const MAINTENANCE_SWITCH_ID = "maintenance-mode-switch";
 
-function SettingsTab({ currentUser }: { currentUser: User }) {
+function GeneralSection() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -727,19 +661,32 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
   // every user, so it goes through the inline-confirmation pattern. Turning it
   // OFF just restores normal service and needs no confirmation.
   const [confirmingEnable, setConfirmingEnable] = useState(false);
-  const maintenanceTriggerRef = useConfirmFocusReturn(confirmingEnable ? "maintenance" : null);
-  useConfirmAnnouncement(confirmingEnable ? "Enable maintenance mode? All non-admin users will immediately lose write access." : null);
+  // Cancel returns focus to the switch (#1367). Switch takes an id, not a ref, so look it up.
+  const [refocusSwitch, setRefocusSwitch] = useState(0);
+  useEffect(() => {
+    if (refocusSwitch > 0) document.getElementById(MAINTENANCE_SWITCH_ID)?.focus();
+  }, [refocusSwitch]);
+  useConfirmAnnouncement(confirmingEnable ? "Turn on maintenance mode? Everyone but admins becomes read-only right away." : null);
+  // Escape cancels the open confirm before the page-level Escape-to-navigate handler (#1238).
+  useEscapeStack(() => {
+    if (confirmingEnable) { setConfirmingEnable(false); setRefocusSwitch((n) => n + 1); return; }
+    return false;
+  }, 40);
 
   useEffect(() => {
     return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) };
   }, []);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
     getAdminSettings()
       .then(setSettings)
-      .catch(() => setError("Failed to load settings."))
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   // Re-seed the local buffer whenever the server's value changes — on first
   // load, and after a save returns the canonical value. Depending on the field
@@ -757,121 +704,100 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
     setMaintenanceMessage(serverMaintenanceMessage);
   }
 
-  const handleChange = async (mode: RegistrationMode) => {
+  /** One optimistic PATCH: apply `optimistic`, save `patch`, roll back with `rollback` on failure. */
+  const saveSetting = async (
+    patch: Partial<SiteSettings>,
+    rollback: (s: SiteSettings) => SiteSettings,
+    failure: string,
+    onRollback?: () => void,
+  ) => {
     if (!settings || saving) return;
+    setSettings((s) => (s ? { ...s, ...patch } : s));
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const updated = await patchAdminSettings(patch);
+      setSettings(updated);
+      setSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setSettings((s) => (s ? rollback(s) : s));
+      onRollback?.();
+      setError(failure);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChange = (mode: RegistrationMode) => {
+    if (!settings) return;
     const prev = settings.registration_mode;
-    setSettings((s) => s ? { ...s, registration_mode: mode } : s);
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const updated = await patchAdminSettings({ registration_mode: mode });
-      setSettings(updated);
-      setSaved(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setSettings((s) => s ? { ...s, registration_mode: prev } : s);
-      setError("Failed to save settings.");
-    } finally {
-      setSaving(false);
-    }
+    void saveSetting({ registration_mode: mode }, (s) => ({ ...s, registration_mode: prev }), "Failed to save settings.");
   };
 
-  const handleUploadsToggle = async () => {
-    if (!settings || saving) return;
+  const handleUploadsToggle = () => {
+    if (!settings) return;
     const prev = settings.uploads_enabled;
-    const next = !prev;
-    setSettings((s) => s ? { ...s, uploads_enabled: next } : s);
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const updated = await patchAdminSettings({ uploads_enabled: next });
-      setSettings(updated);
-      setSaved(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setSettings((s) => s ? { ...s, uploads_enabled: prev } : s);
-      setError("Failed to save settings.");
-    } finally {
-      setSaving(false);
-    }
+    void saveSetting({ uploads_enabled: !prev }, (s) => ({ ...s, uploads_enabled: prev }), "Failed to save settings.");
   };
 
-  const handleMaintenanceToggle = async (next: boolean) => {
-    if (!settings || saving) return;
+  const handleMaintenanceToggle = (next: boolean) => {
+    if (!settings) return;
     const prev = settings.maintenance_mode;
-    setSettings((s) => s ? { ...s, maintenance_mode: next } : s);
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const updated = await patchAdminSettings({ maintenance_mode: next });
-      setSettings(updated);
-      setSaved(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setSettings((s) => s ? { ...s, maintenance_mode: prev } : s);
-      setError(`Failed to turn ${next ? "on" : "off"} maintenance mode. Please try again.`);
-    } finally {
-      setSaving(false);
-    }
+    void saveSetting(
+      { maintenance_mode: next },
+      (s) => ({ ...s, maintenance_mode: prev }),
+      `Failed to turn ${next ? "on" : "off"} maintenance mode. Please try again.`,
+    );
   };
 
   const handleMaintenanceToggleClick = (next: boolean) => {
     if (!next) {
-      void handleMaintenanceToggle(false);
+      handleMaintenanceToggle(false);
       return;
     }
-    // Deliberately does NOT flip the toggle optimistically first: Cancel then
+    // Deliberately does NOT flip the switch optimistically first: Cancel then
     // has nothing to revert, so the control never visibly flickers on and back
     // off for a change that was never made.
     setConfirmingEnable(true);
   };
 
-  const handleMaintenanceMessageBlur = async () => {
-    if (!settings || saving) return;
-    if (maintenanceMessage === settings.maintenance_message) return;
+  const handleMaintenanceMessageBlur = () => {
+    if (!settings || maintenanceMessage === settings.maintenance_message) return;
     const prev = settings.maintenance_message;
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const updated = await patchAdminSettings({ maintenance_message: maintenanceMessage });
-      setSettings(updated);
-      setSaved(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setMaintenanceMessage(prev);
-      setError("Failed to save settings.");
-    } finally {
-      setSaving(false);
-    }
+    void saveSetting(
+      { maintenance_message: maintenanceMessage },
+      (s) => ({ ...s, maintenance_message: prev }),
+      "Failed to save settings.",
+      () => setMaintenanceMessage(prev),
+    );
   };
 
   const messageCountColor =
     maintenanceMessage.length > MAINTENANCE_MESSAGE_MAX
       ? "text-danger"
       : maintenanceMessage.length >= MAINTENANCE_MESSAGE_WARN
-        ? "text-warning"
-        : "text-fg-muted";
+        ? "text-warning-on-tint"
+        : "text-fg-secondary";
 
-  if (loading) {
-    return <div className="text-fg-tertiary text-sm">Loading…</div>;
-  }
+  const heading = <PageHeading title="General" description="Switches save as soon as you change them." />;
+
+  if (loading) return <>{heading}<div className="text-fg-tertiary text-sm">Loading…</div></>;
+  if (loadError) return <>{heading}<LoadError message="Failed to load settings." onRetry={load} /></>;
 
   return (
-    <div className="flex flex-col gap-6 max-w-lg">
-      <h2 className="text-fg text-lg font-semibold">Instance Settings</h2>
+    <>
+      {heading}
 
-      <div>
-        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
-          Registration
-        </p>
+      {settings?.maintenance_mode && (
+        <div role="status" className="rounded-[10px] border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-on-tint">
+          Maintenance mode is on. Members see the notice and can't make changes.
+        </div>
+      )}
+
+      <SettingsCard title="Registration">
         <div className="flex flex-col gap-2" role="radiogroup" aria-label="Registration mode">
           {REGISTRATION_MODE_OPTIONS.map(({ value, label, description }) => (
             <label
@@ -906,91 +832,54 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
               </span>
               <span>
                 <span className="block text-sm font-medium text-fg">{label}</span>
-                <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
+                <span className="block text-xs text-fg-secondary mt-0.5">{description}</span>
               </span>
             </label>
           ))}
         </div>
-      </div>
+      </SettingsCard>
 
-      <div>
-        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
-          Features
-        </p>
-        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-line bg-surface">
-          <div>
-            <span className="block text-sm font-medium text-fg">File uploads</span>
-            <span className="block text-xs text-fg-muted">Allow members to attach files to cards</span>
-          </div>
-          <Toggle
-            checked={settings?.uploads_enabled ?? true}
-            onChange={() => handleUploadsToggle()}
-            disabled={saving}
-            aria-label="File uploads"
-          />
-        </div>
-      </div>
+      <SettingsCard title="Features">
+        <SettingSwitchRow
+          label="File uploads"
+          description="Allow members to attach files to cards"
+          checked={settings?.uploads_enabled ?? true}
+          onChange={handleUploadsToggle}
+          disabled={saving}
+        />
+      </SettingsCard>
 
-      <EmailSettingsSection currentUser={currentUser} />
-
-      <div>
-        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
-          Maintenance
-        </p>
-        <div className="flex flex-col gap-3 px-4 py-3 rounded-lg border border-line bg-surface">
-          <div>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="block text-sm font-medium text-fg">Maintenance mode</span>
-                <span className="block text-xs text-fg-muted">
-                  Block writes for all non-admin users; reads keep working. Site admins are exempt and keep full read/write access.
-                </span>
-              </div>
-              <Toggle
-                checked={settings?.maintenance_mode ?? false}
-                onChange={handleMaintenanceToggleClick}
-                buttonRef={maintenanceTriggerRef("maintenance")}
-                disabled={saving}
-                aria-label="Maintenance mode"
-              />
+      <SettingsCard title="Maintenance">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p id="maintenance-mode-label" className="text-sm font-medium text-fg">Maintenance mode</p>
+              <p className="mt-0.5 text-sm text-fg-secondary">
+                Block writes for all non-admin users; reads keep working. Site admins are exempt and keep full read/write access.
+              </p>
             </div>
-            {/* The toggle stays mounted while confirming and the prompt appears
-                below it, matching the two existing inline-confirm instances in
-                BoardSettingsModal. Swapping the row out would be a third visual
-                treatment of one documented pattern. */}
-            {confirmingEnable && (
-              <div className="mt-1.5 flex items-center gap-2 text-xs">
-                <span className="text-fg-tertiary">
-                  Enable maintenance mode? All non-admin users will immediately lose write access.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setConfirmingEnable(false); void handleMaintenanceToggle(true); }}
-                  className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                >
-                  Confirm
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingEnable(false)}
-                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+            <MaintenanceSwitch
+              checked={settings?.maintenance_mode ?? false}
+              onChange={handleMaintenanceToggleClick}
+              disabled={saving}
+            />
           </div>
+          {confirmingEnable && (
+            <InlineConfirm
+              message="Turn on maintenance mode? Everyone but admins becomes read-only right away."
+              actionLabel="Turn on maintenance mode"
+              onConfirm={() => { setConfirmingEnable(false); handleMaintenanceToggle(true); }}
+              onCancel={() => { setConfirmingEnable(false); setRefocusSwitch((n) => n + 1); }}
+            />
+          )}
 
           <div className="pt-3 border-t border-line-subtle">
             <div className="flex items-center justify-between mb-1">
-              <label
-                htmlFor="maintenance-message"
-                className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide"
-              >
-                Message <span className="text-fg-muted">(optional)</span>
+              <label htmlFor="maintenance-message" className="block text-sm font-medium text-fg-secondary">
+                Message <span className="text-fg-secondary font-normal">(optional)</span>
               </label>
-              <span className={`text-xs ${messageCountColor}`}>
-                {maintenanceMessage.length}/{MAINTENANCE_MESSAGE_MAX}
+              <span className={`text-xs tabular-nums ${messageCountColor}`}>
+                {maintenanceMessage.length.toLocaleString("en-US")} / {MAINTENANCE_MESSAGE_MAX.toLocaleString("en-US")}
               </span>
             </div>
             <textarea
@@ -1001,46 +890,70 @@ function SettingsTab({ currentUser }: { currentUser: User }) {
               onBlur={handleMaintenanceMessageBlur}
               disabled={saving}
               placeholder="e.g. Upgrading to v1.3 — expect service back by 3:00 PM UTC."
-              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted resize-none transition"
+              className="w-full bg-surface border border-line-strong rounded px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis placeholder-fg-muted resize-none transition"
             />
-            <p className="text-xs text-fg-muted mt-1">
+            <p className="text-xs text-fg-secondary mt-1">
               Shown to all users while maintenance mode is on. Mentioning when you expect to finish helps people plan around the interruption. Anyone can read it without signing in, so keep internal detail out of it.
             </p>
-            <p className="text-xs text-fg-muted mt-1">
+            <p className="text-xs text-fg-secondary mt-1">
               Leave blank to show the default: &ldquo;Visiban is in maintenance mode. You can still read boards and cards, but changes are temporarily disabled. Please try again shortly.&rdquo;
             </p>
           </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      <p className="text-sm h-5">
+      <p className="text-sm min-h-5" role="status">
         {error && <span className="text-danger">{error}</span>}
         {saved && <span className="text-success">Settings saved.</span>}
       </p>
-    </div>
+    </>
+  );
+}
+
+/** The maintenance switch, named by the row's label (the shared Switch has no label of its own). */
+function MaintenanceSwitch({ checked, onChange, disabled }: { checked: boolean; onChange: (next: boolean) => void; disabled: boolean }) {
+  return (
+    <Switch
+      id={MAINTENANCE_SWITCH_ID}
+      checked={checked}
+      onChange={onChange}
+      disabled={disabled}
+      aria-labelledby="maintenance-mode-label"
+    />
   );
 }
 
 // ---------------------------------------------------------------------------
-// Users tab
+// Users section
 // ---------------------------------------------------------------------------
 
+/** One open inline confirm, shown under the row it concerns. */
 interface ConfirmState {
+  userId: number;
   message: string;
-  onConfirm: () => void;
-  /** The row kebab that opened the menu item; it outlives the menu. */
+  actionLabel: string;
+  /** Opens the transfer dialog instead of running a request (a user who owns boards). */
+  onConfirm: () => void | Promise<void>;
+  /** The control that opened the confirm; it outlives a menu item, so focus goes back to it. */
   returnFocusTo: HTMLElement | null;
 }
 
-function UsersTab({ currentUser }: { currentUser: User }) {
+function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
+  currentUser: User;
+  onTotal: (n: number) => void;
+  onOpenEmailSettings: () => void;
+}) {
+  const isPhone = useIsPhoneViewport();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
+  const [searched, setSearched] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [offboardingUser, setOffboardingUser] = useState<AdminUser | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -1061,6 +974,12 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     };
   }, []);
 
+  // Escape cancels an open inline confirm before the page-level Escape-to-navigate handler (#1238).
+  useEscapeStack(() => {
+    if (confirm) { closeConfirm(); return; }
+    return false;
+  }, 40);
+
   const fetchUsers = useCallback(
     async (searchVal: string, offsetVal: number) => {
       setLoading(true);
@@ -1069,6 +988,9 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal });
         setUsers(data.results);
         setTotal(data.count);
+        setSearched(searchVal);
+        // The nav count is the site's total users, not a search's matches.
+        if (!searchVal) onTotal(data.count);
         // Use the server-returned page_size so pagination controls stay in sync
         // even if the server-side default changes.
         setPageSize(data.page_size);
@@ -1078,7 +1000,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         setLoading(false);
       }
     },
-    []
+    [onTotal]
   );
 
   useEffect(() => {
@@ -1098,6 +1020,13 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     debounceRef.current = setTimeout(() => fetchUsers(val, 0), 400);
   };
 
+  const closeConfirm = () => {
+    const target = confirm?.returnFocusTo;
+    setConfirm(null);
+    // Return focus to the control that opened the confirm (#1367); a menu item is gone, its kebab is not.
+    if (target) setTimeout(() => { if (target.isConnected) target.focus(); }, 0);
+  };
+
   const applyPatch = async (
     userId: number,
     patch: Partial<Pick<AdminUser, "is_active" | "is_site_admin" | "can_access_all_content" | "must_change_password" | "has_completed_tour">>
@@ -1112,19 +1041,22 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     }
   };
 
-  const confirmAndRun = (message: string, fn: () => Promise<void>) => {
-    // Row actions are chosen from a portaled menu whose items unmount on
-    // select, so the focused opener is gone by the time the dialog closes.
-    // Resolve the menu's trigger (aria-controls -> menu id) while it is open.
-    const menuId = document.activeElement?.closest('[role="menu"]')?.id;
+  const confirmAndRun = (user: AdminUser, message: string, actionLabel: string, fn: () => void | Promise<void>) => {
+    // Row actions in the menu unmount on select, so the focused opener is gone by the time the
+    // confirm closes. Resolve the menu's trigger (aria-controls -> menu id) while it is open;
+    // an inline button is its own trigger.
+    const active = document.activeElement as HTMLElement | null;
+    const menuId = active?.closest('[role="menu"]')?.id;
     const returnFocusTo = menuId
       ? Array.from(document.querySelectorAll<HTMLElement>("[aria-controls]")).find(
           (el) => el.getAttribute("aria-controls") === menuId,
         ) ?? null
-      : null;
+      : active;
     setConfirm({
+      userId: user.id,
       returnFocusTo,
       message,
+      actionLabel,
       onConfirm: async () => {
         setConfirm(null);
         await fn();
@@ -1132,14 +1064,24 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     });
   };
 
+  const nameOf = (u: AdminUser) => u.display_name || u.username;
+
   const handleDeactivate = (user: AdminUser) => {
     if (user.owned_boards.length > 0) {
-      // User owns boards — show the offboarding modal to collect transfer targets.
-      setOffboardingUser(user);
+      // A user who owns boards: the confirm explains and opens the transfer dialog to collect targets.
+      const n = user.owned_boards.length;
+      confirmAndRun(
+        user,
+        `${nameOf(user)} owns ${n} ${n === 1 ? "board" : "boards"}. Choose a new owner for each before deactivating.`,
+        "Transfer boards…",
+        () => setOffboardingUser(user),
+      );
       return;
     }
     confirmAndRun(
-      `Deactivate ${user.display_name || user.username}? They will no longer be able to log in.`,
+      user,
+      `Deactivate ${nameOf(user)}? They will no longer be able to log in.`,
+      "Deactivate",
       async () => {
         setActionError(null);
         try {
@@ -1153,23 +1095,38 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     );
   };
 
+  const handleMakeAdmin = (user: AdminUser) => {
+    confirmAndRun(
+      user,
+      `Grant site admin to ${nameOf(user)}? They will have full access to this admin panel.`,
+      "Make admin",
+      () => applyPatch(user.id, { is_site_admin: true })
+    );
+  };
+
   const handleDemote = (user: AdminUser) => {
     confirmAndRun(
-      `Remove site admin role from ${user.display_name || user.username}?`,
+      user,
+      `Remove site admin role from ${nameOf(user)}?`,
+      "Demote admin",
       () => applyPatch(user.id, { is_site_admin: false })
     );
   };
 
   const handleGrantContentAccess = (user: AdminUser) => {
     confirmAndRun(
-      `Grant "${user.display_name || user.username}" access to all boards and groups regardless of membership?`,
+      user,
+      `Grant "${nameOf(user)}" access to all boards and groups regardless of membership?`,
+      "Grant access",
       () => applyPatch(user.id, { can_access_all_content: true })
     );
   };
 
   const handleClearLockout = (user: AdminUser) => {
     confirmAndRun(
-      `Clear the login lockout for ${user.display_name || user.username}? They will be able to log in immediately, even if they are currently locked out.`,
+      user,
+      `Clear the login lockout for ${nameOf(user)}? They will be able to log in immediately, even if they are currently locked out.`,
+      "Clear lockout",
       async () => {
         setActionError(null);
         try {
@@ -1185,7 +1142,9 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 
   const handleRevokeContentAccess = (user: AdminUser) => {
     confirmAndRun(
-      `Revoke all-content access from ${user.display_name || user.username}? They will only see boards they are a member of.`,
+      user,
+      `Revoke all-content access from ${nameOf(user)}? They will only see boards they are a member of.`,
+      "Revoke access",
       () => applyPatch(user.id, { can_access_all_content: false })
     );
   };
@@ -1199,7 +1158,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       const updated = await patchAdminUser(user.id, { has_completed_tour: false });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
       setActionMessage(
-        `Tour will restart for ${user.display_name || user.username} on their next visit to a board.`
+        `Tour will restart for ${nameOf(user)} on their next visit to a board.`
       );
       if (actionMessageTimerRef.current) clearTimeout(actionMessageTimerRef.current);
       actionMessageTimerRef.current = setTimeout(() => {
@@ -1232,12 +1191,30 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const isSuperuserOnlyRow = (u: AdminUser) =>
     u.is_superuser && actorIsKnownNonSuperuser;
 
-  // Low-frequency support actions live in the row's OverflowMenu (#1291) —
-  // only Deactivate/Reactivate and Make/Demote admin stay inline. Built per
-  // row rather than memoized: the row set already re-renders on every users
-  // update, and these arrays are cheap (at most 4 items).
+  // The two highest-frequency actions (#1291) stay on the row on wider screens; on a phone they
+  // move into the row's ⋯ menu with the rest, so nothing sits beside the row.
+  const canToggleActive = (u: AdminUser) => u.id !== currentUser.id && !isSuperuserOnlyRow(u);
+  // Demote is omitted on a superuser row: superuser status implies site admin and the API
+  // refuses to clear it, so the action is context-gated out.
+  const canToggleAdmin = (u: AdminUser) => u.id !== currentUser.id && !(u.is_site_admin && u.is_superuser);
+
   const buildOverflowItems = (u: AdminUser): OverflowItem[] => {
     const items: OverflowItem[] = [];
+
+    if (isPhone) {
+      if (canToggleAdmin(u)) {
+        items.push(u.is_site_admin
+          ? { id: "demote-admin", label: "Demote admin", onSelect: () => handleDemote(u) }
+          : { id: "make-admin", label: "Make admin", onSelect: () => handleMakeAdmin(u) });
+      }
+      if (canToggleActive(u)) {
+        items.push(u.is_active
+          ? u.owned_boards.length > 0
+            ? { id: "deactivate", label: "Transfer boards and deactivate…", onSelect: () => handleDeactivate(u), danger: true }
+            : { id: "deactivate", label: "Deactivate", onSelect: () => handleDeactivate(u), danger: true }
+          : { id: "reactivate", label: "Reactivate", onSelect: () => void applyPatch(u.id, { is_active: true }) });
+      }
+    }
 
     if (!isSuperuserOnlyRow(u)) {
       // Superuser status implies all-content access and the API refuses to
@@ -1267,7 +1244,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
       if (!u.must_change_password) {
         items.push({
           id: "force-reset",
-          label: "Force reset",
+          label: "Force password reset",
           onSelect: () => applyPatch(u.id, { must_change_password: true }),
         });
       }
@@ -1296,68 +1273,82 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   };
 
   const totalPages = Math.ceil(total / pageSize);
-  const currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1;
+  const first = total === 0 ? 0 : offset + 1;
+  const last = Math.min(offset + users.length, total);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-fg text-lg font-semibold">Users</h2>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
-        >
-          + Add User
-        </button>
-      </div>
-
-      <input
-        type="search"
-        value={search}
-        onChange={handleSearchChange}
-        placeholder="Search by name, email, or username…"
-        className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted max-w-md"
+    <>
+      <PageHeading
+        title="Users"
+        description="Add people, change roles, and deactivate accounts."
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddModal(true)}>Add user</Button>
+            <Button variant="primary" onClick={() => setShowInvite((v) => !v)} aria-expanded={showInvite}>Invite people</Button>
+          </>
+        }
       />
 
-      {actionError && (
-        <p className="text-sm text-danger">{actionError}</p>
+      {showInvite && (
+        <SettingsCard title="Invite people">
+          <div className="max-w-lg">
+            <EmailInviteForm
+              surface="site"
+              send={sendAdminInviteEmail}
+              onOpenEmailSettings={onOpenEmailSettings}
+            />
+          </div>
+        </SettingsCard>
       )}
-      {actionMessage && (
-        <p className="text-sm text-success">{actionMessage}</p>
-      )}
+
+      <div>
+        <label htmlFor="admin-user-search" className="sr-only">Search users</label>
+        <input
+          id="admin-user-search"
+          type="search"
+          value={search}
+          onChange={handleSearchChange}
+          placeholder="Search by name, email or username"
+          className="w-full max-w-md h-9 max-sm:h-11 bg-surface border border-line-strong text-fg placeholder-fg-muted rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        />
+      </div>
+
+      <div role="status" aria-live="polite">
+        {actionError && <p className="text-sm text-danger">{actionError}</p>}
+        {actionMessage && <p className="text-sm text-success">{actionMessage}</p>}
+      </div>
 
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-danger text-sm">{error}</div>
+        <LoadError message={error} onRetry={() => void fetchUsers(search, offset)} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-line">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface text-fg-tertiary text-xs uppercase tracking-wide">
-                  <th className="text-left px-4 py-2.5 font-medium">User</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Email</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Joined</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Status</th>
-                  <th className="text-left px-4 py-2.5 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr
-                    key={u.id}
-                    className="border-t border-line-subtle hover:bg-surface/50 transition"
-                  >
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <Avatar user={u} size="sm" />
-                        <div>
+          {users.length === 0 ? (
+            <EmptyState
+              title={searched ? `No users match "${searched}".` : "No users found."}
+              description={searched ? "Check the spelling, or clear the filter." : undefined}
+              headingLevel="h3"
+            />
+          ) : (
+            <ListWell as="ul" label="Users">
+              {users.map((u) => {
+                const isYou = u.id === currentUser.id;
+                return (
+                  <li key={u.id}>
+                    <ListRow as="div">
+                      <Avatar user={u} size="sm" />
+                      <div className="min-w-0 flex-1 flex flex-col md:flex-row md:items-center md:gap-4">
+                        <div className="min-w-0 md:w-72">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-fg">
+                            <span className="text-fg font-medium">
                               {u.display_name || u.first_name || u.username}
                             </span>
+                            {isYou && (
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-surface-hover text-fg-secondary">You</span>
+                            )}
                             {u.is_site_admin && (
-                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary-emphasis/20 text-info">
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-primary-emphasis/20 text-info-on-tint">
                                 Admin
                               </span>
                             )}
@@ -1377,130 +1368,93 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-fg-muted">@{u.username}</span>
+                          <span className="text-xs text-fg-secondary">@{u.username}</span>
                         </div>
+                        <span className="min-w-0 truncate text-fg-secondary md:flex-1" title={u.email}>{u.email}</span>
+                        <span className="text-xs text-fg-secondary md:w-28">{formatDate(u.date_joined)}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-fg-secondary">{u.email}</td>
-                    <td className="px-4 py-2.5 text-fg-muted">{formatDate(u.date_joined)}</td>
-                    <td className="px-4 py-2.5">
-                      {u.is_active ? (
-                        <span className="text-success text-xs">Active</span>
-                      ) : (
-                        <span className="text-fg-muted text-xs">Inactive</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        {/* Deactivate / Reactivate — kept inline as the
-                            highest-frequency row action (#1291). */}
-                        {u.id !== currentUser.id && !isSuperuserOnlyRow(u) && (
-                          u.is_active ? (
-                            <button
-                              onClick={() => handleDeactivate(u)}
-                              className="text-xs text-fg-tertiary hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                            >
-                              Deactivate
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => applyPatch(u.id, { is_active: true })}
-                              className="text-xs text-fg-tertiary hover:text-success transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                            >
-                              Reactivate
-                            </button>
-                          )
+                      {u.is_active ? <StatusPill tone="on_track" label="Active" /> : <StatusPill tone="at_risk" label="Deactivated" />}
+                      <div className="flex items-center gap-1">
+                        {!isPhone && (
+                          <>
+                            {/* Deactivate / Reactivate and Make / Demote admin stay on the row (#1291). */}
+                            {canToggleActive(u) && (
+                              u.is_active ? (
+                                <Button variant="quiet" onClick={() => handleDeactivate(u)}>
+                                  Deactivate
+                                </Button>
+                              ) : (
+                                <Button variant="quiet" onClick={() => void applyPatch(u.id, { is_active: true })}>
+                                  Reactivate
+                                </Button>
+                              )
+                            )}
+                            {canToggleAdmin(u) && (
+                              u.is_site_admin ? (
+                                <Button variant="quiet" onClick={() => handleDemote(u)}>
+                                  Demote admin
+                                </Button>
+                              ) : (
+                                <Button variant="quiet" onClick={() => handleMakeAdmin(u)}>
+                                  Make admin
+                                </Button>
+                              )
+                            )}
+                          </>
                         )}
-
-                        {/* Promote / Demote site admin — kept inline as the
-                            second highest-frequency row action (#1291).
-                            Demote is omitted on a superuser row: superuser
-                            status implies site admin and the API refuses to
-                            clear it, so the action is context-gated out. */}
-                        {u.id !== currentUser.id && (
-                          u.is_site_admin ? (
-                            !u.is_superuser && <button
-                              onClick={() => handleDemote(u)}
-                              className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                            >
-                              Demote admin
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => confirmAndRun(
-                                `Grant site admin to ${u.display_name || u.username}? They will have full access to this admin panel.`,
-                                () => applyPatch(u.id, { is_site_admin: true })
-                              )}
-                              className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-                            >
-                              Make admin
-                            </button>
-                          )
-                        )}
-
-                        {/* Low-frequency support actions (Grant/Revoke
-                            all-content, Force reset, Clear lockout, Restart
-                            onboarding tour) live behind this overflow menu
-                            rather than as inline text buttons (#1291) — with
-                            #1280's tour-restart action added, up to six
-                            conditional buttons no longer fit a no-wrap row on
-                            narrow viewports. OverflowMenu itself renders
-                            nothing when a row has no applicable actions, which
-                            is a superuser row seen by a site admin once the
-                            tour has nothing to restart (#1644). */}
                         {isSuperuserOnlyRow(u) && (
                           <span
                             id={`superuser-row-note-${u.id}`}
-                            className="text-xs text-fg-tertiary max-w-xs"
+                            className="text-xs text-fg-secondary max-w-xs"
                           >
                             Only a superuser can change this account's access or sign-in.
                           </span>
                         )}
+                        {/* The support actions live behind this menu (#1291). OverflowMenu renders
+                            nothing when a row has no applicable actions (#1644). */}
                         <OverflowMenu
                           items={buildOverflowItems(u)}
-                          ariaLabel={`More actions for ${u.display_name || u.username}`}
+                          ariaLabel={`More actions for ${nameOf(u)}`}
                           triggerDescribedBy={
                             isSuperuserOnlyRow(u) ? `superuser-row-note-${u.id}` : undefined
                           }
                         />
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-fg-muted">
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </ListRow>
+                    {confirm?.userId === u.id && (
+                      <div className="px-3 pb-2">
+                        <InlineConfirm
+                          message={confirm.message}
+                          actionLabel={confirm.actionLabel}
+                          onConfirm={() => void confirm.onConfirm()}
+                          onCancel={closeConfirm}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ListWell>
+          )}
 
-          <div className="flex items-center justify-between text-sm text-fg-tertiary">
-            <span>{total} {total === 1 ? "user" : "users"}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-fg-secondary">
+            <span>Showing {first}–{last} of {total}</span>
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="quiet"
                   onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
                   disabled={offset === 0}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
                 >
-                  ← Prev
-                </button>
-                <span className="text-xs">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  type="button"
+                  Previous
+                </Button>
+                <Button
+                  variant="quiet"
                   onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
-                  disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
+                  disabled={offset + pageSize >= total}
                 >
-                  Next →
-                </button>
+                  Next
+                </Button>
               </div>
             )}
           </div>
@@ -1512,18 +1466,10 @@ function UsersTab({ currentUser }: { currentUser: User }) {
           onCreated={(newUser) => {
             setUsers((prev) => [newUser, ...prev]);
             setTotal((t) => t + 1);
+            onTotal(total + 1);
             setShowAddModal(false);
           }}
           onClose={() => setShowAddModal(false)}
-        />
-      )}
-
-      {confirm && (
-        <ConfirmDialog
-          message={confirm.message}
-          returnFocusTo={confirm.returnFocusTo}
-          onConfirm={confirm.onConfirm}
-          onCancel={() => setConfirm(null)}
         />
       )}
 
@@ -1537,7 +1483,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
           onClose={() => setOffboardingUser(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -1545,21 +1491,23 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 // AdminPage
 // ---------------------------------------------------------------------------
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "settings", label: "Settings" },
-  { id: "users", label: "Users" },
-  { id: "invite_links", label: "Invite Links" },
-  { id: "board_invites", label: "Board Invites" },
-];
-
 export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   const navigate = useNavigate();
-  // `?tab=users` deep-links a tab (the board Members panel links to Users, #1301).
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>(() => {
-    const requested = TABS.find((t) => t.id === searchParams.get("tab"));
-    return requested ? requested.id : "settings";
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Nav counts: Users = total, Invite links = active links, Board invites = pending. Each starts
+  // unknown and is filled by one load here, then kept current by the section that owns it.
+  const [counts, setCounts] = useState<{ users?: number; links?: number; boardInvites?: number }>({});
+  const setUsersCount = useCallback((n: number) => setCounts((c) => (c.users === n ? c : { ...c, users: n })), []);
+  const setLinksCount = useCallback((n: number) => setCounts((c) => (c.links === n ? c : { ...c, links: n })), []);
+
+  // The pre-#2476 "Settings" tab id (`?tab=settings`) is now General.
+  useEffect(() => {
+    if (searchParams.get("tab") === "settings") {
+      const next = new URLSearchParams(searchParams);
+      next.set("tab", "general");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEscapeStack(() => {
     const tag = (document.activeElement as HTMLElement)?.tagName;
@@ -1578,46 +1526,79 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
     }
   }, [user.is_site_admin, navigate]);
 
+  // Counts for the sections the visitor has not opened yet (the open one reports its own).
+  useEffect(() => {
+    if (!user.is_site_admin) return;
+    let live = true;
+    const quiet = <T,>(p: Promise<T> | undefined, apply: (v: T) => void) => {
+      void Promise.resolve(p).then((v) => { if (live && v) apply(v); }).catch(() => { /* a missing count just stays hidden */ });
+    };
+    quiet(getAdminUsers({ offset: 0 }), (d) => setUsersCount(d.count));
+    quiet(getAdminInviteLinksPage(), (d) => setLinksCount(d.links.filter((l) => l.status === "pending").length));
+    quiet(getAdminBoardInviteLinks({ status: "pending", offset: 0 }), (d) => setCounts((c) => ({ ...c, boardInvites: d.count })));
+    return () => { live = false; };
+  }, [user.is_site_admin, setUsersCount, setLinksCount]);
+
   if (!user.is_site_admin) return null;
+
+  const openEmailSettings = () => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "email");
+    setSearchParams(next);
+  };
+
+  const sections: SettingsSection[] = [
+    {
+      id: "general",
+      label: "General",
+      group: "Instance",
+      keywords: ["registration", "uploads", "maintenance", "maintenance mode", "file uploads", "notice"],
+      render: () => <GeneralSection />,
+    },
+    {
+      id: "email",
+      label: "Email",
+      group: "Instance",
+      keywords: ["smtp", "mail", "host", "port", "encryption", "from address", "test email"],
+      render: () => <EmailSettingsSection currentUser={user} />,
+    },
+    {
+      id: "users",
+      label: "Users",
+      group: "People",
+      count: counts.users,
+      keywords: ["accounts", "admins", "deactivate", "password", "lockout", "add user", "invite people"],
+      render: () => <UsersSection currentUser={user} onTotal={setUsersCount} onOpenEmailSettings={openEmailSettings} />,
+    },
+    {
+      id: "invite_links",
+      label: "Invite links",
+      group: "People",
+      count: counts.links,
+      keywords: ["join", "share", "link", "expires", "single-use"],
+      render: () => <InviteLinksSection onActiveCount={setLinksCount} />,
+    },
+    {
+      id: "board_invites",
+      label: "Board invites",
+      group: "People",
+      count: counts.boardInvites,
+      keywords: ["board", "revoke", "pending"],
+      render: () => <BoardInvitesTab />,
+    },
+  ];
 
   return (
     <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Administration" }]} />
 
-      <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-        <h1 className="text-fg text-2xl font-bold mb-8">Site Administration</h1>
-
-        <div className="flex gap-8">
-          {/* Sidebar nav */}
-          <nav className="w-44 shrink-0">
-            <ul className="flex flex-col gap-0.5">
-              {TABS.map((tab) => (
-                <li key={tab.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    aria-current={activeTab === tab.id ? "page" : undefined}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                      activeTab === tab.id
-                        ? "bg-primary text-on-primary font-medium"
-                        : "text-fg-tertiary hover:text-fg hover:bg-surface"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {activeTab === "settings" && <SettingsTab currentUser={user} />}
-            {activeTab === "users" && <UsersTab currentUser={user} />}
-            {activeTab === "invite_links" && <InviteLinksTab onOpenEmailSettings={() => setActiveTab("settings")} />}
-            {activeTab === "board_invites" && <BoardInvitesTab />}
-          </div>
-        </div>
+      <main className="flex-1 overflow-y-auto">
+        {/* h2 under the app shell, whose header owns the h1 (#2473). */}
+        <SettingsLayout
+          title={<PageHeading title="Site administration" description="Manage this instance and the people who use it." />}
+          sections={sections}
+          navLabel="Site administration sections"
+        />
       </main>
     </div>
   );
