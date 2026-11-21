@@ -37,7 +37,7 @@ vi.mock('../api/cards', () => ({
   // Children tab (#2209): read when the card is on a parent-tier board.
   getCardChildren: vi.fn().mockResolvedValue({ count: 2, visible: false, offset: 0, limit: 50, results: [] }),
   getChildBoardOptions: vi.fn().mockResolvedValue({ fixed_board: null, default: null, can_set_default: false, boards: [] }),
-  getChildCandidates: vi.fn().mockResolvedValue({ results: [] }),
+  getChildCandidates: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../api/boards', () => ({

@@ -235,7 +235,9 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         </div>
       );
     }
-    if (data && !data.visible) {
+    // Count 0 (every child archived) falls through to the ordinary no-children state, so a
+    // hidden board's former links are not disclosed.
+    if (data && !data.visible && data.count > 0) {
       // Accepted disclosure (#1104 sign-off 2026-11-17): the number only, nothing else.
       return <p className="text-sm text-fg-muted" data-testid="children-hidden">{data.count} {data.count === 1 ? "child" : "children"} on a board you can&apos;t open</p>;
     }

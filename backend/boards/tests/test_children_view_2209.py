@@ -76,6 +76,17 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertFalse(body["visible"])
         self.assertEqual(body["count"], 1)
 
+    def test_hidden_count_is_zero_when_every_child_is_archived(self):
+        # The count is the only disclosure on a hidden board. Zero must stay a plain 0 (the UI
+        # then shows the ordinary no-children state), never an error or a board field.
+        Card.objects.filter(pk=self.child.pk).update(archived_at=timezone.now())
+        u = self._user("cv_hidzero", parent_role=Role.MEMBER)
+        body = self._client(u).get(self.url).json()
+        self.assertFalse(body["visible"])
+        self.assertEqual(body["count"], 0)
+        self.assertEqual(body["results"], [])
+        self.assertNotIn("board", body)
+
     def test_hidden_read_still_carries_no_board(self):
         u = self._user("cv_ponly", parent_role=Role.MEMBER)
         res = self._client(u).get(self.url)

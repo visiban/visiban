@@ -66,9 +66,14 @@ export function useCardChildren(boardId: number, cardId: number, enabled: boolea
   return { data, error, loading, reload };
 }
 
-/** The tab's count: visible, unarchived children; a hidden board's count as the server gives it. */
+/**
+ * The tab's count: visible, unarchived children; a hidden board's count as the server gives it.
+ * Zero is left out like an unknown count: a hidden board whose children are all archived reports
+ * 0, and a "Children, 0" chip would tell the viewer a child board was once linked.
+ */
 export function childrenCount(d: CardChildrenRead | null): number | undefined {
   if (!d) return undefined;
-  return d.visible ? d.results.length : d.count;
+  const n = d.visible ? d.results.length : d.count;
+  return n > 0 ? n : undefined;
 }
 

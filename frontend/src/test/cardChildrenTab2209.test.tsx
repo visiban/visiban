@@ -78,6 +78,13 @@ describe('CardChildrenTab states (#2209)', () => {
     expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument()
   })
 
+  it('a hidden board with count 0 renders the ordinary no-children state, not a count', () => {
+    renderTab(state({ data: { count: 0, visible: false, offset: 0, limit: 50, results: [] } }))
+    expect(screen.queryByTestId('children-hidden')).not.toBeInTheDocument()
+    expect(screen.queryByText(/on a board you can't open/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('children-empty')).toBeInTheDocument()
+  })
+
   it('empty: offers Add child and Link existing to a member, nothing to a viewer', () => {
     const empty = { count: 0, visible: true, offset: 0, limit: 50, results: [] }
     const { rerender } = renderTab(state({ data: empty }))
@@ -321,6 +328,9 @@ describe('useCardChildren (#2209)', () => {
     expect(childrenCount(result.current.data)).toBe(2)
     expect(childrenCount({ count: 4, visible: false, offset: 0, limit: 50, results: [] })).toBe(4)
     expect(childrenCount(null)).toBeUndefined()
+    // Zero never becomes a "Children, 0" chip, hidden board or not.
+    expect(childrenCount({ count: 0, visible: false, offset: 0, limit: 50, results: [] })).toBeUndefined()
+    expect(childrenCount({ count: 0, visible: true, offset: 0, limit: 50, results: [] })).toBeUndefined()
 
     vi.mocked(getCardChildren).mockRejectedValueOnce(new Error('x'))
     act(() => result.current.reload())
