@@ -69,6 +69,24 @@ for (const theme of ['light', 'dark'] as const) {
   })
 }
 
+test.describe('?settings=rules deep link', () => {
+  // A fresh page load (not the in-app navigation above, where the Rules tab is
+  // already selected) must itself open Board settings on Rules & limits.
+  test('a fresh load of /boards/12?settings=rules opens the Rules tab and strips the param', async ({ page }) => {
+    await routeAuth(page)
+    await routeBoard(page, OTHER_BOARD)
+    await page.route(`**/api/v1/boards/12/children-setting-blockers/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ child_cards: 0, parent_cards: 0, default_of: [] }) }))
+    await page.route(`**/api/v1/boards/12/default-child-board-options/`, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ boards: [] }) }))
+    await page.goto('/boards/12?settings=rules')
+    const dialog = page.getByRole('dialog', { name: 'Board settings' })
+    await expect(dialog).toBeVisible({ timeout: 10_000 })
+    await expect(dialog.getByRole('tab', { name: /^Rules & limits/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page).not.toHaveURL(/settings=/)
+  })
+})
+
 test.describe('child board settings at 390px', () => {
   test.use({ viewport: { width: 390, height: 844 } })
   test('the reason link is a 44px target and the page does not scroll sideways', async ({ page }) => {
