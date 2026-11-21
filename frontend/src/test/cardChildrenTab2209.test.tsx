@@ -151,9 +151,26 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Move Contract' }))
     await userEvent.click(screen.getByRole('radio', { name: 'To do' }))
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    await waitFor(() => expect(screen.getByText('Doing is at its WIP limit.')).toBeInTheDocument())
+    await waitFor(() => expect(within(screen.getByRole('dialog', { name: 'Move Contract' })).getByText('Doing is at its WIP limit.')).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Close move' }))
     await waitFor(() => expect(screen.getByRole('link', { name: /^Contract/ })).toHaveFocus())
+  })
+
+  it('a child-board member who only views the parent board can Move but not Unlink or add', () => {
+    renderTab(state({ data: read(kids, 'site_admin') }), vi.fn(), { ...parentBoard, current_user_role: 'viewer' as never })
+    expect(screen.getByRole('button', { name: 'Move Kickoff' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Unlink child/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add child' })).not.toBeInTheDocument()
+  })
+
+  it('keeps Add child live while loading, and flags a failed refresh over stale data', async () => {
+    const { rerender } = renderTab(state({ loading: true }))
+    expect(screen.getByRole('button', { name: 'Add child' })).toBeInTheDocument()
+    const reload = vi.fn()
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids), error: true, reload })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByText("Couldn't refresh the children.")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(reload).toHaveBeenCalled()
   })
 
   it('unlinks a child from the parent end', async () => {
@@ -165,10 +182,12 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     await waitFor(() => expect(reload).toHaveBeenCalled())
   })
 
-  it('a viewer on the child board gets no Move and no Unlink, but the cards stay navigable', () => {
+  it('a viewer on the child board gets no Move, but a parent member keeps Unlink; the cards stay navigable', () => {
     renderTab(state({ data: read(kids, 'viewer') }))
     expect(screen.queryByRole('button', { name: /^Move / })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Unlink child/ })).not.toBeInTheDocument()
+    // Parent-side unlink needs member on the parent board and any role on the child board (#1104).
+    expect(screen.getByRole('button', { name: 'Unlink child Kickoff' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add child' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveAttribute('href', '/boards/7?card=11')
   })
@@ -273,7 +292,7 @@ describe('useCardChildren (#2209)', () => {
       .mockResolvedValueOnce({ ...read([row({ id: 3 })]), count: 3, offset: 2 })
     const { result } = renderHook(() => useCardChildren(1, 5, true))
     await waitFor(() => expect(result.current.data).not.toBeNull())
-    expect(getCardChildren).toHaveBeenLastCalledWith(1, 5, 2)
+    expect(getCardChildren).toHaveBeenLastCalledWith(1, 5, 2, expect.anything())
     expect(result.current.data!.results.map((r) => r.id)).toEqual([1, 3])
     expect(childrenCount(result.current.data)).toBe(2)
     expect(childrenCount({ count: 4, visible: false, offset: 0, limit: 50, results: [] })).toBe(4)

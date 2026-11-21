@@ -42,21 +42,25 @@ export function useCardChildren(boardId: number, cardId: number, enabled: boolea
   const [n, setN] = useState(0);
   useEffect(() => {
     if (!enabled) return;
-    let live = true;
-    setLoading(true);
+    // Aborted on every re-run, so overlapping refreshes never pile up (perf-check).
+    const controller = new AbortController();
+    const { signal } = controller;
+    // Stale-while-revalidate: only a first read shows the skeleton.
+    setLoading((was) => was || data === null);
     (async () => {
-      const first = await getCardChildren(boardId, cardId);
+      const first = await getCardChildren(boardId, cardId, 0, signal);
       const rows = [...first.results];
-      while (first.visible && rows.length < first.count && rows.length > 0) {
-        const page = await getCardChildren(boardId, cardId, rows.length);
+      while (first.visible && rows.length < first.count && rows.length > 0 && !signal.aborted) {
+        const page = await getCardChildren(boardId, cardId, rows.length, signal);
         if (page.results.length === 0) break;
         rows.push(...page.results);
       }
       return { ...first, results: rows.filter((r) => !r.archived) };
     })()
-      .then((d) => { if (live) { setData(d); setError(false); setLoading(false); } })
-      .catch(() => { if (live) { setError(true); setLoading(false); } });
-    return () => { live = false; };
+      .then((d) => { if (!signal.aborted) { setData(d); setError(false); setLoading(false); } })
+      .catch(() => { if (!signal.aborted) { setError(true); setLoading(false); } });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `data` only decides whether to show the skeleton; re-reading on it would loop
   }, [boardId, cardId, enabled, n, refreshSignal]);
   const reload = useCallback(() => setN((x) => x + 1), []);
   return { data, error, loading, reload };

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import axios from "axios";
 import { getChildBoardOptions, moveCard, unlinkCardChild } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import { isImeComposing } from "../../utils/imeComposition";
@@ -53,7 +54,11 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
   const [activeId, setActiveId] = useState<number | null>(null);
   const [shownColumnId, setShownColumnId] = useState<number | null>(null);
   const [moving, setMoving] = useState<CardChildRow | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // After a write unmounts the focused control, focus goes back to the card (or Add child) once the re-read lands.
+  const pendingFocus = useRef<number | "add" | null>(null);
+  const tgt = wide ? "" : "min-h-11";
 
   useLayoutEffect(() => {
     const el = rootRef.current;
@@ -109,6 +114,8 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
     try {
       await unlinkCardChild(board.id, cardId, child.id);
       setAnnouncement(`Unlinked ${child.title}.`);
+      const list = byColumn(child.column_id).filter((c) => c.id !== child.id);
+      pendingFocus.current = list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add";
       reload();
     } catch {
       setActionError(`Couldn't unlink ${child.title}. Try again.`);
@@ -117,7 +124,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
 
   const move = async (child: CardChildRow, col: CardChildrenColumn) => {
     if (!childBoard) return;
-    setActionError(null);
+    setMoveError(null);
     try {
       await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count });
       const doneAfter = counts.done
@@ -126,10 +133,12 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
       setAnnouncement(`${child.title} moved to ${col.name}. ${doneLine(doneAfter)}.`);
       setMoving(null);
       setActiveId(child.id);
+      pendingFocus.current = child.id;
+      focusCard(child.id);
       reload();
     } catch (err) {
       const detail = axios.isAxiosError(err) ? (err.response?.data as { detail?: unknown } | undefined)?.detail : undefined;
-      setActionError(typeof detail === "string" ? detail : `Couldn't move ${child.title}. Try again.`);
+      setMoveError(typeof detail === "string" ? detail : `Couldn't move ${child.title}. Try again.`);
     }
   };
 
@@ -163,6 +172,15 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
     ? activeId
     : shownColumns.flatMap((c) => byColumn(c.id))[0]?.id ?? null;
 
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null || !data) return;
+    pendingFocus.current = null;
+    if (target === "add") addRef.current?.focus();
+    else focusCard(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per re-read; focusCard is recreated every render
+  }, [data]);
+
   const onColumnButtonsKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
@@ -178,7 +196,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
         ref={addRef}
         type="button"
         onClick={() => setAdding(true)}
-        className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Add child" : `Add child${boardName ? ` to ${boardName}` : ""}`}
       </button>
@@ -186,7 +204,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
         ref={linkRef}
         type="button"
         onClick={() => void openLinkExisting()}
-        className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Link existing" : "Link existing card"}
       </button>
@@ -196,10 +214,13 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
   const body = (() => {
     if (loading && !data) {
       return (
+        <div className="flex flex-col gap-3">
+        {actions}
         <div role="status" aria-label="Loading children" className="flex flex-col gap-3" data-testid="children-skeleton">
           <div className="h-5 w-40 rounded bg-surface-hover" />
           <div className="h-2 w-full rounded bg-surface-hover" />
           <div className="flex gap-2">{[0, 1, 2, 3].map((i) => <div key={i} className="h-8 flex-1 rounded bg-surface-hover" />)}</div>
+        </div>
         </div>
       );
     }
@@ -208,7 +229,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
         <div role="alert" className="flex flex-col gap-2 items-start">
           <p className="text-sm font-medium text-fg">The children didn&apos;t load</p>
           <p className="text-xs text-fg-muted">Check your connection and try again. The rollup on the card face stays as last known.</p>
-          <button type="button" onClick={reload} className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Try again</button>
+          <button type="button" onClick={reload} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
         </div>
       );
     }
@@ -258,7 +279,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-2 flex-wrap">
             <h4 className="text-sm font-semibold text-fg">{boardName} board · this card&apos;s {total} {total === 1 ? "child" : "children"}</h4>
-            <a href={`/boards/${childBoard?.id}`} className="min-h-11 sm:min-h-0 inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Open on {boardName}</a>
+            <a href={`/boards/${childBoard?.id}`} className={`${tgt} inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Open on {boardName}</a>
           </div>
           <p className="text-xs text-fg-muted">A filtered view of {boardName}. Columns, limits and history are {boardName}&apos;s own.</p>
         </div>
@@ -327,18 +348,18 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
                           tabIndex={child.id === rovingId ? 0 : -1}
                           aria-label={`Move ${child.title}`}
                           onClick={() => setMoving(child)}
-                          className="min-h-11 sm:min-h-0 px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className={`${tgt} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
                         >
                           Move
                         </button>
                       )}
-                      {canLinkHere && canMove && (
+                      {canLinkHere && data?.visible && (
                         <button
                           type="button"
                           tabIndex={child.id === rovingId ? 0 : -1}
                           aria-label={`Unlink child ${child.title}`}
                           onClick={() => void unlink(child)}
-                          className="min-h-11 sm:min-h-0 px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                          className={`${tgt} px-2 py-0.5 text-xs text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
                         >
                           Unlink
                         </button>
@@ -352,7 +373,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
         </div>
 
         {hiddenOthers > 0 && <p className="text-xs text-fg-muted">{hiddenOthers} other {hiddenOthers === 1 ? "card" : "cards"} on {boardName} {hiddenOthers === 1 ? "is" : "are"} hidden by this view.</p>}
-        <p className="text-xs text-fg-tertiary">Arrows move between cards · Enter open on {boardName} · Esc back</p>
+        <p className="text-xs text-fg-muted">Arrows move between cards · Enter open on {boardName} · Esc back</p>
       </div>
     );
   })();
@@ -360,6 +381,12 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
   return (
     <div ref={rootRef} className="flex flex-col gap-4" data-testid="card-children-tab">
       {body}
+      {error && data && (
+        <div role="alert" className="flex items-center gap-2 text-xs text-danger">
+          <span>Couldn&apos;t refresh the children.</span>
+          <button type="button" onClick={reload} className={`${tgt} px-2 text-xs text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Try again</button>
+        </div>
+      )}
       {linkError && <p role="alert" className="text-xs text-danger">{linkError}</p>}
       <p role="alert" className={actionError ? "text-xs text-danger" : "sr-only"}>{actionError ?? ""}</p>
       <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{announcement}</p>
@@ -368,8 +395,9 @@ export default function CardChildrenTab({ board, cardId, cardTitle, state, onExi
           child={moving}
           boardName={boardName}
           columns={columns}
+          error={moveError}
           onMove={(col) => void move(moving, col)}
-          onClose={() => { const id = moving.id; setMoving(null); focusCard(id); }}
+          onClose={() => { const id = moving.id; setMoving(null); setMoveError(null); focusCard(id); }}
         />
       )}
       {adding && (
@@ -409,6 +437,7 @@ interface MoveProps {
   child: CardChildRow;
   boardName: string;
   columns: CardChildrenColumn[];
+  error: string | null;
   onMove: (col: CardChildrenColumn) => void;
   onClose: () => void;
 }
@@ -418,14 +447,20 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, onMove, onClose }: MoveProps) {
+function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // A modal over the sheet: its targets are 44px at every width.
+  const tgt = "min-h-11";
+  useFocusTrap(dialogRef, true);
   useEscapeStack(() => { onClose(); return true; }, CHILD_MOVE_ESCAPE_PRIORITY);
   useEffect(() => { firstRef.current?.focus(); }, []);
   const target = columns.find((c) => c.id === choice);
   return (
-    <div role="dialog" aria-label={`Move ${child.title}`} className="rounded-lg border border-line bg-surface shadow-xl p-4 flex flex-col gap-3 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:rounded-b-none max-sm:z-[60]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center max-sm:items-end">
+    <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={onClose} />
+    <div ref={dialogRef} role="dialog" aria-modal="true" tabIndex={-1} aria-label={`Move ${child.title}`} className="relative w-[24rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface shadow-xl p-4 flex flex-col gap-3 outline-none max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-fg">Move {child.title}</span>
         <button type="button" aria-label="Close move" onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"><span aria-hidden="true">✕</span></button>
@@ -452,17 +487,19 @@ function ChildMovePopover({ child, boardName, columns, onMove, onClose }: MovePr
           );
         })}
       </div>
+      <p role="alert" className={error ? "text-xs text-danger" : "sr-only"}>{error ?? ""}</p>
       <div className="flex justify-end gap-3">
-        <button type="button" onClick={onClose} className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+        <button type="button" onClick={onClose} className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}>Cancel</button>
         <button
           type="button"
           disabled={!target || choice === child.column_id}
           onClick={() => target && onMove(target)}
-          className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40"
+          className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40`}
         >
           Move
         </button>
       </div>
+    </div>
     </div>
   );
 }

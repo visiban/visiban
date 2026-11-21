@@ -309,8 +309,8 @@ export const addChild = (boardId: number, cardId: number, data: { board_id: numb
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);
 
 /** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */
-export const getCardChildren = (boardId: number, cardId: number, offset = 0) =>
-  client.get<CardChildrenRead>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, { params: offset ? { offset } : undefined }).then((r) => r.data);
+export const getCardChildren = (boardId: number, cardId: number, offset = 0, signal?: AbortSignal) =>
+  client.get<CardChildrenRead>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, { params: offset ? { offset } : undefined, signal }).then((r) => r.data);
 
 /** Up to 20 cards on child board `childBoardId` that could be linked under this card: Link existing (#2209). */
 export const getChildCandidates = (

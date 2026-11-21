@@ -1228,6 +1228,9 @@ def resolve_link_child_board(user, parent, child_board_id):
         .filter(pk=child_board_id)
         .first()
     )
+    # Deliberate (Rule 7): a missing board still runs the role batch, on the
+    # parent's board, so every refusal costs the same queries. Do not
+    # short-circuit it.
     subject = child_board if child_board is not None else parent.board
     role = get_board_roles(user, [subject])[subject.pk]
     fixed_id = (

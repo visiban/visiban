@@ -138,10 +138,12 @@ class ChildCandidateTests(_LinkFixture, TestCase):
         )
         viewer_board, _ = _board_with_card(self.owner, parent_tier=False, name="Viewer C", title="V")
         BoardMembership.objects.create(board=viewer_board, user=self.member, role=Role.VIEWER)
+        collab_board, _ = _board_with_card(self.owner, parent_tier=False, name="Collab C", title="C")
+        BoardMembership.objects.create(board=collab_board, user=self.member, role=Role.COLLABORATOR)
         parent_tier, _ = _board_with_card(self.owner, parent_tier=True, name="Tier P", title="P")
         BoardMembership.objects.create(board=parent_tier, user=self.member, role=Role.MEMBER)
         bodies = set()
-        for board_id in (hidden_board.pk, hidden_board.pk + 10_000, viewer_board.pk, parent_tier.pk, self.pboard.pk):
+        for board_id in (hidden_board.pk, hidden_board.pk + 10_000, viewer_board.pk, collab_board.pk, parent_tier.pk, self.pboard.pk):
             res = self._get(board=board_id, search="ab")
             self.assertEqual(res.status_code, 404, board_id)
             bodies.add(res.content)
@@ -170,9 +172,9 @@ class ChildCandidateTests(_LinkFixture, TestCase):
             self.assertEqual(res.status_code, 400, raw)
             self.assertEqual(res.json()["code"], "invalid_query_param")
 
-    def test_search_on_a_child_tier_card_returns_nothing(self):
-        # Link existing exists only on a parent tier; on a child card the
-        # same route answers no rows rather than offering a third tier.
+    def test_search_from_a_child_tier_card_is_404(self):
+        # Link existing exists only on a parent tier; from a child card the
+        # child board is the card's own board, which is the one 404.
         url = f"/api/v1/boards/{self.cboard.pk}/cards/{self.child.pk}/child-candidates/"
         res = self._client(self.member).get(url, {"board": self.cboard.pk, "search": "secret"})
         self.assertEqual(res.status_code, 404)
@@ -184,3 +186,42 @@ class ChildCandidateTests(_LinkFixture, TestCase):
         self.assertEqual(row["id"], self.child.pk)
         row = self._results(board=self.cboard.pk, search="secret-c")[0]
         self.assertEqual(row["disabled_reason"], "link_exists")
+
+    def test_admin_and_site_admin_may_search(self):
+        admin = self._user("cc_admin", parent_role=Role.ADMIN, child_role=Role.ADMIN)
+        self.assertEqual(self._get(admin, board=self.cboard.pk, search="secret").status_code, 200)
+        site_admin = _make_user("cc_site")
+        site_admin.is_site_admin = True
+        site_admin.can_access_all_content = True
+        site_admin.save()
+        self.assertEqual(self._get(site_admin, board=self.cboard.pk, search="secret").status_code, 200)
+
+    def test_card_from_another_board_under_this_url_is_404(self):
+        url = f"/api/v1/boards/{self.pboard.pk}/cards/{self.child.pk}/child-candidates/"
+        res = self._client(self.member).get(url, {"board": "abc"})
+        self.assertEqual(res.status_code, 404)
+
+
+class ChildrenLensRoleTests(_LinkFixture, TestCase):
+    """``board.role`` is the viewer's own role on the child board; the UI gates Move on it alone."""
+
+    def setUp(self):
+        self._setup_boards()
+        CardParentLink.objects.create(parent=self.parent, child=self.child)
+        self.url = f"/api/v1/boards/{self.pboard.pk}/cards/{self.parent.pk}/children/"
+
+    def test_role_is_the_child_board_role(self):
+        for i, (prole, crole) in enumerate([
+            (Role.VIEWER, Role.MEMBER), (Role.MEMBER, Role.VIEWER), (Role.MEMBER, Role.ADMIN),
+            (Role.ADMIN, Role.COLLABORATOR),
+        ]):
+            u = self._user(f"cr_{i}", parent_role=prole, child_role=crole)
+            self.assertEqual(self._client(u).get(self.url).json()["board"]["role"], crole)
+
+    def test_parent_member_who_only_views_the_child_board_may_unlink(self):
+        # The parent side's Unlink needs member on the parent board and any
+        # role on the child board (#1104), so the tab offers it to this user.
+        u = self._user("cr_unlink", parent_role=Role.MEMBER, child_role=Role.VIEWER)
+        res = self._client(u).delete(f"{self.url}{self.child.pk}/")
+        self.assertEqual(res.status_code, 204)
+        self.assertFalse(CardParentLink.objects.exists())
