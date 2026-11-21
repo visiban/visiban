@@ -155,6 +155,93 @@ test.describe('board redesign baseline', () => {
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
       await expectShot(page, 'board-state-empty.png', SHOT)
     })
+
+    // Menus (#2394): the Filter panel and the ... menu, the two reference menus the View menu shot
+    // does not cover. Opened one at a time (the reference draws all three side by side).
+    test('filter menu', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await page.getByRole('button', { name: /^Filter/ }).first().click()
+      await expect(page.getByRole('dialog', { name: 'Filter' })).toBeVisible()
+      await page.mouse.move(0, 0)
+      await expectShot(page, 'board-menu-filter.png', SHOT)
+    })
+
+    test('overflow menu', async ({ page }) => {
+      await openBoard(page, 'dark')
+      await page.getByRole('button', { name: 'More board actions' }).click()
+      await expect(page.getByRole('menu')).toBeVisible()
+      await page.mouse.move(0, 0)
+      await expectShot(page, 'board-menu-more.png', SHOT)
+    })
+  })
+
+  // Board states (#2394): loading, filter matches nothing, offline, load error and view only. The
+  // empty state is `board-state-empty.png` above. Each is held in place by a request or socket that
+  // never answers, or by a fixed URL param, so the frame is stable. components.png and
+  // stages-settings.png are not board states (a component sheet and a settings panel), so they are
+  // covered by their own component tests, not by a board baseline.
+  test.describe('desktop 1440 board states', () => {
+    test.use({ viewport: { width: 1440, height: 900 } })
+
+    async function prime(page: Page) {
+      await page.clock.setFixedTime(new Date(REDESIGN_NOW))
+      await page.addInitScript(() => {
+        window.localStorage.setItem('user:prefs:theme', 'dark')
+        window.localStorage.setItem('user:prefs:sidebar-collapsed', 'true')
+      })
+      await routeAuth(page)
+    }
+
+    test('loading skeleton', async ({ page }) => {
+      await prime(page)
+      await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
+      // Held: the board request is never answered, so the skeleton stays.
+      await page.route(`**/api/v1/boards/${REDESIGN_BOARD.id}/full/`, () => new Promise(() => {}))
+      await page.goto(`/boards/${REDESIGN_BOARD.id}`)
+      await expect(page.getByTestId('board-skeleton')).toBeVisible({ timeout: 15_000 })
+      await expectShot(page, 'board-state-loading.png', SHOT)
+    })
+
+    test('filter matches nothing', async ({ page }) => {
+      await prime(page)
+      await routeBoard(page, { ...REDESIGN_BOARD, cards: REDESIGN_BOARD.cards.map((c) => ({ ...c, due_date: null })) } as unknown as Parameters<typeof routeBoard>[1])
+      await page.goto(`/boards/${REDESIGN_BOARD.id}?show=due_soon`)
+      await expect(page.getByTestId('board-no-match')).toContainText('No cards are due soon', { timeout: 15_000 })
+      await page.evaluate(() => document.fonts.ready)
+      await expectShot(page, 'board-state-no-match.png', SHOT)
+    })
+
+    test('offline', async ({ page }) => {
+      await prime(page)
+      await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
+      // Every connection closes abnormally, so the status stays "reconnecting" (the retry never lands).
+      await page.routeWebSocket(`**/ws/boards/${REDESIGN_BOARD.id}/`, (ws) => { ws.close({ code: 1006 }) })
+      await page.goto(`/boards/${REDESIGN_BOARD.id}`)
+      await expect(page.getByTestId('board-offline-banner')).toBeVisible({ timeout: 15_000 })
+      await page.evaluate(() => document.fonts.ready)
+      await expectShot(page, 'board-state-offline.png', SHOT)
+    })
+
+    test('load error', async ({ page }) => {
+      await prime(page)
+      await routeBoard(page, REDESIGN_BOARD as unknown as Parameters<typeof routeBoard>[1])
+      await page.route(`**/api/v1/boards/${REDESIGN_BOARD.id}/full/`, (route) =>
+        route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+      )
+      await page.goto(`/boards/${REDESIGN_BOARD.id}`)
+      await expect(page.getByTestId('board-load-error')).toBeVisible({ timeout: 15_000 })
+      await expectShot(page, 'board-state-error.png', SHOT)
+    })
+
+    test('view only', async ({ page }) => {
+      await prime(page)
+      await routeBoard(page, { ...REDESIGN_BOARD, current_user_role: 'viewer' } as unknown as Parameters<typeof routeBoard>[1])
+      await page.goto(`/boards/${REDESIGN_BOARD.id}`)
+      await expect(page.getByTestId('board-view-only')).toBeVisible({ timeout: 15_000 })
+      await expect(page.locator('[data-card-id]').first()).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      await expectShot(page, 'board-state-view-only.png', SHOT)
+    })
   })
 
   test.describe('phone 390', () => {
