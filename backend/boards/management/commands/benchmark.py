@@ -74,8 +74,12 @@ FULL_BUDGET = 21  # 17 measured on Postgres (#1341); +1 #1104 card-parent link l
 # query-count tests they are shared with, are untouched. Both are driven through
 # the endpoint, so the card list count is not comparable with CARD_LIST_BUDGET
 # (which serializes the queryset directly).
-FULL_LINKED_BUDGET = 24  # 22 measured on Postgres (2026-11-20, #2424): 20 + the 2 role-batch queries; +2 headroom
+FULL_LINKED_BUDGET = 24  # 22 measured on Postgres (2026-11-20, #2424): 20 + the 2 role-batch queries; 23 on 2026-11-21 after #2211's +1; +1 headroom
 CARD_LIST_LINKED_BUDGET = 18  # 16 measured on Postgres (2026-11-20, #2424); +2 headroom
+# #2210: the parent-tier board of that fixture (5 parent cards, each with 20 children),
+# whose reads also resolve ``children_rollup`` (``card_links.rollups_for_viewer``).
+FULL_ROLLUP_BUDGET = 27  # 25 measured on Postgres (2026-11-21, #2210): the linked board's 23 + 2 rollup queries; +2 headroom
+CARD_LIST_ROLLUP_BUDGET = 19  # 17 measured on Postgres (2026-11-21, #2210); +2 headroom
 SUMMARY_BUDGET = 10  # 4 measured on Postgres (#1341)
 
 # ── fixture dimensions ────────────────────────────────────────────────────────
@@ -172,6 +176,14 @@ class Command(BaseCommand):
                 results.append(self._bench_history_endpoint(
                     user, linked_board, "GET /api/boards/{id}/cards/ (linked)", "cards/",
                     CARD_LIST_LINKED_BUDGET,
+                ))
+                results.append(self._bench_history_endpoint(
+                    user, parent_boards[0], "GET /api/boards/{id}/full/ (rollup)", "full/",
+                    FULL_ROLLUP_BUDGET,
+                ))
+                results.append(self._bench_history_endpoint(
+                    user, parent_boards[0], "GET /api/boards/{id}/cards/ (rollup)", "cards/",
+                    CARD_LIST_ROLLUP_BUDGET,
                 ))
                 for name, path, budget in _HISTORY_ENDPOINTS:
                     results.append(self._bench_history_endpoint(user, board, name, path, budget))

@@ -35,6 +35,11 @@ LINK_TABLE = CardParentLink._meta.db_table
 # A key that names a link end: parent, parent_id, children, child_ids,
 # card_links, links, linked_cards, ...
 LINK_KEY = re.compile(r"(^|_)(parent|parents|child|children|link|links|linked)(_|$)", re.IGNORECASE)
+# Board-level settings whose names match LINK_KEY but carry no link: the
+# parent-item terminology and the child-cards flag, exported and imported
+# since #2454. Exact names only, so a real link key never hides behind this;
+# the no-link-table-query assertion still guards what they cannot.
+NOT_LINK_KEYS = frozenset({"parent_name_singular", "parent_name_plural", "cards_can_have_children"})
 
 
 def _keys(value):
@@ -62,7 +67,7 @@ class _LinkedBoards(_LinkFixture):
         CardParentLink.objects.create(parent=self.parent, child=self.child, created_by=self.owner)
 
     def _assert_no_link_keys(self, payload, where):
-        found = sorted({k for k in _keys(payload) if LINK_KEY.search(k)})
+        found = sorted({k for k in _keys(payload) if LINK_KEY.search(k) and k not in NOT_LINK_KEYS})
         self.assertEqual(found, [], f"{where} names a card link; route it through children_for_viewer")
 
 

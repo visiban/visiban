@@ -350,7 +350,8 @@ class Board(models.Model):
     # "Initiative" / "Initiatives". Plain terminology, no schema: empty means
     # the UI says "Parent" / "Parents", and each field falls back on its own.
     # Validated on API writes only (BoardSerializer: stripped, no control or
-    # bidi characters, 24 max); ORM, import and migration writes skip those rules.
+    # bidi characters, 24 max); JSON import applies the same rules (#2454);
+    # ORM and migration writes skip them.
     # Read-only in the Django admin.
     # Stable extension point from 1.3. db_default keeps the add zero-downtime.
     parent_name_singular = models.CharField(
