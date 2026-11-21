@@ -1079,6 +1079,86 @@ migration-check:
     # inline `# constraint-safe: <reason>` comment on the operation.
     - python manage.py check_migration_constraint_safety
 
+# Backend against every other supported PostgreSQL major (#2463). backend-test
+# and migration-check cover the default (17); the supported range is in
+# docs/administration/upgrade.md. Each leg asserts it reached the right major,
+# migrates from zero and runs one rotating pytest-split group — see
+# scripts/pg-matrix-check.sh. Migration-touching MRs, backend changes on main,
+# and the nightly schedule only (advisory there).
+backend-test-pg-matrix:
+  extends: .pip-cache
+  stage: test
+  # Advisory until the first all-green nightly matrix run (#2481 tracks flipping
+  # this to blocking): only one eighth of the suite has ever run on PG 15/16/18,
+  # so a blocking leg would surface PG-specific failures as random reds.
+  allow_failure: true
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  parallel:
+    matrix:
+      - PG_MAJOR: ["15", "16", "18"]
+  rules:
+    # Schedules run the full-suite variant below, never the rotating group.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - backend/**/migrations/**/*
+        - backend/requirements*.txt
+        - backend/requirements*.lock
+        - scripts/pg-matrix-check.sh
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - .gitlab-ci.yml
+        - backend/**/*
+        - scripts/pg-matrix-check.sh
+  services:
+    - name: ${DOCKERHUB_MIRROR}/postgres:${PG_MAJOR}-alpine
+      alias: postgres
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
+      alias: valkey
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+  before_script:
+    - !reference [.pip-floor, script]
+    - pip install --quiet -r backend/requirements.txt
+    - pip install --quiet -r backend/requirements-test.txt
+  script:
+    - bash scripts/pg-matrix-check.sh --self-test
+    - bash scripts/pg-matrix-check.sh
+  artifacts:
+    reports:
+      junit: backend/test-results/junit-pg*.xml
+    when: always
+    expire_in: 1 day
+
+# Nightly full coverage of the PG matrix (#2463): every pytest-split group on
+# every non-default major (3 majors x 8 groups = 24 jobs), so the whole suite
+# is exercised on each major once per night. Schedule only, advisory, and not
+# on the Sonar nightly. Everything else is inherited from the job above;
+# PG_TEST_GROUP overrides the rotating group in scripts/pg-matrix-check.sh.
+backend-test-pg-matrix-nightly:
+  extends: backend-test-pg-matrix
+  parallel:
+    matrix:
+      - PG_MAJOR: ["15", "16", "18"]
+        PG_TEST_GROUP: ["1", "2", "3", "4", "5", "6", "7", "8"]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - when: never
+
 # Catches two branches cut off the same point on main each adding a migration
 # at the same next sequential number (e.g. both add 0042_...). Django applies
 # whichever merges first without complaint, and the second branch's migration
@@ -2839,6 +2919,80 @@ compose-prod-drill:
   script:
     - bash scripts/prod-compose-drill.sh
 
+# ─── Upgrade drills: last GA release -> HEAD (#2463) ─────────────────────────
+#
+# The drills above install HEAD on an EMPTY database. These install the latest
+# GA tag (resolved by scripts/resolve-last-ga-tag.sh, never hardcoded) from its
+# PUBLISHED images, seed it, upgrade to HEAD images built here from the release
+# Dockerfiles, and assert migrate exit 0, seeded counts unchanged, readiness
+# and login. See docs/development/upgrade-drills.md.
+#
+# MRs: only the upgrade surface (migrations, chart, compose, Dockerfiles,
+# requirements). main: also any backend change. Nightly: advisory.
+compose-upgrade-drill:
+  <<: *compose-drill-base
+  rules:
+    # The Sonar nightly (#2471 tracks the old drills, which still run on it).
+    # `changes:` always evaluates true on schedules, so this must be explicit.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &upgrade-drill-paths
+        - .gitlab-ci.yml
+        - backend/**/migrations/**/*
+        - helm/**/*
+        - docker-compose*.yml
+        - backend/Dockerfile*
+        - frontend/Dockerfile*
+        - backend/requirements*.txt
+        - backend/requirements*.lock
+        - scripts/resolve-last-ga-tag.sh
+        - scripts/compose-upgrade-drill.sh
+        - scripts/helm-upgrade-drill.sh
+        - scripts/upgrade-drill-probe.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: &upgrade-drill-main-paths
+        - .gitlab-ci.yml
+        - backend/**/*
+        - helm/**/*
+        - docker-compose*.yml
+        - frontend/Dockerfile*
+        - scripts/resolve-last-ga-tag.sh
+        - scripts/compose-upgrade-drill.sh
+        - scripts/helm-upgrade-drill.sh
+        - scripts/upgrade-drill-probe.py
+  timeout: 30m
+  needs: []
+  script:
+    # git: the tag resolver and `git archive` of the release's compose file.
+    - apk add --no-cache git tar curl
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - bash scripts/resolve-last-ga-tag.sh --self-test
+    - bash scripts/compose-upgrade-drill.sh
+
+helm-upgrade-drill:
+  <<: *helm-drill-base
+  rules:
+    # The Sonar nightly (#2471 tracks the old drills, which still run on it).
+    # `changes:` always evaluates true on schedules, so this must be explicit.
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *upgrade-drill-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *upgrade-drill-main-paths
+  timeout: 40m
+  needs: []
+  script:
+    - apk add --no-cache git tar openssl curl
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - bash scripts/resolve-last-ga-tag.sh --self-test
+    - bash scripts/helm-upgrade-drill.sh
+
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
 # ESLint + TypeScript type checking in a single job — both need npm ci so
@@ -2970,6 +3124,9 @@ script-tests:
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/wt-doctor-drift.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/ci-interruptible.test.sh
     - sh scripts/ci-hermetic-run.sh bash scripts/tests/refresh_test_durations.test.sh
+    # Upgrade-drill and PG-matrix helpers (#2463).
+    - sh scripts/ci-hermetic-run.sh bash scripts/resolve-last-ga-tag.sh --self-test
+    - sh scripts/ci-hermetic-run.sh bash scripts/pg-matrix-check.sh --self-test
     # Runs the canary itself (own listener, poison env).
     - bash scripts/tests/ci-api-canary.test.sh
   allow_failure: false
