@@ -11,7 +11,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('boards', '0127_cardactivity_board_deleted_events'),
+        ('boards', '0128_board_parent_names'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
