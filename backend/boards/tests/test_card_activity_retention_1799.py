@@ -11,6 +11,7 @@
 - #1701 / #720: the hook is called with ``(board, queryset, request)`` and its
   rows carry ``imported_from_username``.
 """
+import pytest
 import importlib
 import io
 import json
@@ -145,6 +146,7 @@ class ActivityRetentionTests(_Fixture):
         _migration_0121.drop_not_valid(django_apps(), editor)
         editor.execute.assert_not_called()
 
+    @pytest.mark.migrations  # asserts the FK constraint state the migration chain leaves behind
     def test_board_fk_added_not_valid_is_validated_after_the_backfill(self):
         """On PostgreSQL the migrated schema carries the FK 0121 added NOT VALID,
         and 0122 has validated it (``convalidated``): no row escapes the check."""

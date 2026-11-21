@@ -3,6 +3,7 @@
 Proves the migration is in the graph and runs under ``migrate``, not only when
 its function is called directly.
 """
+import pytest
 from datetime import timedelta
 
 from django.db import connection
@@ -16,6 +17,9 @@ _DEPS = [
 ]
 BEFORE = [("groups", "0022_restore_group_owner_admin_rows"), *_DEPS]
 AFTER = [("groups", "0023_revoke_legacy_group_invite_links"), *_DEPS]
+
+
+pytestmark = pytest.mark.migrations
 
 
 class RevokeLegacyLinksExecutorTests(TransactionTestCase):

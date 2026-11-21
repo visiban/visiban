@@ -1,4 +1,5 @@
 """Migrate-time check of boards/0043 column-name dedupe (#1986)."""
+import pytest
 import importlib
 
 from django.db import connection
@@ -7,6 +8,9 @@ from django.test import TransactionTestCase
 
 BEFORE = [("boards", "0042_add_card_version")]
 AFTER = [("boards", "0043_column_unique_name_per_board")]
+
+
+pytestmark = pytest.mark.migrations
 
 
 class ColumnDedupeMigrationTests(TransactionTestCase):

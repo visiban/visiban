@@ -1,4 +1,5 @@
 """Migrate-time check of groups/0018 using historical models (#1583)."""
+import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
@@ -9,6 +10,9 @@ _DEPS = [
 ]
 BEFORE = [("groups", "0017_deactivate_lapsed_admin_invite_links"), *_DEPS]
 AFTER = [("groups", "0018_clean_up_inactive_user_credentials"), *_DEPS]
+
+
+pytestmark = pytest.mark.migrations
 
 
 class InactiveUserCleanupExecutorTests(TransactionTestCase):

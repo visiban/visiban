@@ -7,6 +7,7 @@ schema editor that records the SQL it is asked to execute, so the branching
 drops concurrently) is asserted on every backend. The SQLite branch is run for
 real through the migration executor.
 """
+import pytest
 import importlib
 from unittest import mock, skipUnless
 
@@ -81,6 +82,7 @@ class PostgresBranchTests(SimpleTestCase):
         self.assertFalse(M0089.Migration.atomic)
 
 
+@pytest.mark.migrations
 class ExecutorRoundTripTests(TransactionTestCase):
     """Real forward/backward through the executor (SQLite branch off PostgreSQL)."""
 

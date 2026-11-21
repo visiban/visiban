@@ -32,6 +32,17 @@ Under `pytest`, `backend/conftest.py` makes MD5 the preferred password hasher in
 
 A test that asserts real hashing behavior (a `pbkdf2_sha256$` hash format, `must_update` rehash on login) opts back in with `@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.PBKDF2PasswordHasher", ...])`, as `accounts/tests/test_credential_row_lock.py` does. CI test jobs also run their Postgres service with `fsync=off` (the `.pg-ci-fast-flags` anchor in `.gitlab-ci.yml`); the database is discarded with the job, so durability is not needed.
 
+### Migrations in tests *(#2490)*
+
+The `backend-test` shards run `pytest --nomigrations -m "not migrations"`: the test database is built straight from the models, which skips the ~70 s of applying every migration on each shard. Local `pytest` still applies migrations, since the flags live in the CI job command and not in `setup.cfg`.
+
+The full migration graph is still applied from scratch on an empty Postgres database on every pipeline that runs the shards, by the blocking `backend-test-migrations` job. Creating its test DB is that apply, and it then runs `pytest -m migrations`. Its coverage is combined with the shards' in `backend-test-coverage`.
+
+- **Prefer a fixture.** A test that only needs rows a data migration used to seed should create them with a fixture or factory, so it passes under `--nomigrations`.
+- **Mark when the migration is under test.** Put `@pytest.mark.migrations` (or `pytestmark = pytest.mark.migrations`) on tests that use `MigrationExecutor`, run `call_command("migrate", ...)`, or migrate to or from a named migration. A test that imports a migration module and calls its `RunPython` function with a fake apps registry does not need the graph and stays unmarked.
+- **Fail closed.** `backend/conftest.py` aborts the run with an error if a `migrations`-marked test would execute under `--nomigrations`, so such a test cannot pass vacuously. Run them with plain `pytest -m migrations`.
+- **Postgres extensions.** Under `--nomigrations` the same `conftest.py` creates `pg_trgm` before the tables, because the `Card` trigram indexes need it and the migration that normally creates it does not run. A model that depends on another extension needs it added there.
+
 ### Serializer fallback guard *(1.3+, #1731)*
 
 Several serializer method fields (`BoardSerializer` and `GroupSerializer` counts and `is_starred`, `BoardFullSerializer.archived_card_count`, `AdminUserSerializer.owned_boards`, `GroupInviteLinkSerializer.created_by_username`, `GroupDetailSerializer.ancestors`) read an annotation or prefetch from the endpoint's queryset and fall back to a live query without it. On a list that fallback is one query per row. The test suite runs with `SERIALIZER_FALLBACK_GUARD = "raise"` (`visiban/settings.py`), so rendering such a list from an unannotated queryset raises `visiban.query_fallbacks.UnannotatedFallback`, naming the field. Fix the caller: fetch through the annotated queryset the field's comment names (for example `annotate_board_counts`, or `GroupViewSet.get_queryset()`). A single-object response is not reported, since one fallback query is what the fallback is for. The one exception is `GroupDetailSerializer.ancestors`: it also raises on a single object whose parent chain is not loaded, because its only caller (`retrieve`) uses the annotated queryset and a bare instance costs up to 6 queries. Under `DEBUG` the guard logs a warning instead, and in production it is off and changes nothing.

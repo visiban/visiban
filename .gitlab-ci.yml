@@ -783,6 +783,10 @@ backend-lint:
 #
 # Runs Django tests via pytest, sharded across 8 parallel jobs using
 # pytest-split's least_duration algorithm for time-balanced distribution.
+# The shards skip migrations (--nomigrations -m "not migrations", #2490): the
+# test DB is built from the models, saving ~73 s of setup per shard. Tests that
+# need the real migration graph carry @pytest.mark.migrations and run, with the
+# full migration apply, in backend-test-migrations below.
 # These jobs gate the pipeline on test failures (fast, parallel).
 # Coverage is measured separately by backend-test-coverage in a single-process
 # run — see that job's comment for why sharded coverage combining is not used.
@@ -801,19 +805,19 @@ backend-test:
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   parallel: 8
-  rules:
+  rules: &backend-test-rules
     - changes:
         - backend/**/*
         - requirements*.txt
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  services:
+  services: &backend-test-services
     - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
       command: *pg_ci_fast_flags
     - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
-  variables:
+  variables: &backend-test-variables
     POSTGRES_DB: "${CI_POSTGRES_DB}"
     POSTGRES_USER: "${CI_POSTGRES_USER}"
     POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
@@ -823,7 +827,7 @@ backend-test:
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
-  cache:
+  cache: &backend-test-cache
     - key:
         prefix: "pip"
         files: [backend/requirements.txt]
@@ -834,7 +838,7 @@ backend-test:
         files: [backend/requirements-test.txt]
       paths: [.cache/pip/]
       policy: pull
-  before_script:
+  before_script: &backend-test-before-script
     - !reference [.pip-floor, script]
     - pip install --quiet -r backend/requirements.txt
     - pip install --quiet -r backend/requirements-test.txt
@@ -846,12 +850,44 @@ backend-test:
         --group $CI_NODE_INDEX
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
+        --nomigrations -m "not migrations"
         -q
   artifacts:
     paths:
       - backend/.coverage.*
     reports:
       junit: backend/test-results/junit-*.xml
+    when: always
+    expire_in: 1 day
+
+# Applies the full migration graph on an empty Postgres DB (#2490). The shards
+# above build their schema from the models (--nomigrations), so this job is the
+# only place a pipeline runs every migration from scratch: its test-DB creation
+# is that apply, and `-m migrations` runs the tests that drive the real graph.
+# It must stay blocking (allow_failure: false) and in backend-test-coverage's
+# needs, or a migration that fails on apply would reach deploy green.
+backend-test-migrations:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules: *backend-test-rules
+  services: *backend-test-services
+  variables: *backend-test-variables
+  cache: *backend-test-cache
+  before_script: *backend-test-before-script
+  script:
+    - cd backend
+    - coverage run --parallel --data-file=.coverage.migrations -m pytest
+        -m migrations
+        --junitxml=test-results/junit-migrations.xml
+        -q
+  allow_failure: false
+  artifacts:
+    paths:
+      - backend/.coverage.*
+    reports:
+      junit: backend/test-results/junit-migrations.xml
     when: always
     expire_in: 1 day
 
@@ -870,7 +906,7 @@ backend-test:
 # report, no Django or test execution.
 backend-test-coverage:
   stage: test
-  needs: [backend-test, backend-test-git-lens, backend-test-mcp]
+  needs: [backend-test, backend-test-migrations, backend-test-git-lens, backend-test-mcp]
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
