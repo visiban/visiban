@@ -185,7 +185,7 @@ describe('Home status page (#2474)', () => {
       const u = userEvent.setup()
       renderHome()
       await u.click(await screen.findByRole('button', { name: 'Star Alpha' }))
-      expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent('Failed to star the board. Please try again.')
+      expect(await screen.findByTestId('dashboard-action-error')).toHaveTextContent('Failed to star the board. Please try again.')
       expect(screen.getByRole('button', { name: 'Star Alpha' })).toHaveAttribute('aria-pressed', 'false')
     })
 

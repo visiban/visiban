@@ -85,6 +85,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   const [joinToken, setJoinToken] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<BoardFilter>("all");
+  // Transient action failures (star, delete) never reuse the load-failure alert: they clear on the next action.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // True when the initial boards or groups fetch rejected. Drives the error state
   // (with Retry) and keeps a failed load from masquerading as "no data" (#487).
@@ -179,6 +181,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   };
 
   const handleDeleteBoard = async (boardId: number) => {
+    setActionError(null);
     const removedIndex = boards.findIndex((b) => b.id === boardId);
     const removedBoard = removedIndex === -1 ? undefined : boards[removedIndex];
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
@@ -204,7 +207,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
           });
         }
       }
-      setLoadError("Failed to delete the board. Please try again.");
+      setActionError("Failed to delete the board. Please try again.");
     }
   };
 
@@ -212,13 +215,14 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   // another row is never overwritten.
   const handleToggleStar = async (b: Board) => {
     const next = !b.is_starred;
+    setActionError(null);
     setBoards((prev) => prev.map((x) => (x.id === b.id ? { ...x, is_starred: next } : x)));
     try {
       if (next) await starBoard(b.id); else await unstarBoard(b.id);
       onStarToggled?.();
     } catch {
       setBoards((prev) => prev.map((x) => (x.id === b.id ? { ...x, is_starred: !next } : x)));
-      setLoadError(`Failed to ${next ? "star" : "unstar"} the board. Please try again.`);
+      setActionError(`Failed to ${next ? "star" : "unstar"} the board. Please try again.`);
     }
   };
 
@@ -274,7 +278,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
     const group = b.group_name ?? null;
     return (
       <ListRow key={b.id} as="li">
-        <div className="flex items-center gap-2 px-2 py-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           {/* The star is a row control on desktop; on phones it moves into the ⋯ menu. */}
           <button
             type="button"
@@ -325,15 +329,16 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   );
 
   const skeleton = (
-    <div data-testid="home-skeleton" aria-hidden="true" className="flex flex-col gap-3">
+    <div data-testid="home-skeleton" role="status" aria-busy="true" className="flex flex-col gap-3">
+      <span className="sr-only">Loading boards</span>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-[10px] bg-surface-hover animate-pulse" />)}
       </div>
-      {[0, 1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-surface-hover animate-pulse" />)}
+      {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 rounded-lg bg-surface-hover animate-pulse" />)}
     </div>
   );
 
-  const heading = isEmpty ? undefined : (
+  const heading = isEmpty || !isLoaded ? undefined : (
     <PageHeading
       title={greeting(user)}
       description={
@@ -359,12 +364,12 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
 
   const aside = isEmpty ? undefined : (
     <>
-      <section aria-labelledby="home-groups-heading" className="bg-surface border border-line rounded-[10px] p-[18px] max-sm:order-1">
+      <section aria-labelledby="home-groups-heading" className="bg-surface border border-line rounded-[10px] p-[18px] ">
         <CardHeading as="h2" id="home-groups-heading">Groups</CardHeading>
         {loadingGroups ? (
           <div className="mt-3 h-16 rounded-lg bg-surface-hover animate-pulse" aria-hidden="true" />
         ) : listedGroups.length === 0 ? (
-          loadFailed ? null : <p data-testid="groups-empty" className="mt-2 text-sm text-fg-secondary">No groups yet. Create one to collaborate with others.</p>
+          loadFailed ? <p className="mt-2 text-sm text-fg-secondary">Couldn't load groups.</p> : <p data-testid="groups-empty" className="mt-2 text-sm text-fg-secondary">No groups yet. Create one to collaborate with others.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
             {listedGroups.map((g) => (
@@ -382,7 +387,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                     <span className="flex items-center -space-x-1" aria-hidden="true">
                       <Avatar user={g.owner} size="xs" className="ring-2 ring-canvas" />
                       {g.member_count > 1 && (
-                        <span className="h-5 min-w-5 px-1 rounded-full bg-surface-hover text-[10px] leading-5 text-center text-fg-secondary ring-2 ring-canvas">+{g.member_count - 1}</span>
+                        <span className="h-6 min-w-6 px-1 rounded-full bg-surface-hover text-xs leading-6 text-center text-fg-secondary ring-2 ring-canvas">+{g.member_count - 1}</span>
                       )}
                     </span>
                   </span>
@@ -394,7 +399,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
       </section>
 
       {isLoaded && !loadFailed && attention.length > 0 && (
-        <section aria-labelledby="home-attention-heading" className="bg-surface border border-line rounded-[10px] p-[18px] max-sm:order-2">
+        <section aria-labelledby="home-attention-heading" className="bg-surface border border-line rounded-[10px] p-[18px] ">
           <CardHeading as="h2" id="home-attention-heading">Needs attention</CardHeading>
           <p className="mt-1 text-xs text-fg-secondary">Boards and subgroups with stale or blocked cards, or overdue for review, worst first</p>
           <ul className="mt-3 flex flex-col gap-1">
@@ -424,7 +429,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
     <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} primaryAction={newBoardAction} />
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto max-sm:pb-24">
         <OverviewLayout heading={heading} aside={aside}>
           {/* The alert is always mounted and only its text changes: a region that mounts together
               with its text is not reliably announced (#1435, #1437). Empty, it takes no height. */}
@@ -452,6 +457,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
               </Button>
             )}
           </div>
+
+          {/* Always mounted so a failed star or delete is announced (#1435). */}
+          <p role="status" aria-live="assertive" aria-atomic="true" className="text-sm text-danger" data-testid="dashboard-action-error">{actionError}</p>
 
           {!isLoaded && skeleton}
 
@@ -517,6 +525,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                   {FILTERS.map((f) => <option key={f.id} value={f.id}>{`${f.label} (${counts[f.id]})`}</option>)}
                 </select>
               </div>
+              <p role="status" className="sr-only">{`${visibleBoards.length} ${visibleBoards.length === 1 ? "board" : "boards"} shown`}</p>
               <div className="mt-3">
                 {visibleBoards.length === 0 ? (
                   // A failed load never reads as "no boards" (#487): the error and Retry say so.
@@ -537,7 +546,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
           type="button"
           onClick={requestNewBoard}
           {...(demoMode ? { "aria-disabled": true, "aria-label": `New board. ${DEMO_NEW_BOARD_REASON}`, title: DEMO_NEW_BOARD_REASON } : {})}
-          className={`sm:hidden fixed bottom-4 right-4 z-30 h-12 px-5 rounded-full bg-button-primary text-on-primary text-sm font-medium shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"}`}
+          className={`sm:hidden fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-30 h-12 px-5 rounded-full bg-button-primary text-on-primary text-sm font-medium shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"}`}
         >
           New board
         </button>
@@ -611,8 +620,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
           onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
-          <button onClick={handleJoinSubmit} className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Join</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-fg-secondary text-sm hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={handleJoinSubmit} className="max-sm:min-h-11 bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Join</button>
         </div>
       </ModalWrapper>
 

@@ -30,7 +30,7 @@ export default function OnboardingEmptyState({ name, onCreateBoard, onJoinGroup,
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 py-6" data-testid="first-run">
       <div>
-        <h2 id="first-run-heading" tabIndex={-1} className="text-2xl font-[650] text-fg focus:outline-none">{name ? `Welcome to Visiban, ${name}` : "Welcome to Visiban"}</h2>
+        <h2 id="first-run-heading" tabIndex={-1} className="text-2xl font-semibold text-fg focus:outline-none">{name ? `Welcome to Visiban, ${name}` : "Welcome to Visiban"}</h2>
         <p className="mt-1 text-sm text-fg-secondary">You're not on a team yet, and you have no boards of your own.</p>
       </div>
 

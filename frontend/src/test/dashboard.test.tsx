@@ -558,7 +558,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
 
     // Board reappears after the reconciling refetch, and the error is shown.
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
-    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+    expect(await screen.findByTestId('dashboard-action-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
     )
   })
@@ -579,7 +579,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
 
     // The board is re-inserted by id rather than left missing.
     expect(await screen.findByText('Sprint Board')).toBeInTheDocument()
-    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+    expect(await screen.findByTestId('dashboard-action-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
     )
   })
@@ -610,7 +610,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
 
     rejectA(new Error('server error'))
 
-    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+    expect(await screen.findByTestId('dashboard-action-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
     )
     expect(screen.getByText('Board Alpha')).toBeInTheDocument()
@@ -644,7 +644,7 @@ describe('Dashboard — rejection paths (#1374)', () => {
     await screen.findByText('Board Alpha')
 
     rejectA(new Error('server error'))
-    expect(await screen.findByTestId('dashboard-load-error')).toHaveTextContent(
+    expect(await screen.findByTestId('dashboard-action-error')).toHaveTextContent(
       'Failed to delete the board. Please try again.'
     )
     expect(screen.getAllByText('Board Alpha')).toHaveLength(1)

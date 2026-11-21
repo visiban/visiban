@@ -80,7 +80,7 @@ export function summarize(boards: Board[], groups: Group[]): SummaryParts {
 
 /** Desktop clauses. Any clause whose count is 0 is left out; never "this week" (a snapshot). */
 export function summaryClauses(s: SummaryParts): { lead: string; atRisk: string | null; signals: string | null } {
-  const lead = `${plural(s.boards, "board", "boards")} across ${plural(s.groups, "group", "groups")}.`;
+  const lead = s.groups > 0 ? `${plural(s.boards, "board", "boards")} across ${plural(s.groups, "group", "groups")}.` : `${plural(s.boards, "board", "boards")}.`;
   const atRisk = s.atRisk > 0 ? `${plural(s.atRisk, "board", "boards")} ${s.atRisk === 1 ? "is" : "are"} at risk.` : null;
   const counted: string[] = [];
   if (s.stale > 0) counted.push(`${s.stale} stale`);

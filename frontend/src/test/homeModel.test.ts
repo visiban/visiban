@@ -50,6 +50,7 @@ describe('summary line', () => {
   it('leaves out clauses whose count is 0 and never says "this week"', () => {
     const c = summaryClauses(summarize([board(1, { ...auto(0, 0) })], [group(1)]))
     expect(c).toEqual({ lead: '1 board across 1 group.', atRisk: null, signals: null })
+    expect(summaryClauses(summarize([board(1), board(2)], [])).lead).toBe('2 boards.')
     const one = summaryClauses(summarize([board(1, { ...auto(1, 0), effective_health_status: 'at_risk' })], []))
     expect(one.atRisk).toBe('1 board is at risk.')
     expect(one.signals).toBe('1 stale card on the 1 board with auto health on.')
