@@ -135,6 +135,7 @@ nav:
     - Testing: development/testing.md
     - Mutation Testing Baseline: development/mutation-testing.md
     - Database Migrations: development/database-migrations.md
+    - Upgrade Drills & PostgreSQL Matrix: development/upgrade-drills.md
     - Backend Dependency Lock: development/dependency-lock.md
     - CI Gate Self-Tests: development/ci-gates.md
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md

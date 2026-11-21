@@ -32,6 +32,14 @@ Back up the database, point `APP_VERSION` at the new release, run `migrate`, and
 
 ---
 
+## Supported PostgreSQL versions
+
+Visiban supports **PostgreSQL 15, 16, 17 and 18**. The Compose file and the Helm chart ship PostgreSQL 17. An external database (`externalDatabase` in Helm, your own `DATABASE_URL` in Compose) can run any supported major.
+
+**Why this range:** Django 5.2 needs PostgreSQL 14 or newer, and PostgreSQL 14 reached upstream end of life in November 2026. The floor is the oldest major that still gets security fixes. CI runs the migrations and the backend tests against every major in the range (#2463).
+
+**Watch out:** the shipped major changes only in a release whose notes say so. The new major refuses to start on a data directory from the old one, so that upgrade needs a dump and restore. See [When the local stack won't start](../getting-started/installation.md#when-the-local-stack-wont-start).
+
 ## Standard upgrade steps
 
 These steps apply to a single-server Docker Compose deployment.
