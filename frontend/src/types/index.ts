@@ -2530,6 +2530,20 @@ export interface FlowAttention {
 }
 
 /**
+ * `GET /boards/{id}/metrics/overview/` (#2426): each section is exactly its own
+ * `metrics/*` response, all computed from one load of the board's history.
+ */
+export interface FlowOverview {
+  cycle_time: FlowCycleTime;
+  throughput: FlowThroughput;
+  cumulative_flow: FlowCumulativeFlow;
+  wip_age: FlowWipAge;
+  dwell: FlowDwell;
+  blocked: FlowBlocked;
+  attention: FlowAttention;
+}
+
+/**
  * `GET /boards/{id}/summary/` response. `extension_panels` is untrusted input
  * from enterprise `ANALYTICS_EXTENSIONS` producers: it is `unknown[]` on
  * purpose and must go through `parseExtensionPanels` before rendering (#1770).

@@ -810,6 +810,30 @@ The `blocked` object on [`GET /api/v1/boards/{id}/analytics/`](#get-apiv1boardsi
 
 It differs from the `stalled_cards` list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed. A card with no movement is judged the same way in both, from its creation date.
 
+#### `GET /api/v1/boards/{id}/metrics/overview/`
+
+*Added in 1.3 (#2426).* Every chart of the Analytics overview in one response, computed from **one** load of the board's history. Calling `cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked` and `attention` separately loads and replays that history seven times, which on a board with years of archived work holds several copies of it in the server process at once; the Analytics page uses this endpoint instead. The single-metric endpoints are unchanged and still answer on their own.
+
+**Query parameters:** the [shared filters](#flow-metrics) (`days`, or `from_date`/`to_date`, plus `swimlane_id`, `label_id`), `group_by` and `group_by_field_id` as on the four breakdown endpoints, and `period` (`day` or `week`, default `week`) as on `throughput`. A bad value gets the same `400` (`code: invalid_query_param`) as on those endpoints. The cumulative-flow `date` drill-down is not taken here; use `metrics/cumulative-flow/?date=` for it.
+
+```json
+{
+  "cycle_time": { "definition": "...", "sample_size": 12, "percentiles": { "p50": 4.2, "p85": 8.1, "p95": null }, "samples": [], "cards": [] },
+  "throughput": { "definition": "...", "period": "week", "total": 12, "samples": [], "cards": [] },
+  "cumulative_flow": { "definition": "...", "columns": [], "days": [], "bottleneck_column_uid": null },
+  "wip_age": { "definition": "...", "sample_size": 3, "samples": [], "cards": [] },
+  "dwell": { "definition": "...", "sample_size": 20, "columns": [] },
+  "blocked": { "definition": "...", "total": { "days": 3.5, "blocks": 2 }, "blocked_now": 1, "columns": [], "reasons": [], "reason_count": 2 },
+  "attention": { "definition": "...", "stalled_threshold_days": 7, "items": [], "cards": [] }
+}
+```
+
+- Each section is exactly the response its own endpoint returns for the same query string (shortened above). `group_by` breaks down `cycle_time`, `throughput`, `wip_age` and `dwell`, and `period` buckets `throughput`; the other sections ignore both, as their endpoints do.
+- The request succeeds or fails as a whole: there is no partial response.
+- `metrics/swimlanes` is not included; the Swimlanes view calls it on its own.
+
+**Permissions:** any board member (`viewer` and above), as on every `metrics/*` endpoint.
+
 ### `GET /api/v1/boards/{id}/movements/`
 Board-level movement history for all cards, sorted newest first.
 

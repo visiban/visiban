@@ -7,6 +7,7 @@ import type {
   FlowCycleTime,
   FlowDwell,
   FlowGroupBy,
+  FlowOverview,
   FlowSwimlaneComparison,
   FlowThroughput,
   FlowWipAge,
@@ -90,6 +91,16 @@ export const getFlowBlocked = (boardId: number, filters: FlowFilters) =>
 export const getFlowAttention = (boardId: number, filters: FlowFilters) =>
   client
     .get<FlowAttention>(`/api/v1/boards/${boardId}/metrics/attention/`, { params: flowParams(filters) })
+    .then((r) => r.data);
+
+/**
+ * Every Overview chart from one request (#2426). The server loads the board's
+ * history once for all seven sections; asking for them separately loads it
+ * once per chart. `grouping` breaks down cycle time, throughput, WIP age and dwell.
+ */
+export const getFlowOverview = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
+  client
+    .get<FlowOverview>(`/api/v1/boards/${boardId}/metrics/overview/`, { params: groupedParams(filters, grouping) })
     .then((r) => r.data);
 
 /**

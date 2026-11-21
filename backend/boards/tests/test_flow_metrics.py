@@ -1264,7 +1264,7 @@ BAD_RANGE_PARAMS = (
     {"days": "abc"},
     {"days": "30", "from_date": "2026-05-01"},
 )
-METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age", "dwell", "blocked", "attention")
+METRICS = ("cycle-time", "throughput", "cumulative-flow", "wip-age", "dwell", "blocked", "attention", "overview")
 
 
 class EndpointAccessTests(EndpointFixture):
@@ -1536,6 +1536,9 @@ class EndpointQueryCountTests(EndpointFixture):
     BUDGET = {
         "cycle-time": 16, "throughput": 16, "cumulative-flow": 14, "wip-age": 20,
         "dwell": 14, "blocked": 18, "attention": 18,
+        # All seven from one load (#2426): one range load plus the settled-band
+        # pass, the blocks, relations and directories, doubled the same way.
+        "overview": 26,
     }
 
     def seed(self, n):
@@ -2095,6 +2098,8 @@ class FlowRedesignEndpointTests(EndpointFixture):
         self.assert_documented("FlowCumulativeFlowColumn", cfd["columns"][-1])
         throughput = self.client.get(self.url("throughput")).json()
         self.assert_documented("FlowThroughputSample", throughput["samples"][0])
+        overview = self.client.get(self.url("overview")).json()
+        self.assert_documented("FlowOverview", overview)
 
     def test_attention_uses_the_board_staleness_threshold(self):
         self.board.staleness_threshold_days = 3
@@ -2277,7 +2282,8 @@ class GroupingShapeTests(GroupingFixture):
             with self.subTest(metric=metric):
                 operation = schema["paths"][f"/api/v1/boards/{{id}}/metrics/{metric}/"]["get"]
                 names = {p["name"] for p in operation["parameters"] if p["in"] == "query"}
-                expected = metric in GROUPED_METRICS
+                # The overview passes group_by on to its four breakdown sections (#2426).
+                expected = metric in GROUPED_METRICS or metric == "overview"
                 self.assertEqual({"group_by", "group_by_field_id"} <= names, expected)
                 self.assertEqual(bool(names & {"group_by", "group_by_field_id"}), expected)
 

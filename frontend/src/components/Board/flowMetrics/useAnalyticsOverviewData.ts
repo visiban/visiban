@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { getBoardAnalytics } from "../../../api/boards";
-import {
-  getFlowAttention, getFlowBlocked, getFlowCumulativeFlow, getFlowCycleTime, getFlowDwell, getFlowThroughput, getFlowWipAge,
-} from "../../../api/flowMetrics";
+import { getFlowOverview } from "../../../api/flowMetrics";
 import type { FlowFilters, FlowGroupingParams } from "../../../api/flowMetrics";
 import type {
-  FlowAttention, FlowBlocked, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowThroughput, FlowWipAge,
+  FlowAttention, FlowBlocked, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowOverview, FlowThroughput, FlowWipAge,
 } from "../../../types";
 import type { AnalyticsData } from "./heatmap";
 
@@ -32,7 +30,10 @@ function settle<T>(outcome: PromiseSettledResult<T>): Result<T> {
 }
 
 /**
- * Every request the Overview makes, once per filter change (#2261).
+ * Every request the Overview makes, once per filter change (#2261): the seven
+ * flow charts in one `metrics/overview` request, which loads the board's history
+ * once rather than once per chart (#2426), and the heatmap's `analytics`.
+ * The charts therefore load or fail together; the heatmap fails on its own.
  *
  * The answers are swapped in together once all have settled, and the previous
  * answers stay on screen meanwhile: a chart that lost its data would unmount
@@ -49,28 +50,25 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     // A newer filter or retry supersedes this request: drop its late answer.
     let current = true;
     setLoading(true);
-    // With no breakdown the calls are exactly as before (no third argument).
+    // With no breakdown the call is exactly as before (no third argument).
     const extra: [FlowGroupingParams?] = grouping ? [grouping] : [];
     // allSettled never rejects and the `current` flag guards late answers, so fire-and-forget is safe.
     void Promise.allSettled([
-      getFlowCycleTime(boardId, filters, ...extra),
-      getFlowThroughput(boardId, filters, ...extra),
-      getFlowCumulativeFlow(boardId, filters),
-      getFlowWipAge(boardId, filters, ...extra),
-      getFlowDwell(boardId, filters, ...extra),
-      getFlowBlocked(boardId, filters),
-      getFlowAttention(boardId, filters),
+      getFlowOverview(boardId, filters, ...extra),
       getBoardAnalytics(boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }),
-    ]).then(([cycle, throughput, cumulative, wipAge, dwell, blocked, attention, analytics]) => {
+    ]).then(([overview, analytics]) => {
       if (!current) return;
+      // One failed request fails every chart it carried, each in its own frame.
+      const section = <K extends keyof FlowOverview>(key: K): Result<FlowOverview[K]> =>
+        overview.status === "fulfilled" ? { data: overview.value[key] } : { error: overview.reason };
       setSettled({ filters, results: {
-        cycle: settle(cycle),
-        throughput: settle(throughput),
-        cumulative: settle(cumulative),
-        wipAge: settle(wipAge),
-        dwell: settle(dwell),
-        blocked: settle(blocked),
-        attention: settle(attention),
+        cycle: section("cycle_time"),
+        throughput: section("throughput"),
+        cumulative: section("cumulative_flow"),
+        wipAge: section("wip_age"),
+        dwell: section("dwell"),
+        blocked: section("blocked"),
+        attention: section("attention"),
         analytics: settle(analytics as PromiseSettledResult<AnalyticsData | null>),
       } });
       setLoading(false);
