@@ -2066,7 +2066,7 @@ class FlowRedesignEndpointTests(EndpointFixture):
     def test_a_user_who_must_change_their_password_is_refused(self):
         self.user.must_change_password = True
         self.user.save(update_fields=["must_change_password"])
-        for metric in ("dwell", "blocked", "attention"):
+        for metric in ("dwell", "blocked", "attention", "overview"):
             with self.subTest(metric=metric):
                 self.assertEqual(self.client.get(self.url(metric)).status_code, 403)
 

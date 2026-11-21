@@ -147,3 +147,13 @@ class FlowOverviewTests(AgedBoardMixin, EndpointFixture):
                 resp = self.client.get(self.url("overview"), params)
                 self.assertEqual(resp.status_code, 400, resp.content)
                 self.assertEqual(resp.json()["code"], "invalid_query_param")
+
+    def test_a_card_field_on_another_board_is_refused_like_a_missing_one(self):
+        from boards.models import Board, CustomFieldDefinition
+
+        other = Board.objects.create(name="Other", owner=self.user)
+        foreign = CustomFieldDefinition.objects.create(board=other, name="Tier", field_type="checkbox")
+        on_other = self.client.get(self.url("overview"), {"group_by": "custom_field", "group_by_field_id": foreign.pk})
+        missing = self.client.get(self.url("overview"), {"group_by": "custom_field", "group_by_field_id": 999_999})
+        self.assertEqual(on_other.status_code, 400, on_other.content)
+        self.assertEqual(on_other.json(), missing.json())
