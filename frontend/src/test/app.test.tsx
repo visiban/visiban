@@ -310,11 +310,11 @@ describe('App', () => {
     const previousTitle = document.title
     function Probe() { return <span data-testid="path">{useLocation().pathname}</span> }
     const { unmount } = render(<MemoryRouter initialEntries={['/nonexistent']}><App /><Probe /></MemoryRouter>)
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Page not found' })).toBeInTheDocument()
     expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
     expect(screen.getByTestId('path')).toHaveTextContent('/nonexistent')
     expect(document.title).toBe('Page not found – Visiban')
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toHaveFocus()
+    expect(screen.getByRole('heading', { level: 2, name: 'Page not found' })).toHaveFocus()
     unmount()
     expect(document.title).toBe(previousTitle)
   })
@@ -323,7 +323,7 @@ describe('App', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     paletteUserIds.length = 0
     render(<MemoryRouter initialEntries={['/boards/1/typo/extra']}><App /></MemoryRouter>)
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Page not found' })).toBeInTheDocument()
     expect(paletteUserIds).toContain(fakeUser.id)
   })
 
@@ -340,28 +340,28 @@ describe('App', () => {
     expect(link).toHaveAttribute('href', '/')
     act(() => { link.click() })
     expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Page not found' })).not.toBeInTheDocument()
   })
 
   it('known routes do not show the not-found page (#1740)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
     expect(screen.getByTestId('dashboard')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Page not found' })).not.toBeInTheDocument()
   })
 
   it('share links keep their own route and never hit not-found (#1740)', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/share/abc']}><App /></MemoryRouter>)
     expect(screen.getByTestId('share-page')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Page not found' })).not.toBeInTheDocument()
   })
 
   it('unauthenticated unknown paths still reach login, not not-found (#1740)', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter initialEntries={['/nonexistent']}><App /></MemoryRouter>)
     expect(screen.getByTestId('login-page')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2, name: 'Page not found' })).not.toBeInTheDocument()
   })
 
   describe('signing in from a URL that matches no route (#1740)', () => {
@@ -380,12 +380,12 @@ describe('App', () => {
     it('lands on the dashboard after signing in at /login', async () => {
       loginFrom('/login')
       expect(await screen.findByTestId('dashboard')).toBeInTheDocument()
-      expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { level: 2, name: 'Page not found' })).not.toBeInTheDocument()
     })
 
     it('shows the not-found page after signing in at an unmatched URL', async () => {
       loginFrom('/nonexistent')
-      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: 'Page not found' })).toBeInTheDocument()
       expect(screen.queryByTestId('dashboard')).not.toBeInTheDocument()
     })
 

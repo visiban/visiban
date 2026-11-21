@@ -7,7 +7,7 @@ import type { SidebarTreeNode } from "../../utils/groupTree";
 import { buildSidebarTree } from "../../utils/groupTree";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
-import { shouldIgnoreShortcut } from "../../utils/keyboard";
+import { shouldIgnoreGlobalShortcut, shouldIgnoreShortcut } from "../../utils/keyboard";
 import { useNavDrawer, useShellNavData } from "../../contexts/ShellNavContext";
 import { boardTone } from "./shellNavModel";
 import { CloseIcon, FolderIcon, GearIcon, HomeIcon, LogoTile, ShieldIcon } from "./shellIcons";
@@ -81,9 +81,11 @@ export default function NavDrawer({ user }: { user: User }) {
     if (!drawer) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (shouldIgnoreShortcut(e.target)) return;
-      // Never open over another modal (a card, a dialog): it owns the keyboard.
-      if (!drawer.open && document.querySelector('[aria-modal="true"]')) return;
+      // Opening uses the same guard as `?` and `g u`: never from a typing
+      // context, an open popover (FilterPanel, the board overflow menu), or over
+      // another modal. Closing only skips typing contexts, because the open
+      // drawer is itself aria-modal and the shared guard would always refuse.
+      if (drawer.open ? shouldIgnoreShortcut(e.target) : shouldIgnoreGlobalShortcut(e.target)) return;
       e.preventDefault();
       if (drawer.open) {
         refocusMenu.current = true;

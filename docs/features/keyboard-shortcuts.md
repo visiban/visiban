@@ -4,7 +4,7 @@
 
 <span class="vb-version" title="Added in 1.1">1.1+</span>
 
-Press `?` on any board (or use the avatar menu → **Keyboard shortcuts**) to open the shortcuts overlay.
+Press `?` on any signed-in page (or use the account menu → **Keyboard shortcuts**) to open the shortcuts overlay. It always leads with the **Everywhere** keys; on a board it also lists the board's own keys, and off a board it says to open a board to see them.
 
 **Why it matters:** For someone living in the board all day, a shortcut for every common action is the difference between staying in flow and reaching for the mouse.
 
@@ -22,18 +22,28 @@ Single-letter shortcuts are suppressed when focus is in an input, textarea, sele
 
 ## Navigation: every authenticated page
 
+These keys work on every signed-in page (the overlay's **Everywhere** section):
+
 | Shortcut | Action |
 |---|---|
-| <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> | Open the command palette |
+| <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> | Jump to a board or action (the command palette) |
+| <kbd>[</kbd> | Open or close the [navigation drawer](navigation.md) |
+| <kbd>G</kbd> then <kbd>U</kbd> | Open the account menu |
+| <kbd>?</kbd> | Show the shortcuts overlay |
+
+On a board, two more navigation keys apply:
+
+| Shortcut | Action |
+|---|---|
 | <kbd>/</kbd> | Focus the search box (opens the filter bar if closed) |
 | <kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd> | Open board settings (admins only) |
-| <kbd>G</kbd> then <kbd>U</kbd> | Open the user menu |
 
-- **Command palette:** the single cross-route entry point. Type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the surface: it searches cards on a board, jumps to a board on the Dashboard, and lists navigation targets on Settings / Admin.
+- **Command palette:** the single cross-route entry point. Off a board it searches boards and actions only ("Jump to a board or action"); on a board it also searches the board's cards ("Search cards, boards, actions…").
+- **`[`** opens the drawer from anywhere except a text field, an open menu or filter panel, or another dialog, which keep the key. With the drawer open, `[` (or Escape) closes it and returns focus to the menu button.
 - **Board presets** <span class="vb-version" title="Added in 1.3">1.3+</span>: on a board, the palette offers **Apply preset: Classic** and **Apply preset: Default** (not the one already in use), and **Reset to preset: …** when the active preset is modified. They do exactly what the toolbar [Preset dropdown](board.md#board-presets) does, including the Undo notice, from any view of the board (Board, Summary, History, Analytics, Lens). They are not listed while the palette is acting on a card. No new shortcut key.
 - **Empty query:** the default list starts with your starred boards (alphabetical), then your most recent visits, so a blank `⌘K` → `Enter` jumps into the workspace you care about most.
 - **Card actions:** on a board, the palette also lists commands for a card; see [Card actions in the command palette](#card-actions-in-the-command-palette).
-- **`G` then `U`** is a chord, not a combo: press and release `G`, then press `U` within one second, to open the [user menu](navigation.md) from anywhere in the authenticated app.
+- **`G` then `U`** is a chord, not a combo: press and release `G`, then press `U` within one second, to open the [account menu](navigation.md) from anywhere in the authenticated app.
 
 ## Board view: switch the active sub-tab
 

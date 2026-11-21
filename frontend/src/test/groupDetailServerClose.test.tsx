@@ -172,7 +172,7 @@ describe('GroupDetail with the real group socket (#2041)', () => {
     await screen.findByText('+ New board')
     mockGetGroup.mockRejectedValue({ response: { status: 404 } })
     act(() => { sockets[0].onclose?.({ code: 1000 }) })
-    expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
   })
 
   it('keeps the group when the re-read after a server 1000 still succeeds', async () => {

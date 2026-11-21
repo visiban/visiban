@@ -623,13 +623,13 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
   })
 
   describe('access lost while the socket was down (#2162)', () => {
-    const unavailableHeading = () => screen.queryByRole('heading', { level: 1, name: "This group isn't available" })
+    const unavailableHeading = () => screen.queryByRole('heading', { level: 2, name: "This group isn't available" })
 
     it.each([404, 403])('shows the unavailable page when the reconnect re-read of the group answers %i', async (status) => {
       await loadGroup()
       mockGetGroup.mockRejectedValue({ response: { status } })
       reconnect()
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it.each([
@@ -643,7 +643,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
       // re-confirm (the next group read, which 404s) can show the unavailable page.
       mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue({ response: { status: 404 } })
       reconnect()
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it('re-confirms through the group when the subgroup boards re-read answers 404', async () => {
@@ -653,7 +653,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
       mockGetGroupDescendantBoards.mockRejectedValueOnce({ response: { status: 404 } })
       mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue({ response: { status: 404 } })
       reconnect()
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it('shows the unavailable page when a late first open re-reads a group the user lost access to', async () => {
@@ -663,7 +663,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
       const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(realNow + 5000)
       mockGetGroup.mockRejectedValue({ response: { status: 404 } })
       act(() => { capturedOnFirstConnected?.() })
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
       nowSpy.mockRestore()
     })
 

@@ -103,7 +103,7 @@ frontend/e2e/
 ├── command-palette.spec.ts  # Cmd+K search
 ├── theme.spec.ts         # Light/dark toggle + persistence
 ├── export.spec.ts        # Export button visibility + JSON trigger
-├── mobile-nav.spec.ts    # Hamburger drawer at narrow viewport
+├── mobile-nav.spec.ts    # Navigation drawer at narrow viewport
 ├── rich-text-editor.spec.ts  # Card description editor + markdown round-trip
 ├── card-description-caret.spec.ts  # Caret stays visible typing at the end of a description
 ├── demo.spec.ts          # Hosted demo visitor loop (explore, move a card, create-board refused)

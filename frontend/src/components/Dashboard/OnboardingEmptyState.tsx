@@ -50,7 +50,8 @@ export default function OnboardingEmptyState({ name, onCreateBoard, onJoinGroup,
         <h3 id="first-run-own" className="text-[15px] leading-5 font-semibold text-fg">Or start a board of your own</h3>
         <p className="mt-1 text-sm text-fg-secondary">Boards you start here are personal. You can move one into a group later.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* One action, one label: the create modal is the template picker, and its default is a plain Kanban board. */}
+          {/* One action, one label: the create modal is the template picker, and its default is a plain Kanban board.
+              The owner approved merging the spec's "Start from a template" and "Blank board" into this one action (2026-11-21, #2474). */}
           <Button variant="secondary" onClick={guard(onCreateBoard)} {...disabledProps("Create a board")}>Create a board</Button>
           {onImport && (
             <Button variant="secondary" onClick={guard(onImport)} {...disabledProps("Import a board", importDisabledReason ?? disabledReason)}>Import a board (Visiban or Trello)</Button>

@@ -230,6 +230,46 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Failed to load group')).toBeInTheDocument()
   })
 
+  // #2473: the early-return states keep the shell header (one h1, Home crumb, account menu).
+  it('keeps the shell header with exactly one h1 while loading', () => {
+    mockGetGroup.mockReturnValue(new Promise(() => {}))
+    mockGetGroupMembers.mockReturnValue(new Promise(() => {}))
+    mockGetSubgroups.mockReturnValue(new Promise(() => {}))
+    mockGetGroupBoards.mockReturnValue(new Promise(() => {}))
+    renderGroupDetail()
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(within(banner).getByRole('heading', { level: 1, name: 'Group' })).toBeInTheDocument()
+    expect(within(banner).getByRole('button', { name: /Notifications/ })).toBeInTheDocument()
+  })
+
+  it('keeps the shell header with exactly one h1 on a load error and goes Back to Home', async () => {
+    mockGetGroup.mockRejectedValue(new Error('fail'))
+    mockGetGroupMembers.mockRejectedValue(new Error('fail'))
+    mockGetSubgroups.mockRejectedValue(new Error('fail'))
+    mockGetGroupBoards.mockRejectedValue(new Error('fail'))
+    renderGroupDetail()
+    expect(await screen.findByText('Failed to load group')).toBeInTheDocument()
+    const banner = screen.getByRole('banner')
+    expect(within(banner).getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Back to Home' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/')
+  })
+
+  it('renders exactly one h1 on the group-unavailable page (#2473)', async () => {
+    mockGetGroup.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupMembers.mockRejectedValue({ response: { status: 404 } })
+    mockGetSubgroups.mockRejectedValue({ response: { status: 404 } })
+    mockGetGroupBoards.mockRejectedValue({ response: { status: 404 } })
+    renderGroupDetail()
+    await screen.findByRole('heading', { level: 2, name: "This group isn't available" })
+    const h1s = screen.getAllByRole('heading', { level: 1 })
+    expect(h1s).toHaveLength(1)
+    expect(h1s[0]).toHaveTextContent('Not available')
+  })
+
   it('renders group details when loaded', async () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([
@@ -2477,7 +2517,7 @@ describe('GroupDetail — navigation (#1374)', () => {
     mockGetSubgroups.mockRejectedValue({ response: { status } })
     mockGetGroupBoards.mockRejectedValue({ response: { status } })
     renderGroupDetail()
-    const h1 = await screen.findByRole('heading', { level: 1, name: "This group isn't available" })
+    const h1 = await screen.findByRole('heading', { level: 2, name: "This group isn't available" })
     await waitFor(() => expect(h1).toHaveFocus())
     expect(document.title).toBe('Not available – Visiban')
     expect(screen.getByText(/ask them to add you to the group\./)).toBeInTheDocument()
@@ -2513,7 +2553,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       mockGetGroup.mockResolvedValueOnce(fakeGroup).mockRejectedValue(gone)
       mockGroupSocketStatus = 'failed'
       renderGroupDetail()
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true })
     })
 
@@ -2530,7 +2570,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       await loaded()
       mockGetGroup.mockRejectedValue(gone)
       act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it("the deleter's own session ignores its group.deleted echo and navigates away", async () => {
@@ -2559,7 +2599,7 @@ describe('GroupDetail — navigation (#1374)', () => {
       await screen.findByText('Failed to delete group. Please try again.')
       mockGetGroup.mockRejectedValue(gone)
       act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 1 } } as BoardEvent) })
-      expect(await screen.findByRole('heading', { level: 1, name: "This group isn't available" })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 2, name: "This group isn't available" })).toBeInTheDocument()
     })
 
     it("does not carry one group's unavailable state into the next group", async () => {

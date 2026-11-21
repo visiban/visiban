@@ -54,8 +54,13 @@ vi.mock('../components/Auth/ForceRenameUsernameModal', () => ({
 // Minimal stand-in: renders only the breadcrumb suffix (the star button) so
 // this file can assert on it, matching Navbar's real prop shape.
 vi.mock('../components/Layout/Navbar', () => ({
-  default: ({ breadcrumb }: { breadcrumb?: { suffix?: React.ReactNode }[] }) => (
-    <div data-testid="navbar">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.suffix}</React.Fragment>)}</div>
+  // The crumb's `render` (switcher or inline rename editor) sits outside the navbar test id so
+  // the button-order assertions below only see the suffix controls.
+  default: ({ breadcrumb }: { breadcrumb?: { suffix?: React.ReactNode; render?: React.ReactNode }[] }) => (
+    <>
+      <div data-testid="navbar">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.suffix}</React.Fragment>)}</div>
+      <div data-testid="navbar-crumb">{breadcrumb?.map((b, i) => <React.Fragment key={i}>{b.render}</React.Fragment>)}</div>
+    </>
   ),
 }))
 
@@ -135,6 +140,27 @@ function renderBoardPage(board: object = fakeBoard, flags: Partial<InstanceFlags
   mockUseBoardContext.mockReturnValue(contextFor(board))
   return render(<MemoryRouter initialEntries={['/boards/1']}><App /></MemoryRouter>)
 }
+
+describe('BoardPage rename focus return (#2473)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it.each([
+    ['saved with Enter', '{Enter}'],
+    ['canceled with Escape', '{Escape}'],
+  ])('focus goes back to the Rename button after a rename is %s', async (_label, key) => {
+    const user = userEvent.setup()
+    renderBoardPage()
+    await user.click(within(screen.getByTestId('navbar')).getByRole('button', { name: 'Rename board' }))
+    const input = await screen.findByRole('textbox', { name: 'Board name' })
+    expect(input).toHaveFocus()
+    await user.type(input, ' renamed')
+    await user.keyboard(key)
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Board name' })).toBeNull())
+    await waitFor(() => expect(within(screen.getByTestId('navbar')).getByRole('button', { name: 'Rename board' })).toHaveFocus())
+  })
+})
 
 describe('BoardPage Row 1 health status (#1133)', () => {
   beforeEach(() => {

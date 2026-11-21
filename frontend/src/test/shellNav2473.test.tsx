@@ -141,8 +141,8 @@ describe('BoardSwitcher (#2473)', () => {
 
 const fakeUser = { id: 1, username: 'jane', is_site_admin: false } as unknown as User
 
-function renderDrawer(opts: { user?: User; navData?: ShellNavData; path?: string } = {}) {
-  const value = { open: true, setOpen: vi.fn(), toggle: vi.fn(), menuButtonRef: { current: null }, registerHeader: () => () => {} }
+function renderDrawer(opts: { user?: User; navData?: ShellNavData; path?: string; open?: boolean } = {}) {
+  const value = { open: opts.open ?? true, setOpen: vi.fn(), toggle: vi.fn(), menuButtonRef: { current: null }, registerHeader: () => () => {} }
   render(
     <MemoryRouter initialEntries={[opts.path ?? '/']}>
       <NavDrawerContext.Provider value={value}>
@@ -191,6 +191,65 @@ describe('NavDrawer (#2473)', () => {
   it('the X closes it', () => {
     const value = renderDrawer()
     fireEvent.click(screen.getByRole('button', { name: 'Close navigation' }))
+    expect(value.setOpen).toHaveBeenCalledWith(false)
+  })
+})
+
+// `[` opens through the same guard as `?` and `g u` (shouldIgnoreGlobalShortcut); each
+// refusing branch is tested beside the opening case (CLAUDE.md, absent-input guards).
+describe('NavDrawer `[` shortcut (#2473)', () => {
+  function pressFrom(el: Element) {
+    fireEvent.keyDown(el, { key: '[' })
+  }
+  function mount(html: string) {
+    const host = document.createElement('div')
+    host.innerHTML = html
+    document.body.appendChild(host)
+    return host
+  }
+
+  it('opens a closed drawer from the page', () => {
+    const value = renderDrawer({ open: false })
+    pressFrom(document.body)
+    expect(value.setOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('does not open from inside a popover scope (FilterPanel, board overflow menu)', () => {
+    const value = renderDrawer({ open: false })
+    const host = mount('<div data-shortcut-scope="popover"><button type="button">Filter</button></div>')
+    try {
+      pressFrom(host.querySelector('button')!)
+      expect(value.setOpen).not.toHaveBeenCalled()
+    } finally {
+      host.remove()
+    }
+  })
+
+  it('does not open over another modal', () => {
+    const value = renderDrawer({ open: false })
+    const host = mount('<div role="dialog" aria-modal="true"><button type="button">OK</button></div>')
+    try {
+      pressFrom(document.body)
+      expect(value.setOpen).not.toHaveBeenCalled()
+    } finally {
+      host.remove()
+    }
+  })
+
+  it('does not open from a typing context', () => {
+    const value = renderDrawer({ open: false })
+    const host = mount('<input aria-label="Notes" />')
+    try {
+      pressFrom(host.querySelector('input')!)
+      expect(value.setOpen).not.toHaveBeenCalled()
+    } finally {
+      host.remove()
+    }
+  })
+
+  it('closes an open drawer even though the drawer itself is aria-modal', () => {
+    const value = renderDrawer({ open: true })
+    pressFrom(screen.getByRole('button', { name: 'Close navigation' }))
     expect(value.setOpen).toHaveBeenCalledWith(false)
   })
 })
