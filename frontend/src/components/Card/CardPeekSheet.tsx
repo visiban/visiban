@@ -391,7 +391,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const panelModeClass = anchored
     ? "rounded-lg border border-primary-emphasis shadow-2xl"
     : fullscreen
-      ? "inset-0 border border-line"
+      ? "inset-0"
       : "top-0 bottom-0 right-0 w-[400px] border-l border-line shadow-2xl";
   const notch = anchored ? placement.notch : null;
 
@@ -433,14 +433,14 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       )}
       <div className={`flex h-full min-h-0 flex-col overflow-hidden ${anchored ? "rounded-[7px]" : ""}`}>
       <div className="flex items-start justify-between gap-2 px-4 pt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{lane?.name ?? ""}</p>
+        <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-fg-tertiary" title={lane?.name ?? undefined}>{lane?.name ?? ""}</p>
         <div className="flex items-center gap-1 -mt-2 -mr-2">
         {!fullscreen && <CardSheetDockToggle docked={dockedPref} onToggle={setDockedPref} />}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close card peek"
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 p-2 rounded-md text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className={`shrink-0 ${fullscreen ? "min-h-[44px] min-w-[44px]" : ""} p-2 rounded-md text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
         >
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
         </button>

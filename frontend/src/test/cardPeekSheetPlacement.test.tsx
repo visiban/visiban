@@ -178,7 +178,7 @@ describe('CardPeekSheet card-to-card swap (#2507)', () => {
   afterEach(() => { delete (Element.prototype as { animate?: unknown }).animate })
 
   it('slides on a same-side swap', () => {
-    const animate = vi.fn(() => ({ onfinish: null, oncancel: null }))
+    const animate = vi.fn((..._args: unknown[]) => ({ onfinish: null, oncancel: null }))
     ;(Element.prototype as { animate?: unknown }).animate = animate
     const { cell } = mountBoard()
     const second = document.createElement('div')
