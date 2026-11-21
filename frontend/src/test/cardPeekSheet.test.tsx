@@ -52,20 +52,13 @@ describe('dwellKey', () => {
 })
 
 describe('CardPeekSheet', () => {
-  it('goes full-screen at exactly 640px and floats from 641px', () => {
+  it('is docked at the right edge by default in jsdom (no card element to anchor to), with the dock toggle', () => {
     setup()
-    const cls = screen.getByTestId('card-peek-sheet').className
-    expect(cls).toContain('max-[640px]:inset-0')
-    expect(cls).toContain('min-[641px]:w-[400px]')
-    expect(cls).not.toMatch(/(^|\s)sm:/)
-  })
-
-  it('is content-height with a max height from 641px, not pinned to the viewport bottom', () => {
-    setup()
-    const cls = screen.getByTestId('card-peek-sheet').className
-    expect(cls).toContain('min-[641px]:bottom-auto')
-    expect(cls).toContain('min-[641px]:max-h-[calc(100vh-6.75rem)]')
-    expect(cls).not.toContain('min-[641px]:bottom-3')
+    const sheet = screen.getByTestId('card-peek-sheet')
+    expect(sheet).toHaveAttribute('data-sheet-mode', 'docked')
+    expect(sheet.className).toContain('w-[400px]')
+    expect(sheet.className).toContain('right-0')
+    expect(screen.getByTestId('card-sheet-dock-toggle')).toHaveAttribute('aria-label', 'Dock to edge')
   })
 
   it('renders stage chips as rounded rectangles, not pills', () => {

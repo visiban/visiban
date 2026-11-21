@@ -59,8 +59,7 @@ import { useInstanceFlags } from "../../contexts/InstanceFlagsContext";
 import { colorChipStyle } from "../../utils/colorContrast";
 import { isImeComposing } from "../../utils/imeComposition";
 import { isAssignableMember } from "../../utils/assignableMembers";
-import ActiveUnderline from "../Common/ActiveUnderline";
-
+import CardSheetDockToggle from "./CardSheetDockToggle";
 import ChecklistItemControls from "./ChecklistItemControls";
 import { checklistToday } from "../../utils/checklistFaceSuffix";
 
@@ -1766,34 +1765,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             // Dock toggle (#1915): DOM order equals visual order (Dock, then Close) and focus
             // opens on Close, so Shift+Tab reaches it. The pressed state is not tint alone:
             // ActiveUnderline (#2188) plus the icon swap and border as reinforcement.
-            <button
-              type="button"
-              onClick={() => setDockedPref(!dockedPref)}
-              aria-pressed={dockedPref}
-              aria-label={dockedPref ? "Open next to card" : "Dock to edge"}
-              title={dockedPref ? "Open next to card" : "Dock to edge"}
-              data-testid="card-sheet-dock-toggle"
-              className={`relative w-7 h-7 flex items-center justify-center rounded border transition shrink-0 hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-                dockedPref ? "bg-surface-hover border-line-strong text-fg" : "border-transparent text-fg-tertiary"
-              }`}
-            >
-              <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                {dockedPref ? (
-                  <>
-                    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
-                    <path d="M9.5 2.75v10.5" />
-                    <path d="M9.5 8H4.5M6.5 6l-2 2 2 2" />
-                  </>
-                ) : (
-                  <>
-                    <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
-                    <path d="M10 2.75v10.5" />
-                    <path d="M10 8h2.5M11.25 6.75L12.5 8l-1.25 1.25" />
-                  </>
-                )}
-              </svg>
-              <ActiveUnderline active={dockedPref} />
-            </button>
+            <CardSheetDockToggle docked={dockedPref} onToggle={setDockedPref} />
           )}
           <button type="button"
             ref={closeButtonRef}

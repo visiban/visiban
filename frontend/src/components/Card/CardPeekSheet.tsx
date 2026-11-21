@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cardSubColumnIndex, currentStopIndex, moveStops, stageSubColumns } from "../../utils/stages";
 import { getCardMovements } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { BOARD_SCROLL_SELECTOR, findBoardCardElement } from "../../hooks/useCardSheetPlacement";
+import { BOARD_SCROLL_SELECTOR, classifyTransition, findBoardCardElement, useCardSheetPlacement, type SheetPlacement } from "../../hooks/useCardSheetPlacement";
+import { useCardSheetDockedPref } from "../../hooks/useCardSheetDockedPref";
+import { claimDeparture, departSheet, dropOwnDeparture, playTransition } from "./cardSheetMotion";
+import CardSheetDockToggle from "./CardSheetDockToggle";
 import type { BoardFull, Card, CardMovement } from "../../types";
 import { formatDateStr, formatRelativeTime } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
@@ -63,11 +66,18 @@ interface Props {
   userTimezone?: string;
 }
 
+/** The peek's width; the card detail sheet is 540px. */
+export const PEEK_WIDTH = 400;
+
 /**
- * The card peek (#2273): a 400px side sheet over the right of the board with
+ * The card peek (#2273): a 400px side sheet beside the card's column with
  * the card's status, every field, time in each column and its history, so a
  * card can be read without leaving the board. It floats; it never resizes the
  * grid. Only the full card detail sheet edits.
+ *
+ * Placement, the Dock to edge toggle and its persisted preference, the notch
+ * and the transitions are the card detail sheet's, not a second rule (#2507,
+ * frontend/CLAUDE.md § Card detail sheet placement); only the width differs.
  *
  * Focus and Escape follow the card detail sheet (frontend/CLAUDE.md § Card
  * detail sheet placement): focus goes to Open card on open (#2358), and on close returns to
@@ -76,6 +86,49 @@ interface Props {
 export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone: _userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
+  const [dockedPref, setDockedPref] = useCardSheetDockedPref();
+  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}`, dockedPref, PEEK_WIDTH);
+  const { placement } = sheet;
+  const anchored = placement.mode === "anchored";
+  const fullscreen = placement.mode === "fullscreen";
+
+  // Transitions: the card detail sheet's (cardSheetMotion.ts). A swap mounts
+  // the next card's peek in the same commit (`key={peekCard.id}`) and claims
+  // the departing sheet's ghost, so a same-side swap slides and a side or mode
+  // change fades. Visual only.
+  const placementRef = useRef<SheetPlacement>(placement);
+  placementRef.current = placement;
+  const shownPlacementRef = useRef<SheetPlacement | null>(null);
+  const shownRectRef = useRef<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!sheet.measured || !panel) return;
+    let from = shownPlacementRef.current;
+    let fromRect = shownRectRef.current;
+    let ghost: HTMLElement | null = null;
+    let reason: Parameters<typeof classifyTransition>[2] = sheet.reason;
+    if (!from) {
+      const departed = claimDeparture(card.id);
+      if (departed) {
+        from = departed.placement;
+        fromRect = departed.rect;
+        ghost = departed.ghost;
+        reason = "swap";
+      }
+    }
+    playTransition(classifyTransition(from, placement, reason), panel, { placement, from: fromRect, ghost });
+    shownPlacementRef.current = placement;
+    shownRectRef.current = panel.getBoundingClientRect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the placement object: each re-place is a new object, a no-op re-measure keeps the old one
+  }, [placement, sheet.measured]);
+  useLayoutEffect(() => {
+    dropOwnDeparture(card.id);
+    const panel = panelRef.current;
+    return () => {
+      if (panel) departSheet(card.id, placementRef.current, panel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- card.id is fixed for this instance (`key={peekCard.id}`)
+  }, []);
   const [movements, setMovements] = useState<CardMovement[] | null>(null);
   const [historyFailed, setHistoryFailed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -332,7 +385,21 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       </span>
     ) : null;
 
+  // Geometry per mode, as the card detail sheet's: anchored is rounded and
+  // elevated below the board toolbar; docked is full height at the right edge,
+  // square with a left border; full-screen is the whole viewport.
+  const panelModeClass = anchored
+    ? "rounded-lg border border-primary-emphasis shadow-2xl"
+    : fullscreen
+      ? "inset-0 border border-line"
+      : "top-0 bottom-0 right-0 w-[400px] border-l border-line shadow-2xl";
+  const notch = anchored ? placement.notch : null;
+
   return (
+    <div className="contents">
+      {placement.mode === "docked" && (
+        <div className="fixed inset-0 z-50 bg-backdrop/20 pointer-events-none" aria-hidden="true" data-testid="card-peek-backdrop" />
+      )}
     <div
       ref={panelRef}
       role="dialog"
@@ -340,18 +407,44 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
       aria-labelledby="card-peek-title"
       tabIndex={-1}
       data-testid="card-peek-sheet"
-      className="fixed z-50 bg-surface text-fg outline-none border border-line shadow-xl flex flex-col max-[640px]:inset-0 max-[640px]:rounded-none min-[641px]:right-4 min-[641px]:top-24 min-[641px]:bottom-auto min-[641px]:max-h-[calc(100vh-6.75rem)] min-[641px]:w-[400px] min-[641px]:rounded-lg"
+      data-sheet-mode={placement.mode}
+      data-sheet-side={anchored ? placement.side ?? undefined : undefined}
+      style={anchored ? { left: placement.left ?? undefined, top: placement.top, bottom: placement.bottom, width: PEEK_WIDTH } : undefined}
+      className={`fixed z-50 bg-surface text-fg outline-none flex flex-col ${panelModeClass}`}
     >
+      {/* Notch: the card detail sheet's speech-bubble tail (#1946), a child of the overflow-visible root. */}
+      {notch && (
+        <svg
+          aria-hidden="true"
+          focusable="false"
+          width={7}
+          height={24}
+          viewBox="0 0 7 24"
+          data-testid="card-sheet-notch"
+          data-clamped={notch.clamped ? "true" : "false"}
+          data-direction={notch.clamped ? notch.direction : undefined}
+          className={`pointer-events-none absolute z-20 fill-primary-emphasis ${
+            placement.side === "right" ? "-left-[7px]" : "-right-[7px] -scale-x-100"
+          }`}
+          style={{ top: notch.y - 13 }}
+        >
+          <path d={notch.clamped ? (notch.direction === "up" ? "M7 6H1L7 18Z" : "M7 6L1 18H7Z") : "M7 6L1 12L7 18Z"} />
+        </svg>
+      )}
+      <div className={`flex h-full min-h-0 flex-col overflow-hidden ${anchored ? "rounded-[7px]" : ""}`}>
       <div className="flex items-start justify-between gap-2 px-4 pt-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">{lane?.name ?? ""}</p>
+        <div className="flex items-center gap-1 -mt-2 -mr-2">
+        {!fullscreen && <CardSheetDockToggle docked={dockedPref} onToggle={setDockedPref} />}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close card peek"
-          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 -mt-2 -mr-2 p-2 rounded-md text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 p-2 rounded-md text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
         </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 space-y-5">
@@ -576,6 +669,8 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <p id="card-peek-moves-paused" className="mt-2 text-sm text-fg-secondary">Moves are paused while the board is offline.</p>
         )}
       </div>
+      </div>
+    </div>
     </div>
   );
 }
