@@ -182,7 +182,7 @@ Choose how people join **before** you share the URL. Go to **Admin → Settings*
 
 To create a link:
 
-1. Open the **Admin** panel (`/admin`) and go to the **Invite Links** tab.
+1. Open the **Admin** panel (`/admin`) and go to **Invite links** under **People**.
 2. Click **Generate invite link**.
 3. Choose an expiry: **1 day**, **7 days**, **30 days**, or **Never expires**.
 4. Optionally turn on **Single-use**, which consumes the link on the first registration so it can't be reused.

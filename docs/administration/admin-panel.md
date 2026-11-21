@@ -4,13 +4,13 @@ The admin panel at `/admin` is where site admins manage users, registration, inv
 
 **Why it matters:** Most day-to-day admin work (adding a user, closing sign-ups, revoking a leaked invite, turning on maintenance mode) happens here without a shell.
 
-**The big picture:** The panel has four tabs: **Settings**, **Users**, **Invite Links**, and **Board Invites**. It is accessible to site admins only.
+**The big picture:** The panel has two groups of sections. **Instance** holds **General** and **Email**; **People** holds **Users**, **Invite links**, and **Board invites**. Use **Find a setting** above the section list to jump to a setting by name (on a phone the list is a menu). The section is part of the address, so `/admin?tab=users` opens Users; the old `?tab=settings` opens General. It is accessible to site admins only.
 
 **Go deeper:** Every operation also has a [CLI alternative](#cli-alternatives). For the two-flag admin model, see [Site Admins](site-admins.md).
 
-## Settings tab
+## General and Email sections
 
-Controls instance-wide registration behavior and feature availability.
+The **Instance** group controls registration, features, maintenance mode, and outbound email. Switches save as soon as you change them.
 
 ### Registration mode
 
@@ -32,7 +32,9 @@ Set who can create an account. Changes take effect within about 60 seconds, with
 
 **By the numbers:** feature changes take effect within about 60 seconds because of server-side caching. Toggling a feature never deletes or alters existing data.
 
-### Email
+### Email section
+
+Open **Instance → Email**. Fields are saved together: change any of them and a Save bar appears with **Discard** and **Save email settings**. A **Currently sending with these settings** pill shows what is live right now.
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
@@ -61,13 +63,13 @@ Put the whole instance into **read-only mode** during an upgrade or migration. I
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
-Changes to the toggles on this tab (registration mode, file uploads, and maintenance mode) are recorded with the admin who made them and when.
+Changes to the toggles in General (registration mode, file uploads, and maintenance mode) are recorded with the admin who made them and when.
 
 **Yes, but:** there is no UI for this yet. Read the trail from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log). See [Who turned it on?](maintenance-mode.md#who-turned-it-on-the-action-log) for the incident-retro walkthrough.
 
-## Users tab
+## Users section
 
-Lists all accounts on the instance, 50 per page. Use the search bar to filter by username, display name, or email address.
+Lists all accounts on the instance, 50 per page, with "Showing x–y of N" and **Previous**/**Next** below. Use the search box to filter by username, display name, or email address. **Add user** opens the new-account form; **Invite people** opens the email-invite form (see [Inviting by email](#inviting-by-email)). Your own row carries a **You** chip.
 
 ### User status badges
 
@@ -77,7 +79,7 @@ Lists all accounts on the instance, 50 per page. Use the search bar to filter by
 | **Superuser** | User is a Django superuser (`is_superuser`). Only another superuser can change a superuser's access or sign-in, so a site admin who is not a superuser sees a note instead of those actions |
 | **All content** | User can read and write every board and group on the instance (`can_access_all_content`) |
 | **Reset req.** | User will be prompted to set a new password on next login |
-| **Inactive** | Account is deactivated — user cannot log in |
+| **Deactivated** (status pill) | Account is deactivated — user cannot log in. Active accounts show an **Active** pill |
 
 ### Actions per user
 
@@ -88,13 +90,15 @@ Each row shows **Deactivate**/**Reactivate** and **Make admin**/**Demote admin**
 The lower-frequency actions live behind the **More actions** (`⋮`) button at the end of the row, when each applies to that user:
 
 - **Grant all-content**/**Revoke all-content**
-- **Force reset**
+- **Force password reset**
 - **Clear lockout**
 - **Restart onboarding tour**
 
+On a phone every row action, including **Deactivate** and **Make admin**, is in the **More actions** menu. Deactivating, making or removing an admin, revoking all-content access, and clearing a lockout each open a confirmation under the row. A user who owns boards gets "<name> owns N boards. Choose a new owner for each before deactivating." and a **Transfer boards…** button instead.
+
 Open the menu with a click, or with the keyboard: Tab to the button, Enter/Space/↓ to open, ↑/↓ to move between items, Esc to close. Every item is keyboard-navigable and screen-reader-labeled.
 
-*(1.3+)* **On a superuser account**, a site admin who is not a superuser does not see **Deactivate**, **Reactivate**, **Grant all-content**, **Revoke all-content**, **Force reset**, or **Clear lockout**, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. **Make admin** and **Restart onboarding tour** stay where they apply.
+*(1.3+)* **On a superuser account**, a site admin who is not a superuser does not see **Deactivate**, **Reactivate**, **Grant all-content**, **Revoke all-content**, **Force password reset**, or **Clear lockout**, because the API refuses them. The row says "Only a superuser can change this account's access or sign-in." instead. **Make admin** and **Restart onboarding tour** stay where they apply.
 
 #### Add user
 
@@ -174,11 +178,11 @@ Clears the per-account login lockout immediately, so the user can log in again w
 
 **Yes, but:** a successful password reset already clears the lockout. Use **Clear lockout** when that isn't an option, for example the user contacts support instead of using the reset flow, or reset emails aren't arriving. It is safe at any time: if the account isn't locked out, nothing happens.
 
-## Invite Links tab
+## Invite links section
 
 > **Added in 1.0**
 
-Create and manage invite links for instance-wide registration. Links matter only when registration mode is **Invite-only** (see [Settings tab](#settings-tab)), but you can create them in any mode and activate them later.
+Create and manage invite links for instance-wide registration. Links matter only when registration mode is **Invite-only** (see [General and Email sections](#general-and-email-sections)), but you can create them in any mode and activate them later.
 
 Invite links work for password and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect and consumed on successful signup.
 
@@ -200,7 +204,7 @@ Links that Visiban emailed (see [Inviting by email](#inviting-by-email)) carry a
 
 ### Creating a new invite link
 
-Click **New invite link** to open the creation dialog.
+Select **New link** to open the creation form.
 
 | Field | Notes |
 |---|---|
@@ -216,17 +220,17 @@ After you click **Create**, the dialog shows the full join URL (`/join/<token>`)
 
 > **Added in 1.2** (#731)
 
-In the **Invite by email** section above the link list, enter an address and select **Send invite**. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored.
+Under **Users**, select **Invite people**, enter an address and select **Send invite**. Visiban creates a single-use link that expires in 7 days (the API also accepts 1 or 30) and sends it from the instance's sender address. The address is not stored.
 
 Emailed links count toward their own limit of 200 pending, not the 50 shareable links, and can be revoked like any other link. See [Site Admins](site-admins.md) for the API and rate-limit details.
 
-**Yes, but:** when emailing isn't possible, the section is replaced by a note. It points to **Settings → Email** (select it to open the Settings tab) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
+**Yes, but:** when emailing isn't possible, the form is replaced by a note. It points to **Settings → Email** (select it to open the Email section) and reminds you that email invites must be enabled (`INVITE_EMAIL_ENABLED`, see [Configuration](configuration.md)). On a demo site the note just says email invites are disabled. You can still create shareable links as usual.
 
 ### Revoking a link
 
 Click **Revoke** on any active link to invalidate it immediately. Revoked links cannot be re-activated. Users who attempt to use a revoked link receive a clear error message.
 
-## Board Invites tab
+## Board invites section
 
 <span class="vb-version" title="Added in 1.2">1.2+</span>
 
@@ -243,7 +247,7 @@ Pick a **Status** (Pending, the default; Used; Expired; Revoked; or All). Each r
 
 An **Existing accounts only** tag means a new person couldn't create an account from the invite on this site right now (always so for a shareable link on an invite-only site). The list shows 50 invites per page.
 
-To stop an invite immediately, select **Revoke** on a pending invite and then **Confirm**. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
+To stop an invite immediately, select **Revoke** on a pending invite and then **Revoke invite** in the confirmation that opens under it. Anyone with the board open sees it leave their invite list. Used invites can't be revoked. The API is documented in [Admin API — Board invites](../api/admin.md#board-invites).
 
 **Yes, but:** the tab shows each invite's **stored** status and, unlike the board's own list, does not check whether the creator is still a board admin. An invite whose creator was demoted can show **Pending** here while the board's list shows it revoked and nobody can join with it. Revoke it here to make that permanent. The **Existing accounts only** tag is a best-effort hint; registration re-checks everything.
 
