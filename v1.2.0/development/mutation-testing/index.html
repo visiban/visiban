@@ -5359,7 +5359,7 @@
 <td><code>boards/permissions.py</code></td>
 <td style="text-align: right;">172</td>
 <td style="text-align: right;">4</td>
-<td>the four RBAC files (<code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code>, <code>test_permissions_unit_mutation_gaps</code>)</td>
+<td>the five RBAC files (<code>test_rbac</code>, <code>test_rbac_boundaries</code>, <code>test_explicit_permissions</code>, <code>test_permissions_unit_mutation_gaps</code>, and <code>test_permissions_mutation_gaps_2517</code> for the #2212 card-detail extension registry, the admin-only event predicate and the #1075 absent-subject denial)</td>
 <td style="text-align: right;">3</td>
 </tr>
 <tr>
@@ -5373,9 +5373,9 @@
 <tr>
 <td><code>card_movement</code></td>
 <td><code>CardMovement</code> in <code>boards/models.py</code> only</td>
-<td style="text-align: right;">70</td>
-<td style="text-align: right;">41</td>
-<td>the six movement-record files of the 2026-10-08 re-measure</td>
+<td style="text-align: right;">70 (67 after the #2517 pragmas)</td>
+<td style="text-align: right;">41 (44 after #2517)</td>
+<td>the six movement-record files of the 2026-10-08 re-measure, plus <code>test_movement_mutation_gaps_2517</code></td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr>
@@ -5389,8 +5389,8 @@
 <tr>
 <td><strong>Total</strong></td>
 <td></td>
-<td style="text-align: right;"><strong>2442</strong></td>
-<td style="text-align: right;"><strong>47</strong></td>
+<td style="text-align: right;"><strong>2439</strong></td>
+<td style="text-align: right;"><strong>50</strong></td>
 <td></td>
 <td style="text-align: right;"><strong>50</strong></td>
 </tr>
@@ -5867,6 +5867,8 @@
 <li>A line-level pragma also removes any <em>killed</em> mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the <code>excluded</code> count in the artifact includes everything on those lines.</li>
 <li>It's a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.</li>
 </ul>
+<h3 id="2026-11-22-run-below-the-floor-permissions-and-cardmovement-2517">2026-11-22 run below the floor, permissions and CardMovement (#2517)<a class="headerlink" href="#2026-11-22-run-below-the-floor-permissions-and-cardmovement-2517" title="Permanent link">&para;</a></h3>
+<p>The weekly run left 8 <code>permissions</code> and 6 <code>card_movement</code> survivors. The 8 <code>permissions</code> ones (admin-only event predicate, the zero-rank boundary in <code>_registered_for_role</code>, the <code>CARD_DETAIL_EXTENSIONS</code> default role and registry label, and the <code>IsBoardMember</code>/<code>IsBoardAdminOrOwner</code> absent-subject denial) are killed by <code>test_permissions_mutation_gaps_2517.py</code>, added to the <code>permissions</code> list (re-run locally with mutmut 2.5.1: 8 of 8 killed, plus a ninth <code>&lt;= 1</code> boundary mutant the new test also kills). The 6 <code>card_movement</code> survivors are the <code>null=</code>/<code>blank=</code> arguments of the three gate-position columns (#1921); the three <code>blank=</code> arguments are schema constants guarded by CI <code>migration-check</code>, so they carry <code># pragma: no mutate</code> like the other <code>CardMovement</code> columns (one argument per line, so the pragma hides only <code>blank=</code>). The three <code>null=</code> arguments are behavioral and stay mutated: <code>test_movement_mutation_gaps_2517.py</code>, added to the <code>card_movement</code> list, kills them (with <code>null=False</code> Django drops the <code>IS NOT NULL</code> clause and a NULL row vanishes from <code>exclude(&lt;field&gt;__gt=0)</code>).</p>
 
 
 
