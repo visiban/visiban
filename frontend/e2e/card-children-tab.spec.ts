@@ -6,7 +6,20 @@ import { BOARD_FULL, CARD } from './fixtures/board'
 // dark. The card sheet is 540px at every viewport above the phone, so the tab never reaches the 800px that the
 // side-by-side layout needs and always shows one column at a time; that layout is pinned in Vitest on a measured
 // container. Each state must render its own content and never scroll the sheet sideways.
-const PARENT_BOARD = { ...BOARD_FULL, cards_can_have_children: true }
+// The parent carries a rollup with `last_moved_at` so the tab renders "Work moved" and its contrast is measured;
+// card 10 is a child on the same board whose `parent` makes its header read "‹ <parent>" (`from_parent`).
+const PARENT_CARD = {
+  ...CARD, title: 'Launch plan',
+  children_rollup: { visible: true, total: 5, done: 2, doing: 1, todo: 1, blocked: 1, last_moved_at: new Date(Date.now() - 86_400_000).toISOString() },
+}
+const CHILD_CARD = {
+  ...CARD, id: 10, uid: 'card000010c', title: 'Pen-test scoping call', position: 1,
+  parent: {
+    hidden: false, id: CARD.id, title: 'Launch plan', board_id: BOARD_FULL.id, board_name: BOARD_FULL.name, column_id: 1, column_name: 'To Do',
+    swimlane_id: 1, swimlane_name: 'Default', archived: false, board_parent_name_singular: '',
+  },
+}
+const PARENT_BOARD = { ...BOARD_FULL, cards_can_have_children: true, cards: [PARENT_CARD, CHILD_CARD] }
 
 const columns = [
   { id: 100, name: 'To do', color: '#6B7280', wip_limit: null, is_done: false, card_count: 9 },
@@ -142,6 +155,12 @@ for (const width of [880, 540, 390]) {
           // Full card anatomy, the History link, and measured contrast of every text node in the tab.
           await expect(tab.getByTestId('child-card-face').first()).toContainText('High')
           await expect(tab.getByRole('link', { name: 'Movement history of these children' })).toHaveAttribute('href', `/boards/7?view=history&parent=${CARD.id}`)
+          // "Work moved" is rendered from the rollup's last_moved_at and covered by the contrast measure below.
+          await expect(tab.getByTestId('children-work-moved')).toContainText('Work moved')
+          // Blocked is the first metadata slot of a child's face, as on the board's own card.
+          await tab.getByRole('button', { name: /^Blocked/ }).click()
+          await expect(tab.getByTestId('child-card-face').filter({ hasText: '⊘' }).first().locator('span').first()).toContainText('⊘ 6d')
+          await tab.getByRole('button', { name: /^To do/ }).click()
           const worst = await lowestContrast(tab)
           console.log(`contrast-2209 ${width} ${scheme} tab ${worst.ratio.toFixed(2)} "${worst.text}"`)
           expect(worst.ratio, `lowest contrast ${worst.ratio.toFixed(2)} on "${worst.text}" (${width}px ${scheme})`).toBeGreaterThanOrEqual(4.5)
@@ -165,6 +184,36 @@ for (const width of [880, 540, 390]) {
         const overflow = await tab.evaluate((el) => el.scrollWidth - el.clientWidth)
         expect(overflow, `${m} overflows by ${overflow}px`).toBeLessThanOrEqual(0)
       }
+    })
+  }
+}
+
+// The child's "‹ <parent>" header (#2209 Back link): target size, contrast, and the round trip back to the
+// parent's Children tab with focus on the same child, on a phone and a wide window, in light and dark.
+for (const width of [390, 880]) {
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`Back to parent from a child at ${width}px, ${scheme}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await page.emulateMedia({ colorScheme: scheme })
+      await setup(page, () => 'populated')
+      await page.goto(`/boards/${PARENT_BOARD.id}?card=${CHILD_CARD.id}&from_parent=${PARENT_CARD.id}`)
+      const back = page.getByTestId('back-to-parent')
+      await expect(back).toBeVisible({ timeout: 10_000 })
+      await expect(back).toContainText('Launch plan')
+      await expect(page.locator('html')).toHaveAttribute('data-theme', scheme)
+      const box = await back.boundingBox()
+      // 44px on the full-screen phone sheet; the desktop sheet keeps its compact 24px control.
+      expect(box!.height, `back control height at ${width}px`).toBeGreaterThanOrEqual(width <= 640 ? 44 : 24)
+      const worst = await lowestContrast(back)
+      console.log(`contrast-2209 ${width} ${scheme} back ${worst.ratio.toFixed(2)} "${worst.text}"`)
+      expect(worst.ratio, `back link contrast ${worst.ratio.toFixed(2)} (${width}px ${scheme})`).toBeGreaterThanOrEqual(4.5)
+      await back.click()
+      await expect(page).toHaveURL(/tab=children/)
+      const tab = page.getByTestId('card-children-tab')
+      await expect(tab).toBeVisible({ timeout: 10_000 })
+      await expect(tab.locator(`a[data-child-id="${CHILD_CARD.id}"]`)).toBeFocused()
+      const workMoved = await lowestContrast(tab.getByTestId('children-work-moved'))
+      expect(workMoved.ratio, `Work moved contrast ${workMoved.ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
     })
   }
 }
