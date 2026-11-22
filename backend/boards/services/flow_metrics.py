@@ -1014,8 +1014,8 @@ def range_boundary(flow_range, now):
     return min(flow_range.start, _midnight(flow_range.first_day), now)
 
 
-def can_affect_range(boundary):
-    """The cards whose history can change a range metric's answer, as a ``Q`` (#2425).
+def can_affect_range(board, boundary):
+    """The cards of ``board`` whose history can change a range metric's answer, as a ``Q`` (#2425).
 
     WHY this is safe. Every number a range endpoint returns is dated by one
     of: a movement (a first completion, a cycle start, a reopen, the end of a
@@ -1036,13 +1036,34 @@ def can_affect_range(boundary):
     thing a skipped card still contributes is its cumulative-flow band, since
     finished work stays in the done band for ever; ``load_cumulative_flow``
     counts that separately.
+
+    WHY the movement term is an uncorrelated, board-bounded ``IN`` and not a
+    correlated ``EXISTS (... card_id = cards.id ...)`` (#2502). Inside an
+    ``OR``, PostgreSQL cannot turn a correlated ``EXISTS`` into a semi-join,
+    so it stays a per-row SubPlan in the filter on ``cards``. With that
+    filter on it, the planner stopped driving the movement read from this
+    board's cards and instead walked the whole ``card_movements_card_id``
+    index, every board's movements, probing ``cards`` for each one (EXPLAIN
+    on the nightly fixture: 151,674 movement rows read to return 24,919,
+    56 ms, against 20 ms driven from the board's 2,395 cards). The cost then
+    followed the whole instance's history, not this board's: the 2026-11-21
+    nightly's wip-age p95 rose 364 -> 531 ms with every range metric close
+    behind. An uncorrelated ``IN`` is a hashed SubPlan, run at most once
+    per statement and only when a row reaches it (a live card never does).
+    The term only matters for a card the first three terms skip (archived,
+    and created, before ``boundary``), so the subquery reads only those
+    cards of this board and their recent movements: the same cards kept,
+    by the same rule.
     """
-    moved = CardMovement.objects.filter(card=OuterRef("pk"), moved_at__gte=boundary)
+    moved = CardMovement.objects.filter(
+        card__board=board, card__archived_at__lt=boundary, card__created_at__lt=boundary,
+        moved_at__gte=boundary,
+    ).values("card_id")
     return (
         Q(archived_at__isnull=True)
         | Q(archived_at__gte=boundary)
         | Q(created_at__gte=boundary)
-        | Exists(moved)
+        | Q(pk__in=moved)
     )
 
 
@@ -1055,7 +1076,7 @@ def load_range_flow(board, flow_range, *, now, swimlane_id=None, label_id=None, 
     """
     return load_board_flow(
         board, swimlane_id=swimlane_id, label_id=label_id, now=now, columns=columns,
-        cards_matching=can_affect_range(range_boundary(flow_range, now)), gate_index_as_full=True,
+        cards_matching=can_affect_range(board, range_boundary(flow_range, now)), gate_index_as_full=True,
     )
 
 
@@ -1075,7 +1096,7 @@ def load_cumulative_flow(board, flow_range, *, now, swimlane_id=None, label_id=N
         board, flow_range, now=now, swimlane_id=swimlane_id, label_id=label_id, columns=columns,
     )
     settled = _base_cards(board, swimlane_id, label_id).exclude(
-        can_affect_range(range_boundary(flow_range, now)),
+        can_affect_range(board, range_boundary(flow_range, now)),
     )
     rows = settled.order_by("id").values_list("id", "created_at", "archived_at", "column__uid")
     cards = {card_id: (created_at, archived_at, column_uid) for card_id, created_at, archived_at, column_uid in rows}

@@ -581,3 +581,37 @@ The driver doesn't reproduce it locally. On `b1f1cf76b`, with one database and 8
 - The development machine is macOS on arm64, while CI is `python:3.12-slim` on x86_64. This test doesn't cover a platform-specific driver cost, nor the unpinned transitive dependencies and floating images #1800 lists.
 
 This step is therefore **unattributed**. It's 0.8-2.1ms per request on the three lightest endpoints and 3.2-4.4ms on `card_search`, which is 2-6% and well inside the 1.4x budget factor, so it wasn't pursued. If it grows, run the same driver A/B on a NUC runner rather than on a development machine.
+
+## The November 2026 flow-metric regression — #2502
+
+The 2026-11-21 scheduled run failed on `flow_wip_age` (p95 577.4 ms against a 510 ms budget). Every range metric moved with it: from 2026-11-16 to 11-20 `flow_wip_age` sat at 360-375 ms, then the first run at `cafd0ad9e` measured 530.7 ms. The non-flow endpoints stayed within the run-to-run noise. `flow_blocked` did not: its nightly p95 went 282.2 ms (11-20) to 316.8 ms (11-21) to 361.6 ms (the retry), +12% and +28%, about the size of the rise on `throughput` (302.0 to 372.9 ms) and `cycle_time` (306.8 to 377.0 ms). The range-loader predicate change below can't explain that rise on `flow_blocked`, because it reads through `load_live_wip` and never touches the range loader. This section has no local measurement of `flow_blocked`, so the cause of its nightly rise is not attributed. It is the same unattributed residual described at the end of this section.
+
+### Root cause, measured
+
+Commit `c49825214` (#2425) narrowed every range metric to the cards `flow_metrics.can_affect_range` keeps. Its movement term was a correlated `EXISTS (SELECT … FROM card_movements WHERE card_id = cards.id AND moved_at >= boundary)` inside an `OR`. PostgreSQL can't turn a correlated `EXISTS` under an `OR` into a semi-join, so it stays a per-row filter on `cards`. With that filter in place, the planner stopped driving the history read from the board's cards. It walked the whole `card_movements_card_id` index instead, every board's movements, and probed `cards` once per row.
+
+`EXPLAIN (ANALYZE, BUFFERS)` on the history statement, local PostgreSQL, the current nightly fixture (151,674 movements in the database, 24,919 on the load-test board):
+
+| | Driven from | Rows read | Buffers | Time |
+|---|---|---|---|---|
+| Correlated `EXISTS` (`c49825214`) | `card_movements_card_id`, all boards | 151,674 | 51,811 | 56.6 ms |
+| Uncorrelated `IN` (#2502) | the board's 2,395 cards | 24,919 | 10,085 | 20.1 ms |
+
+On the load-test board the narrowing can't prune anything, because every card is live. So that board paid the instance-wide read and got nothing back for it. Migration 0117 (#2408, dropping `movement_board_moved_idx`) is ruled out: neither plan uses a `board_id` movement index.
+
+### The fix
+
+The movement term is now `pk IN (SELECT card_id FROM card_movements JOIN cards … WHERE cards.board_id = <board> AND cards.archived_at < boundary AND cards.created_at < boundary AND moved_at >= boundary)`. It's uncorrelated, so it runs as a hashed SubPlan, at most once per statement and only when a row reaches it (a live card never does). It names the same cards: the term only matters for a card that's archived and was created before the boundary. `RangeNarrowingEquivalenceTests` still holds, and `test_flow_range_plan_2502.py` fails on any range-load statement that correlates `card_movements` to the card, or on a movement subquery without the board bound.
+
+DRF client, local, warm, 20 requests per arm, p50 / p95 in ms:
+
+| Endpoint (load-test board) | `2655a9f81` | `c49825214` predicate | #2502 |
+|---|---|---|---|
+| `wip-age` | 148.1 / 168.2 | 185.9 / 198.1 | 159.7 / 178.9 |
+| `attention` | 137.0 / 160.0 | 162.8 / 185.7 | 140.5 / 161.0 |
+| `cycle-time` | 129.5 / 137.2 | 154.3 / 173.4 | 129.6 / 148.9 |
+| `cumulative-flow` | 135.5 / 150.9 | 161.2 / 182.1 | 138.1 / 161.8 |
+
+The aged board keeps the #2425 win. Its `wip-age` was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over `2655a9f81` on the load-test board wasn't attributed. It's inside the 1.4x budget factor.
+
+The closing check is the manual `nightly-load-test` job on the NUC: its p95 for all eight flow scenarios (`cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked`, `attention`, `swimlanes`) must come back under their budgets. The local DRF-client table above covers only four of the eight (`wip-age`, `attention`, `cycle-time`, `cumulative-flow`); `throughput`, `dwell`, `blocked` and `swimlanes` were not measured locally.
