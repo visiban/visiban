@@ -48,9 +48,23 @@ def is_stuck(row):
     age = row.get("query_age")
     if age is None:
         return False
-    if row.get("state") != "idle" and age > LONG_QUERY_SECONDS:
+    # Only an *active* backend can be stuck. An "idle in transaction" backend (the
+    # Django TestCase main connection between queries) is a blocker candidate, not a
+    # stuck one; reporting it would also suppress the later real stall on that pid.
+    if row.get("state") != "active":
+        return False
+    if age > LONG_QUERY_SECONDS:
         return True
     return row.get("wait_event_type") == "Lock" and age > LOCK_WAIT_SECONDS
+
+
+def should_report(row, reported):
+    """True when ``row`` is stuck and its (pid, query_start) was not yet reported.
+
+    Keyed on query_start, not pid, so a later stall on a reused connection is
+    still reported.
+    """
+    return is_stuck(row) and (row["pid"], row.get("query_start")) not in reported
 
 
 def describe(row):
@@ -113,9 +127,9 @@ def main():
                         cur.execute(ACTIVITY_SQL)
                         rows = cur.fetchall()
                     for row in rows:
-                        if row["pid"] in reported or not is_stuck(row):
+                        if not should_report(row, reported):
                             continue
-                        reported.add(row["pid"])
+                        reported.add((row["pid"], row.get("query_start")))
                         blockers, locks = collect(conn, row)
                         print(format_report(row, blockers, locks), file=sys.stderr, flush=True)
                     time.sleep(INTERVAL)

@@ -30,8 +30,20 @@ class IsStuckTests(SimpleTestCase):
     def test_idle_backend_is_never_stuck_however_old(self):
         self.assertFalse(watch.is_stuck(_row(state="idle", query_age=9999)))
 
-    def test_idle_in_transaction_over_threshold_is_stuck(self):
-        self.assertTrue(watch.is_stuck(_row(state="idle in transaction", query_age=120)))
+    def test_idle_in_transaction_past_both_thresholds_is_not_stuck(self):
+        row = _row(state="idle in transaction", query_age=9999, wait_event_type="Lock")
+        self.assertFalse(watch.is_stuck(row))
+
+    def test_active_row_past_threshold_is_stuck(self):
+        self.assertTrue(watch.is_stuck(_row(state="active", query_age=120)))
+
+    def test_should_report_dedupes_on_pid_and_query_start(self):
+        row = _row(query_age=120)
+        reported = {(10, "t1")}
+        self.assertFalse(watch.should_report(row, reported))
+        self.assertTrue(watch.should_report(_row(query_age=120, query_start="t2"), reported))
+        self.assertTrue(watch.should_report(row, set()))
+        self.assertFalse(watch.should_report(_row(query_age=1), set()))
 
     def test_lock_wait_threshold_is_sixty_seconds(self):
         self.assertFalse(watch.is_stuck(_row(wait_event_type="Lock", query_age=59)))
