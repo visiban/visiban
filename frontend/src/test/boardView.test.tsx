@@ -221,13 +221,14 @@ let capturedSettingsProps: {
   onColumnUpdated?: (column: unknown) => void
 } = {}
 vi.mock('../components/Board/BoardSettingsModal', () => ({
-  default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean; onClose?: () => void; onManageLens?: () => void }) => {
+  default: (props: { currentUserIsSiteAdmin?: boolean; initialTab?: string; focusFirstStoppedWebhook?: boolean; onClose?: () => void; onManageLens?: () => void; onShowChildCards?: () => void }) => {
     capturedSettingsProps = props
     return (
       <div data-testid="settings-modal">
         Settings Modal
         <button onClick={props.onClose}>MockSettingsClose</button>
         <button onClick={props.onManageLens}>MockManageLens</button>
+        <button onClick={props.onShowChildCards}>MockShowChildCards</button>
       </div>
     )
   },
@@ -931,6 +932,18 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
       await user.click(settingsBtn())
       expect(capturedSettingsProps.initialTab).toBeUndefined()
+    })
+
+    it('onShowChildCards closes settings and applies the Parent filter "any" (#2448)', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlane_custom_field_definitions: twoDefs }) })
+      const user = userEvent.setup()
+      render(<BoardView {...defaultProps()} />)
+      await user.click(screen.getByTestId('edit-order-20'))
+      mockSetSearchParams.mockClear()
+      await user.click(screen.getByText('MockShowChildCards'))
+      expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+      const write = mockSetSearchParams.mock.calls.at(-1)![0] as (p: URLSearchParams) => URLSearchParams
+      expect(write(new URLSearchParams()).get('f_parent')).toBe('any')
     })
 
     it('onManageLens closes settings and clears the deep-linked tab', async () => {
