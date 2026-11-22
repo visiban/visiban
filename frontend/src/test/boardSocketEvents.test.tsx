@@ -13,7 +13,7 @@ import * as cardsApi from '../api/cards'
 import { useRollupLoading } from '../components/Card/rollupLoading'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { BoardEvent } from '../hooks/useBoardSocket'
-import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
+import type { BoardFull, Card, CardParent, Column, Label, BoardMembership, Swimlane, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 
 // ---------------------------------------------------------------------------
@@ -681,6 +681,44 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
   })
 
+  describe('column events refresh the sibling lines (#2443)', () => {
+    const parentRef = { hidden: true as const }
+    const col = (id: number, position: number, is_done: boolean): Column => (
+      { id, uid: `col${id}`, name: `C${id}`, position, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done, policy: null }
+    )
+    const setup = async (withChild: boolean) => {
+      const cards = [makeCard({ id: 5, ...(withChild ? { parent: parentRef } : {}) })]
+      const ctx = makeContext({ board: makeBoard({ cards, columns: [col(10, 0, false), col(11, 1, false)] }) })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      return ctx
+    }
+
+    it('reloads when a column is_done flips and the board has linked children', async () => {
+      const ctx = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: col(11, 1, true) as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not reload for a done flip without linked children, or an edit that leaves is_done alone', async () => {
+      const bare = await setup(false)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: col(11, 1, true) as unknown as Record<string, unknown> }) })
+      expect(bare.silentReload).not.toHaveBeenCalled()
+      const linked = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: { ...col(11, 1, false), name: 'Renamed' } as unknown as Record<string, unknown> }) })
+      expect(linked.silentReload).not.toHaveBeenCalled()
+    })
+
+    it('does not reload for a reorder, even one that changes the first column', async () => {
+      // Sibling counts depend on is_done and blocked only, never on column order.
+      const ctx = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(11, 0, false), col(10, 1, false)] } }) })
+      expect(ctx.applyColumnOrder).toHaveBeenCalled()
+      expect(ctx.silentReload).not.toHaveBeenCalled()
+    })
+  })
+
   it('swimlane.reordered routes to applySwimlaneOrder with swimlane list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
@@ -1095,6 +1133,65 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     expect(spy).toHaveBeenCalledWith(expect.anything(), 5)
     expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, parent]]))
     spy.mockRestore()
+  })
+
+  describe('siblings frame (#2443)', () => {
+    const shared = { hidden: false as const, id: 70, title: 'Epic', siblings_total: 3, siblings_done: 2 } as unknown as CardParent
+    const siblingsBoard = () => makeBoard({ cards: [makeCard({ id: 5 }), makeCard({ id: 6 }), makeCard({ id: 8 })] })
+
+    it('reads one listed card on this board and applies its parent to every listed sibling', async () => {
+      const spy = vi.spyOn(cardsApi, 'getCardParent').mockResolvedValue(shared)
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      // 99 is not on this board: never read, never applied. Way above the per-card cap, no reload.
+      const ids = [99, 5, 6, 8, ...Array.from({ length: 30 }, (_, i) => 1000 + i)]
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: ids, siblings: true } }) })
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(spy).toHaveBeenCalledWith(1, 5)
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, shared], [6, shared], [8, shared]]))
+      expect(ctx.silentReload).not.toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it('falls back to per-card reads when the representative is no longer a child', async () => {
+      const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(async (_b, id) => (id === 5 ? null : shared))
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6, 8], siblings: true } }) })
+      await act(async () => {})
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, null]]))
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[6, shared], [8, shared]]))
+      expect(spy).toHaveBeenCalledTimes(3)
+      spy.mockRestore()
+    })
+
+    it('reads nothing for ids not on this board, keeps the last value on a failed read, and drops a stale read', async () => {
+      const resolvers: Array<(p: CardParent | null) => void> = []
+      const spy = vi.spyOn(cardsApi, 'getCardParent')
+        .mockRejectedValueOnce(new Error('x'))
+        .mockImplementation(() => new Promise((res) => { resolvers.push(res) }))
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [41, 42], siblings: true } }) })
+      expect(spy).not.toHaveBeenCalled()
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      expect(ctx.applyCardParents).not.toHaveBeenCalled()
+      act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      const newer = { ...shared, siblings_done: 3 } as CardParent
+      await act(async () => { resolvers[1](newer) })
+      await act(async () => { resolvers[0](shared) })
+      const calls = (ctx.applyCardParents as unknown as ReturnType<typeof vi.fn>).mock.calls
+      expect(calls).toHaveLength(1)
+      expect(calls[0][0]).toEqual(new Map([[5, newer], [6, newer]]))
+      spy.mockRestore()
+    })
   })
 
   it('answers the card detail refetch event, and skips a failed read', async () => {

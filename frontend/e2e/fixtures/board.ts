@@ -284,3 +284,44 @@ export const AUTH_PROVIDERS = {
   oidc: false,
   oidc_name: null,
 }
+
+// #2211 swimlane default team: a parent-tier board whose lane team is Mia, Dan
+// and a deactivated Kim. Mia is pre-assigned; Dan has no access to Delivery.
+export const TEAM_MIA = { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' }
+export const TEAM_DAN = { id: 11, username: 'dan', display_name: 'Dan Kovacs', avatar_url: '' }
+export const TEAM_KIM = { id: 12, username: 'kim', display_name: 'Kim Lee', avatar_url: '' }
+
+export const SWIMLANE_TEAM = {
+  ...SWIMLANE,
+  name: 'Acme Corp',
+  default_team: [10, 11, 12],
+  default_team_members: [
+    { id: 10, is_active: true }, { id: 11, is_active: true }, { id: 12, is_active: false },
+  ],
+}
+
+export const BOARD_TEAM = {
+  ...BOARD_FULL,
+  name: 'Pipeline',
+  cards_can_have_children: true,
+  default_child_board: null,
+  members: [
+    ...BOARD_FULL.members,
+    ...[TEAM_MIA, TEAM_DAN, TEAM_KIM].map((user) => ({
+      id: user.id, user, role: 'member' as const, is_moderator: false, joined_at: '2026-01-01T00:00:00Z',
+    })),
+  ],
+  swimlanes: [SWIMLANE_TEAM],
+}
+
+export const TEAM_ACCESS = {
+  members: [{ id: 11, boards: [{ id: 7, name: 'Delivery' }], hidden_count: 0 }],
+}
+
+export const CHILD_BOARD_OPTIONS_TEAM = {
+  fixed_board: null,
+  default: { id: 7, name: 'Delivery' },
+  boards: [{ id: 7, name: 'Delivery', can_set_default: true, default_assignee_id: 10 }],
+  can_set_default: true,
+  default_team: { swimlane: { id: 1, name: 'Acme Corp' }, member_ids: [10, 11] },
+}

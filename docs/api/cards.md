@@ -138,6 +138,8 @@ Create a card. Requires member or above. The target column must have `allow_card
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
+`notify_assignee` (optional boolean, default `false`, since 1.3, #2211): `true` sends the card's assignee the `assigned` notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off `notif_card_assigned`, or is not a current member of the board. The web app sends it only for a swimlane [default team](boards.md)'s pre-assignment; without it, a create with an `assignee_id` sends no `assigned` notification, as before (the MCP `create_card` tool and board import never send it). A value that is not a JSON boolean returns `400` keyed `notify_assignee`. Ignored on update. When the `assigned` notification is sent, the card's creation does not also send the "moved to <first column>" one, so the assignee gets exactly one notification (*changed in 1.3*, only for creates with `notify_assignee: true`). Every other create keeps its "moved" notification: an assignee who has **Card moved** on is still told the new card "moved to" its first column.
+
 Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets `403` even when the body is invalid, where they previously got `400` with field errors for an invalid body. Members still get `400` for an invalid body, and a caller with no access to the board gets `404`.
 
 Since 1.2, a create returns `404 Not Found` (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).
@@ -1129,11 +1131,16 @@ Link this card (the child) to a parent. Body: `{"parent_id": <int>}`.
 | `already_has_parent` | This card has another parent; unlink it first |
 | `children_on_other_board` | That parent's children are on another board |
 | `children_limit` | That parent has 100 children |
+| `parent_archived` | That parent is archived: restore it first (since 1.3, #2447). Checked after `link_exists`, so re-saving a link the card already has still answers `link_exists`, and archiving or restoring a parent never removes its existing links. One exception: a card that was linked to that parent and then unlinked may be linked back while it is archived, so an unlink can be undone. A card never linked to it is refused. Add child (`POST .../children/`) refuses an archived parent with the same code, always: its new card was never linked |
 | `child_is_parent` / `parent_is_child` | Would make a third tier |
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/parent/`
 
-Remove this card's parent link. `204`, or `404` when it has none.
+Remove this card's parent link. `204`, or `404` when it has none. The server
+remembers the pair, so the card can be linked back to the same parent even
+while that parent is archived (see `parent_archived` above). The record has no
+API, export or event of its own; linking the pair again clears it, and
+deleting either card removes it.
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/children/`
 
@@ -1173,7 +1180,7 @@ endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>"}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1185,10 +1192,27 @@ and weight limits apply as for any create. `201` returns the new card, as
   column does not allow card creation, and this card's own board all answer the
   same `404`.
 - **Rules:** the same `400` codes as linking (`link_not_allowed`,
-  `parent_is_child`, `children_on_other_board`, `children_limit`), decided
-  under the same locks. A parent's children always stay on one board, so once
+  `parent_is_child`, `parent_archived`, `children_on_other_board`, `children_limit`), decided
+  under the same locks. An archived parent always refuses Add child: the
+  exception for a previously unlinked card never applies to a new one. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
+- **Default team** (#2211, since 1.3): the child is assigned the first member,
+  in team order, of the [default team](boards.md) of the lane this card is in
+  who is active, still a listed non-viewer member of this card's board, and
+  can be assigned on the target board; the target board's own lanes are not
+  consulted. Nobody qualifying leaves it unassigned.
+  `"apply_default_team": false` skips this; a non-boolean value is `400`
+  (keyed `apply_default_team`). The default is `true`. The pre-assigned member
+  gets the usual `assigned` notification once, under the same rules as
+  `notify_assignee` on `POST .../cards/`.
+- **Expected assignee** (#2211, since 1.3): `expected_assignee_id` is the
+  person the client showed as pre-assigned (the target board's
+  `default_assignee_id` from `child-board-options`), or `null` when it showed
+  nobody. When it is sent, the default team's pick is applied only if it is
+  still that person; otherwise the child is created unassigned, never assigned
+  to someone else. Omitted, the current pick is applied. Anything other than
+  an integer or `null` is `400` (keyed `expected_assignee_id`).
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
   (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
   `swimlane_*` forms), with the same body as `POST .../cards/`.
@@ -1246,7 +1270,9 @@ Any role on this card's board.
 {"fixed_board": null,
  "default": {"id": 7, "name": "Delivery"},
  "can_set_default": true,
- "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}]}
+ "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}],
+ "boards_total": 1,
+ "disabled_reason": null}
 ```
 
 - `fixed_board`: the board this card's children are already on, as
@@ -1259,8 +1285,21 @@ Any role on this card's board.
   client asks which board to use.
 - `boards`: every board where you are `member` or higher whose cards cannot
   have children and whose first column allows card creation, by name.
-  `can_set_default` is true when you administer both boards.
+  `can_set_default` is true when you administer both boards. At most **100**
+  boards are listed (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449);
+  `boards_total` is how many qualify in all, so a client can say "showing 100
+  of N". `default` is resolved over every qualifying board and is always one of
+  the listed `boards`: when it sorts past the first 100 it takes the last slot,
+  so a client can preselect it.
 - `can_set_default` (top level): you administer this card's board.
+- `disabled_reason` (since 1.3, #2447): `"parent_archived"` when this card is
+  archived, since Add child refuses an archived parent with that code; else `null`.
+- `default_team` (#2211, since 1.3): the default team of this card's lane, as
+  `{"swimlane": {"id", "name"}, "member_ids": [...]}` (active members still
+  listed as non-viewers on this card's board, team order), or `null` when the
+  lane has no such member. Each `boards` entry, and a
+  visible `fixed_board`, then also carries `default_assignee_id`: who Add child
+  would assign there (`null` when nobody on the team can be assigned there).
 
 Empty lists and `null`s when this card's board cannot have children.
 
@@ -1284,6 +1323,23 @@ A read-only key on the card object, resolved for the caller:
   the parent's board calls its cards (for example `"Initiative"`), raw. An empty
   string means the board set no name and the client says "Parent". It is never
   on the hidden shape.
+  Since #2443 the visible shape also carries `siblings_total` and
+  `siblings_done`, for "2 of 5 siblings done": how many live (unarchived)
+  children the parent has **on this card's board**, this card included while it is live (an archived child read through `GET .../cards/archived/` is not counted), and how
+  many of them are done. Done means what it means in the parent's
+  `children_rollup`: in a done column and not blocked (a manual block, or an
+  open `blocks` relation from a live card on the same board), so a blocked
+  child in a done column is not counted as done. They are computed for the caller, only
+  over this card's own board, and are `null` when you hold no role there.
+  Both are at most 100, the children cap. A hidden parent carries no sibling
+  data: which cards share a parent you cannot open is that parent's
+  information. Reading them costs one grouped query per request, however many
+  cards or parents. The live refresh follows the same rule: the
+  `card.parent_changed` frame with `siblings: true` that says these counts
+  changed is sent only to subscribers who can open the parent's board, and it
+  is not in the change feed or webhooks (see
+  [WebSockets](websockets.md)). A socket that missed one re-reads `parent` on
+  its reconnect resync.
 
 `parent` is **present** on `GET .../full/`, the per-board card list
 `GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and
@@ -1375,8 +1431,10 @@ an unknown board.
 ```
 
 `disabled_reason` is `link_exists` (already this card's child),
-`already_has_parent` (another card's child) or `children_limit` (this card
-has 100 children), else `null`. `parent_title` names the other parent only
+`already_has_parent` (another card's child), `parent_archived` (this card
+is archived, since 1.3, #2447; not for a card that was linked to this card and
+then unlinked, which may be linked back) or `children_limit` (this card has 100
+children), in that precedence, else `null`. `parent_title` names the other parent only
 when you can open its board. Link a row with `POST
 /api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}` on
 the child's board, so the child board's role authorizes it.

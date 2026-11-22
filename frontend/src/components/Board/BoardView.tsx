@@ -762,11 +762,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const selfDeletingRef = useRef(false);
   // Filled in below, once the drag state and the deferred resync exist.
   const onColumnLeftDoneRef = useRef<() => void>(() => {});
+  const boardHasLinkedChildren = useCallback(
+    () => !!boardRef.current?.cards.some((c) => c.parent),
+    [],
+  );
   const handleColumnUpdated = useCallback((column: Column) => {
     const wasDone = boardRef.current?.columns.find((c) => c.id === column.id)?.is_done;
     onColumnUpdated(column);
     if (wasDone && !column.is_done) onColumnLeftDoneRef.current();
-  }, [onColumnUpdated]);
+    // A child's "N of M siblings done" counts cards in done columns, and the server sends the parent
+    // board only `card.children_bulk_changed`. A flip here changes every sibling's line (#2443).
+    if (!!wasDone !== !!column.is_done && boardHasLinkedChildren()) silentReloadRef.current();
+  }, [onColumnUpdated, boardHasLinkedChildren]);
   // The archived-cards panel is not backed by board.cards, so it listens to
   // the card frames directly (#2062).
   const cardEventListeners = useRef(new Set<(event: BoardEvent) => void>());
@@ -804,6 +811,36 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (parents.size > 0) applyCardParents(parents);
     });
   }, [applyCardParents, silentReload]);
+  // `card.parent_changed {card_ids, siblings: true}` (#2443): a write to one child changed the
+  // "N of M siblings done" every other child of the same parent shows. The listed cards share
+  // ONE parent, and `parent` is the same object on each of them for this reader (same parent,
+  // same board, same roles), so one read is applied to all, however many siblings: no per-card
+  // fan-out and no board reload. Only cards on this board are read. A representative that is
+  // no longer a child (it was unlinked in between) says nothing about the rest, so they fall
+  // back to their own reads.
+  const refetchSiblingParents = useCallback((ids: readonly number[]) => {
+    const boardId = boardRef.current?.id;
+    const shown = new Set(boardRef.current?.cards.map((c) => c.id));
+    const onBoard = ids.filter((id) => shown.has(id));
+    if (boardId === undefined || onBoard.length === 0) return;
+    const seqs = parentReadSeqRef.current;
+    const issued = onBoard.map((id) => {
+      const n = (seqs.get(id) ?? 0) + 1;
+      seqs.set(id, n);
+      return n;
+    });
+    const [first, ...rest] = onBoard;
+    void getCardParent(boardId, first).then((parent) => {
+      if (parent === null) {
+        if (seqs.get(first) === issued[0]) applyCardParents(new Map([[first, null]]));
+        refetchCardParents(rest);
+        return;
+      }
+      const parents = new Map<number, CardParent | null>();
+      onBoard.forEach((id, i) => { if (seqs.get(id) === issued[i]) parents.set(id, parent); });
+      if (parents.size > 0) applyCardParents(parents);
+    }, () => { /* a failed read keeps the last value; the next ping or resync retries */ });
+  }, [applyCardParents, refetchCardParents]);
   // `card.children_changed {parent_id}` (#2210) carries ids only: the rollup
   // is computed per reader, so the parent card is re-read. Same per-card
   // sequence guard as the parent reads: only the latest read is applied.
@@ -892,7 +929,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const ids = (d as { card_ids?: unknown }).card_ids;
       // A large container rename (#2416) sends `reload: true` instead of every id.
       if ((d as { reload?: unknown }).reload === true) silentReload();
-      else if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
+      else if (Array.isArray(ids) && (d as { siblings?: unknown }).siblings === true) {
+        refetchSiblingParents(ids.filter((id): id is number => typeof id === "number"));
+      } else if (Array.isArray(ids)) refetchCardParents(ids.filter((id): id is number => typeof id === "number"));
     } else if (event.event === "card.children_changed") {
       const parentId = (d as { parent_id?: unknown }).parent_id;
       if (typeof parentId === "number") {
@@ -1078,7 +1117,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.

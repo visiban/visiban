@@ -13,7 +13,7 @@ vi.mock('react-router-dom', async () => ({
 }))
 vi.mock('../api/boards', () => ({
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
-  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue({ boards: [] }),
   getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   listSampleBoards: vi.fn().mockResolvedValue([]),
   listBoards: vi.fn(),

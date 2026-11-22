@@ -1,9 +1,9 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { BoardColor } from "../../utils/boardColors";
-import { updateSwimlane, deleteSwimlane } from "../../api/boards";
-import type { Card, Column, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
+import { updateSwimlane, deleteSwimlane, getSwimlaneDefaultTeamAccess } from "../../api/boards";
+import type { Card, Column, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneDefaultTeamAccess, SwimlaneLimitEnforcement } from "../../types";
 import SwimlaneDefaultTeamSection from "./SwimlaneDefaultTeamSection";
-import { liveTeamIds } from "../../utils/swimlaneDefaultTeam";
+import { inactiveTeamIds, liveTeamIds } from "../../utils/swimlaneDefaultTeam";
 import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -93,11 +93,24 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   const [countedError, setCountedError] = useState<string | null>(null);
   const limitsId = useId();
   const firstCountedRef = useRef<HTMLInputElement>(null);
+  const teamSectionRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { moreBelow, onScroll: onBodyScroll } = useOverflowFade(bodyRef, [columns.length, swimlaneFieldDefinitions?.length]);
   // Default team (#2211), seeded once; ids of people who left are dropped.
   const [initialTeam] = useState<number[]>(() => liveTeamIds(swimlane.default_team, members ?? []));
   const [team, setTeam] = useState<number[]>(initialTeam);
+  // #2211: deactivated members are shown and must be removed before the team is saved
+  // (the server refuses them); the access warning names who is skipped on new children.
+  const [inactiveIds] = useState<Set<number>>(() => inactiveTeamIds(swimlane));
+  const [teamAccess, setTeamAccess] = useState<SwimlaneDefaultTeamAccess | null>(null);
+  const hasMembers = members != null;
+  useEffect(() => {
+    if (!hasMembers || initialTeam.length === 0) return;
+    let live = true;
+    // A failed load only hides the warning; the team itself still saves.
+    getSwimlaneDefaultTeamAccess(boardId, swimlane.id).then((a) => { if (live) setTeamAccess(a); }).catch(() => {});
+    return () => { live = false; };
+  }, [boardId, swimlane.id, hasMembers, initialTeam.length]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -144,6 +157,12 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       // The server refuses an empty list; say so here and keep the modal open.
       setCountedError("Choose at least one column, or the limit would count nothing.");
       firstCountedRef.current?.focus();
+      return;
+    }
+    if (team.join() !== initialTeam.join() && team.some((id) => inactiveIds.has(id))) {
+      setSaveError("Remove the deactivated people from the default team, then save.");
+      // Put the user on the first deactivated row's Remove, as the counted-columns error does.
+      teamSectionRef.current?.querySelector<HTMLButtonElement>("button[data-inactive-remove]")?.focus();
       return;
     }
     if (invalidFieldIds.current.size > 0) {
@@ -220,10 +239,12 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       title={title}
       maxWidth="max-w-md"
       labelId="edit-swimlane-title"
+      phoneBack
       // The limits section (#1150) makes this modal taller than a short
       // viewport, so the body scrolls and the footer stays put, as in
       // ImportBoardModal.
-      panelClassName="max-h-[calc(100dvh-2rem)]"
+      // Below 640px it is a full-screen sheet (#2211, #2206 rule 7), footer pinned at the bottom.
+      panelClassName="max-h-[calc(100dvh-2rem)] max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
       noPadding
     >
       {confirmDelete ? (
@@ -234,7 +255,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <span className="font-medium text-fg">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
             </p>
             <div className="flex justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 max-sm:min-h-11 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 OK
               </button>
             </div>
@@ -249,10 +270,10 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             </p>
             <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
             <div className="flex items-center justify-end gap-3">
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel
               </button>
-              <button onClick={handleDelete} className="px-3 py-1.5 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
+              <button onClick={handleDelete} className="px-3 py-1.5 max-sm:min-h-11 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
                 Delete
               </button>
             </div>
@@ -442,7 +463,9 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           {members && (
             <>
               <div className="border-t border-line my-4" />
-              <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} />
+              <div ref={teamSectionRef}>
+                <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} inactiveIds={inactiveIds} access={teamAccess} />
+              </div>
             </>
           )}
 
@@ -453,23 +476,26 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           </div>
 
           <div className="px-6 pb-6">
-          <p className="text-xs h-4 mt-2">
-            {saveError && <span className="text-danger">{saveError}</span>}
+          {/* In the pinned footer, so a phone sees it beside Save, not below the fold; role="alert"
+              announces it when it appears. */}
+          <p className="text-xs min-h-4 mt-2">
+            {saveError && <span role="alert" className="text-danger">{saveError}</span>}
           </p>
 
-          <div className="flex justify-between items-center mt-2">
+          {/* Phone: Delete on its own row above Cancel and Save, every button 44px tall (#2206 rule 6). */}
+          <div className="flex justify-between items-center mt-2 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-sm text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+              className="text-sm text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded max-sm:min-h-11 max-sm:self-start max-sm:px-1"
             >
               Delete swimlane
             </button>
-            <div className="flex gap-2">
-              <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+            <div className="flex gap-2 max-sm:justify-end">
+              <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}
-                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 max-sm:min-h-11 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
               >
                 {saving ? "Saving…" : "Save"}
               </button>

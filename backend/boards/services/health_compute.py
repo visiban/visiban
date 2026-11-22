@@ -195,10 +195,11 @@ def _send_lane_updates(board_id, lane_ids):
     from .. import broadcast as _broadcast
     from ..models import Swimlane
     from ..serializers import SwimlaneSerializer, _swimlane_custom_field_prefetch
+    from .swimlane_team import team_prefetch
 
     lanes = (
         Swimlane.objects.filter(board_id=board_id, pk__in=lane_ids)
-        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
         .order_by("position", "pk")
     )
     for lane in lanes:

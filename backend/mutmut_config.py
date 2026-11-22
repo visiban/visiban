@@ -116,6 +116,13 @@ _IMPORT_EXPORT_TESTS = (
     "test_moderator_export.py",
     # #2514: exact-message and boundary tests for the JSON-import validators.
     "test_import_validators_mutation_gaps_2514.py",
+    # #2515: the export, deleted-card history, CSV and Trello gaps. The feature
+    # suites (#1799, #2440, #2439, #1921) were measured and killed nothing more.
+    "test_export_mutation_gaps_2515.py",
+    # #2513: exact-value assertions for `_import_json` (date shift, validation
+    # messages, gate transitions, deleted-card history). Fast, so it sits ahead of
+    # the slow schema/attribution files below.
+    "test_import_json_mutation_gaps_2513.py",
     # The imported-movement attribution in the CSV export (#1675, #1702), and the
     # export's OpenAPI declaration (#1783). Last on purpose: generating the
     # schema is the slowest step, and only a mutant every file above let

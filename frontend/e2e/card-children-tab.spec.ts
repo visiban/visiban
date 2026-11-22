@@ -100,6 +100,11 @@ async function setup(page: Page, mode: () => Mode) {
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/timeline\//, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, next: null, results: [] }) }),
   )
+  // The card sheet reads its extension sections (#2212). Unmocked, that read reaches whatever listens on :8000: in CI
+  // nothing (refused, harmless), but locally the dev stack answers 401 and the app signs the test out mid-run (#2530).
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/extensions\/$/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sections: [] }) }),
+  )
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/children\/\d+\/$/, (route) => route.fulfill({ status: 204, body: '' }))
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/children\/(\?.*)?$/, async (route) => {
     const m = mode()
@@ -207,11 +212,18 @@ for (const width of [390, 880]) {
       const worst = await lowestContrast(back)
       console.log(`contrast-2209 ${width} ${scheme} back ${worst.ratio.toFixed(2)} "${worst.text}"`)
       expect(worst.ratio, `back link contrast ${worst.ratio.toFixed(2)} (${width}px ${scheme})`).toBeGreaterThanOrEqual(4.5)
+      // Pin where the link goes before following it, not by polling the address bar afterwards (#2530): BoardView
+      // consumes a `?card=` deep link as soon as it opens the card (`replace: true`), so `tab=children` is in the
+      // URL only briefly. Whether a poll sees it depends on timing, and once missed it never comes back, so a
+      // longer timeout cannot help.
+      await expect(back).toHaveAttribute('href', `/boards/${PARENT_BOARD.id}?card=${PARENT_CARD.id}&tab=children&focus_child=${CHILD_CARD.id}`)
       await back.click()
-      await expect(page).toHaveURL(/tab=children/)
       const tab = page.getByTestId('card-children-tab')
       await expect(tab).toBeVisible({ timeout: 10_000 })
       await expect(tab.locator(`a[data-child-id="${CHILD_CARD.id}"]`)).toBeFocused()
+      // The parent's own sheet, not the child's: the parent has no parent, so no "‹ <parent>" header.
+      await expect(back).toHaveCount(0)
+      await expect(page).toHaveURL(`/boards/${PARENT_BOARD.id}?view=board`)
       const workMoved = await lowestContrast(tab.getByTestId('children-work-moved'))
       expect(workMoved.ratio, `Work moved contrast ${workMoved.ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
     })

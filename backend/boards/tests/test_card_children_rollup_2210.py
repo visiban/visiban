@@ -334,8 +334,12 @@ class ChildrenChangedPingTests(_RollupFixture, TestCase):
             sent.assert_not_called()
             for cb in callbacks:
                 cb()
-        # Two children of one parent coalesce into one ping.
-        self.assertEqual(sent.call_count, 1)
+        # Two children of one parent coalesce into one ping, plus (#2443) one
+        # sibling ping to the child board.
+        self.assertEqual(
+            [(c.args[0], c.args[1]) for c in sent.call_args_list],
+            [(self.pboard.pk, "card.children_changed"), (self.cboard.pk, "card.parent_changed")],
+        )
 
 
 class ContainerRenameTests(_RollupFixture, TestCase):

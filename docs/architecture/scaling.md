@@ -99,7 +99,7 @@ The chart's defaults are single-replica, and these block a second replica until 
 
 PostgreSQL holds all persistent state: boards, cards, movements, memberships, comments, attachments metadata, and notifications.
 
-**What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load, 2 more when cards carry parent/child links) and the ORM uses `select_related`/`prefetch_related` throughout.
+**What limits it:** write throughput (card moves, comment creates, WebSocket broadcasts trigger writes via `CardMovement`). Reads are less of a concern: query budgets are tight (≤ 20 queries for full board load, 3 more when cards carry parent/child links: the parent-board role batch and the sibling count) and the ORM uses `select_related`/`prefetch_related` throughout.
 
 **Connection count:** by default each HTTP request opens and closes its own PostgreSQL connection (`CONN_MAX_AGE` is unset); connections are not held between requests. Peak usage is therefore roughly the number of requests in flight at once. WebSocket consumers add little: Channels runs their database work on one thread per process, so it is serialized. PostgreSQL's default `max_connections = 100` suits small deployments; large ones should add pgBouncer.
 

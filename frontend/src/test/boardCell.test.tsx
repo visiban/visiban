@@ -177,7 +177,7 @@ describe('BoardCell', () => {
     render(<BoardCell {...defaultProps()} />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
-    expect(screen.getByText('Add')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add card' })).toBeInTheDocument()
     expect(screen.getByText('Cancel')).toBeInTheDocument()
   })
 
@@ -216,7 +216,7 @@ describe('BoardCell', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
-    await user.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
     expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'New Card' })
   })
 
@@ -521,7 +521,7 @@ describe('BoardCell', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
-    await user.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
 
     expect(
       await screen.findByText('Column at capacity — no exceptions: "To Do" is at its limit of 1 card (1 active).'),
@@ -540,7 +540,7 @@ describe('BoardCell', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'New Card')
-    await user.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
     expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
   })
 })
@@ -597,7 +597,7 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
     render(<BoardCell {...defaultProps()} />)
     await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.type(screen.getByPlaceholderText('Card title…'), 'N')
-    await user.click(screen.getByText('Add'))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
     await waitFor(() => expect(screen.getByRole('button', { name: /^Add card to/ })).toHaveFocus())
   })
   describe('populated cell', () => {
@@ -622,7 +622,7 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
       render(<BoardCell {...populated()} />)
       await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
       await user.type(screen.getByPlaceholderText('Card title…'), 'N')
-      await user.click(screen.getByText('Add'))
+      await user.click(screen.getByRole('button', { name: 'Add card' }))
       await waitFor(() => expect(screen.getByRole('button', { name: 'Add card to To Do in Customer A' })).toHaveFocus())
     })
   })
@@ -654,5 +654,47 @@ describe('BoardCell gated stage (#2278)', () => {
     render(<BoardCell {...props} showSubColumns={false} />)
     expect(screen.queryByTestId('cell-sub-columns')).not.toBeInTheDocument()
     expect(screen.getByTestId('card-1')).toBeInTheDocument()
+  })
+})
+
+describe('BoardCell lane default team (#2211)', () => {
+  const mia = { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' }
+  const laneDefault = { assignee: mia, others: ['Dan Kovacs'] }
+
+  it('shows the pre-assigned member with the caption and sends them as the assignee', async () => {
+    mockCreateCard.mockResolvedValue(makeCard({ id: 98 }))
+    render(<BoardCell {...defaultProps()} laneDefault={laneDefault} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    const group = screen.getByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent('Mia Reyes')
+    expect(group).toHaveTextContent('Pre-assigned from lane team')
+    expect(screen.getByTestId('cell-add-tag')).toHaveTextContent(/^Customer A · /)
+    expect(group).toHaveTextContent("From the Customer A default team. Remove anyone this card shouldn't have. Also on the team, not assigned: Dan Kovacs.")
+    await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
+    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal', assignee_id: 10, notify_assignee: true }))
+  })
+
+  it('Unassign creates the card with no assignee', async () => {
+    mockCreateCard.mockClear()
+    mockCreateCard.mockResolvedValue(makeCard({ id: 97 }))
+    render(<BoardCell {...defaultProps()} laneDefault={laneDefault} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    await user.click(screen.getByRole('button', { name: 'Unassign Mia Reyes' }))
+    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('No one assigned.')
+    // Focus moves to the "+ Add" pill that replaced the removed chip, and the change is announced.
+    expect(screen.getByRole('button', { name: 'Add Mia Reyes' })).toHaveFocus()
+    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('From the')
+    await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
+    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal' }))
+  })
+
+  it('renders no Assignees group for a lane without a team', async () => {
+    render(<BoardCell {...defaultProps()} laneDefault={null} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
   })
 })
