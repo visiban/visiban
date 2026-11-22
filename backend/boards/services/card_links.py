@@ -388,7 +388,7 @@ def _record(card_id, event_type, actor):
     CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor)
 
 
-def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
+def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id, *, siblings=True):
     """Record the two ids-only pings, published when the transaction commits.
 
     ``record_board_event`` defers the publish with ``transaction.on_commit``,
@@ -404,12 +404,14 @@ def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
         child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
         {"card_ids": [child_id]}, actor_id=actor_id,
     )
-    # The other children's "N of M siblings done" just changed (#2443).
-    _announce_siblings(
-        CardParentLink.objects.filter(parent_id=parent_id, child__archived_at__isnull=True)
-        .values_list("parent_id", "child_id", "child__board_id"),
-        actor_id=actor_id, exclude={child_id},
-    )
+    # The other children's "N of M siblings done" just changed (#2443). ``siblings=False``
+    # when every other child is being unlinked too: they each get their own frame.
+    if siblings:
+        _announce_siblings(
+            CardParentLink.objects.filter(parent_id=parent_id, child__archived_at__isnull=True)
+            .values_list("parent_id", "child_id", "child__board_id"),
+            actor_id=actor_id, exclude={child_id},
+        )
 
 
 def _announce_siblings(rows, *, actor_id, exclude=(), changed=()):
@@ -445,7 +447,7 @@ def _announce_siblings(rows, *, actor_id, exclude=(), changed=()):
         if child_id not in exclude:
             by_pair.setdefault((parent_id, child_board_id), []).append(child_id)
     for parent_id, child_board_id in sorted(by_pair):
-        ids = sorted(by_pair[(parent_id, child_board_id)])
+        ids = sorted(by_pair[(parent_id, child_board_id)])[:CHILDREN_PER_PARENT_LIMIT]
         if len(ids) == 1 and ids[0] in changed:
             continue
         _broadcast.record_board_event(
@@ -788,7 +790,7 @@ def default_child_board_options_for_admin(board, user):
     return {"boards": _options_page(rows, board.default_child_board_id), "boards_total": len(rows)}
 
 
-def remove_link(link, *, actor, moved_from=None):
+def remove_link(link, *, actor, moved_from=None, siblings=True):
     """Delete ``link`` and record it on both cards and both boards.
 
     Authorization is the caller's: either end may unlink, with MEMBER or
@@ -815,7 +817,7 @@ def remove_link(link, *, actor, moved_from=None):
         _announce(
             board_of(link.parent_id, link.parent.board_id), link.parent_id,
             board_of(link.child_id, link.child.board_id), link.child_id,
-            getattr(actor, "id", None),
+            getattr(actor, "id", None), siblings=siblings,
         )
 
 
@@ -836,7 +838,9 @@ def unlink_all(card, *, actor=None, old_board_id=None):
     ).order_by("pk")
     moved_from = {card.pk: old_board_id} if old_board_id else None
     for link in list(links):
-        remove_link(link, actor=actor, moved_from=moved_from)
+        # The PARENT end leaving unlinks every remaining child too, so no sibling is left to
+        # tell; the CHILD end leaving does leave siblings (#2443).
+        remove_link(link, actor=actor, moved_from=moved_from, siblings=link.parent_id != card.pk)
 
 
 def announce_card_removal(card, *, actor=None):

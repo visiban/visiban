@@ -386,6 +386,28 @@ class SiblingPingTests(_RollupFixture, TestCase):
         self.assertIn(self.sibling_frame([a.pk, b.pk]), frames)
         self.assertEqual(len(frames), 2)
 
+    def test_sibling_frame_is_capped_at_the_per_parent_limit(self):
+        with patch.object(card_links, "CHILDREN_PER_PARENT_LIMIT", 3):
+            BoardEvent.objects.all().delete()
+            with self.captureOnCommitCallbacks(execute=True):
+                card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+            self.assertEqual(self.frames(), [self.sibling_frame(self.live[:3])])
+
+    def test_admin_unlink_all_skips_the_sibling_frame_for_the_parent_end_only(self):
+        """The parent end leaving unlinks every child (each has its own frame); a child end leaves siblings."""
+        BoardEvent.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            card_links.unlink_all(self.parent, actor=self.owner)
+        frames = self.frames()
+        self.assertFalse(any(d.get("siblings") for _, d in frames), frames)
+        self.assertTrue(frames)
+        CardParentLink.objects.get_or_create(parent=self.parent, child=self.todo)
+        CardParentLink.objects.get_or_create(parent=self.parent, child=self.doing)
+        BoardEvent.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            card_links.unlink_all(self.todo, actor=self.owner)
+        self.assertTrue(any(d.get("siblings") for _, d in self.frames()))
+
     def test_sibling_pings_are_flat_in_the_number_of_siblings(self):
         """Move and delete of a child: the sibling read is one query and one feed row, however many siblings."""
         def cost(n_extra):
