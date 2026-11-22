@@ -6488,6 +6488,19 @@ nightly-load-test:
     - python manage.py provision_fuzz_token --username demo1 --token-file "${VISIBAN_LOAD_TEST_OWNER_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username demo3 --token-file "${VISIBAN_LOAD_TEST_MULTI_BOARD_TOKEN_FILE}" --set-random-password
     - python manage.py provision_fuzz_token --username loadtest_analytics --token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" --set-random-password
+    # The seed bulk-inserts about 100k+ movements just before measuring. Production
+    # databases are autovacuumed; a fresh CI Postgres may not be yet, so the job could
+    # measure on stale statistics, with no visibility map, or overlapping autovacuum
+    # (#2518). VACUUM ANALYZE cannot run in a transaction block; Django's default
+    # autocommit connection is fine. A failure raises and fails the job.
+    - |
+      python manage.py shell -c "
+      from django.db import connection
+      with connection.cursor() as c:
+          c.execute('VACUUM ANALYZE')
+          c.execute(\"SELECT last_analyze IS NOT NULL OR last_autoanalyze IS NOT NULL FROM pg_stat_user_tables WHERE relname = 'card_movements'\")
+          print('VACUUM ANALYZE done; card_movements analyzed:', c.fetchone()[0])
+      "
     # Server output goes to an artifact, not the job log (#1611), same as
     # backend-schema-fuzz (#1607). after_script tails it on failure.
     # --noreload: the autoreloader would make $! the reloader parent, whose RSS is not

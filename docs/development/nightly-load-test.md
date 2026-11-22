@@ -200,6 +200,10 @@ The large fixture is regenerated fresh in an ephemeral CI database on every run 
 - **`--with-notifications`** seeds 60 unread `Notification` rows for the `demo2` user. That is more than the 50-row cap `NotificationListView` applies (`NotificationUnreadCountView` is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.
 - **A fixture size with no stated card/swimlane count is meaningless**: a p95 is only interpretable next to its data volume. `nightly-load-test-results.json` (the job's artifact) records the actual card and swimlane count with the timings, and `backend/nightly-load-test-baseline.json` records what the committed budgets were derived against.
 
+### VACUUM ANALYZE after the seed
+
+After the seed and token provisioning, and before the server starts, the job runs `VACUUM ANALYZE` once ([#2518](https://gitlab.com/visiban/visiban/-/issues/2518)). Since [#2430](https://gitlab.com/visiban/visiban/-/issues/2430) the seed bulk-inserts about 100k more movements (the aged board) immediately before measuring. On a freshly built CI Postgres, nothing guarantees autovacuum has caught up, so the measurement can overlap autovacuum, run on stale planner statistics, and run without a visibility map (no index-only scans). All eight `flow_*` p95 budgets went red on `main` after that change. Production databases are autovacuumed, so measuring after a vacuum is more representative and deterministic, not more lenient. No budget changed. The step fails the job if it fails. Whether this fully explains the regression is unproven until the manual `nightly-load-test` job comes back green on it.
+
 ## Auth
 
 The job reuses `manage.py provision_fuzz_token` (already used by `backend-schema-fuzz`) to mint a scoped, non-admin Personal Access Token for `demo2`. It writes the token to a CI-only file (`VISIBAN_LOAD_TEST_TOKEN_FILE`, mode `0600`, never logged). No credential is hardcoded anywhere in the job or the script, following the same "no hardcoded credentials" rule as every other backend job in `.gitlab-ci.yml`.
