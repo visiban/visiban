@@ -629,8 +629,8 @@ describe('MovementHistoryView Parent filter (#2209, #2499)', () => {
     const board = { ...fakeBoard, cards: [{ id: 1, parent }] } as unknown as BoardFull
     renderAt('/boards/1?view=history&parent=900', board)
     await waitFor(() => expect(mockGetMovements).toHaveBeenCalledWith(1, expect.objectContaining({ parent_id: '900' })))
-    expect(screen.getByTestId('history-parent-chip')).toHaveTextContent('Parent: Initech: security review')
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Parent filter' }))
+    expect(screen.getByTestId('history-parent-chip')).toHaveTextContent('Initech: security review')
+    fireEvent.click(screen.getByRole('button', { name: 'Parent: Initech: security review, remove' }))
     await waitFor(() => expect(mockGetMovements).toHaveBeenLastCalledWith(1, expect.not.objectContaining({ parent_id: expect.anything() })))
     expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
   })
@@ -639,7 +639,7 @@ describe('MovementHistoryView Parent filter (#2209, #2499)', () => {
     const board = { ...fakeBoard, cards: [{ id: 1, parent: { hidden: true } }] } as unknown as BoardFull
     renderAt('/boards/1?view=history&parent=900', board)
     const chip = await screen.findByTestId('history-parent-chip')
-    expect(chip).toHaveTextContent('Parent: one parent card')
+    expect(chip).toHaveTextContent('one parent card')
     expect(chip).not.toHaveTextContent('900')
   })
   it('without ?parent= there is no chip and no parent_id', async () => {

@@ -692,7 +692,8 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     expect(faces[0]).not.toHaveTextContent('L3')
     expect(faces[0]).toHaveTextContent('+1')
     expect(faces[0]).toHaveTextContent('High')
-    expect(within(faces[0]).getByText(/^Due /)).toHaveClass('text-danger')
+    expect(within(faces[0]).getByText(/^Due /).closest('span.text-danger')).not.toBeNull()
+    expect(faces[0]).toHaveTextContent('Overdue, Due')
   })
 
   it('links Movement history to the child board History with Parent = this card', () => {

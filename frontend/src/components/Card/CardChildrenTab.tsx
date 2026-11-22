@@ -661,14 +661,14 @@ function ChildCardFace({ child, userTimezone, userDateFormat }: { child: CardChi
           {l.name.length > 12 ? `${l.name.slice(0, 11)}…` : l.name}
         </span>
       ))}
-      {labels.length > 2 && <span className="text-fg-tertiary">+{labels.length - 2}</span>}
+      {labels.length > 2 && <span className="text-fg-tertiary" title={labels.slice(2).map((l) => l.name).join(", ")}>+{labels.length - 2}<span className="sr-only"> more labels</span></span>}
       {showPriority && (
         <span className="inline-flex items-center gap-1 text-fg-secondary">
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: PRIORITY_COLORS[child.priority] }} />
           {child.priority.charAt(0).toUpperCase() + child.priority.slice(1)}
         </span>
       )}
-      {due && <span className={due.overdue ? "text-danger" : "text-fg-muted"}>{due.label}</span>}
+      {due && <span className={due.overdue ? "text-danger" : "text-fg-muted"}>{due.overdue && <span className="sr-only">Overdue, </span>}{due.label}</span>}
     </div>
   );
 }

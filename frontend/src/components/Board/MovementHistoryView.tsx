@@ -11,6 +11,7 @@ import { movementGateNote } from "../../utils/stages";
 import { importedNote } from "../../utils/importedHistory";
 import type { UserDatePrefs } from "../../utils/date";
 import ActiveMark from "../Common/ActiveMark";
+import FilterChip from "./FilterChip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -399,16 +400,8 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
           {filters.parentId !== null && (
             // Named only from a child on this board whose parent the viewer can open (the card
             // payload resolves it per viewer, #1104); otherwise a neutral name, never an id.
-            <span className="inline-flex items-center gap-1 h-7 pl-2 pr-1 text-xs rounded border border-primary-soft text-info bg-surface shrink-0" data-testid="history-parent-chip">
-              Parent: {parentTitle ?? "one parent card"}
-              <button
-                type="button"
-                aria-label="Remove Parent filter"
-                onClick={() => applyFilters({ ...filters, parentId: null })}
-                className="w-6 h-6 inline-flex items-center justify-center rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
+            <span data-testid="history-parent-chip" className="contents">
+              <FilterChip tag="Parent" label={parentTitle ?? "one parent card"} onDismiss={() => applyFilters({ ...filters, parentId: null })} />
             </span>
           )}
           {hasFilters(filters) && (
