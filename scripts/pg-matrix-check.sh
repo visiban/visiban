@@ -68,6 +68,9 @@ main() {
   group="$(pick_group "${PG_TEST_GROUP:-}" "${CI_PIPELINE_IID:-0}" "$splits")" \
     || { echo "PG_TEST_GROUP must be 1..${splits}" >&2; return 2; }
 
+  # #2536: background server-side activity report; diagnostic only, never waited on.
+  (python scripts/pg-activity-watch.py || true) &
+
   cd backend
   num="$(python manage.py shell -c 'from django.db import connection
 with connection.cursor() as c:
