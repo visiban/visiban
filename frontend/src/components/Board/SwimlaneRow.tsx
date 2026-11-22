@@ -536,7 +536,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           {/* The first two lane fields as "Label value". They stay in the band when the lane
               is collapsed (the band is the collapsed lane's header). */}
           {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
-          {(tiers || !(showFieldToggle && fieldsOpen)) && bandFields.map(renderField)}
+          {(tiers || !(showFieldToggle && fieldsOpen)) && bandFields.map((bandField) => renderField(bandField))}
 
           <div className="flex-1 min-w-0" />
 

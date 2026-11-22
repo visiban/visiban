@@ -4,6 +4,8 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import security from 'eslint-plugin-security'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import unicorn from 'eslint-plugin-unicorn'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -65,6 +67,34 @@ export default defineConfig([
           message: 'Discarded timer with a delay: it can fire after unmount. Hold the id in a ref and clear it on unmount (#1319).',
         })),
       ],
+    },
+  },
+  // #2527: lint rules that mirror Sonar findings SonarCloud only reports on
+  // main (nightly), so a branch otherwise cannot see them. See
+  // docs/development/sonarcloud.md#sonar-rules-mirrored-in-eslint.
+  //   typescript:S9383 floating promise  -> @typescript-eslint/no-floating-promises
+  //   typescript:S1082 click, no key     -> jsx-a11y/click-events-have-key-events
+  //   typescript:S7727 fn ref to array cb -> unicorn/no-array-callback-reference
+  // no-floating-promises is type-aware, so it lives in its own block with
+  // projectService; every other rule keeps the fast untyped parse.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { 'jsx-a11y': jsxA11y, unicorn },
+    languageOptions: {
+      parserOptions: {
+        // cardPeek.test.tsx / groupTree.test.tsx share a stem with a .ts file,
+        // so tsc (and thus the project service) skips them; lint them via the
+        // default project instead of failing to parse.
+        projectService: {
+          allowDefaultProject: ['src/test/cardPeek.test.tsx', 'src/test/groupTree.test.tsx'],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'unicorn/no-array-callback-reference': 'error',
     },
   },
   // Security SAST rules — scoped to src/ to keep the scan focused and avoid

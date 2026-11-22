@@ -116,7 +116,7 @@ export function findSettings(query: string, available: ReadonlySet<SettingsSecti
   if (words.length === 0) return [];
   // A section that already has an index entry under its own name (Card fields, Swimlane fields,
   // Webhooks) gets no second, synthetic one: the pair would list the same row twice and share a key.
-  const indexed = new Set(SETTINGS_INDEX.map(settingKey));
+  const indexed = new Set(SETTINGS_INDEX.map((element) => settingKey(element)));
   const sectionEntries: SettingEntry[] = Array.from(available)
     .map((section) => ({ section, label: SECTION_LABELS[section], keywords: "section" }))
     .filter((e) => !indexed.has(settingKey(e)));

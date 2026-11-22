@@ -183,7 +183,7 @@ export function runsOf<T extends { join: FieldRuleJoin }>(entries: readonly T[])
 /** And-before-Or evaluation. An empty chain passes (nothing to filter on). */
 export function evalChain<T extends { join: FieldRuleJoin }>(entries: readonly T[], test: (e: T) => boolean): boolean {
   if (entries.length === 0) return true;
-  return runsOf(entries).some((run) => run.every(test));
+  return runsOf(entries).some((run) => run.every((element) => test(element)));
 }
 
 /**

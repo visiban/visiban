@@ -32,7 +32,7 @@ function spreadState() {
       [cellKey(3, 1)]: 5,
       [cellKey(4, 1)]: 8,
     }),
-    { columns: [1, 2, 3, 4].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
+    { columns: [1, 2, 3, 4].map((element) => makeColumn(element)), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
   )!
 }
 
@@ -56,7 +56,7 @@ describe('GridOverlayLegend', () => {
   it('renders an em dash, never a zero, for a level no cell landed in', () => {
     const state = buildGridOverlayState(
       fixedOverlay({ [cellKey(1, 1)]: 1, [cellKey(2, 1)]: 8 }),
-      { columns: [1, 2].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
+      { columns: [1, 2].map((element) => makeColumn(element)), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
     )!
     render(<GridOverlayLegend state={state} />)
     const legend = screen.getByRole('group', { name: /overlay scale/ })
@@ -119,7 +119,7 @@ describe('GridOverlayLegend', () => {
           scale: { thresholds: [1, 3, 5, 8], stepLabels: ['Under 1d', '1–3d', '3–5d', '5–8d', '8d+'] },
           formatValue: (v: number) => `${v.toFixed(1)}d`,
         },
-        { columns: [1, 2, 3].map(makeColumn), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
+        { columns: [1, 2, 3].map((element) => makeColumn(element)), swimlanes: [makeSwimlane(1)], cards: [], isFiltered: false, now: 0 },
       )!
     }
 

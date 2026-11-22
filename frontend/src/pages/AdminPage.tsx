@@ -1586,8 +1586,8 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       {sheetUser && (
         <UserActionsSheet
           user={sheetUser}
-          primary={buildPrimaryActions(sheetUser).map(toSheetAction)}
-          support={buildOverflowItems(sheetUser).map(toSheetAction)}
+          primary={buildPrimaryActions(sheetUser).map((element) => toSheetAction(element))}
+          support={buildOverflowItems(sheetUser).map((element) => toSheetAction(element))}
           note={isSuperuserOnlyRow(sheetUser) ? "Only a superuser can change this account's access or sign-in." : undefined}
           confirm={confirm?.userId === sheetUser.id ? {
             message: confirm.message,

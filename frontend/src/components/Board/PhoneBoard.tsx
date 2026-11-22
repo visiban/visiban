@@ -561,7 +561,7 @@ export default function PhoneBoard({
                       </button>
                     )}
                     {/* Legacy: open hides the inline pair (the grid repeats it). Tiered: Band fields stay. */}
-                    {(tiers || !fieldsOpen) && bandFields.map(renderField)}
+                    {(tiers || !fieldsOpen) && bandFields.map((bandField) => renderField(bandField))}
                     {overdue > 0 && <span className="font-semibold text-danger-on-tint whitespace-nowrap">{overdue} {STATUS_LABEL.overdue}</span>}
                     {stale > 0 && <span className="font-semibold text-warning-on-tint whitespace-nowrap">{stale} {STATUS_LABEL.stale}</span>}
                     {laneLimit !== null && (

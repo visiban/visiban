@@ -282,7 +282,7 @@ export function sanitizeLaneFilter(raw: unknown): LaneFilter | undefined {
     const o = it as Record<string, unknown>;
     if (o.kind === "group") {
       if (!Array.isArray(o.rules)) continue;
-      const rules = o.rules.map(parseRule).filter((r): r is LaneRule => r !== null);
+      const rules = o.rules.map((element) => parseRule(element)).filter((r): r is LaneRule => r !== null);
       if (rules.length === 0) continue;
       items.push({ kind: "group", id: takeId(o.id), join: o.join === "or" ? "or" : "and", rules });
     } else {
@@ -318,7 +318,7 @@ export function serializeLaneFilterParam(f: LaneFilter | undefined): string | nu
   if (!f || f.items.length === 0) return null;
   const items: (CompactRule | CompactGroup)[] = f.items.map((it) => {
     if (it.kind === "rule") return toCompactRule(it);
-    const g: CompactGroup = { g: it.rules.map(toCompactRule) };
+    const g: CompactGroup = { g: it.rules.map((element) => toCompactRule(element)) };
     if (it.join === "or") g.j = "o";
     return g;
   });
@@ -338,7 +338,7 @@ export function parseLaneFilterParam(param: string | null): LaneFilter | undefin
   const items = parsed.map((it) => {
     if (typeof it === "object" && it !== null && Array.isArray((it as { g?: unknown }).g)) {
       const o = it as { j?: unknown; g: unknown[] };
-      return { kind: "group", join: o.j === "o" ? "or" : "and", rules: o.g.map(fromCompactRule) };
+      return { kind: "group", join: o.j === "o" ? "or" : "and", rules: o.g.map((element) => fromCompactRule(element)) };
     }
     return fromCompactRule(it);
   });
@@ -429,7 +429,7 @@ export function isLaneFilterActive(f: LaneFilter | undefined): boolean {
   if (!f) return false;
   const done = (r: LaneRule) =>
     r.field !== null && (isPresenceOp(r.op) ? true : r.op === "between" ? !!(r.min || r.max) : !!r.value?.trim());
-  return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some(done)));
+  return f.items.some((it) => (it.kind === "rule" ? done(it) : it.rules.some((element) => done(element))));
 }
 
 /** The lane fields a filter reads. `contact_email` is absent for non-admins. */
@@ -566,7 +566,7 @@ export function laneFilterChipItems(
     if (it.kind === "rule") {
       if (complete(it)) out.push({ id: it.id, join: it.join, label: ruleLabel(it, byId, fmt) });
     } else {
-      const inner = it.rules.filter(complete).map((r) => ({ join: r.join, text: ruleLabel(r, byId, fmt) }));
+      const inner = it.rules.filter((element) => complete(element)).map((r) => ({ join: r.join, text: ruleLabel(r, byId, fmt) }));
       if (inner.length > 0) out.push({ id: it.id, join: it.join, label: `(${textChain(inner)})` });
     }
   }

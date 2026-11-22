@@ -92,7 +92,7 @@ const attention: FlowAttention = { definition: 'a', stalled_threshold_days: 7, c
 
 /** Every endpoint answers grouped when called with a grouping (third argument), plain otherwise. */
 function mockEndpoints(groups: FlowGroupBase[] = THREE, by: 'swimlane' | 'label' | 'custom_field' = 'swimlane', fieldId: number | null = null) {
-  const grouping = <G extends FlowGroupBase>(extra: (g: FlowGroupBase, i: number) => G) => ({ by, field_id: fieldId, excluded: 0, overlapping: false, groups: groups.map(extra) })
+  const grouping = <G extends FlowGroupBase>(extra: (g: FlowGroupBase, i: number) => G) => ({ by, field_id: fieldId, excluded: 0, overlapping: false, groups: groups.map((group, i) => extra(group, i)) })
   cycleMock.mockImplementation(async (_b, _f, g) => g ? {
     ...baseCycle,
     samples: [{ ...baseCycle.samples[0], group_keys: ['1'] }, { ...baseCycle.samples[1], group_keys: ['2'] }],
@@ -339,9 +339,9 @@ describe('isolating a group (#2268)', () => {
     expect(chips[0]).toHaveAttribute('aria-pressed', 'true')
     expect(within(chips[0]).getByTestId('active-mark')).toBeInTheDocument()
     const cycle = screen.getByTestId('flow-cycle-time')
-    expect([...cycle.querySelectorAll('circle[data-group-color]')].map(opacityOf)).toEqual(['1', '0.2'])
+    expect([...cycle.querySelectorAll('circle[data-group-color]')].map((element) => opacityOf(element))).toEqual(['1', '0.2'])
     const rects = [...screen.getByTestId('flow-throughput').querySelectorAll('[data-stacked-week="2026-06-01"] rect')]
-    expect(rects.map(opacityOf)).toEqual(['1', '0.2'])
+    expect(rects.map((rect) => opacityOf(rect))).toEqual(['1', '0.2'])
     const rows = screen.getAllByTestId('time-bar-group')
     // Only the bar dims; the name and total stay readable.
     expect(within(rows[1]).getByRole('region')).toHaveStyle({ opacity: '0.2' })
@@ -351,7 +351,7 @@ describe('isolating a group (#2268)', () => {
 
     await userEvent.click(chips[0])
     expect(chips[0]).toHaveAttribute('aria-pressed', 'false')
-    expect([...cycle.querySelectorAll('circle[data-group-color]')].map(opacityOf)).toEqual([null, null])
+    expect([...cycle.querySelectorAll('circle[data-group-color]')].map((element) => opacityOf(element))).toEqual([null, null])
 
     await userEvent.click(chips[1])
     await pick('label')

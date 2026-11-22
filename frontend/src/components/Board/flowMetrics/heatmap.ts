@@ -118,7 +118,7 @@ export function buildCsv(data: AnalyticsData, mode: ViewMode): string {
       sw.stalled_cards.length,
     ];
   });
-  return [header, ...rows].map(r => r.map(csvField).join(",")).join("\n");
+  return [header, ...rows].map(r => r.map((element) => csvField(element)).join(",")).join("\n");
 }
 
 export function exportCsv(data: AnalyticsData, mode: ViewMode) {

@@ -227,7 +227,7 @@ export function measureTrackLeftOf(el: HTMLElement | null, sepIndex: number): Tr
     const m = /^([\d.]+)px$/.exec(v);
     return m ? Number(m[1]) : NaN;
   });
-  if (specified.length === 0 || specified.length !== resolved.length || resolved.some(Number.isNaN)) return null;
+  if (specified.length === 0 || specified.length !== resolved.length || resolved.some((element) => Number.isNaN(element))) return null;
   const t = columnTrackLine(sepIndex - 1) - 1;
   const fr = specified[t];
   if (!fr) return null;

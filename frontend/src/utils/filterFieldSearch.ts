@@ -151,7 +151,7 @@ function tally(ctx: SearchContext, c: Candidate): Map<string, number> {
   const bump = (v: string) => counts.set(v, (counts.get(v) ?? 0) + 1);
   const read = (stored: string | undefined) => {
     if (stored === undefined || stored === "") return;
-    if (c.type === "multi_select") new Set(parseMultiSelect(stored)).forEach(bump);
+    if (c.type === "multi_select") new Set(parseMultiSelect(stored)).forEach((element) => { bump(element); });
     else bump(c.type === "checkbox" ? (stored === "true" ? "true" : "false") : stored);
   };
   if (c.scope === "card") {
@@ -207,13 +207,13 @@ export function searchFields(query: string, scope: SearchScope, ctx: SearchConte
   if (short) {
     const named = fields.filter((c) => matchRange(c.name, short.field) !== null);
     if (named.length > 0) {
-      if (!short.value) return { names: named.map(toName), values: [], titleQuery: null, shorthand: short };
+      if (!short.value) return { names: named.map((element) => toName(element)), values: [], titleQuery: null, shorthand: short };
       const values = named.flatMap((c) => valueHits(ctx, c, short.value)).slice(0, MAX_VALUE_HITS);
       return { names: [], values, titleQuery: null, shorthand: short };
     }
     // No field called that: fall through and treat the colon as ordinary text.
   }
-  const names = fields.filter((c) => matchRange(c.name, q) !== null).map(toName);
+  const names = fields.filter((c) => matchRange(c.name, q) !== null).map((element) => toName(element));
   const values = fields.flatMap((c) => valueHits(ctx, c, q)).slice(0, MAX_VALUE_HITS);
   return { names, values, titleQuery: scope === "lane" ? null : q, shorthand: null };
 }

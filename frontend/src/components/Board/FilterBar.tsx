@@ -120,7 +120,7 @@ export function countActiveFilters(f: FilterState): number {
     f.labelIds.length > 0,
     f.priorities.length > 0,
     f.dueDate !== null,
-    Object.values(f.customFields).some(isCustomFieldFilterActive),
+    Object.values(f.customFields).some((element) => isCustomFieldFilterActive(element)),
     !!f.blockedOnly,
     (f.subColumnIds?.length ?? 0) > 0,
     (f.trackStates?.length ?? 0) > 0,

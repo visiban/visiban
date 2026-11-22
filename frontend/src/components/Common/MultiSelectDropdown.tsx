@@ -126,8 +126,8 @@ export default function MultiSelectDropdown({
 
   const q = query.trim().toLowerCase();
   const matches = (entry: string) => q === "" || entry.toLowerCase().includes(q);
-  const visibleOptions = options.filter(matches);
-  const visibleOrphans = orphans.filter(matches);
+  const visibleOptions = options.filter((option) => matches(option));
+  const visibleOrphans = orphans.filter((orphan) => matches(orphan));
   const all = [...visibleOptions, ...visibleOrphans];
   const optionId = (i: number) => `${id}-opt-${i}`;
 

@@ -552,7 +552,7 @@ describe('ArchivedCardsPanel follows other clients (#2062)', () => {
   it('pages past one page of remote archives so no card is skipped', async () => {
     const { subscribe, emit } = setup()
     const mk = (id: number): Card => ({ ...archivedCard, id, uid: `bulk${id}`, title: `Bulk ${id}` })
-    const bulk = [1, 2, 3, 4].map(mk)
+    const bulk = [1, 2, 3, 4].map((element) => mk(element))
     // Server list after a bulk archive of 4 (page size 2): bulk, then the old card.
     mockGetArchivedCards.mockResolvedValueOnce(makePage([archivedCard], 1))
     render(<ArchivedCardsPanel board={fakeBoard} onClose={vi.fn()} onUnarchived={vi.fn()} subscribeCardEvents={subscribe} />)

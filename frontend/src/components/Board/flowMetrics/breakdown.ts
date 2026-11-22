@@ -85,5 +85,5 @@ export function breakdownNote(by: Breakdown["by"]): string | null {
 /** The names of every group holding any of `keys`, in group order; empty when the card is in none. */
 export function groupNamesOf(groups: readonly FlowGroupBase[], keys: readonly string[] | undefined): string[] {
   if (!keys || keys.length === 0) return [];
-  return groups.filter((g) => g.member_keys.some((k) => keys.includes(k))).map(groupName);
+  return groups.filter((g) => g.member_keys.some((k) => keys.includes(k))).map((element) => groupName(element));
 }

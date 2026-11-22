@@ -141,6 +141,7 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
                     const i = offsets[si] + oi;
                     const current = o.id === board.id;
                     return (
+                      // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- SUPPRESSED-UNTIL(#2526): fixed in sibling MR
                       <div
                         key={o.id}
                         id={`${baseId}-opt-${o.id}`}

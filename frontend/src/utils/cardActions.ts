@@ -469,7 +469,7 @@ async function settleEach<T>(
   cards: Card[], run: (card: Card) => Promise<T>, verb: string, action: OwnershipAction, ctx: CardActionContext | undefined,
 ): Promise<CardActionResult<T>> {
   const { sendable, clause } = partitionRefused(cards, action, ctx);
-  const results = await Promise.allSettled(sendable.map(run));
+  const results = await Promise.allSettled(sendable.map((element) => run(element)));
   const done = results.filter((r): r is PromiseFulfilledResult<Awaited<T>> => r.status === "fulfilled").map((r) => r.value as T);
   const reasons = new Set(
     results.filter((r): r is PromiseRejectedResult => r.status === "rejected").map((r) => failureReason(r.reason, REFUSAL_CLAUSE[action])),

@@ -72,7 +72,7 @@ function otherTrippedLimits(
   const reported = reportedLimit(code);
   return placementVerdict({ flags: board, columns: board.columns, cards: board.cards, card: before, column, lane })
     .filter((t) => !(t.scope === reported.scope && t.kind === reported.kind))
-    .map(trippedLimitSentence);
+    .map((element) => trippedLimitSentence(element));
 }
 
 /** Generic toast for a failed move that no specific code covered (#1761). The
@@ -1116,7 +1116,7 @@ export function useBoard() {
     setBoard((b) => {
       if (!b) return b;
       if (uid !== undefined) touches?.removed.set(uid, true);
-      const gone = b.cards.filter(match);
+      const gone = b.cards.filter((element) => match(element));
       if (gone.length === 0) return b;
       for (const c of gone) touches?.removed.set(c.uid, true);
       return {

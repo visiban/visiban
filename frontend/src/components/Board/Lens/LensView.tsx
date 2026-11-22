@@ -139,7 +139,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
     const raw = searchParams.get("lens_collapsed");
     if (raw === "*") return new Set(laneKeys);
     if (!raw) return new Set<string>();
-    return new Set(raw.split(",").map(decodeURIComponent).filter((k) => laneKeys.has(k)));
+    return new Set(raw.split(",").map((element) => decodeURIComponent(element)).filter((k) => laneKeys.has(k)));
   }, [searchParams, laneKeys]);
 
   const toggleCollapse = (key: string) => {
@@ -154,13 +154,13 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
       const cur = raw === "*"
         ? new Set(laneKeys)
         : new Set(
-            (raw?.split(",").map(decodeURIComponent) ?? []).filter((k) => laneKeys.has(k)),
+            (raw?.split(",").map((element) => decodeURIComponent(element)) ?? []).filter((k) => laneKeys.has(k)),
           );
       if (cur.has(key)) cur.delete(key);
       else cur.add(key);
       if (cur.size === 0) prev.delete("lens_collapsed");
       else if (cur.size >= laneKeys.size) prev.set("lens_collapsed", "*"); // normalize "all" → sentinel
-      else prev.set("lens_collapsed", Array.from(cur).map(encodeURIComponent).join(","));
+      else prev.set("lens_collapsed", Array.from(cur).map((element) => encodeURIComponent(element)).join(","));
       return prev;
     }, { replace: true });
   };

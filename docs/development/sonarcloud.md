@@ -98,6 +98,21 @@ See [Suppression Markers § SonarCloud suppressions](suppressions.md#sonarcloud-
 
 When you add a Django app that has a `tests/` directory, add that directory to `sonar.tests` and keep it in step with the `backend/*/tests/**` exclusion. The two lists are maintained by hand.
 
+## Sonar rules mirrored in ESLint
+<a id="sonar-rules-mirrored-in-eslint"></a>
+
+Sonar scans `main` nightly, so a branch can't see the findings it introduces. Where a Sonar rule has an ESLint equivalent, `npm run lint` enforces it on every MR instead.
+
+| Sonar rule | What it flags | Lint rule | Status |
+|---|---|---|---|
+| `typescript:S9383` | Floating promise | `@typescript-eslint/no-floating-promises` | `error` (type-aware, `projectService`) |
+| `typescript:S1082` | Click handler with no key handler | `jsx-a11y/click-events-have-key-events` | `error` |
+| `typescript:S7727` | Function reference passed to an array callback method | `unicorn/no-array-callback-reference` | `error` (only this rule, not the unicorn preset) |
+| `python:S1244` | Float equality | none | Uncovered: ruff runs with its default rule set and has no equivalent enabled |
+| `python:S5332` | Clear-text `http://` literal | none | Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal |
+
+Existing violations that couldn't be fixed mechanically carry a `// eslint-disable-next-line <rule> -- SUPPRESSED-UNTIL(#N): <reason>` marker; see [Suppression Markers](suppressions.md). The rules are pinned by `frontend/src/test/eslintSonarRules.test.ts`, which lints a Sonar-shaped example (must fire) and its fixed shape (must pass).
+
 ## Quality policy
 
 - **Ratings: A / A / A.** Security, Reliability, and Maintainability are each rated A on
