@@ -7,6 +7,7 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GATE="$REPO_ROOT/scripts/helm-structure-check.sh"
+SELF="$REPO_ROOT/scripts/tests/helm-structure-check.test.sh"  # absolute: the pool re-execs it after cd
 cd "$REPO_ROOT"
 # A pool worker (--run-case) reuses the parent's directory; only the parent owns it.
 if [ "${1:-}" = "--run-case" ]; then TMP="${HELM_TEST_TMP:?}"
@@ -68,7 +69,7 @@ jobs="${TEST_JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 
 case "$jobs" in ''|*[!0-9]*|0) jobs=4 ;; esac
 n="${#CASE_DESC[@]}"
 for ((i = 0; i < n; i++)); do echo "$i"; done \
-  | xargs -P "$jobs" -n 1 bash "${BASH_SOURCE[0]}" --run-case \
+  | xargs -P "$jobs" -n 1 bash "$SELF" --run-case \
   || { echo "  FAIL: the worker pool itself failed"; fail=1; }
 for ((i = 0; i < n; i++)); do
   v="$(cat "$TMP/r$i/verdict" 2>/dev/null || echo "  FAIL: ${CASE_DESC[$i]}: worker died without a verdict")"
