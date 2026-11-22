@@ -46,5 +46,14 @@ else
   if [ "$RC" -eq 1 ] && grep -q '/api/v4/' <<<"$VOUT"; then ok "reverting #2412's env -u scrub is flagged by the canary"; else bad "reverted scrub NOT flagged (rc=$RC): $VOUT"; fi
 fi
 
+# #2525: --log outside the allowed roots (absolute, or a `..` escape) is rejected with exit 2.
+for badlog in /etc/canary-2525.log "$TMP/../../../../etc/canary-2525.log"; do
+  for sub in start verify; do
+    err="$(python3 "$ROOT/scripts/ci-api-canary.py" "$sub" --log "$badlog" 2>&1 >/dev/null)"; rc=$?
+    if [ "$rc" -eq 2 ] && grep -q 'escapes' <<<"$err"; then ok "$sub rejects --log $badlog"; else bad "$sub accepted --log $badlog (rc=$rc): $err"; fi
+  done
+done
+[ ! -e /etc/canary-2525.log ] || bad "a rejected --log still created a file"
+
 [ "$fail" -eq 0 ] && echo "ci-api-canary.test.sh: all checks passed"
 exit "$fail"
