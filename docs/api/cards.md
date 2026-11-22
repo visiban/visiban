@@ -1163,6 +1163,12 @@ Children tab: its `role` is **your** role there (it alone decides whether you
 may move a child), and each column's `card_count` counts the whole column,
 not just this parent's children. A parent with no children has no `board`.
 
+*Also since 1.3 (#2209):* each row carries the child board's card face,
+`priority`, `due_date` (or `null`) and `labels` (`[{id, name, color}]`), and
+`board` carries that board's WIP mode, `enforce_wip_limits` and
+`enforce_wip_hard`, so a client can disable exactly the moves the move
+endpoint would refuse you. Neither is sent when `visible` is `false`.
+
 ### `POST /api/v1/boards/{board_id}/cards/{id}/children/`
 
 **Add child** (#2208): create a new card on another board and link it under

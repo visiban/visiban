@@ -50,6 +50,38 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertEqual(col["card_count"], 2)
         self.assertEqual(set(col), {"id", "name", "color", "wip_limit", "is_done", "card_count"})
 
+    def test_visible_read_carries_the_wip_mode_and_card_anatomy(self):
+        # #2209: the Move picker needs the child board's WIP mode; the scoped
+        # card draws the child board's own face (priority, due date, labels).
+        import datetime
+
+        from boards.models import Label
+
+        self.cboard.enforce_wip_limits = True
+        self.cboard.enforce_wip_hard = False
+        self.cboard.save(update_fields=["enforce_wip_limits", "enforce_wip_hard"])
+        lb = Label.objects.create(board=self.cboard, name="Security", color="#EF4444")
+        Card.objects.filter(pk=self.child.pk).update(priority="high", due_date=datetime.date(2026, 12, 1))
+        self.child.labels.add(lb)
+        u = self._user("cv_anat", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        body = self._client(u).get(self.url).json()
+        self.assertIs(body["board"]["enforce_wip_limits"], True)
+        self.assertIs(body["board"]["enforce_wip_hard"], False)
+        row = body["results"][0]
+        self.assertEqual(row["priority"], "high")
+        self.assertEqual(row["due_date"], "2026-12-01")
+        self.assertEqual(row["labels"], [{"id": lb.pk, "name": "Security", "color": "#EF4444"}])
+
+    def test_hidden_read_carries_no_wip_mode_or_anatomy(self):
+        # Absent-input side (#1075): a viewer without the child board gets the
+        # count only; neither the board's WIP mode nor any card field leaks.
+        u = self._user("cv_anat_hidden", parent_role=Role.MEMBER)
+        body = self._client(u).get(self.url).json()
+        self.assertFalse(body["visible"])
+        self.assertNotIn("board", body)
+        self.assertEqual(body["results"], [])
+        self.assertNotIn("enforce_wip_limits", str(body))
+
     def test_blocked_is_manual_or_an_active_relation(self):
         blocker = _make_card(self.col_c, self.lane_c, title="Blocker")
         CardRelation.objects.create(
@@ -94,8 +126,12 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertNotIn(self.cboard.name, res.content.decode())
 
     def test_query_count_stays_flat_with_blocked_and_assigned_children(self):
+        from boards.models import Label
+
         u = self._user("cv_perf", parent_role=Role.VIEWER, child_role=Role.VIEWER)
         client = self._client(u)
+        labels = [Label.objects.create(board=self.cboard, name=f"L{i}", color="#EF4444") for i in range(3)]
+        self.child.labels.add(labels[0])
         one = _count_queries(client, self.url)
         extra_col = _make_column(self.cboard, name="Doing", order=1)
         for i in range(8):
@@ -103,7 +139,11 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
             Card.objects.filter(pk=c.pk).update(assignee=self.owner)
             CardRelation.objects.create(from_card=self.child, to_card=c, relation_type=CardRelation.Type.BLOCKS)
             CardParentLink.objects.create(parent=self.parent, child=c)
-        self.assertEqual(_count_queries(client, self.url), one)
+            c.labels.add(*labels)  # label prefetch must stay one query for the whole page
+        many = _count_queries(client, self.url)
+        self.assertEqual(many, one)
+        self.assertEqual(many, 14)  # exact: a new per-row or per-page query must be a deliberate change
+        self.assertEqual(len(client.get(self.url).json()["results"]), 9)
 
 
 class ChildCandidateTests(_LinkFixture, TestCase):

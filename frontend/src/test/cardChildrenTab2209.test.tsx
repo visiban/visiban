@@ -3,7 +3,8 @@ import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@te
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
-import { childrenCount, describeChildrenChange, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
+import { childrenCount, describeChildrenChange, moveTargetState, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
+import { ToastContext } from '../contexts/useToast'
 import ChildCardPicker from '../components/Card/ChildCardPicker'
 import { childCandidateReason } from '../components/Card/cardParent'
 import {
@@ -29,7 +30,7 @@ function row(over: Partial<CardChildRow>): CardChildRow {
   return {
     id: 10, title: 'Pen-test scoping call', board_id: 7, column_id: 100, column_name: 'To do',
     swimlane_id: 50, swimlane_name: 'Lane', archived: false, position: 0, assignee: null,
-    blocked: false, blocked_at: null, ...over,
+    blocked: false, blocked_at: null, priority: 'low', due_date: null, labels: [], ...over,
   }
 }
 
@@ -42,7 +43,7 @@ const columns = [
 function read(results: CardChildRow[], role = 'member'): CardChildrenRead {
   return {
     count: results.length, visible: true, offset: 0, limit: 50, results,
-    board: { id: 7, name: 'Delivery', role: role as never, columns },
+    board: { id: 7, name: 'Delivery', role: role as never, enforce_wip_limits: true, enforce_wip_hard: false, columns },
   }
 }
 
@@ -125,7 +126,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByText('New children go to Delivery · To do')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open on Delivery' })).toHaveAttribute('href', '/boards/7?f_parent=5')
     const card = screen.getByRole('link', { name: /^Kickoff, To do, blocked, 2 of 2/ })
-    expect(card).toHaveAttribute('href', '/boards/7?card=11')
+    expect(card).toHaveAttribute('href', '/boards/7?card=11&from_parent=5')
     expect(screen.getByRole('link', { name: /^Contract, Done, Sam/ })).toBeInTheDocument()
     // One roving stop: only the first card is in the Tab order.
     expect(screen.getByRole('link', { name: /^Pen-test scoping call/ })).toHaveAttribute('tabindex', '0')
@@ -164,7 +165,7 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(within(group).getByText('At its limit of 5')).toBeInTheDocument()
     await userEvent.click(within(group).getByRole('radio', { name: 'Done' }))
     await userEvent.click(screen.getByRole('button', { name: 'Move' }))
-    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, swimlane_id: 50, position: 4 })
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 102, swimlane_id: 50, position: 4 }, false)
     await waitFor(() => expect(reload).toHaveBeenCalled())
     expect(screen.getByText('Pen-test scoping call moved to Done. 2 of 3 done.')).toBeInTheDocument()
   })
@@ -214,7 +215,37 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByRole('button', { name: 'Unlink child Kickoff' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Add child' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveAttribute('href', '/boards/7?card=11')
+    expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveAttribute('href', '/boards/7?card=11&from_parent=5')
+  })
+
+  it('offers Undo on the unlink toast to a member of the child board, but not to a viewer there', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const notify = vi.fn(() => 1)
+    const toastOf = (n: number) => (notify.mock.calls[n] as unknown as [{ title: string; action?: { label: string } }])[0]
+    const mount = (role: string) => render(
+      <ToastContext.Provider value={{ notify, dismiss: vi.fn() }}>
+        <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids, role), reload: vi.fn() })} onExitToTabs={vi.fn()} />
+      </ToastContext.Provider>,
+    )
+    const first = mount('member')
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Kickoff' }))
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+    expect(toastOf(0).action?.label).toBe('Undo')
+    first.unmount()
+    // A viewer on the child board can unlink, but linking again needs member there: no Undo to fail on.
+    mount('viewer')
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Kickoff' }))
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(2))
+    expect(toastOf(1).title).toBe('Unlinked Kickoff')
+    expect(toastOf(1).action).toBeUndefined()
+  })
+
+  it("puts a child's blocked duration before its labels, priority and due date", () => {
+    const first = row({ id: 11, title: 'Kickoff', column_id: 100, position: 1, blocked: true, blocked_at: new Date(Date.now() - 6 * 86400_000).toISOString(), priority: 'high' })
+    renderTab(state({ data: read([first]) }))
+    const face = screen.getByTestId('child-card-face')
+    expect(face.firstElementChild).toHaveTextContent(/⊘ 6d/)
+    expect(face).toHaveTextContent(/High/)
   })
 
   describe('narrow sheet', () => {
@@ -608,24 +639,142 @@ describe('own-write echo before the write resolves (#2209 rule R-C)', () => {
   })
 })
 
-describe('a WIP limit of 0 is no limit (#2209, as on the board)', () => {
+describe('a WIP limit of 0 is a real limit for the Move picker (#2209, as on the server)', () => {
   const zero = () => {
     const d = read(kids)
     d.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, wip_limit: 0, card_count: 0 } : c))
     return d
   }
 
-  it('shows no limit text and keeps the Move option enabled', async () => {
+  it('shows no limit text but disables the Move option for a member under an enforced limit', async () => {
     renderTab(state({ data: zero() }))
     expect(screen.queryByText(/· limit/)).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
     const group = screen.getByRole('radiogroup', { name: 'Column on Delivery' })
-    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeEnabled()
-    expect(within(group).queryByText(/At its limit/)).toBeNull()
+    expect(within(group).getByRole('radio', { name: /^Doing/ })).toBeDisabled()
+    expect(within(group).getByText('At its limit of 0')).toBeInTheDocument()
   })
 
   it('still shows a positive limit', () => {
     renderTab(state({ data: read(kids) }))
     expect(screen.getByText(/limit 5, at limit/)).toBeInTheDocument()
+  })
+})
+
+describe('Children tab remainder (#2209 slice 3)', () => {
+  const doing = columns[1] // limit 5, card_count 5: at its limit
+  it('moveTargetState mirrors the move endpoint for each WIP mode and role', () => {
+    const b = (over: object) => ({ role: 'member', enforce_wip_limits: false, enforce_wip_hard: false, ...over })
+    expect(moveTargetState(columns[0], b({ enforce_wip_hard: true }))).toEqual({ disabled: false, reason: '', force: false })
+    // The server treats wip_limit 0 as a real limit (services/cards.py), so a hard 0 refuses every move in.
+    expect(moveTargetState({ ...doing, wip_limit: 0, card_count: 0 }, b({ enforce_wip_hard: true }))).toEqual({ disabled: true, reason: 'At its limit of 0', force: false })
+    expect(moveTargetState({ ...doing, wip_limit: 0, card_count: 0 }, b({ enforce_wip_limits: true, role: 'admin' })).force).toBe(true)
+    expect(moveTargetState(doing, b({}))).toEqual({ disabled: false, reason: 'At its limit of 5 · not enforced', force: false })
+    expect(moveTargetState(doing, b({ enforce_wip_limits: true }))).toEqual({ disabled: true, reason: 'At its limit of 5', force: false })
+    expect(moveTargetState(doing, b({ enforce_wip_limits: true, role: 'admin' }))).toEqual({ disabled: false, reason: 'At its limit of 5 · admin override', force: true })
+    expect(moveTargetState(doing, b({ enforce_wip_limits: true, enforce_wip_hard: true, role: 'site_admin' }))).toEqual({ disabled: true, reason: 'At its limit of 5', force: false })
+  })
+
+  function withMode(enforce_wip_limits: boolean, enforce_wip_hard: boolean, role = 'member'): CardChildrenRead {
+    const d = read(kids, role)
+    return { ...d, board: { ...d.board!, enforce_wip_limits, enforce_wip_hard } }
+  }
+
+  it('advisory limits keep an at-limit row enabled and say so; a hard limit disables it', async () => {
+    const { unmount } = renderTab(state({ data: withMode(false, false) }))
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    const row = screen.getByRole('radio', { name: /^Doing 5 of 5/ })
+    expect(row).not.toBeDisabled()
+    expect(screen.getByText('At its limit of 5 · not enforced')).toBeInTheDocument()
+    unmount()
+    renderTab(state({ data: withMode(false, true, 'admin') }))
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    expect(screen.getByRole('radio', { name: /^Doing 5 of 5/ })).toBeDisabled()
+  })
+
+  it('a child-board admin moves past an enforced limit with force', async () => {
+    vi.mocked(moveCard).mockResolvedValue({ card: {} as never })
+    renderTab(state({ data: withMode(true, false, 'admin') }))
+    await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
+    await userEvent.click(screen.getByRole('radio', { name: /^Doing 5 of 5/ }))
+    expect(screen.getByText('At its limit of 5 · admin override')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Move' }))
+    expect(moveCard).toHaveBeenCalledWith(7, 10, { column_id: 101, swimlane_id: 50, position: 5 }, true)
+  })
+
+  it('shows "Work moved" from the rollup, and nothing without one', () => {
+    const recent = new Date(Date.now() - 26 * 3600_000).toISOString()
+    const { rerender } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt={recent} />)
+    expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 1d ago')
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt={null} />)
+    expect(screen.queryByTestId('children-work-moved')).not.toBeInTheDocument()
+  })
+
+  it('"Work moved" ticks forward while the tab stays open', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-11-22T12:00:00Z'))
+      const moved = new Date('2026-11-22T11:01:00Z').toISOString() // 59m before "now"
+      const { unmount } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt={moved} />)
+      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 59m ago')
+      act(() => { vi.advanceTimersByTime(2 * 60_000) })
+      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 1h ago')
+      unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("draws the child board's card face: labels, priority in words, due date", () => {
+    const labels = [1, 2, 3].map((i) => ({ id: i, name: `L${i}`, color: '#EF4444' }))
+    const face = [
+      row({ id: 10, title: 'Faced', column_id: 100, priority: 'high', due_date: '2020-01-02', labels }),
+      row({ id: 11, title: 'Plain', column_id: 100, position: 1 }),
+    ]
+    renderTab(state({ data: read(face) }))
+    const faces = screen.getAllByTestId('child-card-face')
+    expect(faces).toHaveLength(1)
+    expect(faces[0]).toHaveTextContent('L1')
+    expect(faces[0]).toHaveTextContent('L2')
+    expect(faces[0]).not.toHaveTextContent('L3')
+    expect(faces[0]).toHaveTextContent('+1')
+    expect(faces[0]).toHaveTextContent('High')
+    expect(within(faces[0]).getByText(/^Due /).closest('span.text-danger')).not.toBeNull()
+    expect(faces[0]).toHaveTextContent('Overdue, Due')
+  })
+
+  it('links Movement history to the child board History with Parent = this card', () => {
+    renderTab(state({ data: read(kids) }))
+    expect(screen.getByRole('link', { name: 'Movement history of these children' })).toHaveAttribute('href', '/boards/7?view=history&parent=5')
+  })
+
+  it('focuses the child a Back link returns to', async () => {
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} focusChildId={12} />)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('link', { name: /^Contract/ })))
+  })
+
+  it('Unlink acts at once and offers Undo, which links the child again; a failed Undo says so', async () => {
+    const notify = vi.fn(() => 1)
+    const dismiss = vi.fn()
+    const reload = vi.fn()
+    vi.mocked(unlinkCardChild).mockResolvedValue({} as never)
+    render(
+      <ToastContext.Provider value={{ notify, dismiss }}>
+        <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids), reload })} onExitToTabs={vi.fn()} />
+      </ToastContext.Provider>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Pen-test scoping call' }))
+    expect(unlinkCardChild).toHaveBeenCalledWith(1, 5, 10)
+    const toast = (notify.mock.calls[0] as unknown as [{ key: string; title: string; announce: boolean; action: { label: string; onAction: () => Promise<void> } }])[0]
+    expect(toast).toMatchObject({ key: 'unlink-child:10', title: 'Unlinked Pen-test scoping call', announce: false })
+    expect(toast.action.label).toBe('Undo')
+    vi.mocked(linkCardParent).mockResolvedValueOnce({ parent_id: 5, child_id: 10 })
+    await act(async () => { await toast.action.onAction() })
+    expect(linkCardParent).toHaveBeenCalledWith(7, 10, 5)
+    expect(dismiss).toHaveBeenCalledWith('unlink-child:10')
+    expect(reload).toHaveBeenCalledTimes(2)
+    vi.mocked(linkCardParent).mockRejectedValueOnce(new Error('gone'))
+    await act(async () => { await toast.action.onAction() })
+    expect(notify).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'unlink-child:10', variant: 'danger' }))
   })
 })

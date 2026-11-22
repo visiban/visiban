@@ -1027,3 +1027,26 @@ describe('CardDetail sheet — transitions (#1914)', () => {
     expect(document.querySelector('[data-card-sheet-ghost]')).toBeNull()
   })
 })
+
+describe('Back to parent from the Children tab (#2209)', () => {
+  const parent = {
+    hidden: false as const, id: 900, title: 'Initech: security review', board_id: 3, board_name: 'Pipeline',
+    column_id: 1, column_name: 'Qualify', swimlane_id: 1, swimlane_name: 'Lane', archived: false, board_parent_name_singular: '',
+  }
+  it('shows "‹ <parent>" linking back to its Children tab with focus on this card', () => {
+    const card = makeCard({ parent })
+    render(<CardDetail {...defaultProps()} card={card} backToParentId={900} />)
+    const back = screen.getByRole('link', { name: 'Back to Initech: security review' })
+    expect(back).toHaveAttribute('href', `/boards/3?card=900&tab=children&focus_child=${card.id}`)
+  })
+  it('shows nothing for another parent id, a hidden parent, or no request', () => {
+    const { unmount } = render(<CardDetail {...defaultProps()} card={makeCard({ parent })} backToParentId={901} />)
+    expect(screen.queryByTestId('back-to-parent')).not.toBeInTheDocument()
+    unmount()
+    const r2 = render(<CardDetail {...defaultProps()} card={makeCard({ parent: { hidden: true } })} backToParentId={900} />)
+    expect(screen.queryByTestId('back-to-parent')).not.toBeInTheDocument()
+    r2.unmount()
+    render(<CardDetail {...defaultProps()} card={makeCard({ parent })} />)
+    expect(screen.queryByTestId('back-to-parent')).not.toBeInTheDocument()
+  })
+})

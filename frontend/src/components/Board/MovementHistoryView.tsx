@@ -11,6 +11,7 @@ import { movementGateNote } from "../../utils/stages";
 import { importedNote } from "../../utils/importedHistory";
 import type { UserDatePrefs } from "../../utils/date";
 import ActiveMark from "../Common/ActiveMark";
+import FilterChip from "./FilterChip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,9 +23,12 @@ interface HistoryFilters {
   userId: number | null;
   since: string;
   until: string;
+  /** Parent filter (#2209, #2499): movements of one parent card's children; `parent` in the URL. */
+  parentId: number | null;
 }
 
 const EMPTY_FILTERS: HistoryFilters = {
+  parentId: null,
   swimlaneId: null,
   columnId: null,
   userId: null,
@@ -39,6 +43,7 @@ function filtersToParams(f: HistoryFilters, page: number): Record<string, string
   if (f.userId !== null) p.moved_by_id = String(f.userId);
   if (f.since) p.moved_after = f.since;
   if (f.until) p.moved_before = f.until;
+  if (f.parentId !== null) p.parent_id = String(f.parentId);
   return p;
 }
 
@@ -48,7 +53,8 @@ function hasFilters(f: HistoryFilters): boolean {
     f.columnId !== null ||
     f.userId !== null ||
     f.since !== "" ||
-    f.until !== ""
+    f.until !== "" ||
+    f.parentId !== null
   );
 }
 
@@ -192,10 +198,11 @@ const PAGE_SIZE = 50;
  *   Escape              — close slide-in panel
  */
 export default function MovementHistoryView({ board, currentUser }: Props) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<HistoryFilters>(() => {
     const columnId = searchParams.get('column_id');
-    return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null };
+    const parentId = Number(searchParams.get('parent')) || null;
+    return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null, parentId };
   });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ results: CardMovement[]; count: number } | null>(null);
@@ -205,6 +212,11 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
   const [selectedMovement, setSelectedMovement] = useState<CardMovement | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
+  const parentTitle = (() => {
+    if (filters.parentId === null) return null;
+    const p = board.cards.find((c) => c.parent && !c.parent.hidden && c.parent.id === filters.parentId)?.parent;
+    return p && !p.hidden ? p.title : null;
+  })();
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;
 
   // Fetch on filters or page change; cancel in-flight request on re-render.
@@ -224,7 +236,17 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
     setFilters(next);
     setPage(1);
     setSelectedMovement(null);
-  }, []);
+    // A dismissed Parent filter must leave the URL too (rule R-G): BoardView's setView keeps existing
+    // params, so a stale `parent` would bring the removed filter back on reload or History -> Board -> History.
+    if (next.parentId === null) {
+      setSearchParams((prev) => {
+        if (!prev.has("parent")) return prev;
+        const out = new URLSearchParams(prev);
+        out.delete("parent");
+        return out;
+      }, { replace: true });
+    }
+  }, [setSearchParams]);
 
   // Escape closes the slide-in through the shared stack at priority 18: above
   // BoardView's history-to-board handler (15), so one keypress closes only the
@@ -385,6 +407,13 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
               aria-label="Until date"
             />
           </div>
+          {filters.parentId !== null && (
+            // Named only from a child on this board whose parent the viewer can open (the card
+            // payload resolves it per viewer, #1104); otherwise a neutral name, never an id.
+            <span data-testid="history-parent-chip" className="contents">
+              <FilterChip tag="Parent" label={parentTitle ?? "one parent card"} onDismiss={() => applyFilters({ ...filters, parentId: null })} />
+            </span>
+          )}
           {hasFilters(filters) && (
             <button
               onClick={() => applyFilters(EMPTY_FILTERS)}

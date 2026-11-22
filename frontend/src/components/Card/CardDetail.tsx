@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import { flushSync } from "react-dom";
 import { chartTint } from "../../utils/chartScale";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -123,6 +124,14 @@ interface Props {
    */
   /** A deep link asking an open card to switch tab; `n` changes on every request (#967). */
   tabRequest?: { tab: CardDetailTab; n: number };
+  /**
+   * The parent card whose Children tab opened this card (#2209): when it is this card's visible parent, the
+   * header shows "‹ <parent title>" (named "Back to <parent title>"), which reopens that Children tab with
+   * focus on this card. Any other value, or a parent the viewer cannot open, shows the ordinary header.
+   */
+  backToParentId?: number | null;
+  /** On a parent: the child the Children tab focuses when it opens (the child's Back link returns here). */
+  focusChildId?: number | null;
   blockFormRequest?: { mode: "block" | "unblock"; seq: number } | null;
 }
 
@@ -196,7 +205,7 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", children: "Children", comments: "Comments", history: "History" };
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -1600,6 +1609,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   // Title and breadcrumb block (#2410). Declared once and placed by `fullscreen`: after Close on a phone, so the
   // tab order matches the paint order, and before Block… on larger screens, where the title is painted first.
+  const inRouter = useInRouterContext();
+  const backParent = backToParentId != null && card.parent && !card.parent.hidden && card.parent.id === backToParentId ? card.parent : null;
   const titleBlock = (
           <div className={`flex-1 min-w-0 ${fullscreen ? "basis-full" : ""}`} data-testid="card-detail-title-block">
             <input
@@ -1754,7 +1765,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             rendered after Close on a phone (`fullscreen`) and before Block… elsewhere, so the DOM and tab
             order equal the paint order in both layouts, with no `order-*` class (WCAG 2.4.3). */}
         <div className={`flex ${fullscreen ? "items-center" : "items-start"} gap-3 px-5 py-4 border-b border-line max-sm:flex-wrap max-sm:items-center ${fullscreen ? "flex-wrap" : ""}`}>
-          {fullscreen && (
+          {backParent && (
+            // Opened from a parent's Children tab (#2209 Back link): "‹ <parent>" in place of "‹ Board".
+            <BackLink
+              inRouter={inRouter}
+              to={`/boards/${backParent.board_id}?card=${backParent.id}&tab=children&focus_child=${card.id}`}
+              aria-label={`Back to ${backParent.title}`}
+              data-testid="back-to-parent"
+              className={`${fullscreen ? "h-11 -my-2 -ml-2" : "min-h-6 -ml-1"} px-2 max-w-[14rem] flex items-center gap-1 rounded text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+            >
+              <span aria-hidden="true">‹</span><span className="truncate">{backParent.title}</span>
+            </BackLink>
+          )}
+          {fullscreen && !backParent && (
             // Full-screen (<= 640px, frame 4): a 44px "Board" back control.
             // It closes the sheet like Close and Escape do.
             <button
@@ -2554,6 +2577,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
               state={childrenState}
               remoteSignal={childrenRefreshSignal}
+              lastMovedAt={card.children_rollup && "last_moved_at" in card.children_rollup ? card.children_rollup.last_moved_at : null}
+              focusChildId={focusChildId}
+              userTimezone={userTimezone}
+              userDateFormat={userDateFormat}
               onExitToTabs={() => tabRefs.current.children?.focus()}
             />
           ) : tab === "comments" ? (
@@ -2846,4 +2873,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       </ModalWrapper>
     </div>
   );
+}
+
+/** Router navigation inside a router; a bare render with no router (a unit test) keeps an anchor. */
+function BackLink({ inRouter, to, children, ...rest }: { inRouter: boolean; to: string; children: React.ReactNode; className: string; "aria-label": string; "data-testid": string }) {
+  return inRouter ? <Link to={to} {...rest}>{children}</Link> : <a href={to} {...rest}>{children}</a>;
 }

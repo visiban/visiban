@@ -205,6 +205,7 @@ GET /api/v1/boards/{id}/movements/
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
 | `moved_by_id` | integer | Filter by the user who performed the move |
+| `parent_id` | integer | *(new in 1.3, #2209)* Only movements of cards currently linked as children of this parent card. A value that is not a positive integer is a `400` with `code: "invalid_query_param"` |
 | `moved_after` | ISO date | Lower bound (inclusive) |
 | `moved_before` | ISO date | Upper bound (inclusive) |
 | `exclude_type` | comma-separated string | Exclude movement types — e.g. `archived,unarchived` |

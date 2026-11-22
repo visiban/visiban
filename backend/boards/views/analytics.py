@@ -21,10 +21,10 @@ from rest_framework import serializers, status
 
 from accounts.serializers import BoardUserSerializer
 
-from ..models import BoardExportLog, BoardMembership, CardMovement, CardRelation
+from ..models import Board, BoardExportLog, BoardMembership, Card, CardMovement, CardRelation
 from ..serializers import CardMovementSerializer
 from .. import hooks
-from ..permissions import SITE_ADMIN, analytics_extensions_for_role
+from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, analytics_extensions_for_role, get_board_roles
 from ..services import flow_grouping, flow_metrics
 from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
 from visiban.request_shape import MAX_DB_INT, OFFSET_QUERY_PARAMETER, parse_offset, query_text
@@ -229,8 +229,8 @@ _ANALYTICS_400 = OpenApiResponse(
 
 _MOVEMENTS_400 = OpenApiResponse(
     description=(
-        "`moved_after` or `moved_before` is not an ISO date, `swimlane_id`, `to_column_id` or "
-        "`moved_by_id` is not an integer, `exclude_type` contains a NUL (0x00) character, or "
+        "`moved_after` or `moved_before` is not an ISO date, `swimlane_id`, `to_column_id`, "
+        "`moved_by_id` or `parent_id` is not an integer, `exclude_type` contains a NUL (0x00) character, or "
         "`offset` is above 2^62 (`code: invalid_query_param`)."
     ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
@@ -1883,6 +1883,10 @@ class BoardAnalyticsMixin:
                     ("swimlane_id", "Filter by the card's current swimlane ID."),
                     ("to_column_id", "Filter by destination column ID."),
                     ("moved_by_id", "Filter by the ID of the user who performed the move."),
+                    ("parent_id", (
+                        "Since 1.3 (#2209): only movements of cards whose parent is this card. A parent "
+                        "the caller cannot open, or a missing one, returns an empty page."
+                    )),
                 )
             ),
             OpenApiParameter(
@@ -1932,6 +1936,8 @@ class BoardAnalyticsMixin:
           - ``moved_by_id`` (int): filter by the user who performed the move.
           - ``moved_after`` (ISO date): include movements on or after this date.
           - ``moved_before`` (ISO date): include movements on or before this date.
+          - ``parent_id`` (int, since 1.3, #2209): only movements of cards whose
+            parent is this card ("Movement history of these children").
           - ``exclude_type`` (comma-separated): movement_type values to exclude
             (e.g. ``archived,unarchived`` hides system events).
           - ``offset`` (int, default 0): pagination offset.
@@ -2011,6 +2017,27 @@ class BoardAnalyticsMixin:
                 if parsed is None:
                     return _invalid_query_param(f"{param} must be a positive integer.")
                 qs = qs.filter(**{lookup: parsed})
+
+        # Parent filter (#2209, #2499): the children of one parent card. Only a
+        # parent the caller can open filters. Any other id (missing, or on a
+        # board the caller cannot open) yields the same empty page as a parent
+        # with no children here, so the param never confirms that a hidden
+        # parent exists, has children on this board, or how many (#1104 rule:
+        # an unopenable parent is never disclosed by id or count).
+        raw_parent = request.query_params.get("parent_id")
+        if raw_parent:
+            parent_pk = _parse_id(raw_parent)
+            if parent_pk is None:
+                return _invalid_query_param("parent_id must be a positive integer.")
+            parent_board_id = Card.objects.filter(pk=parent_pk).values_list("board_id", flat=True).first()
+            parent_board = (
+                Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=parent_board_id).first()
+                if parent_board_id is not None else None
+            )
+            if parent_board is not None and get_board_roles(request.user, [parent_board])[parent_board.pk] is not None:
+                qs = qs.filter(card__parent_link__parent_id=parent_pk)
+            else:
+                qs = qs.none()
 
         # NUL-checked (#1887): movement_type__in with a NUL is a DataError (500).
         exclude_type = query_text(request, "exclude_type")

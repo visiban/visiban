@@ -981,6 +981,10 @@ export interface CardChildRow {
   assignee: BoardUser | null;
   blocked: boolean;
   blocked_at: string | null;
+  /** Since 1.3 (#2209): the child board's own card face (priority, due date, labels). */
+  priority: Priority;
+  due_date: string | null;
+  labels: Pick<Label, "id" | "name" | "color">[];
 }
 
 /** A column of the child board, with the count of its whole column (#2209). */
@@ -1004,6 +1008,9 @@ export interface CardChildrenRead {
     id: number;
     name: string;
     role: BoardRole | "site_admin";
+    /** Since 1.3 (#2209): the child board's WIP mode, which the Move picker honors. */
+    enforce_wip_limits: boolean;
+    enforce_wip_hard: boolean;
     columns: CardChildrenColumn[];
   };
 }
