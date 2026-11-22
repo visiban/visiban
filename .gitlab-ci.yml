@@ -523,45 +523,194 @@ dockerfile-lint:
 # catch the old hardcoded header being re-committed verbatim to the real file,
 # since --self-test never reads it.
 
-compose-hygiene:
+# ─── Folded alpine gate self-tests (#2523) ───────────────────────────────────
+#
+# Eleven tiny jobs (3-68 s of work each) used to run as separate `alpine:3.19`
+# jobs. Each paid its own executor setup, image pull and runner slot, and in
+# pipeline 3099866726 each waited 14-16 min to start for seconds of work.
+# They are now members of ONE job (`scripts/ci-fold.sh`, #2523); the member
+# name is the old job name. Every member runs even when an earlier one fails,
+# prints a `== <old-job-name> ==` banner, and the job's last step fails naming
+# each failed member. Every script invocation below is exactly the one the old
+# job ran (docs/development/ci-gates.md has the old-name -> member map).
+#
+#   compose-hygiene                      docker-compose*.yml, nginx templates, #1201/#1633
+#   sonar-scan-selftest                  SonarCloud report rewrite self-test (#1370)
+#   security-deferred-verdict-selftest   accepted-risk verdict + release.sh (#1521, #1520)
+#   cost-ledger-selftest                 MR cost ledger scripts + kaizen reader (#2128)
+#   lint:sonar-exclusions                Sonar exclusion-integrity guard (#1380)
+#   gate-selftest-parity                 meta-gate for #1093: every gate's --self-test is invoked
+#   image-attest-selftest                attest-image-sbom.sh, MR-time (#1093)
+#   check-release-attestations-selftest  nightly check's self-test, MR-time (#1610)
+#   registry-keep-regex-test             registry cleanup keep-regex pin (#1196, #1541)
+#   check-chart-registry-selftest        chart registry self-test, MR-time (#1155)
+#   ci-fold-selftest                     the runner itself (#2523)
+#
+# Rules: the union of the old jobs' `changes:`. The old jobs split in two: seven
+# had a bare `changes:` rule (so they also ran in schedule and tag pipelines) and
+# five were MR-or-default-branch only (gate-selftest-parity, image-attest-,
+# check-release-attestations-, check-chart-registry-selftest, registry-keep-regex-test).
+# A bare `changes:` is always true outside branch/MR pipelines, so the schedule
+# case is identical for both kinds; only tag pipelines differ, and the MR-only
+# members skip themselves there (`fold_member_not_on_tag`). `schedule-config-check`
+# is schedule-only and stays its own job: folding it would run it on MRs.
+#
+# Order is deliberate: the two members whose old jobs ran on bare busybox
+# (sonar-scan-selftest, and security-deferred-verdict-selftest's first two lines)
+# run before any member installs GNU grep/sed/coreutils with `apk add`.
+# Nothing `needs:` any of these jobs by name (checked).
+lint-selftests-alpine:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
-    - changes: &compose-hygiene-paths
+    - changes:
         - docker-compose*.yml
         - scripts/check-compose-*.sh
         - nginx/app.conf.template
         - nginx/app-http.conf.template
         - init-prod.sh
         - scripts/render-nginx-hsts.sh
+        - sonar-project.properties
+        - scripts/sonar-scan.sh
+        - scripts/check-sonar-exclusions.sh
+        - scripts/cost-ledger
+        - scripts/cost_ledger_lines.py
+        - scripts/subagent-tokens.py
+        - scripts/orchestrator-tokens.py
+        - scripts/est-cost.py
+        - .claude/skills/wave/SKILL.md
+        - scripts/cost-table.py
+        - scripts/post-mr-cost.py
+        - .claude/hooks/post-mr-cost.sh
+        - scripts/tests/cost-ledger-golden/**/*
+        - .claude/settings.json
+        - scripts/lib/transcript_usage.py
+        - scripts/_paths.py
+        - scripts/kaizen_gate_ledger.py
+        - scripts/tests/kaizen_gate_ledger.test.sh
+        - scripts/tests/fixtures/kaizen/*
+        - .claude/cost-ledger.json
+        - .claude/model-prices.json
+        - scripts/security-deferred-verdict.sh
+        - scripts/check-security-deferred.sh
+        - scripts/release.sh
+        - scripts/extract-release-notes.sh
+        - scripts/tests/release.test.sh
+        - scripts/**/*
+        - docs/administration/image-verification.md
+        - docs/administration/container-image-retention.md
         - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *compose-hygiene-paths
-  before_script:
-    - apk add --no-cache bash grep sed
   script:
-    - bash scripts/check-compose-image-pins.sh --self-test
-    - bash scripts/check-compose-image-pins.sh
-    - bash scripts/check-compose-project-names.sh --self-test
-    - bash scripts/check-compose-project-names.sh
-    - bash scripts/render-nginx-hsts.sh --self-test
-    - bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
-    # SPA cache policy (#1633): a missing /assets/* must 404, never fall back to index.html.
     - |
-      for t in nginx/app.conf.template nginx/app-http.conf.template; do
-        grep -q 'location /assets/' "$t" && grep -A2 'location /assets/' "$t" | grep -q 'try_files \$uri =404;' || { echo "$t: /assets/ must be 'try_files \$uri =404' (#1633)"; exit 1; }
-        blk="$(awk '/^map \$uri \$visiban_cache_control/,/^}/' "$t")"
-        for p in 'index\\.html' 'theme-init\\.js' 'site\\.webmanifest' 'favicon' 'apple-touch-icon' 'android-chrome-' '\^/brand/'; do
-          printf '%s\n' "$blk" | grep -E "$p" | grep -q '"no-cache";' || { echo "$t: cache map must bind $p to no-cache (#1633)"; exit 1; }
+      . scripts/ci-fold.sh
+
+      m_sonar_scan() {
+        sh scripts/sonar-scan.sh --self-test
+      }
+
+      m_security_deferred() {
+        sh scripts/security-deferred-verdict.sh --self-test
+        sh scripts/extract-release-notes.sh --self-test
+        apk add --no-cache bash jq git coreutils python3
+        git config --global --add safe.directory '*'
+        bash scripts/check-security-deferred.sh --self-test
+        # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
+        # Invoked directly (not only via release.test.sh) so check-gate-selftest-parity.sh
+        # (#1093) sees the --self-test flag on the release.sh line itself.
+        bash scripts/release.sh --self-test
+        # release.test.sh adds the end-to-end rollback cases in hermetic clones;
+        # python3 is for assemble-changelog.sh.
+        sh scripts/ci-hermetic-run.sh bash scripts/tests/release.test.sh  # #2461: poisoned + canary
+      }
+
+      m_compose_hygiene() {
+        apk add --no-cache bash grep sed
+        bash scripts/check-compose-image-pins.sh --self-test
+        bash scripts/check-compose-image-pins.sh
+        bash scripts/check-compose-project-names.sh --self-test
+        bash scripts/check-compose-project-names.sh
+        bash scripts/render-nginx-hsts.sh --self-test
+        bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
+        # SPA cache policy (#1633): a missing /assets/* must 404, never fall back to index.html.
+        for t in nginx/app.conf.template nginx/app-http.conf.template; do
+          grep -q 'location /assets/' "$t" && grep -A2 'location /assets/' "$t" | grep -q 'try_files \$uri =404;' || { echo "$t: /assets/ must be 'try_files \$uri =404' (#1633)"; exit 1; }
+          blk="$(awk '/^map \$uri \$visiban_cache_control/,/^}/' "$t")"
+          for p in 'index\\.html' 'theme-init\\.js' 'site\\.webmanifest' 'favicon' 'apple-touch-icon' 'android-chrome-' '\^/brand/'; do
+            printf '%s\n' "$blk" | grep -E "$p" | grep -q '"no-cache";' || { echo "$t: cache map must bind $p to no-cache (#1633)"; exit 1; }
+          done
+          [ -n "$blk" ] || { echo "$t: cache map must be keyed on \$uri (#1633)"; exit 1; }
+          printf '%s\n' "$blk" | grep -E '^[[:space:]]*~' | head -1 | grep -qE '^[[:space:]]*~\^/\(index\\\.html\|' || { echo "$t: first regex in cache map must be the index.html no-cache rule (#1633)"; exit 1; }
+          grep -A2 'location / {' "$t" | grep -q 'try_files \$uri \$uri/ /index.html;' || { echo "$t: location / must fall back to /index.html (#1633)"; exit 1; }
+          printf '%s\n' "$blk" | grep -E '\^/assets/' | grep -q 'immutable' || { echo "$t: cache map must bind ^/assets/ to immutable (#1633)"; exit 1; }
+          grep -q 'add_header Cache-Control \$visiban_cache_control;' "$t" || { echo "$t: Cache-Control map not applied (#1633)"; exit 1; }
         done
-        [ -n "$blk" ] || { echo "$t: cache map must be keyed on \$uri (#1633)"; exit 1; }
-        printf '%s\n' "$blk" | grep -E '^[[:space:]]*~' | head -1 | grep -qE '^[[:space:]]*~\^/\(index\\\.html\|' || { echo "$t: first regex in cache map must be the index.html no-cache rule (#1633)"; exit 1; }
-        grep -A2 'location / {' "$t" | grep -q 'try_files \$uri \$uri/ /index.html;' || { echo "$t: location / must fall back to /index.html (#1633)"; exit 1; }
-        printf '%s\n' "$blk" | grep -E '\^/assets/' | grep -q 'immutable' || { echo "$t: cache map must bind ^/assets/ to immutable (#1633)"; exit 1; }
-        grep -q 'add_header Cache-Control \$visiban_cache_control;' "$t" || { echo "$t: Cache-Control map not applied (#1633)"; exit 1; }
-      done
+      }
+
+      m_cost_ledger() {
+        apk add --no-cache python3 git bash
+        git config --global --add safe.directory '*'
+        python3 scripts/cost-ledger --self-test
+        python3 scripts/cost-ledger status
+        python3 scripts/cost_ledger_lines.py --self-test
+        python3 scripts/subagent-tokens.py --self-test
+        python3 scripts/orchestrator-tokens.py --self-test
+        python3 scripts/est-cost.py --self-test
+        python3 scripts/cost-table.py --self-test
+        python3 scripts/post-mr-cost.py --self-test
+        python3 scripts/kaizen_gate_ledger.py --self-test
+        sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_gate_ledger.test.sh  # #2461: poisoned + canary
+      }
+
+      m_sonar_exclusions() {
+        apk add --no-cache bash git grep sed jq
+        # Self-test first: a broken detector must not report green.
+        bash scripts/check-sonar-exclusions.sh --self-test
+        bash scripts/check-sonar-exclusions.sh
+      }
+
+      m_gate_parity() {
+        apk add --no-cache bash grep
+        bash scripts/check-gate-selftest-parity.sh --self-test
+        bash scripts/check-gate-selftest-parity.sh
+      }
+
+      m_image_attest() {
+        apk add --no-cache bash jq
+        bash scripts/attest-image-sbom.sh --self-test
+      }
+
+      m_release_attestations() {
+        apk add --no-cache bash git jq
+        bash scripts/check-release-attestations.sh --self-test
+      }
+
+      m_registry_keep_regex() {
+        apk add --no-cache bash python3
+        sh scripts/ci-hermetic-run.sh bash scripts/tests/registry-keep-regex.test.sh  # #2461: poisoned + canary
+      }
+
+      m_chart_registry() {
+        apk add --no-cache bash curl
+        bash scripts/check-chart-registry.sh --self-test
+      }
+
+      m_ci_fold() {
+        sh scripts/ci-fold.sh --self-test
+      }
+
+      fold_member sonar-scan-selftest m_sonar_scan
+      fold_member security-deferred-verdict-selftest m_security_deferred
+      fold_member compose-hygiene m_compose_hygiene
+      fold_member cost-ledger-selftest m_cost_ledger
+      fold_member lint:sonar-exclusions m_sonar_exclusions
+      fold_member_not_on_tag gate-selftest-parity m_gate_parity
+      fold_member_not_on_tag image-attest-selftest m_image_attest
+      fold_member_not_on_tag check-release-attestations-selftest m_release_attestations
+      fold_member_not_on_tag registry-keep-regex-test m_registry_keep_regex
+      fold_member_not_on_tag check-chart-registry-selftest m_chart_registry
+      fold_member ci-fold-selftest m_ci_fold
+      fold_finish
 
 # ─── nginx security headers (#1073) ──────────────────────────────────────────
 #
@@ -612,185 +761,77 @@ nginx-security-headers:
     - bash scripts/check-nginx-security-headers.sh
     - bash scripts/check-nginx-security-headers.sh --runtime
 
-# ─── SonarCloud report-rewrite self-test (#1370) ─────────────────────────────
+# ─── Folded python gate self-tests (#2523) ───────────────────────────────────
 #
-# scripts/sonar-scan.sh rewrites the coverage reports so SonarCloud can resolve
-# their paths; a regression resolves zero files and reports 0.0% with nothing
-# red. --self-test fixtures both rewrites (#1093 house rule). sonar:scan itself
-# runs only on the nightly schedule, so this runs on MRs touching the inputs.
-sonar-scan-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - changes: &sonar-scan-selftest-paths
-        - scripts/sonar-scan.sh
-        - sonar-project.properties
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *sonar-scan-selftest-paths
-  script:
-    - sh scripts/sonar-scan.sh --self-test
-
-# ─── Cost ledger self-tests (#2128) ──────────────────────────────────────────
+# Four tiny `python:3.12-slim` jobs, now members of one job (see
+# lint-selftests-alpine above for the folding contract and the old-name ->
+# member map). The member name is the old job name:
 #
-# The MR cost ledger (docs/development/cost-ledger.md) is measured and rendered
-# from a maintainer's own session, never in CI, so nothing else would notice
-# these scripts break. They read local transcripts and hostile MR notes, and a
-# regression reads as a plausible number rather than an error, so each one's
-# --self-test runs on MRs touching it (#1093 house rule). The kaizen reader's
-# shell suite runs here too: it had no CI job before #2128 taught it the cost
-# lines. alpine's python3 (3.11) is older than a workstation's; git is for
-# cost-ledger's self-test, which builds a throwaway repo.
-cost-ledger-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - changes: &cost-ledger-selftest-paths
-        - scripts/cost-ledger
-        - scripts/cost_ledger_lines.py
-        - scripts/subagent-tokens.py
-        - scripts/orchestrator-tokens.py
-        - scripts/est-cost.py
-        - .claude/skills/wave/SKILL.md
-        - scripts/cost-table.py
-        - scripts/post-mr-cost.py
-        - .claude/hooks/post-mr-cost.sh
-        - scripts/tests/cost-ledger-golden/**/*
-        - .claude/settings.json
-        - scripts/lib/transcript_usage.py
-        - scripts/_paths.py
-        - scripts/kaizen_gate_ledger.py
-        - scripts/tests/kaizen_gate_ledger.test.sh
-        - scripts/tests/fixtures/kaizen/*
-        - .claude/cost-ledger.json
-        - .claude/model-prices.json
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *cost-ledger-selftest-paths
-  before_script:
-    - apk add --no-cache python3 git bash
-    - git config --global --add safe.directory '*'
-  script:
-    - python3 scripts/cost-ledger --self-test
-    - python3 scripts/cost-ledger status
-    - python3 scripts/cost_ledger_lines.py --self-test
-    - python3 scripts/subagent-tokens.py --self-test
-    - python3 scripts/orchestrator-tokens.py --self-test
-    - python3 scripts/est-cost.py --self-test
-    - python3 scripts/cost-table.py --self-test
-    - python3 scripts/post-mr-cost.py --self-test
-    - python3 scripts/kaizen_gate_ledger.py --self-test
-    - sh scripts/ci-hermetic-run.sh bash scripts/tests/kaizen_gate_ledger.test.sh  # #2461: poisoned + canary
-
-# ─── security::deferred verdict self-test (#1521) ────────────────────────────
-#
-# scripts/security-deferred-verdict.sh holds the accepted-risk verdict logic that
-# /pre-release Step 1.5 and scripts/release.sh (via scripts/check-security-deferred.sh, #1520) shell out to. It only ever
-# runs from a maintainer's session, so nothing else would notice it break; this
-# runs its --self-test on MRs touching it (#1093 house rule). Alpine's busybox
-# awk/sed/grep exercise a third implementation beside macOS BSD awk and GNU awk.
-security-deferred-verdict-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - changes: &security-deferred-verdict-selftest-paths
-        - scripts/security-deferred-verdict.sh
-        - scripts/check-security-deferred.sh
-        - scripts/release.sh
-        - scripts/extract-release-notes.sh
-        - scripts/tests/release.test.sh
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *security-deferred-verdict-selftest-paths
-  script:
-    - sh scripts/security-deferred-verdict.sh --self-test
-    - sh scripts/extract-release-notes.sh --self-test
-    - apk add --no-cache bash jq git coreutils python3
-    - git config --global --add safe.directory '*'
-    - bash scripts/check-security-deferred.sh --self-test
-    # release.sh gates the tag on the check above (#1520); its self-test had no CI job.
-    # Invoked directly (not only via release.test.sh) so check-gate-selftest-parity.sh
-    # (#1093) sees the --self-test flag on the release.sh line itself.
-    - bash scripts/release.sh --self-test
-    # release.test.sh adds the end-to-end rollback cases in hermetic clones;
-    # python3 is for assemble-changelog.sh.
-    - sh scripts/ci-hermetic-run.sh bash scripts/tests/release.test.sh  # #2461: poisoned + canary
-
-# ─── Mutation score checker self-test (#1384) ────────────────────────────────
-#
-# scripts/check_mutation_score.py judges the weekly backend-mutation job, and
-# that job runs only on the Weekly mutation testing schedule with
-# MUTATION_TEST=true, so its --self-test there would catch a broken checker a week late, and never while
-# the schedule lacks the variable. This runs the same self-test on MRs that
-# touch the script or the CI file (#1093 house rule), and on main. It also runs
-# --check-pragmas over backend/ (#1503): a `# pragma: no mutate` with no
-# `-- <reason>` fails here, on the MR that adds it, not a night later. Hence the
-# backend/**/*.py path: only a backend source change can add a bare pragma.
-mutation-score-selftest:
+#   mutation-score-selftest              check_mutation_score.py (#1384) judges the weekly
+#                                        backend-mutation job, which runs only on its schedule.
+#                                        --check-pragmas (#1503) fails a bare `# pragma: no mutate`
+#                                        on the MR that adds it, hence the backend/**/*.py path.
+#                                        mutmut_config.py self-test: every source file, test file and
+#                                        class the nightly target list names exists, and
+#                                        backend-mutation's `parallel:` equals its shards.
+#   fuzz-baseline-unobserved-selftest    fuzz_baseline_unobserved.py runs log-only in
+#                                        backend-schema-fuzz's after_script, so a broken parser
+#                                        would never turn a job red (#1582).
+#   release-main-pipeline-guard-selftest MR-time proof of the release guard (#1093); the guard does
+#                                        real work only on a release tag. MR-or-main only, so it is
+#                                        skipped in tag pipelines (`fold_member_not_on_tag`).
+#   nightly-load-test-selftest           the scheduled job only ran its --self-test once a night;
+#                                        this catches a scenario without a budget in the MR (#1767).
+#                                        `.gitlab-ci.yml` now also triggers it (it already
+#                                        triggered the other three).
+lint-selftests-python:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
-    - changes: &mutation-score-selftest-paths
+    - changes:
         - scripts/check_mutation_score.py
         - scripts/_paths.py
-        - .gitlab-ci.yml
         - backend/**/*.py
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *mutation-score-selftest-paths
-  script:
-    - python3 scripts/check_mutation_score.py --self-test
-    - python3 scripts/check_mutation_score.py --check-pragmas backend
-    # The nightly target list (backend/mutmut_config.py TARGETS): every source file, test
-    # file and class it names exists, and backend-mutation's `parallel:` equals its shards.
-    - python3 backend/mutmut_config.py self-test --ci-file .gitlab-ci.yml
-
-# ─── Unobserved-baseline logger self-test (#1582) ────────────────────────────
-#
-# scripts/fuzz_baseline_unobserved.py runs in backend-schema-fuzz's after_script,
-# log-only and always exit 0, so a broken parser would never turn a job red. This
-# runs its --self-test on MRs that touch it or the CI file (#1093 house rule), and
-# on main.
-fuzz-baseline-unobserved-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  rules:
-    - changes: &fuzz-baseline-unobserved-paths
         - scripts/fuzz_baseline_unobserved.py
+        - scripts/wait-for-main-pipeline.py
+        - scripts/nightly_load_test.py
+        - scripts/check_email_login_plan.py
+        - backend/nightly-load-test-baseline.json
         - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *fuzz-baseline-unobserved-paths
   script:
-    - python3 scripts/fuzz_baseline_unobserved.py --self-test
+    - |
+      . scripts/ci-fold.sh
 
-# ─── Sonar exclusion-integrity guard (#1380) ─────────────────────────────────
-#
-# Every sonar.issue.ignore.multicriteria criterion is a reviewed false positive;
-# nothing verified its glob still pointed at anything (TruePPM #2517: a rename
-# silently un-suppressed findings and the reliability rating fell A -> D with no
-# job going red). Pure `git ls-files` path matching: no network, no SONAR_TOKEN.
-# Runs on MRs touching the properties file or the script, and on main.
-lint:sonar-exclusions:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - changes: &sonar-exclusions-paths
-        - sonar-project.properties
-        - scripts/check-sonar-exclusions.sh
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *sonar-exclusions-paths
-  before_script:
-    - apk add --no-cache bash git grep sed jq
-  script:
-    # Self-test first: a broken detector must not report green.
-    - bash scripts/check-sonar-exclusions.sh --self-test
-    - bash scripts/check-sonar-exclusions.sh
+      m_mutation_score() {
+        python3 scripts/check_mutation_score.py --self-test
+        python3 scripts/check_mutation_score.py --check-pragmas backend
+        # The nightly target list (backend/mutmut_config.py TARGETS): every source file, test
+        # file and class it names exists, and backend-mutation's `parallel:` equals its shards.
+        python3 backend/mutmut_config.py self-test --ci-file .gitlab-ci.yml
+      }
+
+      m_fuzz_baseline() {
+        python3 scripts/fuzz_baseline_unobserved.py --self-test
+      }
+
+      m_release_guard() {
+        python3 scripts/wait-for-main-pipeline.py --self-test
+        python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
+      }
+
+      m_nightly_load_test() {
+        sh scripts/ensure-pip.sh  # what `!reference [.pip-floor, script]` expands to
+        pip install --quiet requests==2.33.0
+        python3 scripts/nightly_load_test.py --self-test
+        python3 scripts/check_email_login_plan.py --self-test
+      }
+
+      fold_member mutation-score-selftest m_mutation_score
+      fold_member fuzz-baseline-unobserved-selftest m_fuzz_baseline
+      fold_member_not_on_tag release-main-pipeline-guard-selftest m_release_guard
+      fold_member nightly-load-test-selftest m_nightly_load_test
+      fold_finish
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
@@ -2120,7 +2161,7 @@ backend-schema-fuzz-git-lens:
 # backend/mutmut_config.py (TARGETS); `python mutmut_config.py run` maps this
 # job's CI_NODE_INDEX to one (target, shard), runs mutmut and exports the shard's
 # stats. `parallel:` below must equal the sum of TARGETS' shard counts: the
-# driver refuses to run otherwise, and `mutation-score-selftest` fails the MR
+# driver refuses to run otherwise, and the `mutation-score-selftest` member of `lint-selftests-python` fails the MR
 # that lets them drift. Each shard has its own Postgres service, so shards cannot
 # collide on test data; a target's mutants are dealt round-robin over its shards
 # (sizes differ by at most one). Shard sizes and the per-mutant cost behind them
@@ -2168,7 +2209,7 @@ backend-mutation:
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # = sum of TARGETS' shard counts in backend/mutmut_config.py (checked by
-  # `mutmut_config.py self-test --ci-file`, run in mutation-score-selftest).
+  # `mutmut_config.py self-test --ci-file`, run in the mutation-score-selftest member of lint-selftests-python).
   parallel: 50
   timeout: 150m
   allow_failure: true
@@ -3184,32 +3225,6 @@ renovate-config-check:
         - .gitlab-ci.yml
   script:
     - npx --yes --package renovate@44.165.3 renovate-config-validator --strict
-
-# Meta-gate for #1093's house rule: every bespoke gate script under scripts/
-# referenced from this file must ship a --self-test mode AND have it actually
-# invoked here — a script that CAN self-test but whose job never calls it
-# (the real gap this issue found in migration-numbering-check) is still a
-# violation. Derives its gate list from THIS FILE at run time, so a newly
-# wired gate (e.g. #1092's check-suppression-issues.sh) is picked up
-# automatically with no edit to the checker itself — see
-# scripts/check-gate-selftest-parity.sh and docs/development/ci-gates.md.
-gate-selftest-parity:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  # No unconditional main fallback (#1266) — nothing needs this job.
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &gate-selftest-parity-paths
-        - .gitlab-ci.yml
-        - scripts/**/*
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *gate-selftest-parity-paths
-  before_script:
-    - apk add --no-cache bash grep
-  script:
-    - bash scripts/check-gate-selftest-parity.sh --self-test
-    - bash scripts/check-gate-selftest-parity.sh
 
 # ─── Remaining scripts/tests/*.test.sh (#2117) ────────────────────────────────
 #
@@ -4558,7 +4573,7 @@ sonar:scan:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
   allow_failure: true
 
-# Online half of the Sonar exclusion guard (#1425). lint:sonar-exclusions stays
+# Online half of the Sonar exclusion guard (#1425). the lint:sonar-exclusions member of lint-selftests-alpine stays
 # hermetic on MRs; this sibling runs in the nightly schedule, the one context with
 # a SONAR_TOKEN, and asks SonarCloud whether every ignore-criterion ruleKey is
 # still ACTIVE in the project's quality profile (a deactivated or renamed rule
@@ -4851,26 +4866,6 @@ release-main-pipeline-guard:
         exit 0
       fi
       python3 scripts/wait-for-main-pipeline.py --sha "${CI_COMMIT_SHA}"
-
-# MR-time proof of the guard (#1093 house rule): the guard itself only does
-# real work on a release tag, so a broken decision rule or a job list that has
-# drifted from this file would otherwise surface at release time.
-release-main-pipeline-guard-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  # No unconditional main fallback (#1266) — nothing needs this job.
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &release-main-pipeline-guard-paths
-        - scripts/wait-for-main-pipeline.py
-        - scripts/_paths.py
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *release-main-pipeline-guard-paths
-  script:
-    - python3 scripts/wait-for-main-pipeline.py --self-test
-    - python3 scripts/wait-for-main-pipeline.py --check-ci-file .gitlab-ci.yml
 
 # ─── Red-main guard (#2460) ───────────────────────────────────────────────────
 #
@@ -5529,76 +5524,6 @@ frontend-image-attest:
     - bash scripts/attest-image-sbom.sh --self-test
     - bash scripts/attest-image-sbom.sh --image frontend --tag "${CI_COMMIT_TAG}"
 
-# MR-time self-test for the script above, so a broken assertion is caught in
-# review and not on the release tag — by which point the images are already
-# live under their real tags and only the attestation is missing (#1093).
-image-attest-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      # The self-test also reads both identity regexps out of the verification
-      # doc, so a docs-only regexp edit must run it too; .gitlab-ci.yml because
-      # the jobs that call the script live there.
-      changes: &image-attest-selftest-paths
-        - scripts/attest-image-sbom.sh
-        - docs/administration/image-verification.md
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *image-attest-selftest-paths
-  before_script:
-    - apk add --no-cache bash jq
-  script:
-    - bash scripts/attest-image-sbom.sh --self-test
-
-# MR-time run of the nightly check's self-test (#1610). The self-test pins that
-# this file still defines the jobs in ATTEST_SIGNING_JOBS; the nightly
-# check-release-attestations job only runs it on the schedule, so a rename or
-# removal of backfill/signing jobs went unnoticed until the next night, and
-# until the first signed release the nightly itself is a no-op. It needs no
-# registry, cosign or network: crane/cosign are stubbed inside the script.
-# Besides the script it reads .gitlab-ci.yml and the verification doc (the two
-# identity regexps).
-check-release-attestations-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &check-release-attestations-selftest-paths
-        - scripts/check-release-attestations.sh
-        - docs/administration/image-verification.md
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *check-release-attestations-selftest-paths
-  before_script:
-    - apk add --no-cache bash git jq
-  script:
-    - bash scripts/check-release-attestations.sh --self-test
-
-# Pins which tags the GitLab registry cleanup policy's `name_regex_keep` (a
-# project setting recorded only in docs/administration/container-image-retention.md)
-# keeps: release tags and `latest` kept, per-arch `-amd64`/`-arm64` working tags
-# swept (#1196), cosign `sha256-<hex>.sig`/`.att` kept by the #1541 target. Also
-# checks this file still uses the `-amd64`/`-arm64` suffixes the test assumes.
-registry-keep-regex-test:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &registry-keep-regex-test-paths
-        - scripts/tests/registry-keep-regex.test.sh
-        - docs/administration/container-image-retention.md
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *registry-keep-regex-test-paths
-  before_script:
-    - apk add --no-cache bash python3
-  script:
-    - sh scripts/ci-hermetic-run.sh bash scripts/tests/registry-keep-regex.test.sh  # #2461: poisoned + canary
-
 # MANUAL backfill for releases published before #1153 (or whose attest job
 # failed): signs + attests an already-published tag's images, both images, both
 # registries, without re-cutting the release. Set BACKFILL_TAG (e.g.
@@ -5919,25 +5844,6 @@ check-chart-registry:
   script:
     - bash scripts/check-chart-registry.sh --self-test
     - bash scripts/check-chart-registry.sh
-
-# MR-time run of the script's self-test only. The live check reads registry
-# state no diff controls, so it would red an unrelated MR; the self-test proves
-# both modes (publish guard, default resolution) can still fail (#1155).
-check-chart-registry-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/alpine:3.19
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes: &check-chart-registry-selftest-paths
-        - scripts/check-chart-registry.sh
-        - .gitlab-ci.yml
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *check-chart-registry-selftest-paths
-  before_script:
-    - apk add --no-cache bash curl
-  script:
-    - bash scripts/check-chart-registry.sh --self-test
 
 # ─── Scheduled — release signature + SBOM survival (#1542) ────────────────────
 #
@@ -6371,29 +6277,6 @@ backend-benchmark:
       when: never
     - when: manual
       allow_failure: true
-
-# ─── Nightly load test — MR-time self-test (#1767) ─────────────────────────────
-#
-# The scheduled job below only runs its --self-test once a night, so an MR that
-# adds a scenario without a budget (or empties the baseline) would stay green
-# until the next schedule. This tiny job runs just the self-test, and only when
-# the script or the baseline changes, so unrelated pipelines are unaffected.
-nightly-load-test-selftest:
-  stage: lint
-  needs: []
-  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
-  rules:
-    - changes: &nightly-load-test-paths
-        - scripts/nightly_load_test.py
-        - scripts/check_email_login_plan.py
-        - backend/nightly-load-test-baseline.json
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes: *nightly-load-test-paths
-  script:
-    - !reference [.pip-floor, script]
-    - pip install --quiet requests==2.33.0
-    - python3 scripts/nightly_load_test.py --self-test
-    - python3 scripts/check_email_login_plan.py --self-test
 
 # ─── Nightly load test ─────────────────────────────────────────────────────────
 #

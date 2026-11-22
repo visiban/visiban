@@ -171,6 +171,34 @@ run_gate "$TMP/ci-dedup.yml" "$TMP"
 check "script referenced by two jobs passes once self-test is wired anywhere (exit 0)" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
 check "dedup run reports exactly 1 gate script checked" "$(echo "$OUT" | grep -q '^check-gate-selftest-parity: 1 gate script' && echo 0 || echo 1)"
 
+# --- Case 7b (#2523): folded layout — invocations live inside shell functions
+# in one `|` block (scripts/ci-fold.sh members), indented. A wired --self-test
+# there is compliant; one that never passes the flag there is still a violation.
+cat > "$TMP/ci-folded.yml" <<'EOS'
+lint-selftests-alpine:
+  script:
+    - |
+      . scripts/ci-fold.sh
+      m_good() {
+        bash scripts/good.sh --self-test
+      }
+      fold_member good m_good
+      fold_finish
+EOS
+run_gate "$TMP/ci-folded.yml" "$TMP"
+check "a --self-test inside a folded function body is compliant (exit 0)" "$([ "$RC" -eq 0 ] && echo 0 || echo 1)"
+cat > "$TMP/ci-folded-bad.yml" <<'EOS'
+lint-selftests-alpine:
+  script:
+    - |
+      m_good() {
+        bash scripts/good.sh
+      }
+      fold_member good m_good
+EOS
+run_gate "$TMP/ci-folded-bad.yml" "$TMP"
+check "a folded member that never passes --self-test is a violation (exit 1)" "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"
+
 # --- Case 8: missing CI file fails safe, not silently -----------------------
 run_gate "$TMP/does-not-exist.yml" "$TMP"
 check "a missing CI file fails safe (exit 1)" "$([ "$RC" -eq 1 ] && echo 0 || echo 1)"

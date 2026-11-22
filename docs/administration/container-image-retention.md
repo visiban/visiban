@@ -85,7 +85,7 @@ That decides what each registry can safely do:
 
 **Why not delete them right after manifest assembly (#1196 option 1).** On GHCR a direct version delete would break `docker pull` on that platform and orphan its signature and SBOM. The known workaround pushes a throwaway manifest onto the per-arch tag (moving the tag off the platform manifest) and then deletes the throwaway version. That removes the tag but leaves the platform manifests as **untagged** versions, which the GHCR cleanup recipe in the warning below would delete, so it is not used. On the GitLab registry a manifest-level delete (the registry `DELETE /v2/<repo>/manifests/<digest>` that `crane delete <repo>@<digest>` sends) has the same effect. Only GitLab's tag-delete API removes the tag alone, and the existing cleanup policy already does that without adding a registry-delete credential to the tag pipeline.
 
-**The keep-regex is pinned by a test.** `scripts/tests/registry-keep-regex.test.sh` (CI job `registry-keep-regex-test`, on MRs touching this page, the test or `.gitlab-ci.yml`) reads the live `name_regex_keep` from the recorded-policy block at the top of the GitLab section (the one with `next_run_at`) and checks it against the tag shapes the pipeline pushes:
+**The keep-regex is pinned by a test.** `scripts/tests/registry-keep-regex.test.sh` (CI job `registry-keep-regex-test` (member of `lint-selftests-alpine`), on MRs touching this page, the test or `.gitlab-ci.yml`) reads the live `name_regex_keep` from the recorded-policy block at the top of the GitLab section (the one with `next_run_at`) and checks it against the tag shapes the pipeline pushes:
 
 - release tags and `latest` kept
 - `-amd64`/`-arm64` tags (including pre-release ones like `v1.2.0-beta.1-arm64`) not kept

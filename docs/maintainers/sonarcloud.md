@@ -129,12 +129,12 @@ date. To diagnose a yellow job, read its log and match the symptom:
 | `Not authorized`, `401`, or a token error | `SONAR_TOKEN` expired, was revoked, or its owner lost access | [Rotate the token](#rotate-the-token) |
 | `SONAR_TOKEN` empty, or no token error but no analysis | The variable is missing, or the pipeline ran on a ref where a protected variable is not injected | Confirm the variable exists and the schedule targets `main` |
 | An error saying CI analysis cannot run while Automatic Analysis is enabled (exact wording varies) | Someone turned on Automatic Analysis in SonarCloud | Turn it off in the project's administration settings (in the current SonarCloud UI this is under **Administration → Analysis Method**). Automatic Analysis also ignores `sonar-project.properties`, so all the suppressions would stop applying |
-| `resolved: 0 class entries` or `0 SF files`, or Coverage reads 0.0% | A report rewrite regressed, or a producer job failed and its report is missing | Check `sonar-scan-selftest`, then run `scripts/sonar-scan.sh --prep-only` locally against fresh reports |
+| `resolved: 0 class entries` or `0 SF files`, or Coverage reads 0.0% | A report rewrite regressed, or a producer job failed and its report is missing | Check `sonar-scan-selftest` (member of `lint-selftests-alpine`), then run `scripts/sonar-scan.sh --prep-only` locally against fresh reports |
 | `! backend/coverage.xml not found` or `! frontend/coverage/lcov.info not found` | `backend-test-coverage` or `frontend-test` failed on `main` that night | Fix that job first; the scan still ran for the other half |
 | Image pull failure, or a network or timeout error | A transient registry or SonarCloud problem | Re-run the job. If it persists, check the pinned `sonar-scanner-cli` image in `.gitlab-ci.yml` |
 | Job did not appear in the pipeline at all | The schedule is missing, inactive, or lacks `SONAR_SCHEDULED=true` | [Create or restore the schedule](#create-or-restore-it) |
 
-A red `lint:sonar-exclusions` is a different problem: a suppression glob matches no tracked
+A red `lint:sonar-exclusions` (member of `lint-selftests-alpine`) is a different problem: a suppression glob matches no tracked
 file. Delete the criterion or repoint it at the new path. Never widen the glob to make the
 guard pass.
 
