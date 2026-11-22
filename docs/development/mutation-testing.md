@@ -433,7 +433,7 @@ The list lives in one place, `TARGETS` in `backend/mutmut_config.py`. Each targe
 
 | Target | Code | Mutants scored | Excluded by pragma | Tests | Shards |
 |---|---|---:|---:|---|---:|
-| `permissions` | `boards/permissions.py` | 172 | 4 | the four RBAC files (`test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps`) | 3 |
+| `permissions` | `boards/permissions.py` | 172 | 4 | the four RBAC files (`test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps`, and `test_permissions_mutation_gaps_2517` for the #2212 card-detail extension registry, the admin-only event predicate and the #1075 absent-subject denial) | 3 |
 | `cards` | `boards/services/cards.py` | 374 | 0 | the 13 files of the 2026-10-09 whole-module re-measure (movement suites, view suites, both gap files) | 16 |
 | `card_movement` | `CardMovement` in `boards/models.py` only | 70 | 41 | the six movement-record files of the 2026-10-08 re-measure | 2 |
 | `import_export` | `boards/views/import_export.py`, whole module | 1826 | 2 | 16 files: the nine of the head run (#1502), the remainder run's (#1484), `test_import_csv_custom_fields` for the #1449 code, and, last because only a mutant every other file let through reaches them, `test_import_history_attribution` and `test_import_export_schema_mutation_gaps` (#1930) | 29 |
@@ -630,3 +630,7 @@ The 2026-10-11 run was on the original 44 shards; the re-shard to 50 (!1498) cam
 - The `CardMovement` figure (61.6% in the baseline table) is capped by schema-constant mutants (`max_length`, `db_index`, and similar). The behavioral tests added for it cover the default type, choice labels, ordering, and `SET_NULL` retention; the rest is guarded by CI `migration-check`, not by tests. Since #1503 those mutants are excluded with a reason in the source, so the module's *adjusted* score is 100% and its *raw* score stays at about 63%; the raw number is what shows how much of the module rests on `migration-check` rather than on tests.
 - A line-level pragma also removes any *killed* mutants that share its line. Keep a pragma'd line to the equivalent argument only (split a call across lines); the `excluded` count in the artifact includes everything on those lines.
 - It's a point-in-time number on one commit. Re-run it before the 1.2 movement-record and permission changes merge to see how the rate moved.
+
+### 2026-11-22 run below the floor, permissions and CardMovement (#2517)
+
+The weekly run left 8 `permissions` and 6 `card_movement` survivors. The 8 `permissions` ones (admin-only event predicate, the zero-rank boundary in `_registered_for_role`, the `CARD_DETAIL_EXTENSIONS` default role and registry label, and the `IsBoardMember`/`IsBoardAdminOrOwner` absent-subject denial) are killed by `test_permissions_mutation_gaps_2517.py`, added to the `permissions` list (re-run locally with mutmut 2.5.1: 8 of 8 killed, plus a ninth `<= 1` boundary mutant the new test also kills). The 6 `card_movement` survivors are the `null=`/`blank=` arguments of the three gate-position columns (#1921); they are schema constants guarded by CI `migration-check`, so they carry `# pragma: no mutate` like the other `CardMovement` columns. No test file was added to `card_movement`.

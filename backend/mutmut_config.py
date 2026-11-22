@@ -61,6 +61,8 @@ _RBAC_TESTS = (
     "test_rbac_boundaries.py",
     "test_explicit_permissions.py",
     "test_permissions_unit_mutation_gaps.py",
+    # #2517: card-detail extension registry, admin-only events, absent-subject denial.
+    "test_permissions_mutation_gaps_2517.py",
 )
 # The movement-record suites: the six files the CardMovement re-measure used (2026-10-08).
 _MOVEMENT_TESTS = (
