@@ -121,20 +121,25 @@ for (const theme of THEMES) for (const size of SIZES) {
   })
 }
 
-test.describe('"Show the N cards"', () => {
-  test('closes settings and filters the board to its child cards (f_parent=any)', async ({ page }) => {
-    const board = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: false }
-    await page.route(`**/api/v1/boards/${board.id}/children-setting-blockers/`, (r) => r.fulfill(json({ child_cards: 4, parent_cards: 0, default_of: [] })))
-    await page.route(`**/api/v1/boards/${board.id}/default-child-board-options/`, (r) => r.fulfill(json({ boards: [] })))
-    const dialog = await openSettings(page, 'light', board, /^Rules & limits/, 'Rules & limits')
-    const show = dialog.getByRole('button', { name: 'Show the 4 cards' })
-    const ratio = contrastRatio(await textColor(show), await surfaceColor(show))
-    expect(ratio).toBeGreaterThanOrEqual(4.5)
-    await show.click()
-    await expect(dialog).toBeHidden()
-    await expect(page).toHaveURL(/f_parent=any/)
+for (const theme of THEMES) for (const size of SIZES) {
+  test.describe(`"Show the N cards" (${theme}, ${size.name})`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } })
+    test('closes settings and filters the board to its child cards (f_parent=any)', async ({ page }) => {
+      const board = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: false }
+      await page.route(`**/api/v1/boards/${board.id}/children-setting-blockers/`, (r) => r.fulfill(json({ child_cards: 4, parent_cards: 0, default_of: [] })))
+      await page.route(`**/api/v1/boards/${board.id}/default-child-board-options/`, (r) => r.fulfill(json({ boards: [] })))
+      const dialog = await openSettings(page, theme, board, /^Rules & limits/, 'Rules & limits')
+      const show = dialog.getByRole('button', { name: 'Show the 4 cards' })
+      const ratio = contrastRatio(await textColor(show), await surfaceColor(show))
+      expect(ratio).toBeGreaterThanOrEqual(4.5)
+      // Phone: the max-sm:min-h-11 touch target.
+      if (size.width < 640) expect((await show.boundingBox())!.height).toBeGreaterThanOrEqual(43.5)
+      await show.click()
+      await expect(dialog).toBeHidden()
+      await expect(page).toHaveURL(/f_parent=any/)
+    })
   })
-})
+}
 
 for (const theme of THEMES) {
   test.describe(`child progress bar on the narrowest card (${theme}, 390px)`, () => {
