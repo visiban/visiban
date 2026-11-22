@@ -3123,7 +3123,7 @@ class BoardImportExportMixin:
             [{"name": n, "field_type": "text"} for _, n in card_cols],
             CustomFieldDefinitionSerializer,
             CustomFieldDefinition,
-            "show_on_card",
+            "show_on_card",  # pragma: no mutate -- CSV-derived definitions never set show_on_card, so the pinned count is 0 whatever the attribute is called
             "Custom columns",
         )
         if _err:
@@ -3132,7 +3132,7 @@ class BoardImportExportMixin:
             [{"name": n, "field_type": "text"} for _, n in lane_cols],
             SwimlaneCustomFieldDefinitionSerializer,
             SwimlaneCustomFieldDefinition,
-            "show_on_row",
+            "show_on_row",  # pragma: no mutate -- CSV-derived definitions never set show_on_row, so the pinned count is 0 whatever the attribute is called
             "Swimlane Custom columns",
         )
         if _err:
@@ -3281,18 +3281,18 @@ class BoardImportExportMixin:
             for row in rows:
                 col_name = _cell(row, "Column")
                 if col_name and col_name not in column_map:
-                    column_map[col_name] = None
+                    column_map[col_name] = None  # pragma: no mutate -- placeholder overwritten with the created Column before any read
 
                 sw_name = _cell(row, "Swimlane")
                 if sw_name and sw_name not in swimlane_map:
-                    swimlane_map[sw_name] = None
+                    swimlane_map[sw_name] = None  # pragma: no mutate -- placeholder overwritten with the created Swimlane before any read
 
                 labels_str = _cell(row, "Labels") if options["labels"] else ""
                 if labels_str:
                     for label_name in labels_str.split(","):
                         label_name = label_name.strip()
                         if label_name and label_name not in label_map:
-                            label_map[label_name] = None
+                            label_map[label_name] = None  # pragma: no mutate -- placeholder overwritten with the created Label before any read
 
             # Create columns — bulk_create avoids one INSERT per column.
             col_names = list(column_map)
@@ -3561,7 +3561,7 @@ class BoardImportExportMixin:
                         "deleted_card_history": drf_serializers.ListField(child=drf_serializers.DictField()),
                     },
                 ),
-                description="JSON export (`?format=json`).",
+                description="JSON export (`?format=json`).",  # pragma: no mutate -- drf-spectacular emits one description per status code, from the first media type, so the document is unchanged
             ),
         },
     )
@@ -3614,7 +3614,10 @@ class BoardImportExportMixin:
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        export_format = request.query_params.get("format", "csv")
+        export_format = request.query_params.get(
+            "format",
+            "csv",  # pragma: no mutate -- any format other than json takes the CSV branch
+        )
         safe_name = slugify(board.name) or "board"
         stamp = _export_timestamp(request.user)
 
@@ -4161,7 +4164,15 @@ class BoardImportExportMixin:
         )
         page = self.paginate_queryset(qs)
         if page is not None:
-            data = BoardExportLogSerializer(page, many=True, context={"request": request}).data
+            data = BoardExportLogSerializer(
+                page,
+                many=True,
+                context={"request": request},  # pragma: no mutate -- no field of BoardExportLogSerializer or its nested actor serializer reads the request
+            ).data
             return self.get_paginated_response(data)
-        data = BoardExportLogSerializer(qs, many=True, context={"request": request}).data
+        data = BoardExportLogSerializer(
+            qs,
+            many=True,
+            context={"request": request},  # pragma: no mutate -- no field of BoardExportLogSerializer or its nested actor serializer reads the request
+        ).data
         return Response(data)
