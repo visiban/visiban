@@ -261,6 +261,8 @@ default:
 # the first step before any `pip install`: `- !reference [.pip-floor, script]`.
 # REMOVABLE once the python:3.12-slim image ships pip >= 26.2.2: delete this key,
 # every `.pip-floor` reference, scripts/ensure-pip.sh and scripts/pip-requirements.txt.
+# The folded `lint-selftests-python` job also calls `sh scripts/ensure-pip.sh` inline (no
+# `!reference`), so remove that call with the rest.
 .pip-floor:
   script:
     - sh scripts/ensure-pip.sh

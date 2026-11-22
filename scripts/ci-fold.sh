@@ -31,12 +31,18 @@ fold_member() {
   shift
   printf '\n== %s ==\n' "$_fold_name"
   FOLD_RAN=$((FOLD_RAN + 1))
-  # A plain subshell (never `if`/`||`), so `set -e` is honored inside it.
+  # A plain subshell (never `if`/`||`), so `set -e` is honored inside it. The
+  # caller's shell may itself run under errexit (GitLab runs `sh -e`), where a
+  # failing subshell would abort the parent before `$?` is read and skip every
+  # later member; so errexit is lifted around the subshell and restored after.
+  case $- in *e*) _fold_e=1 ;; *) _fold_e=0 ;; esac
+  set +e
   (
     set -e
     "$@"
   )
   _fold_rc=$?
+  [ "$_fold_e" -eq 1 ] && set -e
   if [ "$_fold_rc" -ne 0 ]; then
     FOLD_FAILED="$FOLD_FAILED $_fold_name"
     printf '== %s: FAILED (exit %s) ==\n' "$_fold_name" "$_fold_rc"
@@ -148,6 +154,39 @@ fold_self_test() {
   )
   grep -q ran-ok "$_st_dir/ran"
   _st_check "outside a tag pipeline the member runs" $?
+
+  # Case 5: the caller's shell runs under errexit, as a GitLab job's does. A
+  # failing member must neither abort the parent nor hide the later members.
+  # Run under every errexit-capable shell present.
+  _repo=$(pwd)
+  for _sh in "sh -e" "dash -e" "bash -e -o pipefail"; do
+    command -v "${_sh%% *}" >/dev/null 2>&1 || continue
+    : >"$_st_dir/ran"; rm -f "$_st_dir/leak"
+    # shellcheck disable=SC2016  # the script is deliberately expanded by the child shell
+    out=$(
+      $_sh -c '. "$1/scripts/ci-fold.sh"
+        d=$2
+        _ok() { echo ran-ok >>"$d/ran"; }
+        _bad() { echo ran-bad >>"$d/ran"; false; }
+        _mid() { false; echo after-failure >>"$d/leak"; }
+        _later() { echo ran-later >>"$d/ran"; }
+        fold_member ok _ok
+        fold_member bad _bad
+        fold_member mid _mid
+        fold_member later _later
+        fold_finish
+        echo "finish-rc=$?"' _ "$_repo" "$_st_dir" 2>&1
+      echo "shell-rc=$?"
+    )
+    grep -q ran-later "$_st_dir/ran"
+    _st_check "[$_sh] a member after a failing one still runs" $?
+    printf '%s\n' "$out" | grep -q '^FAILED members: bad mid$'
+    _st_check "[$_sh] FAILED line names every failed member" $?
+    printf '%s\n' "$out" | grep -q '^shell-rc=1$'
+    _st_check "[$_sh] exit code is non-zero" $?
+    if [ ! -e "$_st_dir/leak" ]; then _rc=0; else _rc=1; fi
+    _st_check "[$_sh] a command after a failure inside a member is not reached" "$_rc"
+  done
 
   if [ "$_st_fail" -ne 0 ]; then
     echo "=== ci-fold.sh --self-test: FAILED ===" >&2
