@@ -671,7 +671,9 @@ def child_board_options_for_viewer(parent, user):
     * ``can_set_default``: ADMIN on the parent's board.
     * ``boards_total`` (since 1.3, #2449): how many boards qualify; ``boards``
       holds at most :data:`CHILD_BOARD_OPTIONS_LIMIT` of them, by name.
-      ``default`` is resolved over every qualifying board, not just that page.
+      ``default`` is resolved over every qualifying board and is always in
+      ``boards`` (it takes the last slot when it sorts past the cap), so the
+      chooser can preselect it.
     * ``disabled_reason`` (#2447): ``"parent_archived"`` when ``parent`` is
       archived (the POST refuses it with that code), else ``None``.
 
@@ -721,19 +723,35 @@ def child_board_options_for_viewer(parent, user):
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
+    rows = []
     for b in candidates:
         role = roles.get(b.pk)
         if role not in LINK_WRITE_ROLES:
             continue
-        out["boards_total"] += 1
         if b.pk == parent_board.default_child_board_id:
             out["default"] = {"id": b.pk, "name": b.name}
-        if len(out["boards"]) < CHILD_BOARD_OPTIONS_LIMIT:
-            out["boards"].append({
-                "id": b.pk, "name": b.name,
-                "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
-            })
+        rows.append({
+            "id": b.pk, "name": b.name,
+            "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+        })
+    out["boards_total"] = len(rows)
+    out["boards"] = _options_page(rows, out["default"] and out["default"]["id"])
     return out
+
+
+def _options_page(rows, keep_id):
+    """At most :data:`CHILD_BOARD_OPTIONS_LIMIT` of ``rows`` (in name order), always with ``keep_id``'s row (#2449).
+
+    The chooser preselects the default, and the Rules page select shows the
+    current default, so that board must be in the page even when it sorts past
+    the cap: it takes the last slot. ``keep_id`` of ``None``, or one not in
+    ``rows``, is the plain first page.
+    """
+    page = rows[:CHILD_BOARD_OPTIONS_LIMIT]
+    if keep_id is None or any(r["id"] == keep_id for r in page):
+        return page
+    kept = next((r for r in rows if r["id"] == keep_id), None)
+    return page if kept is None else [*rows[:CHILD_BOARD_OPTIONS_LIMIT - 1], kept]
 
 
 def default_child_board_options_for_admin(board, user):
@@ -746,7 +764,8 @@ def default_child_board_options_for_admin(board, user):
 
     Returns ``{"boards": [...], "boards_total": N}`` (#2449): at most
     :data:`CHILD_BOARD_OPTIONS_LIMIT` boards by name, and how many qualify in
-    all. Empty when the viewer is not ADMIN on ``board`` or there is no viewer
+    all. ``board``'s current default child board, when it qualifies here, is
+    always in the page (:func:`_options_page`). Empty when the viewer is not ADMIN on ``board`` or there is no viewer
     (#1075 fail closed). Flat in the number of boards: one candidate query and
     one ``get_board_roles`` batch.
     """
@@ -766,7 +785,7 @@ def default_child_board_options_for_admin(board, user):
         for b in candidates
         if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     ]
-    return {"boards": rows[:CHILD_BOARD_OPTIONS_LIMIT], "boards_total": len(rows)}
+    return {"boards": _options_page(rows, board.default_child_board_id), "boards_total": len(rows)}
 
 
 def remove_link(link, *, actor, moved_from=None):

@@ -4,6 +4,7 @@ import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../a
 import type { Board, ChildrenSettingBlockers } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
+import { boardsCapLine } from "../Card/childBoardOptionsCap";
 
 interface Props {
   board: Pick<Board, "id" | "cards_can_have_children" | "default_child_board"> &
@@ -43,6 +44,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const inRouter = useInRouterContext();
   const [blockers, setBlockers] = useState<ChildrenSettingBlockers | null>(null);
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
+  // How many boards qualify in all (#2449): the list holds at most 100.
+  const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // The server still refuses a bad flip on save, so this only explains; it does not gate.
   const [blockersFailed, setBlockersFailed] = useState(false);
@@ -76,7 +79,9 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   useEffect(() => {
     if (!checked) return;
     let live = true;
-    getDefaultChildBoardOptions(board.id).then((o) => { if (live) setOptions(o); }).catch(() => { if (live) setOptions([]); });
+    getDefaultChildBoardOptions(board.id)
+      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); } })
+      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); } });
     return () => { live = false; };
   }, [board.id, checked]);
 
@@ -247,6 +252,9 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
             onChange={(v) => onUpdate({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}
           />
+          {boardsCapLine(options.length, optionsTotal) && (
+            <p className="text-xs text-fg-muted mt-1" data-testid="default-child-board-cap">{boardsCapLine(options.length, optionsTotal)}</p>
+          )}
         </div>
       )}
 

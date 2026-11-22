@@ -2847,7 +2847,7 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 {"boards": [{"id": 7, "name": "Delivery"}], "boards_total": 1}
 ```
 
-Only boards where you are admin, whose cards cannot have children and whose first column allows card creation are listed: the same rule the `PATCH` applies, so the select never offers a board the write would refuse. At most **100** boards are listed, by name (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449); `boards_total` counts every qualifying board. The read costs the same number of queries however many boards qualify (pinned in `boards/tests/test_query_counts.py`).
+Only boards where you are admin, whose cards cannot have children and whose first column allows card creation are listed: the same rule the `PATCH` applies, so the select never offers a board the write would refuse. At most **100** boards are listed, by name (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449); `boards_total` counts every qualifying board. This board's current `default_child_board`, when it qualifies for you, is always listed: past the first 100 it takes the last slot. The read costs the same number of queries however many boards qualify (pinned in `boards/tests/test_query_counts.py`).
 
 ### Delete impact (since 1.3)
 

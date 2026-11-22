@@ -4,6 +4,7 @@ import { addChild, getChildBoardOptions } from "../../api/cards";
 import { patchBoard } from "../../api/boards";
 import type { ChildBoardOptions } from "../../types";
 import { linkErrorCopy } from "./cardParent";
+import { boardsCapLine } from "./childBoardOptionsCap";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 
@@ -192,6 +193,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
               />
               <p className="text-xs text-fg-muted">Only boards you can add cards to are listed.</p>
+              {boardsCapLine(options.boards.length, options.boards_total) && (
+                <p className="text-xs text-fg-muted" data-testid="child-board-options-cap">{boardsCapLine(options.boards.length, options.boards_total)}</p>
+              )}
             </div>
           )}
 

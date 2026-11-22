@@ -1265,7 +1265,9 @@ Any role on this card's board.
   `can_set_default` is true when you administer both boards. At most **100**
   boards are listed (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449);
   `boards_total` is how many qualify in all, so a client can say "showing 100
-  of N". `default` is resolved over every qualifying board, not only the listed ones.
+  of N". `default` is resolved over every qualifying board and is always one of
+  the listed `boards`: when it sorts past the first 100 it takes the last slot,
+  so a client can preselect it.
 - `can_set_default` (top level): you administer this card's board.
 - `disabled_reason` (since 1.3, #2447): `"parent_archived"` when this card is
   archived, since Add child refuses an archived parent with that code; else `null`.

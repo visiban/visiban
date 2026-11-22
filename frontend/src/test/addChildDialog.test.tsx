@@ -193,6 +193,18 @@ describe('AddChildDialog (#2208)', () => {
     expect(addChild).not.toHaveBeenCalled()
   })
 
+  it('says "Showing N of M" when the server capped the boards, and preselects the default it kept (#2449)', async () => {
+    setup({ ...BASE, default: { id: 8, name: 'Ops' }, boards_total: 240 })
+    expect(await screen.findByTestId('child-board-options-cap')).toHaveTextContent('Showing 2 of 240 boards, by name.')
+    expect(screen.getByRole('button', { name: 'Add to Ops' })).toBeInTheDocument()
+  })
+
+  it('shows no cap line for a complete list or an older server (#2449)', async () => {
+    setup({ ...BASE, boards_total: 2 })
+    await screen.findByLabelText('Child board')
+    expect(screen.queryByTestId('child-board-options-cap')).toBeNull()
+  })
+
   it('a failed options read says so', async () => {
     vi.mocked(getChildBoardOptions).mockRejectedValue(new Error('x'))
     render(<AddChildDialog boardId={1} boardName="Pipeline" cardId={5} onClose={vi.fn()} onAdded={vi.fn()} />)

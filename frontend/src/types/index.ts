@@ -2792,3 +2792,11 @@ export interface ChildBoardOptions {
   /** `"parent_archived"` when this card is archived: Add child refuses it (#2447, since 1.3). */
   disabled_reason?: "parent_archived" | null;
 }
+
+/** `GET /boards/{id}/default-child-board-options/` (#2208): the Rules page's default child board select. */
+export interface DefaultChildBoardOptions {
+  /** At most 100, by name; always includes the board's current default when it qualifies (#2449). */
+  boards: { id: number; name: string }[];
+  /** How many boards qualify in all (#2449, since 1.3); absent from older servers. */
+  boards_total?: number;
+}

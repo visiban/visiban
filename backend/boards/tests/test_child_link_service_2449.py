@@ -205,6 +205,19 @@ class OptionsListCapTests(AddChildFixture):
         self.assertEqual(len(out["boards"]), 2)
         self.assertEqual(out["boards_total"], 4)
         self.assertEqual(out["default"], {"id": last.pk, "name": "Zeta"})
+        # The default is IN the page, in the last slot, so the chooser can preselect it.
+        self.assertEqual(out["boards"][-1]["id"], last.pk)
+        names = [b["name"] for b in out["boards"]]
+        self.assertEqual(names, sorted(names, key=str.lower))
+
+    def test_a_default_inside_the_page_leaves_it_unchanged(self):
+        first_page = card_links.child_board_options_for_viewer(self.parent_card, self.admin)["boards"][:2]
+        type(self.parent).objects.filter(pk=self.parent.pk).update(default_child_board=first_page[0]["id"])
+        self.parent_card.refresh_from_db()
+        self.parent_card.board.refresh_from_db()
+        with patch.object(card_links, "CHILD_BOARD_OPTIONS_LIMIT", 2):
+            out = card_links.child_board_options_for_viewer(self.parent_card, self.admin)
+        self.assertEqual(out["boards"], first_page)
 
     def test_default_child_board_options_are_capped(self):
         with patch.object(card_links, "CHILD_BOARD_OPTIONS_LIMIT", 2):
@@ -213,6 +226,18 @@ class OptionsListCapTests(AddChildFixture):
             ).json()
         self.assertEqual(len(out["boards"]), 2)
         self.assertEqual(out["boards_total"], 3)
+
+    def test_default_child_board_options_keep_the_current_default(self):
+        last = make_board(self.admin, "Zeta")
+        BoardMembership.objects.create(board=last, user=self.admin, role=Role.ADMIN)
+        type(self.parent).objects.filter(pk=self.parent.pk).update(default_child_board=last)
+        with patch.object(card_links, "CHILD_BOARD_OPTIONS_LIMIT", 2):
+            out = client_for(self.admin).get(
+                f"/api/v1/boards/{self.parent.pk}/default-child-board-options/",
+            ).json()
+        self.assertEqual(out["boards_total"], 4)
+        self.assertEqual(len(out["boards"]), 2)
+        self.assertEqual(out["boards"][-1], {"id": last.pk, "name": "Zeta"})
 
     def test_no_viewer_gets_an_empty_total(self):
         out = card_links.child_board_options_for_viewer(self.parent_card, None)
