@@ -113,6 +113,16 @@ describe('BoardSwitcher (#2473)', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/boards/3')
   })
 
+  it('opens the hovered/active option with Enter or Space when the option itself has the key event (#2526)', () => {
+    renderSwitcher()
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
+    const opt = screen.getByRole('option', { name: /Beta/ })
+    fireEvent.keyDown(opt, { key: 'a' })
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('/boards/2')
+    fireEvent.keyDown(opt, { key: ' ' })
+    expect(screen.getByTestId('loc')).toHaveTextContent('/boards/2')
+  })
+
   it('renders the panel outside the h1', () => {
     renderSwitcher()
     fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))

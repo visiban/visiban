@@ -954,7 +954,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         const shown = new Set(boardRef.current?.cards.map((c) => c.id));
         const wanted = [...new Set(ids.filter((id): id is number => typeof id === "number" && shown.has(id)))];
         if (wanted.length > PARENT_REFETCH_MAX_CARDS) silentReload();
-        else wanted.forEach(refetchChildrenRollup);
+        else wanted.forEach((id) => refetchChildrenRollup(id));
         if (open != null && wanted.includes(open)) setChildrenRefreshTick((t) => t + 1);
       }
     } else if (event.event === "card.deleted") {

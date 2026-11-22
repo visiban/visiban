@@ -124,12 +124,20 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const reasons = checked ? turnOffReasons : turnOnReasons;
   const blocked = reasons.length > 0;
 
+  // The parent resolves with the failure (shown through `error`) rather than rejecting, so a rejection is
+  // unexpected; swallow it here so it never becomes an unhandled rejection.
+  const save = (patch: Record<string, unknown>) => {
+    void Promise.resolve()
+      .then(() => onUpdate(patch))
+      .catch(() => undefined);
+  };
+
   const activate = () => {
     if (blocked) {
       reasonsRef.current?.focus();
       return;
     }
-    onUpdate({ cards_can_have_children: !checked });
+    save({ cards_can_have_children: !checked });
   };
 
   const defaultInList = board.default_child_board != null && options.some((o) => o.id === board.default_child_board);
@@ -251,7 +259,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
             id={defaultId}
             ariaDescribedBy={capLine ? `${defaultHelpId} ${defaultCapId}` : defaultHelpId}
             value={board.default_child_board != null ? String(board.default_child_board) : "none"}
-            onChange={(v) => onUpdate({ default_child_board: v === "none" ? null : Number(v) })}
+            onChange={(v) => save({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}
           />
           {capLine && (

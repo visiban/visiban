@@ -148,6 +148,9 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
                         aria-selected={current}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => go(o.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(o.id); }
+                        }}
                         onMouseEnter={() => setActive(i)}
                         className={`flex items-center gap-2.5 min-h-9 max-sm:min-h-11 px-3 mx-1 rounded-md text-sm cursor-pointer ${
                           i === active ? "bg-surface-hover text-fg" : "text-fg-secondary"
