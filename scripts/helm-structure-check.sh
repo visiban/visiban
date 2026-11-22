@@ -2774,10 +2774,32 @@ selftest_run_case() {
     # section fail standalone (scripts/tests/helm-structure-check.test.sh).
     if ( RENDERED="$tmp/control.yaml"; render "$control" "$RENDERED"; FAILURES=0; run_all_checks > "$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
       RENDERED="$tmp/control.yaml"
+      # The sections are independent processes, so run them concurrently
+      # (#2522), at most selftest_jobs at a time (bash 3.2 has no `wait -n`,
+      # so launch a batch and `wait` for it). Each gets a private RUN_TMP and
+      # TMPDIR: the checks write fixed-name scratch files under RUN_TMP, which
+      # concurrent sections must not share. A section reports success only by
+      # writing its .status file, so one that dies (or is sabotaged) without a
+      # verdict is a failure. Results are collected in section order.
+      local secdir="$tmp/sec" sec_jobs sec_running=0
+      mkdir -p "$secdir"
+      sec_jobs="$(selftest_jobs)"
       for s in $(selftest_known_sections); do
-        if ! ( CHART_UNDER_TEST="$control"; FAILURES=0; [ "${SELF_TEST_STANDALONE_SABOTAGE:-}" != "$s" ] || exit 3; "check_$s" >>"$control_log" 2>&1; [ "$FAILURES" -eq 0 ] ); then
-          alone_failed="$alone_failed $s"
-        fi
+        (
+          RUN_TMP="$secdir/$s"; mkdir -p "$RUN_TMP"; TMPDIR="$RUN_TMP"
+          CHART_UNDER_TEST="$control"; FAILURES=0
+          [ "${SELF_TEST_STANDALONE_SABOTAGE:-}" != "$s" ] || exit 3
+          "check_$s" >"$secdir/$s.log" 2>&1
+          [ "$FAILURES" -eq 0 ] && echo pass >"$secdir/$s.status"
+          exit 0
+        ) &
+        sec_running=$((sec_running + 1))
+        if [ "$sec_running" -ge "$sec_jobs" ]; then wait; sec_running=0; fi
+      done
+      wait
+      for s in $(selftest_known_sections); do
+        [ ! -f "$secdir/$s.log" ] || cat "$secdir/$s.log" >>"$control_log"
+        [ "$(cat "$secdir/$s.status" 2>/dev/null)" = "pass" ] || alone_failed="$alone_failed $s"
       done
     else
       alone_failed="(whole check)"
