@@ -796,6 +796,7 @@ lint-selftests-python:
         - scripts/_paths.py
         - backend/**/*.py
         - scripts/fuzz_baseline_unobserved.py
+        - scripts/fuzz_partitions.py
         - scripts/wait-for-main-pipeline.py
         - scripts/nightly_load_test.py
         - scripts/check_email_login_plan.py
@@ -815,6 +816,13 @@ lint-selftests-python:
 
       m_fuzz_baseline() {
         python3 scripts/fuzz_baseline_unobserved.py --self-test
+        # The shard partitions (#2521): the shard jobs' own `changes:` omit
+        # .gitlab-ci.yml, so a CI-only MR that drops or renames a FUZZ_SHARD entry is
+        # caught here, with no live schema. PyYAML for the matrix parse.
+        sh scripts/ensure-pip.sh  # what `!reference [.pip-floor, script]` expands to
+        pip install --quiet PyYAML==6.0.3
+        python3 scripts/fuzz_partitions.py --self-test
+        python3 scripts/fuzz_partitions.py check-matrix --ci-file .gitlab-ci.yml
       }
 
       m_release_guard() {
@@ -1506,7 +1514,7 @@ backend-schema-validate:
 # nothing downstream `needs:` this job — it only gates pipeline greenness —
 # and `changes:` already re-fires on main push pipelines whenever a merge
 # actually touches these paths, so a docs-only merge no longer pays for a
-# full server boot + seed + up to 600s of fuzzing it cannot affect.
+# full server boot + seed + up to 300s of fuzzing per shard it cannot affect.
 #
 # Never on a scheduled pipeline (#1383). `changes:` evaluates true on a
 # schedule, so this job used to run incidentally on every schedule at the MR
@@ -1833,7 +1841,9 @@ backend-schema-validate:
 #   * Budget: FUZZ_MAX_TIME per shard is the single knob. 3 x 300 s = 900 s of
 #     total search against 600 s before, for a wall clock near 300 s plus boot.
 #   * Coverage: before fuzzing, every shard runs `fuzz_partitions.py check`
-#     against the schema it is about to fuzz. It fails if any path matches no
+#     against the schema it is about to fuzz (the matrix half of it also runs
+#     schema-free, with the partition --self-test, in
+#     fuzz-baseline-unobserved-selftest, so a CI-file-only MR is covered). It fails if any path matches no
 #     partition or more than one, if a partition selects nothing, or if this
 #     matrix does not list exactly the partitions, so a gap or a double-fuzzed
 #     operation can never pass green (#1075).
@@ -2064,8 +2074,8 @@ clients-contract:
 #
 # The deliberate, large-budget run of backend-schema-fuzz: same boot, seed,
 # token, checks and shared backend/schemathesis-baseline.json (everything is
-# inherited via `extends:`), with 10x the per-operation example budget and 4x
-# the wall-clock cap. Before #1383 the only scheduled fuzzing was the MR job
+# inherited via `extends:`), with 10x the per-operation example budget and a
+# 2400 s wall-clock cap (8x a shard's 300 s). Before #1383 the only scheduled fuzzing was the MR job
 # running incidentally at the MR budget; that job now never runs on a schedule.
 #
 # Schedule-only, on the consolidated Nightly schedule (FUZZ_DEEP=true). A fresh
@@ -2083,8 +2093,8 @@ clients-contract:
 #
 # Budget: --max-time 2400s inside a 55m job timeout leaves ~15 minutes for pip
 # install, migrate, seed and server boot (the MR job's boot is ~45s). The MR
-# job already exhausts its 600s cap at --max-examples 10, so --max-time is the
-# binding limit here too; raise it before raising --max-examples.
+# job's shards each exhaust their 300s cap at --max-examples 10, so --max-time is
+# the binding limit here too; raise it before raising --max-examples.
 backend-schema-fuzz-deep:
   interruptible: false  # scheduled-only deep fuzz; a merge must not cancel it (#2421)
   retry: 0  # files an issue in after_script; a retry would file it twice

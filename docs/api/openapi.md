@@ -83,8 +83,8 @@ describes, checking `response_schema_conformance`, `status_code_conformance`, an
 `content_type_conformance`.
 
 Runs on any MR or `main`-branch push that touches `backend/**/views/**`, `**/serializers.py`,
-`**/urls.py`, `backend/visiban/settings.py`, `backend/visiban/schema_hooks.py`, or
-`backend/schemathesis_hooks.py` — no unconditional fallback on `main`, since nothing downstream depends on
+`**/urls.py`, `backend/visiban/settings.py`, `backend/visiban/schema_hooks.py`,
+`backend/schemathesis_hooks.py`, or `scripts/fuzz_partitions.py` — no unconditional fallback on `main`, since nothing downstream depends on
 this job (#1266). It never runs on a scheduled pipeline.
 
 The job sets `VISIBAN_DISABLE_THROTTLING=True` (#1569). Without it, a ~20k-request run from one
@@ -110,8 +110,10 @@ only the paths its partition's regex selects (`--include-path-regex`):
 The partitions live in `scripts/fuzz_partitions.py`. Before fuzzing, every shard runs its
 `check` against the schema it is about to fuzz. The check fails the job if a path matches no
 partition or more than one, if a partition selects no operation, or if the job's matrix does
-not list exactly the partitions. So an operation can never go unfuzzed, or be fuzzed twice,
-without the job turning red. Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
+not list exactly the partitions. The matrix half of that check also runs, with the partition self-test, in the
+`fuzz-baseline-unobserved-selftest` job, which fires on a CI-file-only change that the shard
+jobs skip. So an operation can never go unfuzzed, or be fuzzed twice,
+without a job turning red. Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
 900 seconds against 600 before, and the wall clock drops to about 300 seconds plus boot.
 `FUZZ_MAX_TIME` is the one knob for retuning the budget. To change the partitions, edit
 `PARTITIONS` in the script and the matrix's `FUZZ_SHARD` list together; the check fails until

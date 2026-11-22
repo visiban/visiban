@@ -19,7 +19,10 @@ it never passes) when:
   * the schema has no operations at all;
   * the CI file's `backend-schema-fuzz` matrix does not list exactly the
     partition names (a shard dropped from the matrix is a gap the schema check
-    alone cannot see).
+    alone cannot see). That matrix check runs in two places: in every shard
+    (`check --ci-file`, next to the schema check) and, schema-free, in the
+    `fuzz-baseline-unobserved-selftest` job (`check-matrix` plus `--self-test`),
+    which also fires on a CI-file-only MR that the shard jobs' `changes:` skip.
 
 Partitions are by PATH because that is what `--include-path-regex` filters on
 (schemathesis `re.search`es the operation's path template, e.g.
@@ -34,6 +37,7 @@ Usage:
   fuzz_partitions.py regex SHARD
   fuzz_partitions.py check (--schema FILE | --schema-url URL --token-file F)
                            [--ci-file .gitlab-ci.yml] [--job backend-schema-fuzz]
+  fuzz_partitions.py check-matrix --ci-file .gitlab-ci.yml [--job backend-schema-fuzz]
   fuzz_partitions.py baseline SHARD IN_BASELINE OUT_BASELINE
   fuzz_partitions.py --self-test
 
@@ -209,6 +213,9 @@ def main(argv: list[str]) -> int:
     p_check.add_argument("--token-file")
     p_check.add_argument("--ci-file")
     p_check.add_argument("--job", default=DEFAULT_JOB)
+    p_matrix = sub.add_parser("check-matrix")
+    p_matrix.add_argument("--ci-file", required=True)
+    p_matrix.add_argument("--job", default=DEFAULT_JOB)
     p_base = sub.add_parser("baseline")
     p_base.add_argument("shard")
     p_base.add_argument("src")
@@ -223,6 +230,11 @@ def main(argv: list[str]) -> int:
                 with open(resolve_within(cli_roots(), args.ci_file), encoding="utf-8") as f:
                     check_matrix(matrix_shards(f.read(), args.job))
                 print("fuzz-partitions: %s matrix lists every partition exactly once" % args.job)
+        elif args.cmd == "check-matrix":
+            # Schema-free: only the CI matrix vs PARTITIONS, so a CI-only MR is covered.
+            with open(resolve_within(cli_roots(), args.ci_file), encoding="utf-8") as f:
+                check_matrix(matrix_shards(f.read(), args.job))
+            print("fuzz-partitions: %s matrix lists every partition exactly once" % args.job)
         else:
             regex = shard_regex(args.shard)
             with open(resolve_within(cli_roots(), args.src), encoding="utf-8") as f:
@@ -300,9 +312,29 @@ def _self_test() -> int:
     _expect_error(lambda: matrix_shards("backend-schema-fuzz:\n  parallel:\n    matrix:\n      - X: [a]\n"),
                   "sets no FUZZ_SHARD")
 
-    _expect_error(lambda: shard_regex("nope"), "unknown shard 'nope'")
+    # check-matrix (schema-free) CLI: ok, dropped shard, absent/empty matrix, missing file.
     import contextlib
     import io
+    import os
+    import tempfile
+
+    def run_matrix(ci_text):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "ci.yml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(ci_text)
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as e:
+                return main(["check-matrix", "--ci-file", path]), e.getvalue()
+
+    assert run_matrix(ok_ci)[0] == 0
+    code, err = run_matrix(ok_ci.replace(names[-1], names[0]))
+    assert code == 1 and "0 times" in err, (code, err)
+    code, err = run_matrix("backend-schema-fuzz:\n  parallel:\n    matrix: []\n")
+    assert code == 1 and "not sharded" in err, (code, err)
+    code, err = run_matrix("")
+    assert code == 1 and "no 'backend-schema-fuzz' job" in err, (code, err)
+
+    _expect_error(lambda: shard_regex("nope"), "unknown shard 'nope'")
 
     with contextlib.redirect_stderr(io.StringIO()) as err:
         assert main(["regex", "nope"]) == 1
