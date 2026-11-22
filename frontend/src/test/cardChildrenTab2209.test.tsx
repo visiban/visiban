@@ -621,7 +621,7 @@ describe('a WIP limit of 0 is a real limit for the Move picker (#2209, as on the
     expect(screen.queryByText(/· limit/)).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
     const group = screen.getByRole('radiogroup', { name: 'Column on Delivery' })
-    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeDisabled()
+    expect(within(group).getByRole('radio', { name: /^Doing/ })).toBeDisabled()
     expect(within(group).getByText('At its limit of 0')).toBeInTheDocument()
   })
 
