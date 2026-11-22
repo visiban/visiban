@@ -1,4 +1,4 @@
-import type { EffectiveBoardMember, Swimlane } from "../types";
+import type { EffectiveBoardMember, Swimlane, SwimlaneDefaultTeamAccess } from "../types";
 
 /**
  * Board members a lane team may hold: listed members who are not viewers.
@@ -76,3 +76,12 @@ export const laneCaption = (laneName: string) =>
 /** The Add child caption (#2211): the parent's lane decides; the child board's own lanes are not consulted. */
 export const childCaption = (laneName: string, parentBoardName: string, childBoardName: string) =>
   `From the ${laneName} default team on ${parentBoardName}, the lane the parent is in. ${childBoardName}'s own lanes are not consulted.`;
+
+/** The warning on a member who can't be assigned on a child board this lane feeds (#2211). */
+export function noAccessText(entry: SwimlaneDefaultTeamAccess["members"][number]): string {
+  const names = entry.boards.map((b) => b.name);
+  if (entry.hidden_count > 0) {
+    names.push(`${entry.hidden_count} ${entry.hidden_count === 1 ? "board" : "boards"} you can't open`);
+  }
+  return `No access to ${names.join(", ")}: skipped on new children`;
+}

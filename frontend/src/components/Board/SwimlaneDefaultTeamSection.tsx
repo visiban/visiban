@@ -2,22 +2,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { EffectiveBoardMember, SwimlaneDefaultTeamAccess } from "../../types";
 import Avatar from "../Common/Avatar";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
-import { assignableMembers } from "../../utils/swimlaneDefaultTeam";
+import { assignableMembers, noAccessText } from "../../utils/swimlaneDefaultTeam";
 
 /** Shown in Edit swimlane and checked by tests; one text on desktop and phone (#2211). */
 export const DEFAULT_TEAM_HELP =
   "Pre-assigned to new cards and new children created in this lane. Existing cards don't change. " +
   "A person who can't open a child board used by this lane's parents is skipped when a child is " +
   "created there; remove them or give them access to clear this warning.";
-
-/** The warning on a member who can't be assigned on a child board this lane feeds (#2211). */
-export function noAccessText(entry: SwimlaneDefaultTeamAccess["members"][number]): string {
-  const names = entry.boards.map((b) => b.name);
-  if (entry.hidden_count > 0) {
-    names.push(`${entry.hidden_count} ${entry.hidden_count === 1 ? "board" : "boards"} you can't open`);
-  }
-  return `No access to ${names.join(", ")}: skipped on new children`;
-}
 
 interface Props {
   members: EffectiveBoardMember[];

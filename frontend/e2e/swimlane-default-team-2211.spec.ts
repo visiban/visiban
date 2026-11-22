@@ -71,12 +71,20 @@ async function open(page: Page, theme: 'light' | 'dark') {
     await page.route(`**/api/v1/boards/${BOARD_TEAM.id}/cards/${CARD.id}/${p}/`, empty([]))
   }
   await page.route(`**/api/v1/boards/${BOARD_TEAM.id}/cards/${CARD.id}/timeline/**`, empty({ count: 0, next: null, previous: null, results: [] }))
+  // Add child lives on the parent's Children tab (#2209); a parent with no children yet.
+  await page.route(new RegExp(`/api/v1/boards/${BOARD_TEAM.id}/cards/${CARD.id}/children/(\\?.*)?$`), empty({ count: 0, visible: true, offset: 0, limit: 50, results: [] }))
   await page.goto(`/boards/${BOARD_TEAM.id}`)
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
 }
 
 const TEXT = 4.5
 const NON_TEXT = 3
+
+/** Open the card's Children tab and its Add child dialog (Add child moved there in #2209). */
+async function openAddChild(page: Page) {
+  await page.getByRole('tab', { name: 'Children' }).click()
+  await page.getByTestId('card-children-tab').getByRole('button', { name: /^Add child/ }).click()
+}
 
 async function checkAssignees(group: Locator) {
   await expect(group).toContainText('Mia Reyes')
@@ -143,7 +151,7 @@ for (const theme of ['light', 'dark'] as const) {
     test('Add child shows the parent lane team and the Parent line', async ({ page }) => {
       await open(page, theme)
       await page.getByText(CARD.title).first().click()
-      await page.getByRole('button', { name: 'Add child', exact: true }).click()
+      await openAddChild(page)
       const dialog = page.getByRole('dialog', { name: 'Add child' })
       await expect(dialog).toContainText(`Parent: ${CARD.title} · To Do`)
       const group = dialog.getByRole('group', { name: 'Assignees' })
@@ -189,7 +197,7 @@ for (const theme of ['light', 'dark'] as const) {
       await open(page, theme)
       await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
       await page.locator(`[data-card-id="${CARD.id}"]`).first().click()
-      await page.getByRole('button', { name: 'Add child', exact: true }).click()
+      await openAddChild(page)
       const sheet = page.getByRole('dialog', { name: 'Add child' })
       await checkAssignees(sheet.getByRole('group', { name: 'Assignees' }))
       const add = sheet.getByRole('button', { name: 'Add to Delivery' })
