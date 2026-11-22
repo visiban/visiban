@@ -551,3 +551,25 @@ class DeletedCardHistoryTests(_ImportCase):
         kept = CardActivity.objects.filter(card__board=board, from_value="k")
         self.assertEqual(kept.count(), 1)
         self.assertFalse(CardActivity.objects.filter(card__board=board, event_type="bogus").exists())
+
+
+class SchemaVersionAndPriorityTests(_ImportCase):
+    def test_schema_version_must_be_an_integer(self):
+        for bad in ("2", 1.0, True, None):
+            self.bad(_payload(schema_version=bad), "'schema_version' must be an integer.")
+
+    def test_priority_is_restored_and_invalid_falls_back_to_medium(self):
+        cards = [
+            {"title": f"P{i}", "column": "Todo", "swimlane": "Lane", "priority": p}
+            for i, p in enumerate(("high", "low", "urgent!", ["high"]))
+        ]
+        _, board = self.ok(_payload(cards=cards))
+        got = dict(Card.objects.filter(board=board).values_list("title", "priority"))
+        self.assertEqual(got, {"P0": "high", "P1": "low", "P2": "medium", "P3": "medium"})
+
+    def test_auto_checklist_activity_carries_the_card_snapshot(self):
+        card = {"title": "Snap", "column": "Todo", "swimlane": "Lane", "checklist": [{"text": "t"}]}
+        _, board = self.ok(_payload(cards=[card]))
+        restored = Card.objects.get(board=board)
+        act = CardActivity.objects.get(card=restored, event_type="checklist_item_added")
+        self.assertEqual((act.board_id, act.card_uid, act.card_title), (board.pk, restored.uid, "Snap"))
