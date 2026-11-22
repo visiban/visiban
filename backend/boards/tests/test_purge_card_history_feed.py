@@ -930,7 +930,8 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     # webhook, so no history row holds it and there is nothing for a purge to redact.
     # Adding it to a persisted payload would need a redaction rule first.
     # #2210: ``children_rollup`` is opt-in the same way and holds only counts.
-    CARD_NEVER_PERSISTED = {"parent", "children_rollup"}
+    # #2211: ``notify_assignee`` is write-only (create request flag), never rendered.
+    CARD_NEVER_PERSISTED = {"parent", "children_rollup", "notify_assignee"}
 
     def test_card_fields(self):
         self.assertEqual(
