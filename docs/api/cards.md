@@ -1313,7 +1313,7 @@ board or id (an accepted count-only disclosure, #1104).
 `GET .../cards/{id}/`, on cards of a parent-tier board only. It is **absent**
 from every other board's cards, `archived/`, the cross-board `GET /api/v1/cards/`,
 write responses, every event payload, change-feed row and webhook, and share
-links. Refetch the card on `card.children_changed`, and carry the last value
+links. Refetch the card on `card.children_changed` or `card.children_bulk_changed` (#2500), and carry the last value
 over when a frame replaces the card, as for `parent`.
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/parent-candidates/?board=&search=`
@@ -1388,8 +1388,9 @@ values blank). Neither stores the deleted board's name, so every reader sees
 parent's board and `card.parent_changed {card_ids}` on the child's board, both
 ids only. `card.parent_changed` is also sent when a parent is renamed, moved to
 another column or lane, archived or restored, or when its board, column or lane
-is renamed (#2416, one frame per child board; a rename made in the Django admin sends no frame, so those names refresh on the next read). `card.children_changed` is also
-sent when a child changes a rollup state (#2210). See [WebSockets](websockets.md).
+is renamed (#2416, one frame per child board; since #2500 a Django-admin rename sends it too). `card.children_changed` is also
+sent when a child changes a rollup state (#2210), and `card.children_bulk_changed {parent_ids}` (#2500) when a child-board column's
+`is_done` is toggled or the first column changes (REST column update and reorder, and the Django admin alike), one frame per parent board, and only when a live linked child is affected. See [WebSockets](websockets.md).
 
 ---
 

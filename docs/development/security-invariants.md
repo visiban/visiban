@@ -422,9 +422,10 @@ each surface that delivers them:
   recorded beside them, are not filtered further, and rows recorded before 1.3
   keep the actor they were written with until pruned; tracked in #2091 with no
   code change, to be re-decided or closed by that date;
-- the cross-board link events `card.children_changed` (parent's board) and
+- the cross-board link events `card.children_changed` and, since #2500,
+  `card.children_bulk_changed` (parent's board) and
   `card.parent_changed` (child's board) (#1104) carry ids only (`parent_id`,
-  `card_ids`, and `reload` for a large container rename, #2416), so there is
+  `parent_ids`, `card_ids`, and `reload` above the cap, #2416, #2500), so there is
   nothing in them to filter per recipient, and the child's own card events are
   never fanned out to the parent's board. Every other detail of the other board
   is read over REST, through `boards/services/card_links.py`
@@ -443,15 +444,20 @@ each surface that delivers them:
   parent-board reader learns when a parent's children changed (since #2210,
   including when a child moved between columns, was archived or restored, was
   blocked or unblocked, or gained or lost an open `blocks` relation, among
-  them by its blocker being archived, restored or deleted) and a
+  them by its blocker being archived, restored or deleted; since #2500, also
+  when a Django-admin card edit changes a child's column or archived state,
+  from `CardAdmin.save_model`, and, as one bounded `card.children_bulk_changed`
+  per parent board from `card_links.announce_columns_children_changed`, when a
+  child-board column's `is_done` is toggled or the first column changes or is deleted, from
+  the REST column update, reorder and delete and the Django-admin `ColumnAdmin` save and delete) and a
   child-board reader learns when a card's parent link changed, or when its
   parent was renamed, moved between columns or lanes, archived or restored
   (`card.parent_changed` is also sent for those parent writes, from
   `card_links.announce_parent_changed` in `update_card`, the move, `archive_card`,
   `unarchive_card` and `CardAdmin.save_model`, and once per child board for a
-  REST board, column or lane rename, `announce_parent_container_renamed`, #2416;
-  a Django-admin container rename still sends nothing, so those names stay
-  stale until the next read). The child's own `parent` field (REST only) is resolved by
+  board, column or lane rename, `announce_parent_container_renamed`, #2416,
+  from the REST updates and, since #2500, the Django-admin `BoardAdmin`,
+  `ColumnAdmin` and `SwimlaneAdmin` saves alike). The child's own `parent` field (REST only) is resolved by
   `card_links.parents_for_viewer`, per request, and is `{"hidden": true}` with
   no other key when the reader has no role on the parent's board; it is omitted
   from every frame, feed row and webhook (`CardParentField` raises `SkipField`

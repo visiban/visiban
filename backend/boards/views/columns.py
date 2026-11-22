@@ -20,7 +20,9 @@ from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Card, Column
 from ..permissions import SITE_ADMIN
 from ..serializers import ColumnSerializer
-from ..services.card_links import announce_cards_removal
+from ..services.card_links import (
+    announce_cards_removal, announce_column_rollup_changed, column_rollup_state,
+)
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
     lock_board_row_or_404, lock_container_cascade, publish_blocked_peers,
@@ -145,7 +147,16 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 # a reorder would write the old position back.
                 serializer.instance.refresh_from_db()
                 old_name = serializer.instance.name
+                # is_done buckets a child in its parent's rollup (#2500), so
+                # snapshot only when the body writes it; a rename or color edit
+                # costs nothing extra. (Position is rejected here: reorder.)
+                rollup_before = (
+                    column_rollup_state(board) if "is_done" in serializer.validated_data else None
+                )
                 column = serializer.save()
+                # One bounded, ids-only ping per parent board, on commit, and
+                # only when a child's bucket actually changed (#2500).
+                announce_column_rollup_changed(board, rollup_before, actor_id=self.request.user.id)
                 # A parent's column name shows on each child (#2416): one
                 # coalesced, ids-only ping per child board, on commit.
                 if column.name != old_name:
@@ -195,7 +206,12 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # Parent/child links CASCADE too (#1104): record the unlink on each
             # surviving peer and ping its board, while the link rows still exist.
             announce_cards_removal(Card.objects.filter(column_id=instance.pk), actor=self.request.user)
+            # Deleting the first column promotes the next one, and its live
+            # children re-bucket into "to do" with no card write to ping on
+            # (#2500). Snapshot under the locks, diff after the delete.
+            rollup_before = column_rollup_state(board)
             instance.delete()
+            announce_column_rollup_changed(board, rollup_before, actor_id=self.request.user.id)
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
             publish_blocked_peers(peers, self.request, boards=[board])
 
@@ -367,6 +383,9 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # serialization #1302 needs is unchanged.
             lock_board_row_or_404(board, no_key=True)
             existing_ids = set(Column.objects.filter(board=board).values_list("id", flat=True))
+            # A reorder can change which column is first, the "to do" bucket
+            # of a child's parent rollup (#2500): snapshot under the lock.
+            rollup_before = column_rollup_state(board)
             order_ints = validate_full_reorder_order(
                 order, existing_ids, item_label="column", scope_label="this board",
             )
@@ -413,4 +432,5 @@ class ColumnViewSet(viewsets.ModelViewSet):
                 board_id, _broadcast.EVT_COLUMN_REORDERED, {"columns": list(cols_data)},
                 actor_id=request.user.id,
             )
+            announce_column_rollup_changed(board, rollup_before, actor_id=request.user.id)
         return Response(cols_data)

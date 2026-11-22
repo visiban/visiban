@@ -876,6 +876,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // server resolves what this viewer may see. Nothing from the frame is shown.
         if (selectedCardIdRef.current === parentId) setChildrenRefreshTick((t) => t + 1);
       }
+    } else if (event.event === "card.children_bulk_changed") {
+      // A child-board column change (#2500): this board's parent ids, or `reload` above the cap.
+      // Only ids shown here are read, each once, and above the same cap as the ids-list
+      // `card.parent_changed` the board reloads instead of reading card by card.
+      const ids = (d as { parent_ids?: unknown }).parent_ids;
+      const open = selectedCardIdRef.current;
+      if ((d as { reload?: unknown }).reload === true) {
+        silentReload();
+        // The open card's Children tab shows each child's column `is_done`; it re-reads over REST.
+        if (open != null) setChildrenRefreshTick((t) => t + 1);
+      } else if (Array.isArray(ids)) {
+        const shown = new Set(boardRef.current?.cards.map((c) => c.id));
+        const wanted = [...new Set(ids.filter((id): id is number => typeof id === "number" && shown.has(id)))];
+        if (wanted.length > PARENT_REFETCH_MAX_CARDS) silentReload();
+        else wanted.forEach(refetchChildrenRollup);
+        if (open != null && wanted.includes(open)) setChildrenRefreshTick((t) => t + 1);
+      }
     } else if (event.event === "card.deleted") {
       evictCardByUid((d as { card_uid: string }).card_uid);
     } else if (event.event === "card.archived") {
@@ -1179,7 +1196,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // open card, so CardDetail can refetch its comments/checklist/attachments
   // without the whole panel remounting (#1310).
   const [cardDetailRefreshTick, setCardDetailRefreshTick] = useState(0);
-  // Bumped by a `card.children_changed` ping for the open card, so only its Children tab re-reads (#2209).
+  // Bumped by a `card.children_changed` or `card.children_bulk_changed` (#2500) ping for the open card, so only its Children tab re-reads (#2209).
   const [childrenRefreshTick, setChildrenRefreshTick] = useState(0);
   // Mirrors selectedCard's id into a ref so handleSocketEvent (defined above,
   // before selectedCard exists) can consult it without joining the callback's

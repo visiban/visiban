@@ -3697,7 +3697,7 @@ CARD_CHILDREN_ROLLUP_CONTEXT_KEY = "card_children_rollups"
         "open the child board: then only `total` is sent. States partition `total`: "
         "blocked overrides the column, then done (`is_done` column), to do (first "
         "column), else doing. Archived children are not counted. Refetch on "
-        "`card.children_changed`."
+        "`card.children_changed` or `card.children_bulk_changed` (#2500)."
     ),
     "oneOf": [
         {
