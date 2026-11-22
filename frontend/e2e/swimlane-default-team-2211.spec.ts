@@ -114,7 +114,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page.getByRole('button', { name: 'Actions for swimlane "Acme Corp"' }).click()
       await page.getByRole('menuitem', { name: /Edit swimlane/ }).click()
       const dialog = page.getByRole('dialog', { name: 'Edit Swimlane' })
-      const team = dialog.getByRole('group', { name: 'Default team' })
+      const team = dialog.getByRole('group', { name: 'Default team members' })
       const dan = team.getByRole('listitem').filter({ hasText: 'Dan Kovacs' })
       const kim = team.getByRole('listitem').filter({ hasText: 'Kim Lee' })
       await expect(dan).toContainText('No access to Delivery: skipped on new children')
@@ -171,12 +171,33 @@ for (const theme of ['light', 'dark'] as const) {
         const box = await sheet.getByRole('button', { name, exact: true }).boundingBox()
         expect(box!.height, name).toBeGreaterThanOrEqual(44)
       }
-      const dan = sheet.getByRole('group', { name: 'Default team' }).getByRole('listitem').filter({ hasText: 'Dan Kovacs' })
+      const dan = sheet.getByRole('group', { name: 'Default team members' }).getByRole('listitem').filter({ hasText: 'Dan Kovacs' })
       await expect(dan).toContainText('No access to Delivery: skipped on new children')
       expect(await contrast(dan.locator('.text-warning'))).toBeGreaterThanOrEqual(TEXT)
       expect(await contrast(dan, 'border')).toBeGreaterThanOrEqual(NON_TEXT)
       await back.click()
       await expect(sheet).toBeHidden()
+    })
+
+    test('Add child sheet keeps its footer reachable', async ({ page }) => {
+      await open(page, theme)
+      await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+      await page.locator(`[data-card-id="${CARD.id}"]`).first().click()
+      await page.getByRole('button', { name: 'Add child', exact: true }).click()
+      const sheet = page.getByRole('dialog', { name: 'Add child' })
+      await checkAssignees(sheet.getByRole('group', { name: 'Assignees' }))
+      const add = sheet.getByRole('button', { name: 'Add to Delivery' })
+      await expect(add).toBeInViewport()
+      // The footer is pinned to the sheet's bottom edge, not left mid-sheet.
+      const box = (await add.boundingBox())!
+      expect(844 - (box.y + box.height)).toBeLessThan(48)
+      // Keyboard open: a short viewport. The sheet never outgrows it, and its body scrolls to Add.
+      await page.setViewportSize({ width: 390, height: 420 })
+      await sheet.getByLabel('Title').focus()
+      const panel = (await sheet.boundingBox())!
+      expect(panel.height).toBeLessThanOrEqual(420)
+      await add.scrollIntoViewIfNeeded()
+      await expect(add).toBeInViewport()
     })
   })
 }

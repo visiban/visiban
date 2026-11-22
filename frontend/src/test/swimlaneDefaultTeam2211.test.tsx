@@ -51,7 +51,7 @@ describe('Swimlane default team (#2211)', () => {
 
   it('lists the team as rows with a count, a named Remove, and the help text', () => {
     renderModal(lane({ default_team: [MIA.user.id, DAN.user.id] }))
-    const group = screen.getByRole('group', { name: 'Default team' })
+    const group = screen.getByRole('group', { name: 'Default team members' })
     expect(within(group).getByText('Mia Reyes')).toBeInTheDocument()
     expect(within(group).getByRole('button', { name: 'Remove Dan Kovacs from default team' })).toBeInTheDocument()
     expect(screen.getByText('2 people')).toBeInTheDocument()
@@ -116,7 +116,7 @@ describe('Swimlane default team (#2211)', () => {
 
   it('hides the section when the board members are not passed', () => {
     renderModal(lane({ default_team: [MIA.user.id] }), null)
-    expect(screen.queryByRole('group', { name: 'Default team' })).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Default team members' })).toBeNull()
   })
 
   it('drops ids of people who left or became viewers', () => {
@@ -182,7 +182,7 @@ describe('Edit swimlane deactivated members and access warning (#2211)', () => {
     mockUpdate.mockResolvedValue(lane())
     const l = lane({ default_team: [10, 11], default_team_members: [{ id: 10, is_active: true }, { id: 11, is_active: false }] })
     renderModal(l)
-    const team = screen.getByRole('group', { name: 'Default team' })
+    const team = screen.getByRole('group', { name: 'Default team members' })
     expect(team).toHaveTextContent('Deactivated: remove to save the team')
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
@@ -224,7 +224,7 @@ describe('Edit swimlane deactivated members and access warning (#2211)', () => {
     vi.mocked(getSwimlaneDefaultTeamAccess).mockResolvedValueOnce({ members: [{ id: 11, boards: [{ id: 5, name: 'Delivery' }], hidden_count: 0 }] })
     renderModal(lane({ default_team: [10, 11] }))
     await screen.findByText('No access to Delivery: skipped on new children')
-    const group = screen.getByRole('group', { name: 'Default team' })
+    const group = screen.getByRole('group', { name: 'Default team members' })
     expect(group.tagName).toBe('DIV')
     expect(within(group).getByRole('list')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' }))
@@ -244,6 +244,32 @@ describe('Edit swimlane deactivated members and access warning (#2211)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Remove the deactivated people from the default team, then save.')
     await user.click(screen.getByRole('button', { name: 'Back to board' }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('adding the last candidate moves focus to the new row and announces it', async () => {
+    renderModal(lane({ default_team: [10] }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Add a member/ }))
+    await user.click(screen.getByText('Dan Kovacs'))
+    expect(screen.queryByRole('button', { name: /Add a member/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' })).toHaveFocus()
+    expect(screen.getByText('Added Dan Kovacs to default team.')).toBeInTheDocument()
+  })
+
+  it('a refused save puts focus on the first deactivated row', async () => {
+    renderModal(lane({ default_team: [10, 11], default_team_members: [{ id: 10, is_active: true }, { id: 11, is_active: false }] }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
+    await user.click(screen.getByRole('button', { name: /^Save/ }))
+    expect(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' })).toHaveFocus()
+  })
+
+  it('never pre-assigns someone removed from the board (no swimlane.updated is sent for it)', () => {
+    // The server drops a removed member from lane teams without a lane broadcast; the member
+    // list the client already holds loses them, and that is what decides who is sent.
+    const l = lane({ default_team: [10, 11] })
+    expect(laneDefaultAssignee(l, [DAN])?.assignee?.id).toBe(11)
+    expect(laneDefaultAssignee(l, [VIC])).toBeNull()
   })
 
   it('does not ask for access when the lane has no team', () => {

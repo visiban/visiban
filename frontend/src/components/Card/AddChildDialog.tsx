@@ -167,7 +167,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
         <p role="status" className="text-sm text-fg-muted">Loading…</p>
       ) : (
         <form
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-4 max-sm:flex-1"
           onSubmit={(e) => { e.preventDefault(); void submit(); }}
         >
           {fixedHidden ? (

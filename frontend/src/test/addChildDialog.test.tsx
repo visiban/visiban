@@ -248,6 +248,7 @@ describe('AddChildDialog lane default team (#2211)', () => {
     const { user } = setup(TEAM, { members })
     await user.click(await screen.findByRole('button', { name: 'Unassign Mia Reyes' }))
     const group = screen.getByRole('group', { name: 'Assignees' })
+    expect(group).toHaveAccessibleDescription(/^From the Acme Corp default team on Pipeline/)
     expect(group).toHaveTextContent('No one assigned.')
     expect(group).toHaveTextContent('From the Acme Corp default team on Pipeline')
     expect(screen.getByRole('status')).toHaveTextContent('Mia Reyes unassigned.')

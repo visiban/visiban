@@ -93,6 +93,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   const [countedError, setCountedError] = useState<string | null>(null);
   const limitsId = useId();
   const firstCountedRef = useRef<HTMLInputElement>(null);
+  const teamSectionRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { moreBelow, onScroll: onBodyScroll } = useOverflowFade(bodyRef, [columns.length, swimlaneFieldDefinitions?.length]);
   // Default team (#2211), seeded once; ids of people who left are dropped.
@@ -160,6 +161,8 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
     }
     if (team.join() !== initialTeam.join() && team.some((id) => inactiveIds.has(id))) {
       setSaveError("Remove the deactivated people from the default team, then save.");
+      // Put the user on the first deactivated row's Remove, as the counted-columns error does.
+      teamSectionRef.current?.querySelector<HTMLButtonElement>("button[data-inactive-remove]")?.focus();
       return;
     }
     if (invalidFieldIds.current.size > 0) {
@@ -460,7 +463,9 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           {members && (
             <>
               <div className="border-t border-line my-4" />
-              <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} inactiveIds={inactiveIds} access={teamAccess} />
+              <div ref={teamSectionRef}>
+                <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} inactiveIds={inactiveIds} access={teamAccess} />
+              </div>
             </>
           )}
 

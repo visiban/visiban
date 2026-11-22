@@ -150,7 +150,7 @@ export default function ModalWrapper({
             <h2 id={headingId} className="text-lg font-semibold text-fg">
               {title}
             </h2>
-            {subtitle && <p className="text-fg-tertiary text-sm mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-fg-tertiary text-sm mt-0.5 break-words">{subtitle}</p>}
           </div>
           {headerExtra && <div className="flex-1 min-w-0 mx-4">{headerExtra}</div>}
           {dismissable && (
@@ -168,7 +168,9 @@ export default function ModalWrapper({
 
         {/* Content */}
         {noPadding ? children : (
-          <div className="px-6 pb-6">
+          // A phone sheet's body scrolls and fills the sheet, so a form inside it can pin its
+          // footer (max-sm:mt-auto) and keep it reachable with the keyboard open (#2211).
+          <div className={phoneBack ? "px-6 pb-6 max-sm:flex-1 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:flex max-sm:flex-col" : "px-6 pb-6"}>
             {children}
           </div>
         )}

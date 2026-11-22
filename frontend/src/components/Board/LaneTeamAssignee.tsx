@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Avatar from "../Common/Avatar";
 import type { User } from "../../types";
 import { memberName } from "../../utils/swimlaneDefaultTeam";
@@ -40,6 +40,8 @@ export default function LaneTeamAssignee({
   const target = size === "md" ? "min-h-11 min-w-11" : "h-6 w-6";
   const name = memberName(assignee);
   const notAssigned = others.length > 0 ? ` Also on the team, not assigned: ${others.join(", ")}.` : "";
+  const labelId = useId();
+  const captionId = useId();
   const unassignRef = useRef<HTMLButtonElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
   const [announce, setAnnounce] = useState("");
@@ -53,8 +55,8 @@ export default function LaneTeamAssignee({
   }, [assigned]);
 
   return (
-    <div role="group" aria-label="Assignees" className="flex flex-col gap-1 mt-1.5">
-      <span className={`${text} text-fg-secondary`}>Assignees</span>
+    <div role="group" aria-labelledby={labelId} aria-describedby={captionId} className="flex flex-col gap-1 mt-1.5">
+      <span id={labelId} className={`${text} text-fg-secondary`}>Assignees</span>
       <div className="flex flex-wrap items-center gap-1">
         {assigned ? (
           <span className={`inline-flex items-center gap-1.5 pl-1 rounded-full border border-line bg-surface ${text} text-fg`}>
@@ -85,7 +87,7 @@ export default function LaneTeamAssignee({
           </>
         )}
       </div>
-      <p className="text-xs text-fg-muted">{caption}{notAssigned}</p>
+      <p id={captionId} className="text-xs text-fg-muted">{caption}{notAssigned}</p>
       <p role="status" aria-live="polite" className="sr-only">{announce}</p>
     </div>
   );

@@ -34,21 +34,22 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
   const headingId = useId();
   const warnPrefix = useId();
   // A Remove button removes its own row, so focus moves to the next row's Remove (else the
-  // previous, else the section) and a status line announces it; focus never drops to <body>.
+  // previous, else the section); adding the last candidate unmounts Add a member, so focus moves
+  // to the new row's Remove. A status line announces both; focus never drops to <body>.
   const removeRefs = useRef(new Map<number, HTMLButtonElement>());
   const sectionRef = useRef<HTMLElement>(null);
-  const focusAfterRemove = useRef<number | null | undefined>(undefined);
+  const focusAfter = useRef<number | null | undefined>(undefined);
   const [announce, setAnnounce] = useState("");
   useEffect(() => {
-    if (focusAfterRemove.current === undefined) return;
-    const target = focusAfterRemove.current;
-    focusAfterRemove.current = undefined;
+    if (focusAfter.current === undefined) return;
+    const target = focusAfter.current;
+    focusAfter.current = undefined;
     const next = target != null ? removeRefs.current.get(target) : undefined;
     (next ?? sectionRef.current)?.focus();
   }, [value]);
   const remove = (id: number, name: string) => {
     const i = value.indexOf(id);
-    focusAfterRemove.current = value[i + 1] ?? value[i - 1] ?? null;
+    focusAfter.current = value[i + 1] ?? value[i - 1] ?? null;
     setAnnounce(`Removed ${name} from default team.`);
     onChange(value.filter((v) => v !== id));
   };
@@ -64,43 +65,44 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
       </h3>
       {value.length > 0 && (
         // role="group" on a wrapper, never on the <ul>: it would replace the list's semantics.
-        <div role="group" aria-label="Default team">
-        <ul className="flex flex-col mb-2">
-          {value.map((id) => {
-            const user = byId.get(id);
-            if (!user) return null;
-            const name = user.display_name || user.username;
-            const inactive = inactiveIds?.has(id) ?? false;
-            const noAccess = accessById.get(id);
-            const warning = inactive ? "Deactivated: remove to save the team" : noAccess ? noAccessText(noAccess) : null;
-            const warningId = `${warnPrefix}-${id}`;
-            return (
-              <li
-                key={id}
-                className={`flex items-center gap-2 min-h-11 ${warning ? "border border-dashed border-warning rounded px-1.5 my-0.5" : ""}`}
-              >
-                {/* Full opacity even on a warning row: the canvas's 60% avatar measured 1.6-4.0:1
-                    initials and 1.8-2.5:1 disc (#2211 Playwright), below 4.5:1 and 3:1. The dashed
-                    border and the warning line carry the state. */}
-                <Avatar user={user} size="sm" />
-                <span className="flex-1 min-w-0 flex flex-col">
-                  <span className="truncate text-sm text-fg">{name}</span>
-                  {warning && <span id={warningId} className="text-xs text-warning">{warning}</span>}
-                </span>
-                <button
-                  type="button"
-                  ref={(el) => { if (el) removeRefs.current.set(id, el); else removeRefs.current.delete(id); }}
-                  aria-label={`Remove ${name} from default team`}
-                  aria-describedby={warning ? warningId : undefined}
-                  onClick={() => remove(id, name)}
-                  className="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        <div role="group" aria-label="Default team members">
+          <ul className="flex flex-col mb-2">
+            {value.map((id) => {
+              const user = byId.get(id);
+              if (!user) return null;
+              const name = user.display_name || user.username;
+              const inactive = inactiveIds?.has(id) ?? false;
+              const noAccess = accessById.get(id);
+              const warning = inactive ? "Deactivated: remove to save the team" : noAccess ? noAccessText(noAccess) : null;
+              const warningId = `${warnPrefix}-${id}`;
+              return (
+                <li
+                  key={id}
+                  className={`flex items-center gap-2 min-h-11 ${warning ? "border border-dashed border-warning rounded px-1.5 my-0.5" : ""}`}
                 >
-                  <span aria-hidden="true">×</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                  {/* Full opacity even on a warning row: the canvas's 60% avatar measured 1.6-4.0:1
+                      initials and 1.8-2.5:1 disc (#2211 Playwright), below 4.5:1 and 3:1. The dashed
+                      border and the warning line carry the state. */}
+                  <Avatar user={user} size="sm" />
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span className="truncate text-sm text-fg">{name}</span>
+                    {warning && <span id={warningId} className="text-xs text-warning">{warning}</span>}
+                  </span>
+                  <button
+                    type="button"
+                    ref={(el) => { if (el) removeRefs.current.set(id, el); else removeRefs.current.delete(id); }}
+                    aria-label={`Remove ${name} from default team`}
+                    aria-describedby={warning ? warningId : undefined}
+                    data-inactive-remove={inactive || undefined}
+                    onClick={() => remove(id, name)}
+                    className="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
       <p role="status" aria-live="polite" className="sr-only">{announce}</p>
@@ -109,7 +111,14 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
           label="Add a member"
           options={candidates.map((m) => ({ value: m.user.id, label: m.user.display_name || m.user.username }))}
           selected={null}
-          onChange={(id) => { if (id !== null) onChange([...value, id]); }}
+          onChange={(id) => {
+            if (id === null) return;
+            const added = byId.get(id);
+            // The last candidate empties (and unmounts) this dropdown: land on the new row instead.
+            if (candidates.length === 1) focusAfter.current = id;
+            if (added) setAnnounce(`Added ${added.display_name || added.username} to default team.`);
+            onChange([...value, id]);
+          }}
           // Inside ModalWrapper (priority 40): Escape closes the menu, not the form.
           escapePriority={45}
           // The modal body scrolls; a portaled menu is not clipped by it.
