@@ -6960,13 +6960,21 @@ one. The rules:</p>
 <td>That parent has 100 children</td>
 </tr>
 <tr>
+<td><code>parent_archived</code></td>
+<td>That parent is archived: restore it first (since 1.3, #2447). Checked after <code>link_exists</code>, so re-saving a link the card already has still answers <code>link_exists</code>, and archiving or restoring a parent never removes its existing links. One exception: a card that was linked to that parent and then unlinked may be linked back while it is archived, so an unlink can be undone. A card never linked to it is refused. Add child (<code>POST .../children/</code>) refuses an archived parent with the same code, always: its new card was never linked</td>
+</tr>
+<tr>
 <td><code>child_is_parent</code> / <code>parent_is_child</code></td>
 <td>Would make a third tier</td>
 </tr>
 </tbody>
 </table>
 <h3 id="delete-apiv1boardsboard_idcardsidparent"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/parent/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidparent" title="Permanent link">&para;</a></h3>
-<p>Remove this card's parent link. <code>204</code>, or <code>404</code> when it has none.</p>
+<p>Remove this card's parent link. <code>204</code>, or <code>404</code> when it has none. The server
+remembers the pair, so the card can be linked back to the same parent even
+while that parent is archived (see <code>parent_archived</code> above). The record has no
+API, export or event of its own; linking the pair again clears it, and
+deleting either card removes it.</p>
 <h3 id="get-apiv1boardsboard_idcardsidchildren"><code>GET /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p>This parent's children, computed for you. Any role on the parent's board.
 Query: <code>offset</code> (pages of 50).</p>
@@ -7009,8 +7017,9 @@ and weight limits apply as for any create. <code>201</code> returns the new card
   column does not allow card creation, and this card's own board all answer the
   same <code>404</code>.</li>
 <li><strong>Rules:</strong> the same <code>400</code> codes as linking (<code>link_not_allowed</code>,
-  <code>parent_is_child</code>, <code>children_on_other_board</code>, <code>children_limit</code>), decided
-  under the same locks. A parent's children always stay on one board, so once
+  <code>parent_is_child</code>, <code>parent_archived</code>, <code>children_on_other_board</code>, <code>children_limit</code>), decided
+  under the same locks. An archived parent always refuses Add child: the
+  exception for a previously unlinked card never applies to a new one. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   <code>title</code> is <code>400</code> (keyed <code>title</code>). Nothing is created when it is refused.</li>
 <li><strong>Limits:</strong> a hard WIP or weight limit on the target cell answers <code>409</code>
@@ -7092,7 +7101,9 @@ Any role on this card's board.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="p">{</span><span class="nt">"fixed_board"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
 <a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a><span class="w"> </span><span class="nt">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">},</span>
 <a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="w"> </span><span class="nt">"boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}]}</span>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a><span class="w"> </span><span class="nt">"boards"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Delivery"</span><span class="p">,</span><span class="w"> </span><span class="nt">"can_set_default"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}],</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a><span class="w"> </span><span class="nt">"boards_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a><span class="w"> </span><span class="nt">"disabled_reason"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">}</span>
 </code></pre></div>
 <ul>
 <li><code>fixed_board</code>: the board this card's children are already on, as
@@ -7105,8 +7116,15 @@ Any role on this card's board.</p>
   client asks which board to use.</li>
 <li><code>boards</code>: every board where you are <code>member</code> or higher whose cards cannot
   have children and whose first column allows card creation, by name.
-  <code>can_set_default</code> is true when you administer both boards.</li>
+  <code>can_set_default</code> is true when you administer both boards. At most <strong>100</strong>
+  boards are listed (<code>CHILD_BOARD_OPTIONS_LIMIT</code>, since 1.3, #2449);
+  <code>boards_total</code> is how many qualify in all, so a client can say "showing 100
+  of N". <code>default</code> is resolved over every qualifying board and is always one of
+  the listed <code>boards</code>: when it sorts past the first 100 it takes the last slot,
+  so a client can preselect it.</li>
 <li><code>can_set_default</code> (top level): you administer this card's board.</li>
+<li><code>disabled_reason</code> (since 1.3, #2447): <code>"parent_archived"</code> when this card is
+  archived, since Add child refuses an archived parent with that code; else <code>null</code>.</li>
 </ul>
 <p>Empty lists and <code>null</code>s when this card's board cannot have children.</p>
 <h3 id="delete-apiv1boardsboard_idcardsidchildrenchild_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" title="Permanent link">&para;</a></h3>
@@ -7125,7 +7143,24 @@ A read-only key on the card object, resolved for the caller:</p>
   Since #2212 the visible shape also carries <code>board_parent_name_singular</code>: what
   the parent's board calls its cards (for example <code>"Initiative"</code>), raw. An empty
   string means the board set no name and the client says "Parent". It is never
-  on the hidden shape.</li>
+  on the hidden shape.
+  Since #2443 the visible shape also carries <code>siblings_total</code> and
+  <code>siblings_done</code>, for "2 of 5 siblings done": how many live (unarchived)
+  children the parent has <strong>on this card's board</strong>, this card included while it is live (an archived child read through <code>GET .../cards/archived/</code> is not counted), and how
+  many of them are done. Done means what it means in the parent's
+  <code>children_rollup</code>: in a done column and not blocked (a manual block, or an
+  open <code>blocks</code> relation from a live card on the same board), so a blocked
+  child in a done column is not counted as done. They are computed for the caller, only
+  over this card's own board, and are <code>null</code> when you hold no role there.
+  Both are at most 100, the children cap. A hidden parent carries no sibling
+  data: which cards share a parent you cannot open is that parent's
+  information. Reading them costs one grouped query per request, however many
+  cards or parents. The live refresh follows the same rule: the
+  <code>card.parent_changed</code> frame with <code>siblings: true</code> that says these counts
+  changed is sent only to subscribers who can open the parent's board, and it
+  is not in the change feed or webhooks (see
+  <a href="../websockets/">WebSockets</a>). A socket that missed one re-reads <code>parent</code> on
+  its reconnect resync.</li>
 </ul>
 <p><code>parent</code> is <strong>present</strong> on <code>GET .../full/</code>, the per-board card list
 <code>GET /api/v1/boards/{board_id}/cards/</code>, <code>GET .../cards/{id}/</code> and
@@ -7200,8 +7235,10 @@ an unknown board.</p>
 <a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a><span class="w">              </span><span class="nt">"parent_title"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">}]}</span>
 </code></pre></div>
 <p><code>disabled_reason</code> is <code>link_exists</code> (already this card's child),
-<code>already_has_parent</code> (another card's child) or <code>children_limit</code> (this card
-has 100 children), else <code>null</code>. <code>parent_title</code> names the other parent only
+<code>already_has_parent</code> (another card's child), <code>parent_archived</code> (this card
+is archived, since 1.3, #2447; not for a card that was linked to this card and
+then unlinked, which may be linked back) or <code>children_limit</code> (this card has 100
+children), in that precedence, else <code>null</code>. <code>parent_title</code> names the other parent only
 when you can open its board. Link a row with <code>POST
 /api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}</code> on
 the child's board, so the child board's role authorizes it.</p>

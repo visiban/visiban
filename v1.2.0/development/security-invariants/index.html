@@ -5474,9 +5474,33 @@ each surface that delivers them:</p>
 <li>the cross-board link events <code>card.children_changed</code> and, since #2500,
   <code>card.children_bulk_changed</code> (parent's board) and
   <code>card.parent_changed</code> (child's board) (#1104) carry ids only (<code>parent_id</code>,
-  <code>parent_ids</code>, <code>card_ids</code>, and <code>reload</code> above the cap, #2416, #2500), so there is
-  nothing in them to filter per recipient, and the child's own card events are
-  never fanned out to the parent's board. Every other detail of the other board
+  <code>parent_ids</code>, <code>card_ids</code>, and <code>reload</code> above the cap, #2416, #2500; since
+  #2443 also <code>siblings: true</code> on a child-board frame listing the live children
+  of one parent, all on that board, never the parent's id), so there is
+  nothing in them to filter per field, and the child's own card events are
+  never fanned out to the parent's board. The <code>siblings: true</code> frame is the one
+  exception to "every subscriber of the receiving board": it groups card ids
+  by their shared parent, which is the parent's information, so it is <strong>gated
+  per recipient</strong> to subscribers who can open the PARENT's board
+  (<code>card_links._announce_siblings</code> passes the parent's board id as
+  <code>audience_board_id</code> beside the envelope, never on the wire, and
+  <code>BoardConsumer.board_event</code> forwards the frame only when
+  <code>consumers.audience_role</code> resolves a role there, dropping it when the audience
+  is absent or the check fails, <code>boards.permissions.audience_gate</code>). The
+  resolved role, allow or deny, is cached per socket and per audience board for
+  at most the socket's access re-check window (5 s plus up to 2 s of jitter),
+  and the cache is emptied whenever that re-check re-resolves, including the
+  forced self-subject refresh; the lookup reuses the live user row the
+  re-check loaded. A lost or newly granted parent role therefore takes effect
+  within the same bound as the subscriber's own access, never later; a failed
+  check is never cached (#2449). It is
+  broadcast only, never written to the change feed, so no feed reader or
+  webhook of the child board receives it. A reader who cannot open the parent
+  sees a hidden parent with no sibling counts, so it has nothing to refresh;
+  the frame is therefore not part of the residual below
+  (<code>boards/tests/test_child_link_service_2449.py</code> <code>SiblingFrameAudienceTests</code>,
+  <code>SiblingFrameAudienceCacheTests</code>; fan-out pin
+  <code>boards/tests/test_query_counts.py</code> <code>WsAudienceRoleQueryCountTests</code>). Every other detail of the other board
   is read over REST, through <code>boards/services/card_links.py</code>
   <code>children_for_viewer</code> and, for the card-face progress chip,
   <code>rollups_for_viewer</code> (#2210), which resolve the reader's role on the child
@@ -5577,7 +5601,7 @@ one surface only leaves the same field readable through another.</p>
 <tr>
 <td>Board WebSocket</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer.board_event</code></td>
-<td>Per-user drop (<code>per_user_event_visible</code>), then, after the access re-check, the admin-only event drop (<code>admin_only_event_visible</code> on <code>ADMIN_ONLY_EVENTS</code>), then <code>moderator_field_visible</code>, <code>site_admin_field_visible</code>, <code>invite_field_visible</code> on <code>MODERATOR_BEARING_EVENTS</code>, using the subscriber's re-resolved role, then <code>without_actor_scoped_fields</code> against the message's <code>actor_id</code></td>
+<td>Per-user drop (<code>per_user_event_visible</code>), then, after the access re-check, the admin-only event drop (<code>admin_only_event_visible</code> on <code>ADMIN_ONLY_EVENTS</code>), then the second-board audience drop (<code>audience_gate</code> against the message's <code>audience_board_id</code>, resolved by <code>consumers.audience_role</code> on the live user row of the current access window and cached per socket and audience board for at most that window, emptied at every access re-resolve, #2449; the <code>card.parent_changed</code> <code>siblings: true</code> frame is always gated and is dropped when the audience is absent or the check fails, #2443; it is never persisted, so the change feed has no row of it), then <code>moderator_field_visible</code>, <code>site_admin_field_visible</code>, <code>invite_field_visible</code> on <code>MODERATOR_BEARING_EVENTS</code>, using the subscriber's re-resolved role, then <code>without_actor_scoped_fields</code> against the message's <code>actor_id</code></td>
 </tr>
 <tr>
 <td>Group WebSocket</td>
@@ -5814,7 +5838,7 @@ fails closed.</p>
 <tr>
 <td>WebSocket (board)</td>
 <td><code>boards/consumers.py</code> <code>BoardConsumer</code>, <code>_lookup_role</code></td>
-<td>Role from <code>boards/permissions.py</code> <code>get_board_role</code>, the helper REST uses; per-recipient field gating is Rule 8</td>
+<td>Role from <code>boards/permissions.py</code> <code>get_board_role</code>, the helper REST uses; per-recipient field gating is Rule 8. A frame gated to a second board (the #2443 sibling frame) is judged by the same ladder on that board, cached per socket for at most the access re-check window and emptied at every re-resolve, so it is never staler than the subscriber's own access (#2449)</td>
 </tr>
 <tr>
 <td>MCP (access)</td>
@@ -5834,12 +5858,17 @@ fails closed.</p>
 <tr>
 <td>Cross-board card links: children read (#1104)</td>
 <td><code>boards/services/card_links.py</code> <code>children_for_viewer</code></td>
-<td>The children read: REST <code>GET .../cards/{id}/children/</code> calls it, and any other transport (MCP, export, the #2212 extension slot) must call it, or <code>rollups_for_viewer</code> for counts only, rather than query <code>CardParentLink</code>. <code>rollups_for_viewer</code> (#2210, the card-face progress rollup) does query <code>CardParentLink</code> directly, which is allowed because it applies <code>get_board_roles</code> per viewer itself on every call and returns the count-only shape when the reader has no role on the child board (and for a missing or anonymous viewer); a new reader that queries the link table without doing the same is a violation. <code>children_for_viewer</code> resolves the reader's role on the child board with <code>get_board_roles</code> on every call and returns a count only when there is none. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>ChildrenReadTests</code>. <code>BoardAnalyticsMixin.movements</code> (<code>boards/views/analytics.py</code>, #2209, #2499) also reads the link table directly (<code>card__parent_link__parent_id</code>), which is allowed only because it resolves the parent's board and applies <code>get_board_roles</code> for the caller first and returns <code>qs.none()</code> when the caller has no role there; the no-oracle tests are in <code>boards/tests/test_movements_parent_filter_2209.py</code>.</td>
+<td>The children read: REST <code>GET .../cards/{id}/children/</code> calls it, and any other transport (MCP, export, the #2212 extension slot) must call it, or <code>rollups_for_viewer</code> for counts only, rather than query <code>CardParentLink</code>. <code>rollups_for_viewer</code> (#2210, the card-face progress rollup) does query <code>CardParentLink</code> directly, which is allowed because it applies <code>get_board_roles</code> per viewer itself on every call and returns the count-only shape when the reader has no role on the child board (and for a missing or anonymous viewer); a new reader that queries the link table without doing the same is a violation. <code>children_for_viewer</code> resolves the reader's role on the child board with <code>get_board_roles</code> on every call and returns a count only when there is none. Tests: <code>boards/tests/test_card_parent_links.py</code> <code>ChildrenReadTests</code>; <code>boards/tests/test_child_link_service_2449.py</code> <code>SiblingCountTests</code>. <code>parents_for_viewer</code>'s sibling count (#2443, <code>_sibling_counts</code>) also queries <code>CardParentLink</code> directly, under the same condition: it counts only over the child's own board, only when <code>get_board_roles</code> resolves a role there for the reader (else <code>null</code>), and never for a parent the reader cannot open. <code>BoardAnalyticsMixin.movements</code> (<code>boards/views/analytics.py</code>, #2209, #2499) also reads the link table directly (<code>card__parent_link__parent_id</code>), which is allowed only because it resolves the parent's board and applies <code>get_board_roles</code> for the caller first and returns <code>qs.none()</code> when the caller has no role there; the no-oracle tests are in <code>boards/tests/test_movements_parent_filter_2209.py</code>.</td>
 </tr>
 <tr>
 <td>Cross-board card links on MCP and export (#1104)</td>
 <td><code>mcp_server/tools.py</code> <code>_serialize_card</code>; <code>boards/views/import_export.py</code></td>
 <td>Links are absent from both in v1: the MCP card shape has no parent or children keys, and links are neither exported nor imported (Rule 5). The JSON export and import do carry <code>cards_can_have_children</code> and the parent names (#2454); import writes them only on the new board, with <code>_clean_parent_name</code>, so <code>check_flag_flip</code> cannot be violated (no links, no <code>default_child_board</code> pointing at it). A change to <code>check_flag_flip</code> or <code>boards_defaulting_to</code> must still check that surface. Tests: <code>boards/tests/test_card_link_transport_parity.py</code> (#2383) asserts that no MCP card shape (<code>_serialize_card</code>, <code>card_detail</code>, <code>list_cards</code>, <code>board_snapshot</code>, <code>aging_cards</code>) and no JSON or CSV export of either board names a link, that none of them queries the link table, and that importing an export carrying link keys creates no link; the MCP half runs only with <code>MCP_SERVER_ENABLED=true</code></td>
+</tr>
+<tr>
+<td>Cross-board card links: unlinked pairs (#2447)</td>
+<td><code>boards/models.py</code> <code>CardParentUnlink</code>; <code>boards/services/card_links.py</code> <code>remove_link</code>, <code>create_link</code>, <code>_check_link_rules_under_lock</code>, <code>child_candidates_for_viewer</code></td>
+<td>The table stores only a parent card id, a child card id and when the pair was unlinked, so an archived parent may take back a child it had (an Undo of Unlink). Nobody reads it through the API: it has no serializer, endpoint, export, import, change-feed row, event, webhook or MCP shape, and the Django admin does not register it. Its only readers are the link write's archived-parent check, which runs after every role and board check and under the same card locks <code>remove_link</code> writes it under, and the Link existing picker's <code>disabled_reason</code>, which is only built for a caller already resolved at <code>member</code> on both boards and only ever turns a <code>parent_archived</code> into <code>null</code>. So it widens no per-viewer rule: every role check, the 404 shapes (Rule 7) and the link codes before <code>parent_archived</code> are unchanged, and Add child is always refused under an archived parent. A new reader of the table is a violation unless it is one of these two. Tests: <code>boards/tests/test_child_link_service_2449.py</code> <code>ArchivedParentRelinkTests</code>; <code>boards/tests/test_card_link_transport_parity.py</code> (no export, import or MCP shape reads or names it)</td>
 </tr>
 <tr>
 <td>Outbound webhooks</td>
