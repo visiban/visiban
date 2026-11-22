@@ -4795,6 +4795,11 @@ header hides checked items until the sheet is closed.</p>
 <td>Filter by the user who performed the move</td>
 </tr>
 <tr>
+<td><code>parent_id</code></td>
+<td>integer</td>
+<td><em>(new in 1.3, #2209)</em> Only movements of cards currently linked as children of this parent card. A value that is not a positive integer is a <code>400</code> with <code>code: "invalid_query_param"</code></td>
+</tr>
+<tr>
 <td><code>moved_after</code></td>
 <td>ISO date</td>
 <td>Lower bound (inclusive)</td>

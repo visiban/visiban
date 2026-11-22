@@ -6989,6 +6989,11 @@ a visible read with children, <code>board</code> describes the child board for t
 Children tab: its <code>role</code> is <strong>your</strong> role there (it alone decides whether you
 may move a child), and each column's <code>card_count</code> counts the whole column,
 not just this parent's children. A parent with no children has no <code>board</code>.</p>
+<p><em>Also since 1.3 (#2209):</em> each row carries the child board's card face,
+<code>priority</code>, <code>due_date</code> (or <code>null</code>) and <code>labels</code> (<code>[{id, name, color}]</code>), and
+<code>board</code> carries that board's WIP mode, <code>enforce_wip_limits</code> and
+<code>enforce_wip_hard</code>, so a client can disable exactly the moves the move
+endpoint would refuse you. Neither is sent when <code>visible</code> is <code>false</code>.</p>
 <h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p><strong>Add child</strong> (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
