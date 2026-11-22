@@ -156,7 +156,11 @@ def _with_parents(ctx, rows, user, *, board=None):
     it also opts into ``children_rollup`` (#2210), resolved for the same
     viewer; without a board the field is omitted (fails closed, #1075).
     """
-    ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer([c.pk for c in rows], user)
+    # ``board`` is the served board from get_board_for_user() (ancestor chain
+    # loaded), so the children's board costs no extra query (#2536).
+    ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
+        [c.pk for c in rows], user, known_boards=() if board is None else (board,),
+    )
     if board is not None and board.cards_can_have_children:
         ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer([c.pk for c in rows], user)
     return ctx
