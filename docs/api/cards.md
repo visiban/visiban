@@ -138,6 +138,8 @@ Create a card. Requires member or above. The target column must have `allow_card
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
+`notify_assignee` (optional boolean, default `false`, since 1.3, #2211): `true` sends the card's assignee the `assigned` notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off `notif_card_assigned`, or is not a current member of the board. The web app sends it only for a swimlane [default team](boards.md)'s pre-assignment; without it, a create with an `assignee_id` sends no `assigned` notification, as before (the MCP `create_card` tool and board import never send it). A value that is not a JSON boolean returns `400` keyed `notify_assignee`. Ignored on update. When the `assigned` notification is sent, the card's creation does not also send the "moved to <first column>" one, so the assignee gets exactly one notification (*changed in 1.3*, only for creates with `notify_assignee: true`). Every other create keeps its "moved" notification: an assignee who has **Card moved** on is still told the new card "moved to" its first column.
+
 Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets `403` even when the body is invalid, where they previously got `400` with field errors for an invalid body. Members still get `400` for an invalid body, and a caller with no access to the board gets `404`.
 
 Since 1.2, a create returns `404 Not Found` (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).
@@ -1178,7 +1180,7 @@ endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>"}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1195,6 +1197,22 @@ and weight limits apply as for any create. `201` returns the new card, as
   exception for a previously unlinked card never applies to a new one. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
+- **Default team** (#2211, since 1.3): the child is assigned the first member,
+  in team order, of the [default team](boards.md) of the lane this card is in
+  who is active, still a listed non-viewer member of this card's board, and
+  can be assigned on the target board; the target board's own lanes are not
+  consulted. Nobody qualifying leaves it unassigned.
+  `"apply_default_team": false` skips this; a non-boolean value is `400`
+  (keyed `apply_default_team`). The default is `true`. The pre-assigned member
+  gets the usual `assigned` notification once, under the same rules as
+  `notify_assignee` on `POST .../cards/`.
+- **Expected assignee** (#2211, since 1.3): `expected_assignee_id` is the
+  person the client showed as pre-assigned (the target board's
+  `default_assignee_id` from `child-board-options`), or `null` when it showed
+  nobody. When it is sent, the default team's pick is applied only if it is
+  still that person; otherwise the child is created unassigned, never assigned
+  to someone else. Omitted, the current pick is applied. Anything other than
+  an integer or `null` is `400` (keyed `expected_assignee_id`).
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
   (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
   `swimlane_*` forms), with the same body as `POST .../cards/`.
@@ -1276,6 +1294,12 @@ Any role on this card's board.
 - `can_set_default` (top level): you administer this card's board.
 - `disabled_reason` (since 1.3, #2447): `"parent_archived"` when this card is
   archived, since Add child refuses an archived parent with that code; else `null`.
+- `default_team` (#2211, since 1.3): the default team of this card's lane, as
+  `{"swimlane": {"id", "name"}, "member_ids": [...]}` (active members still
+  listed as non-viewers on this card's board, team order), or `null` when the
+  lane has no such member. Each `boards` entry, and a
+  visible `fixed_board`, then also carries `default_assignee_id`: who Add child
+  would assign there (`null` when nobody on the team can be assigned there).
 
 Empty lists and `null`s when this card's board cannot have children.
 

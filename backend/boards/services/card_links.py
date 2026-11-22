@@ -715,6 +715,17 @@ def child_board_options_for_viewer(parent, user):
       chooser can preselect it.
     * ``disabled_reason`` (#2447): ``"parent_archived"`` when ``parent`` is
       archived (the POST refuses it with that code), else ``None``.
+    * ``default_team`` (#2211): the parent's lane team as ``{"swimlane":
+      {"id", "name"}, "member_ids"}`` (active members still listed as
+      non-viewers on the parent board, team order), or None when none are.
+      Each ``boards`` entry (and ``fixed_board`` when the viewer can open it)
+      then carries ``default_assignee_id``: the member Add child pre-assigns
+      there unless ``apply_default_team`` is false (or the request's
+      ``expected_assignee_id`` no longer matches). The parent's lane decides; the child board's own lanes are not
+      consulted. ``member_ids`` discloses nothing new: anyone who can read the
+      parent can already read the lane's ``default_team`` (viewers included).
+      The pre-assigned member is notified like any assignment
+      (``services.cards.create_card``).
 
     Empty (no boards, no default) when the parent's board is not a parent
     tier. No user fails closed to the empty answer (#1075).
@@ -725,7 +736,7 @@ def child_board_options_for_viewer(parent, user):
     """
     out = {
         "fixed_board": None, "default": None, "boards": [], "can_set_default": False,
-        "boards_total": 0, "disabled_reason": None,
+        "boards_total": 0, "disabled_reason": None, "default_team": None,
     }
     if user is None or not getattr(user, "is_authenticated", False):
         return out
@@ -739,6 +750,15 @@ def child_board_options_for_viewer(parent, user):
     out["can_set_default"] = admin_here
     if parent.archived_at is not None:
         out["disabled_reason"] = "parent_archived"
+
+    from .swimlane_team import default_assignees, listed_team_ids
+
+    lane = parent.swimlane
+    # Filtered to the parent board's listed non-viewers, so the chooser never
+    # names someone Add child would skip (#2211).
+    lane_team = listed_team_ids(lane, parent_board)
+    if lane_team:
+        out["default_team"] = {"swimlane": {"id": lane.pk, "name": lane.name}, "member_ids": lane_team}
     fixed_id = (
         CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
         .values_list("child__board_id", flat=True).first()
@@ -775,6 +795,21 @@ def child_board_options_for_viewer(parent, user):
         })
     out["boards_total"] = len(rows)
     out["boards"] = _options_page(rows, out["default"] and out["default"]["id"])
+    if lane_team:
+        # One batched resolution for every offered board, after the loop, so
+        # the cost follows the team size, not the board count (#2211). Only
+        # the boards in the capped page (#2449) are offered, so only they
+        # need a pick.
+        page_ids = {r["id"] for r in out["boards"]}
+        offered = {b.pk: b for b in candidates if b.pk in page_ids}
+        fixed_entry = out["fixed_board"]
+        if fixed_entry and not fixed_entry["hidden"]:
+            offered[fixed.pk] = fixed
+        picks = default_assignees(lane_team, list(offered.values()))
+        for entry in out["boards"]:
+            entry["default_assignee_id"] = picks.get(entry["id"])
+        if fixed_entry and not fixed_entry["hidden"]:
+            fixed_entry["default_assignee_id"] = picks[fixed.pk]
     return out
 
 

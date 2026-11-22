@@ -182,8 +182,9 @@ def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
     # is imported by the app config at startup.
     from . import broadcast as _broadcast
     from .serializers import SwimlaneSerializer, _swimlane_custom_field_prefetch
+    from .services.swimlane_team import team_prefetch
 
-    fresh = Swimlane.objects.filter(pk__in=changed).prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+    fresh = Swimlane.objects.filter(pk__in=changed).prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
     for lane in fresh:
         _broadcast.record_board_event(
             lane.board_id, _broadcast.EVT_SWIMLANE_UPDATED, SwimlaneSerializer(lane).data,
@@ -193,6 +194,12 @@ def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
 @receiver(post_save, sender=CardMovement)
 def notify_on_card_moved(sender, instance, created, **kwargs):
     if not created:
+        return
+    # create_card flags the creation movement when the same create also sends
+    # the #2211 "assigned" notification, so that assignee is not told twice
+    # (assigned + "moved to <first column>"). Any other create keeps the
+    # "moved" notification it always sent.
+    if getattr(instance, "_skip_moved_notification", False):
         return
     # Re-fetch card with needed relations. The just-created CardMovement instance
     # carries only integer FKs (card_id, assignee_id, etc.), so accessing

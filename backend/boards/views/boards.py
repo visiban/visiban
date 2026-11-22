@@ -52,6 +52,7 @@ from ..serializers import (
     _swimlane_custom_field_prefetch,
 )
 from ..services import card_links
+from ..services.swimlane_team import team_prefetch
 from ..services.card_links import announce_cards_removal, check_flag_flip
 from ..services.feed import (
     cursor_row_visible,
@@ -701,7 +702,7 @@ class BoardViewSet(
         # fixed number of queries however many the board has.
         lanes = (
             Swimlane.objects.filter(board_id=board.pk)
-            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
             .order_by("position", "pk")
         )
         return Response({

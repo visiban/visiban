@@ -32,6 +32,7 @@ from visiban.permissions import (
 
 from ..card_signals import blocked_q, overdue_q, signal_today
 from .. import broadcast as _broadcast
+from ..services.swimlane_team import default_assignee_id
 from ..services import card_extensions, card_links
 from ..services import cards as card_services
 from ..services.notifications import (
@@ -1014,6 +1015,8 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
+        # #2211: opt-in, so only the web app's lane-team pre-assignment notifies.
+        notify_assignee = serializer.validated_data.pop("notify_assignee", False)
         result = card_services.create_card(
             actor=self.request.user,
             board=board,
@@ -1029,6 +1032,7 @@ class CardViewSet(viewsets.ModelViewSet):
             ),
             render=self._refetch_card_data,
             force=_force_requested(self.request),
+            notify_assignee=notify_assignee,
         )
         # No return value: DRF's CreateModelMixin renders the 201 body from
         # serializer.data, exactly as it did before. The service's rendered
@@ -2935,7 +2939,25 @@ class CardViewSet(viewsets.ModelViewSet):
         methods=["POST"],
         request=inline_serializer(
             "AddChild",
-            fields={"board_id": serializers.IntegerField(), "title": serializers.CharField()},
+            fields={
+                "board_id": serializers.IntegerField(), "title": serializers.CharField(),
+                "apply_default_team": serializers.BooleanField(
+                    required=False, default=True,
+                    help_text=(
+                        "Pre-assign the first eligible member of the parent's lane team "
+                        "(#2211, since 1.3). Default true; false leaves the child unassigned."
+                    ),
+                ),
+                "expected_assignee_id": serializers.IntegerField(
+                    required=False, allow_null=True,
+                    help_text=(
+                        "The person the client showed as pre-assigned (#2211, since 1.3), or null "
+                        "when it showed nobody. When given, the lane team's pick is applied only if "
+                        "it is still this person; otherwise the child is created unassigned, never "
+                        "assigned to someone else. Omitted: the current pick is applied."
+                    ),
+                ),
+            },
         ),
         responses={
             201: OpenApiResponse(description="The new child card, as `POST .../cards/` returns it."),
@@ -2980,8 +3002,31 @@ class CardViewSet(viewsets.ModelViewSet):
         max_len = Card._meta.get_field("title").max_length
         if len(title) > max_len or "\x00" in title:
             raise serializers.ValidationError({"title": [f"Ensure this field has no more than {max_len} characters and no NUL character."]})
+        # #2211: the parent's lane team pre-assigns its first member who can be
+        # assigned on the child board; the child board's own lanes are not
+        # consulted. A strict bool so a typo never silently assigns someone.
+        apply_team = body.get("apply_default_team", True)
+        if not isinstance(apply_team, bool):
+            raise serializers.ValidationError({"apply_default_team": ["Must be a boolean."]})
+        # The dialog picks who to show when it opens and the server picks again
+        # here; between the two the person shown can lose access, and the next
+        # member, only named as "not assigned", would be assigned silently. So
+        # the client sends whom it showed and a different pick assigns nobody.
+        # Strict int-or-null (a bool is not an id); omitted keeps the old behavior.
+        has_expected = "expected_assignee_id" in body
+        expected = body.get("expected_assignee_id")
+        if has_expected and expected is not None and (isinstance(expected, bool) or not isinstance(expected, int)):
+            raise serializers.ValidationError({"expected_assignee_id": ["Must be an integer or null."]})
 
         def make_card(*, board, role, column, swimlane):
+            # Read under create_child's board locks, so a member removed from
+            # either board in the meantime is not assigned.
+            assignee_id = (
+                default_assignee_id(parent.swimlane, board, lane_board=parent.board) if apply_team else None
+            )
+            if has_expected and assignee_id != expected:
+                assignee_id = None
+
             def render(card):
                 return _refetched_card_data(
                     card, request, board,
@@ -2995,9 +3040,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 column_id=column.pk, swimlane_id=swimlane.pk,
                 save=lambda position: Card.objects.create(
                     board=board, column=column, swimlane=swimlane, title=title,
-                    created_by=request.user, position=position,
+                    created_by=request.user, position=position, assignee_id=assignee_id,
                 ),
                 render=render,
+                # The lane team's pre-assigned member is told, like any assignment.
+                notify_assignee=assignee_id is not None,
             )
 
         result = card_links.create_child(

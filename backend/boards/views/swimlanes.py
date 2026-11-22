@@ -27,7 +27,7 @@ from ..serializers import (
 )
 from ..services.card_links import announce_cards_removal
 from ..services.custom_fields import apply_swimlane_custom_field_values
-from ..services.swimlane_team import eligible_ids, set_team
+from ..services.swimlane_team import eligible_ids, set_team, team_access, team_prefetch
 from ._helpers import (
     CONTAINER_CHANGED_409, blocked_peers_of, get_board_for_user, lock_board_and_row_or_404,
     lock_board_row_or_404, lock_container_cascade, missing_limit_columns, publish_blocked_peers,
@@ -47,7 +47,7 @@ def _refetch_swimlane(swimlane):
     """
     return (
         Swimlane.objects.filter(pk=swimlane.pk)
-        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+        .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
         .first()
         or swimlane
     )
@@ -210,7 +210,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if getattr(self, "swagger_fake_view", False):
             return Swimlane.objects.none()  # schema generation (#1788)
         return Swimlane.objects.filter(board=self._board()).prefetch_related(
-            _swimlane_custom_field_prefetch(), "track_exceptions", "team_members"
+            _swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch()
         )
 
     def create(self, request, *args, **kwargs):
@@ -391,6 +391,29 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             rollup_board_health(board)
             publish_blocked_peers(peers, self.request, boards=[board])
 
+    @extend_schema(
+        responses={200: inline_serializer(
+            "SwimlaneDefaultTeamAccess",
+            fields={"members": serializers.ListField(child=serializers.DictField())},
+        )},
+        description=(
+            "Default team members who can't be assigned on a child board this lane "
+            "feeds (#2211, since 1.3): `{members: [{id, boards: [{id, name}], "
+            "hidden_count}]}`, one entry per such member. The child boards are those "
+            "the lane's parent cards have children on, plus the board's default child "
+            "board. Names are given only for boards the caller can open; the rest are "
+            "counted in `hidden_count`. Read-only. Minimum role: admin."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="default-team-access", pagination_class=None)
+    def default_team_access(self, request, board_pk=None, pk=None):
+        """The Edit swimlane warning for team members skipped on new children (#2211)."""
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied
+        swimlane = get_object_or_404(Swimlane.objects.prefetch_related(team_prefetch()), pk=pk, board=board)
+        return Response(team_access(swimlane, request.user))
+
     @_SET_COLLAPSED_SCHEMA
     @action(detail=True, methods=["patch"], url_path="set-collapsed")
     def set_collapsed_kebab(self, request, board_pk=None, pk=None):
@@ -519,7 +542,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
             lanes_data = SwimlaneSerializer(
                 board.swimlanes.order_by("position").prefetch_related(
-                    _swimlane_custom_field_prefetch(), "track_exceptions", "team_members"
+                    _swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch()
                 ),
                 many=True,
             ).data

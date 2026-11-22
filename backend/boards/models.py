@@ -901,11 +901,18 @@ class Swimlane(models.Model):
 class SwimlaneTeamMember(models.Model):
     """One person on a swimlane's default team (#2211).
 
-    Stored settings only. Limited to the board's listed, active, non-viewer
-    members when written (the serializer, re-checked under the board lock in
-    ``boards.services.swimlane_team.set_team``). Removing a member from the
-    board deletes their rows on that board's lanes (``BoardViewSet.remove_member``).
-    The Edit Swimlane modal filters out people who no longer qualify on read.
+    The team acts: new cards in the lane (Add card) and children added from
+    its cards (Add child) are pre-assigned to its first eligible member, who is
+    notified (``services.cards.create_card``). Limited to the board's listed,
+    active, non-viewer members when written (the serializer, re-checked under
+    the board lock in ``boards.services.swimlane_team.set_team``). Removing a
+    member from the board deletes their rows on that board's lanes
+    (``BoardViewSet.remove_member``). A row is not rewritten when its person is
+    demoted to viewer or loses access another way, so every reader filters on
+    read: Edit Swimlane and Add card in the web app, Add child and its chooser
+    through ``swimlane_team.listed_team_ids``, and the team-access warning by
+    applying the same listed-non-viewer filter inline (it keeps deactivated
+    members so the warning can name them).
     """
 
     swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")

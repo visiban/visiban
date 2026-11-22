@@ -15,6 +15,7 @@ vi.mock('@dnd-kit/core', () => ({
 
 vi.mock('../api/boards', () => ({
   updateColumn: vi.fn(),
+  getSwimlaneDefaultTeamAccess: vi.fn().mockResolvedValue({ members: [] }),
   updateSwimlane: vi.fn().mockResolvedValue({
     id: 20, name: 'Renamed', contact_email: '', notes: '', position: 0,
     color: '#6B7280', is_collapsed: false, created_at: '',

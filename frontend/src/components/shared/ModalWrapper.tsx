@@ -39,6 +39,10 @@ interface ModalWrapperProps {
   /** Optional control rendered in the header between the title and the Close button
    *  (Board settings' "Find a setting" input, #2436). */
   headerExtra?: React.ReactNode;
+  /** Below 640px the panel is a full-screen sheet: show the "‹ Board" back button (named "Back to
+   *  board", 44px) before the title, as every phone sheet has (#2206 shared rule 7). It closes the
+   *  sheet, like Close. Ignored on wider screens. */
+  phoneBack?: boolean;
 }
 
 /**
@@ -65,6 +69,7 @@ export default function ModalWrapper({
   headerBorder = false,
   restoreFocusTo,
   headerExtra,
+  phoneBack = false,
 }: ModalWrapperProps) {
   const headingId = labelId ?? "modal-title";
   const panelRef = useRef<HTMLDivElement>(null);
@@ -132,11 +137,20 @@ export default function ModalWrapper({
       >
         {/* Header */}
         <div className={`flex items-center justify-between px-6 pt-6 pb-4${headerBorder ? " border-b border-line" : ""}`}>
-          <div>
+          {phoneBack && dismissable && (
+            <button type="button"
+              onClick={onClose}
+              aria-label="Back to board"
+              className="sm:hidden flex-shrink-0 -ml-3 mr-1 min-h-11 min-w-11 px-2 inline-flex items-center text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              <span aria-hidden="true">‹ Board</span>
+            </button>
+          )}
+          <div className={phoneBack ? "flex-1 min-w-0" : undefined}>
             <h2 id={headingId} className="text-lg font-semibold text-fg">
               {title}
             </h2>
-            {subtitle && <p className="text-fg-tertiary text-sm mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-fg-tertiary text-sm mt-0.5 break-words">{subtitle}</p>}
           </div>
           {headerExtra && <div className="flex-1 min-w-0 mx-4">{headerExtra}</div>}
           {dismissable && (
@@ -154,7 +168,9 @@ export default function ModalWrapper({
 
         {/* Content */}
         {noPadding ? children : (
-          <div className="px-6 pb-6">
+          // A phone sheet's body scrolls and fills the sheet, so a form inside it can pin its
+          // footer (max-sm:mt-auto) and keep it reachable with the keyboard open (#2211).
+          <div className={phoneBack ? "px-6 pb-6 max-sm:flex-1 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:flex max-sm:flex-col" : "px-6 pb-6"}>
             {children}
           </div>
         )}

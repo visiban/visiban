@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, useId } from "react";
+import { useState, useRef, useEffect, useCallback, useId, useMemo } from "react";
+import { laneDefaultAssignee, teamRowNames } from "../../utils/swimlaneDefaultTeam";
 import SeparatorPlus from "./SeparatorPlus";
 import type { BoardColor } from "../../utils/boardColors";
 import { useInlineEditEscape } from "../../hooks/useInlineEditEscape";
@@ -192,8 +193,15 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
   // Details grid plus Hidden on band (N = details + hidden the viewer may see). Null is a
   // legacy board, which keeps the band above exactly until an admin sets a tier.
   const tiers = laneTierFields(swimlane, swimlaneFieldDefinitions, isAdmin, laneDetailsCap);
-  const moreCount = tiers ? tiers.details.length + tiers.hidden.length : gridFields.length;
-  const showFieldToggle = tiers ? moreCount > 0 : gridFields.length > INLINE_FIELD_COUNT; // per board, so every lane shows the toggle or none does
+  // #2211: the lane's default team is the first row behind "+N"; it is not on the band itself.
+  const laneDefault = useMemo(() => laneDefaultAssignee(swimlane, members), [swimlane, members]);
+  const teamNames = useMemo(() => teamRowNames(swimlane, members), [swimlane, members]);
+  const teamRows = teamNames.length > 0 ? 1 : 0;
+  const moreCount = (tiers ? tiers.details.length + tiers.hidden.length : gridFields.length) + teamRows;
+  // Per board, so every lane shows the toggle or none does; a lane with a team also shows it.
+  const showFieldToggle = (tiers ? moreCount - teamRows > 0 : gridFields.length > INLINE_FIELD_COUNT) || teamRows > 0;
+  // A legacy board whose toggle exists only for the team reads "Show 1 more", never "0 fields".
+  const moreLabel = tiers != null || gridFields.length <= INLINE_FIELD_COUNT;
   const bandFields = tiers ? tiers.band : inlineFields;
 
   // Status counts for the band's trailing stats and the collapsed strip's squares.
@@ -517,11 +525,11 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               aria-expanded={fieldsOpen}
               aria-controls={fieldsOpen ? extraFieldsId : undefined}
               // Visible text leads the accessible name (WCAG 2.5.3 label-in-name).
-              aria-label={tiers ? (fieldsOpen ? `Hide details for ${swimlane.name}` : `Show ${moreCount} more fields for ${swimlane.name}`) : `${gridFields.length} fields: show all field values for ${swimlane.name}`}
+              aria-label={moreLabel ? (fieldsOpen ? `Hide details for ${swimlane.name}` : `Show ${moreCount} more fields for ${swimlane.name}`) : `${gridFields.length} fields: show all field values for ${swimlane.name}`}
               data-testid="swimlane-fields-toggle"
               className={`inline-flex items-center gap-1 min-h-6 text-xs px-2 py-0.5 rounded-full border shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${fieldsOpen ? "bg-info/10 text-info-on-tint border-info/40" : "border-line-strong text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
             >
-              {tiers ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
+              {moreLabel ? (fieldsOpen ? "Hide details" : `Show ${moreCount} more`) : `${gridFields.length} fields`}
               <svg aria-hidden="true" className={`w-3 h-3 transition-transform motion-reduce:transition-none ${tiers ? (fieldsOpen ? "rotate-180" : "") : fieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
             </button>
           )}
@@ -558,6 +566,11 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
           </div>
           )}
 
+          {showFieldToggle && fieldsOpen && teamNames.length > 0 && (
+            <p className="w-full text-xs text-fg-secondary" data-testid="lane-default-team-row">
+              <span className="font-medium">Default team:</span> {teamNames.join(", ")}
+            </p>
+          )}
           {/* The aligned field grid: last in the band, on its own line (#2354). */}
           {showFieldToggle && fieldsOpen && tiers && (
             <LaneTierDetails id={extraFieldsId} laneColor={color} tiers={tiers} userDateFormat={userDateFormat} onManage={isAdmin ? onManageSwimlaneFields : undefined} />
@@ -716,6 +729,7 @@ export default function SwimlaneRow({ swimlane, healthAutoEnabled = false, colum
               <BoardCell
                 column={col}
                 swimlane={swimlane}
+                laneDefault={laneDefault}
                 cards={cellCards.sort((a, b) => a.position - b.position)}
                 boardId={boardId}
                 canEdit={canEdit}

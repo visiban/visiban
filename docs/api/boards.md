@@ -2124,7 +2124,8 @@ Swimlane response objects include the following fields:
 | `health_computed_at` | string or null | Read-only, since 1.3 (#2245). When the lane was last computed; `null` = never. |
 | `health_computed_counts` | object or null | Read-only, since 1.3 (#2245). `{ "open", "overdue", "stale", "blocked", "flagged" }` behind `computed_health_status`. Not on the public share-link payload, like the other health fields. |
 | `limit_column_ids` | array of integers or null | Since 1.3. Ids of the board's columns whose cards count toward the swimlane's limits, sorted. `null` (the default) means every column whose `is_done` is `false`. An empty list is refused with `400`. Deleting a column removes its id; a list left empty becomes `null`. |
-| `default_team` | array of integers | Since 1.3 (#2211). User ids of the swimlane's default team, in team order (people kept on a save keep their place; new people are appended). Stored settings only: using the team to pre-assign new cards is not available yet. Every member reads it; board admins write it. At most 50 ids, each an active, non-viewer person listed in the board's member list (owner, explicit members, group-inherited members); any other id (unknown, not listed on this board, a viewer, inactive) returns `400` with one message. Removing a member from the board removes them from its lane teams. Not on the public share-link payload. |
+| `default_team` | array of integers | Since 1.3 (#2211). User ids of the swimlane's default team, in team order (people kept on a save keep their place; new people are appended). The web app pre-assigns the first eligible member to cards created in the lane (it sends `assignee_id`; `POST .../cards/` never defaults it), and Add child pre-assigns from the parent's lane (see [Add child](cards.md)). Every member reads it; board admins write it. At most 50 ids, each an active, non-viewer person listed in the board's member list (owner, explicit members, group-inherited members); any other id (unknown, not listed on this board, a viewer, inactive) returns `400` with one message. Removing a member from the board removes them from its lane teams; that sends `member.removed`, not `swimlane.updated`, so a client holding a lane's `default_team` drops ids missing from the board's member list rather than waiting for a lane event (the web app does). Not on the public share-link payload. |
+| `default_team_members` | array of objects | Since 1.3 (#2211). Read-only. The same team as `[{"id": <int>, "is_active": <bool>}]`, in team order. `is_active: false` marks a deactivated person: never pre-assigned, and a `default_team` write that still lists them returns `400` until they are removed. Not on the public share-link payload. |
 
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
@@ -2840,6 +2841,14 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 - `default_of`: the boards whose `default_child_board` is this board. Turning the setting **on** is refused while it is not empty. A board you cannot open is `{"hidden": true}`, with no id or name; `can_change` is true when you administer that board.
 
 ### Default child board options (since 1.3)
+
+`GET /api/v1/boards/{board_id}/swimlanes/{id}/default-team-access/`: default team members who can't be assigned on a child board this lane feeds (#2211, since 1.3), for the Edit Swimlane warning. **Minimum role:** admin (`403` below it; `404` without access to the board). Read-only.
+
+```json
+{"members": [{"id": 12, "boards": [{"id": 7, "name": "Delivery"}], "hidden_count": 0}]}
+```
+
+The child boards are the boards this lane's parent cards already have children on, plus the board's `default_child_board`. One entry per team member who can't be assigned on at least one of them; members with access everywhere are omitted, as are members no longer listed as non-viewers on this lane's board (they are never pre-assigned). `boards` names only boards you can open; the others are counted in `hidden_count`.
 
 `GET /api/v1/boards/{id}/default-child-board-options/` — the boards you may pick as this board's `default_child_board`, for the Board settings Rules select (#2208). **Minimum role:** board admin (or site admin); a member gets `403`, a user who cannot open the board `404`.
 
