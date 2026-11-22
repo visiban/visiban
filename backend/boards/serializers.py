@@ -5241,7 +5241,9 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # without this the /full/ payload costs 1 + 2N queries in swimlane count
         # (#1140). .all() on the prefetched manager keeps the cache; a .filter()
         # here would escape it.
-        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+        from .services.swimlane_team import team_prefetch
+
+        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
         return serializer_class(lanes, many=True, context=self.context).data
 
     @extend_schema_field(CardSerializer(many=True))

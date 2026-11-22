@@ -993,6 +993,14 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
         # and notes (admin-only PII) never reach viewer-role WebSocket
         # subscribers — the same rule SwimlaneViewSet follows (see
         # SwimlaneSerializer's docstring in serializers.py).
+        # team_prefetch() joins the user, so the team payload costs one query,
+        # not one per member (#2211 perf-check).
+        from django.db.models import prefetch_related_objects
+
+        from .services.swimlane_team import team_prefetch
+
+        getattr(obj, "_prefetched_objects_cache", {}).pop("team_members", None)
+        prefetch_related_objects([obj], team_prefetch())
         return SwimlaneSerializer(obj).data
 
     def _delete_payload(self, obj):

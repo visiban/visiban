@@ -837,7 +837,46 @@ def create_card(
         if card.description:
             # Notify any @mentioned board members in the initial description.
             _notify_mentions_after_commit(card, actor, "", card.description)
+        # Registered after the card.created broadcast, as in update_card.
+        _notify_assigned_on_create(card, actor, board)
     return CardMutationResult(card=card, payload=payload)
+
+
+def _notify_assigned_on_create(card, actor, board):
+    """Tell a card's first assignee they were given it, as an assignment would (#2211).
+
+    Every create path comes through ``create_card``: ``POST cards/`` with an
+    ``assignee_id`` (which is how Add card sends a lane team's pre-assignment),
+    Add child's server-side pre-assignment, and the MCP ``create_card`` tool.
+    Notifying here, once, is what keeps a pre-assigned person from being told
+    twice or not at all. Same notification, verb and preference as
+    ``update_card``'s assignee change; nothing for a self-assignment, an
+    opted-out recipient, or someone who is not a current effective member of
+    the board (``create_notifications`` has no membership check of its own).
+    ``create_notifications`` defers delivery with ``transaction.on_commit``.
+    """
+    if card.assignee_id is None or card.assignee_id == actor.id:
+        return
+    assignee = card.assignee
+    if not assignee.notif_card_assigned:
+        return
+    from ..utils import _get_effective_member_ids
+
+    if assignee.pk not in _get_effective_member_ids(board):
+        return
+    create_notifications(
+        [
+            Notification(
+                recipient=assignee,
+                actor=actor,
+                action_type=Notification.ActionType.ASSIGNED,
+                verb=quoted_card_verb("You were assigned to", card.title),
+                card=card,
+                board=board,
+            )
+        ],
+        context={"previous_assignee_name": "Unassigned"},
+    )
 
 
 def create_card_at_position(

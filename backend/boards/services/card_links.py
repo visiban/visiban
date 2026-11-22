@@ -612,7 +612,10 @@ def child_board_options_for_viewer(parent, user):
       when the viewer can open it) then carries ``default_assignee_id``: the
       member Add child pre-assigns there unless ``apply_default_team`` is
       false. The parent's lane decides; the child board's own lanes are not
-      consulted.
+      consulted. ``member_ids`` discloses nothing new: anyone who can read the
+      parent can already read the lane's ``default_team`` (viewers included).
+      The pre-assigned member is notified like any assignment
+      (``services.cards.create_card``).
 
     Empty (no boards, no default) when the parent's board is not a parent
     tier. No user fails closed to the empty answer (#1075).
@@ -628,10 +631,10 @@ def child_board_options_for_viewer(parent, user):
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     out["can_set_default"] = admin_here
-    from .swimlane_team import default_assignee_id, team_members_payload
+    from .swimlane_team import active_team_ids, default_assignees
 
     lane = parent.swimlane
-    lane_team = [m["id"] for m in team_members_payload(lane) if m["is_active"]]
+    lane_team = active_team_ids(lane)
     if lane_team:
         out["default_team"] = {"swimlane": {"id": lane.pk, "name": lane.name}, "member_ids": lane_team}
     fixed_id = (
@@ -651,8 +654,6 @@ def child_board_options_for_viewer(parent, user):
                 "hidden": False, "id": fixed.pk, "name": fixed.name,
                 "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),
             }
-            if lane_team:
-                out["fixed_board"]["default_assignee_id"] = default_assignee_id(lane, fixed)
     candidates = list(
         _qualifying(_accessible_boards(user).exclude(pk=parent_board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
@@ -667,11 +668,21 @@ def child_board_options_for_viewer(parent, user):
             "id": b.pk, "name": b.name,
             "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
         }
-        if lane_team:
-            entry["default_assignee_id"] = default_assignee_id(lane, b)
         out["boards"].append(entry)
         if b.pk == parent_board.default_child_board_id:
             out["default"] = {"id": b.pk, "name": b.name}
+    if lane_team:
+        # One batched resolution for every offered board, after the loop, so
+        # the cost follows the team size, not the board count (#2211).
+        offered = {b.pk: b for b in candidates}
+        fixed_entry = out["fixed_board"]
+        if fixed_entry and not fixed_entry["hidden"]:
+            offered[fixed.pk] = fixed
+        picks = default_assignees(lane_team, list(offered.values()))
+        for entry in out["boards"]:
+            entry["default_assignee_id"] = picks.get(entry["id"])
+        if fixed_entry and not fixed_entry["hidden"]:
+            fixed_entry["default_assignee_id"] = picks[fixed.pk]
     return out
 
 

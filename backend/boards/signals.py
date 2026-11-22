@@ -182,8 +182,9 @@ def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
     # is imported by the app config at startup.
     from . import broadcast as _broadcast
     from .serializers import SwimlaneSerializer, _swimlane_custom_field_prefetch
+    from .services.swimlane_team import team_prefetch
 
-    fresh = Swimlane.objects.filter(pk__in=changed).prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+    fresh = Swimlane.objects.filter(pk__in=changed).prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
     for lane in fresh:
         _broadcast.record_board_event(
             lane.board_id, _broadcast.EVT_SWIMLANE_UPDATED, SwimlaneSerializer(lane).data,

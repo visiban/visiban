@@ -425,3 +425,174 @@ class SchemaTests(TestCase):
         self.assertIn("Default team members", access["description"])
         ref = access["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
         self.assertTrue(ref.endswith("/SwimlaneDefaultTeamAccess"), ref)
+
+
+class TeamAccessRoleTests(TeamAccessTests):
+    """rbac-check: every caller class on ``default-team-access``, and cross-board IDOR."""
+
+    def test_viewer_403_site_admin_200_anonymous_401(self):
+        self.set_team(self.dan)
+        self.assertEqual(client_for(self.vic).get(self.url()).status_code, 403)
+        admin = User.objects.create_user(username="dt_site", password="pass", can_access_all_content=True)
+        self.assertEqual(client_for(admin).get(self.url()).status_code, 200)
+        self.assertEqual(APIClient().get(self.url()).status_code, 401)
+
+    def test_another_boards_lane_through_this_boards_url_is_404(self):
+        # The owner is admin on both boards; the lane id must still match the URL's board.
+        child_lane = self.child.swimlanes.get()
+        SwimlaneTeamMember.objects.create(swimlane=child_lane, user=self.mia)
+        r = client_for(self.owner).get(f"/api/v1/boards/{self.parent.pk}/swimlanes/{child_lane.pk}/default-team-access/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_queries_follow_the_team_not_the_child_boards(self):
+        self.set_team(self.mia, self.dan)
+
+        def count():
+            from django.db import connection
+            from django.test.utils import CaptureQueriesContext
+
+            with CaptureQueriesContext(connection) as ctx:
+                self.assertEqual(client_for(self.owner).get(self.url()).status_code, 200)
+            return len(ctx.captured_queries)
+
+        before = count()
+        for i in range(3):
+            extra = make_board(self.owner, f"Extra {i}")
+            child = Card.objects.create(
+                board=extra, column=extra.columns.get(), swimlane=extra.swimlanes.get(), title="t",
+            )
+            from boards.models import CardParentLink
+
+            CardParentLink.objects.create(parent=self.parent_card, child=child, created_by=self.owner)
+        self.assertEqual(count(), before)
+
+
+class ChildBoardOptionsAbsentInputTests(AddChildTests):
+    """#1075: ``child_board_options_for_viewer`` without a user has no ``default_team``."""
+
+    def test_no_user_or_anonymous_gets_no_team(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        from boards.services.card_links import child_board_options_for_viewer
+
+        self.set_team(self.mia)
+        for user in (None, AnonymousUser()):
+            out = child_board_options_for_viewer(self.parent_card, user)
+            self.assertIsNone(out["default_team"])
+            self.assertEqual(out["boards"], [])
+
+    def test_nobody_qualifying_on_a_board_gives_a_null_assignee(self):
+        self.set_team(self.dan)  # dan can't open Delivery
+        body = client_for(self.mia).get(
+            f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+        ).json()
+        self.assertEqual(body["default_team"]["member_ids"], [self.dan.pk])
+        self.assertEqual([(b["id"], b["default_assignee_id"]) for b in body["boards"]], [(self.child.pk, None)])
+
+    def test_options_queries_are_flat_in_the_board_count(self):
+        self.set_team(self.dan, self.mia)
+        url = f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+
+        def count():
+            from django.db import connection
+            from django.test.utils import CaptureQueriesContext
+
+            with CaptureQueriesContext(connection) as ctx:
+                r = client_for(self.mia).get(url)
+            self.assertEqual(r.status_code, 200)
+            return len(ctx.captured_queries), r.json()
+
+        before, _ = count()
+        for i in range(4):
+            extra = make_board(self.owner, f"Extra {i}")
+            BoardMembership.objects.create(board=extra, user=self.mia, role=Role.MEMBER)
+        after, body = count()
+        self.assertEqual(after, before)
+        self.assertEqual({b["default_assignee_id"] for b in body["boards"]}, {self.mia.pk})
+
+
+class AssignmentNotificationTests(AddChildTests):
+    """A pre-assigned person is notified like any assignment (#2211), exactly once."""
+
+    def notes(self, user):
+        from boards.models import Notification
+
+        return list(Notification.objects.filter(recipient=user, action_type=Notification.ActionType.ASSIGNED))
+
+    def add_child_as(self, actor, **extra):
+        body = {"board_id": self.child.pk, "title": "Task", **extra}
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            return client_for(actor).post(
+                f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/children/", body, format="json",
+            )
+
+    def test_add_child_notifies_the_pre_assigned_member_once(self):
+        self.set_team(self.mia)
+        self.assertEqual(self.assigned(self.add_child_as(self.owner)), self.mia.pk)
+        notes = self.notes(self.mia)
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0].board_id, self.child.pk)
+        self.assertIn("Task", notes[0].verb)
+
+    def test_no_notification_when_opted_out_of_the_team_or_nobody_qualifies(self):
+        self.set_team(self.mia)
+        self.assertIsNone(self.assigned(self.add_child_as(self.owner, apply_default_team=False)))
+        SwimlaneTeamMember.objects.all().delete()
+        self.set_team(self.dan)
+        self.assertIsNone(self.assigned(self.add_child_as(self.owner)))
+        self.assertEqual(self.notes(self.mia) + self.notes(self.dan), [])
+
+    def test_self_assignment_is_not_notified(self):
+        self.set_team(self.mia)
+        self.assertEqual(self.assigned(self.add_child_as(self.mia)), self.mia.pk)
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_add_card_with_the_teams_assignee_notifies_once_and_respects_the_preference(self):
+        body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, "assignee_id": self.mia.pk}
+        url = f"/api/v1/boards/{self.parent.pk}/cards/"
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(client_for(self.owner).post(url, body, format="json").status_code, 201)
+        self.assertEqual(len(self.notes(self.mia)), 1)
+        User.objects.filter(pk=self.mia.pk).update(notif_card_assigned=False)
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(client_for(self.owner).post(url, body, format="json").status_code, 201)
+        self.assertEqual(len(self.notes(self.mia)), 1)
+
+
+class TeamPrefetchQueryCountTests(TeamFixture):
+    """perf-check: lane reads with a team cost the same whatever the team size."""
+
+    def test_full_board_read_is_flat_in_team_size(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        Swimlane.objects.create(board=self.parent, name="Globex", position=1)
+
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                r = client_for(self.owner).get(f"/api/v1/boards/{self.parent.pk}/full/")
+            self.assertEqual(r.status_code, 200, r.content)
+            return len(ctx.captured_queries)
+
+        self.set_team(self.mia)
+        one = count()
+        extra = [self.user_with(f"t{i}", parent=Role.MEMBER) for i in range(3)]
+        self.set_team(self.dan, *extra)
+        for lane in self.parent.swimlanes.exclude(pk=self.lane.pk):
+            for u in (self.mia, self.dan):
+                SwimlaneTeamMember.objects.create(swimlane=lane, user=u)
+        self.assertEqual(count(), one)
+
+    def test_admin_payload_reads_the_team_in_one_query(self):
+        from django.contrib.admin.sites import site
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        self.set_team(self.mia, self.dan)
+        model_admin = site._registry[Swimlane]
+        lane = Swimlane.objects.get(pk=self.lane.pk)
+        with CaptureQueriesContext(connection) as ctx:
+            data = model_admin._payload(lane, None)
+        self.assertEqual(data["default_team"], [self.mia.pk, self.dan.pk])
+        team_queries = [q for q in ctx.captured_queries if "swimlane_team_members" in q["sql"]]
+        self.assertEqual(len(team_queries), 1, team_queries)
