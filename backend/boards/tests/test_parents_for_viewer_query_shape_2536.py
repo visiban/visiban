@@ -3,8 +3,11 @@
 #2443 added a second seven-level ``child__board__group__parent__...`` chain to
 the links query, beside the parent board's, so one statement joined the
 ``groups`` table fourteen times (~20 relations). The query COUNT stayed flat,
-which is why the #1104/#2443 query-count pins passed; only the SHAPE grew, and
-``backend-test`` shard 1 hung inside that statement. These tests pin the shape:
+which is why the #1104/#2443 query-count pins passed; only the SHAPE grew. A
+``backend-test`` shard 1 hang was observed inside that statement, but the
+double-chain shape was NOT shown to cause it (it plans in ~2 ms); the split is a
+hardening that keeps each statement under PostgreSQL's join-collapse limits.
+These tests pin the shape:
 no statement a parent read issues joins more than one ancestor chain, and the
 child board's chain, now loaded by its own query, still resolves a role that
 reaches the viewer only through a group ancestor.

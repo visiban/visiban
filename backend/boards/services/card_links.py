@@ -1272,9 +1272,11 @@ def parents_for_viewer(child_ids, user, *, known_boards=()):
     # The child board's chain (needed only so the sibling role check below can
     # resolve a role on the child's board) is loaded by its own query instead
     # of a second ``child__board__<chain>`` join (#2536): two seven-level
-    # chains put 20 joins (14 of them on ``groups``) in one statement, far past
-    # PostgreSQL's ``join_collapse_limit`` (8), and CI's backend-test shard 1
-    # hung inside exactly that statement while the query COUNT stayed flat.
+    # chains put 20 joins (14 of them on ``groups``) in one statement, past
+    # PostgreSQL's ``join_collapse_limit`` (8). A CI hang was observed inside
+    # this statement, but the double-chain shape was NOT shown to cause it (it
+    # plans in ~2 ms); the split is a hardening that keeps each statement
+    # under the join-collapse limits.
     # One chain per statement is pinned by
     # test_parents_for_viewer_query_shape_2536. ``child_board_id`` is a plain
     # column off the child card (one join, no chain): the loop needs only the id.

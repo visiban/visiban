@@ -10,7 +10,7 @@ script records the server side: which backend is stuck, who blocks it, and
 what the blocker is doing (an idle-in-transaction blocker is the key evidence).
 
 DIAGNOSTIC ONLY. It never changes database state, never fails the job, and
-prints at most one ``[pg-activity-watch]`` report per stuck pid to stderr.
+prints at most one ``[pg-activity-watch]`` report per stuck query (pid, query_start) to stderr.
 It reads ``DATABASE_URL`` but never prints it.
 """
 
