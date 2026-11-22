@@ -5468,6 +5468,80 @@ check (#1298) is not a latency scenario and has no budget.</p>
 <li>The development machine is macOS on arm64, while CI is <code>python:3.12-slim</code> on x86_64. This test doesn't cover a platform-specific driver cost, nor the unpinned transitive dependencies and floating images #1800 lists.</li>
 </ul>
 <p>This step is therefore <strong>unattributed</strong>. It's 0.8-2.1ms per request on the three lightest endpoints and 3.2-4.4ms on <code>card_search</code>, which is 2-6% and well inside the 1.4x budget factor, so it wasn't pursued. If it grows, run the same driver A/B on a NUC runner rather than on a development machine.</p>
+<h2 id="the-november-2026-flow-metric-regression-2502">The November 2026 flow-metric regression — #2502<a class="headerlink" href="#the-november-2026-flow-metric-regression-2502" title="Permanent link">&para;</a></h2>
+<p>The 2026-11-21 scheduled run failed on <code>flow_wip_age</code> (p95 577.4 ms against a 510 ms budget). Every range metric moved with it: from 2026-11-16 to 11-20 <code>flow_wip_age</code> sat at 360-375 ms, then the first run at <code>cafd0ad9e</code> measured 530.7 ms. The non-flow endpoints stayed within the run-to-run noise. <code>flow_blocked</code> did not: its nightly p95 went 282.2 ms (11-20) to 316.8 ms (11-21) to 361.6 ms (the retry), +12% and +28%, about the size of the rise on <code>throughput</code> (302.0 to 372.9 ms) and <code>cycle_time</code> (306.8 to 377.0 ms). The range-loader predicate change below can't explain that rise on <code>flow_blocked</code>, because it reads through <code>load_live_wip</code> and never touches the range loader. This section has no local measurement of <code>flow_blocked</code>, so the cause of its nightly rise is not attributed. It is the same unattributed residual described at the end of this section.</p>
+<h3 id="root-cause-measured_1">Root cause, measured<a class="headerlink" href="#root-cause-measured_1" title="Permanent link">&para;</a></h3>
+<p>Commit <code>c49825214</code> (#2425) narrowed every range metric to the cards <code>flow_metrics.can_affect_range</code> keeps. Its movement term was a correlated <code>EXISTS (SELECT … FROM card_movements WHERE card_id = cards.id AND moved_at &gt;= boundary)</code> inside an <code>OR</code>. PostgreSQL can't turn a correlated <code>EXISTS</code> under an <code>OR</code> into a semi-join, so it stays a per-row filter on <code>cards</code>. With that filter in place, the planner stopped driving the history read from the board's cards. It walked the whole <code>card_movements_card_id</code> index instead, every board's movements, and probed <code>cards</code> once per row.</p>
+<p><code>EXPLAIN (ANALYZE, BUFFERS)</code> on the history statement, local PostgreSQL, the current nightly fixture (151,674 movements in the database, 24,919 on the load-test board):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Driven from</th>
+<th>Rows read</th>
+<th>Buffers</th>
+<th>Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Correlated <code>EXISTS</code> (<code>c49825214</code>)</td>
+<td><code>card_movements_card_id</code>, all boards</td>
+<td>151,674</td>
+<td>51,811</td>
+<td>56.6 ms</td>
+</tr>
+<tr>
+<td>Uncorrelated <code>IN</code> (#2502)</td>
+<td>the board's 2,395 cards</td>
+<td>24,919</td>
+<td>10,085</td>
+<td>20.1 ms</td>
+</tr>
+</tbody>
+</table>
+<p>On the load-test board the narrowing can't prune anything, because every card is live. So that board paid the instance-wide read and got nothing back for it. Migration 0117 (#2408, dropping <code>movement_board_moved_idx</code>) is ruled out: neither plan uses a <code>board_id</code> movement index.</p>
+<h3 id="the-fix">The fix<a class="headerlink" href="#the-fix" title="Permanent link">&para;</a></h3>
+<p>The movement term is now <code>pk IN (SELECT card_id FROM card_movements JOIN cards … WHERE cards.board_id = &lt;board&gt; AND cards.archived_at &lt; boundary AND cards.created_at &lt; boundary AND moved_at &gt;= boundary)</code>. It's uncorrelated, so it runs as a hashed SubPlan, at most once per statement and only when a row reaches it (a live card never does). It names the same cards: the term only matters for a card that's archived and was created before the boundary. <code>RangeNarrowingEquivalenceTests</code> still holds, and <code>test_flow_range_plan_2502.py</code> fails on any range-load statement that correlates <code>card_movements</code> to the card, or on a movement subquery without the board bound.</p>
+<p>DRF client, local, warm, 20 requests per arm, p50 / p95 in ms:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint (load-test board)</th>
+<th><code>2655a9f81</code></th>
+<th><code>c49825214</code> predicate</th>
+<th>#2502</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wip-age</code></td>
+<td>148.1 / 168.2</td>
+<td>185.9 / 198.1</td>
+<td>159.7 / 178.9</td>
+</tr>
+<tr>
+<td><code>attention</code></td>
+<td>137.0 / 160.0</td>
+<td>162.8 / 185.7</td>
+<td>140.5 / 161.0</td>
+</tr>
+<tr>
+<td><code>cycle-time</code></td>
+<td>129.5 / 137.2</td>
+<td>154.3 / 173.4</td>
+<td>129.6 / 148.9</td>
+</tr>
+<tr>
+<td><code>cumulative-flow</code></td>
+<td>135.5 / 150.9</td>
+<td>161.2 / 182.1</td>
+<td>138.1 / 161.8</td>
+</tr>
+</tbody>
+</table>
+<p>The aged board keeps the #2425 win. Its <code>wip-age</code> was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over <code>2655a9f81</code> on the load-test board wasn't attributed. It's inside the 1.4x budget factor.</p>
+<p>The closing check is the manual <code>nightly-load-test</code> job on the NUC: its p95 for all eight flow scenarios (<code>cycle-time</code>, <code>throughput</code>, <code>cumulative-flow</code>, <code>wip-age</code>, <code>dwell</code>, <code>blocked</code>, <code>attention</code>, <code>swimlanes</code>) must come back under their budgets. The local DRF-client table above covers only four of the eight (<code>wip-age</code>, <code>attention</code>, <code>cycle-time</code>, <code>cumulative-flow</code>); <code>throughput</code>, <code>dwell</code>, <code>blocked</code> and <code>swimlanes</code> were not measured locally.</p>
 
 
 
