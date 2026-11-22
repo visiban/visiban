@@ -5382,20 +5382,21 @@
 <td><code>import_export</code></td>
 <td><code>boards/views/import_export.py</code>, whole module</td>
 <td style="text-align: right;">1826</td>
-<td style="text-align: right;">2</td>
-<td>16 files: the nine of the head run (#1502), the remainder run's (#1484), <code>test_import_csv_custom_fields</code> for the #1449 code, and, last because only a mutant every other file let through reaches them, <code>test_import_history_attribution</code> and <code>test_import_export_schema_mutation_gaps</code> (#1930)</td>
+<td style="text-align: right;">5</td>
+<td>17 files: the nine of the head run (#1502), the remainder run's (#1484), <code>test_import_csv_custom_fields</code> for the #1449 code, and, last because only a mutant every other file let through reaches them, <code>test_import_history_attribution</code> and <code>test_import_export_schema_mutation_gaps</code> (#1930), and <code>test_import_validators_mutation_gaps_2514</code> for the JSON-import validators (#2514; exact-message and boundary tests that call the helpers directly, no database)</td>
 <td style="text-align: right;">29</td>
 </tr>
 <tr>
 <td><strong>Total</strong></td>
 <td></td>
 <td style="text-align: right;"><strong>2439</strong></td>
-<td style="text-align: right;"><strong>50</strong></td>
+<td style="text-align: right;"><strong>53</strong></td>
 <td></td>
 <td style="text-align: right;"><strong>50</strong></td>
 </tr>
 </tbody>
 </table>
+<p><strong>#2514 (JSON-import validators).</strong> The 214 survivors of the weekly run at <code>d05373ea</code> (parent-name and lane-tier checks, <code>_json_skip_counts</code>, the <code>_*_error</code> checkers, <code>_validate_json_import_values</code>, <code>_block_reason_error</code>, <code>_imported_card_blocks</code>) are killed by <code>test_import_validators_mutation_gaps_2514.py</code>, which calls the helpers directly. Three are proven equivalent and carry <code># pragma: no mutate</code>: the two <code>0</code> defaults in the <code>gates_passed</code> bound (<code>max(..., 1)</code> floors them) and <code>open_entry = None</code> (<code>None</code> and <code>""</code> are both falsy at every use). The <code>from_column</code>, <code>to_column</code>, <code>from_swimlane</code>, <code>to_swimlane</code> and <code>imported_from_username</code> entries in the deleted-history string-key tuples are killed only by a row that also has a bad timestamp, because the movement specs repeat the same message.</p>
 <p>The <code>CardMovement</code> range is computed from the code on every run (<code>ast</code>, the class's first to last line), never written down, so it follows the class when <code>models.py</code> changes. The mutants outside the range are registered by mutmut, skipped by the hook, and left out of every count by the export (<code>--line-range</code>).</p>
 <h3 id="shard-arithmetic">Shard arithmetic<a class="headerlink" href="#shard-arithmetic" title="Permanent link">&para;</a></h3>
 <p>Per-mutant cost is almost all the time the target's tests take to reach their first failure (<code>-x</code>); a survivor costs a full pass. Measured 2026-10-09 on an 18-core laptop, SQLite, mutmut 2.5.1, one process per sample, <code>--reuse-db</code>:</p>
