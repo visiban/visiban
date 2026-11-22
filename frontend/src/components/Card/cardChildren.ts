@@ -126,15 +126,15 @@ export interface MoveTargetState {
  * What the in-sheet Move picker does with a column (#2209: the picker honors the child board's WIP mode).
  * It mirrors the move endpoint for this viewer, so a disabled row is exactly a move the server would refuse:
  * advisory limits (neither flag) never block; enforced limits block every role but a board admin, who
- * moves with `?force=true`; a hard limit blocks every role. A `wip_limit` of 0 is no limit, as on the board.
+ * moves with `?force=true`; a hard limit blocks every role. A `wip_limit` of 0 is a real limit (the server treats any non-null limit as one), unlike the board's header display.
  * The server still re-checks; its refusal is shown as the picker's error line.
  */
 export function moveTargetState(
   col: CardChildrenColumn,
   board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean },
 ): MoveTargetState {
-  const limit = col.wip_limit ?? 0;
-  if (limit <= 0 || col.card_count < limit) return { disabled: false, reason: "", force: false };
+  const limit = col.wip_limit;
+  if (limit == null || col.card_count < limit) return { disabled: false, reason: "", force: false };
   if (board.enforce_wip_hard) return { disabled: true, reason: `At its limit of ${limit}`, force: false };
   if (board.enforce_wip_limits) {
     return FORCE_ROLES.has(board.role)

@@ -609,20 +609,20 @@ describe('own-write echo before the write resolves (#2209 rule R-C)', () => {
   })
 })
 
-describe('a WIP limit of 0 is no limit (#2209, as on the board)', () => {
+describe('a WIP limit of 0 is a real limit for the Move picker (#2209, as on the server)', () => {
   const zero = () => {
     const d = read(kids)
     d.board!.columns = columns.map((c) => (c.id === 101 ? { ...c, wip_limit: 0, card_count: 0 } : c))
     return d
   }
 
-  it('shows no limit text and keeps the Move option enabled', async () => {
+  it('shows no limit text but disables the Move option for a member under an enforced limit', async () => {
     renderTab(state({ data: zero() }))
     expect(screen.queryByText(/· limit/)).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Move Pen-test scoping call' }))
     const group = screen.getByRole('radiogroup', { name: 'Column on Delivery' })
-    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeEnabled()
-    expect(within(group).queryByText(/At its limit/)).toBeNull()
+    expect(within(group).getByRole('radio', { name: 'Doing' })).toBeDisabled()
+    expect(within(group).getByText('At its limit of 0')).toBeInTheDocument()
   })
 
   it('still shows a positive limit', () => {
@@ -636,7 +636,9 @@ describe('Children tab remainder (#2209 slice 3)', () => {
   it('moveTargetState mirrors the move endpoint for each WIP mode and role', () => {
     const b = (over: object) => ({ role: 'member', enforce_wip_limits: false, enforce_wip_hard: false, ...over })
     expect(moveTargetState(columns[0], b({ enforce_wip_hard: true }))).toEqual({ disabled: false, reason: '', force: false })
-    expect(moveTargetState({ ...doing, wip_limit: 0 }, b({ enforce_wip_hard: true })).disabled).toBe(false)
+    // The server treats wip_limit 0 as a real limit (services/cards.py), so a hard 0 refuses every move in.
+    expect(moveTargetState({ ...doing, wip_limit: 0, card_count: 0 }, b({ enforce_wip_hard: true }))).toEqual({ disabled: true, reason: 'At its limit of 0', force: false })
+    expect(moveTargetState({ ...doing, wip_limit: 0, card_count: 0 }, b({ enforce_wip_limits: true, role: 'admin' })).force).toBe(true)
     expect(moveTargetState(doing, b({}))).toEqual({ disabled: false, reason: 'At its limit of 5 · not enforced', force: false })
     expect(moveTargetState(doing, b({ enforce_wip_limits: true }))).toEqual({ disabled: true, reason: 'At its limit of 5', force: false })
     expect(moveTargetState(doing, b({ enforce_wip_limits: true, role: 'admin' }))).toEqual({ disabled: false, reason: 'At its limit of 5 · admin override', force: true })
