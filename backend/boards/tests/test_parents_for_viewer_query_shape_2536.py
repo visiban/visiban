@@ -11,12 +11,14 @@ reaches the viewer only through a group ancestor.
 """
 
 import re
+from unittest import mock
 
+from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
-from boards.models import Board, CardParentLink
+from boards.models import Board, BoardMembership, CardParentLink
 from boards.permissions import _GROUP_TRAVERSAL_MAX_DEPTH, GROUP_ANCESTOR_SELECT_RELATED
 from boards.services import card_links
 from boards.tests.test_card_parent_links import Role, _LinkFixture
@@ -74,21 +76,50 @@ class ParentsForViewerQueryShapeTests(_LinkFixture, TestCase):
         self.assertEqual(out[self.child.pk]["siblings_total"], 1)
 
     def test_a_known_board_no_child_sits_on_is_ignored(self):
-        """A hint never adds a board to the role batch, so it cannot change an answer."""
+        """A hint never adds a board to the role batch, so it cannot change an answer.
+
+        The viewer holds a role on a THIRD board (neither the parent's nor the
+        child's) and none on the child's board; handing that third board in as
+        a hint must neither resolve a role for it nor turn the null sibling
+        counts into numbers.
+        """
+        third = Board.objects.create(name="Third 2536", owner=self.owner)
         stranger = self._user("shape_2536_none", parent_role=Role.VIEWER)
-        unrelated = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).get(pk=self.pboard.pk)
-        out = card_links.parents_for_viewer([self.child.pk], stranger, known_boards=(unrelated,))
-        # No role on the child's board: visible parent, null sibling counts.
+        BoardMembership.objects.create(board=third, user=stranger, role=Role.ADMIN)
+        hint = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).get(pk=third.pk)
+        seen = []
+        real = card_links.get_board_roles
+
+        def spy(user, boards):
+            boards = list(boards)
+            seen.extend(b.pk for b in boards)
+            return real(user, boards)
+
+        with mock.patch.object(card_links, "get_board_roles", spy):
+            out = card_links.parents_for_viewer([self.child.pk], stranger, known_boards=(hint,))
+        self.assertNotIn(third.pk, seen)
+        self.assertCountEqual(seen, [self.pboard.pk, self.cboard.pk])
+        self.assertFalse(out[self.child.pk]["hidden"])
+        self.assertIsNone(out[self.child.pk]["siblings_total"])
+        self.assertIsNone(out[self.child.pk]["siblings_done"])
+
+    def test_a_child_board_gone_between_the_reads_fails_closed(self):
+        """The child-board query finding nothing leaves null counts, never an error or a count."""
+        empty = mock.MagicMock()
+        empty.objects.select_related.return_value.filter.return_value = []
+        with mock.patch.object(card_links, "Board", empty):
+            out = card_links.parents_for_viewer([self.child.pk], self.viewer)
         self.assertFalse(out[self.child.pk]["hidden"])
         self.assertIsNone(out[self.child.pk]["siblings_total"])
         self.assertIsNone(out[self.child.pk]["siblings_done"])
 
     def test_absent_user_fails_closed_without_resolving_boards(self):
-        """#1075: no viewer means every entry hidden, and only the links query runs."""
-        with CaptureQueriesContext(connection) as ctx:
-            out = card_links.parents_for_viewer([self.child.pk], None, known_boards=(self.cboard,))
-        self.assertEqual(out, {self.child.pk: {"hidden": True}})
-        self.assertEqual(len(ctx), 1)
+        """#1075: no viewer (None or anonymous) means every entry hidden, and only the links query runs."""
+        for user in (None, AnonymousUser()):
+            with self.subTest(user=user), CaptureQueriesContext(connection) as ctx:
+                out = card_links.parents_for_viewer([self.child.pk], user, known_boards=(self.cboard,))
+            self.assertEqual(out, {self.child.pk: {"hidden": True}})
+            self.assertEqual(len(ctx), 1)
 
     def test_full_read_joins_one_chain_per_statement(self):
         """The whole ``/full/`` read the issue hung in, not only the helper."""
