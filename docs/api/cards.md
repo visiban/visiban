@@ -138,6 +138,8 @@ Create a card. Requires member or above. The target column must have `allow_card
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
+A card created with an `assignee_id` of someone other than the caller sends that person the `assigned` notification ("You were assigned to ..."), deferred until the create commits, under their `notif_card_assigned` preference and only while they are a member of the board. It is the same notification an assignee change sends, so a card pre-assigned from a swimlane [default team](boards.md) (the web app sends `assignee_id`; Add child assigns server-side) notifies once. *Changed in 1.3 (#2211): a create did not notify before; the MCP `create_card` tool follows the same rule.*
+
 Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets `403` even when the body is invalid, where they previously got `400` with field errors for an invalid body. Members still get `400` for an invalid body, and a caller with no access to the board gets `404`.
 
 Since 1.2, a create returns `404 Not Found` (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).
@@ -1194,7 +1196,9 @@ and weight limits apply as for any create. `201` returns the new card, as
   who is active and can be assigned on the target board; the target board's
   own lanes are not consulted. Nobody qualifying leaves it unassigned.
   `"apply_default_team": false` skips this; a non-boolean value is `400`
-  (keyed `apply_default_team`). The default is `true`.
+  (keyed `apply_default_team`). The default is `true`. The pre-assigned member
+  gets the usual `assigned` notification (below), once, unless they are the
+  caller.
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
   (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
   `swimlane_*` forms), with the same body as `POST .../cards/`.

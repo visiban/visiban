@@ -55,6 +55,11 @@ for it):
 
 > "You were assigned a checklist item on "\{card title\}": "\{item text\}""
 
+New in 1.3: a card that is **created** already assigned to you (someone else picks you
+when adding it, or a swimlane's [default team](board.md#swimlane-default-team)
+pre-assigns you, from Add card or Add child) sends the same "You were assigned to"
+notification, once, under the same preference.
+
 Assigning yourself sends nothing, and neither does unassigning, changing an item's
 due date, or saving an item whose assignee did not change. Long card titles and
 item text are shortened to fit.
