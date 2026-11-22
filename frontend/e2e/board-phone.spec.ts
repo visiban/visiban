@@ -461,7 +461,7 @@ test.describe('board phone layout', () => {
     })
     await page.getByRole('button', { name: /^\+?\s*Add card/ }).first().click()
     await page.getByLabel(/New card title/).fill('Phone card')
-    await page.getByRole('button', { name: 'Add', exact: true }).click()
+    await page.getByRole('button', { name: 'Add card', exact: true }).click()
     await expect(page.locator('[data-card-id="77"]')).toBeVisible()
     expect(body).toMatchObject({ column: 1, swimlane: 1, title: 'Phone card' })
 

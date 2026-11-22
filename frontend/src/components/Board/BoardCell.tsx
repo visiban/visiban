@@ -379,6 +379,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
 
       {column.allow_card_creation && canEdit && adding && (
         <div ref={addEditorRef} className="relative mt-1.5">
+          <p className="text-xs text-fg-secondary mb-1" data-testid="cell-add-tag">{swimlane.name} · {column.name}</p>
           <input
             autoFocus
             value={title}
@@ -398,12 +399,13 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
               assigned={preAssignee != null}
               others={laneDefault.others}
               caption={laneCaption(swimlane.name)}
+              sourceLabel="Pre-assigned from lane team"
               onUnassign={() => setUnassigned(true)}
               onReassign={() => setUnassigned(false)}
             />
           )}
           <div className="flex gap-1.5 mt-1.5">
-            <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
+            <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add card</button>
             <button onClick={cancelAdd} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           </div>
           <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>

@@ -19,6 +19,8 @@ interface Props {
   onReassign: () => void;
   /** Phone surfaces use 14px text and 44px targets; desktop cells 12px. */
   size?: "sm" | "md";
+  /** Visible label naming where the chip came from (inline add: "Pre-assigned from lane team"). */
+  sourceLabel?: string;
 }
 
 /**
@@ -32,7 +34,7 @@ interface Props {
  * otherwise focus would fall to <body> (ux-review, frontend/CLAUDE.md "a control that removes itself").
  */
 export default function LaneTeamAssignee({
-  assignee, assigned, others, caption, onUnassign, onReassign, size = "sm",
+  assignee, assigned, others, caption, onUnassign, onReassign, size = "sm", sourceLabel,
 }: Props) {
   const text = size === "md" ? "text-sm" : "text-xs";
   // 44px targets at the phone/dialog size; the 12px desktop cell keeps a 24px target so the chip
@@ -57,6 +59,7 @@ export default function LaneTeamAssignee({
   return (
     <div role="group" aria-labelledby={labelId} aria-describedby={captionId} className="flex flex-col gap-1 mt-1.5">
       <span id={labelId} className={`${text} text-fg-secondary`}>Assignees</span>
+      {sourceLabel && assigned && <span className={`${text} text-fg-muted`}>{sourceLabel}</span>}
       <div className="flex flex-wrap items-center gap-1">
         {assigned ? (
           <span className={`inline-flex items-center gap-1.5 pl-1 rounded-full border border-line bg-surface ${text} text-fg`}>

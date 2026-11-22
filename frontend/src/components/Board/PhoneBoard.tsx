@@ -645,6 +645,7 @@ export default function PhoneBoard({
               </div>
               {canAdd && addingLane === lane.id && !collapsed && (
                 <div className="flex flex-col gap-2" data-testid="phone-add-card">
+                  <p className="text-sm font-medium text-fg" data-testid="phone-add-card-heading">New card in {lane.name} · {column.name}</p>
                   <input
                     autoFocus
                     value={draft}
@@ -654,7 +655,7 @@ export default function PhoneBoard({
                       if (e.key === "Escape") { e.stopPropagation(); setAddingLane(null); setAddError(null); setUnassignedLane(null); }
                     }}
                     aria-label={`New card title in ${column.name}, ${lane.name}`}
-                    placeholder="Card title…"
+                    placeholder="Card title"
                     className="w-full min-h-11 text-sm border border-primary-emphasis rounded px-3 outline-none bg-surface text-fg placeholder-fg-muted"
                   />
                   {(() => {
@@ -666,13 +667,14 @@ export default function PhoneBoard({
                         assigned={assignee != null}
                         others={laneDefault.others}
                         caption={laneCaption(lane.name)}
+                        sourceLabel="Pre-assigned from lane team"
                         onUnassign={() => setUnassignedLane(lane.id)}
                         onReassign={() => setUnassignedLane(null)}
                       />
                     ) : null;
                   })()}
                   <div className="flex gap-2">
-                    <button type="button" className="inline-flex items-center justify-center min-h-11 px-4 text-sm rounded font-medium bg-button-primary text-on-primary hover:bg-button-primary-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => void submitCard(lane.id)}>Add</button>
+                    <button type="button" className="inline-flex items-center justify-center min-h-11 px-4 text-sm rounded font-medium bg-button-primary text-on-primary hover:bg-button-primary-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => void submitCard(lane.id)}>Add card</button>
                     <button type="button" className="inline-flex items-center justify-center min-h-11 px-3 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => { setAddingLane(null); setAddError(null); setUnassignedLane(null); }}>Cancel</button>
                   </div>
                   <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>
