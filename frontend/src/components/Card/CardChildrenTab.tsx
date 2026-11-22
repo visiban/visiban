@@ -9,6 +9,7 @@ import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
 import { colorChipStyle } from "../../utils/colorContrast";
 import { formatDueDate, formatRelativeTime } from "../../utils/date";
+import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { isImeComposing } from "../../utils/imeComposition";
 import Avatar from "../Common/Avatar";
@@ -63,6 +64,9 @@ interface Props {
  */
 export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
   const { notify, dismiss } = useToast();
+  // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
+  // while the tab stays open.
+  const clock = useSharedMinuteClock();
   const inRouter = useInRouterContext();
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -359,8 +363,8 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
             <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-base font-semibold text-fg">{doneLine(counts.done)}</span>
               {counts.blocked > 0 && <span className="text-sm text-danger"><span aria-hidden="true">⊘ </span>{counts.blocked} blocked</span>}
-              {lastMovedAt && formatRelativeTime(lastMovedAt) && (
-                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {formatRelativeTime(lastMovedAt)}</span>
+              {lastMovedAt && formatRelativeTime(lastMovedAt, clock) && (
+                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {formatRelativeTime(lastMovedAt, clock)}</span>
               )}
             </div>
             <div

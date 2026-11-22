@@ -678,6 +678,21 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     expect(screen.queryByTestId('children-work-moved')).not.toBeInTheDocument()
   })
 
+  it('"Work moved" ticks forward while the tab stays open', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-11-22T12:00:00Z'))
+      const moved = new Date('2026-11-22T11:01:00Z').toISOString() // 59m before "now"
+      const { unmount } = render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} lastMovedAt={moved} />)
+      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 59m ago')
+      act(() => { vi.advanceTimersByTime(2 * 60_000) })
+      expect(screen.getByTestId('children-work-moved')).toHaveTextContent('Work moved 1h ago')
+      unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("draws the child board's card face: labels, priority in words, due date", () => {
     const labels = [1, 2, 3].map((i) => ({ id: i, name: `L${i}`, color: '#EF4444' }))
     const face = [
