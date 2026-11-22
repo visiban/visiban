@@ -101,19 +101,43 @@ When you add a Django app that has a `tests/` directory, add that directory to `
 ## Sonar rules mirrored in ESLint
 <a id="sonar-rules-mirrored-in-eslint"></a>
 
-Sonar scans `main` nightly, so a branch can't see the findings it introduces. Where a Sonar rule has an ESLint equivalent, `npm run lint` enforces it on every MR instead.
+Sonar scans `main` nightly, so a branch can't see the findings it introduces. Where a Sonar rule has an ESLint equivalent, a lint job enforces it on every MR instead.
 
-| Sonar rule | What it flags | Lint rule | Status |
-|---|---|---|---|
-| `typescript:S9383` | Floating promise | `@typescript-eslint/no-floating-promises` | `error` (type-aware, `projectService`) |
-| `typescript:S1082` | Click handler with no key handler | `jsx-a11y/click-events-have-key-events` | `error` |
-| `typescript:S7727` | Function reference passed to an array callback method | `unicorn/no-array-callback-reference` | `error` (only this rule, not the unicorn preset) |
-| `python:S1244` | Float equality | none | Uncovered: ruff runs with its default rule set and has no equivalent enabled, and `scripts/` is not linted by ruff at all (`ruff check backend/`) |
-| `python:S5332` | Clear-text `http://` literal | none | Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal, and `scripts/` is not scanned by either (`ruff check backend/`, `bandit -r backend/ clients/python/`) |
+| Sonar rule | What it flags | Lint rule | Config | CI job | Status |
+|---|---|---|---|---|---|
+| `typescript:S9383` | Floating promise | `@typescript-eslint/no-floating-promises` | `frontend/eslint.typeaware.config.js` | `frontend-lint-typeaware` | `error` (type-aware, `projectService`); the job is `allow_failure: true` for now, see below |
+| `typescript:S1082` | Click handler with no key handler | `jsx-a11y/click-events-have-key-events` | `frontend/eslint.config.js` | `frontend-lint` | `error` |
+| `typescript:S7727` | Function reference passed to an array callback method | `unicorn/no-array-callback-reference` | `frontend/eslint.config.js` | `frontend-lint` | `error` (only this rule, not the unicorn preset) |
+| `python:S1244` | Float equality | none | none | none | Uncovered: ruff runs with its default rule set and has no equivalent enabled, and `scripts/` is not linted by ruff at all (`ruff check backend/`) |
+| `python:S5332` | Clear-text `http://` literal | none | none | none | Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal, and `scripts/` is not scanned by either (`ruff check backend/`, `bandit -r backend/ clients/python/`) |
+
+### Why the floating-promise rule has its own config and job
+
+`no-floating-promises` needs type information, so ESLint has to build the TypeScript program for all of `src/` (`parserOptions.projectService`). That costs several times the memory of the untyped lint. With the rule in `eslint.config.js`, `npm run lint` died with `Reached heap limit` under `frontend-lint`'s `--max-old-space-size=1024`, and `frontend-lint` cannot raise its cap: a 1500 MB cap was already OOM-killed (exit 137) on the 2 GB runner. So the rule lives in `eslint.typeaware.config.js`, which enables only that rule, and runs in `frontend-lint-typeaware` with its own heap. `npm run lint` and editors keep the fast untyped parse and never see the rule.
+
+Measured on 2026-11-22 in `node:22-alpine` with `docker --memory=2g`, `src/` only:
+
+| Run | Heap cap | Result | Peak RSS | Wall clock |
+|---|---|---|---|---|
+| `npm run lint` (main config) | 1024 MB | passes, 0 errors, 15 warnings | 0.61 GB | 21 s |
+| `npm run lint:typeaware` | 1344 MB | `Reached heap limit` | 1.52 GB | 32 s |
+| `npm run lint:typeaware` | 1408 MB | passes | 1.59 GB | 25 s |
+| `npm run lint:typeaware` | 1536 MB (the job's cap) | passes | 1.66 GB | 19 s |
+| `npm run lint:typeaware` | none (Node's default in a 2 GB container) | `Reached heap limit` | 1.18 GB | 13 s |
+
+The job's 1536 MB cap is about 9% above the smallest one that passes. It is `allow_failure: true` until it has passed on the real runners: [CI Runners](../maintainers/ci-runners.md) records no runner's memory, and `frontend-lint`'s 1500 MB kill (that job also runs `tsc`) suggests the runner has less headroom than a 2 GB container. If the job reports `Reached heap limit` as `src/` grows, raise the cap only while it stays clear of the runner's limit. Past that, one option is to lint the two `allowDefaultProject` test files in a separate invocation: they open a second TypeScript program, and without them the rest passed at a 1280 MB cap (macOS, Node 24) instead of 1408 MB.
+
+Run it locally from `frontend/`:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=1536 npm run lint:typeaware
+```
+
+An `eslint-disable` comment for `no-floating-promises` is used by the type-aware run and unused by `npm run lint`. ESLint has no per-rule switch for unused-directive reporting, so `eslint.config.js` filters out only that rule's unused-directive warnings (`typeAwareDirectiveFilter`); an unused directive for any other rule still counts toward `frontend-lint`'s `--max-warnings 15`. The type-aware config turns unused-directive reporting off, because every other rule's directive is unused there. It also registers the other plugins (with no rules enabled) so their directives resolve; add a plugin there when `eslint.config.js` gains one.
 
 `jsx-a11y/no-static-element-interactions` is deliberately not enabled: it is stricter than Sonar S1082 and would flag widespread existing sites.
 
-Existing violations that couldn't be fixed mechanically carry a `// eslint-disable-next-line <rule> -- SUPPRESSED-UNTIL(#N): <reason>` marker; see [Suppression Markers](suppressions.md). The rules are pinned by `frontend/src/test/eslintSonarRules.test.ts`, which lints a Sonar-shaped example (must fire) and its fixed shape (must pass).
+Existing violations that couldn't be fixed mechanically carry a `// eslint-disable-next-line <rule> -- SUPPRESSED-UNTIL(#N): <reason>` marker; see [Suppression Markers](suppressions.md). The rules are pinned by `frontend/src/test/eslintSonarRules.test.ts`, which lints a Sonar-shaped example (must fire) and its fixed shape (must report nothing, not even a parse error) against the config that enforces each rule. It also checks that the main config neither enforces `no-floating-promises` nor reports its disable comments as unused, while still reporting an unused directive for any other rule.
 
 ## Quality policy
 
