@@ -10,14 +10,19 @@
 * #2449: the two options lists are capped at ``CHILD_BOARD_OPTIONS_LIMIT``
   with ``boards_total``. Their query-count pins live in ``test_query_counts``.
 """
-from unittest.mock import patch
+import asyncio
+import json
+from unittest.mock import AsyncMock, patch
 
 from django.db import connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.test import TestCase
 from django.utils import timezone
 
+from boards import consumers
+from boards.consumers import BoardConsumer, _now as board_now
 from boards.models import BoardEvent, BoardMembership, Card, CardParentLink, CardRelation, Column
+from boards.permissions import audience_gate
 from boards.services import card_links
 from boards.tests.conftest import _make_card
 from boards.tests.test_card_children_rollup_2210 import _RollupFixture
@@ -281,6 +286,9 @@ class SiblingPingTests(_RollupFixture, TestCase):
 
     Frame: ``card.parent_changed {card_ids, siblings: true}`` on the child board
     only, ids of the parent's live children there, never a parent id or count.
+    Broadcast only (never a feed row), gated to the parent's board by
+    ``audience_board_id`` beside the envelope. ``frames()`` reads what was
+    published, in publish order, the child's own (persisted) frame included.
     """
 
     def setUp(self):
@@ -289,10 +297,21 @@ class SiblingPingTests(_RollupFixture, TestCase):
         self.cbase = f"/api/v1/boards/{self.cboard.pk}/cards/"
         # Live children: todo, doing, done, manual, by_rel (archived is not one).
         self.live = sorted(c.pk for c in (self.todo, self.doing, self.done, self.manual, self.by_rel))
+        self.sent = []
+        patcher = patch(
+            "boards.broadcast.broadcast_board_event",
+            side_effect=lambda *a, **k: self.sent.append((a, k)),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def reset(self):
+        self.sent.clear()
+        BoardEvent.objects.all().delete()
 
     def frames(self):
-        rows = list(BoardEvent.objects.filter(event="card.parent_changed").order_by("pk").values_list("board_id", "data"))
-        BoardEvent.objects.all().delete()
+        rows = [(a[0], a[2]) for a, _k in self.sent if a[1] == "card.parent_changed"]
+        self.reset()
         return rows
 
     def sibling_frame(self, ids):
@@ -305,7 +324,7 @@ class SiblingPingTests(_RollupFixture, TestCase):
         return res
 
     def test_moving_a_child_into_and_out_of_a_done_column_pings_its_siblings(self):
-        BoardEvent.objects.all().delete()
+        self.reset()
         move = {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0}
         self.post(f"{self.doing.pk}/move/", move)
         self.assertEqual(self.frames(), [self.sibling_frame(self.live)])
@@ -313,12 +332,12 @@ class SiblingPingTests(_RollupFixture, TestCase):
         self.assertEqual(self.frames(), [self.sibling_frame(self.live)])
 
     def test_a_reorder_or_lane_move_pings_no_sibling(self):
-        BoardEvent.objects.all().delete()
+        self.reset()
         self.post(f"{self.doing.pk}/move/", {"column_id": self.col_doing.pk, "swimlane_id": self.lane_c.pk, "position": 1})
         self.assertEqual(self.frames(), [])
 
     def test_archive_restore_block_and_unblock_ping_the_siblings(self):
-        BoardEvent.objects.all().delete()
+        self.reset()
         others = [pk for pk in self.live if pk != self.doing.pk]
         for path, body, expected in (
             ("archive/", None, others),  # the archived card is no longer a sibling
@@ -333,7 +352,7 @@ class SiblingPingTests(_RollupFixture, TestCase):
 
     def test_link_and_unlink_ping_the_other_siblings_after_the_childs_own_frame(self):
         new = _make_card(self.col_c, self.lane_c, title="new")
-        BoardEvent.objects.all().delete()
+        self.reset()
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(self._link(self.client, child=new).status_code, 201)
         self.assertEqual(self.frames(), [(self.cboard.pk, {"card_ids": [new.pk]}), self.sibling_frame(self.live)])
@@ -342,7 +361,7 @@ class SiblingPingTests(_RollupFixture, TestCase):
         self.assertEqual(self.frames(), [(self.cboard.pk, {"card_ids": [new.pk]}), self.sibling_frame(self.live)])
 
     def test_deleting_a_child_pings_the_surviving_siblings(self):
-        BoardEvent.objects.all().delete()
+        self.reset()
         with self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(self.client.delete(f"{self.cbase}{self.doing.pk}/").status_code, 204)
         self.assertEqual(self.frames(), [self.sibling_frame([pk for pk in self.live if pk != self.doing.pk])])
@@ -350,7 +369,7 @@ class SiblingPingTests(_RollupFixture, TestCase):
     def test_a_lone_child_pings_no_sibling(self):
         """The line shows for two or more; a parent's only child has nobody to tell."""
         CardParentLink.objects.exclude(child=self.todo).delete()
-        BoardEvent.objects.all().delete()
+        self.reset()
         self.post(f"{self.todo.pk}/move/", {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0})
         self.assertEqual(self.frames(), [])
 
@@ -378,7 +397,7 @@ class SiblingPingTests(_RollupFixture, TestCase):
         a, b = (_make_card(self.col_c, self.lane_c, title=t) for t in ("a", "b"))
         for k in (a, b):
             CardParentLink.objects.create(parent=other_parent, child=k, created_by=self.owner)
-        BoardEvent.objects.all().delete()
+        self.reset()
         with self.captureOnCommitCallbacks(execute=True):
             card_links.announce_children_changed([self.doing.pk, a.pk], actor_id=self.owner.pk)
         frames = self.frames()
@@ -388,14 +407,14 @@ class SiblingPingTests(_RollupFixture, TestCase):
 
     def test_sibling_frame_is_capped_at_the_per_parent_limit(self):
         with patch.object(card_links, "CHILDREN_PER_PARENT_LIMIT", 3):
-            BoardEvent.objects.all().delete()
+            self.reset()
             with self.captureOnCommitCallbacks(execute=True):
                 card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
             self.assertEqual(self.frames(), [self.sibling_frame(self.live[:3])])
 
     def test_admin_unlink_all_skips_the_sibling_frame_for_the_parent_end_only(self):
         """The parent end leaving unlinks every child (each has its own frame); a child end leaves siblings."""
-        BoardEvent.objects.all().delete()
+        self.reset()
         with self.captureOnCommitCallbacks(execute=True):
             card_links.unlink_all(self.parent, actor=self.owner)
         frames = self.frames()
@@ -403,13 +422,27 @@ class SiblingPingTests(_RollupFixture, TestCase):
         self.assertTrue(frames)
         CardParentLink.objects.get_or_create(parent=self.parent, child=self.todo)
         CardParentLink.objects.get_or_create(parent=self.parent, child=self.doing)
-        BoardEvent.objects.all().delete()
+        self.reset()
         with self.captureOnCommitCallbacks(execute=True):
             card_links.unlink_all(self.todo, actor=self.owner)
         self.assertTrue(any(d.get("siblings") for _, d in self.frames()))
 
+    def test_sibling_frame_is_gated_to_the_parent_board_and_never_a_feed_row(self):
+        """The audience rides beside the envelope; the wire data is unchanged; nothing is persisted."""
+        self.reset()
+        self.post(f"{self.doing.pk}/move/", {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0})
+        sibling = [(a, k) for a, k in self.sent if a[1] == "card.parent_changed" and a[2].get("siblings")]
+        self.assertEqual(len(sibling), 1, self.sent)
+        (args, kwargs), = sibling
+        self.assertEqual(args[2], {"card_ids": self.live, "siblings": True})
+        self.assertEqual(kwargs.get("audience_board_id"), self.pboard.pk)
+        self.assertNotIn("event_id", kwargs)
+        self.assertFalse(
+            [d for d in BoardEvent.objects.values_list("data", flat=True) if isinstance(d, dict) and d.get("siblings")]
+        )
+
     def test_sibling_pings_are_flat_in_the_number_of_siblings(self):
-        """Move and delete of a child: the sibling read is one query and one feed row, however many siblings."""
+        """Move and delete of a child: the sibling read is one query, and no feed row, however many siblings."""
         def cost(n_extra):
             extra = [_make_card(self.col_c, self.lane_c, title=f"x{n_extra}-{i}") for i in range(n_extra)]
             CardParentLink.objects.bulk_create([CardParentLink(parent=self.parent, child=k) for k in extra])
@@ -425,3 +458,138 @@ class SiblingPingTests(_RollupFixture, TestCase):
 
         cost(2)  # warm the per-process caches the first request fills
         self.assertEqual(cost(2), cost(30))
+
+
+def _deliver(consumer, message, lookup=None):
+    """Run the real ``board_event`` on *message*.
+
+    The audience lookup is the real sync ``consumers.audience_role``, run here,
+    before the event loop: inside it, the ORM would open a second connection
+    that cannot see the test transaction. ``lookup`` replaces it (a mock).
+    """
+    if lookup is None:
+        _gated, audience = audience_gate(
+            message["payload"].get("event"), message["payload"].get("data"), message.get("audience_board_id"),
+        )
+        role = consumers.audience_role(consumer.scope, audience) if audience is not None else None
+        lookup = AsyncMock(return_value=role)
+    consumer._audience_role = lookup
+    consumer.send.reset_mock()
+    asyncio.run(consumer.board_event(message))
+    if not consumer.send.called:
+        return None
+    return json.loads(consumer.send.call_args.kwargs["text_data"])
+
+
+def _consumer_on(board, user):
+    consumer = BoardConsumer()
+    consumer.board_id = board.id
+    consumer.room = f"board_{board.id}"
+    consumer.channel_name = "test-channel"
+    consumer.channel_layer = AsyncMock()
+    consumer.send = AsyncMock()
+    consumer.close = AsyncMock()
+    consumer.scope = {"url_route": {"kwargs": {"board_id": board.id}}, "user": user}
+    consumer._role = "member"
+    # The subscriber's own access is served from the cache: only the audience
+    # check reads the DB (see _deliver).
+    consumer._access_verified_at = board_now()
+    return consumer
+
+
+def _fresh_user(scope):
+    """``load_live_ws_user`` without a handshake credential: the account row only."""
+    from accounts.models import User
+
+    return User.objects.filter(pk=scope["user"].id, is_active=True).first()
+
+
+class SiblingFrameAudienceTests(_RollupFixture, TestCase):
+    """#2443 (owner decision 2026-11-22): the sibling frame reaches only subscribers of the
+    CHILD board who can also open the PARENT's board; nothing else about delivery changes.
+
+    The publish is real (``broadcast_board_event`` into a capturing channel
+    layer); the consumer is the real ``board_event`` and the real audience
+    lookup (see ``_deliver``).
+    """
+
+    def setUp(self):
+        self._setup_rollup()
+        self.both = self._user("aud_both", parent_role=Role.VIEWER, child_role=Role.MEMBER)
+        self.child_only = self._user("aud_child", child_role=Role.MEMBER)
+        self.live = sorted(c.pk for c in (self.todo, self.doing, self.done, self.manual, self.by_rel))
+        self.messages = []
+        layer = AsyncMock()
+        layer.group_send.side_effect = lambda group, message: self.messages.append((group, message))
+        for target, value in (
+            ("boards.broadcast.get_channel_layer", lambda: layer),
+            ("boards.consumers.load_live_ws_user", _fresh_user),
+        ):
+            patcher = patch(target, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def sibling_message(self):
+        self.messages.clear()
+        with self.captureOnCommitCallbacks(execute=True):
+            card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+        found = [m for g, m in self.messages if m["payload"]["data"].get("siblings")]
+        self.assertEqual(len(found), 1, self.messages)
+        self.assertEqual(self.messages[[m for _g, m in self.messages].index(found[0])][0], f"board_{self.cboard.pk}")
+        return found[0]
+
+    def test_a_subscriber_who_can_open_the_parent_board_gets_the_frame_unchanged(self):
+        message = self.sibling_message()
+        self.assertEqual(message["audience_board_id"], self.pboard.pk)
+        sent = _deliver(_consumer_on(self.cboard, self.both), message)
+        self.assertEqual(sent, {"event": "card.parent_changed", "data": {"card_ids": self.live, "siblings": True}})
+
+    def test_a_subscriber_with_a_role_only_on_the_child_board_does_not(self):
+        consumer = _consumer_on(self.cboard, self.child_only)
+        self.assertIsNone(_deliver(consumer, self.sibling_message()))
+        consumer.close.assert_not_called()  # withheld, not an eviction
+        # The child's own ping is not gated: the same subscriber still gets it.
+        own = {"type": "board_event", "payload": {"event": "card.parent_changed", "data": {"card_ids": [self.doing.pk]}}}
+        self.assertEqual(_deliver(consumer, own), own["payload"])
+
+    def test_a_lost_parent_role_stops_the_frame(self):
+        message = self.sibling_message()
+        BoardMembership.objects.filter(board=self.pboard, user=self.both).delete()
+        self.assertIsNone(_deliver(_consumer_on(self.cboard, self.both), message))
+
+    def test_absent_inputs_drop_the_frame(self):
+        """#1075: no audience, a malformed one, no live user or a failed check: nobody gets it."""
+        message = self.sibling_message()
+        for audience in (None, 0, -1, True, "1", str(self.pboard.pk)):
+            with self.subTest(audience=audience):
+                m = {k: v for k, v in message.items() if k != "audience_board_id"}
+                if audience is not None:
+                    m["audience_board_id"] = audience
+                lookup = AsyncMock(return_value="admin")
+                self.assertIsNone(_deliver(_consumer_on(self.cboard, self.both), m, lookup))
+                lookup.assert_not_awaited()  # dropped before any lookup, whatever it would say
+        with patch("boards.consumers.load_live_ws_user", lambda scope: None):
+            self.assertIsNone(_deliver(_consumer_on(self.cboard, self.both), message))
+        consumer = _consumer_on(self.cboard, self.both)
+        self.assertIsNone(_deliver(consumer, message, AsyncMock(side_effect=RuntimeError("db down"))))
+        consumer.close.assert_not_called()
+        missing = {**message, "audience_board_id": self.pboard.pk + 10_000}
+        self.assertIsNone(_deliver(_consumer_on(self.cboard, self.both), missing))
+
+    def test_a_rolled_back_write_publishes_nothing(self):
+        self.messages.clear()
+        with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError):
+            with transaction.atomic():
+                card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+                raise RuntimeError
+        self.assertEqual(self.messages, [])
+
+    def test_gate_rule(self):
+        """The rule itself: the sibling frame is always gated; other frames only when an audience is named."""
+        sib = {"card_ids": [1], "siblings": True}
+        self.assertEqual(audience_gate("card.parent_changed", sib, 7), (True, 7))
+        self.assertEqual(audience_gate("card.parent_changed", sib, None), (True, None))
+        self.assertEqual(audience_gate("card.parent_changed", {"card_ids": [1]}, None), (False, None))
+        self.assertEqual(audience_gate("card.updated", {"siblings": True}, None), (False, None))
+        self.assertEqual(audience_gate("card.updated", {}, 7), (True, 7))
+        self.assertEqual(audience_gate("card.parent_changed", None, None), (False, None))

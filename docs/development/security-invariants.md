@@ -428,8 +428,21 @@ each surface that delivers them:
   `parent_ids`, `card_ids`, and `reload` above the cap, #2416, #2500; since
   #2443 also `siblings: true` on a child-board frame listing the live children
   of one parent, all on that board, never the parent's id), so there is
-  nothing in them to filter per recipient, and the child's own card events are
-  never fanned out to the parent's board. Every other detail of the other board
+  nothing in them to filter per field, and the child's own card events are
+  never fanned out to the parent's board. The `siblings: true` frame is the one
+  exception to "every subscriber of the receiving board": it groups card ids
+  by their shared parent, which is the parent's information, so it is **gated
+  per recipient** to subscribers who can open the PARENT's board
+  (`card_links._announce_siblings` passes the parent's board id as
+  `audience_board_id` beside the envelope, never on the wire, and
+  `BoardConsumer.board_event` forwards the frame only when
+  `consumers.audience_role` resolves a role there, dropping it when the audience
+  is absent or the check fails, `boards.permissions.audience_gate`), and it is
+  broadcast only, never written to the change feed, so no feed reader or
+  webhook of the child board receives it. A reader who cannot open the parent
+  sees a hidden parent with no sibling counts, so it has nothing to refresh;
+  the frame is therefore not part of the residual below
+  (`boards/tests/test_child_link_service_2449.py` `SiblingFrameAudienceTests`). Every other detail of the other board
   is read over REST, through `boards/services/card_links.py`
   `children_for_viewer` and, for the card-face progress chip,
   `rollups_for_viewer` (#2210), which resolve the reader's role on the child
@@ -522,7 +535,7 @@ one surface only leaves the same field readable through another.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| Board WebSocket | `boards/consumers.py` `BoardConsumer.board_event` | Per-user drop (`per_user_event_visible`), then, after the access re-check, the admin-only event drop (`admin_only_event_visible` on `ADMIN_ONLY_EVENTS`), then `moderator_field_visible`, `site_admin_field_visible`, `invite_field_visible` on `MODERATOR_BEARING_EVENTS`, using the subscriber's re-resolved role, then `without_actor_scoped_fields` against the message's `actor_id` |
+| Board WebSocket | `boards/consumers.py` `BoardConsumer.board_event` | Per-user drop (`per_user_event_visible`), then, after the access re-check, the admin-only event drop (`admin_only_event_visible` on `ADMIN_ONLY_EVENTS`), then the second-board audience drop (`audience_gate` against the message's `audience_board_id`, resolved by `consumers.audience_role` on a fresh user row; the `card.parent_changed` `siblings: true` frame is always gated and is dropped when the audience is absent or the check fails, #2443; it is never persisted, so the change feed has no row of it), then `moderator_field_visible`, `site_admin_field_visible`, `invite_field_visible` on `MODERATOR_BEARING_EVENTS`, using the subscriber's re-resolved role, then `without_actor_scoped_fields` against the message's `actor_id` |
 | Group WebSocket | `groups/consumers.py` `GroupConsumer.group_event` | Per-user drop over `GROUP_PER_USER_EVENTS` (derived from `PER_USER_EVENTS`), then `without_actor_scoped_fields` against the message's `actor_id`. There's no `is_moderator`, `is_site_admin` or `invite` strip on this surface: the group channel's `member.added` carries a `GroupMembershipSerializer` row, which has none of those fields |
 | Change feed | `boards/views/boards.py` `BoardViewSet.events`, `_events_cursor_expired`; `boards/services/feed.py` `feed_queryset`, `prune_marks`, `cursor_row_visible`, `reader_resume_cursor`; `boards/serializers.py` `BoardEventSerializer.to_representation` | The view excludes other users' `PER_USER_EVENTS` rows, and `ADMIN_ONLY_EVENTS` rows for a reader below admin (`admin_only_event_visible`), in the page query, and every answer about a cursor goes through that same rule (`_hidden_from`): the `410` retention check reads the per-type prune record through it, so a per-type mark expires a cursor only for a pruned row the reader could have seen, while type-blind records (`BoardEventPruneMark`) still count; the check that a cursor is one of the board's rows reads `feed_queryset` (`cursor_row_visible`), so an id the reader is not shown is answered as an id not on the board; and the `410`'s `next_cursor` is `reader_resume_cursor` (the newest row the reader may see, or its visible prune mark), never the board-wide `resume_cursor`, so every cursor the feed hands a reader is a position that reader may see, and it resumes without a `410` unless a later prune removes an event after it that the reader could have read, or the reader's role changes (either costs one re-sync, never a skipped event) (#2126). Accepted residual: the visible mark includes the type-blind record (`BoardEventPruneMark.unrecorded_floor`, one below the lowest id of a board's first recorded prune, and the legacy `max_pruned_id` written only by #2058 main builds), which counts for every reader, so where every row pruned so far is of a type the reader is not shown and nothing newer is visible, the `410`'s `next_cursor` and the `410` boundary sit at that position. The value names no existing row, an id the reader is not shown and an off-board id still get the same answer, and the boundary is the same whether or not `next_cursor` is returned; the serializer applies the three member-field helpers with the reader's role, `without_admin_only_board_fields`, `without_actor_scoped_fields` against the row's `actor_id`, and the swimlane re-filter (`shareable_swimlane_field_ids`). `group.created` / `group.updated` aren't persisted, so the feed has no group rows |
 | Broadcast and persist (write time) | `boards/broadcast.py` `broadcast_board_event`, `record_board_event`, `persist_board_event`; `groups/broadcast.py` `broadcast_group_event` | `without_admin_only_board_fields`; `without_viewer_specific_group_fields` on every group event (drops `can_place_boards`, #1692); swimlane payloads built from the public `SwimlaneSerializer`; `actor_id` carried on the channel-layer message for the consumers' `without_actor_scoped_fields` |

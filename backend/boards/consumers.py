@@ -16,6 +16,7 @@ from .permissions import (
     MODERATOR_BEARING_EVENTS,
     PER_USER_EVENTS,
     admin_only_event_visible,
+    audience_gate,
     get_board_role,
     invite_field_visible,
     moderator_field_visible,
@@ -309,6 +310,13 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # within the same window as every other role-gated field.
         if payload.get("event") in ADMIN_ONLY_EVENTS and not admin_only_event_visible(self._role):
             return
+        # A frame gated to a second board (#2443: the sibling frame, gated to
+        # the PARENT's board) goes only to a subscriber who can also open that
+        # board. Judged per frame from a fresh read, after the access re-check;
+        # an absent or malformed audience, or a failed check, drops it.
+        gated, audience = audience_gate(payload.get("event"), data, event.get("audience_board_id"))
+        if gated and (audience is None or not await self._may_open_audience(audience)):
+            return
         # Strip `is_moderator` from member.added/member.updated payloads when
         # the subscriber is below admin role (#978).  REST responses already
         # strip the field via BoardMembershipSerializer.to_representation
@@ -404,6 +412,26 @@ class BoardConsumer(AsyncWebsocketConsumer):
         self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
         return True
 
+    async def _may_open_audience(self, board_id):
+        """True only if this socket's live user has a role on *board_id* (#2443).
+
+        For a frame gated by :func:`boards.permissions.audience_gate`. Any
+        failure of the check (a DB error, say) answers False: the frame is
+        withheld, the socket stays open (the subscriber still has access to
+        this board, which the re-check just confirmed).
+        """
+        try:
+            return await self._audience_role(board_id) is not None
+        except Exception as exc:  # noqa: BLE001 — fail closed on any check failure
+            logger.warning(
+                "board audience check failed: board_id=%s error=%s", self.board_id, type(exc).__name__,
+            )
+            return False
+
+    @database_sync_to_async
+    def _audience_role(self, board_id):
+        return audience_role(self.scope, board_id)
+
     @database_sync_to_async
     def _resolve_role(self, user, board_id):
         return _lookup_role(user, board_id)
@@ -427,6 +455,19 @@ class BoardConsumer(AsyncWebsocketConsumer):
         if user is None:
             return None
         return _lookup_role(user, self.board_id)
+
+
+def audience_role(scope, board_id):
+    """The socket's live user's effective role on *board_id*, or None (sync; ORM).
+
+    Same ladder and the same fresh user row as the access re-check
+    (``_refresh_role``), so a gated frame is judged on current state: a
+    revoked credential or a deactivated account is no role anywhere.
+    """
+    user = load_live_ws_user(scope)
+    if user is None:
+        return None
+    return _lookup_role(user, board_id)
 
 
 def _lookup_role(user, board_id):

@@ -409,7 +409,7 @@ def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id, *,
     if siblings:
         _announce_siblings(
             CardParentLink.objects.filter(parent_id=parent_id, child__archived_at__isnull=True)
-            .values_list("parent_id", "child_id", "child__board_id"),
+            .values_list("parent_id", "parent__board_id", "child_id", "child__board_id"),
             actor_id=actor_id, exclude={child_id},
         )
 
@@ -424,35 +424,58 @@ def _announce_siblings(rows, *, actor_id, exclude=(), changed=()):
     siblings are told here: one ``card.parent_changed`` per (parent, child
     board) with ``{"card_ids": [...], "siblings": true}``.
 
-    ``rows`` is ``(parent_id, child_id, child_board_id)`` for LIVE children,
-    read after the write. ``exclude`` drops ids that get their own frame (the
-    child just linked or unlinked, or a deleted card). ``changed`` names the
-    cards the write touched: a pair whose only live child is one of them is
-    skipped, since the line is shown for two or more and nothing else reads
-    the counts.
+    ``rows`` is ``(parent_id, parent_board_id, child_id, child_board_id)`` for
+    LIVE children, read after the write. ``exclude`` drops ids that get their
+    own frame (the child just linked or unlinked, or a deleted card).
+    ``changed`` names the cards the write touched: a pair whose only live
+    child is one of them is skipped, since the line is shown for two or more
+    and nothing else reads the counts.
 
-    Ids only, all on the board the frame goes to and all children of one
-    parent: what a member there already sees on each card's face, never a
-    parent id, title or count (Rule 8 and its timing residual). ``siblings``
-    tells a client the listed cards share ONE parent, so it may read one of
-    them and apply that ``parent`` to all; an older client reads each, or
-    re-reads the board above its own cap, which is equally right. At most
-    ``CHILDREN_PER_PARENT_LIMIT`` ids per frame (the write-side cap).
-    Published on commit by ``record_board_event``.
+    **Gated to the parent's board (security-invariants Rule 8).** The frame
+    groups ids that share one parent and is sent because one of that parent's
+    children changed, so it goes only to subscribers who can open the
+    PARENT's board: the sibling line is the only thing it refreshes, and a
+    reader who cannot open the parent sees a hidden parent with null sibling
+    counts, which no write can make stale. The parent's board id rides beside
+    the envelope on the channel-layer message (``audience_board_id``), never
+    on the wire, and ``BoardConsumer`` forwards the frame only to a
+    subscriber with a role on that board, failing closed when it is absent.
+    For the same reason the frame is broadcast only and never written to the
+    change feed: the feed is read per CHILD-board role (REST feed, webhooks)
+    and has no per-row audience. A socket that misses one recovers on its
+    reconnect resync, which re-reads ``parent`` for every card.
+
+    Ids only, all on the board the frame goes to, never a parent id, title or
+    count. ``siblings`` tells a client the listed cards share ONE parent, so
+    it may read one of them and apply that ``parent`` to all; an older client
+    reads each, which is equally right. At most ``CHILDREN_PER_PARENT_LIMIT``
+    ids per frame (the write-side cap). Published after commit, so a rolled
+    back write sends nothing; one ``on_commit`` callback per write.
     """
     exclude = set(exclude)
     changed = set(changed)
     by_pair = {}
-    for parent_id, child_id, child_board_id in rows:
+    for parent_id, parent_board_id, child_id, child_board_id in rows:
         if child_id not in exclude:
-            by_pair.setdefault((parent_id, child_board_id), []).append(child_id)
-    for parent_id, child_board_id in sorted(by_pair):
-        ids = sorted(by_pair[(parent_id, child_board_id)])[:CHILDREN_PER_PARENT_LIMIT]
+            by_pair.setdefault((parent_id, parent_board_id, child_board_id), []).append(child_id)
+    frames = []
+    for key in sorted(by_pair):
+        ids = sorted(by_pair[key])[:CHILDREN_PER_PARENT_LIMIT]
         if len(ids) == 1 and ids[0] in changed:
             continue
-        _broadcast.record_board_event(
+        _parent_id, parent_board_id, child_board_id = key
+        frames.append((child_board_id, parent_board_id, ids))
+    if frames:
+        transaction.on_commit(lambda frames=frames, actor_id=actor_id: _publish_sibling_frames(frames, actor_id))
+
+
+def _publish_sibling_frames(frames, actor_id):
+    """The after-commit half of :func:`_announce_siblings`: plain data only."""
+    for child_board_id, parent_board_id, ids in frames:
+        _broadcast.broadcast_board_event(
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
-            {"card_ids": ids, "siblings": True}, actor_id=actor_id,
+            {"card_ids": ids, "siblings": True},
+            actor_id=actor_id, audience_board_id=parent_board_id,
         )
 
 
@@ -937,7 +960,7 @@ def announce_cards_removal(cards, *, actor=None, reason=None):
         # children of every surviving parent, then a ping per child board.
         _announce_siblings(
             CardParentLink.objects.filter(parent_id__in=list(parents), child__archived_at__isnull=True)
-            .values_list("parent_id", "child_id", "child__board_id"),
+            .values_list("parent_id", "parent__board_id", "child_id", "child__board_id"),
             actor_id=actor_id, exclude=deleted,
         )
     for child_board_id in sorted(children_by_board):
@@ -1167,6 +1190,11 @@ def parents_for_viewer(child_ids, user):
     both are ``null``. A hidden parent carries no sibling data at all: which
     cards share a parent the viewer cannot open is that parent's information.
     Both are clamped to ``CHILDREN_PER_PARENT_LIMIT``, the write-side cap.
+    The same rule gates the live refresh: the ``card.parent_changed
+    {card_ids, siblings: true}`` frame that tells clients these counts changed
+    names cards that share one parent, so it reaches only subscribers who can
+    open that parent's board, and is never a feed row
+    (:func:`_announce_siblings`).
 
     The role is resolved on every call, never cached, so a viewer who loses
     the parent board sees ``hidden`` on the next read (Rules 2 and 3). Cost: one
@@ -1703,7 +1731,7 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
             {"parent_id": parent_id}, actor_id=actor_id,
         )
     _announce_siblings(
-        [(p, c, cb) for _pb, p, c, cb, archived_at in rows if archived_at is None],
+        [(p, pb, c, cb) for pb, p, c, cb, archived_at in rows if archived_at is None],
         actor_id=actor_id, changed=idset,
     )
 

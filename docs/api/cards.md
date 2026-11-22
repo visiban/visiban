@@ -1305,7 +1305,12 @@ A read-only key on the card object, resolved for the caller:
   Both are at most 100, the children cap. A hidden parent carries no sibling
   data: which cards share a parent you cannot open is that parent's
   information. Reading them costs one grouped query per request, however many
-  cards or parents.
+  cards or parents. The live refresh follows the same rule: the
+  `card.parent_changed` frame with `siblings: true` that says these counts
+  changed is sent only to subscribers who can open the parent's board, and it
+  is not in the change feed or webhooks (see
+  [WebSockets](websockets.md)). A socket that missed one re-reads `parent` on
+  its reconnect resync.
 
 `parent` is **present** on `GET .../full/`, the per-board card list
 `GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and

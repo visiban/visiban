@@ -85,9 +85,10 @@ EVT_CARD_UNARCHIVED = "card.unarchived"
 # ``card.children_changed {parent_id}`` goes to the PARENT's board;
 # ``card.parent_changed {card_ids}`` goes to the CHILD's board (since #2443
 # also ``{card_ids, siblings: true}``: the live children of one parent, whose
-# sibling counts changed, from ``card_links._announce_siblings``). Neither ever
-# carries a title, column or count from the other board (security-invariants
-# Rule 8, and its named timing residual).
+# sibling counts changed, from ``card_links._announce_siblings``; that form is
+# forwarded only to subscribers who can open the PARENT's board, and is never
+# in the change feed). Neither ever carries a title, column or count from the
+# other board (security-invariants Rule 8, and its named timing residual).
 EVT_CARD_CHILDREN_CHANGED = "card.children_changed"
 EVT_CARD_PARENT_CHANGED = "card.parent_changed"
 # Additive (#2500): ``{parent_ids: [...]}`` (at most CONTAINER_RENAME_ID_CAP
@@ -267,8 +268,17 @@ def broadcast_board_event(
     *,
     event_id: int | None = None,
     actor_id: int | None = None,
+    audience_board_id: int | None = None,
 ) -> None:
     """Broadcast a board mutation event to all connected WebSocket clients.
+
+    ``audience_board_id`` narrows who receives the frame (#2443): when set, it
+    rides on the channel-layer message beside the envelope, like ``actor_id``,
+    and ``BoardConsumer`` forwards the frame only to a subscriber who also has
+    a role on that board. Nothing on the wire changes. Only the sibling frame
+    (``card.parent_changed`` with ``siblings: true``, see
+    ``card_links._announce_siblings``) uses it today, and the consumer drops
+    that frame when the field is absent (fail closed).
 
     ``actor_id`` is the acting user (#1705). It rides on the channel-layer
     message beside the envelope, never inside it, so nothing on the wire
@@ -337,6 +347,8 @@ def broadcast_board_event(
     message = {"type": "board_event", "payload": envelope}
     if actor_id is not None:
         message["actor_id"] = actor_id
+    if audience_board_id is not None:
+        message["audience_board_id"] = audience_board_id
     try:
         async_to_sync(channel_layer.group_send)(f"board_{board_id}", message)
     except Exception as exc:  # noqa: BLE001 — best-effort publish, see docstring
