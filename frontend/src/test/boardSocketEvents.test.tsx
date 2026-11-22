@@ -681,6 +681,52 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
   })
 
+  describe('column events refresh the sibling lines (#2443)', () => {
+    const parentRef = { hidden: true as const }
+    const col = (id: number, position: number, is_done: boolean): Column => (
+      { id, uid: `col${id}`, name: `C${id}`, position, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done, policy: null }
+    )
+    const setup = async (withChild: boolean) => {
+      const cards = [makeCard({ id: 5, ...(withChild ? { parent: parentRef } : {}) })]
+      const ctx = makeContext({ board: makeBoard({ cards, columns: [col(10, 0, false), col(11, 1, false)] }) })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      return ctx
+    }
+
+    it('reloads when a column is_done flips and the board has linked children', async () => {
+      const ctx = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: col(11, 1, true) as unknown as Record<string, unknown> }) })
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not reload for a done flip without linked children, or an edit that leaves is_done alone', async () => {
+      const bare = await setup(false)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: col(11, 1, true) as unknown as Record<string, unknown> }) })
+      expect(bare.silentReload).not.toHaveBeenCalled()
+      const linked = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.updated', data: { ...col(11, 1, false), name: 'Renamed' } as unknown as Record<string, unknown> }) })
+      expect(linked.silentReload).not.toHaveBeenCalled()
+    })
+
+    it('reloads when a reorder changes the first column and the board has linked children', async () => {
+      const ctx = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(11, 0, false), col(10, 1, false)] } }) })
+      expect(ctx.applyColumnOrder).toHaveBeenCalled()
+      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not reload for a reorder that keeps the first column, or without linked children', async () => {
+      const linked = await setup(true)
+      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(10, 0, false), col(11, 1, false), col(12, 2, false)] } }) })
+      expect(linked.silentReload).not.toHaveBeenCalled()
+      const bare = await setup(false)
+      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(11, 0, false), col(10, 1, false)] } }) })
+      expect(bare.silentReload).not.toHaveBeenCalled()
+    })
+  })
+
   it('swimlane.reordered routes to applySwimlaneOrder with swimlane list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx

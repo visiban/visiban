@@ -762,11 +762,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const selfDeletingRef = useRef(false);
   // Filled in below, once the drag state and the deferred resync exist.
   const onColumnLeftDoneRef = useRef<() => void>(() => {});
+  const boardHasLinkedChildren = useCallback(
+    () => !!boardRef.current?.cards.some((c) => c.parent),
+    [],
+  );
   const handleColumnUpdated = useCallback((column: Column) => {
     const wasDone = boardRef.current?.columns.find((c) => c.id === column.id)?.is_done;
     onColumnUpdated(column);
     if (wasDone && !column.is_done) onColumnLeftDoneRef.current();
-  }, [onColumnUpdated]);
+    // A child's "N of M siblings done" counts cards in done columns, and the server sends the parent
+    // board only `card.children_bulk_changed`. A flip here changes every sibling's line (#2443).
+    if (!!wasDone !== !!column.is_done && boardHasLinkedChildren()) silentReloadRef.current();
+  }, [onColumnUpdated, boardHasLinkedChildren]);
+  // The first column decides what "not started" means for the sibling counts (#2443).
+  const handleColumnReordered = useCallback((columns: Column[]) => {
+    const firstOf = (cols: readonly Column[] | undefined) =>
+      cols && cols.length > 0 ? [...cols].sort((a, b) => a.position - b.position)[0].id : undefined;
+    const before = firstOf(boardRef.current?.columns);
+    onColumnOrderApplied(columns);
+    if (before !== firstOf(columns) && boardHasLinkedChildren()) silentReloadRef.current();
+  }, [onColumnOrderApplied, boardHasLinkedChildren]);
   // The archived-cards panel is not backed by board.cards, so it listens to
   // the card frames directly (#2062).
   const cardEventListeners = useRef(new Set<(event: BoardEvent) => void>());
@@ -965,7 +980,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // calling onColumnDeleted would fire a redundant DELETE API request.
       evictColumn((d as { column_uid: string }).column_uid);
     } else if (event.event === "column.reordered") {
-      onColumnOrderApplied((d as { columns: Column[] }).columns);
+      handleColumnReordered((d as { columns: Column[] }).columns);
     } else if (event.event === "swimlane.created") {
       onSwimlaneAdded(d as unknown as Swimlane);
     } else if (event.event === "swimlane.updated") {
@@ -1110,7 +1125,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [refetchCardParents, refetchSiblingParents, refetchChildrenRollup, refetchRollupIfParentTier, onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, archiveCardByUid, onColumnAdded, handleColumnUpdated, evictColumn, handleColumnReordered, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, silentReload, reloadForMemberFlag, allContentUnknown, onSwimlaneFieldDefinitionsApplied, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
