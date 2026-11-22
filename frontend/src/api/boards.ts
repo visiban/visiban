@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, DefaultChildBoardOptions } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -446,9 +446,13 @@ export const saveColumnStage = (boardId: number, colId: number, data: StageSetti
 export const getChildrenSettingBlockers = (id: number) =>
   client.get<ChildrenSettingBlockers>(`/api/v1/boards/${id}/children-setting-blockers/`).then((r) => r.data);
 
-/** `GET /boards/{id}/default-child-board-options/` (board admin): boards the viewer may choose as the default. */
+/**
+ * `GET /boards/{id}/default-child-board-options/` (board admin): boards the viewer may choose as the default.
+ * `boards` holds at most 100, by name, always including the current default when it qualifies; `boards_total`
+ * (#2449, since 1.3; absent from older servers) counts every qualifying board, for "Showing 100 of N".
+ */
 export const getDefaultChildBoardOptions = (id: number) =>
-  client.get<{ boards: { id: number; name: string }[] }>(`/api/v1/boards/${id}/default-child-board-options/`).then((r) => r.data.boards);
+  client.get<DefaultChildBoardOptions>(`/api/v1/boards/${id}/default-child-board-options/`).then((r) => r.data);
 
 /** `GET /boards/{id}/delete-impact/` (board owner or site admin). */
 export const getBoardDeleteImpact = (id: number) =>

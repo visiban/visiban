@@ -1129,11 +1129,16 @@ Link this card (the child) to a parent. Body: `{"parent_id": <int>}`.
 | `already_has_parent` | This card has another parent; unlink it first |
 | `children_on_other_board` | That parent's children are on another board |
 | `children_limit` | That parent has 100 children |
+| `parent_archived` | That parent is archived: restore it first (since 1.3, #2447). Checked after `link_exists`, so re-saving a link the card already has still answers `link_exists`, and archiving or restoring a parent never removes its existing links. One exception: a card that was linked to that parent and then unlinked may be linked back while it is archived, so an unlink can be undone. A card never linked to it is refused. Add child (`POST .../children/`) refuses an archived parent with the same code, always: its new card was never linked |
 | `child_is_parent` / `parent_is_child` | Would make a third tier |
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/parent/`
 
-Remove this card's parent link. `204`, or `404` when it has none.
+Remove this card's parent link. `204`, or `404` when it has none. The server
+remembers the pair, so the card can be linked back to the same parent even
+while that parent is archived (see `parent_archived` above). The record has no
+API, export or event of its own; linking the pair again clears it, and
+deleting either card removes it.
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/children/`
 
@@ -1185,8 +1190,9 @@ and weight limits apply as for any create. `201` returns the new card, as
   column does not allow card creation, and this card's own board all answer the
   same `404`.
 - **Rules:** the same `400` codes as linking (`link_not_allowed`,
-  `parent_is_child`, `children_on_other_board`, `children_limit`), decided
-  under the same locks. A parent's children always stay on one board, so once
+  `parent_is_child`, `parent_archived`, `children_on_other_board`, `children_limit`), decided
+  under the same locks. An archived parent always refuses Add child: the
+  exception for a previously unlinked card never applies to a new one. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
@@ -1246,7 +1252,9 @@ Any role on this card's board.
 {"fixed_board": null,
  "default": {"id": 7, "name": "Delivery"},
  "can_set_default": true,
- "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}]}
+ "boards": [{"id": 7, "name": "Delivery", "can_set_default": true}],
+ "boards_total": 1,
+ "disabled_reason": null}
 ```
 
 - `fixed_board`: the board this card's children are already on, as
@@ -1259,8 +1267,15 @@ Any role on this card's board.
   client asks which board to use.
 - `boards`: every board where you are `member` or higher whose cards cannot
   have children and whose first column allows card creation, by name.
-  `can_set_default` is true when you administer both boards.
+  `can_set_default` is true when you administer both boards. At most **100**
+  boards are listed (`CHILD_BOARD_OPTIONS_LIMIT`, since 1.3, #2449);
+  `boards_total` is how many qualify in all, so a client can say "showing 100
+  of N". `default` is resolved over every qualifying board and is always one of
+  the listed `boards`: when it sorts past the first 100 it takes the last slot,
+  so a client can preselect it.
 - `can_set_default` (top level): you administer this card's board.
+- `disabled_reason` (since 1.3, #2447): `"parent_archived"` when this card is
+  archived, since Add child refuses an archived parent with that code; else `null`.
 
 Empty lists and `null`s when this card's board cannot have children.
 
@@ -1284,6 +1299,23 @@ A read-only key on the card object, resolved for the caller:
   the parent's board calls its cards (for example `"Initiative"`), raw. An empty
   string means the board set no name and the client says "Parent". It is never
   on the hidden shape.
+  Since #2443 the visible shape also carries `siblings_total` and
+  `siblings_done`, for "2 of 5 siblings done": how many live (unarchived)
+  children the parent has **on this card's board**, this card included while it is live (an archived child read through `GET .../cards/archived/` is not counted), and how
+  many of them are done. Done means what it means in the parent's
+  `children_rollup`: in a done column and not blocked (a manual block, or an
+  open `blocks` relation from a live card on the same board), so a blocked
+  child in a done column is not counted as done. They are computed for the caller, only
+  over this card's own board, and are `null` when you hold no role there.
+  Both are at most 100, the children cap. A hidden parent carries no sibling
+  data: which cards share a parent you cannot open is that parent's
+  information. Reading them costs one grouped query per request, however many
+  cards or parents. The live refresh follows the same rule: the
+  `card.parent_changed` frame with `siblings: true` that says these counts
+  changed is sent only to subscribers who can open the parent's board, and it
+  is not in the change feed or webhooks (see
+  [WebSockets](websockets.md)). A socket that missed one re-reads `parent` on
+  its reconnect resync.
 
 `parent` is **present** on `GET .../full/`, the per-board card list
 `GET /api/v1/boards/{board_id}/cards/`, `GET .../cards/{id}/` and
@@ -1375,8 +1407,10 @@ an unknown board.
 ```
 
 `disabled_reason` is `link_exists` (already this card's child),
-`already_has_parent` (another card's child) or `children_limit` (this card
-has 100 children), else `null`. `parent_title` names the other parent only
+`already_has_parent` (another card's child), `parent_archived` (this card
+is archived, since 1.3, #2447; not for a card that was linked to this card and
+then unlinked, which may be linked back) or `children_limit` (this card has 100
+children), in that precedence, else `null`. `parent_title` names the other parent only
 when you can open its board. Link a row with `POST
 /api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}` on
 the child's board, so the child board's role authorizes it.
