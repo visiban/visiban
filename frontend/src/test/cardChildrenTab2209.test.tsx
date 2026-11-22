@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import CardChildrenTab from '../components/Card/CardChildrenTab'
 import { childrenCount, describeChildrenChange, useCardChildren, type ChildrenState } from '../components/Card/cardChildren'
 import ChildCardPicker from '../components/Card/ChildCardPicker'
@@ -97,6 +98,22 @@ describe('CardChildrenTab states (#2209)', () => {
 })
 
 describe('CardChildrenTab scoped board (#2209)', () => {
+  it('"Open on <board>" is router navigation inside a router, not a full page load', async () => {
+    function Where() { const l = useLocation(); return <p>at {l.pathname}</p> }
+    render(
+      <MemoryRouter initialEntries={['/boards/1']}>
+        <Routes>
+          <Route path="/boards/1" element={<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} />} />
+          <Route path="/boards/7" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const link = screen.getByRole('link', { name: 'Open on Delivery' })
+    expect(link).toHaveAttribute('href', '/boards/7?f_parent=5')
+    await userEvent.setup().click(link)
+    expect(await screen.findByText('at /boards/7')).toBeInTheDocument()
+  })
+
   it("draws the summary and the child board's columns, counts, limits and links", () => {
     renderTab(state({ data: read(kids) }))
     expect(screen.getByText('1 of 3 done')).toBeInTheDocument()

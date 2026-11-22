@@ -1,6 +1,7 @@
 import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
 import LockGlyph from "./LockGlyph";
-import CardChildrenRollup from "./CardChildrenRollup";
+import CardChildrenRollup, { CardChildrenRollupSkeleton } from "./CardChildrenRollup";
+import { useRollupLoading } from "./rollupLoading";
 import { LINKED_CARD_HIDDEN } from "./cardParent";
 import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSuffix";
 import { createPortal } from "react-dom";
@@ -538,6 +539,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // The Classic preset id resolves to this face; there is no other.
   // #2272: the calm Dense tier is ONE row: title, short status, first pinned field (and the
   // assignee at the end). Everything else Dense used to carry moves to the hover peek.
+  const rollupLoading = useRollupLoading(card.id);
   const denseRow = !compact && density === "dense";
   // A fragment outside the dense row, so every other face keeps its DOM byte for byte.
   const RowWrap: React.ElementType = denseRow ? "div" : Fragment;
@@ -1409,6 +1411,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         {!compact && card.children_rollup && (
           <CardChildrenRollup rollup={card.children_rollup} density={density} stalenessDays={staleness_threshold_days} />
         )}
+        {!compact && !card.children_rollup && rollupLoading && <CardChildrenRollupSkeleton density={density} />}
 
         {/* Assignee avatar — positioned against the content wrapper
             (`relative`, above), not a flex child of the metadata row. The row

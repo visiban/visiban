@@ -1,6 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import type { CardChildrenRollup as Rollup, CardChildrenRollupVisible, CardDensity } from "../../types";
 import { ROLLUP_SEGMENT_MAX, movementLine, rollupSentence, type Tone } from "./childrenRollup";
+import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
+
+/**
+ * Same footprint as the real footer at each density so a card never jumps (#2210):
+ * comfortable draws two rows, standard and dense one. Announced once.
+ */
+export function CardChildrenRollupSkeleton({ density = "comfortable" }: { density?: CardDensity }) {
+  return (
+    <div role="status" aria-busy="true" data-testid="card-children-rollup-loading" className="mt-1.5 pt-1.5 border-t border-line">
+      <span className="sr-only">Loading children</span>
+      <div aria-hidden="true" className="flex items-center gap-1.5 h-4">
+        <span className="h-3 w-3 rounded-sm bg-surface-hover animate-pulse motion-reduce:animate-none" />
+        <span className="h-2.5 w-14 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+        <span className="h-1.5 flex-1 rounded-sm bg-surface-hover animate-pulse motion-reduce:animate-none" />
+      </div>
+      {density === "comfortable" && (
+        <div aria-hidden="true" className="mt-0.5 flex items-center h-4">
+          <span className="h-2.5 w-32 rounded bg-surface-hover animate-pulse motion-reduce:animate-none" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 const StackGlyph = () => (
   <svg data-testid="rollup-stack-glyph" aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
@@ -27,6 +50,12 @@ const ClockGlyph = () => (
 );
 
 type SegmentState = "done" | "doing" | "todo" | "blocked";
+
+// The live-change ring sits outside the segment, past a 1px surface-colored offset, so it is
+// measured against the card and never against the segment's own fill: an inset ring on Doing was
+// the fill's own color (1:1) and on Done 1.04:1 light (#2210). `relative z-10` keeps a later
+// sibling from painting over it; the meter is not `overflow-hidden`, which would clip it.
+const RING_CLASS = "relative z-10 ring-2 ring-info ring-offset-1 ring-offset-surface";
 
 const SEGMENT_CLASS: Record<SegmentState, string> = {
   done: "bg-success",
@@ -72,31 +101,44 @@ interface Props {
  * as its name; the visible rows are `aria-hidden`.
  */
 export default function CardChildrenRollup({ rollup, density, stalenessDays, now }: Props) {
-  const clock = now ?? Date.now();
+  // One shared ticker re-renders the footer each minute so "moved N ago" and
+  // "idle" never go stale; an injected `now` (tests) wins.
+  const ticked = useSharedMinuteClock();
+  const clock = now ?? ticked;
   const visible = rollup.visible ? rollup : null;
   const movement = visible && visible.total > 0 ? movementLine(visible, stalenessDays, clock) : null;
   const sentence = rollupSentence(rollup, movement);
 
-  // Live update (#2210): ring the bar for 2s and announce politely when the
-  // counts change after the first render. Under reduced motion the ring has
-  // no transition, so it simply appears and drops.
-  const key = visible ? `${visible.done}/${visible.doing}/${visible.todo}/${visible.blocked}` : `h${rollup.total}`;
+  // Live update (#2210): ring only the segments that gained a child for 2s and
+  // announce politely when the counts change after the first render. Under
+  // reduced motion the ring has no transition, so it simply appears and drops.
+  const counts: Record<SegmentState, number> = visible
+    ? { todo: visible.todo, blocked: visible.blocked, doing: visible.doing, done: visible.done }
+    : { todo: 0, blocked: 0, doing: 0, done: 0 };
+  const key = visible ? `${counts.done}/${counts.doing}/${counts.todo}/${counts.blocked}` : `h${rollup.total}`;
   const prevKey = useRef(key);
-  const [ringed, setRinged] = useState(false);
+  const prevCounts = useRef(counts);
+  // Per state, how many segments existed before the change: segments past that
+  // index are the changed ones. null while nothing is ringed.
+  const [ringFrom, setRingFrom] = useState<Record<SegmentState, number> | null>(null);
   const [announcement, setAnnouncement] = useState("");
   // The announcement is read through a ref so the effect depends on the
   // counts alone: a refetch with the same counts (a new object) must not
   // cancel the 2s timer and leave the ring on (ux-review, #2210).
   const spokenRef = useRef("");
   spokenRef.current = visible ? `Children: ${visible.done} of ${visible.total} done` : sentence;
+  const countsRef = useRef(counts);
+  countsRef.current = counts;
   useEffect(() => {
     if (prevKey.current === key) return;
     prevKey.current = key;
-    setRinged(true);
+    setRingFrom(prevCounts.current);
+    prevCounts.current = countsRef.current;
     setAnnouncement(spokenRef.current);
-    const t = window.setTimeout(() => setRinged(false), 2000);
+    const t = window.setTimeout(() => setRingFrom(null), 2000);
     return () => window.clearTimeout(t);
   }, [key]);
+  const isChanged = (s: SegmentState, indexInState: number) => ringFrom !== null && indexInState >= ringFrom[s] && counts[s] > ringFrom[s];
 
   const live = <span className="sr-only" aria-live="polite" data-testid="rollup-live">{announcement}</span>;
 
@@ -121,18 +163,23 @@ export default function CardChildrenRollup({ rollup, density, stalenessDays, now
     </span>
   );
   const segs = segments(visible);
+  const seen: Record<SegmentState, number> = { todo: 0, blocked: 0, doing: 0, done: 0 };
+  const indexInState = segs.map((s) => seen[s]++);
   const bar = density === "dense" ? null : segs.length > ROLLUP_SEGMENT_MAX ? (
-    <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] overflow-hidden rounded-sm border border-fg-tertiary ${ringed ? "ring-2 ring-primary" : ""}`}>
+    <span data-testid="rollup-meter" className={`flex h-1.5 flex-1 min-w-[2rem] rounded-sm border border-fg-tertiary`}>
       {(["todo", "blocked", "doing", "done"] as const).map((s) => {
         const n = visible[s];
-        return n > 0 ? <span key={s} className={SEGMENT_CLASS[s]} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
+        return n > 0 ? <span key={s} data-segment-group={s} data-ringed={isChanged(s, n - 1) ? "true" : undefined} className={`${SEGMENT_CLASS[s]}${isChanged(s, n - 1) ? ` ${RING_CLASS}` : ""}`} style={{ width: `${(n / visible.total) * 100}%` }} /> : null;
       })}
     </span>
   ) : (
-    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-0.5 rounded-sm ${ringed ? "ring-2 ring-primary" : ""}`}>
-      {segs.map((s, i) => (
-        <span key={i} data-segment={s} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}`} />
-      ))}
+    // gap-1 (4px), not gap-0.5: the live ring reaches 3px past a segment (1px offset + 2px ring),
+    // so a 2px gap let it cover an unchanged neighbor's outline.
+    <span data-testid="rollup-segments" className={`flex flex-1 min-w-0 gap-1 rounded-sm`}>
+      {segs.map((s, i) => {
+        const ringed = isChanged(s, indexInState[i]);
+        return <span key={i} data-segment={s} data-ringed={ringed ? "true" : undefined} className={`h-1.5 w-1.5 shrink-0 rounded-[1px] ${SEGMENT_CLASS[s]}${ringed ? ` ${RING_CLASS}` : ""}`} />;
+      })}
     </span>
   );
   // Standard keeps row 1 only; "Work idle" still shows there when nothing is blocked.

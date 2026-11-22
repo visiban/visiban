@@ -437,8 +437,8 @@ each surface that delivers them:
   (#2383; owner sign-off 2026-11-17, epic #2206 decision H; the progress
   rollup that consumes both pings now exists server-side and in the card-face
   UI (#2210), and the residual stays accepted as recorded: the ping is how the
-  UI knows to re-read, so it is the design, not a gap. Expires 2027-05-31, and
-  #2210, which stays open, is its tracker): the *timing* of these
+  UI knows to re-read, so it is the design, not a gap. Expires 2027-05-31;
+  #2500 owns that re-decision and tracks the remaining unpinged triggers): the *timing* of these
   pings reaches every subscriber, change-feed reader and webhook of the
   receiving board, including readers who cannot open the other board, so a
   parent-board reader learns when a parent's children changed (since #2210,
@@ -464,8 +464,8 @@ each surface that delivers them:
   without `CARD_PARENTS_CONTEXT_KEY`, which only `/full/`, the card list,
   retrieve and `archived` set; `boards/tests/test_card_parent_field_1104.py`,
   `test_absent_input_guards_1075.py` `CardParentAbsentInputTests`). To be
-  re-decided (gated per recipient, or closed) by that date; #2210 (the
-  parent/child progress rollup) is its open tracker. The threat model's other
+  re-decided (gated per recipient, or closed) by that date under #2500, which
+  owns the re-decision and tracks the remaining unpinged triggers. The threat model's other
   three controls for these links are built (#2383): the four link writes (link,
   Add child, both unlinks) have their own
   per-user throttle scope, `card_link_write` (`boards/views/cards.py`
@@ -474,7 +474,7 @@ each surface that delivers them:
   (`boards/tests/test_query_counts.py` `CardChildrenQueryCountTests`; the
   server-side rollup (`rollups_for_viewer`) exists now, and its cost is pinned
   by a query-count test in `boards/tests/test_card_children_rollup_2210.py`,
-  while the perf-bench case stays deferred to #2210), and the
+  while the perf-bench case is covered by !2006 / #2454), and the
   MCP/export parity test pins Rule 10
   (`boards/tests/test_card_link_transport_parity.py`);
 - card-link lock order (recorded here beside the link-event residual, since

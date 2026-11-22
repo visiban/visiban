@@ -62,6 +62,7 @@ import { isAssignableMember } from "../../utils/assignableMembers";
 import CardSheetDockToggle from "./CardSheetDockToggle";
 import ChecklistItemControls from "./ChecklistItemControls";
 import { checklistToday } from "../../utils/checklistFaceSuffix";
+import { parentSingular } from "../../utils/parentItemNames";
 
 /** The #445 card-face fields, recomputed from the detail sheet's checklist so
  *  the face suffix updates at once after a local edit. Mirrors the server's
@@ -1662,6 +1663,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 </div>
               )}
             </div>
+            {/* Parent chip (#2455): on a card that has children, named by the board's
+                parent_name_singular. The count is the live rollup's total (#2210), never
+                a second field; it also counts children on boards the viewer cannot open.
+                The chip opens the Children tab; 44px on a phone. */}
+            {board.cards_can_have_children && card.children_rollup && card.children_rollup.total > 0 && (
+              <button
+                type="button"
+                data-testid="card-detail-parent-chip"
+                onClick={() => selectTab("children")}
+                className="mt-1.5 ml-1 inline-flex max-w-full items-center gap-1.5 rounded border border-line-strong px-2 py-0.5 text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover transition max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                <span className="font-semibold text-fg truncate">{parentSingular(board.parent_name_singular)}</span>
+                <span aria-hidden="true">·</span>
+                <span className="sr-only">, </span>
+                <span className="shrink-0 tabular-nums">{card.children_rollup.total} {card.children_rollup.total === 1 ? "child" : "children"}</span>
+              </button>
+            )}
             {/* Mounted only while moves are paused; it is the Move button's aria-describedby text, not a live region (the move-notice below is the live one, #1773). */}
             {canEdit && onMoveCard && movesPaused && (
               <p id="card-detail-moves-paused" className="text-xs text-fg-secondary mt-1 px-1">Moves are paused while the board is offline.</p>

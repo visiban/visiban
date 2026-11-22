@@ -127,3 +127,21 @@ describe("ChildCardsSettings hosts the parent name (#2212)", () => {
     expect(screen.getByLabelText("Singular")).toHaveValue("Epic");
   });
 });
+
+describe("ChildCardsSettings reason link (#2448)", () => {
+  it("is router navigation to that board's Rules settings, not a full page load", async () => {
+    const { getChildrenSettingBlockers } = await import("../api/boards");
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValueOnce({
+      child_cards: 0, parent_cards: 0,
+      default_of: [{ hidden: false, id: 12, name: "Pipeline", can_change: true }],
+    } as never);
+    const { MemoryRouter } = await import("react-router-dom");
+    render(
+      <MemoryRouter>
+        <ChildCardsSettings board={{ id: 1, cards_can_have_children: false, default_child_board: null }} onUpdate={vi.fn()} />
+      </MemoryRouter>,
+    );
+    const link = await screen.findByRole("link", { name: "Change on Pipeline" });
+    expect(link).toHaveAttribute("href", "/boards/12?settings=rules");
+  });
+});

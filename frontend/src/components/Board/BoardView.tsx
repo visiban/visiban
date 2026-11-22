@@ -46,6 +46,7 @@ import PhoneBoard from "./PhoneBoard";
 import { cellOrderOf } from "../../utils/phoneReorder";
 import { useIsPhoneViewport } from "../../hooks/useIsPhoneViewport";
 import CardItem from "../Card/CardItem";
+import { RollupLoadingContext } from "../Card/rollupLoading";
 import { parseCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "../Card/cardDetailTabMemory";
 import CardDetail from "../Card/CardDetail";
 import CardPeekSheet from "../Card/CardPeekSheet";
@@ -592,6 +593,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Declared here, ahead of its other readers further down, because the preset
   // hook needs it; one instance so two functional updates never race.
   const [searchParams, setSearchParams] = useSearchParams();
+  // An in-app link to another board (`/boards/9?card=301`, `?settings=rules`) changes the URL while
+  // this, the previous board's view, is still mounted until the new board loads. Its deep-link
+  // effects must leave those params for the board they name, or they strip them and report the
+  // card as missing here (#2210). A path that names no board (a bare render) means this board.
+  const routeBoardId = /^\/boards\/(\d+)/.exec(location.pathname)?.[1];
+  const isRouteBoard = routeBoardId === undefined || Number(routeBoardId) === board.id;
   const boardPreset = useBoardPreset({
     boardId: board.id,
     board,
@@ -801,16 +808,34 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // is computed per reader, so the parent card is re-read. Same per-card
   // sequence guard as the parent reads: only the latest read is applied.
   const rollupReadSeqRef = useRef(new Map<number, number>());
+  // Parents with no rollup yet whose first read is in flight: their card shows
+  // the footer skeleton (and announces "Loading children") instead of nothing.
+  const [rollupLoadingIds, setRollupLoadingIds] = useState<ReadonlySet<number>>(() => new Set());
+  const setRollupLoading = useCallback((id: number, on: boolean) => {
+    setRollupLoadingIds((prev) => {
+      if (prev.has(id) === on) return prev;
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
   const refetchChildrenRollup = useCallback((parentId: number) => {
     const boardId = boardRef.current?.id;
     if (boardId === undefined) return;
+    const hasRollup = boardRef.current?.cards.find((c) => c.id === parentId)?.children_rollup !== undefined;
+    if (!hasRollup && boardRef.current?.cards_can_have_children === true) setRollupLoading(parentId, true);
     const seqs = rollupReadSeqRef.current;
     const n = (seqs.get(parentId) ?? 0) + 1;
     seqs.set(parentId, n);
     void getCardChildrenRollup(boardId, parentId).then((r) => {
-      if (r !== undefined && seqs.get(parentId) === n) applyCardChildrenRollups(new Map([[parentId, r]]));
-    }, () => { /* a failed read keeps the last rollup; the next ping or resync retries */ });
-  }, [applyCardChildrenRollups]);
+      if (seqs.get(parentId) !== n) return;
+      if (r !== undefined) applyCardChildrenRollups(new Map([[parentId, r]]));
+      setRollupLoading(parentId, false);
+    }, () => {
+      /* a failed read keeps the last rollup; the next ping or resync retries */
+      if (seqs.get(parentId) === n) setRollupLoading(parentId, false);
+    });
+  }, [applyCardChildrenRollups, setRollupLoading]);
   // An unarchived card is appended with no `parent` (frames and write
   // responses never carry it) and applyCardParents skips ids not yet on the
   // board, so read it once the append is queued (#1104).
@@ -1327,21 +1352,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // stripped; a non-admin (or the demo, where the tab does not exist) sees no
   // error, just the board.
   useEffect(() => {
-    if (searchParams.get("settings") !== "webhooks") return;
+    // ?settings=rules (#2448) is the "Change on X" link in another board's Child
+    // cards blockers: it opens this board's Rules tab, same admin-only silence.
+    const target = searchParams.get("settings");
+    if (target !== "webhooks" && target !== "rules") return;
+    if (!isRouteBoard) return;
     if (isAdmin && !demoMode) {
-      setSettingsInitialTab("webhooks");
-      setWebhookDeepLink(true);
+      setSettingsInitialTab(target);
+      if (target === "webhooks") setWebhookDeepLink(true);
       setShowSettings(true);
     }
     setSearchParams((prev) => { prev.delete("settings"); return prev; }, { replace: true });
-  }, [isAdmin, demoMode, searchParams, setSearchParams]);
+  }, [isAdmin, demoMode, isRouteBoard, searchParams, setSearchParams]);
 
   // Auto-open card from ?card= query param (e.g. from notification deep-link).
   // When the card is not in the active board view, call the /status/ endpoint to
   // distinguish "archived" (show targeted message) from "deleted/missing" (generic).
   useEffect(() => {
     const cardId = Number(searchParams.get("card"));
-    if (!cardId) return;
+    if (!cardId || !isRouteBoard) return;
     const card = board.cards.find((c) => c.id === cardId);
     if (card) {
       // `&tab=comments|history|details` (#967) overrides the session's
@@ -1377,7 +1406,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         // feedback at all for their deep link.
         .catch(() => showCardNotFound("Card not found — it may have been deleted."));
     }
-  }, [board.cards, board.id, searchParams, setSearchParams, showCardNotFound]);
+  }, [board.cards, board.id, isRouteBoard, searchParams, setSearchParams, showCardNotFound]);
   const [showAddColumn, setShowAddColumn] = useState(false);
   // When non-null, new column is inserted at this index (0 = first)
   const [insertPosition, setInsertPosition] = useState<number | null>(null);
@@ -1389,7 +1418,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "rules" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
@@ -3183,7 +3212,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const allLanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
 
   return (
-    <>
+    <RollupLoadingContext.Provider value={rollupLoadingIds}>
       {/* Primary toolbar row (#2269): tabs on the left; Filter, View, Activity,
           the overflow menu and the connection status on the right. Nothing
           folds by viewport: the row wraps instead, so no control is ever
@@ -4238,6 +4267,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </ModalWrapper>
         );
       })()}
-    </>
+    </RollupLoadingContext.Provider>
   );
 }

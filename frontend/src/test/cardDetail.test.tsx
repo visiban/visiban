@@ -274,6 +274,30 @@ describe('CardDetail', () => {
       expect(names[1]).toMatch(/^Children/)
     })
 
+    it('draws the Parent chip only for a card with children, named by the board (#2455)', () => {
+      const rollup = { visible: true as const, total: 3, done: 1, doing: 1, todo: 1, blocked: 0, last_moved_at: null }
+      const withKids = makeCard({ children_rollup: rollup })
+      const { rerender } = render(<CardDetail {...defaultProps()} card={withKids} board={makeBoard({ cards_can_have_children: true })} />)
+      expect(screen.getByRole('button', { name: /^Parent\s*,?\s*3 children$/ })).toBe(screen.getByTestId('card-detail-parent-chip'))
+      rerender(<CardDetail {...defaultProps()} card={withKids} board={makeBoard({ cards_can_have_children: true, parent_name_singular: 'Epic' })} />)
+      expect(screen.getByRole('button', { name: /^Epic\s*,?\s*3 children$/ })).toBe(screen.getByTestId('card-detail-parent-chip'))
+      rerender(<CardDetail {...defaultProps()} card={makeCard({ children_rollup: { ...rollup, total: 1 } })} board={makeBoard({ cards_can_have_children: true })} />)
+      expect(screen.getByRole('button', { name: /^Parent\s*,?\s*1 child$/ })).toBe(screen.getByTestId('card-detail-parent-chip'))
+      // No children, a plain board, or the zero-child rollup: no chip.
+      rerender(<CardDetail {...defaultProps()} card={makeCard({ children_rollup: { ...rollup, total: 0 } })} board={makeBoard({ cards_can_have_children: true })} />)
+      expect(screen.queryByTestId('card-detail-parent-chip')).not.toBeInTheDocument()
+      rerender(<CardDetail {...defaultProps()} card={withKids} board={makeBoard({ cards_can_have_children: false })} />)
+      expect(screen.queryByTestId('card-detail-parent-chip')).not.toBeInTheDocument()
+    })
+
+    it('the Parent chip opens the Children tab (#2455)', async () => {
+      const card = makeCard({ children_rollup: { visible: true, total: 2, done: 0, doing: 0, todo: 2, blocked: 0, last_moved_at: null } })
+      render(<CardDetail {...defaultProps()} card={card} board={makeBoard({ cards_can_have_children: true })} />)
+      fireEvent.click(screen.getByTestId('card-detail-parent-chip'))
+      expect(await screen.findByRole('tab', { name: /^Children/ })).toHaveAttribute('aria-selected', 'true')
+      rememberCardDetailTab('details')
+    })
+
     it('opens Details when a remembered Children tab has no tab on this board (#2209)', () => {
       rememberCardDetailTab('children')
       render(<CardDetail {...defaultProps()} />)

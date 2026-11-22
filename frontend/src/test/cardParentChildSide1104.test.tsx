@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import * as cardsApi from "../api/cards";
 import CardParentSection from "../components/Card/CardParentSection";
 import ParentCardPicker from "../components/Card/ParentCardPicker";
@@ -114,6 +115,22 @@ describe("CardParentSection (#1104)", () => {
     expect(link).toHaveAttribute("href", "/boards/12?card=41");
     expect(screen.getByText("Pipeline › Qualify")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unlink parent Initech: security review" })).toBeInTheDocument();
+  });
+
+  it("the parent link is router navigation inside a router, not a full page load", async () => {
+    function Where() { const l = useLocation(); return <p>at {l.pathname}{l.search}</p>; }
+    render(
+      <MemoryRouter initialEntries={["/boards/20"]}>
+        <Routes>
+          <Route path="/boards/20" element={<CardParentSection board={childBoard} card={makeCard({ parent: visibleParent })} canEdit />} />
+          <Route path="/boards/12" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole("link", { name: "Initech: security review" });
+    expect(link).toHaveAttribute("href", "/boards/12?card=41");
+    await userEvent.setup().click(link);
+    expect(await screen.findByText("at /boards/12?card=41")).toBeInTheDocument();
   });
 
   it("marks an archived parent", () => {

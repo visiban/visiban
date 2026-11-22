@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Link, useInRouterContext } from "react-router-dom";
 import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../api/boards";
 import type { Board, ChildrenSettingBlockers } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -35,15 +36,40 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   const defaultHelpId = `${uid}-default-help`;
   const reasonsRef = useRef<HTMLDivElement>(null);
   const checked = board.cards_can_have_children;
+  // The reason link is router navigation (no full page load); a bare render with no
+  // router (a unit test) keeps a plain anchor.
+  const inRouter = useInRouterContext();
   const [blockers, setBlockers] = useState<ChildrenSettingBlockers | null>(null);
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
+  // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
+  // The server still refuses a bad flip on save, so this only explains; it does not gate.
+  const [blockersFailed, setBlockersFailed] = useState(false);
+  const [blockersTry, setBlockersTry] = useState(0);
+  // Retry unmounts once the read succeeds; focus then moves to the switch it explains instead of
+  // falling to <body> (frontend/CLAUDE.md, focus anchors). A failed retry keeps Retry, and focus.
+  const switchRef = useRef<HTMLButtonElement>(null);
+  const focusSwitchAfterRetry = useRef(false);
 
   // Re-read after every flip or default change: another admin's link or default move changes the answer.
   useEffect(() => {
     let live = true;
-    getChildrenSettingBlockers(board.id).then((b) => { if (live) setBlockers(b); }).catch(() => { if (live) setBlockers(null); });
+    getChildrenSettingBlockers(board.id)
+      .then((b) => {
+        if (!live) return;
+        setBlockers(b);
+        setBlockersFailed(false);
+        if (focusSwitchAfterRetry.current) {
+          focusSwitchAfterRetry.current = false;
+          // After the commit that removes Retry, so the focus is not lost with it.
+          // Only when focus fell with Retry: a slow read must not pull it from where the user moved.
+          window.setTimeout(() => {
+            if (!document.activeElement || document.activeElement === document.body) switchRef.current?.focus();
+          }, 0);
+        }
+      })
+      .catch(() => { if (live) { setBlockers(null); setBlockersFailed(true); focusSwitchAfterRetry.current = false; } });
     return () => { live = false; };
-  }, [board.id, checked, board.default_child_board]);
+  }, [board.id, checked, board.default_child_board, blockersTry]);
 
   useEffect(() => {
     if (!checked) return;
@@ -110,6 +136,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
     <div className="flex flex-col gap-3">
       <button
         type="button"
+        ref={switchRef}
         role="switch"
         aria-checked={checked}
         aria-disabled={blocked ? true : undefined}
@@ -139,6 +166,18 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
             {" "}{checked ? "Can't be turned off" : "Can't be turned on"}: {plural(reasons.length, "reason", "reasons")} below.
           </span>
         )}
+        {blockersFailed && (
+          <span role="status" className="block text-warning-on-tint mt-1" data-testid="children-blockers-unavailable">
+            Couldn't check whether this can change. The server will still refuse a change that isn't allowed.{" "}
+            <button
+              type="button"
+              onClick={() => { focusSwitchAfterRetry.current = true; setBlockersTry((n) => n + 1); }}
+              className="max-sm:min-h-11 rounded underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Retry
+            </button>
+          </span>
+        )}
         {error && <span className="block text-danger mt-1" data-testid="children-error">{error}</span>}
       </p>
 
@@ -164,14 +203,13 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
               <li key={r.key} className="text-sm text-fg-secondary">
                 {r.text}
                 {r.ask && <span className="block text-fg-muted">{r.ask}</span>}
-                {r.change && (
-                  <a
-                    href={`/boards/${r.change.id}`}
-                    className="mt-1 inline-flex min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-                  >
-                    Change on {r.change.name}
-                  </a>
-                )}
+                {r.change && (() => {
+                  const cls = "mt-1 inline-flex max-sm:min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
+                  const to = `/boards/${r.change.id}?settings=rules`;
+                  return inRouter
+                    ? <Link to={to} className={cls}>Change on {r.change.name}</Link>
+                    : <a href={to} className={cls}>Change on {r.change.name}</a>;
+                })()}
               </li>
             ))}
           </ul>

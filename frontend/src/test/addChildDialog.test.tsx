@@ -179,6 +179,21 @@ describe('AddChildDialog (#2208)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load the boards")
   })
 
+  it('a failed options read offers Retry, which reads again and recovers (#2448)', async () => {
+    vi.mocked(getChildBoardOptions).mockRejectedValueOnce(new Error('x'))
+    vi.mocked(getChildBoardOptions).mockResolvedValueOnce(BASE)
+    const user = userEvent.setup()
+    render(<AddChildDialog boardId={1} boardName="Pipeline" cardId={5} onClose={vi.fn()} onAdded={vi.fn()} />)
+    await user.click(await screen.findByRole('button', { name: 'Retry' }))
+    // Retry unmounts on click: focus goes to the dialog heading, never <body>.
+    const heading = screen.getByRole('heading', { level: 2 })
+    expect(heading).toHaveAttribute('tabindex', '-1')
+    expect(heading).toHaveFocus()
+    expect(await screen.findByLabelText('Title')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    expect(document.body).not.toHaveFocus()
+  })
+
   it('Escape and Cancel close it; the sheet is full screen on a phone', async () => {
     const { user, onClose } = setup(BASE)
     const dialog = await screen.findByRole('dialog')
