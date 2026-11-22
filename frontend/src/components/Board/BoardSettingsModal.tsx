@@ -101,6 +101,8 @@ interface Props {
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   /** May resolve with the request's error (null on success), so a control can say why it was refused. */
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void | Promise<unknown>;
+  /** Rules > Child cards "Show the N cards": the host closes settings and applies the Parent filter (#2448). */
+  onShowChildCards?: () => void;
   /**
    * #2244: merge server-resolved fields from a non-optimistic save (the review
    * setting's `health_review_due_at` is computed by the server), so the header
@@ -237,7 +239,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
   // The Child cards switch (#1104): the server refuses a flip while card links
   // depend on the flag (400). Say why, instead of the silent revert the
   // sibling switches do.
@@ -1965,7 +1967,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="child-cards-heading">
                 <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
                 {isAdmin ? (
-                  <ChildCardsSettings board={board} error={childCardsError} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { void flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
+                  <ChildCardsSettings board={board} error={childCardsError} onShowChildCards={onShowChildCards} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { void flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.

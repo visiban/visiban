@@ -12,9 +12,11 @@ interface Props {
   onUpdate: (patch: Record<string, unknown>) => void | Promise<unknown>;
   /** Server refusal of the last flip (#1104), shown inline so a race past the blockers read is not silent. */
   error?: string | null;
+  /** Closes settings and filters the board to its child cards (Parent filter "any", #2209). Absent: no button. */
+  onShowChildCards?: () => void;
 }
 
-type Reason = { key: string; text: string; ask?: string; change?: { id: number; name: string } };
+type Reason = { key: string; text: string; ask?: string; change?: { id: number; name: string }; showCount?: number };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -26,7 +28,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * in a `role="group"`. The turn-off confirm is not built: turning off with live parent links is refused,
  * so that case is a blocked state too, not a confirm.
  */
-export default function ChildCardsSettings({ board, onUpdate, error = null }: Props) {
+export default function ChildCardsSettings({ board, onUpdate, error = null, onShowChildCards }: Props) {
   const uid = useId();
   const labelId = `${uid}-label`;
   const helpId = `${uid}-help`;
@@ -87,6 +89,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
         turnOnReasons.push({
           key: "children",
           text: `${plural(blockers.child_cards, "card here is a child", "cards here are children")} of cards on another board.`,
+          showCount: blockers.child_cards,
         });
       }
       blockers.default_of.forEach((d, i) => {
@@ -203,6 +206,16 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
               <li key={r.key} className="text-sm text-fg-secondary">
                 {r.text}
                 {r.ask && <span className="block text-fg-muted">{r.ask}</span>}
+                {r.showCount !== undefined && onShowChildCards && (
+                  <button
+                    type="button"
+                    onClick={onShowChildCards}
+                    data-testid="show-child-cards"
+                    className="mt-1 block max-sm:min-h-11 text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                  >
+                    {r.showCount === 1 ? "Show the card" : `Show the ${r.showCount} cards`}
+                  </button>
+                )}
                 {r.change && (() => {
                   const cls = "mt-1 inline-flex max-sm:min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
                   const to = `/boards/${r.change.id}?settings=rules`;

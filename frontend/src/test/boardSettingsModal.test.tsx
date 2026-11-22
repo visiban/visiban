@@ -2030,6 +2030,29 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     expect(group).toHaveFocus()
   })
 
+  it('"Show the N cards" hands off to the host; no button without a host handler (#2448)', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 4, parent_cards: 0, default_of: [] })
+    const onShow = vi.fn()
+    const user = userEvent.setup()
+    const { unmount } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin onClose={vi.fn()} onUpdateBoardSettings={vi.fn()} onShowChildCards={onShow} />)
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
+    await user.click(await screen.findByRole('button', { name: 'Show the 4 cards' }))
+    expect(onShow).toHaveBeenCalledTimes(1)
+    unmount()
+    const second = await openRules(fakeBoard)
+    await screen.findByRole('group', { name: "A child can't also have children" })
+    expect(screen.queryByTestId('show-child-cards')).toBeNull()
+    expect(second.onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('the single child reads "Show the card" (#2448)', async () => {
+    vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 1, parent_cards: 0, default_of: [] })
+    const user = userEvent.setup()
+    render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin onClose={vi.fn()} onUpdateBoardSettings={vi.fn()} onShowChildCards={vi.fn()} />)
+    await user.click(screen.getByRole('tab', { name: /^Rules & limits/ }))
+    expect(await screen.findByRole('button', { name: 'Show the card' })).toBeInTheDocument()
+  })
+
   it('a default board you cannot open or administer has no button and says who to ask', async () => {
     vi.mocked(getChildrenSettingBlockers).mockResolvedValue({
       child_cards: 1, parent_cards: 0,
