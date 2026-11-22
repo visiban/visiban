@@ -4495,9 +4495,9 @@ from the environment, and prints <code>ACCEPTED note-by=... accepted-by=... expi
 <p><code>sh scripts/security-deferred-verdict.sh --self-test</code> (44 cases) covers valid, expired, blank
 <code>accepted-by</code> / <code>reason</code>, impossible dates (<code>2099-13-45</code>, <code>2099-02-30</code>, non-leap Feb 29),
 two <code>expires</code> fields, <code>;</code> in <code>reason</code>, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
-<code>security-deferred-verdict-selftest</code> job.</p>
+<code>security-deferred-verdict-selftest</code> (member of <code>lint-selftests-alpine</code>) job.</p>
 <p><code>bash scripts/check-security-deferred.sh --self-test</code> (stubbed <code>glab</code>, no network) covers the
-query/loop around the verdict; CI runs it in the same <code>security-deferred-verdict-selftest</code> job.</p>
+query/loop around the verdict; CI runs it in the same <code>security-deferred-verdict-selftest</code> (member of <code>lint-selftests-alpine</code>) job.</p>
 <h2 id="confidential-issues">Confidential issues<a class="headerlink" href="#confidential-issues" title="Permanent link">&para;</a></h2>
 <p>Many deferred security issues are confidential. The audit token sees them; reports that
 leave the session (MR text, public issues, docs) cite the issue number only, never the

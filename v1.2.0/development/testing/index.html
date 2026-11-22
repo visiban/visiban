@@ -5040,7 +5040,7 @@ far (#1304, #1305, #1319) was a component defect that a loaded CI runner exposed
 <ul>
 <li><strong>Reproduce the CI scan locally:</strong> generate both reports, then run <code>SONAR_TOKEN=... scripts/sonar-scan.sh</code>.</li>
 <li><strong><code>--prep-only</code></strong> prints how many class entries and <code>SF:</code> files each rewritten report lists (and warns on zero), so the nightly log shows whether paths resolved.</li>
-<li><strong><code>scripts/sonar-scan.sh --self-test</code></strong> fixtures both rewrites and runs in the <code>sonar-scan-selftest</code> CI job.</li>
+<li><strong><code>scripts/sonar-scan.sh --self-test</code></strong> fixtures both rewrites and runs in the <code>sonar-scan-selftest</code> (member of <code>lint-selftests-alpine</code>) CI job.</li>
 </ul>
 <p>Test code, migrations, repo tooling, and seed/factory modules are removed from the coverage denominator by <code>sonar.coverage.exclusions</code>. Each entry is justified in the properties file, and nothing under product source is excluded.</p>
 <h3 id="mutation-score-1384">Mutation score (#1384)<a class="headerlink" href="#mutation-score-1384" title="Permanent link">&para;</a></h3>

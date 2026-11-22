@@ -4708,7 +4708,7 @@
 </tr>
 </tbody>
 </table>
-<p>Every script has a <code>--self-test</code>; <code>post-mr-cost.py</code>'s also replays the golden fixture. The <code>cost-ledger-selftest</code> CI job runs them all, plus <code>scripts/tests/kaizen_gate_ledger.test.sh</code>, on MRs that touch any of them.</p>
+<p>Every script has a <code>--self-test</code>; <code>post-mr-cost.py</code>'s also replays the golden fixture. The <code>cost-ledger-selftest</code> (member of <code>lint-selftests-alpine</code>) CI job runs them all, plus <code>scripts/tests/kaizen_gate_ledger.test.sh</code>, on MRs that touch any of them.</p>
 <h2 id="it-posts-on-its-own">It posts on its own<a class="headerlink" href="#it-posts-on-its-own" title="Permanent link">&para;</a></h2>
 <p><a id="auto-post"></a></p>
 <p>After any <code>glab mr create</code> run by Claude Code, the <code>.claude/hooks/post-mr-cost.sh</code> hook posts the <code>## Cost of this MR</code> comment, so the comment no longer depends on <code>/wave</code> being the path that opened the MR. Before this, only MRs opened through <code>/wave</code> got one (of !1736-!1744 only !1737 did).</p>

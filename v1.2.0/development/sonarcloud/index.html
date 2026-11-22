@@ -4457,12 +4457,12 @@
 <td>Scheduled pipelines only, when the schedule sets <code>SONAR_SCHEDULED=true</code></td>
 </tr>
 <tr>
-<td><code>sonar-scan-selftest</code></td>
+<td><code>sonar-scan-selftest</code> (member of <code>lint-selftests-alpine</code>)</td>
 <td><code>.gitlab-ci.yml</code>, <code>lint</code> stage</td>
 <td>MRs that touch <code>scripts/sonar-scan.sh</code>, <code>sonar-project.properties</code>, or the CI file; also <code>main</code></td>
 </tr>
 <tr>
-<td><code>lint:sonar-exclusions</code></td>
+<td><code>lint:sonar-exclusions</code> (member of <code>lint-selftests-alpine</code>)</td>
 <td><code>.gitlab-ci.yml</code>, <code>lint</code> stage</td>
 <td>MRs that touch <code>sonar-project.properties</code>, <code>scripts/check-sonar-exclusions.sh</code>, or the CI file; also <code>main</code></td>
 </tr>
@@ -4539,7 +4539,7 @@ produces. <code>sonar:scan</code> declares <code>needs:</code> on both producer 
 <li>The originals are never modified, because GitLab's coverage tooling still reads them.</li>
 <li>A missing report only prints a warning, so one failed producer doesn't abort the whole scan.</li>
 <li>The script prints how many class entries and <code>SF:</code> files each rewritten report lists and warns when the count is zero, so the nightly log shows whether paths resolved.</li>
-<li><code>sh scripts/sonar-scan.sh --self-test</code> proves both rewrites against fixtures; the <code>sonar-scan-selftest</code> job runs it.</li>
+<li><code>sh scripts/sonar-scan.sh --self-test</code> proves both rewrites against fixtures; the <code>sonar-scan-selftest</code> (member of <code>lint-selftests-alpine</code>) job runs it.</li>
 </ul>
 <p>See <a href="../testing/#sonarcloud-coverage-import-1370">Testing § SonarCloud coverage import</a>.</p>
 <h2 id="what-sonar-does-not-count-or-flag">What Sonar does not count or flag<a class="headerlink" href="#what-sonar-does-not-count-or-flag" title="Permanent link">&para;</a></h2>
@@ -4587,7 +4587,7 @@ in <code>sonar-project.properties</code>:</p>
 <p><strong><code>sonar.issue.ignore.multicriteria.*</code></strong> silences one rule for one path, for findings that were triaged and confirmed as false positives.</p>
 <ul>
 <li>Every criterion carries a comment saying why, and the comment must name its rule.</li>
-<li>The <code>lint:sonar-exclusions</code> job (<code>scripts/check-sonar-exclusions.sh</code>) fails when a criterion's glob matches no tracked file, which is what a rename looks like when it silently un-suppresses findings.</li>
+<li>The <code>lint:sonar-exclusions</code> (member of <code>lint-selftests-alpine</code>) job (<code>scripts/check-sonar-exclusions.sh</code>) fails when a criterion's glob matches no tracked file, which is what a rename looks like when it silently un-suppresses findings.</li>
 <li>The nightly <code>sonar:rules-check</code> job adds an online check that every rule key is still active in the project's quality profile (fail-open: no token or an API error warns and passes).</li>
 </ul>
 <p>See <a href="../suppressions/#sonarcloud-suppressions">Suppression Markers § SonarCloud suppressions</a>.</p>
@@ -4608,7 +4608,7 @@ in <code>sonar-project.properties</code>:</p>
   and never widens a glob to make a finding disappear or to make the guard pass. A suppression
   that waits on tracked work follows the <code>SUPPRESSED-UNTIL(#N)</code> convention in
   <a href="../suppressions/">Suppression Markers</a>; a permanent one carries a plain reason.
-  <code>lint:sonar-exclusions</code> enforces the structural half of this.</li>
+  <code>lint:sonar-exclusions</code> (member of <code>lint-selftests-alpine</code>) enforces the structural half of this.</li>
 <li><strong>Coverage targets.</strong> Aim for at least 85% on Sonar, with 80% as the floor. The enforced
   gates are separate; see <a href="../testing/#coverage-targets">Testing § Coverage targets</a>.</li>
 </ul>

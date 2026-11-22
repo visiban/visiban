@@ -5034,9 +5034,9 @@ a change-conditional job that failed earlier did not re-run in it.</p>
 <p>Protected variables (<code>GITLAB_API_TOKEN</code>, ...) exist on <code>main</code> pipelines but not in MR pipelines
 from unprotected branches, so a test that quietly reads one passed on the MR and failed only
 after merge (#2412, <code>resolve-docs-version.test.sh</code>). Every <code>scripts/tests/*.test.sh</code> invocation in
-<code>.gitlab-ci.yml</code> (in <code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code>,
-<code>security-deferred-verdict-selftest</code>, <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code> and
-<code>registry-keep-regex-test</code>) now runs as <code>sh scripts/ci-hermetic-run.sh bash scripts/tests/&lt;name&gt;</code>,
+<code>.gitlab-ci.yml</code> (in <code>script-tests</code>, <code>script-tests-glibc</code>, <code>cost-ledger-selftest</code> (member of <code>lint-selftests-alpine</code>),
+<code>security-deferred-verdict-selftest</code> (member of <code>lint-selftests-alpine</code>), <code>api-compat-check</code>, <code>rbac-coverage</code>, <code>suppressions-check</code> and
+<code>registry-keep-regex-test</code> (member of <code>lint-selftests-alpine</code>)) now runs as <code>sh scripts/ci-hermetic-run.sh bash scripts/tests/&lt;name&gt;</code>,
 which sources <code>scripts/ci-poison-env.sh</code> in a child shell, on <strong>both</strong> pipelines. Only that command
 is poisoned: a job's real step after its tests (<code>suppressions-check</code> querying the live API) keeps
 its real variables. In the wrapped command every listed token is the

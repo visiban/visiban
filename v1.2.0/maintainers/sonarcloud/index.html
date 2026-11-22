@@ -4686,7 +4686,7 @@ date. To diagnose a yellow job, read its log and match the symptom:</p>
 <tr>
 <td><code>resolved: 0 class entries</code> or <code>0 SF files</code>, or Coverage reads 0.0%</td>
 <td>A report rewrite regressed, or a producer job failed and its report is missing</td>
-<td>Check <code>sonar-scan-selftest</code>, then run <code>scripts/sonar-scan.sh --prep-only</code> locally against fresh reports</td>
+<td>Check <code>sonar-scan-selftest</code> (member of <code>lint-selftests-alpine</code>), then run <code>scripts/sonar-scan.sh --prep-only</code> locally against fresh reports</td>
 </tr>
 <tr>
 <td><code>! backend/coverage.xml not found</code> or <code>! frontend/coverage/lcov.info not found</code></td>
@@ -4705,7 +4705,7 @@ date. To diagnose a yellow job, read its log and match the symptom:</p>
 </tr>
 </tbody>
 </table>
-<p>A red <code>lint:sonar-exclusions</code> is a different problem: a suppression glob matches no tracked
+<p>A red <code>lint:sonar-exclusions</code> (member of <code>lint-selftests-alpine</code>) is a different problem: a suppression glob matches no tracked
 file. Delete the criterion or repoint it at the new path. Never widen the glob to make the
 guard pass.</p>
 <h2 id="the-review-every-new-hotspot-rule">The "review every new hotspot" rule<a class="headerlink" href="#the-review-every-new-hotspot-rule" title="Permanent link">&para;</a></h2>
