@@ -507,12 +507,12 @@ class DeletedCardHistoryTests(_ImportCase):
             "movements": [{"from_column": "Todo", "to_column": "Done", "moved_at": "2026-01-02T03:04:05Z",
                            "moved_by": "dave"}],
             "activities": [
-                {"event_type": "title_changed", "from_value": "a", "to_value": "b",
+                {"event_type": "title_change", "from_value": "a", "to_value": "b",
                  "created_at": "2026-01-03T03:04:05Z", "actor": "erin"},
                 {"event_type": "not_a_type", "from_value": "x"},
                 {"from_value": "no-type"},
                 {"event_type": ["x"]},
-                {"event_type": "description_changed", "from_value": "kept-after-skip"},
+                {"event_type": "description_change", "from_value": "kept-after-skip"},
             ],
             **extra,
         }
@@ -524,7 +524,7 @@ class DeletedCardHistoryTests(_ImportCase):
         self.assertEqual(mv.moved_at, datetime.datetime(2026, 1, 2, 3, 4, 5, tzinfo=datetime.timezone.utc))
         self.assertEqual((mv.from_column_name, mv.to_column_name, mv.imported_from_username), ("Todo", "Done", "dave"))
         acts = list(CardActivity.objects.filter(board_id=board.pk, card__isnull=True).order_by("id"))
-        self.assertEqual([a.event_type for a in acts], ["title_changed", "description_changed"])
+        self.assertEqual([a.event_type for a in acts], ["title_change", "description_change"])
         self.assertEqual((acts[0].card_uid, acts[0].card_title, acts[0].board_id), ("abcdef0123456789", "Gone card", board.pk))
         self.assertEqual(acts[0].created_at, datetime.datetime(2026, 1, 3, 3, 4, 5, tzinfo=datetime.timezone.utc))
         self.assertEqual((acts[0].from_value, acts[0].to_value, acts[0].imported_from_username), ("a", "b", "erin"))
@@ -532,7 +532,7 @@ class DeletedCardHistoryTests(_ImportCase):
 
     def test_entry_without_identity_keys_gets_blank_snapshot(self):
         entry = {"movements": [{"from_column": "Todo", "to_column": "Done"}],
-                 "activities": [{"event_type": "title_changed"}]}
+                 "activities": [{"event_type": "title_change"}]}
         _, board = self.ok(_payload(deleted_card_history=[entry]))
         mv = CardMovement.objects.get(board=board, card__isnull=True)
         act = CardActivity.objects.get(board_id=board.pk, card__isnull=True)
@@ -545,7 +545,7 @@ class DeletedCardHistoryTests(_ImportCase):
 
     def test_live_card_activity_with_invalid_types_is_skipped(self):
         card = {"title": "C", "column": "Todo", "swimlane": "Lane", "activities": [
-            {"event_type": "bogus"}, {"event_type": ["x"]}, {"event_type": "title_changed", "from_value": "k"},
+            {"event_type": "bogus"}, {"event_type": ["x"]}, {"event_type": "title_change", "from_value": "k"},
         ]}
         _, board = self.ok(_payload(cards=[card]))
         kept = CardActivity.objects.filter(card__board=board, from_value="k")
