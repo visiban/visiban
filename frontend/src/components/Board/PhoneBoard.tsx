@@ -397,12 +397,12 @@ export default function PhoneBoard({
                   aria-pressed={on}
                   aria-label={`${sub.name}, ${n} ${n === 1 ? "card" : "cards"}`}
                   onClick={() => setSubIndex(i)}
-                  className={`flex-1 min-h-11 px-2 inline-flex items-center justify-center gap-1 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-boundary" : ""} ${
+                  className={`flex-1 min-w-0 min-h-11 px-2 inline-flex items-center justify-center gap-1 text-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${i > 0 ? "border-l border-line-boundary" : ""} ${
                     on ? "bg-primary-emphasis/20 text-info font-semibold" : "text-fg-secondary hover:bg-surface-hover"
                   }`}
                 >
                   <ActiveMark active={on} />
-                  {sub.name} <span className="tabular-nums">{n}</span>
+                  <span className="min-w-0 truncate">{sub.name}</span> <span className="shrink-0 tabular-nums">{n}</span>
                 </button>
               );
             })}

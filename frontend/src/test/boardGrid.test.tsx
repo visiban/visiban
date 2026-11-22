@@ -15,7 +15,7 @@ describe('boardGridTemplate', () => {
     )
   })
 
-  it('gives a split stage a double-width track and a hidden or collapsed column a 40px stub', () => {
+  it('gives a two-way split stage a 2fr track and a hidden or collapsed column a 40px stub', () => {
     expect(boardGridTemplate(['split', 'narrow'])).toBe('16px minmax(0, 2fr) 8px 40px 16px')
   })
 
@@ -54,6 +54,16 @@ describe('column weights', () => {
     expect(boardGridTemplate([columnTrack(440), 'narrow', columnTrack(220)])).toBe(
       '16px minmax(0, 2fr) 8px 40px 8px minmax(0, 1fr) 16px',
     )
+  })
+
+  it('gives a split stage one column of width per sub-column (#2531)', () => {
+    expect(columnTrack(220, 2)).toBe('split')
+    expect(boardGridTemplate([columnTrack(220, 4), columnTrack(220, 3)])).toBe('16px minmax(0, 4fr) 8px minmax(0, 3fr) 16px')
+    expect(boardGridTemplate([columnTrack(330, 4)])).toBe('16px minmax(0, 6fr) 16px')
+    expect(trackFloor(columnTrack(220, 4))).toBe(4 * 160 + 3 * 8)
+    expect(trackFloor(columnTrack(220, 3))).toBe(3 * 160 + 2 * 8)
+    expect(trackFloor('split')).toBe(2 * 160 + 8)
+    expect(columnTrack(220, 1)).toBe('column')
   })
 
   it('doubles a resized split stage on top of its weight (#2278)', () => {

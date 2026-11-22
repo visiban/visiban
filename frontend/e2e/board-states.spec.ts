@@ -205,4 +205,27 @@ test.describe('keyboard move', () => {
     await expect(page.getByRole('group', { name: 'To Do: Ready' }).locator(`[data-card-id="${CARD.id}"]`)).toBeVisible()
     await expect(page.getByRole('group', { name: 'To Do: Doing' }).locator(`[data-card-id="${CARD.id}"]`)).toHaveCount(0)
   })
+
+  test('a four-way split stage: header sub-column dividers line up with the lane dividers and names stay readable (#2531)', async ({ page }) => {
+    await routeAuth(page)
+    const names = ['Triage', 'Review', 'Doing', 'Checked']
+    const split = { ...COLUMN_TODO, sub_columns: names.map((name, i) => ({ id: i + 1, uid: `sub0000000${i + 1}`, position: i, name })), tracks: [] }
+    const card = { ...CARD, gates_passed: 0 }
+    await routeBoard(page, { ...BOARD_FULL, columns: BOARD_FULL.columns.map((c) => (c.id === split.id ? split : c)), cards: [card] })
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    await expect(cardFace(page)).toBeVisible({ timeout: 10_000 })
+    const head = page.getByTestId('column-sub-count')
+    await expect(head).toHaveCount(4)
+    // Sub-column width is one column's width each: far above the old ~80px.
+    const first = await head.nth(0).boundingBox()
+    expect(first!.width).toBeGreaterThan(110)
+    // Each name is visible as full text (not a single letter) and the empty lane cells name themselves.
+    await expect(head.nth(3)).toContainText('Checked')
+    await expect(page.getByTestId('sub-column-empty').first()).toContainText(/Review|Doing|Checked/)
+    const headX = await head.evaluateAll((els) => els.slice(1).map((e) => e.getBoundingClientRect().left))
+    const laneX = await page.locator('[data-sub-column-drop]').evaluateAll((els) => els.slice(1).map((e) => e.getBoundingClientRect().left))
+    expect(headX).toHaveLength(3)
+    headX.forEach((x, i) => expect(Math.abs(x - laneX[i])).toBeLessThanOrEqual(4))
+  })
 })
