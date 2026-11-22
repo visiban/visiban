@@ -815,7 +815,7 @@ def create_card(
             board=board, column=column, card=card, role=role, force=force, lock=False,
             swimlane=swimlane,
         )
-        CardMovement.objects.create(
+        movement = CardMovement(
             card=card,
             from_column=None,
             from_column_name="",
@@ -832,6 +832,15 @@ def create_card(
             moved_by=actor,
             notes="Card created",
         )
+        # A create that sends the "assigned" notification must not also send
+        # the creation "moved to <column>" one: one notification, not two.
+        # Every other create keeps the "moved" notification it always had. An
+        # instance flag read by ``signals.notify_on_card_moved``: no global
+        # state, no column.
+        movement._skip_moved_notification = bool(
+            notify_assignee and _assigned_notification_recipient(card, actor, board)
+        )
+        movement.save()
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_CREATED, payload, actor.id)
         _fire_hooks("card.created", card.id, board_id, actor.id)
@@ -844,29 +853,43 @@ def create_card(
     return CardMutationResult(card=card, payload=payload)
 
 
+def _assigned_notification_recipient(card, actor, board):
+    """The card's assignee when they should get the "assigned" notification, else ``None``.
+
+    Nothing for no assignee, a self-assignment, an inactive or opted-out
+    (``notif_card_assigned``) recipient, or someone who is not a current
+    effective member of the board (``create_notifications`` has no membership
+    check of its own).
+    """
+    if card.assignee_id is None or card.assignee_id == actor.id:
+        return None
+    assignee = card.assignee
+    if not assignee.is_active or not assignee.notif_card_assigned:
+        return None
+    from ..utils import _get_effective_member_ids
+
+    if assignee.pk not in _get_effective_member_ids(board):
+        return None
+    return assignee
+
+
 def _notify_assigned_on_create(card, actor, board):
     """Tell a lane team's pre-assigned member they were given the card (#2211).
 
     Opt-in through ``create_card(notify_assignee=True)``: Add child passes it
     for its server-side pre-assignment, and ``POST cards/`` only when the body
     says ``notify_assignee: true`` (the web app's Add card, for a lane team's
-    pre-assignment). Every other create with an assignee (plain API, MCP,
-    import) stays silent, as before 1.3. The card's creation movement sends no
-    "moved" notification (``signals.notify_on_card_moved``), so this is the
-    only one. Same notification, verb and preference as ``update_card``'s
-    assignee change; nothing for a self-assignment, an opted-out or inactive
-    recipient, or someone who is not a current effective member of the board
-    (``create_notifications`` has no membership check of its own).
-    ``create_notifications`` defers delivery with ``transaction.on_commit``.
+    pre-assignment). A create without it (plain API, MCP, import) sends no
+    "assigned" notification, and keeps the "moved to <column>" notification
+    its creation movement has always sent an assignee. When this one is sent,
+    the creation movement's "moved" notification is skipped
+    (``create_card`` flags the movement), so the assignee gets exactly one.
+    Same notification, verb and preference as ``update_card``'s assignee
+    change. ``create_notifications`` defers delivery with
+    ``transaction.on_commit``.
     """
-    if card.assignee_id is None or card.assignee_id == actor.id:
-        return
-    assignee = card.assignee
-    if not assignee.is_active or not assignee.notif_card_assigned:
-        return
-    from ..utils import _get_effective_member_ids
-
-    if assignee.pk not in _get_effective_member_ids(board):
+    assignee = _assigned_notification_recipient(card, actor, board)
+    if assignee is None:
         return
     create_notifications(
         [

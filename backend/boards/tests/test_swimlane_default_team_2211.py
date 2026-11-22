@@ -617,6 +617,41 @@ class AssignmentNotificationTests(AddChildTests):
         kinds = list(Notification.objects.filter(recipient=self.mia).values_list("action_type", flat=True))
         self.assertEqual(kinds, [Notification.ActionType.ASSIGNED] * 2)
 
+    def moved_notes(self, user):
+        from boards.models import Notification
+
+        return list(Notification.objects.filter(recipient=user, action_type=Notification.ActionType.CARD_MOVED))
+
+    def test_plain_post_with_an_assignee_keeps_the_creation_moved_notification(self):
+        """No opt-in: ``POST cards/`` behaves as before 1.3 (assignee told "moved to <column>")."""
+        User.objects.filter(pk=self.mia.pk).update(notif_card_moved=True)
+        self.assertEqual(self.post_card().status_code, 201)
+        self.assertEqual(len(self.moved_notes(self.mia)), 1)
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_service_default_keeps_the_creation_moved_notification(self):
+        """MCP ``create_card`` (``notify_assignee=False``) still sends the creation "moved" notification."""
+        from boards.services import cards as card_services
+
+        User.objects.filter(pk=self.mia.pk).update(notif_card_moved=True)
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            card_services.create_card(
+                actor=self.owner, board=self.parent, column_id=self.column.pk, swimlane_id=self.lane.pk,
+                save=lambda position: Card.objects.create(
+                    board=self.parent, column=self.column, swimlane=self.lane, title="MCP",
+                    created_by=self.owner, position=position, assignee=self.mia,
+                ),
+                render=lambda card: {"id": card.pk},
+            )
+        self.assertEqual(len(self.moved_notes(self.mia)), 1)
+
+    def test_flag_that_sends_nothing_keeps_the_creation_moved_notification(self):
+        """The movement is only silenced when the "assigned" notification really goes out."""
+        User.objects.filter(pk=self.mia.pk).update(notif_card_moved=True, notif_card_assigned=False)
+        self.assertEqual(self.post_card(notify_assignee=True).status_code, 201)
+        self.assertEqual(self.notes(self.mia), [])
+        self.assertEqual(len(self.moved_notes(self.mia)), 1)
+
 
 class TeamPrefetchQueryCountTests(TeamFixture):
     """perf-check: lane reads with a team cost the same whatever the team size."""
@@ -641,6 +676,26 @@ class TeamPrefetchQueryCountTests(TeamFixture):
             for u in (self.mia, self.dan):
                 SwimlaneTeamMember.objects.create(swimlane=lane, user=u)
         self.assertEqual(count(), one)
+
+    def test_name_only_patch_is_flat_in_team_size(self):
+        """The PATCH response reads the team cold (DRF drops the prefetch): one joined query, not one per member."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def patch_count(name):
+            with patch(PATCH_BROADCAST), CaptureQueriesContext(connection) as ctx:
+                r = client_for(self.owner).patch(self.lane_url(), {"name": name}, format="json")
+            self.assertEqual(r.status_code, 200, r.content)
+            return len(ctx.captured_queries), r.json()
+
+        self.set_team(self.mia, self.dan)
+        small, _ = patch_count("Renamed A")
+        extra = [self.user_with(f"p{i}", parent=Role.MEMBER) for i in range(8)]
+        SwimlaneTeamMember.objects.filter(swimlane=self.lane).delete()
+        self.set_team(self.mia, self.dan, *extra)
+        big, body = patch_count("Renamed B")
+        self.assertEqual(len(body["default_team_members"]), 10)
+        self.assertEqual(big, small)
 
     def test_admin_payload_reads_the_team_in_one_query(self):
         from django.contrib.admin.sites import site

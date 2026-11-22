@@ -195,11 +195,11 @@ def prune_swimlane_limit_columns(sender, instance, origin=None, **kwargs):
 def notify_on_card_moved(sender, instance, created, **kwargs):
     if not created:
         return
-    # A card's creation movement (services.cards.create_card, from_column None;
-    # every move records the column it left) is not a move: without this, a
-    # card created with an assignee told them it "moved to" its first column,
-    # beside the #2211 "assigned" notification.
-    if instance.from_column_id is None:
+    # create_card flags the creation movement when the same create also sends
+    # the #2211 "assigned" notification, so that assignee is not told twice
+    # (assigned + "moved to <first column>"). Any other create keeps the
+    # "moved" notification it always sent.
+    if getattr(instance, "_skip_moved_notification", False):
         return
     # Re-fetch card with needed relations. The just-created CardMovement instance
     # carries only integer FKs (card_id, assignee_id, etc.), so accessing

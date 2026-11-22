@@ -66,7 +66,13 @@ def team_members_payload(swimlane):
     removed before the team can be saved (the write refuses them), and keeps
     the create surfaces from offering them.
     """
-    return [{"id": m.user_id, "is_active": m.user.is_active} for m in swimlane.team_members.all()]
+    # DRF clears the prefetch after perform_update, so a PATCH response reads the
+    # team cold: join the user then, or it costs one query per member.
+    if "team_members" in getattr(swimlane, "_prefetched_objects_cache", {}):
+        members = swimlane.team_members.all()
+    else:
+        members = swimlane.team_members.select_related("user").order_by("pk")
+    return [{"id": m.user_id, "is_active": m.user.is_active} for m in members]
 
 
 def active_team_ids(swimlane):
