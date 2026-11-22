@@ -4737,10 +4737,22 @@
 <td>#1750, #448</td>
 </tr>
 <tr>
+<td>Throughput forecasting, one board or one card</td>
+<td>OSS</td>
+<td>Same reasoning as the flow charts; ruled 2026-11-21. See <a href="#analytics-split">Analytics (split)</a></td>
+<td>#1100</td>
+</tr>
+<tr>
 <td>Cross-period comparison, scheduled analytics reports, <code>ANALYTICS_EXTENSIONS</code> panels</td>
 <td>Enterprise</td>
 <td>Reporting and extension layer beyond what a team needs to see its own flow. See <a href="#analytics-split">Analytics (split)</a></td>
 <td>#1750</td>
+</tr>
+<tr>
+<td>Forecasting across a set of boards</td>
+<td>Enterprise</td>
+<td>Subject is a group, workspace or board set, not a card or a board; ruled 2026-11-21. See <a href="#analytics-split">Analytics (split)</a></td>
+<td>#1100</td>
 </tr>
 <tr>
 <td>Single-swimlane focus mode</td>
@@ -5055,15 +5067,17 @@
 <h3 id="analytics-split">Analytics (split)<a class="headerlink" href="#analytics-split" title="Permanent link">&para;</a></h3>
 <p><strong>Decision (#1750, 2026-11-02).</strong> All four flow charts planned in #448 are OSS: cycle time, throughput (including the weekly run chart), the cumulative flow diagram (CFD) and WIP age, along with the CFD bottleneck highlight. The analytics OSS already ships stays OSS: the dwell-time heatmap with outlier and bottleneck coloring, Current and In period modes, stalled-card detection, the per-swimlane velocity column, the 7, 30 and 90-day windows, and the admin heatmap CSV export. Basic per-swimlane analytics (cards in flight, average cycle time, cards moved to Done in the last 30 days) are OSS too.</p>
 <p><em>Note (2026-11-14, #2261):</em> the Analytics tab now offers 30, 90, 180 and 365-day windows; the 7-day window is gone from the UI, though the API still accepts <code>days=7</code>. This is not an OSS/enterprise boundary change.</p>
-<p>Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through <code>ANALYTICS_EXTENSIONS</code>. A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise.</p>
+<p>Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through <code>ANALYTICS_EXTENSIONS</code>. A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise. <em>Note (2026-11-21, #1100):</em> forecasts whose subject is a set of boards are also Enterprise; see the forecasting ruling below.</p>
 <p><strong>Why.</strong> Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.</p>
 <p><strong>Supersedes.</strong> This replaces the 2026-10-20 note on #1750, which ruled the CFD, velocity trends, cross-period comparison, scheduled reports and <code>ANALYTICS_EXTENSIONS</code> panels Enterprise. It also replaces the earlier table rows "Advanced analytics (velocity trends, CFD, exports)" (#341 note) and "Advanced analytics (cycle time dists, CFD)" (enterprise #12), and the earlier wording of this section, which placed velocity trends, bottleneck detection, historical period comparisons and exportable reports in Enterprise.</p>
 <p><strong>Cost accepted.</strong> Under the project's backward compatibility rules, a shipped OSS feature cannot practically move back to Enterprise. Enterprise #12 is the open tracking issue for rescoping the enterprise side to the three items above; a note was posted there on 2026-11-02.</p>
-<p><strong>Not decided here.</strong> Forecasting (#1100) is not ruled by this decision and still needs its own enterprise-check. The <a href="../decisions/">flow metric definitions</a> apply wherever the #448 charts ship.</p>
-<p><strong>MCP flow-metrics tools: OSS (decided 2026-11-05, #1151).</strong> The read-only <code>board_flow_metrics</code> and <code>aging_cards</code> MCP tools are OSS. They are thin readers over the OSS flow service (#448) and answer the same "where does work pile up?" question the OSS charts do, so a small team's own agents need them. <em>Superseded:</em> this replaces the earlier "not decided here" note above and the planned-enterprise "analytics tools" entry in the MCP section below. The ruling covers only these two read-only tools; forecasting (#1100) and any other analytics surface are not widened by it.</p>
+<p><strong>Forecasting: OSS for one board or one card (decided 2026-11-21, #1100).</strong> Monte Carlo throughput forecasting is OSS because it is core Kanban flow work that sits beside the OSS charts, on the same #448 flow service. Its subject is one board or one card: "when will these N cards be done?" and "how many by date X?". That includes a connected-board parent card (#1104), forecast from its descendant cards on other boards. A parent card is one piece of work, so its multi-board forecast is not a group forecast. Only boards the caller can view are sampled. Children the caller cannot see are excluded, and the exclusion is reported, never silently dropped. A read-only MCP forecast tool (extends #1151) is OSS, and so is a "portfolio board" forecasting its own backlog, because that is still one board. Forecasts whose <em>subject is a set of boards</em> are Enterprise: pooled-throughput group or subgroup forecasts, portfolio or workspace "when is everything done" rollups, cross-team aggregates, and capacity or scenario modeling. The test: does the request name a group, workspace or board set rather than a card or a board? If so, it is Enterprise.</p>
+<p><strong>Forecasting extension point.</strong> The OSS forecast is to be built as a pure service function (sample series, target, window, seed) with no board coupling, and its signature is to be a stable public contract. It is not built yet (#1100). Enterprise registers its group endpoints through the existing <code>enterprise.urls</code> hook (<code>visiban/urls.py</code>) and calls that function with its own pooled sample. <code>ANALYTICS_EXTENSIONS</code> alone is not enough, because it renders inside one board's Summary tab. If Enterprise later needs to override sampling, add one hook list in <code>boards/hooks.py</code> with an OSS call site. Percentile output (p50, p85, p95), seed determinism and reuse of the existing analytics windows are part of the OSS contract, so that Enterprise results stay comparable with OSS ones.</p>
+<p><strong>Supersedes.</strong> #865 calls "predictive lead time" part of the deeper slicing that "is enterprise territory"; this ruling replaces that for single-board and card-scoped forecasting. That line predates the #1750 analytics split, and #865's notes hold no separate ruling. Per-assignee throughput and SLA tracking are unaffected. The <a href="../decisions/">flow metric definitions</a> apply wherever the #448 charts and forecasts ship.</p>
+<p><strong>MCP flow-metrics tools: OSS (decided 2026-11-05, #1151).</strong> The read-only <code>board_flow_metrics</code> and <code>aging_cards</code> MCP tools are OSS. They are thin readers over the OSS flow service (#448) and answer the same "where does work pile up?" question the OSS charts do, so a small team's own agents need them. <em>Superseded:</em> this replaces an earlier "not decided here" note in this section and the planned-enterprise "analytics tools" entry in the MCP section below. The ruling covers only these two read-only tools; forecasting (#1100) and any other analytics surface are not widened by it. <em>Note (2026-11-21, #1100):</em> a read-only forecast MCP tool is OSS under the forecasting ruling above.</p>
 <p>The OSS analytics summary exposes an <code>ANALYTICS_EXTENSIONS</code> registration point (<code>boards/hooks.py</code>) so enterprise can add panels without modifying OSS view files. The summary returns the panels in <code>extension_panels</code>, and the Summary tab renders <code>stats</code> and <code>table</code> panels below the swimlane table (see the <a href="../../api/boards/#extension-panel-payload">payload contract</a>).</p>
 <p><strong>Authorization is OSS's job, not each panel's (#1826).</strong> A panel declares the lowest board role that may see it with a <code>min_role</code> attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. <strong>Behavior change for extension authors in 1.2:</strong> a panel with no <code>min_role</code>, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set <code>min_role</code> to stay visible to non-admin members. See <a href="../../api/boards/#panel-visibility-by-role">panel visibility by role</a> and <a href="../../development/security-invariants/">Security Invariants</a> Rule 12.</p>
-<p><strong>Issue:</strong> #1750 (ruling), #341 (basic analytics), #448 (flow charts). Enterprise side: enterprise #12.</p>
+<p><strong>Issue:</strong> #1750 (ruling), #341 (basic analytics), #448 (flow charts), #1100 (forecasting), #1151 (MCP tools). Enterprise side: enterprise #12.</p>
 <hr />
 <h3 id="board-import-oss-vs-migration-wizard-enterprise">Board import (OSS) vs migration wizard (Enterprise)<a class="headerlink" href="#board-import-oss-vs-migration-wizard-enterprise" title="Permanent link">&para;</a></h3>
 <p><strong>Decision (#1982, 2026-10-31).</strong> Board import and export are OSS, per the guiding principle: a team must be able to bring its own data in and take it out. OSS owns the import endpoints and formats (Trello, JSON and CSV), their envelopes, and the single-source importer UIs, including the Trello import wizard (#456). Only the cross-source guided/bulk migration flow (enterprise #24) is Enterprise. This clarifies and supersedes the earlier row, "External tool import wizard = Enterprise", which read as if OSS import were out of bounds; the shipped OSS importers stay OSS.</p>
@@ -5172,6 +5186,11 @@
 <td><code>post_board_created/deleted/member_added/removed</code> signals</td>
 <td>Enterprise audit log (enterprise #28)</td>
 <td>Not yet implemented — tracked in #367</td>
+</tr>
+<tr>
+<td>Forecast service function (pure; sample series, target, window, seed; stable signature)</td>
+<td>Enterprise group and workspace forecasts, which call it with their own pooled sample (#1100)</td>
+<td>Not yet implemented — tracked in #1100</td>
 </tr>
 <tr>
 <td><code>VISIBAN_AUDIT_BACKEND</code> setting</td>
