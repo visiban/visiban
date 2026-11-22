@@ -13,7 +13,7 @@ import * as cardsApi from '../api/cards'
 import { useRollupLoading } from '../components/Card/rollupLoading'
 import { ToastProvider } from '../contexts/ToastContext'
 import type { BoardEvent } from '../hooks/useBoardSocket'
-import type { BoardFull, Card, Column, Label, BoardMembership, Swimlane, User } from '../types'
+import type { BoardFull, Card, CardParent, Column, Label, BoardMembership, Swimlane, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
 
 // ---------------------------------------------------------------------------
@@ -1095,6 +1095,65 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     expect(spy).toHaveBeenCalledWith(expect.anything(), 5)
     expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, parent]]))
     spy.mockRestore()
+  })
+
+  describe('siblings frame (#2443)', () => {
+    const shared = { hidden: false as const, id: 70, title: 'Epic', siblings_total: 3, siblings_done: 2 } as unknown as CardParent
+    const siblingsBoard = () => makeBoard({ cards: [makeCard({ id: 5 }), makeCard({ id: 6 }), makeCard({ id: 8 })] })
+
+    it('reads one listed card on this board and applies its parent to every listed sibling', async () => {
+      const spy = vi.spyOn(cardsApi, 'getCardParent').mockResolvedValue(shared)
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      // 99 is not on this board: never read, never applied. Way above the per-card cap, no reload.
+      const ids = [99, 5, 6, 8, ...Array.from({ length: 30 }, (_, i) => 1000 + i)]
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: ids, siblings: true } }) })
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(spy).toHaveBeenCalledWith(1, 5)
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, shared], [6, shared], [8, shared]]))
+      expect(ctx.silentReload).not.toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it('falls back to per-card reads when the representative is no longer a child', async () => {
+      const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(async (_b, id) => (id === 5 ? null : shared))
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6, 8], siblings: true } }) })
+      await act(async () => {})
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, null]]))
+      expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[6, shared], [8, shared]]))
+      expect(spy).toHaveBeenCalledTimes(3)
+      spy.mockRestore()
+    })
+
+    it('reads nothing for ids not on this board, keeps the last value on a failed read, and drops a stale read', async () => {
+      const resolvers: Array<(p: CardParent | null) => void> = []
+      const spy = vi.spyOn(cardsApi, 'getCardParent')
+        .mockRejectedValueOnce(new Error('x'))
+        .mockImplementation(() => new Promise((res) => { resolvers.push(res) }))
+      const ctx = makeContext({ board: siblingsBoard() })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [41, 42], siblings: true } }) })
+      expect(spy).not.toHaveBeenCalled()
+      await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      expect(ctx.applyCardParents).not.toHaveBeenCalled()
+      act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      act(() => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5, 6], siblings: true } }) })
+      const newer = { ...shared, siblings_done: 3 } as CardParent
+      await act(async () => { resolvers[1](newer) })
+      await act(async () => { resolvers[0](shared) })
+      const calls = (ctx.applyCardParents as unknown as ReturnType<typeof vi.fn>).mock.calls
+      expect(calls).toHaveLength(1)
+      expect(calls[0][0]).toEqual(new Map([[5, newer], [6, newer]]))
+      spy.mockRestore()
+    })
   })
 
   it('answers the card detail refetch event, and skips a failed read', async () => {

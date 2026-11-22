@@ -83,7 +83,9 @@ EVT_CARD_UNARCHIVED = "card.unarchived"
 # Cross-board parent/child links (#1104). Both are ids-only pings: a client
 # refetches over REST, where the server resolves what that viewer may see.
 # ``card.children_changed {parent_id}`` goes to the PARENT's board;
-# ``card.parent_changed {card_ids}`` goes to the CHILD's board. Neither ever
+# ``card.parent_changed {card_ids}`` goes to the CHILD's board (since #2443
+# also ``{card_ids, siblings: true}``: the live children of one parent, whose
+# sibling counts changed, from ``card_links._announce_siblings``). Neither ever
 # carries a title, column or count from the other board (security-invariants
 # Rule 8, and its named timing residual).
 EVT_CARD_CHILDREN_CHANGED = "card.children_changed"

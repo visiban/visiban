@@ -425,7 +425,9 @@ each surface that delivers them:
 - the cross-board link events `card.children_changed` and, since #2500,
   `card.children_bulk_changed` (parent's board) and
   `card.parent_changed` (child's board) (#1104) carry ids only (`parent_id`,
-  `parent_ids`, `card_ids`, and `reload` above the cap, #2416, #2500), so there is
+  `parent_ids`, `card_ids`, and `reload` above the cap, #2416, #2500; since
+  #2443 also `siblings: true` on a child-board frame listing the live children
+  of one parent, all on that board, never the parent's id), so there is
   nothing in them to filter per recipient, and the child's own card events are
   never fanned out to the parent's board. Every other detail of the other board
   is read over REST, through `boards/services/card_links.py`

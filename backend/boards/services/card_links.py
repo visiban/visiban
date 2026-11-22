@@ -404,6 +404,54 @@ def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
         child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
         {"card_ids": [child_id]}, actor_id=actor_id,
     )
+    # The other children's "N of M siblings done" just changed (#2443).
+    _announce_siblings(
+        CardParentLink.objects.filter(parent_id=parent_id, child__archived_at__isnull=True)
+        .values_list("parent_id", "child_id", "child__board_id"),
+        actor_id=actor_id, exclude={child_id},
+    )
+
+
+def _announce_siblings(rows, *, actor_id, exclude=(), changed=()):
+    """Ping each child board that a parent's sibling counts changed (#2443).
+
+    ``Card.parent.siblings_total`` / ``siblings_done`` are on every child of a
+    parent, so a link, unlink, archive, restore, delete, move, block or
+    unblock of ONE child makes its siblings' copies stale. Write responses and
+    ``card.*`` frames never carry ``parent`` (it is per reader), so the
+    siblings are told here: one ``card.parent_changed`` per (parent, child
+    board) with ``{"card_ids": [...], "siblings": true}``.
+
+    ``rows`` is ``(parent_id, child_id, child_board_id)`` for LIVE children,
+    read after the write. ``exclude`` drops ids that get their own frame (the
+    child just linked or unlinked, or a deleted card). ``changed`` names the
+    cards the write touched: a pair whose only live child is one of them is
+    skipped, since the line is shown for two or more and nothing else reads
+    the counts.
+
+    Ids only, all on the board the frame goes to and all children of one
+    parent: what a member there already sees on each card's face, never a
+    parent id, title or count (Rule 8 and its timing residual). ``siblings``
+    tells a client the listed cards share ONE parent, so it may read one of
+    them and apply that ``parent`` to all; an older client reads each, or
+    re-reads the board above its own cap, which is equally right. At most
+    ``CHILDREN_PER_PARENT_LIMIT`` ids per frame (the write-side cap).
+    Published on commit by ``record_board_event``.
+    """
+    exclude = set(exclude)
+    changed = set(changed)
+    by_pair = {}
+    for parent_id, child_id, child_board_id in rows:
+        if child_id not in exclude:
+            by_pair.setdefault((parent_id, child_board_id), []).append(child_id)
+    for parent_id, child_board_id in sorted(by_pair):
+        ids = sorted(by_pair[(parent_id, child_board_id)])
+        if len(ids) == 1 and ids[0] in changed:
+            continue
+        _broadcast.record_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+            {"card_ids": ids, "siblings": True}, actor_id=actor_id,
+        )
 
 
 def _check_link_rules_under_lock(parent, child_board, *, child=None):
@@ -860,6 +908,14 @@ def announce_cards_removal(cards, *, actor=None, reason=None):
         _broadcast.record_board_event(
             parents[parent_id], _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
+        )
+    if parents:
+        # The surviving siblings' counts drop (#2443): one read of the live
+        # children of every surviving parent, then a ping per child board.
+        _announce_siblings(
+            CardParentLink.objects.filter(parent_id__in=list(parents), child__archived_at__isnull=True)
+            .values_list("parent_id", "child_id", "child__board_id"),
+            actor_id=actor_id, exclude=deleted,
         )
     for child_board_id in sorted(children_by_board):
         child_ids = sorted(children_by_board[child_board_id])
@@ -1600,18 +1656,33 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
     there and publishes on commit, so a rollback sends nothing. Zero queries
     when ``board`` is a parent tier (its cards cannot be children); else one,
     and at most one event per parent.
+
+    **Siblings (#2443):** the same writes change the sibling counts every
+    other child of those parents shows, so the same read also returns each
+    parent's other links, and each child board gets
+    :func:`_announce_siblings`'s ``card.parent_changed {card_ids, siblings}``.
+    That covers a sibling moving into or out of a done column: ``move_card``
+    calls this on every column change. Still one query.
     """
     ids = list(card_ids)
     if not ids or (board is not None and board.cards_can_have_children):
         return
-    pairs = sorted(set(
-        CardParentLink.objects.filter(child_id__in=ids).values_list("parent__board_id", "parent_id")
-    ))
+    idset = set(ids)
+    rows = list(
+        CardParentLink.objects.filter(
+            parent_id__in=CardParentLink.objects.filter(child_id__in=ids).values("parent_id"),
+        ).values_list("parent__board_id", "parent_id", "child_id", "child__board_id", "child__archived_at")
+    )
+    pairs = sorted({(pb, p) for pb, p, c, _cb, _a in rows if c in idset})
     for parent_board_id, parent_id in pairs:
         _broadcast.record_board_event(
             parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
         )
+    _announce_siblings(
+        [(p, c, cb) for _pb, p, c, cb, archived_at in rows if archived_at is None],
+        actor_id=actor_id, changed=idset,
+    )
 
 
 #: Above this many linked children on one child board, a parent container

@@ -12,10 +12,15 @@
 """
 from unittest.mock import patch
 
+from django.db import connection, transaction
+from django.test.utils import CaptureQueriesContext
+from django.test import TestCase
 from django.utils import timezone
 
-from boards.models import BoardMembership, Card, CardParentLink, CardRelation, Column
+from boards.models import BoardEvent, BoardMembership, Card, CardParentLink, CardRelation, Column
 from boards.services import card_links
+from boards.tests.conftest import _make_card
+from boards.tests.test_card_children_rollup_2210 import _RollupFixture
 from boards.tests.test_default_child_board_2208 import (
     PATCH_BROADCAST,
     AddChildFixture,
@@ -244,3 +249,132 @@ class OptionsListCapTests(AddChildFixture):
         member = self.user_with("cap_mem", parent=Role.MEMBER, child=Role.ADMIN)
         out = card_links.default_child_board_options_for_admin(self.parent, member)
         self.assertEqual(out, {"boards": [], "boards_total": 0})
+
+
+class SiblingPingTests(_RollupFixture, TestCase):
+    """#2443: a write to one child pings its SIBLINGS so their "N of M siblings done" refreshes.
+
+    Frame: ``card.parent_changed {card_ids, siblings: true}`` on the child board
+    only, ids of the parent's live children there, never a parent id or count.
+    """
+
+    def setUp(self):
+        self._setup_rollup()
+        self.client = self._client(self.owner)
+        self.cbase = f"/api/v1/boards/{self.cboard.pk}/cards/"
+        # Live children: todo, doing, done, manual, by_rel (archived is not one).
+        self.live = sorted(c.pk for c in (self.todo, self.doing, self.done, self.manual, self.by_rel))
+
+    def frames(self):
+        rows = list(BoardEvent.objects.filter(event="card.parent_changed").order_by("pk").values_list("board_id", "data"))
+        BoardEvent.objects.all().delete()
+        return rows
+
+    def sibling_frame(self, ids):
+        return (self.cboard.pk, {"card_ids": sorted(ids), "siblings": True})
+
+    def post(self, path, body=None):
+        with self.captureOnCommitCallbacks(execute=True):
+            res = self.client.post(f"{self.cbase}{path}", body, format="json")
+        self.assertIn(res.status_code, (200, 201), (path, res.content))
+        return res
+
+    def test_moving_a_child_into_and_out_of_a_done_column_pings_its_siblings(self):
+        BoardEvent.objects.all().delete()
+        move = {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0}
+        self.post(f"{self.doing.pk}/move/", move)
+        self.assertEqual(self.frames(), [self.sibling_frame(self.live)])
+        self.post(f"{self.doing.pk}/move/", {**move, "column_id": self.col_c.pk})
+        self.assertEqual(self.frames(), [self.sibling_frame(self.live)])
+
+    def test_a_reorder_or_lane_move_pings_no_sibling(self):
+        BoardEvent.objects.all().delete()
+        self.post(f"{self.doing.pk}/move/", {"column_id": self.col_doing.pk, "swimlane_id": self.lane_c.pk, "position": 1})
+        self.assertEqual(self.frames(), [])
+
+    def test_archive_restore_block_and_unblock_ping_the_siblings(self):
+        BoardEvent.objects.all().delete()
+        others = [pk for pk in self.live if pk != self.doing.pk]
+        for path, body, expected in (
+            ("archive/", None, others),  # the archived card is no longer a sibling
+            ("unarchive/", None, self.live),
+            ("block/", {"reason": "waiting"}, self.live),
+            ("unblock/", {}, self.live),
+        ):
+            self.post(f"{self.doing.pk}/{path}", body)
+            frames = self.frames()
+            self.assertIn(self.sibling_frame(expected), frames, path)
+            self.assertTrue(all(b == self.cboard.pk for b, _ in frames), path)
+
+    def test_link_and_unlink_ping_the_other_siblings_after_the_childs_own_frame(self):
+        new = _make_card(self.col_c, self.lane_c, title="new")
+        BoardEvent.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self._link(self.client, child=new).status_code, 201)
+        self.assertEqual(self.frames(), [(self.cboard.pk, {"card_ids": [new.pk]}), self.sibling_frame(self.live)])
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.delete(f"{self.cbase}{new.pk}/parent/").status_code, 204)
+        self.assertEqual(self.frames(), [(self.cboard.pk, {"card_ids": [new.pk]}), self.sibling_frame(self.live)])
+
+    def test_deleting_a_child_pings_the_surviving_siblings(self):
+        BoardEvent.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(self.client.delete(f"{self.cbase}{self.doing.pk}/").status_code, 204)
+        self.assertEqual(self.frames(), [self.sibling_frame([pk for pk in self.live if pk != self.doing.pk])])
+
+    def test_a_lone_child_pings_no_sibling(self):
+        """The line shows for two or more; a parent's only child has nobody to tell."""
+        CardParentLink.objects.exclude(child=self.todo).delete()
+        BoardEvent.objects.all().delete()
+        self.post(f"{self.todo.pk}/move/", {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0})
+        self.assertEqual(self.frames(), [])
+
+    def test_sibling_ping_is_deferred_and_rolls_back(self):
+        with patch("boards.broadcast.broadcast_board_event") as sent:
+            with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError):
+                with transaction.atomic():
+                    card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+                    raise RuntimeError
+            sent.assert_not_called()
+            self.assertFalse(BoardEvent.objects.filter(event="card.parent_changed").exists())
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+            sent.assert_not_called()
+            for cb in callbacks:
+                cb()
+        self.assertIn(
+            (self.cboard.pk, "card.parent_changed", {"card_ids": self.live, "siblings": True}),
+            [(c.args[0], c.args[1], c.args[2]) for c in sent.call_args_list],
+        )
+
+    def test_sibling_ids_are_one_parents_children_on_one_board(self):
+        """Two parents' children on one board get one frame each, never merged."""
+        other_parent = _make_card(self.parent.column, self.parent.swimlane, title="P2")
+        a, b = (_make_card(self.col_c, self.lane_c, title=t) for t in ("a", "b"))
+        for k in (a, b):
+            CardParentLink.objects.create(parent=other_parent, child=k, created_by=self.owner)
+        BoardEvent.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            card_links.announce_children_changed([self.doing.pk, a.pk], actor_id=self.owner.pk)
+        frames = self.frames()
+        self.assertIn(self.sibling_frame(self.live), frames)
+        self.assertIn(self.sibling_frame([a.pk, b.pk]), frames)
+        self.assertEqual(len(frames), 2)
+
+    def test_sibling_pings_are_flat_in_the_number_of_siblings(self):
+        """Move and delete of a child: the sibling read is one query and one feed row, however many siblings."""
+        def cost(n_extra):
+            extra = [_make_card(self.col_c, self.lane_c, title=f"x{n_extra}-{i}") for i in range(n_extra)]
+            CardParentLink.objects.bulk_create([CardParentLink(parent=self.parent, child=k) for k in extra])
+            move = {"column_id": self.col_done.pk, "swimlane_id": self.lane_c.pk, "position": 0}
+            with CaptureQueriesContext(connection) as moved, self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.client.post(f"{self.cbase}{self.todo.pk}/move/", move, format="json").status_code, 200)
+            victim = extra[0]
+            with CaptureQueriesContext(connection) as deleted, self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(self.client.delete(f"{self.cbase}{victim.pk}/").status_code, 204)
+            # Put the moved card back for the next round.
+            Card.objects.filter(pk=self.todo.pk).update(column=self.col_c)
+            return len(moved), len(deleted)
+
+        cost(2)  # warm the per-process caches the first request fills
+        self.assertEqual(cost(2), cost(30))

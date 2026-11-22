@@ -196,7 +196,7 @@ The name appears in two places: on a child card, the parent row is labeled with 
 - **On the card face.** A linked card shows one line above its title with the parent's title. The compact card layout shows no parent line, and no lock for a hidden parent.
 - **A parent you can't open.** When the parent is on a board you don't have access to, the card face and the Parent row show only "Linked card you can't open", with a lock. No title, board or column is shown.
 - **Unlink.** The **Unlink** button on the Parent row removes the link at once, without asking. It changes nothing else about the card, and you can link it again from the picker. Both cards record the link and the unlink in their history.
-- **Live.** When someone links, unlinks, renames or moves a parent, the parent line updates for everyone viewing the child board.
+- **Live.** When someone links, unlinks, renames or moves a parent, the parent line updates for everyone viewing the child board. The sibling line updates the same way when a sibling is moved to another column, archived, restored, blocked, unblocked, deleted, linked or unlinked.
 
 Public share links show no parent line. On a phone the picker opens as a full-screen sheet with **‹ Card** and **Close**, and the sheet shrinks to the space above the on-screen keyboard, so the keyboard never covers the list, and Cancel and Link stay pinned at the bottom. Showing a parent's children is not available yet (#2209).
 
