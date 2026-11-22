@@ -2242,7 +2242,9 @@ def build_gate_transitions(
     """
     if from_index == to_index:
         return []
-    step = 1 if to_index > from_index else -1
+    step = 1 if (
+        to_index > from_index  # pragma: no mutate -- equivalent: ``>=`` differs only when the indexes are equal, returned above
+    ) else -1
     kind = CardGateTransition.Kind.PASS if step == 1 else CardGateTransition.Kind.REOPEN
     rows = []
     for index in range(from_index, to_index, step):
