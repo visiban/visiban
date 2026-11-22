@@ -22,9 +22,12 @@ interface HistoryFilters {
   userId: number | null;
   since: string;
   until: string;
+  /** Parent filter (#2209, #2499): movements of one parent card's children; `parent` in the URL. */
+  parentId: number | null;
 }
 
 const EMPTY_FILTERS: HistoryFilters = {
+  parentId: null,
   swimlaneId: null,
   columnId: null,
   userId: null,
@@ -39,6 +42,7 @@ function filtersToParams(f: HistoryFilters, page: number): Record<string, string
   if (f.userId !== null) p.moved_by_id = String(f.userId);
   if (f.since) p.moved_after = f.since;
   if (f.until) p.moved_before = f.until;
+  if (f.parentId !== null) p.parent_id = String(f.parentId);
   return p;
 }
 
@@ -48,7 +52,8 @@ function hasFilters(f: HistoryFilters): boolean {
     f.columnId !== null ||
     f.userId !== null ||
     f.since !== "" ||
-    f.until !== ""
+    f.until !== "" ||
+    f.parentId !== null
   );
 }
 
@@ -195,7 +200,8 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<HistoryFilters>(() => {
     const columnId = searchParams.get('column_id');
-    return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null };
+    const parentId = Number(searchParams.get('parent')) || null;
+    return { ...EMPTY_FILTERS, columnId: columnId ? Number(columnId) : null, parentId };
   });
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ results: CardMovement[]; count: number } | null>(null);
@@ -205,6 +211,11 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
   const [selectedMovement, setSelectedMovement] = useState<CardMovement | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
+  const parentTitle = (() => {
+    if (filters.parentId === null) return null;
+    const p = board.cards.find((c) => c.parent && !c.parent.hidden && c.parent.id === filters.parentId)?.parent;
+    return p && !p.hidden ? p.title : null;
+  })();
   const totalPages = data ? Math.max(1, Math.ceil(data.count / PAGE_SIZE)) : 1;
 
   // Fetch on filters or page change; cancel in-flight request on re-render.
@@ -385,6 +396,21 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
               aria-label="Until date"
             />
           </div>
+          {filters.parentId !== null && (
+            // Named only from a child on this board whose parent the viewer can open (the card
+            // payload resolves it per viewer, #1104); otherwise a neutral name, never an id.
+            <span className="inline-flex items-center gap-1 h-7 pl-2 pr-1 text-xs rounded border border-primary-soft text-info bg-surface shrink-0" data-testid="history-parent-chip">
+              Parent: {parentTitle ?? "one parent card"}
+              <button
+                type="button"
+                aria-label="Remove Parent filter"
+                onClick={() => applyFilters({ ...filters, parentId: null })}
+                className="w-6 h-6 inline-flex items-center justify-center rounded text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                <span aria-hidden="true">✕</span>
+              </button>
+            </span>
+          )}
           {hasFilters(filters) && (
             <button
               onClick={() => applyFilters(EMPTY_FILTERS)}

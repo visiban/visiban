@@ -175,10 +175,10 @@ const realCardDetail = vi.hoisted(() => ({ on: false })) // hoisted: ../api/card
 vi.mock('../components/Card/CardDetail', async () => {
   const { default: RealCardDetail } = await vi.importActual<typeof import('../components/Card/CardDetail')>('../components/Card/CardDetail')
   return {
-    default: (props: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onMoveCard?: (...a: number[]) => Promise<unknown>; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number } }) => {
-      const { card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest } = props
+    default: (props: { card: { id: number; title: string }; onClose: () => void; onDeleted?: (id: number) => void; onMoveCard?: (...a: number[]) => Promise<unknown>; onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<unknown>; blockFormRequest?: { mode: string } | null; tabRequest?: { tab: string; n: number }; backToParentId?: number | null; focusChildId?: number | null }) => {
+      const { card, onClose, onDeleted, onForceMoveCard, blockFormRequest, tabRequest, backToParentId, focusChildId } = props
       if (realCardDetail.on) return <RealCardDetail {...(props as unknown as React.ComponentProps<typeof RealCardDetail>)} />
-      return <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 20, 9999, 2) }}>Force Sub-column From Detail</button>}</div>
+      return <div data-testid="card-detail" data-block-form={blockFormRequest?.mode ?? ''} data-tab-request={tabRequest ? `${tabRequest.tab}:${tabRequest.n}` : ''} data-back-to-parent={backToParentId ?? ''} data-focus-child={focusChildId ?? ''}>{card.title}<button onClick={onClose}>Close Detail</button><button onClick={() => onDeleted?.(card.id)}>Delete From Detail</button>{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 21, 9999) }}>Force From Detail</button>}{onForceMoveCard && <button onClick={() => { void onForceMoveCard(card.id, 11, 20, 9999, 2) }}>Force Sub-column From Detail</button>}</div>
     },
   }
 })
@@ -1867,6 +1867,18 @@ describe('BoardView', () => {
       expect(screen.getByTestId('card-detail')).toHaveAttribute('data-tab-request', 'comments:1')
       act(() => { mockLiveSetParams?.(new URLSearchParams('card=1&tab=history')) })
       expect(screen.getByTestId('card-detail')).toHaveAttribute('data-tab-request', 'history:2')
+    })
+
+    it('from_parent and focus_child reach CardDetail and leave the URL (#2209 Back link)', () => {
+      mockSearchParams = new URLSearchParams('card=1&tab=children&from_parent=900&focus_child=12')
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [deepCard] }) })
+      render(<BoardView {...defaultProps()} />)
+      const d = screen.getByTestId('card-detail')
+      expect(d).toHaveAttribute('data-back-to-parent', '900')
+      expect(d).toHaveAttribute('data-focus-child', '12')
+      const next = mockSetSearchParams.mock.calls.map(([arg]) => (typeof arg === 'function' ? arg(new URLSearchParams('card=1&from_parent=900&focus_child=12')) : arg)).pop() as URLSearchParams
+      expect(next.has('from_parent')).toBe(false)
+      expect(next.has('focus_child')).toBe(false)
     })
 
     it('an unknown tab keeps the remembered card tab', () => {

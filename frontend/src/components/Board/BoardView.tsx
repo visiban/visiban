@@ -1380,6 +1380,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         rememberCardDetailTab(deepLinkTab);
         setTabRequest((r) => ({ tab: deepLinkTab, n: (r?.n ?? 0) + 1 }));
       }
+      // Children tab round trip (#2209): `from_parent` names the parent whose Children tab opened this
+      // card, so its header offers "‹ <parent>"; `focus_child` is the child that link returns focus to.
+      const fromParent = Number(searchParams.get("from_parent")) || null;
+      const focusChild = Number(searchParams.get("focus_child")) || null;
+      setChildrenNav(fromParent || focusChild ? { cardId, fromParent, focusChild } : null);
       setSelectedCard(card);
       setHighlightedCardId(cardId);
       if (highlightedCardTimerRef.current !== null) {
@@ -1389,9 +1394,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setHighlightedCardId(null);
         highlightedCardTimerRef.current = null;
       }, 1500);
-      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); prev.delete("from_parent"); prev.delete("focus_child"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
     } else {
-      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); prev.delete("tab"); prev.delete("from_parent"); prev.delete("focus_child"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
       // Check whether the card is archived so we can show a contextual message.
       getCardStatus(board.id, cardId)
         .then((status) => {
@@ -1756,6 +1761,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [cardMenu, setCardMenu] = useState<{ cardIds: number[]; originId: number; anchor: CardMenuAnchor } | null>(null);
   // Bumped by a ?card=&tab= deep link so an already-open card switches tab (#967).
   const [tabRequest, setTabRequest] = useState<{ tab: CardDetailTab; n: number } | undefined>(undefined);
+  const [childrenNav, setChildrenNav] = useState<{ cardId: number; fromParent: number | null; focusChild: number | null } | null>(null);
   const [blockFormRequest, setBlockFormRequest] = useState<{ mode: "block" | "unblock"; seq: number } | null>(null);
   const [deleteTargetIds, setDeleteTargetIds] = useState<number[] | null>(null);
   // Outcome of a menu/palette action (#2059, #2107). A failure is a `danger`
@@ -3187,6 +3193,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
+            backToParentId={childrenNav?.cardId === selectedCard.id ? childrenNav.fromParent : null}
+            focusChildId={childrenNav?.cardId === selectedCard.id ? childrenNav.focusChild : null}
           />
         )}
       </div>
@@ -4038,6 +4046,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             childrenRefreshSignal={childrenRefreshTick}
             blockFormRequest={blockFormRequest}
             tabRequest={tabRequest}
+            backToParentId={childrenNav?.cardId === selectedCard.id ? childrenNav.fromParent : null}
+            focusChildId={childrenNav?.cardId === selectedCard.id ? childrenNav.focusChild : null}
           />
         </SectionErrorBoundary>
       )}

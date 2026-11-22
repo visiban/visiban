@@ -50,6 +50,38 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertEqual(col["card_count"], 2)
         self.assertEqual(set(col), {"id", "name", "color", "wip_limit", "is_done", "card_count"})
 
+    def test_visible_read_carries_the_wip_mode_and_card_anatomy(self):
+        # #2209: the Move picker needs the child board's WIP mode; the scoped
+        # card draws the child board's own face (priority, due date, labels).
+        import datetime
+
+        from boards.models import Label
+
+        self.cboard.enforce_wip_limits = True
+        self.cboard.enforce_wip_hard = False
+        self.cboard.save(update_fields=["enforce_wip_limits", "enforce_wip_hard"])
+        lb = Label.objects.create(board=self.cboard, name="Security", color="#EF4444")
+        Card.objects.filter(pk=self.child.pk).update(priority="high", due_date=datetime.date(2026, 12, 1))
+        self.child.labels.add(lb)
+        u = self._user("cv_anat", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        body = self._client(u).get(self.url).json()
+        self.assertIs(body["board"]["enforce_wip_limits"], True)
+        self.assertIs(body["board"]["enforce_wip_hard"], False)
+        row = body["results"][0]
+        self.assertEqual(row["priority"], "high")
+        self.assertEqual(row["due_date"], "2026-12-01")
+        self.assertEqual(row["labels"], [{"id": lb.pk, "name": "Security", "color": "#EF4444"}])
+
+    def test_hidden_read_carries_no_wip_mode_or_anatomy(self):
+        # Absent-input side (#1075): a viewer without the child board gets the
+        # count only; neither the board's WIP mode nor any card field leaks.
+        u = self._user("cv_anat_hidden", parent_role=Role.MEMBER)
+        body = self._client(u).get(self.url).json()
+        self.assertFalse(body["visible"])
+        self.assertNotIn("board", body)
+        self.assertEqual(body["results"], [])
+        self.assertNotIn("enforce_wip_limits", str(body))
+
     def test_blocked_is_manual_or_an_active_relation(self):
         blocker = _make_card(self.col_c, self.lane_c, title="Blocker")
         CardRelation.objects.create(

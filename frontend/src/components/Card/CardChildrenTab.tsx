@@ -1,16 +1,20 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import axios from "axios";
-import { getChildBoardOptions, moveCard, unlinkCardChild } from "../../api/cards";
+import { getChildBoardOptions, linkCardParent, moveCard, unlinkCardChild } from "../../api/cards";
+import { useToast } from "../../contexts/useToast";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { BoardFull, CardChildRow, CardChildrenColumn } from "../../types";
 import { formatBlockedDuration } from "../../utils/blockedState";
+import { colorChipStyle } from "../../utils/colorContrast";
+import { formatDueDate, formatRelativeTime } from "../../utils/date";
+import { PRIORITY_COLORS } from "../../constants/colors";
 import { isImeComposing } from "../../utils/imeComposition";
 import Avatar from "../Common/Avatar";
 import AddChildDialog from "./AddChildDialog";
 import ChildCardPicker from "./ChildCardPicker";
-import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, describeChildrenChange, type ChildrenState } from "./cardChildren";
+import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, describeChildrenChange, moveTargetState, type ChildrenState } from "./cardChildren";
 
 type Segment = "done" | "doing" | "blocked" | "todo";
 
@@ -24,10 +28,6 @@ function segmentOf(child: CardChildRow, columns: CardChildrenColumn[]): Segment 
 /** The board treats a `wip_limit` of 0 as no limit (ColumnHeader, PhoneBoard); so does this tab. */
 function hasLimit(col: CardChildrenColumn): col is CardChildrenColumn & { wip_limit: number } {
   return col.wip_limit != null && col.wip_limit > 0;
-}
-
-function atLimit(col: CardChildrenColumn): boolean {
-  return hasLimit(col) && col.card_count >= col.wip_limit;
 }
 
 interface Props {
@@ -46,6 +46,12 @@ interface Props {
    * currently unused.
    */
   remoteSignal?: number;
+  /** The newest move among the children (`children_rollup.last_moved_at`, #2210): "Work moved 1d ago". */
+  lastMovedAt?: string | null;
+  /** A child to focus once the read lands: the child's "Back to <parent>" link returns here (#2209). */
+  focusChildId?: number | null;
+  userTimezone?: string;
+  userDateFormat?: string;
 }
 
 /**
@@ -55,7 +61,8 @@ interface Props {
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs }: Props) {
+export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
+  const { notify, dismiss } = useToast();
   const inRouter = useInRouterContext();
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -76,7 +83,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const [moveError, setMoveError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // After a write unmounts the focused control, focus goes back to the card (or Add child) once the re-read lands.
-  const pendingFocus = useRef<number | "add" | null>(null);
+  const pendingFocus = useRef<number | "add" | null>(focusChildId);
   // A re-read after this tab's own write is announced by that write; any other re-read (a
   // `card.children_changed` ping, #2209 row 13) announces what changed, once.
   const prevData = useRef(data);
@@ -112,8 +119,10 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const canAddOrLink = canLinkHere && data?.visible !== false && (!childBoard || WRITE_ROLES.has(childBoard.role));
   const canMove = !!childBoard && WRITE_ROLES.has(childBoard.role);
   const boardName = childBoard?.name ?? "";
-  const childUrl = (id: number) => `/boards/${childBoard?.id}?card=${id}`;
+  // `from_parent` makes the child's sheet header read "‹ <this card>" and return here (#2209 Back link).
+  const childUrl = (id: number) => `/boards/${childBoard?.id}?card=${id}&from_parent=${cardId}`;
 
+  const historyUrl = `/boards/${childBoard?.id}?view=history&parent=${cardId}`;
   const byColumn = (colId: number) =>
     children.filter((c) => c.column_id === colId).sort((a, b) => a.position - b.position || a.id - b.id);
   const nonEmpty = columns.filter((c) => byColumn(c.id).length > 0);
@@ -144,6 +153,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
     try {
       await unlinkCardChild(board.id, cardId, child.id);
       setAnnouncement(`Unlinked ${child.title}.`);
+      offerUndoUnlink(child);
       const list = byColumn(child.column_id).filter((c) => c.id !== child.id);
       pendingFocus.current = list[0]?.id ?? children.find((c) => c.id !== child.id)?.id ?? "add";
       reloadAfterWrite();
@@ -153,12 +163,45 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
     }
   };
 
+  // Owner decision (2026-11-22): Unlink acts at once, with Undo on a toast instead of a confirm. Undo
+  // re-creates the link from the child's end, the same write Link existing makes; the server allows it even
+  // when this parent was archived meanwhile. The tab already announced the unlink, so the toast does not.
+  const offerUndoUnlink = (child: CardChildRow) => {
+    const key = `unlink-child:${child.id}`;
+    const childBoardId = child.board_id;
+    notify({
+      key,
+      variant: "success",
+      title: `Unlinked ${child.title}`,
+      announce: false,
+      testId: "unlink-child-toast",
+      action: {
+        label: "Undo",
+        pendingLabel: "Undoing…",
+        undo: true,
+        onAction: async () => {
+          beginWrite();
+          try {
+            await linkCardParent(childBoardId, child.id, cardId);
+            dismiss(key);
+            setAnnouncement(`Linked ${child.title} again.`);
+            pendingFocus.current = child.id;
+            reloadAfterWrite();
+          } catch {
+            localWrite.current = false;
+            notify({ key, variant: "danger", title: `Couldn't link ${child.title} again`, message: "Link it again with Link existing." });
+          }
+        },
+      },
+    });
+  };
+
   const move = async (child: CardChildRow, col: CardChildrenColumn) => {
     if (!childBoard) return;
     setMoveError(null);
     beginWrite();
     try {
-      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count });
+      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count }, moveTargetState(col, childBoard).force);
       const doneAfter = counts.done
         + (col.is_done ? 1 : 0)
         - (columns.find((c) => c.id === child.column_id)?.is_done ? 1 : 0);
@@ -316,6 +359,9 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
             <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-base font-semibold text-fg">{doneLine(counts.done)}</span>
               {counts.blocked > 0 && <span className="text-sm text-danger"><span aria-hidden="true">⊘ </span>{counts.blocked} blocked</span>}
+              {lastMovedAt && formatRelativeTime(lastMovedAt) && (
+                <span className="text-sm text-fg-tertiary" data-testid="children-work-moved">Work moved {formatRelativeTime(lastMovedAt)}</span>
+              )}
             </div>
             <div
               role="img"
@@ -411,6 +457,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                     >
                       {child.title}
                     </a>
+                    <ChildCardFace child={child} userTimezone={userTimezone} userDateFormat={userDateFormat} />
                     <div className="flex items-center gap-2 text-xs">
                       {child.blocked && (
                         <span className="text-danger">
@@ -451,6 +498,10 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         </div>
 
         {hiddenOthers > 0 && <p className="text-xs text-fg-muted">{hiddenOthers} other {hiddenOthers === 1 ? "card" : "cards"} on {boardName} {hiddenOthers === 1 ? "is" : "are"} hidden by this view.</p>}
+        {/* The child board's History tab with Parent = this card (#2209, #2499): its own audit trail, filtered. */}
+        {inRouter
+          ? <Link to={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</Link>
+          : <a href={historyUrl} className={`${tgt} self-start inline-flex items-center text-sm text-link hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`}>Movement history of these children</a>}
         <p className="text-xs text-fg-muted">Arrows move between cards · Enter open on {boardName} · Esc back</p>
       </div>
     );
@@ -473,6 +524,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           child={moving}
           boardName={boardName}
           columns={columns}
+          board={childBoard}
           error={moveError}
           onMove={(col) => void move(moving, col)}
           onClose={() => { const id = moving.id; setMoving(null); setMoveError(null); focusCard(id); }}
@@ -523,6 +575,7 @@ interface MoveProps {
   child: CardChildRow;
   boardName: string;
   columns: CardChildrenColumn[];
+  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean };
   error: string | null;
   onMove: (col: CardChildrenColumn) => void;
   onClose: () => void;
@@ -533,7 +586,7 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }: MoveProps) {
+function ChildMovePopover({ child, boardName, columns, board, error, onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -554,7 +607,8 @@ function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }:
       <div role="radiogroup" aria-label={`Column on ${boardName}`} className="flex flex-col gap-1">
         {columns.map((c) => {
           const current = c.id === child.column_id;
-          const full = !current && atLimit(c);
+          const st = current ? { disabled: false, reason: "", force: false } : moveTargetState(c, board);
+          const full = st.disabled;
           const label = current ? `${c.name} · current` : hasLimit(c) ? `${c.name} ${c.card_count} of ${c.wip_limit}` : c.name;
           return (
             <label key={c.id} className={`min-h-11 flex items-center gap-2 px-2 rounded ${full ? "text-fg-muted cursor-not-allowed" : "text-fg cursor-pointer hover:bg-surface-hover"}`}>
@@ -568,7 +622,7 @@ function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }:
                 onChange={() => setChoice(c.id)}
               />
               <span className="flex-1">{label}</span>
-              {full && <span className="text-xs">At its limit of {c.wip_limit}</span>}
+              {st.reason && <span className={`text-xs ${full ? "" : "text-fg-muted"}`}>{st.reason}</span>}
             </label>
           );
         })}
@@ -586,6 +640,35 @@ function ChildMovePopover({ child, boardName, columns, error, onMove, onClose }:
         </button>
       </div>
     </div>
+    </div>
+  );
+}
+
+/**
+ * The child board's card face next to the title (#2209 "Cards: Delivery's anatomy, without the parent line"):
+ * labels (two, then "+N", tinted like the board's pills), priority in words when not Low, and the due date,
+ * overdue in danger text. Blocked and the owner stay in the action row below, as before.
+ */
+function ChildCardFace({ child, userTimezone, userDateFormat }: { child: CardChildRow; userTimezone: string; userDateFormat: string }) {
+  const labels = child.labels ?? [];
+  const due = child.due_date ? formatDueDate(child.due_date, userTimezone, userDateFormat) : null;
+  const showPriority = !!child.priority && child.priority !== "low";
+  if (labels.length === 0 && !due && !showPriority) return null;
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap text-xs" data-testid="child-card-face">
+      {labels.slice(0, 2).map((l) => (
+        <span key={l.id} className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none" style={colorChipStyle(l.color)} title={l.name}>
+          {l.name.length > 12 ? `${l.name.slice(0, 11)}…` : l.name}
+        </span>
+      ))}
+      {labels.length > 2 && <span className="text-fg-tertiary">+{labels.length - 2}</span>}
+      {showPriority && (
+        <span className="inline-flex items-center gap-1 text-fg-secondary">
+          <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: PRIORITY_COLORS[child.priority] }} />
+          {child.priority.charAt(0).toUpperCase() + child.priority.slice(1)}
+        </span>
+      )}
+      {due && <span className={due.overdue ? "text-danger" : "text-fg-muted"}>{due.label}</span>}
     </div>
   );
 }

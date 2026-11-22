@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCardChildren } from "../../api/cards";
-import type { CardChildrenRead } from "../../types";
+import type { CardChildrenColumn, CardChildrenRead } from "../../types";
 import { PARENT_PICKER_ESCAPE_PRIORITY } from "./ParentCardPicker";
 
 /**
@@ -108,4 +108,38 @@ export function describeChildrenChange(prev: CardChildrenRead | null, next: Card
     return `${m.title} moved to ${columns.find((c) => c.id === m.column_id)?.name ?? m.column_name}. ${tally}`;
   }
   return `Children updated. ${tally}`;
+}
+
+/** Roles that may pass `?force=true` past an enforced (not hard) WIP limit; mirrors the server's `_FORCE_ROLES`. */
+export const FORCE_ROLES = new Set(["admin", "site_admin"]);
+
+export interface MoveTargetState {
+  /** The row cannot be chosen; `reason` says why. */
+  disabled: boolean;
+  /** Visible words next to the row, or "" when the column has room. */
+  reason: string;
+  /** The move must send `?force=true` (an admin moving past an enforced limit). */
+  force: boolean;
+}
+
+/**
+ * What the in-sheet Move picker does with a column (#2209: the picker honors the child board's WIP mode).
+ * It mirrors the move endpoint for this viewer, so a disabled row is exactly a move the server would refuse:
+ * advisory limits (neither flag) never block; enforced limits block every role but a board admin, who
+ * moves with `?force=true`; a hard limit blocks every role. A `wip_limit` of 0 is no limit, as on the board.
+ * The server still re-checks; its refusal is shown as the picker's error line.
+ */
+export function moveTargetState(
+  col: CardChildrenColumn,
+  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean },
+): MoveTargetState {
+  const limit = col.wip_limit ?? 0;
+  if (limit <= 0 || col.card_count < limit) return { disabled: false, reason: "", force: false };
+  if (board.enforce_wip_hard) return { disabled: true, reason: `At its limit of ${limit}`, force: false };
+  if (board.enforce_wip_limits) {
+    return FORCE_ROLES.has(board.role)
+      ? { disabled: false, reason: `At its limit of ${limit} · admin override`, force: true }
+      : { disabled: true, reason: `At its limit of ${limit}`, force: false };
+  }
+  return { disabled: false, reason: `At its limit of ${limit} · not enforced`, force: false };
 }

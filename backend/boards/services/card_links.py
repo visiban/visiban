@@ -36,7 +36,7 @@ from visiban.exceptions import CodedValidationError
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardRelation, Column,
+    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardRelation, Column, Label,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from .errors import LinksChanged
@@ -960,6 +960,9 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
             ).only("id", "to_card_id"),
             to_attr="active_blockers",
         ))
+        # The card face's labels (#2209 full card anatomy): one query for the
+        # page, whatever the number of children.
+        .prefetch_related(Prefetch("labels", queryset=Label.objects.only("id", "name", "color").order_by("name", "pk")))
         .order_by("pk")[offset:offset + limit]
     )
     out["results"] = [
@@ -977,6 +980,11 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
             "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
             "blocked": c.blocked_at is not None or len(c.active_blockers) > 0,
             "blocked_at": c.blocked_at.isoformat() if c.blocked_at else None,
+            # Since 1.3 (#2209 full card anatomy): what the child board's own
+            # card face shows next to the title, so the scoped card matches it.
+            "priority": c.priority,
+            "due_date": c.due_date.isoformat() if c.due_date else None,
+            "labels": [{"id": lb.pk, "name": lb.name, "color": lb.color} for lb in c.labels.all()],
         }
         for c in cards
     ]
@@ -994,6 +1002,13 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
         "id": child_board.pk,
         "name": child_board.name,
         "role": child_role,
+        # Since 1.3 (#2209): the child board's WIP mode, so the in-sheet Move
+        # picker disables exactly what the move endpoint would refuse for this
+        # viewer. Advisory limits (both false) never block a move; enforced
+        # limits block it except for a board admin, who can override with
+        # ?force=true; a hard limit blocks every role.
+        "enforce_wip_limits": child_board.enforce_wip_limits,
+        "enforce_wip_hard": child_board.enforce_wip_hard,
         "columns": [
             {
                 "id": col.pk, "name": col.name, "color": col.color,
