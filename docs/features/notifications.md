@@ -59,8 +59,8 @@ New in 1.3: when a swimlane's [default team](board.md#swimlane-default-team)
 pre-assigns you to a new card (Add card in that lane, or Add child from one of its
 cards) and someone else creates it, you get the same "You were assigned to"
 notification, once, under the same preference, and not also a "moved to" one for the
-card's first column. Other cards created already assigned to you (through the API, MCP
-or a board import) send no "assigned" notification; as before, they tell you the card
+card's first column. Other cards created already assigned to you (through the API without
+`notify_assignee`, MCP or a board import) send no "assigned" notification; as before, they tell you the card
 "moved to" its first column if you have **Card moved** on.
 
 Assigning yourself sends nothing, and neither does unassigning, changing an item's
