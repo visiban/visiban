@@ -114,6 +114,8 @@ _IMPORT_EXPORT_TESTS = (
     "test_export_controls.py",
     "test_export_edge_cases.py",
     "test_moderator_export.py",
+    # #2514: exact-message and boundary tests for the JSON-import validators.
+    "test_import_validators_mutation_gaps_2514.py",
     # The imported-movement attribution in the CSV export (#1675, #1702), and the
     # export's OpenAPI declaration (#1783). Last on purpose: generating the
     # schema is the slowest step, and only a mutant every file above let

@@ -1317,7 +1317,13 @@ def _validate_json_import_values(data):
             return error
         col_ref = card.get("column")
         gates = card.get("gates_passed")
-        if gates and gates >= max(sub_counts.get(col_ref, 0) if isinstance(col_ref, str) else 0, 1):
+        # Both ``0`` defaults are floored by the ``max(..., 1)``, so 0 and 1 are the same value.
+        if gates and gates >= max(
+            sub_counts.get(col_ref, 0)  # pragma: no mutate -- floored to 1 by the max() below
+            if isinstance(col_ref, str)
+            else 0,  # pragma: no mutate -- floored to 1 by the max() below
+            1,
+        ):
             return f"{where}: 'gates_passed' must be less than the number of sub-columns of its column"
         if len(card.get("labels", [])) > _IMPORT_MAX_LABEL_REFS_PER_CARD:
             return _limit_error(f"{where}: 'labels' has more than {_IMPORT_MAX_LABEL_REFS_PER_CARD} entries")
@@ -1704,7 +1710,7 @@ def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on)
 
     rows = []
     entries = card_data.get("blocks", []) if history_on else []
-    open_entry = None
+    open_entry = None  # pragma: no mutate -- None and "" are both falsy for every use below
     for entry in entries:
         blocked_at = _aware_timestamp(entry.get("blocked_at"))
         if blocked_at is None:
