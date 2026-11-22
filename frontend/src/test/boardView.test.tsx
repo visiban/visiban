@@ -56,6 +56,9 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('react-router-dom', () => ({
+  // The real CardDetail (realCardDetail.on) asks whether it is inside a router to pick Link vs <a> for the
+  // #2209 Back-to-parent control; this mock renders no router, so it takes the anchor branch.
+  useInRouterContext: () => false,
   // BoardView reads navigation state for the board-invite joined notice (#1444).
   useLocation: () => ({ pathname: mockPathname, search: '', hash: '', state: null, key: 'default' }),
   // Stateful mock: useSearchParams returns live params backed by React state so that
