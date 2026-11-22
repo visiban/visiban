@@ -433,9 +433,9 @@ The list lives in one place, `TARGETS` in `backend/mutmut_config.py`. Each targe
 
 | Target | Code | Mutants scored | Excluded by pragma | Tests | Shards |
 |---|---|---:|---:|---|---:|
-| `permissions` | `boards/permissions.py` | 172 | 4 | the four RBAC files (`test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps`, and `test_permissions_mutation_gaps_2517` for the #2212 card-detail extension registry, the admin-only event predicate and the #1075 absent-subject denial) | 3 |
+| `permissions` | `boards/permissions.py` | 172 | 4 | the five RBAC files (`test_rbac`, `test_rbac_boundaries`, `test_explicit_permissions`, `test_permissions_unit_mutation_gaps`, and `test_permissions_mutation_gaps_2517` for the #2212 card-detail extension registry, the admin-only event predicate and the #1075 absent-subject denial) | 3 |
 | `cards` | `boards/services/cards.py` | 374 | 0 | the 13 files of the 2026-10-09 whole-module re-measure (movement suites, view suites, both gap files) | 16 |
-| `card_movement` | `CardMovement` in `boards/models.py` only | 70 | 41 | the six movement-record files of the 2026-10-08 re-measure | 2 |
+| `card_movement` | `CardMovement` in `boards/models.py` only | 70 (64 after the #2517 pragmas) | 41 (47 after #2517) | the six movement-record files of the 2026-10-08 re-measure | 2 |
 | `import_export` | `boards/views/import_export.py`, whole module | 1826 | 2 | 16 files: the nine of the head run (#1502), the remainder run's (#1484), `test_import_csv_custom_fields` for the #1449 code, and, last because only a mutant every other file let through reaches them, `test_import_history_attribution` and `test_import_export_schema_mutation_gaps` (#1930) | 29 |
 | **Total** | | **2442** | **47** | | **50** |
 
