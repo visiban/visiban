@@ -4706,6 +4706,13 @@ for it):</p>
 <blockquote>
 <p>"You were assigned a checklist item on "{card title}": "{item text}""</p>
 </blockquote>
+<p>New in 1.3: when a swimlane's <a href="../board/#swimlane-default-team">default team</a>
+pre-assigns you to a new card (Add card in that lane, or Add child from one of its
+cards) and someone else creates it, you get the same "You were assigned to"
+notification, once, under the same preference, and not also a "moved to" one for the
+card's first column. Other cards created already assigned to you (through the API without
+<code>notify_assignee</code>, MCP or a board import) send no "assigned" notification; as before, they tell you the card
+"moved to" its first column if you have <strong>Card moved</strong> on.</p>
 <p>Assigning yourself sends nothing, and neither does unassigning, changing an item's
 due date, or saving an item whose assignee did not change. Long card titles and
 item text are shortened to fit.</p>

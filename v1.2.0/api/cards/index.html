@@ -5407,6 +5407,7 @@ fields used to set an assignee or labels) are not present — this endpoint is r
 <h3 id="post-apiv1boardsboard_idcards"><code>POST /api/v1/boards/{board_id}/cards/</code><a class="headerlink" href="#post-apiv1boardsboard_idcards" title="Permanent link">&para;</a></h3>
 <p>Create a card. Requires member or above. The target column must have <code>allow_card_creation</code> enabled.</p>
 <p>The target column's WIP and weight limits are enforced exactly as on a <a href="#wip-weight-limit-enforcement">move</a> into it: <code>409</code> with <code>wip_limit_exceeded</code>, <code>wip_hard_blocked</code>, or <code>weight_limit_exceeded</code>, and a board admin may pass the optional <code>?force=true</code> query parameter to override a soft limit (a non-admin gets <code>403</code>; hard mode has no override). <em>Changed in 1.2 (#1428): creates were not checked before.</em></p>
+<p><code>notify_assignee</code> (optional boolean, default <code>false</code>, since 1.3, #2211): <code>true</code> sends the card's assignee the <code>assigned</code> notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off <code>notif_card_assigned</code>, or is not a current member of the board. The web app sends it only for a swimlane <a href="../boards/">default team</a>'s pre-assignment; without it, a create with an <code>assignee_id</code> sends no <code>assigned</code> notification, as before (the MCP <code>create_card</code> tool and board import never send it). A value that is not a JSON boolean returns <code>400</code> keyed <code>notify_assignee</code>. Ignored on update. When the <code>assigned</code> notification is sent, the card's creation does not also send the "moved to <first column>" one, so the assignee gets exactly one notification (<em>changed in 1.3</em>, only for creates with <code>notify_assignee: true</code>). Every other create keeps its "moved" notification: an assignee who has <strong>Card moved</strong> on is still told the new card "moved to" its first column.</p>
 <p>Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets <code>403</code> even when the body is invalid, where they previously got <code>400</code> with field errors for an invalid body. Members still get <code>400</code> for an invalid body, and a caller with no access to the board gets <code>404</code>.</p>
 <p>Since 1.2, a create returns <code>404 Not Found</code> (nothing is written) when its target column or swimlane, or the board, was deleted while the request was in flight (#1602).</p>
 <p><strong>Request</strong>
@@ -7005,7 +7006,7 @@ endpoint would refuse you. Neither is sent when <code>visible</code> is <code>fa
 <h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p><strong>Add child</strong> (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;"}</code>. The card goes in that board's first
+<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;", "apply_default_team": &lt;bool, optional&gt;, "expected_assignee_id": &lt;int or null, optional&gt;}</code>. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. <code>201</code> returns the new card, as
 <code>POST .../cards/</code> does.</p>
@@ -7022,6 +7023,22 @@ and weight limits apply as for any create. <code>201</code> returns the new card
   exception for a previously unlinked card never applies to a new one. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   <code>title</code> is <code>400</code> (keyed <code>title</code>). Nothing is created when it is refused.</li>
+<li><strong>Default team</strong> (#2211, since 1.3): the child is assigned the first member,
+  in team order, of the <a href="../boards/">default team</a> of the lane this card is in
+  who is active, still a listed non-viewer member of this card's board, and
+  can be assigned on the target board; the target board's own lanes are not
+  consulted. Nobody qualifying leaves it unassigned.
+  <code>"apply_default_team": false</code> skips this; a non-boolean value is <code>400</code>
+  (keyed <code>apply_default_team</code>). The default is <code>true</code>. The pre-assigned member
+  gets the usual <code>assigned</code> notification once, under the same rules as
+  <code>notify_assignee</code> on <code>POST .../cards/</code>.</li>
+<li><strong>Expected assignee</strong> (#2211, since 1.3): <code>expected_assignee_id</code> is the
+  person the client showed as pre-assigned (the target board's
+  <code>default_assignee_id</code> from <code>child-board-options</code>), or <code>null</code> when it showed
+  nobody. When it is sent, the default team's pick is applied only if it is
+  still that person; otherwise the child is created unassigned, never assigned
+  to someone else. Omitted, the current pick is applied. Anything other than
+  an integer or <code>null</code> is <code>400</code> (keyed <code>expected_assignee_id</code>).</li>
 <li><strong>Limits:</strong> a hard WIP or weight limit on the target cell answers <code>409</code>
   (<code>wip_hard_blocked</code>, <code>wip_limit_exceeded</code>, <code>weight_limit_exceeded</code>, and the
   <code>swimlane_*</code> forms), with the same body as <code>POST .../cards/</code>.</li>
@@ -7125,6 +7142,12 @@ Any role on this card's board.</p>
 <li><code>can_set_default</code> (top level): you administer this card's board.</li>
 <li><code>disabled_reason</code> (since 1.3, #2447): <code>"parent_archived"</code> when this card is
   archived, since Add child refuses an archived parent with that code; else <code>null</code>.</li>
+<li><code>default_team</code> (#2211, since 1.3): the default team of this card's lane, as
+  <code>{"swimlane": {"id", "name"}, "member_ids": [...]}</code> (active members still
+  listed as non-viewers on this card's board, team order), or <code>null</code> when the
+  lane has no such member. Each <code>boards</code> entry, and a
+  visible <code>fixed_board</code>, then also carries <code>default_assignee_id</code>: who Add child
+  would assign there (<code>null</code> when nobody on the team can be assigned there).</li>
 </ul>
 <p>Empty lists and <code>null</code>s when this card's board cannot have children.</p>
 <h3 id="delete-apiv1boardsboard_idcardsidchildrenchild_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" title="Permanent link">&para;</a></h3>
