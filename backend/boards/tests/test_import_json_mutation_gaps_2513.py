@@ -87,11 +87,13 @@ class DateAnchorShiftTests(_ImportCase):
         return _payload(cards=[card], **extra)
 
     def test_file_anchor_shifts_dates_and_is_reported(self):
-        # Computed before the request so a UTC midnight between the import and
-        # the assertion cannot move the expected day.
-        expected = shift_today() + datetime.timedelta(days=10)
+        # The server reads "today" during the request, so accept either side of
+        # a UTC midnight that falls between the two reads.
+        before = shift_today()
         resp, board = self.ok(self._dated(date_anchor="2026-01-01"))
-        self.assertEqual(Card.objects.get(board=board).due_date, expected)
+        after = shift_today()
+        delta = datetime.timedelta(days=10)
+        self.assertIn(Card.objects.get(board=board).due_date, {before + delta, after + delta})
         applied = resp.data["import_summary"]["options_applied"]
         self.assertEqual(applied["shift_dates_from"], "2026-01-01")
         self.assertNotIn("shift_dates_to", applied)
@@ -107,11 +109,13 @@ class DateAnchorShiftTests(_ImportCase):
             self.assertEqual(Card.objects.get(board=board).due_date, datetime.date(2026, 1, 11))
 
     def test_explicit_shift_from_wins_over_file_anchor(self):
-        expected = shift_today() + datetime.timedelta(days=1)
+        before = shift_today()
         resp, board = self.ok(
             self._dated(date_anchor="2026-01-01"), {"shift_dates_from": "2026-01-10"}
         )
-        self.assertEqual(Card.objects.get(board=board).due_date, expected)
+        after = shift_today()
+        delta = datetime.timedelta(days=1)
+        self.assertIn(Card.objects.get(board=board).due_date, {before + delta, after + delta})
         self.assertEqual(
             resp.data["import_summary"]["options_applied"]["shift_dates_from"], "2026-01-10"
         )
@@ -306,12 +310,16 @@ class StructureValidationTests(_ImportCase):
         )
         self.assertEqual(CustomFieldDefinition.objects.get(board=board, name="Plain").is_dimension, False)
 
-    def test_column_without_a_name_is_not_matched_by_a_card(self):
-        resp = self.post(_payload(columns=[{"position": 0}], cards=[{"title": "C", "column": "XXXX", "swimlane": "Lane"}]))
-        self.assertEqual(resp.status_code, 400)
+    def test_column_or_swimlane_without_a_name_is_400_with_exact_detail(self):
+        self.bad(
+            _payload(columns=[{"position": 0}], cards=[{"title": "C", "column": "XXXX", "swimlane": "Lane"}]),
+            "Column at index 0: name must be a string",
+        )
         self.assertFalse(Board.objects.filter(name="Imported 2513").exists())
-        resp = self.post(_payload(swimlanes=[{"position": 0}], cards=[{"title": "C", "column": "Todo", "swimlane": "XXXX"}]))
-        self.assertEqual(resp.status_code, 400)
+        self.bad(
+            _payload(swimlanes=[{"position": 0}], cards=[{"title": "C", "column": "Todo", "swimlane": "XXXX"}]),
+            "Swimlane at index 0: name must be a string",
+        )
         self.assertFalse(Board.objects.filter(name="Imported 2513").exists())
 
 
