@@ -151,6 +151,16 @@
       "enabled": false
     },
     {
+      "description": "eslint-plugin-unicorn 66+ requires ESLint 10; the repo is on ESLint 9. Re-enable when the ESLint major is bumped",
+      "matchDepNames": [
+        "eslint-plugin-unicorn"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "enabled": false
+    },
+    {
       "description": "@playwright/test and the mcr.microsoft.com/playwright CI image must be the same version (the client refuses browsers from another release), so they move in one MR, majors included. Last, so it overrides the per-ecosystem groups",
       "matchDepNames": [
         "@playwright/test",

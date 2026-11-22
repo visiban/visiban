@@ -108,8 +108,10 @@ Sonar scans `main` nightly, so a branch can't see the findings it introduces. Wh
 | `typescript:S9383` | Floating promise | `@typescript-eslint/no-floating-promises` | `error` (type-aware, `projectService`) |
 | `typescript:S1082` | Click handler with no key handler | `jsx-a11y/click-events-have-key-events` | `error` |
 | `typescript:S7727` | Function reference passed to an array callback method | `unicorn/no-array-callback-reference` | `error` (only this rule, not the unicorn preset) |
-| `python:S1244` | Float equality | none | Uncovered: ruff runs with its default rule set and has no equivalent enabled |
-| `python:S5332` | Clear-text `http://` literal | none | Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal |
+| `python:S1244` | Float equality | none | Uncovered: ruff runs with its default rule set and has no equivalent enabled, and `scripts/` is not linted by ruff at all (`ruff check backend/`) |
+| `python:S5332` | Clear-text `http://` literal | none | Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal, and `scripts/` is not scanned by either (`ruff check backend/`, `bandit -r backend/ clients/python/`) |
+
+`jsx-a11y/no-static-element-interactions` is deliberately not enabled: it is stricter than Sonar S1082 and would flag widespread existing sites.
 
 Existing violations that couldn't be fixed mechanically carry a `// eslint-disable-next-line <rule> -- SUPPRESSED-UNTIL(#N): <reason>` marker; see [Suppression Markers](suppressions.md). The rules are pinned by `frontend/src/test/eslintSonarRules.test.ts`, which lints a Sonar-shaped example (must fire) and its fixed shape (must pass).
 

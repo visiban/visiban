@@ -4193,14 +4193,16 @@ frontend-sast:
       import reactHooks from 'eslint-plugin-react-hooks';
       import reactRefresh from 'eslint-plugin-react-refresh';
       import tseslint from 'typescript-eslint';
+      import jsxA11y from 'eslint-plugin-jsx-a11y';
+      import unicorn from 'eslint-plugin-unicorn';
       const rules = { 'security/detect-object-injection': 'warn', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' };
-      // Register react-hooks, react-refresh, and @typescript-eslint plugins so that
+      // Register react-hooks, react-refresh, jsx-a11y, unicorn, and @typescript-eslint plugins so that
       // eslint-disable-next-line comments referencing their rules are recognised as
       // valid (prevents "Definition for rule X was not found" errors).  No rules from
       // these plugins are enabled — only security/ rules are enforced here.
       const linterOptions = { reportUnusedDisableDirectives: 'off' };
       export default [
-        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security, 'react-hooks': reactHooks, 'react-refresh': reactRefresh, '@typescript-eslint': tseslint.plugin }, rules },
+        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security, 'react-hooks': reactHooks, 'react-refresh': reactRefresh, '@typescript-eslint': tseslint.plugin, 'jsx-a11y': jsxA11y, unicorn }, rules },
         { files: ['**/*.{js,mjs,jsx}'], linterOptions, plugins: { security }, rules },
       ];
       ESLINTEOF
