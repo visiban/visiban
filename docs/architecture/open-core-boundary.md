@@ -39,7 +39,9 @@ The OSS vs enterprise classification for every feature area where the boundary h
 | Per-swimlane analytics (basic) | OSS | Teams managing work per client/swimlane need row-level visibility | #341 |
 | Analytics: heatmap, stalled cards, per-swimlane velocity, heatmap CSV export | OSS | Shipped. Seeing where work piles up passes the small-team test. See [Analytics (split)](#analytics-split) | #1750, #341 |
 | Flow charts (cycle time, throughput and weekly run chart, cumulative flow diagram, WIP age, CFD bottleneck highlight) | OSS | Same reasoning; ruled 2026-11-02. Shipped in 1.3 (#448). See [Analytics (split)](#analytics-split) | #1750, #448 |
+| Throughput forecasting, one board or one card | OSS | Same reasoning as the flow charts. See [Analytics (split)](#analytics-split) | #1100 |
 | Cross-period comparison, scheduled analytics reports, `ANALYTICS_EXTENSIONS` panels | Enterprise | Reporting and extension layer beyond what a team needs to see its own flow. See [Analytics (split)](#analytics-split) | #1750 |
+| Forecasting across a set of boards | Enterprise | Multi-board pooling beyond a single team's own flow. See [Analytics (split)](#analytics-split) | #1100 |
 | Single-swimlane focus mode | OSS | Core navigation for boards with many swimlanes | #340 |
 | Read-only board share / guest link (basic) | OSS | Sharing status with external stakeholders is a basic collaboration need | #348 |
 | Branded client portal / custom-domain share | Enterprise | White-label extension of base share link | #348 note |
@@ -180,7 +182,7 @@ Structured delivery report export (CSV/PDF, formatted for client or QBR presenta
 
 *Note (2026-11-14, #2261):* the Analytics tab now offers 30, 90, 180 and 365-day windows; the 7-day window is gone from the UI, though the API still accepts `days=7`. This is not an OSS/enterprise boundary change.
 
-Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS`. A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise.
+Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS` (forecasting across a set of boards is also Enterprise; see the forecasting ruling below, #1100). A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise.
 
 **Why.** Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.
 
@@ -194,13 +196,13 @@ Enterprise keeps three things: cross-period comparison, scheduled analytics repo
 
 *Supersedes* #865's "predictive lead time is enterprise territory" for single-board and card-scoped forecasting. That line predates the #1750 analytics split, and #865's notes hold no separate ruling. Per-assignee throughput and SLA tracking are unaffected. The [flow metric definitions](decisions.md) apply wherever the #448 charts and forecasts ship.
 
-**MCP flow-metrics tools: OSS (decided 2026-11-05, #1151).** The read-only `board_flow_metrics` and `aging_cards` MCP tools are OSS. They are thin readers over the OSS flow service (#448) and answer the same "where does work pile up?" question the OSS charts do, so a small team's own agents need them. *Superseded:* this replaces the earlier "not decided here" note above and the planned-enterprise "analytics tools" entry in the MCP section below. The ruling covers only these two read-only tools. A read-only forecast MCP tool is OSS under the #1100 ruling above; any other analytics surface is not widened by it.
+**MCP flow-metrics tools: OSS (decided 2026-11-05, #1151).** The read-only `board_flow_metrics` and `aging_cards` MCP tools are OSS. They are thin readers over the OSS flow service (#448) and answer the same "where does work pile up?" question the OSS charts do, so a small team's own agents need them. *Superseded:* this replaces the planned-enterprise "analytics tools" entry in the MCP section below. The ruling covers only these two read-only tools. A read-only forecast MCP tool is OSS under the #1100 ruling above; any other analytics surface is not widened by it.
 
 The OSS analytics summary exposes an `ANALYTICS_EXTENSIONS` registration point (`boards/hooks.py`) so enterprise can add panels without modifying OSS view files. The summary returns the panels in `extension_panels`, and the Summary tab renders `stats` and `table` panels below the swimlane table (see the [payload contract](../api/boards.md#extension-panel-payload)).
 
 **Authorization is OSS's job, not each panel's (#1826).** A panel declares the lowest board role that may see it with a `min_role` attribute on the callable. The summary drops every panel above the caller's role before calling any panel, so a panel that forgets a role check cannot leak to viewers. **Behavior change for extension authors in 1.2:** a panel with no `min_role`, or an invalid one, is admin-only (fail closed). Enterprise panels registered before 1.2 must set `min_role` to stay visible to non-admin members. See [panel visibility by role](../api/boards.md#panel-visibility-by-role) and [Security Invariants](../development/security-invariants.md) Rule 12.
 
-**Issue:** #1750 (ruling), #341 (basic analytics), #448 (flow charts). Enterprise side: enterprise #12.
+**Issue:** #1750 (ruling), #341 (basic analytics), #448 (flow charts), #1100 (forecasting), #1151 (MCP tools). Enterprise side: enterprise #12.
 
 ---
 
