@@ -3436,6 +3436,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The fixture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vacuum-analyze-after-the-seed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VACUUM ANALYZE after the seed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4956,6 +4973,8 @@
 <li><strong><code>--with-notifications</code></strong> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user. That is more than the 50-row cap <code>NotificationListView</code> applies (<code>NotificationUnreadCountView</code> is uncapped and counts all 60), so the job exercises the same "more unread than the cap" path a busy real inbox hits.</li>
 <li><strong>A fixture size with no stated card/swimlane count is meaningless</strong>: a p95 is only interpretable next to its data volume. <code>nightly-load-test-results.json</code> (the job's artifact) records the actual card and swimlane count with the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets were derived against.</li>
 </ul>
+<h3 id="vacuum-analyze-after-the-seed">VACUUM ANALYZE after the seed<a class="headerlink" href="#vacuum-analyze-after-the-seed" title="Permanent link">&para;</a></h3>
+<p>After the seed and token provisioning, and before the server starts, the job runs <code>VACUUM ANALYZE</code> once (<a href="https://gitlab.com/visiban/visiban/-/issues/2518">#2518</a>). Since <a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a> the seed bulk-inserts about 100k more movements (the aged board) immediately before measuring. On a freshly built CI Postgres, nothing guarantees autovacuum has caught up, so the measurement can overlap autovacuum, run on stale planner statistics, and run without a visibility map (no index-only scans). All eight <code>flow_*</code> p95 budgets went red on <code>main</code> after that change. Production databases are autovacuumed, so measuring after a vacuum is more representative and deterministic, not more lenient. No budget changed. The step fails the job if it fails. Whether this fully explains the regression is unproven until the manual <code>nightly-load-test</code> job comes back green on it.</p>
 <h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
 <p>The job reuses <code>manage.py provision_fuzz_token</code> (already used by <code>backend-schema-fuzz</code>) to mint a scoped, non-admin Personal Access Token for <code>demo2</code>. It writes the token to a CI-only file (<code>VISIBAN_LOAD_TEST_TOKEN_FILE</code>, mode <code>0600</code>, never logged). No credential is hardcoded anywhere in the job or the script, following the same "no hardcoded credentials" rule as every other backend job in <code>.gitlab-ci.yml</code>.</p>
 <ul>
