@@ -50,7 +50,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss, tag
         onKeyDown={(e) => e.stopPropagation()}
         aria-label={name}
         tabIndex={-1}
-        className="ml-0.5 text-info/70 hover:text-info transition shrink-0 leading-none focus:outline-none max-sm:min-w-11 max-sm:min-h-11"
+        className="ml-0.5 text-info hover:opacity-80 transition shrink-0 leading-none focus:outline-none max-sm:min-w-11 max-sm:min-h-11"
       >
         ×
       </button>
