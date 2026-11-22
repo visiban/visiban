@@ -32,7 +32,7 @@ Usage:
     # Machine-readable output for the skill to reason over
     python3 scripts/kaizen_gate_ledger.py --window 30 --json
 
-    # Offline proof the readers still fire (CI: cost-ledger-selftest)
+    # Offline proof the readers still fire (CI: the cost-ledger-selftest member of lint-selftests-alpine)
     python3 scripts/kaizen_gate_ledger.py --self-test
 
 Cost (#2128). Beside yield, the report reads the cost ledger lines `/mr` and `/wave` write in

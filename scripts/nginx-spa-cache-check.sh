@@ -4,8 +4,8 @@
 # fallback: the Helm ConfigMap, nginx/app.conf.template (HTTPS prod) and
 # nginx/app-http.conf.template.
 #
-# WHY: the text guards in helm-structure-check.sh and the compose-hygiene CI
-# job read config text. A mutation that leaves the words in place but changes
+# WHY: the text guards in helm-structure-check.sh and the compose-hygiene member of
+# lint-selftests-alpine read config text. A mutation that leaves the words in place but changes
 # nginx's behavior (`map $request_uri`, a catch-all `~.* ""` regex ahead of the
 # entries, a re-prefixed entry regex) passes them. This script runs `nginx -t`
 # and curls the result.

@@ -13,7 +13,7 @@ else is derived from it:
 * ``python mutmut_config.py expect-shards`` prints the ``name=N,...`` spec the
   report job hands to ``check_mutation_score.py --expect-shards``.
 * ``python mutmut_config.py self-test --ci-file ../.gitlab-ci.yml`` (run on MRs
-  by ``mutation-score-selftest``) checks every path, test file and class exists
+  by the ``mutation-score-selftest`` member of ``lint-selftests-python``) checks every path, test file and class exists
   and that the CI file's ``parallel:`` matches, so a renamed test file or a new
   shard fails on the MR rather than a week later.
 

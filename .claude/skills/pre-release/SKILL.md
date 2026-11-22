@@ -204,7 +204,7 @@ The query, the fail-closed handling and the per-issue verdict all live in that o
 also runs immediately before tagging (#1520). It scans **every open `security::deferred` issue
 in any milestone** and prints one `#N confidential=… milestone=… <verdict>` line per issue.
 
-**Accepted-risk note format** (enforced by `scripts/security-deferred-verdict.sh`, self-tested in CI by `security-deferred-verdict-selftest`; run `sh scripts/security-deferred-verdict.sh --self-test` after touching it) — one line, in the issue description or any non-system comment:
+**Accepted-risk note format** (enforced by `scripts/security-deferred-verdict.sh`, self-tested in CI by the `security-deferred-verdict-selftest` member of `lint-selftests-alpine`; run `sh scripts/security-deferred-verdict.sh --self-test` after touching it) — one line, in the issue description or any non-system comment:
 
 ```
 Accepted risk: accepted-by: @<maintainer>; reason: <why shipping is acceptable>; expires: YYYY-MM-DD

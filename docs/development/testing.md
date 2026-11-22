@@ -428,7 +428,7 @@ Neither report resolves from the repo root as emitted, so `scripts/sonar-scan.sh
 
 - **Reproduce the CI scan locally:** generate both reports, then run `SONAR_TOKEN=... scripts/sonar-scan.sh`.
 - **`--prep-only`** prints how many class entries and `SF:` files each rewritten report lists (and warns on zero), so the nightly log shows whether paths resolved.
-- **`scripts/sonar-scan.sh --self-test`** fixtures both rewrites and runs in the `sonar-scan-selftest` CI job.
+- **`scripts/sonar-scan.sh --self-test`** fixtures both rewrites and runs in the `sonar-scan-selftest` (member of `lint-selftests-alpine`) CI job.
 
 Test code, migrations, repo tooling, and seed/factory modules are removed from the coverage denominator by `sonar.coverage.exclusions`. Each entry is justified in the properties file, and nothing under product source is excluded.
 
