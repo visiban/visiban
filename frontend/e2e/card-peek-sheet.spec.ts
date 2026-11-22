@@ -2,11 +2,13 @@ import { test, expect } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
+const CARD_TWO = { ...CARD, id: 2, uid: 'card000002b', title: 'Second task', position: 1 }
+
 // The card peek sheet (#2273): Shift+click (or Show summary) on a board card opens a read-only
 // side sheet; a plain click opens the detail panel (#2358).
-async function setup(page: import('@playwright/test').Page) {
+async function setup(page: import('@playwright/test').Page, board = BOARD_FULL) {
   await routeAuth(page)
-  await routeBoard(page)
+  await routeBoard(page, board)
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/movements\/(\?.*)?$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
   )
@@ -170,5 +172,29 @@ test.describe('card peek sheet', () => {
       await page.getByRole('menuitem', { name: /Show summary/ }).tap()
       await expect(sheet).toBeVisible()
     })
+  })
+})
+
+test.describe('card peek sheet — placement and Dock to edge (#2507)', () => {
+  test.use({ viewport: { width: 1600, height: 900 } })
+
+  test('anchors beside the card, docks on toggle, persists across a reload and keeps the mode on a swap', async ({ page }) => {
+    await setup(page, { ...BOARD_FULL, cards: [CARD, CARD_TWO] })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const first = page.locator(`[data-card-id="${CARD.id}"]`)
+    const second = page.locator(`[data-card-id="${CARD_TWO.id}"]`)
+    await expect(first).toBeVisible({ timeout: 10_000 })
+    await first.click({ modifiers: ['Shift'] })
+    const sheet = page.getByTestId('card-peek-sheet')
+    await expect(sheet).toHaveAttribute('data-sheet-mode', 'anchored')
+    await expect(sheet).toHaveAttribute('data-sheet-side', 'right')
+    await page.getByTestId('card-sheet-dock-toggle').click()
+    await expect(sheet).toHaveAttribute('data-sheet-mode', 'docked')
+    await page.reload()
+    await expect(first).toBeVisible({ timeout: 10_000 })
+    await first.click({ modifiers: ['Shift'] })
+    await expect(sheet).toHaveAttribute('data-sheet-mode', 'docked')
+    await second.click({ modifiers: ['Shift'] })
+    await expect(sheet).toHaveAttribute('data-sheet-mode', 'docked')
   })
 })

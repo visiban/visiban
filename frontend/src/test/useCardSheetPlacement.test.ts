@@ -239,3 +239,20 @@ describe('useCardSheetPlacement dock toggle (#1915)', () => {
     expect(result.current.reason).toBe('open')
   })
 })
+
+describe('computeCardSheetPlacement width (#2507)', () => {
+  it('defaults to the 540px detail sheet width', () => {
+    expect(computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: geometry() }).left).toBe(460 + SHEET_GAP)
+  })
+
+  it('uses the given width for the left-flip and the right-edge fit (the 400px card peek)', () => {
+    // Right of a column ending at 1100 needs 1106 + 400 <= 1600 - 16: fits for 400, not for 540.
+    const g = geometry({ column: { left: 880, right: 1100 } })
+    expect(computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: g, width: 400 }).side).toBe('right')
+    expect(computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: g }).side).toBe('left')
+    const far = geometry({ column: { left: 1300, right: 1500 } })
+    const flipped = computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: far, width: 400 })
+    expect(flipped.side).toBe('left')
+    expect(flipped.left).toBe(1300 - SHEET_GAP - 400)
+  })
+})

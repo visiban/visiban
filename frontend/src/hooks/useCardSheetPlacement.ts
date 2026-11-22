@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /**
- * Placement of the card detail sheet (#1914).
+ * Placement of the card detail sheet (#1914), shared by the card peek (#2507).
  *
  * This is deliberately NOT `useAnchoredPlacement`. That hook places a popover
  * vertically, keeps the side chosen at open (#1457) and exists to *dismiss* on
@@ -106,20 +106,22 @@ export function computeNotch(cardCenterY: number, top: number, bottom: number, v
  * partly under the sticky labels (or past the right edge) docks instead of
  * covering them or running off screen.
  */
-export function computeCardSheetPlacement({ viewportWidth, viewportHeight, geometry, docked = false }: {
+export function computeCardSheetPlacement({ viewportWidth, viewportHeight, geometry, docked = false, width = SHEET_WIDTH }: {
   viewportWidth: number;
   viewportHeight: number;
   geometry: SheetGeometry | null;
   /** The user's "Dock to edge" preference (#1915): ranks below full-screen, above the anchor rule. */
   docked?: boolean;
+  /** The sheet's width: the card detail sheet's 540px by default, 400px for the card peek (#2507). */
+  width?: number;
 }): SheetPlacement {
   if (viewportWidth <= FULLSCREEN_MAX_VIEWPORT) return FULLSCREEN;
   if (docked) return DOCKED;
   if (viewportWidth < ANCHOR_MIN_VIEWPORT || !geometry) return DOCKED;
   const { column, lanesRight, toolbarBottom, cardCenterY } = geometry;
-  const maxLeft = viewportWidth - SHEET_EDGE - SHEET_WIDTH;
+  const maxLeft = viewportWidth - SHEET_EDGE - width;
   const rightLeft = column.right + SHEET_GAP;
-  const leftLeft = column.left - SHEET_GAP - SHEET_WIDTH;
+  const leftLeft = column.left - SHEET_GAP - width;
   let side: SheetSide;
   let left: number;
   if (rightLeft <= maxLeft && rightLeft >= lanesRight) {
@@ -228,9 +230,9 @@ export interface CardSheetPlacementState {
   measured: boolean;
 }
 
-function initialState(docked: boolean): CardSheetPlacementState {
+function initialState(docked: boolean, width: number): CardSheetPlacementState {
   return {
-    placement: computeCardSheetPlacement({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, geometry: null, docked }),
+    placement: computeCardSheetPlacement({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, geometry: null, docked, width }),
     cardEl: null,
     reason: "open",
     measured: false,
@@ -251,8 +253,8 @@ function initialState(docked: boolean): CardSheetPlacementState {
  * Scroll inside the sheet (its long body, a dropdown list) is ignored: only a
  * scroll of the board container or the document counts.
  */
-export function useCardSheetPlacement(cardId: number, locationKey: string, docked = false): CardSheetPlacementState {
-  const [state, setState] = useState<CardSheetPlacementState>(() => initialState(docked));
+export function useCardSheetPlacement(cardId: number, locationKey: string, docked = false, width = SHEET_WIDTH): CardSheetPlacementState {
+  const [state, setState] = useState<CardSheetPlacementState>(() => initialState(docked, width));
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -263,6 +265,7 @@ export function useCardSheetPlacement(cardId: number, locationKey: string, docke
       viewportHeight: window.innerHeight,
       geometry: el ? measureCardSheetGeometry(el) : null,
       docked,
+      width,
     });
     setState((prev) => (
       prev.measured && prev.cardEl === el && samePlacement(prev.placement, placement)
@@ -270,7 +273,7 @@ export function useCardSheetPlacement(cardId: number, locationKey: string, docke
         : { placement, cardEl: el, reason, measured: true }
     ));
     return el;
-  }, [cardId, docked]);
+  }, [cardId, docked, width]);
 
   // Open and Move re-anchor. A card that is not rendered yet gets a few
   // frames to appear (a deep link that lands before the board renders).
