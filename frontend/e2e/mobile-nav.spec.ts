@@ -37,6 +37,10 @@ test.describe('mobile nav drawer', () => {
     // No permanent sidebar: the drawer is closed until asked for. (Home's own
     // "Needs attention" column is a complementary landmark, so don't count those.)
     const drawer = page.getByRole('dialog', { name: 'Main navigation' })
+    // Wait for the signed-in shell before pressing `[` (#2530): NavDrawer attaches its keydown listener only once
+    // the shell mounts, and the count-of-0 check below also passes on a page that has not rendered yet. On a loaded
+    // CI runner the press landed first and was dropped, so the drawer never opened at any timeout.
+    await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible()
     await expect(drawer).toHaveCount(0)
     await page.keyboard.press('[')
     await expect(drawer).toBeVisible()
