@@ -213,9 +213,9 @@ for (const width of [390, 880]) {
       console.log(`contrast-2209 ${width} ${scheme} back ${worst.ratio.toFixed(2)} "${worst.text}"`)
       expect(worst.ratio, `back link contrast ${worst.ratio.toFixed(2)} (${width}px ${scheme})`).toBeGreaterThanOrEqual(4.5)
       // Pin where the link goes before following it, not by polling the address bar afterwards (#2530): BoardView
-      // consumes a `?card=` deep link as soon as it opens the card, so `tab=children` lives in the URL for one
-      // render. Against the CI production build that is a few ms, and `toHaveURL(/tab=children/)` read the
-      // already-consumed `?view=board` on every poll, failing all three attempts at any timeout.
+      // consumes a `?card=` deep link as soon as it opens the card (`replace: true`), so `tab=children` is in the
+      // URL only briefly. Whether a poll sees it depends on timing, and once missed it never comes back, so a
+      // longer timeout cannot help.
       await expect(back).toHaveAttribute('href', `/boards/${PARENT_BOARD.id}?card=${PARENT_CARD.id}&tab=children&focus_child=${CHILD_CARD.id}`)
       await back.click()
       const tab = page.getByTestId('card-children-tab')
