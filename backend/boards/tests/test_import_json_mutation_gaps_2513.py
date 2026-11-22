@@ -13,7 +13,9 @@ import json
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -85,8 +87,10 @@ class DateAnchorShiftTests(_ImportCase):
         return _payload(cards=[card], **extra)
 
     def test_file_anchor_shifts_dates_and_is_reported(self):
-        resp, board = self.ok(self._dated(date_anchor="2026-01-01"))
+        # Computed before the request so a UTC midnight between the import and
+        # the assertion cannot move the expected day.
         expected = shift_today() + datetime.timedelta(days=10)
+        resp, board = self.ok(self._dated(date_anchor="2026-01-01"))
         self.assertEqual(Card.objects.get(board=board).due_date, expected)
         applied = resp.data["import_summary"]["options_applied"]
         self.assertEqual(applied["shift_dates_from"], "2026-01-01")
@@ -103,12 +107,11 @@ class DateAnchorShiftTests(_ImportCase):
             self.assertEqual(Card.objects.get(board=board).due_date, datetime.date(2026, 1, 11))
 
     def test_explicit_shift_from_wins_over_file_anchor(self):
+        expected = shift_today() + datetime.timedelta(days=1)
         resp, board = self.ok(
             self._dated(date_anchor="2026-01-01"), {"shift_dates_from": "2026-01-10"}
         )
-        self.assertEqual(
-            Card.objects.get(board=board).due_date, shift_today() + datetime.timedelta(days=1)
-        )
+        self.assertEqual(Card.objects.get(board=board).due_date, expected)
         self.assertEqual(
             resp.data["import_summary"]["options_applied"]["shift_dates_from"], "2026-01-10"
         )
@@ -134,14 +137,18 @@ class DateAnchorShiftTests(_ImportCase):
 
     def test_unapplied_shift_dates_to_is_dropped_from_options_applied(self):
         baseline, _ = self.ok(_payload())
-        for options in ({"shift_dates_to": "2026-06-01"}, {"shift_dates_to": "2026-06-01", "shift_dates": False}):
-            resp, _ = self.ok(self._dated(date_anchor="2026-01-01"), options) if options.get("shift_dates") is False else self.ok(_payload(), options)
+        base_keys = set(baseline.data["import_summary"]["options_applied"]) - {"shift_dates"}
+        # No anchor in the file, and an anchor with shifting turned off: in
+        # both the target day is never applied.
+        no_anchor = self.ok(_payload(), {"shift_dates_to": "2026-06-01"})[0]
+        opted_out = self.ok(
+            self._dated(date_anchor="2026-01-01"),
+            {"shift_dates_to": "2026-06-01", "shift_dates": False},
+        )[0]
+        for resp in (no_anchor, opted_out):
             applied = resp.data["import_summary"]["options_applied"]
             self.assertNotIn("shift_dates_to", applied)
-            self.assertEqual(
-                set(applied) - {"shift_dates"},
-                set(baseline.data["import_summary"]["options_applied"]) - {"shift_dates"},
-            )
+            self.assertEqual(set(applied) - {"shift_dates"}, base_keys)
             self.assertTrue(applied["history"])
 
 
@@ -171,6 +178,18 @@ class ChildValidationMessageTests(_ImportCase):
                         f"Card at index 0, {self.LABELS[child]} at index 0: '{key}' must be a string",
                     )
 
+    def test_key_type_check_is_not_masked_by_an_earlier_validator_error(self):
+        # An earlier validator error must not win over the per-key type check
+        # on the card children, so the key tuples are read for real (#2513).
+        columns = [{"name": "Todo", "position": -1}, {"name": "Done", "position": 1, "is_done": True}]
+        for child, keys in self.STR_KEYS.items():
+            for key in keys:
+                with self.subTest(child=child, key=key):
+                    self.bad(
+                        _payload(columns=columns, cards=[self._card(**{child: [{key: 123}]})]),
+                        f"Card at index 0, {self.LABELS[child]} at index 0: '{key}' must be a string",
+                    )
+
     def test_author_of_a_comment_is_never_type_checked(self):
         self.ok(_payload(cards=[self._card(comments=[{"body": "x", "author": 123}])]))
 
@@ -185,6 +204,25 @@ class ChildValidationMessageTests(_ImportCase):
                     _payload(cards=[self._card(**{child: "x"})]),
                     f"Card at index 0: '{child}' must be a list",
                 )
+
+
+class ActivitySnapshotQueryCountTests(_ImportCase):
+    def _queries(self, n):
+        cards = [
+            {"title": f"C{i}", "column": "Todo", "swimlane": "Lane", "priority": "high",
+             "activities": [{"event_type": "priority_change", "from_value": "medium", "to_value": "high"}]}
+            for i in range(n)
+        ]
+        cache.clear()
+        body = {"file": SimpleUploadedFile("b.json", json.dumps(_payload(cards=cards)).encode(), "application/json")}
+        with CaptureQueriesContext(connection) as ctx:
+            resp = self.client.post(URL, body, format="multipart")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        return len(ctx)
+
+    def test_snapshot_fill_costs_no_query_per_activity(self):
+        self._queries(1)  # warm one-time caches (content types) out of the comparison
+        self.assertEqual(self._queries(1), self._queries(6))
 
 
 class TimestampValidationMessageTests(_ImportCase):
