@@ -547,16 +547,75 @@ class AssignmentNotificationTests(AddChildTests):
         self.assertEqual(self.assigned(self.add_child_as(self.mia)), self.mia.pk)
         self.assertEqual(self.notes(self.mia), [])
 
-    def test_add_card_with_the_teams_assignee_notifies_once_and_respects_the_preference(self):
-        body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, "assignee_id": self.mia.pk}
-        url = f"/api/v1/boards/{self.parent.pk}/cards/"
+    def post_card(self, **extra):
+        body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, "assignee_id": self.mia.pk, **extra}
         with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
-            self.assertEqual(client_for(self.owner).post(url, body, format="json").status_code, 201)
+            return client_for(self.owner).post(f"/api/v1/boards/{self.parent.pk}/cards/", body, format="json")
+
+    def test_add_card_with_the_flag_notifies_once_and_respects_the_preference(self):
+        self.assertEqual(self.post_card(notify_assignee=True).status_code, 201)
         self.assertEqual(len(self.notes(self.mia)), 1)
         User.objects.filter(pk=self.mia.pk).update(notif_card_assigned=False)
-        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
-            self.assertEqual(client_for(self.owner).post(url, body, format="json").status_code, 201)
+        self.assertEqual(self.post_card(notify_assignee=True).status_code, 201)
         self.assertEqual(len(self.notes(self.mia)), 1)
+
+    def test_plain_create_with_an_assignee_does_not_notify(self):
+        # Scope (#2211): only a lane team's pre-assignment notifies; the default stays silent.
+        self.assertEqual(self.post_card().status_code, 201)
+        self.assertEqual(self.post_card(notify_assignee=False).status_code, 201)
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_notify_assignee_must_be_a_boolean(self):
+        for value in ("true", 1, None):
+            r = self.post_card(notify_assignee=value)
+            self.assertEqual(r.status_code, 400, (value, r.content))
+            self.assertIn("notify_assignee", r.json())
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_service_default_does_not_notify(self):
+        """MCP ``create_card`` and every other caller use the service default (False)."""
+        from boards.services import cards as card_services
+
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            card_services.create_card(
+                actor=self.owner, board=self.parent, column_id=self.column.pk, swimlane_id=self.lane.pk,
+                save=lambda position: Card.objects.create(
+                    board=self.parent, column=self.column, swimlane=self.lane, title="MCP",
+                    created_by=self.owner, position=position, assignee=self.mia,
+                ),
+                render=lambda card: {"id": card.pk},
+            )
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_inactive_or_removed_assignee_is_not_notified(self):
+        from boards.services.cards import _notify_assigned_on_create
+
+        card = Card.objects.create(
+            board=self.parent, column=self.column, swimlane=self.lane, title="Late", assignee=self.mia,
+        )
+        User.objects.filter(pk=self.mia.pk).update(is_active=False)
+        card.refresh_from_db()
+        with self.captureOnCommitCallbacks(execute=True):
+            _notify_assigned_on_create(card, self.owner, self.parent)
+        self.assertEqual(self.notes(self.mia), [])
+        # Active again, but removed from the board between the create and the notify.
+        User.objects.filter(pk=self.mia.pk).update(is_active=True)
+        BoardMembership.objects.filter(board=self.parent, user=self.mia).delete()
+        card.refresh_from_db()
+        with self.captureOnCommitCallbacks(execute=True):
+            _notify_assigned_on_create(card, self.owner, self.parent)
+        self.assertEqual(self.notes(self.mia), [])
+
+    def test_a_notified_create_sends_exactly_one_notification(self):
+        """The creation movement is not a move: no CARD_MOVED beside ASSIGNED (#2211 broadcast-check)."""
+        from boards.models import Notification
+
+        User.objects.filter(pk=self.mia.pk).update(notif_card_moved=True)
+        self.set_team(self.mia)
+        self.assertEqual(self.assigned(self.add_child_as(self.owner)), self.mia.pk)
+        self.assertEqual(self.post_card(notify_assignee=True).status_code, 201)
+        kinds = list(Notification.objects.filter(recipient=self.mia).values_list("action_type", flat=True))
+        self.assertEqual(kinds, [Notification.ActionType.ASSIGNED] * 2)
 
 
 class TeamPrefetchQueryCountTests(TeamFixture):

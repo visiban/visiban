@@ -854,7 +854,7 @@ describe('PhoneBoard lane default team (#2211)', () => {
     const group = screen.getByRole('group', { name: 'Assignees' })
     expect(group).toHaveTextContent("From the APAC default team. Remove anyone this card shouldn't have.")
     await user.type(screen.getByLabelText(/New card title/), 'One{Enter}')
-    expect(createCard).toHaveBeenCalledWith(1, { column: 1, swimlane: 2, title: 'One', assignee_id: 10 })
+    expect(createCard).toHaveBeenCalledWith(1, { column: 1, swimlane: 2, title: 'One', assignee_id: 10, notify_assignee: true })
     await user.click(screen.getAllByRole('button', { name: /Add card/ })[1])
     await user.click(screen.getByRole('button', { name: 'Unassign Mia Reyes' }))
     await user.type(screen.getByLabelText(/New card title/), 'Two{Enter}')

@@ -32,6 +32,8 @@ export const createCard = (boardId: number, data: {
   due_date?: string;
   /** #2211: the lane team's pre-assigned member, sent explicitly; the server does not default it. */
   assignee_id?: number;
+  /** #2211: true only for that pre-assignment, so the assignee is notified; default false (silent). */
+  notify_assignee?: boolean;
 }) => client.post<Card>(`/api/v1/boards/${boardId}/cards/`, data).then((r) => r.data);
 
 export const updateCard = (boardId: number, cardId: number, data: CardPatch) =>

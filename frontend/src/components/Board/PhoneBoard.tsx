@@ -298,7 +298,7 @@ export default function PhoneBoard({
     const assignee = lane ? preAssigneeFor(lane).assignee : null;
     try {
       const created = await createCard(boardId, {
-        column: column.id, swimlane: laneId, title, ...(assignee && { assignee_id: assignee.id }),
+        column: column.id, swimlane: laneId, title, ...(assignee && { assignee_id: assignee.id, notify_assignee: true }),
       });
       setUnassignedLane(null);
       onCardAdded?.(created);

@@ -671,7 +671,7 @@ describe('BoardCell lane default team (#2211)', () => {
     expect(group).toHaveTextContent("From the Customer A default team. Remove anyone this card shouldn't have. Also on the team, not assigned: Dan Kovacs.")
     await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
     await user.click(screen.getByText('Add'))
-    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal', assignee_id: 10 }))
+    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal', assignee_id: 10, notify_assignee: true }))
   })
 
   it('Unassign creates the card with no assignee', async () => {

@@ -1015,6 +1015,8 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
+        # #2211: opt-in, so only the web app's lane-team pre-assignment notifies.
+        notify_assignee = serializer.validated_data.pop("notify_assignee", False)
         result = card_services.create_card(
             actor=self.request.user,
             board=board,
@@ -1030,6 +1032,7 @@ class CardViewSet(viewsets.ModelViewSet):
             ),
             render=self._refetch_card_data,
             force=_force_requested(self.request),
+            notify_assignee=notify_assignee,
         )
         # No return value: DRF's CreateModelMixin renders the 201 body from
         # serializer.data, exactly as it did before. The service's rendered
@@ -3016,6 +3019,8 @@ class CardViewSet(viewsets.ModelViewSet):
                     created_by=request.user, position=position, assignee_id=assignee_id,
                 ),
                 render=render,
+                # The lane team's pre-assigned member is told, like any assignment.
+                notify_assignee=assignee_id is not None,
             )
 
         result = card_links.create_child(

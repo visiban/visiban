@@ -125,7 +125,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
     try {
       const card = await createCard(boardId, {
         column: column.id, swimlane: swimlane.id, title: title.trim(),
-        ...(preAssignee && { assignee_id: preAssignee.id }),
+        // The lane team's pre-assigned member is notified like any assignment (#2211).
+        ...(preAssignee && { assignee_id: preAssignee.id, notify_assignee: true }),
       });
       setUnassigned(false);
       onCardAdded(card);

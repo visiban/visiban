@@ -1,1 +1,0 @@
-A card created already assigned to someone else (Add card, a swimlane default team's pre-assignment on Add card or Add child, or the MCP `create_card` tool) now sends that person the usual "You were assigned to" notification, once, under their **Card assigned to me** preference (#2211).

@@ -3905,6 +3905,17 @@ class CardSerializer(serializers.ModelSerializer):
         # validation error rather than exposing all users as candidates (#1050).
         write_only=True, read_only=False, queryset=User.objects.none(), source="assignee", required=False, allow_null=True
     )
+    # #2211 (since 1.3): create only. True sends the assignee the "assigned"
+    # notification; the web app sets it only for a lane default team's
+    # pre-assignment, so a plain create with an assignee stays silent as before.
+    notify_assignee = serializers.BooleanField(
+        write_only=True, required=False,
+        help_text=(
+            "Create only (since 1.3, #2211): `true` notifies the assignee that they were "
+            "assigned, as an assignee change does. Default `false`. Must be a JSON boolean. "
+            "Ignored on update."
+        ),
+    )
     # Explicitly declared (rather than left to auto-generation from the model
     # FK) so the queryset can be scoped to the current board in __init__, and
     # a cross-board id fails validation with 400 instead of silently
@@ -3994,7 +4005,7 @@ class CardSerializer(serializers.ModelSerializer):
             "attachment_count", "checklist_total", "checklist_done",
             "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
-            "blocker_count", "external_ref",
+            "blocker_count", "external_ref", "notify_assignee",
             # Manual blocked state (#1149). Additive; read-only here — they
             # change only through POST .../block/ and .../unblock/, which
             # record the CardBlock row and activity a PATCH would skip.
@@ -4071,7 +4082,15 @@ class CardSerializer(serializers.ModelSerializer):
                     ]
                 })
 
+    def validate_notify_assignee(self, value):
+        # Strict: DRF would coerce "yes" or 1, and a typo must never notify someone.
+        if not isinstance(self.initial_data.get("notify_assignee"), bool):
+            raise serializers.ValidationError("Must be a boolean.")
+        return value
+
     def create(self, validated_data):
+        # The view reads notify_assignee before save (it is not a column).
+        validated_data.pop("notify_assignee", None)
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         self._require_live_referents(validated_data, pairs)
@@ -4084,6 +4103,7 @@ class CardSerializer(serializers.ModelSerializer):
         return card
 
     def update(self, instance, validated_data):
+        validated_data.pop("notify_assignee", None)  # create only
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         self._require_live_referents(validated_data, pairs)

@@ -748,6 +748,7 @@ def enforce_column_limits(
 
 def create_card(
     *, actor, board, column_id, swimlane_id, save, render, role=None, force=False,
+    notify_assignee=False,
 ):
     """Create a card at the end of its target cell.
 
@@ -838,27 +839,30 @@ def create_card(
             # Notify any @mentioned board members in the initial description.
             _notify_mentions_after_commit(card, actor, "", card.description)
         # Registered after the card.created broadcast, as in update_card.
-        _notify_assigned_on_create(card, actor, board)
+        if notify_assignee:
+            _notify_assigned_on_create(card, actor, board)
     return CardMutationResult(card=card, payload=payload)
 
 
 def _notify_assigned_on_create(card, actor, board):
-    """Tell a card's first assignee they were given it, as an assignment would (#2211).
+    """Tell a lane team's pre-assigned member they were given the card (#2211).
 
-    Every create path comes through ``create_card``: ``POST cards/`` with an
-    ``assignee_id`` (which is how Add card sends a lane team's pre-assignment),
-    Add child's server-side pre-assignment, and the MCP ``create_card`` tool.
-    Notifying here, once, is what keeps a pre-assigned person from being told
-    twice or not at all. Same notification, verb and preference as
-    ``update_card``'s assignee change; nothing for a self-assignment, an
-    opted-out recipient, or someone who is not a current effective member of
-    the board (``create_notifications`` has no membership check of its own).
+    Opt-in through ``create_card(notify_assignee=True)``: Add child passes it
+    for its server-side pre-assignment, and ``POST cards/`` only when the body
+    says ``notify_assignee: true`` (the web app's Add card, for a lane team's
+    pre-assignment). Every other create with an assignee (plain API, MCP,
+    import) stays silent, as before 1.3. The card's creation movement sends no
+    "moved" notification (``signals.notify_on_card_moved``), so this is the
+    only one. Same notification, verb and preference as ``update_card``'s
+    assignee change; nothing for a self-assignment, an opted-out or inactive
+    recipient, or someone who is not a current effective member of the board
+    (``create_notifications`` has no membership check of its own).
     ``create_notifications`` defers delivery with ``transaction.on_commit``.
     """
     if card.assignee_id is None or card.assignee_id == actor.id:
         return
     assignee = card.assignee
-    if not assignee.notif_card_assigned:
+    if not assignee.is_active or not assignee.notif_card_assigned:
         return
     from ..utils import _get_effective_member_ids
 
