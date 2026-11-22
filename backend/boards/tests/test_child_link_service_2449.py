@@ -191,3 +191,35 @@ class OptionsListCapTests(AddChildFixture):
     def test_no_viewer_gets_an_empty_total(self):
         out = card_links.child_board_options_for_viewer(self.parent_card, None)
         self.assertEqual((out["boards"], out["boards_total"]), ([], 0))
+        out = card_links.default_child_board_options_for_admin(self.parent, None)
+        self.assertEqual(out, {"boards": [], "boards_total": 0})
+
+    def test_boards_total_counts_only_boards_the_caller_may_use(self):
+        """A board below the needed role is neither listed nor counted (rbac-check, #2449)."""
+        other = self.user_with("cap_other")
+        viewer_only = make_board(other, "Viewer only")
+        member_only = make_board(other, "Member only")
+        BoardMembership.objects.create(board=viewer_only, user=self.admin, role=Role.VIEWER)
+        BoardMembership.objects.create(board=member_only, user=self.admin, role=Role.MEMBER)
+        add = client_for(self.admin).get(
+            f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/",
+        ).json()
+        names = {b["name"] for b in add["boards"]}
+        self.assertNotIn("Viewer only", names)
+        self.assertIn("Member only", names)  # member is enough for Add child
+        self.assertEqual(add["boards_total"], len(add["boards"]))
+        default = client_for(self.admin).get(
+            f"/api/v1/boards/{self.parent.pk}/default-child-board-options/",
+        ).json()
+        names = {b["name"] for b in default["boards"]}
+        self.assertFalse({"Viewer only", "Member only"} & names)  # a default needs admin
+        self.assertEqual(default["boards_total"], len(default["boards"]))
+
+    def test_no_role_on_the_parent_board_or_below_admin_gets_an_empty_total(self):
+        """#1075: a caller the guard cannot authorize gets nothing, not the full count."""
+        outsider = self.user_with("cap_out", child=Role.ADMIN)
+        out = card_links.child_board_options_for_viewer(self.parent_card, outsider)
+        self.assertEqual((out["boards"], out["boards_total"]), ([], 0))
+        member = self.user_with("cap_mem", parent=Role.MEMBER, child=Role.ADMIN)
+        out = card_links.default_child_board_options_for_admin(self.parent, member)
+        self.assertEqual(out, {"boards": [], "boards_total": 0})
