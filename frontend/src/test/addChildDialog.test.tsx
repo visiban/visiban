@@ -57,7 +57,7 @@ describe('AddChildDialog (#2208)', () => {
     expect(go).toBeEnabled()
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.click(go)
-    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Write the plan' })
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Write the plan', apply_default_team: false })
     expect(patchBoard).not.toHaveBeenCalled()
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith({ boardName: 'Delivery', title: 'Write the plan' }))
   })
@@ -208,7 +208,7 @@ describe('AddChildDialog (#2208)', () => {
     const { user } = setup({ ...BASE, default: { id: 7, name: 'Delivery' } })
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.type(await screen.findByLabelText('Title'), 'Quick{Enter}')
-    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Quick' })
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Quick', apply_default_team: false })
   })
 })
 
@@ -239,6 +239,15 @@ describe('AddChildDialog lane default team (#2211)', () => {
     const { user } = setup(TEAM, { members })
     await user.click(await screen.findByRole('button', { name: 'Unassign Mia Reyes' }))
     await user.type(screen.getByLabelText('Title'), 'Kickoff')
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', apply_default_team: false })
+  })
+
+  it('sends apply_default_team false when no chip was shown (the roster no longer lists the server\'s pick)', async () => {
+    const { user } = setup(TEAM, { members: members.filter((m) => m.user.id !== 10) })
+    await user.type(await screen.findByLabelText('Title'), 'Kickoff')
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
     expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', apply_default_team: false })

@@ -112,8 +112,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     try {
       await addChild(boardId, cardId, {
         board_id: targetId, title: title.trim(),
-        // Sent only when the chip was removed; the server's default is to apply the team.
-        ...(teamAssignee && unassigned && { apply_default_team: false }),
+        // The server applies the lane team unless told not to, so say no whenever no chip was shown
+        // (nobody listed, or a stale roster) or the chip was removed: what is applied is what was shown.
+        ...((!teamAssignee || unassigned) && { apply_default_team: false }),
       });
     } catch (err) {
       const r = refusal(err);
