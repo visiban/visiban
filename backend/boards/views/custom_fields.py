@@ -32,6 +32,7 @@ from visiban.permissions import (
 
 from visiban.request_shape import id_in_db_range, require_json_object
 
+from ..services.swimlane_team import team_prefetch
 from .. import broadcast as _broadcast
 from ..models import (
     Board, BoardMembership, Column, CustomFieldDefinition, StageTrack, Swimlane,
@@ -263,7 +264,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             )
         lanes = (
             Swimlane.objects.filter(pk__in=lane_ids, board_id=board_id)
-            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+            .prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
             .order_by("position", "pk")
         )
         for lane in lanes:

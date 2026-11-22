@@ -348,7 +348,9 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
     const user = userEvent.setup()
     await user.type(screen.getByRole('textbox', { name: 'CRM' }), 'https://crm.example.com')
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Enter a valid web address')
+    // Two alerts since #2211: the field's error and the footer's save error.
+    const alerts = (await screen.findAllByRole('alert')).map((a) => a.textContent)
+    expect(alerts.some((t) => t?.includes('Enter a valid web address'))).toBe(true)
     expect(screen.getByText(/Fix the highlighted field/)).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
   })
@@ -360,7 +362,8 @@ describe('EditSwimlaneModal — URL fields (#1390)', () => {
     await user.type(screen.getByRole('textbox', { name: 'CRM' }), 'https://crm.example.com')
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(await screen.findByText("Couldn't save this swimlane. Try again.")).toBeInTheDocument()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // No field slot: the only alert is the footer's save error (role="alert" since #2211).
+    expect(screen.getAllByRole('alert').map((a) => a.textContent)).toEqual(["Couldn't save this swimlane. Try again."])
   })
 
   it('Escape closes an open multi-select field menu before the modal (#1391)', async () => {

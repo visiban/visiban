@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Link, useInRouterContext } from "react-router-dom";
 import axios from "axios";
 import { getChildBoardOptions, linkCardParent, moveCard, unlinkCardChild } from "../../api/cards";
@@ -32,7 +32,7 @@ function hasLimit(col: CardChildrenColumn): col is CardChildrenColumn & { wip_li
 }
 
 interface Props {
-  board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role">;
+  board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role"> & Partial<Pick<BoardFull, "members">>;
   cardId: number;
   cardTitle: string;
   /** The parent's column, for the Add child dialog's header line. */
@@ -53,7 +53,14 @@ interface Props {
   focusChildId?: number | null;
   userTimezone?: string;
   userDateFormat?: string;
+  /**
+   * The parent card is archived (#2447): the server refuses a new child or link under it, so Add child and Link
+   * existing stay focusable but `aria-disabled`, with the reason beside them.
+   */
+  cardArchived?: boolean;
 }
+
+const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding or linking children.";
 
 /**
  * The Children tab (#2209): a lens over the parent's one child board, scoped to this card (owner design note
@@ -62,12 +69,13 @@ interface Props {
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY" }: Props) {
+export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
   const clock = useSharedMinuteClock();
   const inRouter = useInRouterContext();
+  const archivedReasonId = useId();
   const { data, error, loading, reload } = state;
   const rootRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -139,9 +147,15 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const doneLine = (n: number) => `${n} of ${total} done`;
 
   const openLinkExisting = async () => {
+    if (cardArchived) return; // aria-disabled does not stop a click (frontend/CLAUDE.md #863)
     setLinkError(null);
     try {
       const o = await getChildBoardOptions(board.id, cardId);
+      // Archived since this panel read the card: the server's answer wins.
+      if (o.disabled_reason === "parent_archived") {
+        setLinkError(ARCHIVED_PARENT_REASON);
+        return;
+      }
       const fixed = o.fixed_board && !o.fixed_board.hidden ? [{ id: o.fixed_board.id, name: o.fixed_board.name }] : null;
       const boards = fixed ?? (o.default ? [o.default] : o.boards.map((b) => ({ id: b.id, name: b.name })));
       if (boards.length === 0) setLinkError("There is no board you can link children from.");
@@ -294,13 +308,15 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
     queueMicrotask(() => rootRef.current?.querySelector<HTMLElement>(`[data-column-button="${next.id}"]`)?.focus());
   };
 
+  const archivedProps = cardArchived ? { "aria-disabled": true, "aria-describedby": archivedReasonId } : {};
   const actions = canAddOrLink && (
     <div className={`flex gap-2 items-center ${wide ? "" : "flex-col items-stretch"}`}>
       <button
         ref={addRef}
         type="button"
-        onClick={() => setAdding(true)}
-        className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        onClick={() => { if (!cardArchived) setAdding(true); }}
+        {...archivedProps}
+        className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary aria-disabled:hover:bg-button-primary aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Add child" : `Add child${boardName ? ` to ${boardName}` : ""}`}
       </button>
@@ -308,10 +324,12 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         ref={linkRef}
         type="button"
         onClick={() => void openLinkExisting()}
-        className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        {...archivedProps}
+        className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover aria-disabled:hover:bg-transparent aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Link existing" : "Link existing card"}
       </button>
+      {cardArchived && <p id={archivedReasonId} className="text-xs text-fg-muted">{ARCHIVED_PARENT_REASON}</p>}
     </div>
   );
 
@@ -538,6 +556,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           cardId={cardId}
           parentTitle={cardTitle}
           parentColumn={cardColumnName}
+          members={board.members}
           onWriteStart={beginWrite}
           onWriteFailed={() => { localWrite.current = false; }}
           onClose={() => { setAdding(false); queueMicrotask(() => addRef.current?.focus()); }}

@@ -392,6 +392,16 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "before the loop. "
         "record_board_event() defers each publish with on_commit."
     ),
+    "backend/boards/services/card_links.py::_publish_sibling_frames": (
+        "One ids-only card.parent_changed {card_ids, siblings: true} per "
+        "(parent, child board) pair whose sibling counts changed (#2443). Each "
+        "frame names one parent's children and is gated to THAT parent's board "
+        "(audience_board_id), so frames for different parents cannot be "
+        "merged. Bounded like announce_children_changed: the distinct parents "
+        "of the cards one write touched, each with one child board. Runs from "
+        "the single transaction.on_commit callback _announce_siblings "
+        "registers, with plain (board id, board id, ids) tuples."
+    ),
     "backend/boards/services/card_links.py::announce_columns_children_changed": (
         "One ids-only card.children_bulk_changed per distinct PARENT board when a "
         "child-board column's is_done flips or the first column changes (#2500). "

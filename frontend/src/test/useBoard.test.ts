@@ -35,7 +35,7 @@ vi.mock('../api/boards', () => ({
   getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
   getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
-  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue({ boards: [] }),
 }))
 
 vi.mock('../api/cards', () => ({

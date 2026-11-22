@@ -397,6 +397,9 @@ class ChildBoardOptionsTests(AddChildFixture):
         self.assertEqual(out, {
             "fixed_board": None, "default": None, "can_set_default": False,
             "boards": [{"id": self.child.pk, "name": "Delivery", "can_set_default": False}],
+            # #2211: the parent's lane has no team.
+            "default_team": None,
+            "boards_total": 1, "disabled_reason": None,
         })
 
     def test_admin_of_both_can_set_default_and_sees_it(self):
@@ -714,7 +717,10 @@ class DefaultChildBoardOptionsTests(DefaultChildBoardFixture):
         self.assertEqual(self.options(outsider, self.parent).status_code, 404)
 
     def test_no_viewer_fails_closed(self):
-        self.assertEqual(card_links.default_child_board_options_for_admin(self.parent, None), [])
+        self.assertEqual(
+            card_links.default_child_board_options_for_admin(self.parent, None),
+            {"boards": [], "boards_total": 0},
+        )
 
 
 class AddChildThrottleTests(AddChildFixture):

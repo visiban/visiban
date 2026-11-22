@@ -982,13 +982,37 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         required=False, allow_empty=True,
         help_text=(
             "User ids of the lane's default team, in team order (#2211, since 1.3). "
-            "Each must be an active, non-viewer member of the board. Stored settings "
-            "only: the team does not pre-assign new cards yet. Writable by board admins."
+            "Each must be an active, non-viewer member of the board. The first "
+            "eligible member is pre-assigned to new cards created in the lane by the "
+            "web app and to children added from its cards (Add child). Writable by "
+            "board admins."
+        ),
+    )
+    default_team_members = serializers.SerializerMethodField(
+        help_text=(
+            "The lane's default team as `[{id, is_active}]`, in team order (#2211, "
+            "since 1.3). Read-only. A member with `is_active: false` is deactivated: "
+            "never pre-assigned, and a `default_team` write that still lists them is "
+            "refused until they are removed."
         ),
     )
 
     MAX_LIMIT_COLUMN_IDS = 90
     MAX_DEFAULT_TEAM = 50
+
+    @extend_schema_field({
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"id": {"type": "integer"}, "is_active": {"type": "boolean"}},
+            "required": ["id", "is_active"],
+        },
+    })
+    def get_default_team_members(self, obj):
+        from .services.swimlane_team import team_members_payload
+
+        # ``.all()`` through the lane prefetch (services.swimlane_team.team_prefetch).
+        return team_members_payload(obj)
 
     @extend_schema_field({"type": "array", "items": {"type": "integer"}})
     def get_not_applicable_field_ids(self, obj):
@@ -1007,7 +1031,7 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             # Additive (#1921): dimensions marked not applicable for this lane.
             "not_applicable_field_ids",
             # Additive (#2211).
-            "default_team",
+            "default_team", "default_team_members",
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -1179,7 +1203,7 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             # Additive (#1921).
             "not_applicable_field_ids",
             # Additive (#2211).
-            "default_team",
+            "default_team", "default_team_members",
         ]
 
 
@@ -3642,6 +3666,21 @@ _PARENT_VISIBLE_KEYS = (
                         "means the client says \"Parent\"."
                     ),
                 },
+                "siblings_total": {
+                    "type": "integer", "nullable": True,
+                    "description": (
+                        "Since 1.3 (#2443): the parent's live children on this card's board, "
+                        "this card included while it is live (at most 100). `null` when the caller holds no "
+                        "role on this card's board."
+                    ),
+                },
+                "siblings_done": {
+                    "type": "integer", "nullable": True,
+                    "description": (
+                        "Since 1.3 (#2443): how many of `siblings_total` are done: in a done column "
+                        "and not blocked, the parent rollup's own rule."
+                    ),
+                },
             },
             "required": ["hidden", *_PARENT_VISIBLE_KEYS],
         },
@@ -3881,6 +3920,17 @@ class CardSerializer(serializers.ModelSerializer):
         # validation error rather than exposing all users as candidates (#1050).
         write_only=True, read_only=False, queryset=User.objects.none(), source="assignee", required=False, allow_null=True
     )
+    # #2211 (since 1.3): create only. True sends the assignee the "assigned"
+    # notification; the web app sets it only for a lane default team's
+    # pre-assignment, so a plain create with an assignee stays silent as before.
+    notify_assignee = serializers.BooleanField(
+        write_only=True, required=False,
+        help_text=(
+            "Create only (since 1.3, #2211): `true` notifies the assignee that they were "
+            "assigned, as an assignee change does. Default `false`. Must be a JSON boolean. "
+            "Ignored on update."
+        ),
+    )
     # Explicitly declared (rather than left to auto-generation from the model
     # FK) so the queryset can be scoped to the current board in __init__, and
     # a cross-board id fails validation with 400 instead of silently
@@ -3970,7 +4020,7 @@ class CardSerializer(serializers.ModelSerializer):
             "attachment_count", "checklist_total", "checklist_done",
             "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
-            "blocker_count", "external_ref",
+            "blocker_count", "external_ref", "notify_assignee",
             # Manual blocked state (#1149). Additive; read-only here — they
             # change only through POST .../block/ and .../unblock/, which
             # record the CardBlock row and activity a PATCH would skip.
@@ -4047,7 +4097,20 @@ class CardSerializer(serializers.ModelSerializer):
                     ]
                 })
 
+    def validate_notify_assignee(self, value):
+        # For form-encoded input DRF fills an absent BooleanField with False
+        # (``default_empty_html``) and still calls this validator, so absence
+        # must mean "not requested", never a 400 on every multipart create.
+        if "notify_assignee" not in self.initial_data:
+            return False
+        # Strict: DRF would coerce "yes" or 1, and a typo must never notify someone.
+        if not isinstance(self.initial_data.get("notify_assignee"), bool):
+            raise serializers.ValidationError("Must be a boolean.")
+        return value
+
     def create(self, validated_data):
+        # The view reads notify_assignee before save (it is not a column).
+        validated_data.pop("notify_assignee", None)
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         self._require_live_referents(validated_data, pairs)
@@ -4060,6 +4123,7 @@ class CardSerializer(serializers.ModelSerializer):
         return card
 
     def update(self, instance, validated_data):
+        validated_data.pop("notify_assignee", None)  # create only
         pairs = validated_data.pop("custom_field_values", None)
         external_ref = validated_data.pop("external_ref", _OMITTED)
         self._require_live_referents(validated_data, pairs)
@@ -5217,7 +5281,9 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # without this the /full/ payload costs 1 + 2N queries in swimlane count
         # (#1140). .all() on the prefetched manager keeps the cache; a .filter()
         # here would escape it.
-        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", "team_members")
+        from .services.swimlane_team import team_prefetch
+
+        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch(), "track_exceptions", team_prefetch())
         return serializer_class(lanes, many=True, context=self.context).data
 
     @extend_schema_field(CardSerializer(many=True))
