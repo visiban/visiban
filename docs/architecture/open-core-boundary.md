@@ -182,7 +182,7 @@ Structured delivery report export (CSV/PDF, formatted for client or QBR presenta
 
 *Note (2026-11-14, #2261):* the Analytics tab now offers 30, 90, 180 and 365-day windows; the 7-day window is gone from the UI, though the API still accepts `days=7`. This is not an OSS/enterprise boundary change.
 
-Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS`). A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise. *Note (2026-11-21, #1100):* forecasts whose subject is a set of boards are also Enterprise; see the forecasting ruling below.
+Enterprise keeps three things: cross-period comparison, scheduled analytics reports, and panels registered through `ANALYTICS_EXTENSIONS`. A trend drawn inside the selected period is not cross-period comparison and is OSS: the throughput run chart, and the per-swimlane rolling median in #458. Comparing the selected period with an earlier one is Enterprise. *Note (2026-11-21, #1100):* forecasts whose subject is a set of boards are also Enterprise; see the forecasting ruling below.
 
 **Why.** Seeing where work piles up passes the small-team test, and OSS already ships bottleneck detection. The earlier split would have left most of #448 disputed: "velocity trends over time" covers the throughput run chart, and enterprise #12 also claims cycle time, lead time and throughput.
 
