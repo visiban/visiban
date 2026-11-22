@@ -2879,8 +2879,10 @@ class CardViewSet(viewsets.ModelViewSet):
             "Link this card (the child) to a parent card on another board. "
             "Minimum role: member on BOTH boards. A parent id that is missing or "
             "on a board the caller cannot open is a 404, identical in both cases. "
-            "Two-tier, already-linked, other-child-board and 100-children refusals "
-            "are 400s carrying a `code`."
+            "Two-tier, already-linked, archived-parent, other-child-board and "
+            "100-children refusals are 400s carrying a `code`. An archived parent "
+            "(`parent_archived`) still accepts a card that was linked to it and "
+            "then unlinked, so an unlink can be undone (since 1.3)."
             " Rate-limited per user by the `card_link_write` scope (`CARD_LINK_THROTTLE_WRITE_RATE`, default 300/hour), shared by the four link writes (link, Add child, child-side unlink, parent-side unlink): over it, 429."
         ),
     )
@@ -2959,7 +2961,7 @@ class CardViewSet(viewsets.ModelViewSet):
         ),
         responses={
             201: OpenApiResponse(description="The new child card, as `POST .../cards/` returns it."),
-            400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `children_on_other_board`, `children_limit`)."),
+            400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `parent_archived`, `children_on_other_board`, `children_limit`). An archived parent always refuses Add child: the new card was never linked to it."),
             403: OpenApiResponse(description="Below `member` on this card's board."),
             404: OpenApiResponse(description="Unknown, unopenable, below-member or non-qualifying target board: one identical answer."),
             409: _limit_conflict_response("AddChildLimitConflict", _ENTER_COLUMN_409),
@@ -3053,12 +3055,14 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         responses={200: OpenApiResponse(description=(
-            "`{fixed_board, default, boards, can_set_default}`, computed for the caller. "
+            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason}`, computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
             "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "
             "false when the caller may not add a child there), `default` the board's "
             "default child board when the caller can add cards there, `boards` every "
-            "board the caller may add the child to, each with `can_set_default`."
+            "board the caller may add the child to (at most 100, by name; `boards_total` counts "
+            "them all, #2449), each with `can_set_default`. `disabled_reason` is `parent_archived` "
+            "when this card is archived (#2447), else null."
         ))},
         description=(
             "The Add child chooser's options for this card (#2208, since 1.3). Minimum "
@@ -3203,7 +3207,9 @@ class CardViewSet(viewsets.ModelViewSet):
         description=(
             "Up to 20 cards on `board` that could be linked under this card as "
             "children: Link existing (#2209, since 1.3). `disabled_reason` marks a "
-            "card the link write would refuse. Minimum role: member on both boards. "
+            "card the link write would refuse; under an archived parent that is "
+            "`parent_archived` for every free card except one that was linked to "
+            "this card and then unlinked. Minimum role: member on both boards. "
             "Rate-limited by the `card_query` scope: debounce the search."
         ),
     )

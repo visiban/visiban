@@ -165,12 +165,46 @@ describe('AddChildDialog (#2208)', () => {
   it('shows a 400 rule message, and a generic line for anything else', async () => {
     const { user } = setup({ ...BASE, default: { id: 7, name: 'Delivery' } })
     await user.type(await screen.findByLabelText('Title'), 'Task')
-    vi.mocked(addChild).mockRejectedValueOnce(axiosError(400, { detail: 'A card can have at most 100 children.' }))
+    // The real body of a link rule is CodedValidationError's `{code, detail}`: the detail is shown, never the code.
+    vi.mocked(addChild).mockRejectedValueOnce(axiosError(400, { code: 'children_limit', detail: 'A card can have at most 100 children.' }))
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('A card can have at most 100 children.')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('children_limit')
+    // A code with no detail maps to its copy (#2447), never the raw `parent_archived`.
+    vi.mocked(addChild).mockRejectedValueOnce(axiosError(400, { code: 'parent_archived' }))
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('That card is archived. Restore it before adding children.'))
+    expect(screen.getByRole('alert')).not.toHaveTextContent('parent_archived')
+    // A field error still shows its first message.
+    vi.mocked(addChild).mockRejectedValueOnce(axiosError(400, { title: ['This field may not be blank.'] }))
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('This field may not be blank.'))
     vi.mocked(addChild).mockRejectedValueOnce(new Error('boom'))
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("Couldn't add the child"))
+  })
+
+  it('an archived parent disables Add and says why, before any write (#2447)', async () => {
+    setup({ ...BASE, default: { id: 7, name: 'Delivery' }, disabled_reason: 'parent_archived' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('This card is archived. Restore it before adding children.')
+    expect(screen.queryByLabelText('Title')).toBeNull()
+    expect(screen.queryByLabelText('Child board')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add to Delivery' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add to Delivery' })).toHaveAccessibleDescription('This card is archived. Restore it before adding children.')
+    expect(addChild).not.toHaveBeenCalled()
+  })
+
+  it('says "Showing N of M" when the server capped the boards, and preselects the default it kept (#2449)', async () => {
+    setup({ ...BASE, default: { id: 8, name: 'Ops' }, boards_total: 240 })
+    expect(await screen.findByTestId('child-board-options-cap')).toHaveTextContent('Showing 2 of 240 boards, by name.')
+    expect(screen.getByLabelText('Child board')).toHaveAccessibleDescription(/Showing 2 of 240 boards, by name\./)
+    expect(screen.getByRole('button', { name: 'Add to Ops' })).toBeInTheDocument()
+  })
+
+  it('shows no cap line for a complete list or an older server (#2449)', async () => {
+    setup({ ...BASE, boards_total: 2 })
+    await screen.findByLabelText('Child board')
+    expect(screen.queryByTestId('child-board-options-cap')).toBeNull()
   })
 
   it('a failed options read says so', async () => {

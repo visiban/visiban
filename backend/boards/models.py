@@ -2932,6 +2932,47 @@ class CardParentLink(models.Model):
         return f"{self.parent_id} -> {self.child_id}"
 
 
+class CardParentUnlink(models.Model):
+    """A parent/child pair whose :class:`CardParentLink` was removed (#2447).
+
+    **Why it exists:** an archived parent gets no new children
+    (``parent_archived``), but a child that was linked to it and then
+    unlinked (an accidental Unlink, or Undo of one) may be linked back. The
+    card history (``CardActivity``) deliberately stores no reference to the
+    other card, so it cannot answer "was this pair linked before"; this row
+    does. Written by ``card_links.remove_link`` and deleted by
+    ``card_links.create_link`` under the same card locks, so a pair has at
+    most one row and only while it is unlinked.
+
+    **Who reads it:** only ``card_links._check_link_rules_under_lock`` (the
+    archived-parent exception) and ``child_candidates_for_viewer`` (the
+    picker's ``disabled_reason``). It is never serialized, exported,
+    imported, broadcast or sent to MCP or webhooks: it carries no field a
+    viewer could not already see and nothing reads it per viewer, so every
+    per-viewer rule on the link reads is unaffected. Deleting either card
+    removes the row (``CASCADE``).
+    """
+
+    parent = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="unlinked_child_pairs"
+    )
+    child = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="unlinked_parent_pairs"
+    )
+    unlinked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_parent_unlinks"
+        # The unique index leads with ``parent``, so it also serves the one
+        # per-parent read (the picker's batched lookup and the write check).
+        constraints = [
+            models.UniqueConstraint(fields=["parent", "child"], name="cardparentunlink_pair_uniq"),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_id} -/- {self.child_id}"
+
+
 class CardExternalRef(models.Model):
     """A card's link to a merge request / pull request on an external forge (#352).
 

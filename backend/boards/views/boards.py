@@ -615,7 +615,8 @@ class BoardViewSet(
 
     @extend_schema(
         responses={200: OpenApiResponse(description=(
-            "`{boards: [{id, name}]}`: qualifying boards where the caller is admin."
+            "`{boards: [{id, name}], boards_total}`: qualifying boards where the caller is "
+            "admin, by name, at most 100 (`boards_total` counts them all, since 1.3, #2449)."
         ))},
         description=(
             "Boards the caller may choose as this board's default child board "
@@ -627,7 +628,7 @@ class BoardViewSet(
         """Boards this admin may choose as the default child board (#2208)."""
         board = self.get_object()
         self._require_board_settings_admin(board)
-        return Response({"boards": card_links.default_child_board_options_for_admin(board, request.user)})
+        return Response(card_links.default_child_board_options_for_admin(board, request.user))
 
     def _persist_and_broadcast_board_updated(self, board_id, old_group_id):
         """Persist ``board.updated`` and schedule its fanout on commit; return the payload.

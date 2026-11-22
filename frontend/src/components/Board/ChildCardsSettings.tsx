@@ -4,6 +4,7 @@ import { getChildrenSettingBlockers, getDefaultChildBoardOptions } from "../../a
 import type { Board, ChildrenSettingBlockers } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
+import { boardsCapLine } from "../Card/childBoardOptionsCap";
 
 interface Props {
   board: Pick<Board, "id" | "cards_can_have_children" | "default_child_board"> &
@@ -12,9 +13,11 @@ interface Props {
   onUpdate: (patch: Record<string, unknown>) => void | Promise<unknown>;
   /** Server refusal of the last flip (#1104), shown inline so a race past the blockers read is not silent. */
   error?: string | null;
+  /** Closes settings and filters the board to its child cards (Parent filter "any", #2209). Absent: no button. */
+  onShowChildCards?: () => void;
 }
 
-type Reason = { key: string; text: string; ask?: string; change?: { id: number; name: string } };
+type Reason = { key: string; text: string; ask?: string; change?: { id: number; name: string }; showCount?: number };
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -26,7 +29,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * in a `role="group"`. The turn-off confirm is not built: turning off with live parent links is refused,
  * so that case is a blocked state too, not a confirm.
  */
-export default function ChildCardsSettings({ board, onUpdate, error = null }: Props) {
+export default function ChildCardsSettings({ board, onUpdate, error = null, onShowChildCards }: Props) {
   const uid = useId();
   const labelId = `${uid}-label`;
   const helpId = `${uid}-help`;
@@ -34,6 +37,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   const reasonsId = `${uid}-reasons`;
   const defaultId = `${uid}-default`;
   const defaultHelpId = `${uid}-default-help`;
+  const defaultCapId = `${uid}-default-cap`;
   const reasonsRef = useRef<HTMLDivElement>(null);
   const checked = board.cards_can_have_children;
   // The reason link is router navigation (no full page load); a bare render with no
@@ -41,6 +45,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   const inRouter = useInRouterContext();
   const [blockers, setBlockers] = useState<ChildrenSettingBlockers | null>(null);
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
+  // How many boards qualify in all (#2449): the list holds at most 100.
+  const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
   // The server still refuses a bad flip on save, so this only explains; it does not gate.
   const [blockersFailed, setBlockersFailed] = useState(false);
@@ -74,7 +80,9 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
   useEffect(() => {
     if (!checked) return;
     let live = true;
-    getDefaultChildBoardOptions(board.id).then((o) => { if (live) setOptions(o); }).catch(() => { if (live) setOptions([]); });
+    getDefaultChildBoardOptions(board.id)
+      .then((o) => { if (live) { setOptions(o.boards); setOptionsTotal(o.boards_total); } })
+      .catch(() => { if (live) { setOptions([]); setOptionsTotal(undefined); } });
     return () => { live = false; };
   }, [board.id, checked]);
 
@@ -87,6 +95,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
         turnOnReasons.push({
           key: "children",
           text: `${plural(blockers.child_cards, "card here is a child", "cards here are children")} of cards on another board.`,
+          showCount: blockers.child_cards,
         });
       }
       blockers.default_of.forEach((d, i) => {
@@ -132,6 +141,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
       : []),
   ];
 
+  const capLine = boardsCapLine(options.length, optionsTotal);
   return (
     <div className="flex flex-col gap-3">
       <button
@@ -203,6 +213,16 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
               <li key={r.key} className="text-sm text-fg-secondary">
                 {r.text}
                 {r.ask && <span className="block text-fg-muted">{r.ask}</span>}
+                {r.showCount !== undefined && onShowChildCards && (
+                  <button
+                    type="button"
+                    onClick={onShowChildCards}
+                    data-testid="show-child-cards"
+                    className="mt-1 block max-sm:min-h-11 text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                  >
+                    {r.showCount === 1 ? "Show the card" : `Show the ${r.showCount} cards`}
+                  </button>
+                )}
                 {r.change && (() => {
                   const cls = "mt-1 inline-flex max-sm:min-h-11 items-center text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded";
                   const to = `/boards/${r.change.id}?settings=rules`;
@@ -229,11 +249,14 @@ export default function ChildCardsSettings({ board, onUpdate, error = null }: Pr
           </div>
           <SelectDropdown
             id={defaultId}
-            ariaDescribedBy={defaultHelpId}
+            ariaDescribedBy={capLine ? `${defaultHelpId} ${defaultCapId}` : defaultHelpId}
             value={board.default_child_board != null ? String(board.default_child_board) : "none"}
             onChange={(v) => onUpdate({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}
           />
+          {capLine && (
+            <p id={defaultCapId} className="text-xs text-fg-muted mt-1" data-testid="default-child-board-cap">{capLine}</p>
+          )}
         </div>
       )}
 

@@ -5,6 +5,8 @@ import { patchBoard } from "../../api/boards";
 import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
 import LaneTeamAssignee from "../Board/LaneTeamAssignee";
 import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
+import { linkErrorCopy } from "./cardParent";
+import { boardsCapLine } from "./childBoardOptionsCap";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 
@@ -30,7 +32,12 @@ interface Props {
   onWriteFailed?: () => void;
 }
 
-/** The server's refusal text for an Add child write, or a generic line. */
+/**
+ * The server's refusal text for an Add child write, or a generic line. A link rule answers
+ * `CodedValidationError`'s `{code, detail}` (for example `parent_archived`): show `detail`, or the
+ * coded copy when there is none, never the bare code. A field error (`{title: ["..."]}`) shows its
+ * first message.
+ */
 function refusal(err: unknown): { text: string; refetch: boolean } {
   if (axios.isAxiosError(err)) {
     const status = err.response?.status;
@@ -38,6 +45,8 @@ function refusal(err: unknown): { text: string; refetch: boolean } {
     if (status === 404) return { text: "That board is no longer available. Choose another.", refetch: true };
     if (status === 403) return { text: "You don't have permission to add children to this card.", refetch: false };
     if (status === 400 && data) {
+      if (typeof data.detail === "string" && data.detail.trim()) return { text: data.detail, refetch: true };
+      if (typeof data.code === "string") return { text: linkErrorCopy(err), refetch: true };
       const first = Object.values(data).flat().find((v): v is string => typeof v === "string");
       if (first) return { text: first, refetch: true };
     }
@@ -54,6 +63,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
+  const capId = `${uid}-cap`;
+  const archivedReasonId = `${uid}-archived`;
   const titleFieldId = `${uid}-card-title`;
   const [options, setOptions] = useState<ChildBoardOptions | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -88,7 +99,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const chosenBoard = options?.boards.find((b) => String(b.id) === chosen) ?? null;
   const targetName = fixedVisible?.name ?? chosenBoard?.name ?? null;
   const fixedBlocked = fixedVisible?.can_add === false;
-  const canPick = !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
+  // #2447: the server refuses a new child under an archived parent; say so before the write does.
+  const parentArchived = options?.disabled_reason === "parent_archived";
+  const canPick = !parentArchived && !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
   const hasDefault = options?.default != null;
   const offerDefault = !fixedVisible && chosenBoard?.can_set_default === true && options?.default?.id !== chosenBoard.id;
   // #2211: the server names who it pre-assigns on each board (a member who can't be assigned there
@@ -102,6 +115,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const teamOthers = team
     ? team.member_ids.filter((id) => id !== assigneeId && byId.has(id)).map((id) => memberName(byId.get(id)!))
     : [];
+  const capLine = options ? boardsCapLine(options.boards.length, options.boards_total) : null;
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -175,7 +189,11 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           className="flex flex-col gap-4 max-sm:flex-1"
           onSubmit={(e) => { e.preventDefault(); void submit(); }}
         >
-          {fixedHidden ? (
+          {parentArchived ? (
+            <p id={archivedReasonId} role="alert" className="text-sm text-fg-secondary">
+              This card is archived. Restore it before adding children.
+            </p>
+          ) : fixedHidden ? (
             <p role="alert" className="text-sm text-fg-secondary">
               This card's children are on a board you can't open, so you can't add another from here.
             </p>
@@ -197,16 +215,20 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={selectId} className="text-sm text-fg-secondary">Child board</label>
               <SelectDropdown
                 id={selectId}
+                ariaDescribedBy={capLine ? capId : undefined}
                 value={chosen}
                 onChange={(v) => { setChosen(v); setMakeDefault(false); setUnassigned(false); }}
                 placeholder="Choose a board"
                 options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
               />
               <p className="text-xs text-fg-muted">Only boards you can add cards to are listed.</p>
+              {capLine && (
+                <p id={capId} className="text-xs text-fg-muted" data-testid="child-board-options-cap">{capLine}</p>
+              )}
             </div>
           )}
 
-          {!fixedHidden && (offerDefault ? (
+          {!fixedHidden && !parentArchived && (offerDefault ? (
             <label className="flex min-h-11 items-center gap-2 text-sm text-fg-secondary">
               <input type="checkbox" className="h-4 w-4 accent-primary focus:ring-2 focus:ring-primary-emphasis" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} />
               Use {chosenBoard?.name} as the default for {boardName}
@@ -215,7 +237,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             <p className="text-xs text-fg-muted">A board admin can set one so this step is skipped.</p>
           )))}
 
-          {!fixedHidden && !fixedBlocked && (
+          {!fixedHidden && !fixedBlocked && !parentArchived && (
             <div className="flex flex-col gap-1">
               <label htmlFor={titleFieldId} className="text-sm text-fg-secondary">Title</label>
               <input
@@ -256,6 +278,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             <button
               type="submit"
               disabled={!ready}
+              aria-describedby={parentArchived ? archivedReasonId : undefined}
               className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm px-4 py-1.5 max-sm:min-h-11 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {submitting ? "Adding…" : targetName ? `Add to ${targetName}` : "Add child"}

@@ -913,6 +913,14 @@ export interface CardParentVisible {
   archived: boolean;
   /** What the parent's board calls its cards (#2212), raw; "" means "Parent". Use `parentItemNames`. */
   board_parent_name_singular: string;
+  /**
+   * The parent's live children on THIS card's board, this card included (#2443, since 1.3):
+   * "2 of 5 siblings done". Computed for the viewer over this board only; null when the
+   * viewer holds no role here. Optional: absent from responses of servers before #2443.
+   */
+  siblings_total?: number | null;
+  /** How many of `siblings_total` are done: in a done column and not blocked, the rollup's rule (#2443). */
+  siblings_done?: number | null;
 }
 
 /** A parent card on a board the viewer cannot open: no other key is sent (#1104). */
@@ -979,7 +987,7 @@ export interface ChildCandidate {
   swimlane_id: number;
   swimlane_name: string;
   assignee: BoardUser | null;
-  disabled_reason: "link_exists" | "already_has_parent" | "children_limit" | null;
+  disabled_reason: "link_exists" | "already_has_parent" | "parent_archived" | "children_limit" | null;
   /** For `already_has_parent`: that parent's title when the viewer can open its board, else null. */
   parent_title: string | null;
 }
@@ -2799,4 +2807,16 @@ export interface ChildBoardOptions {
   boards: { id: number; name: string; can_set_default: boolean; default_assignee_id?: number | null }[];
   /** #2211: the parent's lane team (active members, team order), or null. Optional for older servers. */
   default_team?: { swimlane: { id: number; name: string }; member_ids: number[] } | null;
+  /** How many boards qualify in all; `boards` holds at most 100 of them (#2449, since 1.3). */
+  boards_total?: number;
+  /** `"parent_archived"` when this card is archived: Add child refuses it (#2447, since 1.3). */
+  disabled_reason?: "parent_archived" | null;
+}
+
+/** `GET /boards/{id}/default-child-board-options/` (#2208): the Rules page's default child board select. */
+export interface DefaultChildBoardOptions {
+  /** At most 100, by name; always includes the board's current default when it qualifies (#2449). */
+  boards: { id: number; name: string }[];
+  /** How many boards qualify in all (#2449, since 1.3); absent from older servers. */
+  boards_total?: number;
 }
