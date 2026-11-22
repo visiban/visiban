@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 from django.utils import timezone
 
-from boards.models import BoardMembership, Card, CardParentLink, Column
+from boards.models import BoardMembership, Card, CardParentLink, CardRelation, Column
 from boards.services import card_links
 from boards.tests.test_default_child_board_2208 import (
     PATCH_BROADCAST,
@@ -145,6 +145,27 @@ class SiblingCountTests(AddChildFixture):
     def test_no_viewer_is_hidden_without_counts(self):
         out = card_links.parents_for_viewer([self.kids[0].pk], None)
         self.assertEqual(out, {self.kids[0].pk: {"hidden": True}})
+
+    def test_a_blocked_child_in_a_done_column_is_not_done(self):
+        """Same partition as the parent rollup: blocked wins over the done column (#2443)."""
+        done_kid = self.kids[3]
+        Card.objects.filter(pk=done_kid.pk).update(blocked_at=timezone.now())
+        p = self.parent_of(self.member, self.kids[0])
+        self.assertEqual((p["siblings_total"], p["siblings_done"]), (4, 0))
+        rollup = card_links.rollups_for_viewer([self.parent_card.pk], self.member)[self.parent_card.pk]
+        self.assertEqual((rollup["done"], rollup["blocked"]), (0, 1))
+
+    def test_an_open_blocks_relation_from_a_live_same_board_card_is_not_done(self):
+        done_kid = self.kids[3]
+        blocker = add_card(self.child, "blocker")
+        rel = CardRelation.objects.create(
+            from_card=blocker, to_card=done_kid, relation_type=CardRelation.Type.BLOCKS, created_by=self.admin,
+        )
+        self.assertEqual(self.parent_of(self.member, self.kids[0])["siblings_done"], 0)
+        # An archived blocker no longer blocks: done again, as in the rollup.
+        _archive(blocker)
+        self.assertEqual(self.parent_of(self.member, self.kids[0])["siblings_done"], 1)
+        rel.delete()
 
     def test_counts_are_clamped_to_the_children_cap(self):
         lane = self.child.swimlanes.first()

@@ -3652,7 +3652,10 @@ _PARENT_VISIBLE_KEYS = (
                 },
                 "siblings_done": {
                     "type": "integer", "nullable": True,
-                    "description": "Since 1.3 (#2443): how many of `siblings_total` are in a done column.",
+                    "description": (
+                        "Since 1.3 (#2443): how many of `siblings_total` are done: in a done column "
+                        "and not blocked, the parent rollup's own rule."
+                    ),
                 },
             },
             "required": ["hidden", *_PARENT_VISIBLE_KEYS],

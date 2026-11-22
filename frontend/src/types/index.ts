@@ -902,7 +902,7 @@ export interface CardParentVisible {
    * viewer holds no role here. Optional: absent from responses of servers before #2443.
    */
   siblings_total?: number | null;
-  /** How many of `siblings_total` are in a done column (#2443). */
+  /** How many of `siblings_total` are done: in a done column and not blocked, the rollup's rule (#2443). */
   siblings_done?: number | null;
 }
 

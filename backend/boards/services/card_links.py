@@ -1153,16 +1153,23 @@ def _sibling_counts(pairs):
     ``pairs`` names only boards the caller has already authorized; a child of
     the same parent on any other board is never counted (one child board per
     parent is a write rule with no constraint). Zero queries for no pairs.
+
+    ``done`` uses the parent rollup's own partition (:func:`rollups_for_viewer`):
+    a blocked child (manual block, or an open ``blocks`` relation from a live
+    same-board card) is blocked even in a done column, so it is not done here
+    either. The child's "2 of 5 siblings done" and the parent's rollup
+    therefore never disagree about the same children.
     """
     if not pairs:
         return {}
+    done = Q(child__column__is_done=True, child__blocked_at__isnull=True) & ~Exists(_open_blocker_of_child())
     rows = (
         CardParentLink.objects.filter(
             parent_id__in={p for p, _ in pairs}, child__board_id__in={b for _, b in pairs},
             child__archived_at__isnull=True,
         )
         .order_by().values("parent_id", "child__board_id")
-        .annotate(total=Count("pk"), done=Count("pk", filter=Q(child__column__is_done=True)))
+        .annotate(total=Count("pk"), done=Count("pk", filter=done))
         .values_list("parent_id", "child__board_id", "total", "done")
     )
     cap = CHILDREN_PER_PARENT_LIMIT
@@ -1462,6 +1469,21 @@ def announce_parent_changed(card_id, board, *, actor_id):
 # ─── Parent-side rollup and child-side pings (#2210, #2416) ──────────────────
 
 
+def _open_blocker_of_child():
+    """An open ``blocks`` relation onto a ``CardParentLink`` row's child (the #449 predicate).
+
+    For ``Exists`` over ``CardParentLink``: from a live card on the child's own
+    board. Shared by the parent rollup and the child's sibling count (#2443) so
+    the two always classify a blocked child the same way.
+    """
+    return CardRelation.objects.filter(
+        to_card_id=OuterRef("child_id"),
+        relation_type=CardRelation.Type.BLOCKS,
+        from_card__archived_at__isnull=True,
+        from_card__board_id=OuterRef("child__board_id"),
+    )
+
+
 def _empty_rollup():
     return {
         "visible": True, "total": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
@@ -1509,12 +1531,7 @@ def rollups_for_viewer(parent_ids, user):
     if not ids:
         return {}
     out = {pid: _empty_rollup() for pid in ids}
-    open_blocker = CardRelation.objects.filter(
-        to_card_id=OuterRef("child_id"),
-        relation_type=CardRelation.Type.BLOCKS,
-        from_card__archived_at__isnull=True,
-        from_card__board_id=OuterRef("child__board_id"),
-    )
+    open_blocker = _open_blocker_of_child()
     last_move = (
         CardMovement.objects.filter(card_id=OuterRef("child_id"))
         .order_by("-moved_at").values("moved_at")[:1]
