@@ -136,4 +136,27 @@ describe('Parent filter (#2209 row 10)', () => {
     await u.click(within(group).getByRole('radio', { name: 'Any' }))
     expect(onChange.mock.calls.at(-1)![0]).not.toHaveProperty('parentFilter')
   })
+
+  it('a viewer sees the same Parent filter row and can change it (a read-only filter, no write path)', async () => {
+    const u = userEvent.setup()
+    const onChange = vi.fn()
+    const filters = { ...EMPTY_FILTER, parentFilter: 50 }
+    render(
+      <FilterPanel
+        board={makeBoard({ current_user_role: 'viewer' } as never)} filters={filters} onChange={onChange} activeCount={countActiveFilters(filters)} icon={null}
+        savedFilters={[]} activeFilterId={null} onLoadSaved={vi.fn()} filterBarShown={false} onToggleFilterBar={vi.fn()}
+        onOpenLaneFilters={vi.fn()}
+      />,
+    )
+    await u.click(screen.getByRole('button', { name: /^Filters/ }))
+    const row = screen.getByRole('button', { name: /^Parent/ })
+    expect(row).toHaveTextContent('Initech: security review')
+    await u.click(row)
+    const group = screen.getByRole('radiogroup', { name: 'Parent' })
+    expect(within(group).getAllByRole('radio').map((r) => r.closest('label')!.textContent)).toEqual(
+      ['Any', 'Any parent', 'No parent', 'Acme: platform renewal', 'Initech: security review'],
+    )
+    await u.click(within(group).getByRole('radio', { name: 'No parent' }))
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ parentFilter: 'none' }))
+  })
 })

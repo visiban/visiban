@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import MovementHistoryView from '../components/Board/MovementHistoryView'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 import type { BoardFull, CardMovement } from '../types'
@@ -652,6 +652,69 @@ describe('MovementHistoryView Parent filter (#2209, #2499)', () => {
     renderAt('/boards/1?view=history')
     await waitFor(() => expect(mockGetMovements).toHaveBeenCalled())
     expect(mockGetMovements.mock.calls[0][1]).not.toHaveProperty('parent_id')
+    expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
+  })
+
+  // Rule R-G: a removed filter must not come back from the URL.
+  function Where() { return <div data-testid="where">{useLocation().search}</div> }
+  const parentBoard = () => ({ ...fakeBoard, cards: [{ id: 1, parent: { hidden: false, id: 900, title: 'Initech: security review' } }] }) as unknown as BoardFull
+  const dismissChip = () =>
+    fireEvent.click(within(screen.getByTestId('history-parent-chip'))
+      .getAllByRole('button', { name: 'Parent: Initech: security review, remove' }).find((el) => el.tagName === 'BUTTON')!)
+
+  it('dismissing the chip drops parent from the URL but keeps view and other params', async () => {
+    mockGetMovements.mockResolvedValue({ results: [], count: 0 })
+    render(
+      <MemoryRouter initialEntries={['/boards/1?view=history&parent=900&card=5']}>
+        <MovementHistoryView board={parentBoard()} /><Where />
+      </MemoryRouter>
+    )
+    await screen.findByTestId('history-parent-chip')
+    dismissChip()
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('?view=history&card=5'))
+    expect(screen.getByTestId('where').textContent).not.toContain('parent')
+  })
+
+  it('Clear filters drops parent from the URL', async () => {
+    mockGetMovements.mockResolvedValue({ results: [], count: 0 })
+    render(
+      <MemoryRouter initialEntries={['/boards/1?view=history&parent=900']}>
+        <MovementHistoryView board={parentBoard()} /><Where />
+      </MemoryRouter>
+    )
+    await screen.findByTestId('history-parent-chip')
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await waitFor(() => expect(screen.getByTestId('where').textContent).not.toContain('parent'))
+    expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
+  })
+
+  it('reload and History -> Board -> History do not bring a dismissed Parent back', async () => {
+    mockGetMovements.mockResolvedValue({ results: [], count: 0 })
+    const first = render(
+      <MemoryRouter initialEntries={['/boards/1?view=history&parent=900']}>
+        <MovementHistoryView board={parentBoard()} /><Where />
+      </MemoryRouter>
+    )
+    await screen.findByTestId('history-parent-chip')
+    dismissChip()
+    await waitFor(() => expect(screen.getByTestId('where').textContent).not.toContain('parent'))
+    // A reload (or the round trip, which re-mounts the view and keeps the URL as it is) reads the URL again.
+    const url = '/boards/1' + screen.getByTestId('where').textContent
+    first.unmount()
+    mockGetMovements.mockClear()
+    render(<MemoryRouter initialEntries={[url]}><MovementHistoryView board={parentBoard()} /></MemoryRouter>)
+    await waitFor(() => expect(mockGetMovements).toHaveBeenCalled())
+    expect(mockGetMovements.mock.calls[0][1]).not.toHaveProperty('parent_id')
+    expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
+  })
+
+  it('a viewer sees and can dismiss the same Parent chip (read-only filter)', async () => {
+    mockGetMovements.mockResolvedValue({ results: [], count: 0 })
+    const board = { ...parentBoard(), current_user_role: 'viewer' } as unknown as BoardFull
+    renderAt('/boards/1?view=history&parent=900', board)
+    await waitFor(() => expect(mockGetMovements).toHaveBeenCalledWith(1, expect.objectContaining({ parent_id: '900' })))
+    expect(screen.getByTestId('history-parent-chip')).toHaveTextContent('Initech: security review')
+    dismissChip()
     expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
   })
 })

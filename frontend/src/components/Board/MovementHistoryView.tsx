@@ -198,7 +198,7 @@ const PAGE_SIZE = 50;
  *   Escape              — close slide-in panel
  */
 export default function MovementHistoryView({ board, currentUser }: Props) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<HistoryFilters>(() => {
     const columnId = searchParams.get('column_id');
     const parentId = Number(searchParams.get('parent')) || null;
@@ -236,7 +236,17 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
     setFilters(next);
     setPage(1);
     setSelectedMovement(null);
-  }, []);
+    // A dismissed Parent filter must leave the URL too (rule R-G): BoardView's setView keeps existing
+    // params, so a stale `parent` would bring the removed filter back on reload or History -> Board -> History.
+    if (next.parentId === null) {
+      setSearchParams((prev) => {
+        if (!prev.has("parent")) return prev;
+        const out = new URLSearchParams(prev);
+        out.delete("parent");
+        return out;
+      }, { replace: true });
+    }
+  }, [setSearchParams]);
 
   // Escape closes the slide-in through the shared stack at priority 18: above
   // BoardView's history-to-board handler (15), so one keypress closes only the
