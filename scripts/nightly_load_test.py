@@ -79,6 +79,7 @@ reference, so "pending" can never be a silent default.
 
 import argparse
 import json
+import math
 import os
 import re
 import statistics
@@ -544,7 +545,7 @@ def _self_test():
         with open(os.path.join(fake_proc, "123", "clear_refs"), encoding="utf-8") as fh:
             if fh.read() != "5":
                 failures.append("_ServerMemory.reset_peak must write 5 to clear_refs")
-        if _sm.read()["hwm_mb"] != 512.0 or _ServerMemory(None).enabled:
+        if not math.isclose(_sm.read()["hwm_mb"], 512.0) or _ServerMemory(None).enabled:
             failures.append("_ServerMemory misreads the status, or a None pid is not disabled")
     # from_pid_file (#2430): non-Linux and an unwritable clear_refs disable measurement with
     # a NOTE; a wrong PID on Linux still fails now, not after the seeding.
