@@ -74,14 +74,51 @@ JSON
     rc=0; SONAR_FIXTURE_DIR="$tmp/bad" sh "$0" frontend/src/A.tsx > "$tmp/bad.out" 2>&1 || rc=$?
     expect "malformed JSON fails open loudly" 'sonar: lookup unavailable (' "$tmp/bad.out"
     if [ "$rc" -ne 0 ]; then echo "FAIL: malformed JSON must exit 0 (got $rc)"; st_fail=1; fi
+    # No arguments (empty diff): not an error.
+    rc=0; sh "$0" > "$tmp/noargs.out" 2>&1 || rc=$?
+    expect "no arguments prints 'no touched files'" 'sonar: no touched files' "$tmp/noargs.out"
+    if [ "$rc" -ne 0 ]; then echo "FAIL: no arguments must exit 0 (got $rc)"; st_fail=1; else echo "ok: no arguments exits 0"; fi
+    # Paging cap: a fixture claiming 99 results at 1 per page never ends within MAX_PAGES.
+    mkdir "$tmp/cap"
+    echo '{"paging":{"pageIndex":1,"pageSize":1,"total":99},"issues":[]}' > "$tmp/cap/issues.json"
+    echo '{"paging":{"pageIndex":1,"pageSize":500,"total":0},"hotspots":[]}' > "$tmp/cap/hotspots.json"
+    rc=0; SONAR_FIXTURE_DIR="$tmp/cap" sh "$0" frontend/src/A.tsx > "$tmp/cap.out" 2>&1 || rc=$?
+    expect "paging cap is reported, not silent" 'lookup unavailable (more than 2500 open issues; list truncated)' "$tmp/cap.out"
+    if [ "$rc" -ne 0 ]; then echo "FAIL: paging cap must exit 0 (got $rc)"; st_fail=1; fi
+    # curl connection failure (nothing listens on port 1).
+    rc=0; SONAR_API_BASE=http://127.0.0.1:1 sh "$0" frontend/src/A.tsx > "$tmp/curl.out" 2>&1 || rc=$?
+    expect "curl failure fails open loudly" 'sonar: lookup unavailable (curl' "$tmp/curl.out"
+    if [ "$rc" -ne 0 ]; then echo "FAIL: curl failure must exit 0 (got $rc)"; st_fail=1; fi
+    # HTTP non-200: a throwaway local server that answers 404 to everything.
+    python3 - "$tmp/port" <<'PYSRV' &
+import http.server, sys
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(404); self.end_headers()
+    def log_message(self, *a): pass
+srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+open(sys.argv[1], "w").write(str(srv.server_port))
+srv.serve_forever()
+PYSRV
+    srv_pid=$!
+    n=0; while [ ! -s "$tmp/port" ] && [ "$n" -lt 50 ]; do n=$((n + 1)); python3 -c 'import time; time.sleep(0.1)'; done
+    rc=0; SONAR_API_BASE="http://127.0.0.1:$(cat "$tmp/port" 2>/dev/null || echo 1)" sh "$0" frontend/src/A.tsx > "$tmp/http.out" 2>&1 || rc=$?
+    kill "$srv_pid" 2>/dev/null || true
+    expect "HTTP non-200 fails open loudly" 'sonar: lookup unavailable (HTTP 404' "$tmp/http.out"
+    if [ "$rc" -ne 0 ]; then echo "FAIL: HTTP 404 must exit 0 (got $rc)"; st_fail=1; fi
     if [ "$st_fail" -eq 0 ]; then echo "sonar-open-issues self-test passed"; fi
     exit "$st_fail"
 fi
 
+# An empty diff (`git diff --name-only | xargs` under GNU xargs still runs us once with no
+# arguments) is not an error: nothing is touched, so nothing can be reported.
 if [ "$#" -eq 0 ]; then
-    echo "usage: $0 <repo-relative-path>... | --self-test" >&2
-    exit 2
+    echo "sonar: no touched files"
+    exit 0
 fi
+case "$1" in
+    -*) echo "usage: $0 <repo-relative-path>... | --self-test" >&2; exit 2 ;;
+esac
 
 unavailable() { echo "sonar: lookup unavailable ($1)"; exit 0; }
 
@@ -98,7 +135,7 @@ fetch() {
         return 0
     fi
     code="$(curl -sS --max-time 20 --retry 1 -o "$work/$kind.$page.json" -w '%{http_code}' "$url" 2>"$work/curl.err")" \
-        || unavailable "curl: $(tr -d '\n' < "$work/curl.err" | cut -c1-120)"
+        || unavailable "$(tr -d '\n' < "$work/curl.err" | cut -c1-120)"
     [ "$code" = "200" ] || unavailable "HTTP $code from $kind"
 }
 
@@ -125,9 +162,12 @@ for kind in issues hotspots; do
         [ "$(more "$work/$kind.$page.json")" = 1 ] || break
         page=$((page + 1))
     done
+    # Falling out of the loop (rather than breaking) means another page remained: a silent
+    # cap would read as "no findings", so say so instead.
+    [ "$page" -le "$MAX_PAGES" ] || unavailable "more than $((MAX_PAGES * 500)) open $kind; list truncated"
 done
 
-python3 - "$work" <<'PY' || unavailable "unparseable response"
+python3 - "$work" 2>/dev/null <<'PY' || unavailable "unparseable response"
 import glob, json, os, sys
 work = sys.argv[1]
 prefix = "visiban_visiban:"

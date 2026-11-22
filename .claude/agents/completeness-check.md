@@ -194,7 +194,7 @@ which checklist step found it:
 |---|---|
 | `requirement-unclear` | the issue (body + comments) did not settle what was wanted, so a reasonable implementer could have built it either way |
 | `requirement-missed` | the issue settled it and the branch did not do it — including a comment's scope correction |
-| `class-missed` | the reported instance is fixed and another member of the same class is not |
+| `class-missed` | the reported instance is fixed and another member of the same class is not | (also: an open Sonar finding on a touched file from check 10)
 | `collateral` | a shared rule moved and another consumer of the old behavior broke |
 | `test-weak` | a test that cannot fail, or a test-plan line nobody ran |
 | `docs-stale` | a docs claim is false of the code, or the old claim survives elsewhere |
