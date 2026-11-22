@@ -3,7 +3,9 @@
 * #2447: no new child under an ARCHIVED parent, on both writes (``create_link``
   and Add child's ``create_child``), with the coded 400 ``parent_archived``;
   re-saving the link a child already has keeps answering ``link_exists``.
-  The parent-side pickers say so before the write does.
+  The parent-side pickers say so before the write does. The one exception
+  (owner decision 2026-11-22): a child that was linked to the parent and then
+  unlinked may be linked back, read from ``CardParentUnlink``.
 * #2443: ``Card.parent`` carries ``siblings_total`` / ``siblings_done`` for a
   visible parent, counted per viewer over the child's own board only, and
   nothing for a hidden parent.
@@ -14,17 +16,22 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
-from django.db import connection, transaction
-from django.test.utils import CaptureQueriesContext
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from rest_framework.exceptions import NotFound
+from rest_framework.test import APIClient
 
 from boards import consumers
 from boards.consumers import BoardConsumer, _now as board_now
-from boards.models import BoardEvent, BoardMembership, Card, CardParentLink, CardRelation, Column
+from boards.models import (
+    BoardEvent, BoardMembership, Card, CardParentLink, CardParentUnlink, CardRelation, Column,
+)
 from boards.permissions import audience_gate
 from boards.services import card_links
 from boards.tests.conftest import _make_card
+from visiban.exceptions import CodedValidationError
 from boards.tests.test_card_children_rollup_2210 import _RollupFixture
 from boards.tests.test_default_child_board_2208 import (
     PATCH_BROADCAST,
@@ -105,6 +112,196 @@ class ArchivedParentPickerTests(AddChildFixture):
         rows = card_links.child_candidates_for_viewer(self.member, self.parent_card, self.child, "task")
         reasons = {r["id"]: r["disabled_reason"] for r in rows}
         self.assertEqual(reasons, {linked.pk: "link_exists", free.pk: "parent_archived"})
+
+
+class ArchivedParentRelinkTests(AddChildFixture):
+    """#2447 owner decision: a child unlinked from an archived parent may be linked back.
+
+    The pair is remembered in ``CardParentUnlink`` by ``remove_link`` and
+    cleared by ``create_link``. A never-linked child and Add child stay
+    refused with ``parent_archived``.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.task = add_card(self.child, "Task")
+
+    def link(self, child, parent=None, user=None):
+        parent = parent or self.parent_card
+        with patch(PATCH_BROADCAST):
+            return client_for(user or self.member).post(
+                f"/api/v1/boards/{child.board_id}/cards/{child.pk}/parent/",
+                {"parent_id": parent.pk}, format="json",
+            )
+
+    def unlink_child_side(self, child):
+        with patch(PATCH_BROADCAST):
+            return client_for(self.member).delete(f"/api/v1/boards/{child.board_id}/cards/{child.pk}/parent/")
+
+    def unlink_parent_side(self, child):
+        with patch(PATCH_BROADCAST):
+            return client_for(self.member).delete(
+                f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/children/{child.pk}/",
+            )
+
+    def pairs(self):
+        return sorted(CardParentUnlink.objects.values_list("parent_id", "child_id"))
+
+    def test_relink_after_either_side_unlink_on_an_archived_parent_succeeds(self):
+        for unlink in (self.unlink_child_side, self.unlink_parent_side):
+            with self.subTest(unlink=unlink.__name__):
+                Card.objects.filter(pk=self.parent_card.pk).update(archived_at=None)
+                self.parent_card.refresh_from_db()
+                self.assertEqual(self.link(self.task).status_code, 201)
+                self.assertEqual(unlink(self.task).status_code, 204)
+                self.assertEqual(self.pairs(), [(self.parent_card.pk, self.task.pk)])
+                _archive(self.parent_card)
+                r = self.link(self.task)
+                self.assertEqual(r.status_code, 201, r.content)
+                self.assertTrue(CardParentLink.objects.filter(parent=self.parent_card, child=self.task).exists())
+                # Linked again: the pair row is gone (it only exists while unlinked).
+                self.assertEqual(self.pairs(), [])
+                CardParentLink.objects.all().delete()
+
+    def test_undo_of_unlink_is_create_link_after_remove_link(self):
+        """The Children tab's Undo calls the plain link write after an unlink."""
+        with patch(PATCH_BROADCAST):
+            link = card_links.create_link(
+                user=self.member, child=self.task, child_role=Role.MEMBER, parent_id=self.parent_card.pk,
+            )
+            _archive(self.parent_card)
+            card_links.remove_link(link, actor=self.member)
+            again = card_links.create_link(
+                user=self.member, child=self.task, child_role=Role.MEMBER, parent_id=self.parent_card.pk,
+            )
+        self.assertEqual((again.parent_id, again.child_id), (self.parent_card.pk, self.task.pk))
+        self.assertEqual(self.pairs(), [])
+
+    def test_never_linked_child_is_refused(self):
+        # Another child's pair row admits only that pair.
+        other = add_card(self.child, "Other task")
+        CardParentUnlink.objects.create(parent=self.parent_card, child=other)
+        _archive(self.parent_card)
+        r = self.link(self.task)
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()["code"], "parent_archived")
+        self.assertFalse(CardParentLink.objects.exists())
+
+    def test_a_pair_row_for_another_parent_admits_nothing_here(self):
+        other_parent = add_card(self.parent, "Other opportunity")
+        CardParentUnlink.objects.create(parent=other_parent, child=self.task)
+        _archive(self.parent_card)
+        self.assertEqual(self.link(self.task).json()["code"], "parent_archived")
+
+    def test_add_child_is_refused_even_when_the_parent_has_unlinked_children(self):
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        _archive(self.parent_card)
+        r = self.add_child(self.member)
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(r.json()["code"], "parent_archived")
+        self.assertEqual(Card.objects.filter(board=self.child).count(), 1)
+
+    def test_absent_child_is_refused_under_the_lock_check(self):
+        """``child=None`` (Add child) never reads the pair table and refuses."""
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        _archive(self.parent_card)
+        with CaptureQueriesContext(connection) as ctx:
+            with self.assertRaises(CodedValidationError) as cm:
+                card_links._check_link_rules_under_lock(self.parent_card, self.child)
+        self.assertEqual(cm.exception.detail["code"], "parent_archived")
+        self.assertFalse([q for q in ctx.captured_queries if "card_parent_unlinks" in q["sql"]])
+
+    def test_negative_control_without_the_pair_row_the_relink_is_refused(self):
+        """The row is what admits the re-link: remove it and the same call is refused."""
+        self.assertEqual(self.link(self.task).status_code, 201)
+        self.assertEqual(self.unlink_child_side(self.task).status_code, 204)
+        _archive(self.parent_card)
+        CardParentUnlink.objects.all().delete()
+        self.assertEqual(self.link(self.task).json()["code"], "parent_archived")
+
+    def test_the_other_link_rules_still_come_first_and_still_apply(self):
+        """The exception lifts only ``parent_archived``: a child with a parent is refused as before."""
+        self.assertEqual(self.link(self.task).status_code, 201)
+        self.assertEqual(self.unlink_child_side(self.task).status_code, 204)
+        other_parent = add_card(self.parent, "Other opportunity")
+        self.assertEqual(self.link(self.task, parent=other_parent).status_code, 201)
+        _archive(self.parent_card)
+        self.assertEqual(self.link(self.task).json()["code"], "already_has_parent")
+        viewer = self.user_with("viewer2447", parent=Role.VIEWER, child=Role.MEMBER)
+        CardParentLink.objects.filter(child=self.task).delete()
+        self.assertEqual(self.link(self.task, user=viewer).status_code, 403)
+
+    def test_one_row_per_pair_and_a_second_unlink_is_idempotent(self):
+        with patch(PATCH_BROADCAST):
+            for _ in range(2):
+                link = card_links.create_link(
+                    user=self.member, child=self.task, child_role=Role.MEMBER, parent_id=self.parent_card.pk,
+                )
+                card_links.remove_link(link, actor=self.member)
+            # The same (already removed) link again: a 404, and still one row.
+            with self.assertRaises(NotFound):
+                card_links.remove_link(link, actor=self.member)
+        self.assertEqual(self.pairs(), [(self.parent_card.pk, self.task.pk)])
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+
+    def test_a_pre_existing_row_is_kept_not_duplicated_by_an_unlink(self):
+        CardParentLink.objects.create(parent=self.parent_card, child=self.task, created_by=self.admin)
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        link = CardParentLink.objects.select_related("parent", "child").get(child=self.task)
+        with patch(PATCH_BROADCAST):
+            card_links.remove_link(link, actor=self.member)
+        self.assertEqual(self.pairs(), [(self.parent_card.pk, self.task.pk)])
+
+    def test_deleting_either_card_removes_the_pair(self):
+        other = add_card(self.child, "Other task")
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        other_parent = add_card(self.parent, "Other opportunity")
+        CardParentUnlink.objects.create(parent=other_parent, child=other)
+        self.task.delete()
+        self.assertEqual(self.pairs(), [(other_parent.pk, other.pk)])
+        other_parent.delete()
+        self.assertEqual(self.pairs(), [])
+
+    def test_picker_does_not_mark_a_previously_unlinked_child_archived(self):
+        former = self.task
+        free = add_card(self.child, "Free task")
+        linked = add_card(self.child, "Linked task")
+        CardParentLink.objects.create(parent=self.parent_card, child=linked, created_by=self.admin)
+        CardParentUnlink.objects.create(parent=self.parent_card, child=former)
+        _archive(self.parent_card)
+        rows = card_links.child_candidates_for_viewer(self.member, self.parent_card, self.child, "task")
+        reasons = {r["id"]: r["disabled_reason"] for r in rows}
+        self.assertEqual(reasons, {former.pk: None, free.pk: "parent_archived", linked.pk: "link_exists"})
+
+    def test_picker_with_no_pair_rows_refuses_every_free_card(self):
+        free = add_card(self.child, "Free task")
+        other_parent = add_card(self.parent, "Other opportunity")
+        CardParentUnlink.objects.create(parent=other_parent, child=self.task)
+        _archive(self.parent_card)
+        rows = card_links.child_candidates_for_viewer(self.member, self.parent_card, self.child, "task")
+        self.assertEqual({r["id"]: r["disabled_reason"] for r in rows},
+                         {self.task.pk: "parent_archived", free.pk: "parent_archived"})
+
+    def test_picker_on_a_live_parent_never_reads_the_pair_table(self):
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        with CaptureQueriesContext(connection) as ctx:
+            rows = card_links.child_candidates_for_viewer(self.member, self.parent_card, self.child, "task")
+        self.assertEqual([r["disabled_reason"] for r in rows], [None])
+        self.assertFalse([q for q in ctx.captured_queries if "card_parent_unlinks" in q["sql"]])
+
+    def test_picker_without_a_viewer_or_below_member_is_refused_before_any_pair_read(self):
+        CardParentUnlink.objects.create(parent=self.parent_card, child=self.task)
+        _archive(self.parent_card)
+        url = (f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-candidates/"
+               f"?board={self.child.pk}&search=task")
+        viewer = self.user_with("pviewer2447", parent=Role.VIEWER, child=Role.MEMBER)
+        for who, client in (("anonymous", APIClient()), ("viewer", client_for(viewer))):
+            with self.subTest(who=who), CaptureQueriesContext(connection) as ctx:
+                r = client.get(url)
+                self.assertIn(r.status_code, (401, 403, 404), r.content)
+                self.assertNotIn("results", r.json())
+                self.assertFalse([q for q in ctx.captured_queries if "card_parent_unlinks" in q["sql"]])
 
 
 class SiblingCountTests(AddChildFixture):

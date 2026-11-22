@@ -28,10 +28,13 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
-from boards.models import Board, CardParentLink
+from boards.models import Board, Card, CardParentLink, CardParentUnlink
 from boards.tests.test_card_parent_links import _LinkFixture
 
 LINK_TABLE = CardParentLink._meta.db_table
+# #2447: the unlinked-pair table is read only by the link write and the Link
+# existing picker; no other transport may read or carry it either.
+UNLINK_TABLE = CardParentUnlink._meta.db_table
 # A key that names a link end: parent, parent_id, children, child_ids,
 # card_links, links, linked_cards, ...
 LINK_KEY = re.compile(r"(^|_)(parent|parents|child|children|link|links|linked)(_|$)", re.IGNORECASE)
@@ -58,13 +61,19 @@ def _body(res):
 
 
 def _link_queries(ctx):
-    return [q["sql"] for q in ctx.captured_queries if LINK_TABLE in q["sql"]]
+    return [q["sql"] for q in ctx.captured_queries if LINK_TABLE in q["sql"] or UNLINK_TABLE in q["sql"]]
 
 
 class _LinkedBoards(_LinkFixture):
     def _setup_linked(self):
         self._setup_boards()
         CardParentLink.objects.create(parent=self.parent, child=self.child, created_by=self.owner)
+        # A second child, linked and then unlinked, leaves an unlinked-pair row
+        # (#2447) that no transport below may read or name.
+        self.former_child = Card.objects.create(
+            board=self.cboard, column=self.col_c, swimlane=self.lane_c, title="Former child", position=1,
+        )
+        CardParentUnlink.objects.create(parent=self.parent, child=self.former_child)
 
     def _assert_no_link_keys(self, payload, where):
         found = sorted({k for k in _keys(payload) if LINK_KEY.search(k) and k not in NOT_LINK_KEYS})
@@ -111,6 +120,11 @@ class ExportLinkParityTests(_LinkedBoards, TestCase):
             [(self.parent.pk, self.child.pk)],
         )
         self.assertFalse(CardParentLink.objects.filter(child__board=new_board).exists())
+        # Nor an unlinked-pair row (#2447): import never writes that table.
+        self.assertEqual(
+            list(CardParentUnlink.objects.values_list("parent_id", "child_id")),
+            [(self.parent.pk, self.former_child.pk)],
+        )
 
 
 class ShareLinkParityTests(_LinkedBoards, TestCase):

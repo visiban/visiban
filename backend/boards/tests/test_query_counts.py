@@ -1800,7 +1800,7 @@ class CardMutationQueryCountTests(TestCase):
     # that separately.
     BUDGET_ARCHIVE = 23             # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
     BUDGET_UNARCHIVE = 23           # measured 20 (21 pre-#1883; was 19 pre-peer-broadcast, 17 pre-#449)
-    BUDGET_DESTROY = 37             # measured 37 (+1 #1799: set_null_keeping_board fills card_activities' board + card snapshot with one UPDATE before the SET_NULL, as for card_movements; constant); was 36 (+4 #2409, PostgreSQL only, constant: lock_card_and_link_peers' savepoint open + release, its pk-ordered card-and-peers lock, and the peer re-read under that lock that detects a link committed in between); was 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    BUDGET_DESTROY = 38             # measured 38 (+1 #2447: one cascade DELETE of card_parent_unlinks, both FKs in one query; constant); was 37 (+1 #1799: set_null_keeping_board fills card_activities' board + card snapshot with one UPDATE before the SET_NULL, as for card_movements; constant); was 36 (+4 #2409, PostgreSQL only, constant: lock_card_and_link_peers' savepoint open + release, its pk-ordered card-and-peers lock, and the peer re-read under that lock that detects a link committed in between); was 32 (+1 #2383: the card's link peers read before the pk-ordered lock, PostgreSQL only; constant); was 31 (+2 #1104: one SELECT of the card's parent links to announce removal, one cascade DELETE of card_parent_links; neither scales with row count); was 29 (measured 28, +1 #1102: card_gate_transitions SET_NULL); was 27 (28 pre-#1883; was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
     # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
     # these budgets are what stops that quietly becoming two passes again.
     BUDGET_RELATION_CREATE = 27     # measured 24 (25 pre-#1883)
@@ -2231,6 +2231,33 @@ class CardParentQueryCountTests(TestCase):
         # Candidate rows add no per-row queries, including rows that already
         # have another parent.
         self.assertLessEqual(twenty - one, 3)
+
+    def test_child_candidates_under_an_archived_parent_add_one_batched_read(self):
+        """#2447: the previously-unlinked check is ONE query per page, flat in rows."""
+        from unittest import mock
+
+        from boards.models import CardParentUnlink
+
+        fx = self.fx
+        url = f"/api/v1/boards/{fx.pboard.pk}/cards/{fx.parent.pk}/child-candidates/"
+        params = {"board": fx.cboard.pk, "search": "Cand"}
+        with mock.patch("boards.views.card_query.CardQueryRateThrottle.get_rate", return_value="1000/min"):
+            Card.objects.create(
+                board=fx.cboard, column=fx.child.column, swimlane=fx.child.swimlane, title="Cand 0", position=50,
+            )
+            live = self._count(url, params)
+            Card.objects.filter(pk=fx.parent.pk).update(archived_at=timezone.now())
+            archived_one = self._count(url, params)
+            for i in range(1, 20):
+                c = Card.objects.create(
+                    board=fx.cboard, column=fx.child.column, swimlane=fx.child.swimlane,
+                    title=f"Cand {i}", position=50 + i,
+                )
+                if i % 2:
+                    CardParentUnlink.objects.create(parent=fx.parent, child=c)
+            archived_twenty = self._count(url, params)
+        self.assertEqual(archived_one - live, 1)
+        self.assertEqual(archived_twenty, archived_one)
 
     def test_parent_candidates_flat_in_results(self):
         from unittest import mock

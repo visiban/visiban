@@ -151,7 +151,8 @@ Card
  ├── CardAttachment  (file, filename, size, uploaded_by)
  ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
  ├── CardExternalRef  (1:1 — provider, ref, url; a card's link to a PR/MR on an external forge)
- └── CardRelation  (outgoing_relations / incoming_relations — blocks | relates_to, between two cards on the same board)
+ ├── CardRelation  (outgoing_relations / incoming_relations — blocks | relates_to, between two cards on the same board)
+ └── CardParentUnlink  (parent, child, unlinked_at — a cross-board parent/child pair that was unlinked; unique per pair; 1.3+)
 
 BoardEvent  (append-only feed of every committed board mutation, #1114)
  ├── board_id (plain int, not a FK — see Entity details)
@@ -352,6 +353,14 @@ A typed, directional link between two cards on the same board (#449): `blocks` o
 ### CardExternalRef
 
 A card's one-to-one link to a merge request or pull request on an external forge (#352): `provider` (`gitlab` / `github` / `other`), a freeform `ref` (e.g. `group/proj!45`), and a validated `url`. The API shape `external_ref: {provider, ref, url} | null` is a stable public contract from 1.2; the enterprise auto-link integration reads and writes it. `url` accepts only absolute `http`/`https` URLs with no embedded credentials and no backslashes (browsers treat `\` as `/` while Python's parser does not, which would let one host be stored and a different one rendered).
+
+### CardParentUnlink *(1.3+)*
+
+One row per cross-board parent/child pair (`CardParentLink`) that was unlinked (#2447): `parent`, `child`, `unlinked_at`, unique on the pair. An archived parent gets no new children, but a child it had before may be linked back so an unlink can be undone; the card history stores no reference to the other card, so this table is what answers "was this pair linked before".
+
+- Written when a link is removed and deleted when the same pair is linked again, both under the link write's card locks, so a pair has at most one row and only while it is unlinked.
+- Read only by the link write's archived-parent check and the Link existing picker. It has no API, export, import, event, webhook or MCP surface.
+- Deleting either card removes the row (`CASCADE`).
 
 ### BoardEvent
 

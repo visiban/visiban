@@ -36,7 +36,8 @@ from visiban.exceptions import CodedValidationError
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardRelation, Column, Label,
+    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardParentUnlink,
+    CardRelation, Column, Label,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from .errors import LinksChanged
@@ -516,7 +517,17 @@ def _check_link_rules_under_lock(parent, child_board, *, child=None):
     # link a child already has keeps its old answer, and archiving or
     # restoring a parent never touches the links it already has. Read under
     # the parent card's lock, so an archive that commits first is seen.
-    if Card.objects.filter(pk=parent.pk, archived_at__isnull=False).exists():
+    # The one exception (owner decision, 2026-11-22): a child that was linked
+    # to this parent and then unlinked (an accidental Unlink, or Undo of one)
+    # may be linked back, which is restoring a link, not adding a child. The
+    # card history keeps no reference to the other card, so the pair is read
+    # from ``CardParentUnlink``, under both card locks (``remove_link`` writes
+    # it under the same ones). Add child (``child is None``) makes a NEW card,
+    # which can never have been linked, so it is always refused.
+    if Card.objects.filter(pk=parent.pk, archived_at__isnull=False).exists() and not (
+        child is not None
+        and CardParentUnlink.objects.filter(parent_id=parent.pk, child_id=child.pk).exists()
+    ):
         raise CodedValidationError(
             "parent_archived", "That card is archived, so it cannot get new children. Restore it first.",
         )
@@ -562,6 +573,9 @@ def create_link(*, user, child, child_role, parent_id):
             raise NotFound()
         _check_link_rules_under_lock(parent, child.board, child=child)
         link = CardParentLink.objects.create(parent=parent, child=child, created_by=user)
+        # The pair is linked again, so it is no longer "previously unlinked":
+        # a later unlink writes a fresh row, and a pair never has two (#2447).
+        CardParentUnlink.objects.filter(parent_id=parent.pk, child_id=child.pk).delete()
         _record(child.pk, CardActivity.EventType.PARENT_LINKED, user)
         _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
         _announce(parent.board_id, parent.pk, child.board_id, child.pk, user.id)
@@ -827,6 +841,10 @@ def remove_link(link, *, actor, moved_from=None, siblings=True):
         if not deleted:
             # A concurrent unlink won; answer as for a link that is gone.
             raise NotFound()
+        # Remember the pair, so it may be linked back while the parent is
+        # archived (#2447, see ``_check_link_rules_under_lock``). Written under
+        # both card locks; ``get_or_create`` keeps one row per pair.
+        CardParentUnlink.objects.get_or_create(parent_id=link.parent_id, child_id=link.child_id)
         _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
         _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         # ``moved_from`` names the board a card is LEAVING: an admin move
@@ -1483,8 +1501,9 @@ def child_candidates_for_viewer(user, parent, child_board, search):
     existing. ``child_board`` comes from :func:`resolve_link_child_board`.
     ``disabled_reason`` uses :func:`create_link`'s codes: ``link_exists``
     (already this parent's child), ``already_has_parent`` (another parent's),
-    ``parent_archived`` (this parent is archived, #2447), ``children_limit``
-    (this parent is full). ``parent_title`` names that other
+    ``parent_archived`` (this parent is archived, #2447; not for a card that
+    was linked to it and then unlinked, which may be linked back),
+    ``children_limit`` (this parent is full). ``parent_title`` names that other
     parent only when the viewer can open its board; otherwise it is ``null``
     and the picker says "a card you can't open".
     """
@@ -1516,6 +1535,16 @@ def child_candidates_for_viewer(user, parent, child_board, search):
         if link is not None and link.parent_id != parent.pk:
             other_parents[link.parent.board_id] = link.parent.board
     roles = get_board_roles(user, other_parents.values()) if other_parents else {}
+    # #2447: under an archived parent, only a card that was linked to it and
+    # then unlinked may be linked back (``_check_link_rules_under_lock``). One
+    # batched read for the page, and only when the parent is archived; an
+    # empty set (no rows, or no candidates) keeps every free card refused.
+    relinkable = set()
+    if parent.archived_at is not None and cards:
+        relinkable = set(
+            CardParentUnlink.objects.filter(parent_id=parent.pk, child_id__in=[c.pk for c in cards])
+            .values_list("child_id", flat=True)
+        )
 
     from accounts.serializers import BoardUserSerializer
 
@@ -1530,8 +1559,9 @@ def child_candidates_for_viewer(user, parent, child_board, search):
             reason = "already_has_parent"
             if roles.get(link.parent.board_id) is not None:
                 parent_title = link.parent.title
-        elif parent.archived_at is not None:
-            # #2447: the write refuses a new child under an archived parent.
+        elif parent.archived_at is not None and c.pk not in relinkable:
+            # #2447: the write refuses a new child under an archived parent,
+            # except a card this parent had before (``relinkable``).
             reason = "parent_archived"
         elif full:
             reason = "children_limit"
