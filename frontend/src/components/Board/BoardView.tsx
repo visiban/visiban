@@ -3643,6 +3643,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               canEdit={canEdit}
               filteredCardIds={filteredCardIds}
               collapsedSwimlaneIds={collapsedSwimlaneIds}
+              showSubColumns={showSubColumns}
               onToggleSwimlane={toggleCollapsedSwimlane}
               selectedCardIds={selectedCardIds}
               highlightedCardId={highlightedCardId}

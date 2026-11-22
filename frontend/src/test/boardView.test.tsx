@@ -4517,6 +4517,27 @@ describe('BoardView phone layout (#2277)', () => {
     expect(screen.getByTestId('phone-column-switcher')).toBeInTheDocument()
   })
 
+  it('passes Show sub-columns to the phone board: off hides the sub-column switcher (#2531)', () => {
+    mockPhone(true)
+    mockSearchParams = new URLSearchParams()
+    const twoSubs = [{ id: 1, uid: 'sa', position: 0, name: 'Doing' }, { id: 2, uid: 'sb', position: 1, name: 'Ready' }]
+    const base = makeBoard()
+    const firstId = [...base.columns].sort((a, b) => a.position - b.position)[0].id
+    const cols = base.columns.map((c) => (c.id === firstId ? { ...c, sub_columns: twoSubs } : c)) as BoardFull['columns']
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns: cols }) })
+    const { unmount } = render(<BoardView currentUser={fakeUser} />)
+    expect(screen.getByTestId('phone-sub-column-switcher')).toBeInTheDocument()
+    unmount()
+    localStorage.setItem('board:1:view-prefs', JSON.stringify({ showSubColumns: false }))
+    try {
+      render(<BoardView currentUser={fakeUser} />)
+      expect(screen.getByTestId('phone-board')).toBeInTheDocument()
+      expect(screen.queryByTestId('phone-sub-column-switcher')).not.toBeInTheDocument()
+    } finally {
+      localStorage.removeItem('board:1:view-prefs')
+    }
+  })
+
   it('the empty-board Add a card opens the new-card input on phones', () => {
     mockPhone(true)
     mockSearchParams = new URLSearchParams()

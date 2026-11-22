@@ -97,6 +97,8 @@ interface Props {
   rollupField?: CustomFieldDefinition | null;
   /** board.show_row_chip_field_names is off (#1418): lane fields show values without names. */
   hideRowChipFieldNames?: boolean;
+  /** View menu "Show sub-columns" (#2531): off renders a split stage as one list with no switcher, as the grid does. */
+  showSubColumns?: boolean;
 }
 
 const NO_FLAGS: LimitFlags = { enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false };
@@ -180,6 +182,7 @@ export default function PhoneBoard({
   onAddColumn, onAddSwimlane, focusedSwimlaneId = null, onFocusLane, onExitFocus, addRequest = null,
   onAddRequestHandled, allSwimlanes, onColumnsReordered, onSwimlanesReordered, hardWipEnforced = false,
   healthAutoEnabled = false, showWipAtLimit = false, rollupField = null, hideRowChipFieldNames = false,
+  showSubColumns = true,
 }: Props) {
   const ordered = [...columns].sort((a, b) => a.position - b.position);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -241,7 +244,9 @@ export default function PhoneBoard({
 
   const columnCards = cards.filter((c) => c.column === column.id);
   const count = columnCards.length;
-  const subs = stageSubColumns(column);
+  // Show sub-columns off (#2531): no switcher and no sub-column filter, so every card in the stage shows,
+  // as the grid's single unsplit cell does. The cards keep their sub-column; only the view changes.
+  const subs = showSubColumns ? stageSubColumns(column) : [];
   const activeSub = subs.length > 0 ? Math.min(subIndex, subs.length - 1) : -1;
   const subCounts = subs.map((sub, i) => ({ sub, n: columnCards.filter((c) => cardSubColumnIndex(c, column) === i).length }));
   const limit = column.wip_limit !== null && column.wip_limit > 0 ? column.wip_limit : null;

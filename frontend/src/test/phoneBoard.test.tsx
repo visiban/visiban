@@ -735,6 +735,19 @@ describe('PhoneBoard sub-column switcher (#2278)', () => {
     expect(screen.getByText('Card 2')).toBeInTheDocument()
     expect(screen.queryByText('Card 1')).not.toBeInTheDocument()
   })
+
+  it.each([['by default', {}], ['with Show sub-columns on', { showSubColumns: true }]])('shows the switcher %s (#2531)', (_label, extra) => {
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, ...extra })
+    expect(screen.getByTestId('phone-sub-column-switcher')).toBeInTheDocument()
+  })
+
+  it('renders no switcher with Show sub-columns off and keeps every card of the stage visible (#2531)', () => {
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, showSubColumns: false })
+    expect(screen.queryByTestId('phone-sub-column-switcher')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Build sub-columns' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-sub-column-status')).not.toBeInTheDocument()
+    for (const name of ['Card 1', 'Card 2', 'Card 3']) expect(screen.getByText(name)).toBeInTheDocument()
+  })
 })
 
 describe('PhoneBoard four-way switcher (#2531)', () => {
