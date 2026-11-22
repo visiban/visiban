@@ -9,7 +9,7 @@ import { patchSwimlane } from '../api/boards'
 import { stepOrder, cellOrderOf } from '../utils/phoneReorder'
 
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
-vi.mock('../api/boards', () => ({ patchSwimlane: vi.fn() }))
+vi.mock('../api/boards', () => ({ patchSwimlane: vi.fn(), getSwimlaneDefaultTeamAccess: vi.fn().mockResolvedValue({ members: [] }) }))
 // Stubs that expose the wiring: the real controls have their own suites.
 vi.mock('../components/Common/HealthStatusControl', () => ({
   default: (p: { entityName: string; canEdit: boolean; trigger?: string; onSave: (v: string | null) => Promise<unknown>; onOpenChange?: (o: boolean) => void; className?: string }) => (
@@ -190,7 +190,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     setup(edit())
     await user.click(screen.getAllByRole('button', { name: /Add card/ })[0])
     await user.type(screen.getByLabelText(/New card title/), 'A')
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
     expect(await screen.findByText('Failed to add card.')).toBeInTheDocument()
     await user.click(screen.getByLabelText(/New card title/))
     await user.keyboard('{Escape}')
@@ -205,7 +205,7 @@ describe('PhoneBoard editing controls (#2277)', () => {
     vi.mocked(createCard).mockClear()
     setup(edit())
     await user.click(screen.getAllByRole('button', { name: /Add card/ })[0])
-    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(screen.getByRole('button', { name: 'Add card' }))
     expect(createCard).not.toHaveBeenCalled()
   })
 
@@ -838,5 +838,29 @@ describe('PhoneBoard lane band tiers (#2439)', () => {
     setup({ swimlanes: [oneLane], swimlaneFieldDefinitions: one, isAdmin: false, onManageSwimlaneFields })
     await user.click(screen.getByRole('button', { name: toggleName }))
     expect(screen.queryByRole('button', { name: 'Manage swimlane fields' })).toBeNull()
+  })
+})
+
+describe('PhoneBoard lane default team (#2211)', () => {
+  const members = [{ id: 10, role: 'member' as const, joined_at: '', user: { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' } }]
+  const teamLane = { ...lane(2, 'APAC'), default_team: [10] } as Swimlane
+
+  it('pre-assigns the lane team member in the composer and Unassign drops it', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createCard).mockClear()
+    vi.mocked(createCard).mockResolvedValue(card(51, 1, 2))
+    setup({ swimlanes: [lane(1, 'North'), teamLane], members, onCardAdded: vi.fn() })
+    await user.click(screen.getAllByRole('button', { name: /Add card/ })[1])
+    const group = screen.getByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent("From the APAC default team. Remove anyone this card shouldn't have.")
+    expect(screen.getByTestId('phone-add-card-heading')).toHaveTextContent('New card in APAC · Prospect')
+    expect(screen.getByPlaceholderText('Card title')).toBeInTheDocument()
+    expect(group).toHaveTextContent('Pre-assigned from lane team')
+    await user.type(screen.getByLabelText(/New card title/), 'One{Enter}')
+    expect(createCard).toHaveBeenCalledWith(1, { column: 1, swimlane: 2, title: 'One', assignee_id: 10, notify_assignee: true })
+    await user.click(screen.getAllByRole('button', { name: /Add card/ })[1])
+    await user.click(screen.getByRole('button', { name: 'Unassign Mia Reyes' }))
+    await user.type(screen.getByLabelText(/New card title/), 'Two{Enter}')
+    expect(createCard).toHaveBeenLastCalledWith(1, { column: 1, swimlane: 2, title: 'Two' })
   })
 })

@@ -13,7 +13,7 @@ else is derived from it:
 * ``python mutmut_config.py expect-shards`` prints the ``name=N,...`` spec the
   report job hands to ``check_mutation_score.py --expect-shards``.
 * ``python mutmut_config.py self-test --ci-file ../.gitlab-ci.yml`` (run on MRs
-  by ``mutation-score-selftest``) checks every path, test file and class exists
+  by the ``mutation-score-selftest`` member of ``lint-selftests-python``) checks every path, test file and class exists
   and that the CI file's ``parallel:`` matches, so a renamed test file or a new
   shard fails on the MR rather than a week later.
 
@@ -119,6 +119,10 @@ _IMPORT_EXPORT_TESTS = (
     # #2515: the export, deleted-card history, CSV and Trello gaps. The feature
     # suites (#1799, #2440, #2439, #1921) were measured and killed nothing more.
     "test_export_mutation_gaps_2515.py",
+    # #2513: exact-value assertions for `_import_json` (date shift, validation
+    # messages, gate transitions, deleted-card history). Fast, so it sits ahead of
+    # the slow schema/attribution files below.
+    "test_import_json_mutation_gaps_2513.py",
     # The imported-movement attribution in the CSV export (#1675, #1702), and the
     # export's OpenAPI declaration (#1783). Last on purpose: generating the
     # schema is the slowest step, and only a mutant every file above let

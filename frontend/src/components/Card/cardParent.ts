@@ -46,6 +46,7 @@ const LINK_ERROR_COPY: Record<string, string> = {
   already_has_parent: "This card already has a parent. Unlink it first.",
   children_on_other_board: "That card's children are on another board.",
   children_limit: "That card has 100 children (the limit).",
+  parent_archived: "That card is archived. Restore it before adding children.",
   child_is_parent: "That would make a third tier. A child card can't be a parent.",
   parent_is_child: "That would make a third tier. A child card can't be a parent.",
 };
@@ -62,6 +63,7 @@ export function linkErrorCopy(err: unknown): string {
 export function childCandidateReason(c: ChildCandidate): string | null {
   if (c.disabled_reason === "link_exists") return "already a child of this card";
   if (c.disabled_reason === "children_limit") return "this card has 100 children (the limit)";
+  if (c.disabled_reason === "parent_archived") return "this card is archived";
   if (c.disabled_reason === "already_has_parent") {
     return c.parent_title ? `already a child of ${c.parent_title}` : "already a child of a card you can't open";
   }

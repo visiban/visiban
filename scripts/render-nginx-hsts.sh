@@ -288,7 +288,7 @@ check_template() {
 # exercise check_template, including the negative controls proving it catches
 # what synthetic fixtures alone cannot (the old hardcoded header reappearing
 # in, and a proxy_pass location missing proxy_hide_header in, the ACTUAL
-# tracked template — see the compose-hygiene CI job, which runs
+# tracked template — see the compose-hygiene member of lint-selftests-alpine, which runs
 # `--check nginx/app.conf.template` right after this self-test for exactly
 # that reason) and fails closed on a nested location block rather than
 # silently discarding an outer block's state on the second `location` line.

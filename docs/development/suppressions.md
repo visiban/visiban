@@ -92,7 +92,7 @@ The marker convention and this check apply to `frontend/src` (eslint-disable), `
 
 `sonar.issue.ignore.multicriteria.*` criteria in `sonar-project.properties` follow the same two buckets. Each existing criterion is **permanent**: it carries a plain rationale comment and a narrow path, with no marker. A criterion that waits on tracked work would carry a `SUPPRESSED-UNTIL(#N)` comment above it, exactly like any other suppression. Never widen a glob to hide a finding. The same policy is stated in the header of the properties file.
 
-The `lint:sonar-exclusions` job (`scripts/check-sonar-exclusions.sh`) keeps those criteria honest. It's pure `git ls-files` matching, with no network and no `SONAR_TOKEN`. It fails when:
+The `lint:sonar-exclusions` member of `lint-selftests-alpine` (`scripts/check-sonar-exclusions.sh`) keeps those criteria honest. It's pure `git ls-files` matching, with no network and no `SONAR_TOKEN`. It fails when:
 
 - a criterion's glob matches no tracked file (dead or silently drifted),
 - the `multicriteria=` index and the `.ruleKey`/`.resourceKey` definitions disagree, or

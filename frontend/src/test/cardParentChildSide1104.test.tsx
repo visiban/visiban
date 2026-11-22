@@ -133,6 +133,19 @@ describe("CardParentSection (#1104)", () => {
     expect(await screen.findByText("at /boards/12?card=41")).toBeInTheDocument();
   });
 
+  it("shows the server's sibling count, and nothing for an only child or an older server (#2443)", () => {
+    const { rerender } = render(
+      <CardParentSection board={childBoard} card={makeCard({ parent: { ...visibleParent, siblings_total: 5, siblings_done: 2 } })} canEdit />,
+    );
+    expect(screen.getByTestId("card-parent-siblings")).toHaveTextContent("2 of 5 siblings done");
+    rerender(<CardParentSection board={childBoard} card={makeCard({ parent: { ...visibleParent, siblings_total: 1, siblings_done: 0 } })} canEdit />);
+    expect(screen.queryByTestId("card-parent-siblings")).toBeNull();
+    rerender(<CardParentSection board={childBoard} card={makeCard({ parent: { ...visibleParent, siblings_total: null, siblings_done: null } })} canEdit />);
+    expect(screen.queryByTestId("card-parent-siblings")).toBeNull();
+    rerender(<CardParentSection board={childBoard} card={makeCard({ parent: visibleParent })} canEdit />);
+    expect(screen.queryByTestId("card-parent-siblings")).toBeNull();
+  });
+
   it("marks an archived parent", () => {
     render(<CardParentSection board={childBoard} card={makeCard({ parent: { ...visibleParent, archived: true } })} canEdit />);
     expect(screen.getByText("Pipeline › Qualify · Archived")).toBeInTheDocument();
@@ -427,6 +440,7 @@ describe("cardParent copy (#1104)", () => {
     expect(linkErrorCopy({ response: { status: 404 } })).toMatch(/^No matching cards/);
     expect(linkErrorCopy({ response: { status: 429 } })).toMatch(/Too many link changes/);
     expect(linkErrorCopy({ response: { status: 400, data: { code: "already_has_parent" } } })).toBe("This card already has a parent. Unlink it first.");
+    expect(linkErrorCopy({ response: { status: 400, data: { code: "parent_archived" } } })).toMatch(/archived/);
     expect(linkErrorCopy(new Error("x"))).toBe("Failed to link the parent. Please try again.");
   });
 });

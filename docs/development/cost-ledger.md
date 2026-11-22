@@ -28,7 +28,7 @@ This is a port of Blueprint's cost ledger (macrodream/blueprint#235, macrodream/
 | `scripts/cost_ledger_lines.py` | Reads and checks the cost lines in a description; shared by `cost-table.py` and `/kaizen` |
 | `scripts/kaizen_gate_ledger.py` | `/kaizen`'s reader; reports cost by change class and by gate |
 
-Every script has a `--self-test`; `post-mr-cost.py`'s also replays the golden fixture. The `cost-ledger-selftest` CI job runs them all, plus `scripts/tests/kaizen_gate_ledger.test.sh`, on MRs that touch any of them.
+Every script has a `--self-test`; `post-mr-cost.py`'s also replays the golden fixture. The `cost-ledger-selftest` (member of `lint-selftests-alpine`) CI job runs them all, plus `scripts/tests/kaizen_gate_ledger.test.sh`, on MRs that touch any of them.
 
 ## It posts on its own
 <a id="auto-post"></a>

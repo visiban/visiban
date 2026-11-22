@@ -66,10 +66,10 @@ from the environment, and prints `ACCEPTED note-by=... accepted-by=... expires=.
 `sh scripts/security-deferred-verdict.sh --self-test` (44 cases) covers valid, expired, blank
 `accepted-by` / `reason`, impossible dates (`2099-13-45`, `2099-02-30`, non-leap Feb 29),
 two `expires` fields, `;` in `reason`, no note, multiple lines, month/day ranges, leap-year rules (2000, 2028, 2100), and handle/author shape. CI runs it in the
-`security-deferred-verdict-selftest` job.
+`security-deferred-verdict-selftest` (member of `lint-selftests-alpine`) job.
 
 `bash scripts/check-security-deferred.sh --self-test` (stubbed `glab`, no network) covers the
-query/loop around the verdict; CI runs it in the same `security-deferred-verdict-selftest` job.
+query/loop around the verdict; CI runs it in the same `security-deferred-verdict-selftest` (member of `lint-selftests-alpine`) job.
 
 ## Confidential issues
 

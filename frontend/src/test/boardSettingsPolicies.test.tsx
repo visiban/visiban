@@ -10,7 +10,7 @@ import type { BoardFull, Column, ColumnPolicy, User } from '../types'
 vi.mock('../api/boards', () => ({
   // #2208 — the Rules switch's blockers and the delete confirm's impact read.
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
-  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue({ boards: [] }),
   getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   patchColumn: vi.fn(),
   setBoardMember: vi.fn(),

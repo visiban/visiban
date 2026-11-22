@@ -8,6 +8,7 @@ from .broadcast import (
     EVT_BOARD_CREATED,
     EVT_BOARD_STAR_CHANGED,
     EVT_BOARD_UPDATED,
+    EVT_CARD_PARENT_CHANGED,
     EVT_MEMBER_ADDED,
     EVT_MEMBER_UPDATED,
     EVT_SAVED_FILTER_CREATED,
@@ -201,6 +202,32 @@ def admin_only_event_visible(role):
     re-resolved role) and the change-feed view (per reader).
     """
     return role in ROLES_WITH_ADMIN_ONLY_EVENT_VISIBILITY
+
+
+def is_sibling_frame(event_type, data):
+    """True for the ``card.parent_changed {card_ids, siblings: true}`` frame (#2443)."""
+    return event_type == EVT_CARD_PARENT_CHANGED and isinstance(data, dict) and data.get("siblings") is True
+
+
+def audience_gate(event_type, data, audience_board_id):
+    """Whether a board frame is gated to a second board, and which one (#2443).
+
+    Returns ``(gated, board_id)``. ``gated`` is True for a frame published
+    with an ``audience_board_id`` (it rides beside the envelope on the
+    channel-layer message, never on the wire) and, whatever the message
+    carries, for the sibling frame (:func:`is_sibling_frame`). A gated frame
+    may reach a subscriber only if that subscriber has a role on
+    ``board_id``. ``board_id`` is ``None`` when the frame is gated but the
+    audience is absent or not a positive integer id: the caller must then drop
+    the frame for everyone (fail closed, #1075), never forward it.
+    """
+    must_gate = is_sibling_frame(event_type, data)
+    if audience_board_id is None and not must_gate:
+        return False, None
+    valid = (
+        isinstance(audience_board_id, int) and not isinstance(audience_board_id, bool) and audience_board_id > 0
+    )
+    return True, (audience_board_id if valid else None)
 
 
 # Event types whose payload is built by a serializer running in the ACTING

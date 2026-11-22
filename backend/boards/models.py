@@ -901,11 +901,18 @@ class Swimlane(models.Model):
 class SwimlaneTeamMember(models.Model):
     """One person on a swimlane's default team (#2211).
 
-    Stored settings only. Limited to the board's listed, active, non-viewer
-    members when written (the serializer, re-checked under the board lock in
-    ``boards.services.swimlane_team.set_team``). Removing a member from the
-    board deletes their rows on that board's lanes (``BoardViewSet.remove_member``).
-    The Edit Swimlane modal filters out people who no longer qualify on read.
+    The team acts: new cards in the lane (Add card) and children added from
+    its cards (Add child) are pre-assigned to its first eligible member, who is
+    notified (``services.cards.create_card``). Limited to the board's listed,
+    active, non-viewer members when written (the serializer, re-checked under
+    the board lock in ``boards.services.swimlane_team.set_team``). Removing a
+    member from the board deletes their rows on that board's lanes
+    (``BoardViewSet.remove_member``). A row is not rewritten when its person is
+    demoted to viewer or loses access another way, so every reader filters on
+    read: Edit Swimlane and Add card in the web app, Add child and its chooser
+    through ``swimlane_team.listed_team_ids``, and the team-access warning by
+    applying the same listed-non-viewer filter inline (it keeps deactivated
+    members so the warning can name them).
     """
 
     swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")
@@ -2923,6 +2930,47 @@ class CardParentLink(models.Model):
 
     def __str__(self):
         return f"{self.parent_id} -> {self.child_id}"
+
+
+class CardParentUnlink(models.Model):
+    """A parent/child pair whose :class:`CardParentLink` was removed (#2447).
+
+    **Why it exists:** an archived parent gets no new children
+    (``parent_archived``), but a child that was linked to it and then
+    unlinked (an accidental Unlink, or Undo of one) may be linked back. The
+    card history (``CardActivity``) deliberately stores no reference to the
+    other card, so it cannot answer "was this pair linked before"; this row
+    does. Written by ``card_links.remove_link`` and deleted by
+    ``card_links.create_link`` under the same card locks, so a pair has at
+    most one row and only while it is unlinked.
+
+    **Who reads it:** only ``card_links._check_link_rules_under_lock`` (the
+    archived-parent exception) and ``child_candidates_for_viewer`` (the
+    picker's ``disabled_reason``). It is never serialized, exported,
+    imported, broadcast or sent to MCP or webhooks: it carries no field a
+    viewer could not already see and nothing reads it per viewer, so every
+    per-viewer rule on the link reads is unaffected. Deleting either card
+    removes the row (``CASCADE``).
+    """
+
+    parent = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="unlinked_child_pairs"
+    )
+    child = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="unlinked_parent_pairs"
+    )
+    unlinked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_parent_unlinks"
+        # The unique index leads with ``parent``, so it also serves the one
+        # per-parent read (the picker's batched lookup and the write check).
+        constraints = [
+            models.UniqueConstraint(fields=["parent", "child"], name="cardparentunlink_pair_uniq"),
+        ]
+
+    def __str__(self):
+        return f"{self.parent_id} -/- {self.child_id}"
 
 
 class CardExternalRef(models.Model):

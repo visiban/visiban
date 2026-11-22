@@ -160,6 +160,13 @@ export default function CardParentSection({ board, card, canEdit, demoMode = fal
             <span className="block text-xs text-fg-muted truncate">
               {parent.board_name} › {parent.column_name}{parent.archived ? " · Archived" : ""}
             </span>
+            {/* Canvas "2 of 5 siblings done" (#2443): counted by the server for this viewer, over
+                this board only. Not shown for an only child, or by a server that sends no count. */}
+            {typeof parent.siblings_total === "number" && parent.siblings_total > 1 && (
+              <span className="block text-xs text-fg-muted" data-testid="card-parent-siblings">
+                {parent.siblings_done ?? 0} of {parent.siblings_total} siblings done
+              </span>
+            )}
           </span>
           {canWrite && (
             <button type="button" onClick={() => void unlink()} disabled={unlinking} aria-label={`Unlink parent ${parent.title}`} className={UNLINK_CLASS}>

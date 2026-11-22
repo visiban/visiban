@@ -36,7 +36,8 @@ from visiban.exceptions import CodedValidationError
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardRelation, Column, Label,
+    Board, BoardMembership, Card, CardActivity, CardMovement, CardParentLink, CardParentUnlink,
+    CardRelation, Column, Label,
 )
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_roles
 from .errors import LinksChanged
@@ -50,6 +51,12 @@ CHILDREN_PER_PARENT_LIMIT = 100
 #: everyone on its board, so it sits on the card-state side of the
 #: collaborator line.
 LINK_WRITE_ROLES = (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+#: Most boards an options list (the Add child chooser, the Rules page's default
+#: child board select) returns; the response carries ``boards_total`` so a
+#: client can say "showing 100 of N" (#2449). Same number as the children cap,
+#: so for a site admin the list is bounded like every other child read.
+CHILD_BOARD_OPTIONS_LIMIT = CHILDREN_PER_PARENT_LIMIT
 
 _PERM_DENIED = "You do not have permission to perform this action."
 
@@ -382,7 +389,7 @@ def _record(card_id, event_type, actor):
     CardActivity.objects.create(card_id=card_id, event_type=event_type, actor=actor)
 
 
-def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
+def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id, *, siblings=True):
     """Record the two ids-only pings, published when the transaction commits.
 
     ``record_board_event`` defers the publish with ``transaction.on_commit``,
@@ -398,6 +405,79 @@ def _announce(parent_board_id, parent_id, child_board_id, child_id, actor_id):
         child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
         {"card_ids": [child_id]}, actor_id=actor_id,
     )
+    # The other children's "N of M siblings done" just changed (#2443). ``siblings=False``
+    # when every other child is being unlinked too: they each get their own frame.
+    if siblings:
+        _announce_siblings(
+            CardParentLink.objects.filter(parent_id=parent_id, child__archived_at__isnull=True)
+            .values_list("parent_id", "parent__board_id", "child_id", "child__board_id"),
+            actor_id=actor_id, exclude={child_id},
+        )
+
+
+def _announce_siblings(rows, *, actor_id, exclude=(), changed=()):
+    """Ping each child board that a parent's sibling counts changed (#2443).
+
+    ``Card.parent.siblings_total`` / ``siblings_done`` are on every child of a
+    parent, so a link, unlink, archive, restore, delete, move, block or
+    unblock of ONE child makes its siblings' copies stale. Write responses and
+    ``card.*`` frames never carry ``parent`` (it is per reader), so the
+    siblings are told here: one ``card.parent_changed`` per (parent, child
+    board) with ``{"card_ids": [...], "siblings": true}``.
+
+    ``rows`` is ``(parent_id, parent_board_id, child_id, child_board_id)`` for
+    LIVE children, read after the write. ``exclude`` drops ids that get their
+    own frame (the child just linked or unlinked, or a deleted card).
+    ``changed`` names the cards the write touched: a pair whose only live
+    child is one of them is skipped, since the line is shown for two or more
+    and nothing else reads the counts.
+
+    **Gated to the parent's board (security-invariants Rule 8).** The frame
+    groups ids that share one parent and is sent because one of that parent's
+    children changed, so it goes only to subscribers who can open the
+    PARENT's board: the sibling line is the only thing it refreshes, and a
+    reader who cannot open the parent sees a hidden parent with null sibling
+    counts, which no write can make stale. The parent's board id rides beside
+    the envelope on the channel-layer message (``audience_board_id``), never
+    on the wire, and ``BoardConsumer`` forwards the frame only to a
+    subscriber with a role on that board, failing closed when it is absent.
+    For the same reason the frame is broadcast only and never written to the
+    change feed: the feed is read per CHILD-board role (REST feed, webhooks)
+    and has no per-row audience. A socket that misses one recovers on its
+    reconnect resync, which re-reads ``parent`` for every card.
+
+    Ids only, all on the board the frame goes to, never a parent id, title or
+    count. ``siblings`` tells a client the listed cards share ONE parent, so
+    it may read one of them and apply that ``parent`` to all; an older client
+    reads each, which is equally right. At most ``CHILDREN_PER_PARENT_LIMIT``
+    ids per frame (the write-side cap). Published after commit, so a rolled
+    back write sends nothing; one ``on_commit`` callback per write.
+    """
+    exclude = set(exclude)
+    changed = set(changed)
+    by_pair = {}
+    for parent_id, parent_board_id, child_id, child_board_id in rows:
+        if child_id not in exclude:
+            by_pair.setdefault((parent_id, parent_board_id, child_board_id), []).append(child_id)
+    frames = []
+    for key in sorted(by_pair):
+        ids = sorted(by_pair[key])[:CHILDREN_PER_PARENT_LIMIT]
+        if len(ids) == 1 and ids[0] in changed:
+            continue
+        _parent_id, parent_board_id, child_board_id = key
+        frames.append((child_board_id, parent_board_id, ids))
+    if frames:
+        transaction.on_commit(lambda frames=frames, actor_id=actor_id: _publish_sibling_frames(frames, actor_id))
+
+
+def _publish_sibling_frames(frames, actor_id):
+    """The after-commit half of :func:`_announce_siblings`: plain data only."""
+    for child_board_id, parent_board_id, ids in frames:
+        _broadcast.broadcast_board_event(
+            child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
+            {"card_ids": ids, "siblings": True},
+            actor_id=actor_id, audience_board_id=parent_board_id,
+        )
 
 
 def _check_link_rules_under_lock(parent, child_board, *, child=None):
@@ -432,6 +512,25 @@ def _check_link_rules_under_lock(parent, child_board, *, child=None):
             if existing.parent_id == parent.pk:
                 raise CodedValidationError("link_exists", "This card is already linked to that parent.")
             raise CodedValidationError("already_has_parent", "This card already has a parent. Unlink it first.")
+    # #2447 (owner decision 2026-11-22): no new child under an ARCHIVED parent,
+    # on either write. Checked after ``link_exists`` on purpose: re-saving the
+    # link a child already has keeps its old answer, and archiving or
+    # restoring a parent never touches the links it already has. Read under
+    # the parent card's lock, so an archive that commits first is seen.
+    # The one exception (owner decision, 2026-11-22): a child that was linked
+    # to this parent and then unlinked (an accidental Unlink, or Undo of one)
+    # may be linked back, which is restoring a link, not adding a child. The
+    # card history keeps no reference to the other card, so the pair is read
+    # from ``CardParentUnlink``, under both card locks (``remove_link`` writes
+    # it under the same ones). Add child (``child is None``) makes a NEW card,
+    # which can never have been linked, so it is always refused.
+    if Card.objects.filter(pk=parent.pk, archived_at__isnull=False).exists() and not (
+        child is not None
+        and CardParentUnlink.objects.filter(parent_id=parent.pk, child_id=child.pk).exists()
+    ):
+        raise CodedValidationError(
+            "parent_archived", "That card is archived, so it cannot get new children. Restore it first.",
+        )
     siblings = CardParentLink.objects.filter(parent_id=parent.pk)
     # One child board per parent (epic #2206 decision A): nothing ever splits
     # a parent's children across boards, not a link and not Add child.
@@ -474,6 +573,9 @@ def create_link(*, user, child, child_role, parent_id):
             raise NotFound()
         _check_link_rules_under_lock(parent, child.board, child=child)
         link = CardParentLink.objects.create(parent=parent, child=child, created_by=user)
+        # The pair is linked again, so it is no longer "previously unlinked":
+        # a later unlink writes a fresh row, and a pair never has two (#2447).
+        CardParentUnlink.objects.filter(parent_id=parent.pk, child_id=child.pk).delete()
         _record(child.pk, CardActivity.EventType.PARENT_LINKED, user)
         _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
         _announce(parent.board_id, parent.pk, child.board_id, child.pk, user.id)
@@ -606,11 +708,36 @@ def child_board_options_for_viewer(parent, user):
     * ``boards``: every qualifying board where the viewer holds MEMBER or
       higher, by name, each with ``can_set_default`` (ADMIN on both boards).
     * ``can_set_default``: ADMIN on the parent's board.
+    * ``boards_total`` (since 1.3, #2449): how many boards qualify; ``boards``
+      holds at most :data:`CHILD_BOARD_OPTIONS_LIMIT` of them, by name.
+      ``default`` is resolved over every qualifying board and is always in
+      ``boards`` (it takes the last slot when it sorts past the cap), so the
+      chooser can preselect it.
+    * ``disabled_reason`` (#2447): ``"parent_archived"`` when ``parent`` is
+      archived (the POST refuses it with that code), else ``None``.
+    * ``default_team`` (#2211): the parent's lane team as ``{"swimlane":
+      {"id", "name"}, "member_ids"}`` (active members still listed as
+      non-viewers on the parent board, team order), or None when none are.
+      Each ``boards`` entry (and ``fixed_board`` when the viewer can open it)
+      then carries ``default_assignee_id``: the member Add child pre-assigns
+      there unless ``apply_default_team`` is false (or the request's
+      ``expected_assignee_id`` no longer matches). The parent's lane decides; the child board's own lanes are not
+      consulted. ``member_ids`` discloses nothing new: anyone who can read the
+      parent can already read the lane's ``default_team`` (viewers included).
+      The pre-assigned member is notified like any assignment
+      (``services.cards.create_card``).
 
     Empty (no boards, no default) when the parent's board is not a parent
     tier. No user fails closed to the empty answer (#1075).
+
+    Cost is flat in the number of boards (#2449, pinned in
+    ``test_query_counts.ChildBoardOptionsReadQueryCountTests``): one candidate
+    query, one ``get_board_roles`` batch for all of them.
     """
-    out = {"fixed_board": None, "default": None, "boards": [], "can_set_default": False}
+    out = {
+        "fixed_board": None, "default": None, "boards": [], "can_set_default": False,
+        "boards_total": 0, "disabled_reason": None, "default_team": None,
+    }
     if user is None or not getattr(user, "is_authenticated", False):
         return out
     parent_board = parent.board
@@ -621,6 +748,17 @@ def child_board_options_for_viewer(parent, user):
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     out["can_set_default"] = admin_here
+    if parent.archived_at is not None:
+        out["disabled_reason"] = "parent_archived"
+
+    from .swimlane_team import default_assignees, listed_team_ids
+
+    lane = parent.swimlane
+    # Filtered to the parent board's listed non-viewers, so the chooser never
+    # names someone Add child would skip (#2211).
+    lane_team = listed_team_ids(lane, parent_board)
+    if lane_team:
+        out["default_team"] = {"swimlane": {"id": lane.pk, "name": lane.name}, "member_ids": lane_team}
     fixed_id = (
         CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
         .values_list("child__board_id", flat=True).first()
@@ -644,17 +782,50 @@ def child_board_options_for_viewer(parent, user):
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
+    rows = []
     for b in candidates:
         role = roles.get(b.pk)
         if role not in LINK_WRITE_ROLES:
             continue
-        out["boards"].append({
+        if b.pk == parent_board.default_child_board_id:
+            out["default"] = {"id": b.pk, "name": b.name}
+        rows.append({
             "id": b.pk, "name": b.name,
             "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
         })
-        if b.pk == parent_board.default_child_board_id:
-            out["default"] = {"id": b.pk, "name": b.name}
+    out["boards_total"] = len(rows)
+    out["boards"] = _options_page(rows, out["default"] and out["default"]["id"])
+    if lane_team:
+        # One batched resolution for every offered board, after the loop, so
+        # the cost follows the team size, not the board count (#2211). Only
+        # the boards in the capped page (#2449) are offered, so only they
+        # need a pick.
+        page_ids = {r["id"] for r in out["boards"]}
+        offered = {b.pk: b for b in candidates if b.pk in page_ids}
+        fixed_entry = out["fixed_board"]
+        if fixed_entry and not fixed_entry["hidden"]:
+            offered[fixed.pk] = fixed
+        picks = default_assignees(lane_team, list(offered.values()))
+        for entry in out["boards"]:
+            entry["default_assignee_id"] = picks.get(entry["id"])
+        if fixed_entry and not fixed_entry["hidden"]:
+            fixed_entry["default_assignee_id"] = picks[fixed.pk]
     return out
+
+
+def _options_page(rows, keep_id):
+    """At most :data:`CHILD_BOARD_OPTIONS_LIMIT` of ``rows`` (in name order), always with ``keep_id``'s row (#2449).
+
+    The chooser preselects the default, and the Rules page select shows the
+    current default, so that board must be in the page even when it sorts past
+    the cap: it takes the last slot. ``keep_id`` of ``None``, or one not in
+    ``rows``, is the plain first page.
+    """
+    page = rows[:CHILD_BOARD_OPTIONS_LIMIT]
+    if keep_id is None or any(r["id"] == keep_id for r in page):
+        return page
+    kept = next((r for r in rows if r["id"] == keep_id), None)
+    return page if kept is None else [*rows[:CHILD_BOARD_OPTIONS_LIMIT - 1], kept]
 
 
 def default_child_board_options_for_admin(board, user):
@@ -663,27 +834,35 @@ def default_child_board_options_for_admin(board, user):
     Qualifying boards (not a parent tier, first column creates cards, has a
     lane) where the viewer is ADMIN: setting a default needs ADMIN on both
     boards. Same rule the write's validator applies, so the select never offers
-    a board the PATCH would refuse. ``[]`` when the viewer is not ADMIN on
-    ``board`` or there is no viewer (#1075 fail closed).
+    a board the PATCH would refuse.
+
+    Returns ``{"boards": [...], "boards_total": N}`` (#2449): at most
+    :data:`CHILD_BOARD_OPTIONS_LIMIT` boards by name, and how many qualify in
+    all. ``board``'s current default child board, when it qualifies here, is
+    always in the page (:func:`_options_page`). Empty when the viewer is not ADMIN on ``board`` or there is no viewer
+    (#1075 fail closed). Flat in the number of boards: one candidate query and
+    one ``get_board_roles`` batch.
     """
+    out = {"boards": [], "boards_total": 0}
     if user is None or not getattr(user, "is_authenticated", False):
-        return []
+        return out
     if get_board_roles(user, [board])[board.pk] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-        return []
+        return out
     candidates = list(
         _qualifying(_accessible_boards(user).exclude(pk=board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
-    return [
+    rows = [
         {"id": b.pk, "name": b.name}
         for b in candidates
         if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     ]
+    return {"boards": _options_page(rows, board.default_child_board_id), "boards_total": len(rows)}
 
 
-def remove_link(link, *, actor, moved_from=None):
+def remove_link(link, *, actor, moved_from=None, siblings=True):
     """Delete ``link`` and record it on both cards and both boards.
 
     Authorization is the caller's: either end may unlink, with MEMBER or
@@ -697,6 +876,10 @@ def remove_link(link, *, actor, moved_from=None):
         if not deleted:
             # A concurrent unlink won; answer as for a link that is gone.
             raise NotFound()
+        # Remember the pair, so it may be linked back while the parent is
+        # archived (#2447, see ``_check_link_rules_under_lock``). Written under
+        # both card locks; ``get_or_create`` keeps one row per pair.
+        CardParentUnlink.objects.get_or_create(parent_id=link.parent_id, child_id=link.child_id)
         _record(link.child_id, CardActivity.EventType.PARENT_UNLINKED, actor)
         _record(link.parent_id, CardActivity.EventType.CHILD_UNLINKED, actor)
         # ``moved_from`` names the board a card is LEAVING: an admin move
@@ -710,7 +893,7 @@ def remove_link(link, *, actor, moved_from=None):
         _announce(
             board_of(link.parent_id, link.parent.board_id), link.parent_id,
             board_of(link.child_id, link.child.board_id), link.child_id,
-            getattr(actor, "id", None),
+            getattr(actor, "id", None), siblings=siblings,
         )
 
 
@@ -731,7 +914,9 @@ def unlink_all(card, *, actor=None, old_board_id=None):
     ).order_by("pk")
     moved_from = {card.pk: old_board_id} if old_board_id else None
     for link in list(links):
-        remove_link(link, actor=actor, moved_from=moved_from)
+        # The PARENT end leaving unlinks every remaining child too, so no sibling is left to
+        # tell; the CHILD end leaving does leave siblings (#2443).
+        remove_link(link, actor=actor, moved_from=moved_from, siblings=link.parent_id != card.pk)
 
 
 def announce_card_removal(card, *, actor=None):
@@ -822,6 +1007,14 @@ def announce_cards_removal(cards, *, actor=None, reason=None):
         _broadcast.record_board_event(
             parents[parent_id], _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
+        )
+    if parents:
+        # The surviving siblings' counts drop (#2443): one read of the live
+        # children of every surviving parent, then a ping per child board.
+        _announce_siblings(
+            CardParentLink.objects.filter(parent_id__in=list(parents), child__archived_at__isnull=True)
+            .values_list("parent_id", "parent__board_id", "child_id", "child__board_id"),
+            actor_id=actor_id, exclude=deleted,
         )
     for child_board_id in sorted(children_by_board):
         child_ids = sorted(children_by_board[child_board_id])
@@ -1041,10 +1234,26 @@ def parents_for_viewer(child_ids, user):
     function from a broadcast (it has no ``CARD_PARENTS_CONTEXT_KEY``); this
     guard is for any other caller that cannot name a viewer.
 
+    **Siblings (#2443, since 1.3):** a visible entry also carries
+    ``siblings_total`` and ``siblings_done``, "2 of 5 siblings done" in the
+    child's Parent block: the parent's live (unarchived) children on THIS
+    child's board, the child itself included, and how many of them are in a
+    done column. Counted only over the child's own board, and only when the
+    viewer holds a role there (resolved in the same role batch); otherwise
+    both are ``null``. A hidden parent carries no sibling data at all: which
+    cards share a parent the viewer cannot open is that parent's information.
+    Both are clamped to ``CHILDREN_PER_PARENT_LIMIT``, the write-side cap.
+    The same rule gates the live refresh: the ``card.parent_changed
+    {card_ids, siblings: true}`` frame that tells clients these counts changed
+    names cards that share one parent, so it reaches only subscribers who can
+    open that parent's board, and is never a feed row
+    (:func:`_announce_siblings`).
+
     The role is resolved on every call, never cached, so a viewer who loses
     the parent board sees ``hidden`` on the next read (Rules 2 and 3). Cost: one
     query for the links plus ``get_board_roles``'s fixed two, however many
-    parents or parent boards there are.
+    parents or parent boards there are, plus ONE grouped sibling count when
+    any entry is visible (flat in the number of parents and children).
     """
     ids = list(child_ids)
     if not ids:
@@ -1053,6 +1262,7 @@ def parents_for_viewer(child_ids, user):
         CardParentLink.objects.filter(child_id__in=ids).select_related(
             "parent__column", "parent__swimlane",
             f"parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
+            f"child__board__{GROUP_ANCESTOR_SELECT_RELATED}",
         )
     )
     if not links:
@@ -1060,13 +1270,25 @@ def parents_for_viewer(child_ids, user):
     if user is None or not getattr(user, "is_authenticated", False):
         return {link.child_id: dict(_HIDDEN_PARENT) for link in links}
     boards = {link.parent.board_id: link.parent.board for link in links}
+    for link in links:
+        boards.setdefault(link.child.board_id, link.child.board)
     roles = get_board_roles(user, boards.values())
+    siblings = _sibling_counts(
+        {
+            (link.parent_id, link.child.board_id) for link in links
+            if roles.get(link.parent.board_id) is not None and roles.get(link.child.board_id) is not None
+        },
+    )
     out = {}
     for link in links:
         p = link.parent
         if roles.get(p.board_id) is None:
             out[link.child_id] = dict(_HIDDEN_PARENT)
             continue
+        if roles.get(link.child.board_id) is None:
+            total = done = None
+        else:
+            total, done = siblings.get((p.pk, link.child.board_id), (0, 0))
         out[link.child_id] = {
             "hidden": False,
             "id": p.pk,
@@ -1079,8 +1301,43 @@ def parents_for_viewer(child_ids, user):
             "swimlane_name": p.swimlane.name,
             "archived": p.archived_at is not None,
             "board_parent_name_singular": p.board.parent_name_singular,
+            "siblings_total": total,
+            "siblings_done": done,
         }
     return out
+
+
+def _sibling_counts(pairs):
+    """``{(parent_id, child_board_id): (total, done)}`` over live children, in ONE query (#2443).
+
+    ``pairs`` names only boards the caller has already authorized; a child of
+    the same parent on any other board is never counted (one child board per
+    parent is a write rule with no constraint). Zero queries for no pairs.
+
+    ``done`` uses the parent rollup's own partition (:func:`rollups_for_viewer`):
+    a blocked child (manual block, or an open ``blocks`` relation from a live
+    same-board card) is blocked even in a done column, so it is not done here
+    either. The child's "2 of 5 siblings done" and the parent's rollup
+    therefore never disagree about the same children.
+    """
+    if not pairs:
+        return {}
+    done = Q(child__column__is_done=True, child__blocked_at__isnull=True) & ~Exists(_open_blocker_of_child())
+    rows = (
+        CardParentLink.objects.filter(
+            parent_id__in={p for p, _ in pairs}, child__board_id__in={b for _, b in pairs},
+            child__archived_at__isnull=True,
+        )
+        .order_by().values("parent_id", "child__board_id")
+        .annotate(total=Count("pk"), done=Count("pk", filter=done))
+        .values_list("parent_id", "child__board_id", "total", "done")
+    )
+    cap = CHILDREN_PER_PARENT_LIMIT
+    return {
+        (parent_id, board_id): (min(total, cap), min(done, total, cap))
+        for parent_id, board_id, total, done in rows
+        if (parent_id, board_id) in pairs
+    }
 
 
 def _accessible_boards(user):
@@ -1279,6 +1536,8 @@ def child_candidates_for_viewer(user, parent, child_board, search):
     existing. ``child_board`` comes from :func:`resolve_link_child_board`.
     ``disabled_reason`` uses :func:`create_link`'s codes: ``link_exists``
     (already this parent's child), ``already_has_parent`` (another parent's),
+    ``parent_archived`` (this parent is archived, #2447; not for a card that
+    was linked to it and then unlinked, which may be linked back),
     ``children_limit`` (this parent is full). ``parent_title`` names that other
     parent only when the viewer can open its board; otherwise it is ``null``
     and the picker says "a card you can't open".
@@ -1311,6 +1570,16 @@ def child_candidates_for_viewer(user, parent, child_board, search):
         if link is not None and link.parent_id != parent.pk:
             other_parents[link.parent.board_id] = link.parent.board
     roles = get_board_roles(user, other_parents.values()) if other_parents else {}
+    # #2447: under an archived parent, only a card that was linked to it and
+    # then unlinked may be linked back (``_check_link_rules_under_lock``). One
+    # batched read for the page, and only when the parent is archived; an
+    # empty set (no rows, or no candidates) keeps every free card refused.
+    relinkable = set()
+    if parent.archived_at is not None and cards:
+        relinkable = set(
+            CardParentUnlink.objects.filter(parent_id=parent.pk, child_id__in=[c.pk for c in cards])
+            .values_list("child_id", flat=True)
+        )
 
     from accounts.serializers import BoardUserSerializer
 
@@ -1325,6 +1594,10 @@ def child_candidates_for_viewer(user, parent, child_board, search):
             reason = "already_has_parent"
             if roles.get(link.parent.board_id) is not None:
                 parent_title = link.parent.title
+        elif parent.archived_at is not None and c.pk not in relinkable:
+            # #2447: the write refuses a new child under an archived parent,
+            # except a card this parent had before (``relinkable``).
+            reason = "parent_archived"
         elif full:
             reason = "children_limit"
         rows.append({
@@ -1366,6 +1639,21 @@ def announce_parent_changed(card_id, board, *, actor_id):
 
 
 # ─── Parent-side rollup and child-side pings (#2210, #2416) ──────────────────
+
+
+def _open_blocker_of_child():
+    """An open ``blocks`` relation onto a ``CardParentLink`` row's child (the #449 predicate).
+
+    For ``Exists`` over ``CardParentLink``: from a live card on the child's own
+    board. Shared by the parent rollup and the child's sibling count (#2443) so
+    the two always classify a blocked child the same way.
+    """
+    return CardRelation.objects.filter(
+        to_card_id=OuterRef("child_id"),
+        relation_type=CardRelation.Type.BLOCKS,
+        from_card__archived_at__isnull=True,
+        from_card__board_id=OuterRef("child__board_id"),
+    )
 
 
 def _empty_rollup():
@@ -1415,12 +1703,7 @@ def rollups_for_viewer(parent_ids, user):
     if not ids:
         return {}
     out = {pid: _empty_rollup() for pid in ids}
-    open_blocker = CardRelation.objects.filter(
-        to_card_id=OuterRef("child_id"),
-        relation_type=CardRelation.Type.BLOCKS,
-        from_card__archived_at__isnull=True,
-        from_card__board_id=OuterRef("child__board_id"),
-    )
+    open_blocker = _open_blocker_of_child()
     last_move = (
         CardMovement.objects.filter(card_id=OuterRef("child_id"))
         .order_by("-moved_at").values("moved_at")[:1]
@@ -1489,18 +1772,33 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
     there and publishes on commit, so a rollback sends nothing. Zero queries
     when ``board`` is a parent tier (its cards cannot be children); else one,
     and at most one event per parent.
+
+    **Siblings (#2443):** the same writes change the sibling counts every
+    other child of those parents shows, so the same read also returns each
+    parent's other links, and each child board gets
+    :func:`_announce_siblings`'s ``card.parent_changed {card_ids, siblings}``.
+    That covers a sibling moving into or out of a done column: ``move_card``
+    calls this on every column change. Still one query.
     """
     ids = list(card_ids)
     if not ids or (board is not None and board.cards_can_have_children):
         return
-    pairs = sorted(set(
-        CardParentLink.objects.filter(child_id__in=ids).values_list("parent__board_id", "parent_id")
-    ))
+    idset = set(ids)
+    rows = list(
+        CardParentLink.objects.filter(
+            parent_id__in=CardParentLink.objects.filter(child_id__in=ids).values("parent_id"),
+        ).values_list("parent__board_id", "parent_id", "child_id", "child__board_id", "child__archived_at")
+    )
+    pairs = sorted({(pb, p) for pb, p, c, _cb, _a in rows if c in idset})
     for parent_board_id, parent_id in pairs:
         _broadcast.record_board_event(
             parent_board_id, _broadcast.EVT_CARD_CHILDREN_CHANGED,
             {"parent_id": parent_id}, actor_id=actor_id,
         )
+    _announce_siblings(
+        [(p, pb, c, cb) for pb, p, c, cb, archived_at in rows if archived_at is None],
+        actor_id=actor_id, changed=idset,
+    )
 
 
 #: Above this many linked children on one child board, a parent container

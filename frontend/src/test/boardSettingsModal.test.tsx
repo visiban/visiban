@@ -18,7 +18,7 @@ const FULL_ACCESS = "Full access to all boards. This account's board role doesn'
 vi.mock('../api/boards', () => ({
   // #2208 — the Rules switch's blockers and the delete confirm's impact read.
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
-  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([]),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue({ boards: [] }),
   getBoardDeleteImpact: vi.fn().mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 }),
   setBoardMember: vi.fn(),
   removeBoardMember: vi.fn(),
@@ -1928,7 +1928,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     vi.mocked(getChildrenSettingBlockers).mockClear()
     vi.mocked(getBoardDeleteImpact).mockResolvedValue({ child_cards: 0, parent_boards: [], hidden_parent_boards: false, parent_cards: 0 })
     vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] })
-    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([])
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue({ boards: [] })
   })
 
   async function openRules(board: BoardFull, onUpdate = vi.fn(), isAdmin = true) {
@@ -2105,7 +2105,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
   })
 
   it('shows the default child board select only while on, listing the admin options', async () => {
-    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([{ id: 7, name: 'Delivery' }])
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue({ boards: [{ id: 7, name: 'Delivery' }] })
     const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: null })
     const select = await screen.findByRole('combobox', { name: /Default child board/ })
     expect(select).toHaveTextContent('None (ask each time)')
@@ -2114,8 +2114,21 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     expect(onUpdate).toHaveBeenCalledWith({ default_child_board: 7 })
   })
 
+  it('says "Showing N of M" when the server capped the default child board list (#2449)', async () => {
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue({ boards: [{ id: 7, name: 'Delivery' }], boards_total: 240 })
+    await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: 7 })
+    expect(await screen.findByTestId('default-child-board-cap')).toHaveTextContent('Showing 1 of 240 boards, by name.')
+  })
+
+  it('shows no cap line for a complete list or an older server without boards_total (#2449)', async () => {
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue({ boards: [{ id: 7, name: 'Delivery' }], boards_total: 1 })
+    await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: null })
+    await screen.findByRole('combobox', { name: /Default child board/ })
+    expect(screen.queryByTestId('default-child-board-cap')).toBeNull()
+  })
+
   it('clearing the default sends null; an unlisted current default reads as not changeable', async () => {
-    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue([])
+    vi.mocked(getDefaultChildBoardOptions).mockResolvedValue({ boards: [] })
     const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true, default_child_board: 99 })
     const select = await screen.findByRole('combobox', { name: /Default child board/ })
     expect(select).toHaveTextContent("A board you can't change")

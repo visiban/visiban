@@ -30,6 +30,7 @@ from boards.views.card_query import CardQueryRateThrottle
 VISIBLE_KEYS = {
     "hidden", "id", "title", "board_id", "board_name", "column_id", "column_name",
     "swimlane_id", "swimlane_name", "archived", "board_parent_name_singular",
+    "siblings_total", "siblings_done",  # #2443
 }
 
 
@@ -61,6 +62,7 @@ class ParentFieldReadTests(_ParentFixture, TestCase):
             "swimlane_id": self.parent.swimlane_id, "swimlane_name": self.parent.swimlane.name,
             "archived": False,
             "board_parent_name_singular": "",
+            "siblings_total": 1, "siblings_done": 0,
         })
         self.assertIsNone(cards[self.unlinked.pk]["parent"])
 

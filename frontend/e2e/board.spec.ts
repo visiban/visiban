@@ -51,7 +51,7 @@ test.describe('board view', () => {
     await titleInput.fill('New task')
     // close_editor_on_enter is false in the user fixture, so Enter does not submit.
     // Click the "Add" button explicitly.
-    await page.getByRole('button', { name: 'Add', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Add card', exact: true }).first().click()
 
     // Assert the actual POST payload (api/cards.ts createCard) rather than just
     // that *a* request happened — board/swimlane/column mismatches or an
