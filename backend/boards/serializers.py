@@ -4083,6 +4083,11 @@ class CardSerializer(serializers.ModelSerializer):
                 })
 
     def validate_notify_assignee(self, value):
+        # For form-encoded input DRF fills an absent BooleanField with False
+        # (``default_empty_html``) and still calls this validator, so absence
+        # must mean "not requested", never a 400 on every multipart create.
+        if "notify_assignee" not in self.initial_data:
+            return False
         # Strict: DRF would coerce "yes" or 1, and a typo must never notify someone.
         if not isinstance(self.initial_data.get("notify_assignee"), bool):
             raise serializers.ValidationError("Must be a boolean.")

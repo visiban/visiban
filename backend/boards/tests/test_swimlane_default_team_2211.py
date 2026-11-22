@@ -565,6 +565,15 @@ class AssignmentNotificationTests(AddChildTests):
         self.assertEqual(self.post_card(notify_assignee=False).status_code, 201)
         self.assertEqual(self.notes(self.mia), [])
 
+    def test_form_encoded_create_without_the_flag_is_accepted_and_silent(self):
+        # DRF fills an absent BooleanField with False for form input and still runs
+        # validate_notify_assignee; absence must not 400 every multipart create.
+        body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, "assignee_id": self.mia.pk}
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.owner).post(f"/api/v1/boards/{self.parent.pk}/cards/", body)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(self.notes(self.mia), [])
+
     def test_notify_assignee_must_be_a_boolean(self):
         for value in ("true", 1, None):
             r = self.post_card(notify_assignee=value)
