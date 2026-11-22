@@ -15,6 +15,7 @@
 | `sonar-scan-selftest` (member of `lint-selftests-alpine`) | `.gitlab-ci.yml`, `lint` stage | MRs that touch `scripts/sonar-scan.sh`, `sonar-project.properties`, or the CI file; also `main` |
 | `lint:sonar-exclusions` (member of `lint-selftests-alpine`) | `.gitlab-ci.yml`, `lint` stage | MRs that touch `sonar-project.properties`, `scripts/check-sonar-exclusions.sh`, or the CI file; also `main` |
 | `sonar:rules-check` | `.gitlab-ci.yml`, `security` stage | Scheduled pipelines only, when the schedule sets `SONAR_SCHEDULED=true`; advisory (`allow_failure`) |
+| `sonar-open-issues-selftest` (member of `lint-selftests-alpine`) | `.gitlab-ci.yml`, `lint` stage | MRs that touch `scripts/sonar-open-issues.sh` or the CI file; also `main` |
 
 `sonar:scan` runs on the **Nightly** pipeline schedule (03:00 ET), never on MR or push
 pipelines, so day-to-day pipeline time is unchanged. It's `allow_failure: true`: a SonarCloud
@@ -28,6 +29,16 @@ the schedule's pipeline history or at the dashboard's last-analysis date. The
 
 The schedule is shared with the other nightly jobs; see
 [CI Gate Self-Tests](ci-gates.md) for the full schedule table.
+
+## Checking touched files before you push
+
+`scripts/sonar-open-issues.sh <file>...` asks SonarCloud's public API (no token) for open `BUG`, `VULNERABILITY`, and `TO_REVIEW` hotspot findings and prints the ones on the files you name. The `completeness-check` gate runs it on `git diff --name-only origin/main...HEAD`; a finding on a touched file is reported as a GAP to fix on the branch or justify.
+
+```bash
+git diff --name-only origin/main...HEAD | xargs scripts/sonar-open-issues.sh
+```
+
+**Watch out:** It sees only what the last nightly scan of `main` found. Findings your branch introduces appear after it merges. It always exits 0 and prints `sonar: lookup unavailable (<reason>)` when SonarCloud cannot be reached, so read the output rather than the exit code.
 
 ## How coverage reaches Sonar
 

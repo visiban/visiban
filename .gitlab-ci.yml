@@ -527,7 +527,7 @@ dockerfile-lint:
 
 # ─── Folded alpine gate self-tests (#2523) ───────────────────────────────────
 #
-# Eleven tiny jobs (3-68 s of work each) used to run as separate `alpine:3.19`
+# Twelve tiny jobs (3-68 s of work each) used to run as separate `alpine:3.19`
 # jobs. Each paid its own executor setup, image pull and runner slot, and in
 # pipeline 3099866726 each waited 14-16 min to start for seconds of work.
 # They are now members of ONE job (`scripts/ci-fold.sh`, #2523); the member
@@ -538,6 +538,7 @@ dockerfile-lint:
 #
 #   compose-hygiene                      docker-compose*.yml, nginx templates, #1201/#1633
 #   sonar-scan-selftest                  SonarCloud report rewrite self-test (#1370)
+#   sonar-open-issues-selftest           open-Sonar-findings lookup parser self-test (#2528)
 #   security-deferred-verdict-selftest   accepted-risk verdict + release.sh (#1521, #1520)
 #   cost-ledger-selftest                 MR cost ledger scripts + kaizen reader (#2128)
 #   lint:sonar-exclusions                Sonar exclusion-integrity guard (#1380)
@@ -575,6 +576,7 @@ lint-selftests-alpine:
         - scripts/render-nginx-hsts.sh
         - sonar-project.properties
         - scripts/sonar-scan.sh
+        - scripts/sonar-open-issues.sh
         - scripts/check-sonar-exclusions.sh
         - scripts/cost-ledger
         - scripts/cost_ledger_lines.py
@@ -609,6 +611,16 @@ lint-selftests-alpine:
 
       m_sonar_scan() {
         sh scripts/sonar-scan.sh --self-test
+      }
+
+      # scripts/sonar-open-issues.sh lists open SonarCloud findings on the files a
+      # branch touches (completeness-check runs it before push, #2528). It fails open
+      # by design, so a broken parser would look identical to "no findings";
+      # --self-test fixtures findings present, none present, and unavailable (#1093).
+      # No network. Runs after the bare-busybox members (see Order above).
+      m_sonar_open_issues() {
+        apk add --no-cache python3 curl
+        sh scripts/sonar-open-issues.sh --self-test
       }
 
       m_security_deferred() {
@@ -703,6 +715,7 @@ lint-selftests-alpine:
 
       fold_member sonar-scan-selftest m_sonar_scan
       fold_member security-deferred-verdict-selftest m_security_deferred
+      fold_member sonar-open-issues-selftest m_sonar_open_issues
       fold_member compose-hygiene m_compose_hygiene
       fold_member cost-ledger-selftest m_cost_ledger
       fold_member lint:sonar-exclusions m_sonar_exclusions
