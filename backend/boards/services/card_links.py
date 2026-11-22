@@ -1219,8 +1219,15 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
 _HIDDEN_PARENT = {"hidden": True}
 
 
-def parents_for_viewer(child_ids, user):
+def parents_for_viewer(child_ids, user, *, known_boards=()):
     """The one parent read for every transport (Rule 10). Computed per viewer.
+
+    ``known_boards`` (#2536) are boards the caller already holds, loaded with
+    ``GROUP_ANCESTOR_SELECT_RELATED`` (``get_board_for_user`` does): the board
+    a ``/full/`` or card-list read is serving. A child board found among them
+    is not fetched again. They only save a query: a board's role is still
+    resolved for ``user`` like every other, and a board no child sits on is
+    ignored, so a wrong hint can never widen what the viewer sees.
 
     Returns ``{child_id: entry}`` for each linked card among ``child_ids``;
     an unlinked id is left out (the serializer reports it as ``null``). The
@@ -1251,32 +1258,60 @@ def parents_for_viewer(child_ids, user):
 
     The role is resolved on every call, never cached, so a viewer who loses
     the parent board sees ``hidden`` on the next read (Rules 2 and 3). Cost: one
-    query for the links plus ``get_board_roles``'s fixed two, however many
+    query for the links, plus at most ONE query for the child boards that are
+    neither among the parent boards nor in ``known_boards`` (none on a
+    ``/full/`` or card-list read, whose children all sit on the served board),
+    plus ``get_board_roles``'s fixed two, however many
     parents or parent boards there are, plus ONE grouped sibling count when
     any entry is visible (flat in the number of parents and children).
     """
     ids = list(child_ids)
     if not ids:
         return {}
+    # The links query carries ONE group-ancestor chain, the parent board's.
+    # The child board's chain (needed only so the sibling role check below can
+    # resolve a role on the child's board) is loaded by its own query instead
+    # of a second ``child__board__<chain>`` join (#2536): two seven-level
+    # chains put 20 joins (14 of them on ``groups``) in one statement, past
+    # PostgreSQL's ``join_collapse_limit`` (8). A CI hang was observed inside
+    # this statement, but the double-chain shape was NOT shown to cause it (it
+    # plans in ~2 ms); the split is a hardening that keeps each statement
+    # under the join-collapse limits.
+    # One chain per statement is pinned by
+    # test_parents_for_viewer_query_shape_2536. ``child_board_id`` is a plain
+    # column off the child card (one join, no chain): the loop needs only the id.
     links = list(
-        CardParentLink.objects.filter(child_id__in=ids).select_related(
+        CardParentLink.objects.filter(child_id__in=ids)
+        .select_related(
             "parent__column", "parent__swimlane",
             f"parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
-            f"child__board__{GROUP_ANCESTOR_SELECT_RELATED}",
         )
+        .annotate(child_board_id=F("child__board_id"))
     )
     if not links:
         return {}
     if user is None or not getattr(user, "is_authenticated", False):
         return {link.child_id: dict(_HIDDEN_PARENT) for link in links}
     boards = {link.parent.board_id: link.parent.board for link in links}
-    for link in links:
-        boards.setdefault(link.child.board_id, link.child.board)
+    child_board_ids = {link.child_board_id for link in links}
+    for board in known_boards:
+        if board.pk in child_board_ids:
+            boards.setdefault(board.pk, board)
+    missing = child_board_ids - boards.keys()
+    if missing:
+        # Same chain as the links query applies to the parent boards, so
+        # get_board_roles() walks every board's ancestors without a lazy fetch.
+        boards.update(
+            (b.pk, b) for b in Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk__in=missing)
+        )
+    # A child board that vanished between the two reads is simply absent from
+    # ``boards``: roles.get() is then None and its sibling counts are null,
+    # the same fail-closed answer as a board the viewer holds no role on.
     roles = get_board_roles(user, boards.values())
     siblings = _sibling_counts(
         {
-            (link.parent_id, link.child.board_id) for link in links
-            if roles.get(link.parent.board_id) is not None and roles.get(link.child.board_id) is not None
+            (link.parent_id, link.child_board_id) for link in links
+            if roles.get(link.parent.board_id) is not None and roles.get(link.child_board_id) is not None
         },
     )
     out = {}
@@ -1285,10 +1320,10 @@ def parents_for_viewer(child_ids, user):
         if roles.get(p.board_id) is None:
             out[link.child_id] = dict(_HIDDEN_PARENT)
             continue
-        if roles.get(link.child.board_id) is None:
+        if roles.get(link.child_board_id) is None:
             total = done = None
         else:
-            total, done = siblings.get((p.pk, link.child.board_id), (0, 0))
+            total, done = siblings.get((p.pk, link.child_board_id), (0, 0))
         out[link.child_id] = {
             "hidden": False,
             "id": p.pk,

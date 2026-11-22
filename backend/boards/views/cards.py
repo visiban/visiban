@@ -147,7 +147,7 @@ def _is_link_write(view, request):
     return action == "child_detail" and request.method == "DELETE"
 
 
-def _with_parents(ctx, rows, user, *, board=None):
+def _with_parents(ctx, rows, user, *, board=None, served_board=None):
     """Opt ``ctx`` into ``Card.parent`` for ``rows``, resolved for ``user`` (#1104).
 
     Only the reads that name a viewer call this (list, retrieve, archived).
@@ -155,8 +155,17 @@ def _with_parents(ctx, rows, user, *, board=None):
     from the same serializer, carry no ``parent``. On a parent-tier ``board``
     it also opts into ``children_rollup`` (#2210), resolved for the same
     viewer; without a board the field is omitted (fails closed, #1075).
+
+    ``served_board`` is the same board for a read that must NOT opt into
+    ``children_rollup`` (archived): it only spares ``parents_for_viewer`` the
+    child-board query (#2536), and changes no field.
     """
-    ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer([c.pk for c in rows], user)
+    # Either board is the served board from get_board_for_user() (ancestor
+    # chain loaded), so the children's board costs no extra query (#2536).
+    hint = board if board is not None else served_board
+    ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
+        [c.pk for c in rows], user, known_boards=() if hint is None else (hint,),
+    )
     if board is not None and board.cards_can_have_children:
         ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer([c.pk for c in rows], user)
     return ctx
@@ -1314,7 +1323,7 @@ class CardViewSet(viewsets.ModelViewSet):
             "_member_ids": member_ids,
             "_assignable_member_ids": assignable_ids,
             "_board_labels_qs": board_labels_qs,
-        }, page, request.user))
+        }, page, request.user, served_board=board))
         return Response({
             "count": total,
             "offset": offset,

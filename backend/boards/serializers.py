@@ -5335,6 +5335,9 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             from .services import card_links
             ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
                 [c.pk for c in cards], self.context["card_parent_viewer"],
+                # ``obj`` came from get_board_for_user() with the ancestor chain,
+                # so the children's board costs no extra query (#2536).
+                known_boards=(obj,),
             )
             # ``children_rollup`` (#2210), for the same viewer, only on a
             # parent-tier board: zero queries on every other board.

@@ -922,6 +922,10 @@ backend-test:
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
+    # #2536: libpq applies this to every connection. A lock wait over 3 min
+    # fails with Postgres's "canceling statement due to lock timeout" instead
+    # of hanging the shard; no statement_timeout, so slow statements still run.
+    PGOPTIONS: "-c lock_timeout=180s"
   cache: &backend-test-cache
     - key:
         prefix: "pip"
@@ -939,6 +943,9 @@ backend-test:
     - uv pip install --system --quiet -r backend/requirements.txt
     - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
+    # #2536: background server-side activity report; diagnostic only, never
+    # waited on, and `|| true` keeps a watcher failure from touching the job.
+    - (python scripts/pg-activity-watch.py || true) &
     - cd backend
     # #2534: shards intermittently stalled with no output, and -q hid which
     # test was running. -v prints each node id when the test FINISHES, so the
@@ -1252,6 +1259,7 @@ backend-test-pg-matrix:
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
+    PGOPTIONS: "-c lock_timeout=180s"  # #2536, see backend-test
   before_script:
     - !reference [.pip-floor, script]
     # uv like backend-test (#2496): the same requirements files, in order.

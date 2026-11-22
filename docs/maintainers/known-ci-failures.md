@@ -568,3 +568,29 @@ idempotent; `gitleaks-commits` keeps it too, as it only reads the diff and write
 upload step). Add the same to any new job
 whose side effect is not safe to repeat. A job that still shows a `runner_system_failure` after
 two retries points at the runner, not the job; see #2406.
+
+## `backend-test` shard stalls: faulthandler dump, `[pg-activity-watch]`, `lock timeout` (#2534, #2536)
+
+**Signature:** a `backend-test` shard (or a `backend-test-pg-matrix` leg) goes silent until the
+job timeout. These diagnostics exist so the next stall names its cause instead of timing out blind.
+
+- **faulthandler dump** (#2534): pytest runs with `-v` and `-o faulthandler_timeout=300`. A single
+  test over 300 seconds dumps every thread's stack to stderr and names the test. A thread parked in
+  psycopg `connection.wait` means the client is waiting on the server.
+- **`[pg-activity-watch]` lines** (#2536): `scripts/pg-activity-watch.py` runs in the background of
+  `backend-test` and `backend-test-pg-matrix` (and, through `scripts/pg-matrix-check.sh`, of
+  `backend-test-pg-matrix-nightly`) and checks `pg_stat_activity` every 30 seconds. It prints one
+  report per stuck query (deduped on pid + query_start)
+  to stderr when a non-idle query runs over 90 seconds or a lock wait lasts over 60 seconds: the
+  stuck backend, `pg_blocking_pids`, each blocker's state and query, and the ungranted and blocking
+  `pg_locks` rows. A blocker in `idle in transaction` is a connection a test leaked. It is
+  diagnostic only and never fails the job.
+- **`lock timeout` failure** (#2536): four jobs set `PGOPTIONS=-c lock_timeout=180s`:
+  `backend-test` and `backend-test-pg-matrix` (which have the watcher), `backend-test-migrations`
+  (via the shared `*backend-test-variables` anchor) and `backend-test-pg-matrix-nightly` (via
+  `extends`). `backend-test-migrations` has the timeout but NOT the watcher, so a lock timeout there
+  comes with no `[pg-activity-watch]` report. A lock wait over 3 minutes fails the test with `canceling statement due to lock timeout` instead of
+  hanging. That failure is a real defect (a leaked or contended lock), not a flake. Read the
+  `[pg-activity-watch]` report just above it for the blocker. There is deliberately no
+  `statement_timeout` (it could fail legitimately slow statements) and no
+  `idle_in_transaction_session_timeout` (it would kill the leaked holder and hide it).

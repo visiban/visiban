@@ -2140,7 +2140,8 @@ class CardParentQueryCountTests(TestCase):
 
     ``parents_for_viewer`` is one link query plus ``get_board_roles``'s fixed
     two, however many children are linked and however many parent boards their
-    parents sit on. A parent ping costs nothing on a board that cannot have
+    parents sit on. These reads pass the served board as ``known_boards``, so
+    the child-board query a hint-less caller pays is never issued (#2536). A parent ping costs nothing on a board that cannot have
     children.
     """
 
