@@ -94,10 +94,36 @@ under test. The variable defaults to off, lifts every DRF throttle rate plus all
 `login_failed` gate, and `settings.py` refuses to start with it set unless `DEBUG=True`; it is not
 a production setting.
 
+**Three shards, one per path partition (#2521).** One `st run` over all ~227 operations hit
+its 600-second `--max-time` cap on every run and never finished `--max-examples 10`, so the
+operations at the end of the list got the least search. `backend-schema-fuzz` is now a
+`parallel: matrix:` of three jobs, `backend-schema-fuzz: [board-children]`,
+`[boards-groups]` and `[other]`. Each boots its own Postgres, seed, token and server and fuzzes
+only the paths its partition's regex selects (`--include-path-regex`):
+
+| Shard | Paths | Operations (2026-11-22) |
+|---|---|---|
+| `board-children` | `/api/v1/boards/{board_pk}/...` (cards, columns, swimlanes, comments...) | 89 |
+| `boards-groups` | `/api/v1/boards/` and `/api/v1/boards/{id}/...`, plus `/api/v1/groups/...` | 85 |
+| `other` | everything else (auth, admin, notifications, health, share, media), including any new top-level prefix | 55 |
+
+The partitions live in `scripts/fuzz_partitions.py`. Before fuzzing, every shard runs its
+`check` against the schema it is about to fuzz. The check fails the job if a path matches no
+partition or more than one, if a partition selects no operation, or if the job's matrix does
+not list exactly the partitions. So an operation can never go unfuzzed, or be fuzzed twice,
+without the job turning red. Each shard has `FUZZ_MAX_TIME=300`, so the total budget is
+900 seconds against 600 before, and the wall clock drops to about 300 seconds plus boot.
+`FUZZ_MAX_TIME` is the one knob for retuning the budget. To change the partitions, edit
+`PARTITIONS` in the script and the matrix's `FUZZ_SHARD` list together; the check fails until
+they agree. Each shard fuzzes against `backend/schemathesis-baseline.json` filtered to its own
+partition. That keeps `st run`'s unobserved count and the after-script listing below from
+reporting an entry as unobserved only because another shard owns its path.
+
 **Deep nightly run (`backend-schema-fuzz-deep`).** The Nightly schedule (`FUZZ_DEEP=true`,
-#1383) runs the same job with a bigger budget: `--max-examples 100` and `--max-time 2400`
-seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and
-`backend/schemathesis-baseline.json` are shared, because the deep job `extends:` the MR job.
+#1383) runs one unsharded `st run` over the whole schema with a bigger budget:
+`--max-examples 100` and `--max-time 2400` seconds, against each MR shard's 10 and 300. Boot,
+seed, token, checks, and `backend/schemathesis-baseline.json` are shared, because the deep job
+and the MR job both `extends:` the same hidden template (`.backend-schema-fuzz-base`).
 It gets a fresh seed each night, printed the same way. It is `allow_failure: true` so a
 finding does not turn the shared Nightly pipeline red. A finding is still a real defect: when
 the fuzz itself ran and failed, the job files one tracking issue titled
@@ -307,7 +333,9 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
    `schema_hooks.py` rule if it is a whole class). A **schema mismatch** means fixing the
    serializer or its annotation.
 3. Replay it: the job prints `seed=<n>` at the start and the failure block ends with an
-   `st replay <id>` line. To pin the same seed **on a merge request**, push an empty commit
+   `st replay <id>` line. On `backend-schema-fuzz`, each shard draws its own seed and prints it
+   with its shard name and path regex (`seed=<n> ... shard=boards-groups include-path-regex=...`),
+   so take the seed from the log of the shard that failed. To pin the same seed **on a merge request**, push an empty commit
    to the MR branch with a `Fuzz-Seed` trailer:
 
    ```bash
@@ -317,15 +345,20 @@ failures are auto-retried, by the pipeline-wide `default:` block.)
 
    MR pipelines cannot take pipeline variables, so the trailer is the supported way. The job
    reads it from the MR head commit message, so it applies only while that commit is the
-   head (if the message holds several `Fuzz-Seed:` lines, the last one wins); push any newer commit to return to a random seed. Because the trailer is read from the MR
+   head (if the message holds several `Fuzz-Seed:` lines, the last one wins); push any newer commit to return to a random seed.
+   The trailer pins that seed on all three shards. The shard that owns the failing operation
+   replays its run; the other two run the same seed over their own partitions, which is
+   harmless. Compare the failing shard's log, not the others. Because the trailer is read from the MR
    head commit, it relies on non-merged-results pipelines, which is the only kind this repo runs
    today. The value must be a plain
    non-negative integer (anything else fails the job with an error rather than being
    ignored), and the job log states whether the seed came from the trailer, the
    `FUZZ_SEED` variable (which takes precedence), or was random. To replay a deep nightly
    run, start a pipeline on `main` (**Build → Pipelines → Run pipeline**) with
-   `FUZZ_SEED=<n>`, `FUZZ_MAX_EXAMPLES=100` and `FUZZ_MAX_TIME=2400`. That runs
-   `backend-schema-fuzz` at the deep budget. Locally, boot the app against `seed_demo_data`
+   `FUZZ_SEED=<n>`, `FUZZ_MAX_EXAMPLES=100` and `FUZZ_MAX_TIME=2400`. That runs the
+   `backend-schema-fuzz` shards at the deep budget. The deep run is unsharded, so the
+   failing operation is fuzzed by whichever shard's partition matches its path
+   (`python3 scripts/fuzz_partitions.py regex <shard>` prints each regex). Locally, boot the app against `seed_demo_data`
    and run `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
 
    > **Warning: use a throwaway database.** `schemathesis_hooks.py` writes to the database it is loaded against ([#1570](https://gitlab.com/visiban/visiban/-/issues/1570)): it mints non-expiring, multi-use `MEMBER` join links (named "schemathesis fuzz fixture"), sets a public share token on the demo board, and creates a pool of disposable rows for DELETE operations. Replay against a scratch database, not one you keep.
