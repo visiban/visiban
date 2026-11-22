@@ -4333,19 +4333,18 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
       />,
     )
 
-  it('every index entry resolves to a control in its section, for an admin', async () => {
-    for (const section of sections) {
-      const entries = SETTINGS_INDEX.filter((e) => e.section === section && e.target)
-      const { unmount } = renderSection(section)
-      // try/finally (#2509): a failed lookup must not leave this section mounted for the retry.
-      try {
-        const panel = await screen.findByRole('tabpanel')
-        for (const e of entries) {
-          await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
-        }
-      } finally {
-        unmount()
+  // One test per section (#2509) so no single test renders all of them and a failure names its section.
+  it.each(sections)('every index entry resolves to a control in its section %s, for an admin', async (section) => {
+    const entries = SETTINGS_INDEX.filter((e) => e.section === section && e.target)
+    const { unmount } = renderSection(section)
+    // try/finally (#2509): a failed lookup must not leave this section mounted for the retry.
+    try {
+      const panel = await screen.findByRole('tabpanel')
+      for (const e of entries) {
+        await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
       }
+    } finally {
+      unmount()
     }
   })
 
