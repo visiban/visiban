@@ -630,7 +630,12 @@ describe('MovementHistoryView Parent filter (#2209, #2499)', () => {
     renderAt('/boards/1?view=history&parent=900', board)
     await waitFor(() => expect(mockGetMovements).toHaveBeenCalledWith(1, expect.objectContaining({ parent_id: '900' })))
     expect(screen.getByTestId('history-parent-chip')).toHaveTextContent('Initech: security review')
-    fireEvent.click(within(screen.getByTestId('history-parent-chip')).getAllByRole('button', { name: /remove/i })[0])
+    // FilterChip renders a role=button span (keyboard dismiss) wrapping the clickable x <button>;
+    // both share the name "Parent: <label>, remove", so click the real <button>.
+    const dismiss = within(screen.getByTestId('history-parent-chip'))
+      .getAllByRole('button', { name: 'Parent: Initech: security review, remove' })
+      .find((el) => el.tagName === 'BUTTON')!
+    fireEvent.click(dismiss)
     await waitFor(() => expect(mockGetMovements).toHaveBeenLastCalledWith(1, expect.not.objectContaining({ parent_id: expect.anything() })))
     expect(screen.queryByTestId('history-parent-chip')).not.toBeInTheDocument()
   })
