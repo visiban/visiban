@@ -4092,6 +4092,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           currentUserId={currentUser?.id ?? null}
           onDeleteForbidden={silentReload}
           onUpdateBoardSettings={onUpdateBoardSettings}
+          onShowChildCards={() => { closeSettings(); setFilters({ ...effectiveFiltersRef.current, parentFilter: "any" }); }}
           onMergeBoardFields={mergeBoardState}
           cardDensityOverride={cardDensityOverride}
           onSetCardDensityOverride={setCardDensityOverride}
