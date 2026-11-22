@@ -126,8 +126,12 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
         self.assertNotIn(self.cboard.name, res.content.decode())
 
     def test_query_count_stays_flat_with_blocked_and_assigned_children(self):
+        from boards.models import Label
+
         u = self._user("cv_perf", parent_role=Role.VIEWER, child_role=Role.VIEWER)
         client = self._client(u)
+        labels = [Label.objects.create(board=self.cboard, name=f"L{i}", color="#EF4444") for i in range(3)]
+        self.child.labels.add(labels[0])
         one = _count_queries(client, self.url)
         extra_col = _make_column(self.cboard, name="Doing", order=1)
         for i in range(8):
@@ -135,7 +139,11 @@ class ChildrenLensReadTests(_LinkFixture, TestCase):
             Card.objects.filter(pk=c.pk).update(assignee=self.owner)
             CardRelation.objects.create(from_card=self.child, to_card=c, relation_type=CardRelation.Type.BLOCKS)
             CardParentLink.objects.create(parent=self.parent, child=c)
-        self.assertEqual(_count_queries(client, self.url), one)
+            c.labels.add(*labels)  # label prefetch must stay one query for the whole page
+        many = _count_queries(client, self.url)
+        self.assertEqual(many, one)
+        self.assertEqual(many, 14)  # exact: a new per-row or per-page query must be a deliberate change
+        self.assertEqual(len(client.get(self.url).json()["results"]), 9)
 
 
 class ChildCandidateTests(_LinkFixture, TestCase):
