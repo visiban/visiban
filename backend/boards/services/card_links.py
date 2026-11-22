@@ -51,6 +51,12 @@ CHILDREN_PER_PARENT_LIMIT = 100
 #: collaborator line.
 LINK_WRITE_ROLES = (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN)
 
+#: Most boards an options list (the Add child chooser, the Rules page's default
+#: child board select) returns; the response carries ``boards_total`` so a
+#: client can say "showing 100 of N" (#2449). Same number as the children cap,
+#: so for a site admin the list is bounded like every other child read.
+CHILD_BOARD_OPTIONS_LIMIT = CHILDREN_PER_PARENT_LIMIT
+
 _PERM_DENIED = "You do not have permission to perform this action."
 
 
@@ -432,6 +438,15 @@ def _check_link_rules_under_lock(parent, child_board, *, child=None):
             if existing.parent_id == parent.pk:
                 raise CodedValidationError("link_exists", "This card is already linked to that parent.")
             raise CodedValidationError("already_has_parent", "This card already has a parent. Unlink it first.")
+    # #2447 (owner decision 2026-11-22): no new child under an ARCHIVED parent,
+    # on either write. Checked after ``link_exists`` on purpose: re-saving the
+    # link a child already has keeps its old answer, and archiving or
+    # restoring a parent never touches the links it already has. Read under
+    # the parent card's lock, so an archive that commits first is seen.
+    if Card.objects.filter(pk=parent.pk, archived_at__isnull=False).exists():
+        raise CodedValidationError(
+            "parent_archived", "That card is archived, so it cannot get new children. Restore it first.",
+        )
     siblings = CardParentLink.objects.filter(parent_id=parent.pk)
     # One child board per parent (epic #2206 decision A): nothing ever splits
     # a parent's children across boards, not a link and not Add child.
@@ -606,11 +621,23 @@ def child_board_options_for_viewer(parent, user):
     * ``boards``: every qualifying board where the viewer holds MEMBER or
       higher, by name, each with ``can_set_default`` (ADMIN on both boards).
     * ``can_set_default``: ADMIN on the parent's board.
+    * ``boards_total`` (since 1.3, #2449): how many boards qualify; ``boards``
+      holds at most :data:`CHILD_BOARD_OPTIONS_LIMIT` of them, by name.
+      ``default`` is resolved over every qualifying board, not just that page.
+    * ``disabled_reason`` (#2447): ``"parent_archived"`` when ``parent`` is
+      archived (the POST refuses it with that code), else ``None``.
 
     Empty (no boards, no default) when the parent's board is not a parent
     tier. No user fails closed to the empty answer (#1075).
+
+    Cost is flat in the number of boards (#2449, pinned in
+    ``test_query_counts.ChildBoardOptionsReadQueryCountTests``): one candidate
+    query, one ``get_board_roles`` batch for all of them.
     """
-    out = {"fixed_board": None, "default": None, "boards": [], "can_set_default": False}
+    out = {
+        "fixed_board": None, "default": None, "boards": [], "can_set_default": False,
+        "boards_total": 0, "disabled_reason": None,
+    }
     if user is None or not getattr(user, "is_authenticated", False):
         return out
     parent_board = parent.board
@@ -621,6 +648,8 @@ def child_board_options_for_viewer(parent, user):
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     out["can_set_default"] = admin_here
+    if parent.archived_at is not None:
+        out["disabled_reason"] = "parent_archived"
     fixed_id = (
         CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
         .values_list("child__board_id", flat=True).first()
@@ -648,12 +677,14 @@ def child_board_options_for_viewer(parent, user):
         role = roles.get(b.pk)
         if role not in LINK_WRITE_ROLES:
             continue
-        out["boards"].append({
-            "id": b.pk, "name": b.name,
-            "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
-        })
+        out["boards_total"] += 1
         if b.pk == parent_board.default_child_board_id:
             out["default"] = {"id": b.pk, "name": b.name}
+        if len(out["boards"]) < CHILD_BOARD_OPTIONS_LIMIT:
+            out["boards"].append({
+                "id": b.pk, "name": b.name,
+                "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+            })
     return out
 
 
@@ -663,24 +694,31 @@ def default_child_board_options_for_admin(board, user):
     Qualifying boards (not a parent tier, first column creates cards, has a
     lane) where the viewer is ADMIN: setting a default needs ADMIN on both
     boards. Same rule the write's validator applies, so the select never offers
-    a board the PATCH would refuse. ``[]`` when the viewer is not ADMIN on
-    ``board`` or there is no viewer (#1075 fail closed).
+    a board the PATCH would refuse.
+
+    Returns ``{"boards": [...], "boards_total": N}`` (#2449): at most
+    :data:`CHILD_BOARD_OPTIONS_LIMIT` boards by name, and how many qualify in
+    all. Empty when the viewer is not ADMIN on ``board`` or there is no viewer
+    (#1075 fail closed). Flat in the number of boards: one candidate query and
+    one ``get_board_roles`` batch.
     """
+    out = {"boards": [], "boards_total": 0}
     if user is None or not getattr(user, "is_authenticated", False):
-        return []
+        return out
     if get_board_roles(user, [board])[board.pk] not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-        return []
+        return out
     candidates = list(
         _qualifying(_accessible_boards(user).exclude(pk=board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
         .order_by(Lower("name"), "pk")
     )
     roles = get_board_roles(user, candidates) if candidates else {}
-    return [
+    rows = [
         {"id": b.pk, "name": b.name}
         for b in candidates
         if roles.get(b.pk) in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     ]
+    return {"boards": rows[:CHILD_BOARD_OPTIONS_LIMIT], "boards_total": len(rows)}
 
 
 def remove_link(link, *, actor, moved_from=None):
@@ -1041,10 +1079,21 @@ def parents_for_viewer(child_ids, user):
     function from a broadcast (it has no ``CARD_PARENTS_CONTEXT_KEY``); this
     guard is for any other caller that cannot name a viewer.
 
+    **Siblings (#2443, since 1.3):** a visible entry also carries
+    ``siblings_total`` and ``siblings_done``, "2 of 5 siblings done" in the
+    child's Parent block: the parent's live (unarchived) children on THIS
+    child's board, the child itself included, and how many of them are in a
+    done column. Counted only over the child's own board, and only when the
+    viewer holds a role there (resolved in the same role batch); otherwise
+    both are ``null``. A hidden parent carries no sibling data at all: which
+    cards share a parent the viewer cannot open is that parent's information.
+    Both are clamped to ``CHILDREN_PER_PARENT_LIMIT``, the write-side cap.
+
     The role is resolved on every call, never cached, so a viewer who loses
     the parent board sees ``hidden`` on the next read (Rules 2 and 3). Cost: one
     query for the links plus ``get_board_roles``'s fixed two, however many
-    parents or parent boards there are.
+    parents or parent boards there are, plus ONE grouped sibling count when
+    any entry is visible (flat in the number of parents and children).
     """
     ids = list(child_ids)
     if not ids:
@@ -1053,6 +1102,7 @@ def parents_for_viewer(child_ids, user):
         CardParentLink.objects.filter(child_id__in=ids).select_related(
             "parent__column", "parent__swimlane",
             f"parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
+            f"child__board__{GROUP_ANCESTOR_SELECT_RELATED}",
         )
     )
     if not links:
@@ -1060,13 +1110,25 @@ def parents_for_viewer(child_ids, user):
     if user is None or not getattr(user, "is_authenticated", False):
         return {link.child_id: dict(_HIDDEN_PARENT) for link in links}
     boards = {link.parent.board_id: link.parent.board for link in links}
+    for link in links:
+        boards.setdefault(link.child.board_id, link.child.board)
     roles = get_board_roles(user, boards.values())
+    siblings = _sibling_counts(
+        {
+            (link.parent_id, link.child.board_id) for link in links
+            if roles.get(link.parent.board_id) is not None and roles.get(link.child.board_id) is not None
+        },
+    )
     out = {}
     for link in links:
         p = link.parent
         if roles.get(p.board_id) is None:
             out[link.child_id] = dict(_HIDDEN_PARENT)
             continue
+        if roles.get(link.child.board_id) is None:
+            total = done = None
+        else:
+            total, done = siblings.get((p.pk, link.child.board_id), (0, 0))
         out[link.child_id] = {
             "hidden": False,
             "id": p.pk,
@@ -1079,8 +1141,36 @@ def parents_for_viewer(child_ids, user):
             "swimlane_name": p.swimlane.name,
             "archived": p.archived_at is not None,
             "board_parent_name_singular": p.board.parent_name_singular,
+            "siblings_total": total,
+            "siblings_done": done,
         }
     return out
+
+
+def _sibling_counts(pairs):
+    """``{(parent_id, child_board_id): (total, done)}`` over live children, in ONE query (#2443).
+
+    ``pairs`` names only boards the caller has already authorized; a child of
+    the same parent on any other board is never counted (one child board per
+    parent is a write rule with no constraint). Zero queries for no pairs.
+    """
+    if not pairs:
+        return {}
+    rows = (
+        CardParentLink.objects.filter(
+            parent_id__in={p for p, _ in pairs}, child__board_id__in={b for _, b in pairs},
+            child__archived_at__isnull=True,
+        )
+        .order_by().values("parent_id", "child__board_id")
+        .annotate(total=Count("pk"), done=Count("pk", filter=Q(child__column__is_done=True)))
+        .values_list("parent_id", "child__board_id", "total", "done")
+    )
+    cap = CHILDREN_PER_PARENT_LIMIT
+    return {
+        (parent_id, board_id): (min(total, cap), min(done, total, cap))
+        for parent_id, board_id, total, done in rows
+        if (parent_id, board_id) in pairs
+    }
 
 
 def _accessible_boards(user):
@@ -1279,7 +1369,8 @@ def child_candidates_for_viewer(user, parent, child_board, search):
     existing. ``child_board`` comes from :func:`resolve_link_child_board`.
     ``disabled_reason`` uses :func:`create_link`'s codes: ``link_exists``
     (already this parent's child), ``already_has_parent`` (another parent's),
-    ``children_limit`` (this parent is full). ``parent_title`` names that other
+    ``parent_archived`` (this parent is archived, #2447), ``children_limit``
+    (this parent is full). ``parent_title`` names that other
     parent only when the viewer can open its board; otherwise it is ``null``
     and the picker says "a card you can't open".
     """
@@ -1325,6 +1416,9 @@ def child_candidates_for_viewer(user, parent, child_board, search):
             reason = "already_has_parent"
             if roles.get(link.parent.board_id) is not None:
                 parent_title = link.parent.title
+        elif parent.archived_at is not None:
+            # #2447: the write refuses a new child under an archived parent.
+            reason = "parent_archived"
         elif full:
             reason = "children_limit"
         rows.append({

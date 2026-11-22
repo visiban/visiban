@@ -448,7 +448,8 @@ export const getChildrenSettingBlockers = (id: number) =>
 
 /** `GET /boards/{id}/default-child-board-options/` (board admin): boards the viewer may choose as the default. */
 export const getDefaultChildBoardOptions = (id: number) =>
-  client.get<{ boards: { id: number; name: string }[] }>(`/api/v1/boards/${id}/default-child-board-options/`).then((r) => r.data.boards);
+  // `boards_total` (#2449) counts every qualifying board; `boards` holds at most 100.
+  client.get<{ boards: { id: number; name: string }[]; boards_total?: number }>(`/api/v1/boards/${id}/default-child-board-options/`).then((r) => r.data.boards);
 
 /** `GET /boards/{id}/delete-impact/` (board owner or site admin). */
 export const getBoardDeleteImpact = (id: number) =>

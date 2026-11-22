@@ -2937,7 +2937,7 @@ class CardViewSet(viewsets.ModelViewSet):
         ),
         responses={
             201: OpenApiResponse(description="The new child card, as `POST .../cards/` returns it."),
-            400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `children_on_other_board`, `children_limit`)."),
+            400: OpenApiResponse(description="Blank title, or a link rule (`link_not_allowed`, `parent_is_child`, `parent_archived`, `children_on_other_board`, `children_limit`)."),
             403: OpenApiResponse(description="Below `member` on this card's board."),
             404: OpenApiResponse(description="Unknown, unopenable, below-member or non-qualifying target board: one identical answer."),
             409: _limit_conflict_response("AddChildLimitConflict", _ENTER_COLUMN_409),
@@ -3006,12 +3006,14 @@ class CardViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         responses={200: OpenApiResponse(description=(
-            "`{fixed_board, default, boards, can_set_default}`, computed for the caller. "
+            "`{fixed_board, default, boards, can_set_default, boards_total, disabled_reason}`, computed for the caller. "
             "`fixed_board` is the board this card's children are already on "
             "(`{hidden: true}` when the caller cannot open it; otherwise with `can_add`, "
             "false when the caller may not add a child there), `default` the board's "
             "default child board when the caller can add cards there, `boards` every "
-            "board the caller may add the child to, each with `can_set_default`."
+            "board the caller may add the child to (at most 100, by name; `boards_total` counts "
+            "them all, #2449), each with `can_set_default`. `disabled_reason` is `parent_archived` "
+            "when this card is archived (#2447), else null."
         ))},
         description=(
             "The Add child chooser's options for this card (#2208, since 1.3). Minimum "

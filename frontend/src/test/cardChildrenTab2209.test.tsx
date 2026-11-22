@@ -327,6 +327,7 @@ describe('Link existing (#2209)', () => {
     expect(childCandidateReason(candidate({}))).toBeNull()
     expect(childCandidateReason(candidate({ disabled_reason: 'link_exists' }))).toBe('already a child of this card')
     expect(childCandidateReason(candidate({ disabled_reason: 'children_limit' }))).toMatch(/100 children/)
+    expect(childCandidateReason(candidate({ disabled_reason: 'parent_archived' }))).toBe('this card is archived')
     expect(childCandidateReason(candidate({ disabled_reason: 'already_has_parent', parent_title: 'Acme' }))).toBe('already a child of Acme')
     expect(childCandidateReason(candidate({ disabled_reason: 'already_has_parent' }))).toBe("already a child of a card you can't open")
   })

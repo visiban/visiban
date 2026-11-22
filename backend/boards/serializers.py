@@ -3642,6 +3642,18 @@ _PARENT_VISIBLE_KEYS = (
                         "means the client says \"Parent\"."
                     ),
                 },
+                "siblings_total": {
+                    "type": "integer", "nullable": True,
+                    "description": (
+                        "Since 1.3 (#2443): the parent's live children on this card's board, "
+                        "this card included (at most 100). `null` when the caller holds no "
+                        "role on this card's board."
+                    ),
+                },
+                "siblings_done": {
+                    "type": "integer", "nullable": True,
+                    "description": "Since 1.3 (#2443): how many of `siblings_total` are in a done column.",
+                },
             },
             "required": ["hidden", *_PARENT_VISIBLE_KEYS],
         },

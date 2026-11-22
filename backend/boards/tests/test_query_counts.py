@@ -2189,13 +2189,14 @@ class CardParentQueryCountTests(TestCase):
             "archived": lambda: self._count(f"{base}/cards/archived/"),
         }
 
-    def test_reads_cost_two_more_with_links_and_stay_flat_at_twenty(self):
+    def test_reads_cost_three_more_with_links_and_stay_flat_at_twenty(self):
         reads = self._reads()
         no_links = {k: f() for k, f in reads.items()}
         self.Link.objects.create(parent=self.fx.parent, child=self.fx.child)
         one = {k: f() for k, f in reads.items()}
         for k in ("full", "list"):
-            self.assertEqual(one[k] - no_links[k], 2, k)
+            # get_board_roles's two, plus the one grouped sibling count (#2443).
+            self.assertEqual(one[k] - no_links[k], 3, k)
         self._link_twenty()
         twenty = {k: f() for k, f in reads.items()}
         self.assertEqual(one, twenty)
@@ -2283,3 +2284,120 @@ class CardParentQueryCountTests(TestCase):
         with CaptureQueriesContext(connection) as twenty:
             card_links.announce_parent_changed(fx.parent.pk, fx.pboard, actor_id=None)
         self.assertEqual(len(one), len(twenty))
+
+
+class ChildBoardReadsQueryCountTests(TestCase):
+    """The four #2208 part 2 reads are flat in the number of boards (#2449).
+
+    ``child-board-options`` and ``default-child-board-options`` list qualifying
+    boards (for a site admin, every one on the instance), ``delete-impact``
+    names the parent boards of this board's children, and
+    ``children-setting-blockers`` the boards that default to this one. Each
+    resolves roles once, in bulk (``get_board_roles``), never per board, so
+    the count must not grow from one board to many, for a member and for a
+    site admin (whose roles short-circuit), with some of the boards hidden
+    from the member. The two options lists are also capped
+    (``CHILD_BOARD_OPTIONS_LIMIT``) with a ``boards_total``.
+    """
+
+    # Measured 2026-11-22 (#2449), the same on SQLite and PostgreSQL 17, flat
+    # from 1 to 13 boards of each kind. Owner / member / site admin:
+    # child-board-options 17/17/10, default-child-board-options 8/9/2,
+    # delete-impact 8/-/5 (owner or site admin only), children-setting-blockers
+    # 7/8/4. Budgets are about 2x the largest.
+    BUDGETS = {
+        "child-board-options": 34,
+        "default-child-board-options": 18,
+        "delete-impact": 16,
+        "children-setting-blockers": 16,
+    }
+    GROW = 12
+
+    def setUp(self):
+        from accounts.models import User
+        from boards.tests.test_default_child_board_2208 import add_card, make_board
+
+        self.make_board, self.add_card = make_board, add_card
+        self.owner = User.objects.create_user(username="qc_cbr_owner", password="pass")
+        self.site_admin = User.objects.create_superuser(username="qc_cbr_su", password="pass")
+        self.parent = make_board(self.owner, "QC Pipeline", parent_tier=True)
+        self.child = make_board(self.owner, "QC Delivery")
+        self.parent_card = add_card(self.parent, "QC parent")
+        CardParentLink.objects.create(parent=self.parent_card, child=add_card(self.child, "QC child"))
+        self.member = User.objects.create_user(username="qc_cbr_member", password="pass")
+        for b in (self.parent, self.child):
+            BoardMembership.objects.create(board=b, user=self.member, role=BoardMembership.Role.ADMIN)
+        self._grow(1)
+
+    def _grow(self, n):
+        """``n`` more of each kind of board the four reads list; every third hidden from the member."""
+        for i in range(n):
+            tag = f"{Board.objects.count()}-{i}"
+            qualifying = self.make_board(self.owner, f"QC qual {tag}")
+            other_parent = self.make_board(self.owner, f"QC par {tag}", parent_tier=True)
+            if i % 3:
+                for b in (qualifying, other_parent):
+                    BoardMembership.objects.create(board=b, user=self.member, role=BoardMembership.Role.ADMIN)
+            # A parent of one of this child board's cards (delete-impact) that
+            # also names it as its default child board (blockers).
+            Board.objects.filter(pk=other_parent.pk).update(default_child_board=self.child)
+            CardParentLink.objects.create(
+                parent=self.add_card(other_parent, "P"), child=self.add_card(self.child, "C"),
+            )
+
+    def _urls(self):
+        return {
+            "child-board-options": (
+                f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+            ),
+            "default-child-board-options": f"/api/v1/boards/{self.parent.pk}/default-child-board-options/",
+            "delete-impact": f"/api/v1/boards/{self.child.pk}/delete-impact/",
+            "children-setting-blockers": f"/api/v1/boards/{self.child.pk}/children-setting-blockers/",
+        }
+
+    def _counts(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        out = {}
+        for name, url in self._urls().items():
+            with CaptureQueriesContext(connection) as ctx:
+                r = client.get(url)
+            # delete-impact's gate is the board owner or a site admin.
+            expected = 403 if (name == "delete-impact" and user == self.member) else 200
+            self.assertEqual(r.status_code, expected, (name, r.content))
+            if expected == 200:
+                out[name] = len(ctx)
+        return out
+
+    def test_reads_are_flat_in_the_number_of_boards(self):
+        users = {"owner": self.owner, "member": self.member, "site_admin": self.site_admin}
+        before = {label: self._counts(u) for label, u in users.items()}
+        self._grow(self.GROW)
+        after = {label: self._counts(u) for label, u in users.items()}
+        for label in users:
+            for name, n in after[label].items():
+                with self.subTest(user=label, read=name):
+                    self.assertEqual(
+                        n, before[label][name],
+                        f"{name} grew from {before[label][name]} to {n} queries with "
+                        f"{self.GROW} more boards ({label}): roles must be resolved in bulk.",
+                    )
+                    self.assertLessEqual(
+                        n, self.BUDGETS[name], f"{name} used {n} queries ({label}), budget {self.BUDGETS[name]}",
+                    )
+
+    def test_options_lists_are_capped_with_a_total(self):
+        from unittest import mock
+
+        from boards.services import card_links
+
+        self._grow(4)
+        client = APIClient()
+        client.force_authenticate(self.site_admin)
+        urls = self._urls()
+        with mock.patch.object(card_links, "CHILD_BOARD_OPTIONS_LIMIT", 3):
+            for name in ("child-board-options", "default-child-board-options"):
+                with self.subTest(read=name):
+                    body = client.get(urls[name]).json()
+                    self.assertEqual(len(body["boards"]), 3)
+                    self.assertGreater(body["boards_total"], 3)
