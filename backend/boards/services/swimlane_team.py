@@ -92,6 +92,33 @@ def active_team_ids(swimlane):
     )
 
 
+def listed_team_ids(swimlane, lane_board):
+    """The lane's active team members still listed as non-viewers on the lane's board (#2211).
+
+    The team write only accepts listed, non-viewer members of the lane's board
+    (``eligible_ids``) and the web app's Add card pick applies the same rule,
+    but a stored team is not rewritten when a member is demoted to viewer or
+    loses access to that board some other way (only a removal prunes it). So
+    every reader that *acts* on the team (Add child's pre-assignment, the
+    chooser's ``member_ids`` and the Edit swimlane warning) filters it here:
+    someone the band and Edit swimlane hide is never pre-assigned, notified or
+    named. One membership resolution, whatever the team size.
+
+    ``lane_board`` is the lane's own board, passed in because every caller has
+    it loaded. Fails closed (#1075): no lane, no board, or a board that is not
+    the lane's gives nobody.
+    """
+    from boards.utils import _get_assignable_member_ids
+
+    if swimlane is None or lane_board is None or lane_board.pk != swimlane.board_id:
+        return []
+    team = active_team_ids(swimlane)
+    if not team:
+        return []
+    listed = _get_assignable_member_ids(lane_board, site_admin_ids=())
+    return [uid for uid in team if uid in listed]
+
+
 def _assignable_roles():
     from boards.models import BoardMembership
     from boards.permissions import SITE_ADMIN
@@ -144,19 +171,21 @@ def default_assignees(team_ids, boards):
     }
 
 
-def default_assignee_id(swimlane, target_board):
+def default_assignee_id(swimlane, target_board, lane_board=None):
     """The person a new card on ``target_board`` gets from ``swimlane``'s team, or None.
 
-    The first team member, in team order, who is active and assignable on
-    ``target_board`` (the card ``assignee_id`` rule, Rule 5: active users only).
-    ``target_board`` is the lane's own board for a card created in it, and the
-    child board for Add child, so a member who can't be assigned there is
-    skipped, not refused. Fails closed (#1075): no lane, no board or no team
+    The first team member, in team order, who is still a listed non-viewer
+    member of the lane's own board (``listed_team_ids``) and is active and
+    assignable on ``target_board`` (the card ``assignee_id`` rule, Rule 5:
+    active users only). ``target_board`` is the lane's own board for a card
+    created in it, and the child board for Add child, so a member who can't be
+    assigned there is skipped, not refused. ``lane_board`` defaults to
+    ``swimlane.board``. Fails closed (#1075): no lane, no board or no team
     gives None, never someone.
     """
     if swimlane is None or target_board is None:
         return None
-    team = active_team_ids(swimlane)
+    team = listed_team_ids(swimlane, lane_board if lane_board is not None else swimlane.board)
     if not team:
         return None
     return default_assignees(team, [target_board])[target_board.pk]
@@ -164,6 +193,9 @@ def default_assignee_id(swimlane, target_board):
 
 def team_access(swimlane, viewer):
     """Which team members can't be assigned on the child boards this lane feeds (#2211).
+
+    Only members still listed as non-viewers on the lane's board are reported
+    (``listed_team_ids``'s rule): the others are never pre-assigned anyway.
 
     The child boards are the boards the lane's parent cards already have
     children on, plus the parent board's default child board. A member who
@@ -181,14 +213,27 @@ def team_access(swimlane, viewer):
     from boards.models import Board, CardParentLink
     from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_roles
 
+    from boards.utils import _get_assignable_member_ids
+
     team = team_member_ids(swimlane)
+    if not team:
+        return {"members": []}
+    lane_board = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).filter(pk=swimlane.board_id).first()
+    if lane_board is None:
+        return {"members": []}
+    # Someone the team keeps but who is no longer a listed non-viewer here is
+    # hidden by Edit swimlane and never pre-assigned (``listed_team_ids``), so
+    # they are not reported either. A deactivated member stays: Edit swimlane
+    # marks them for removal.
+    listed = _get_assignable_member_ids(lane_board, site_admin_ids=())
+    team = [uid for uid in team if uid in listed]
     if not team:
         return {"members": []}
     board_ids = set(
         CardParentLink.objects.filter(parent__swimlane_id=swimlane.pk)
         .values_list("child__board_id", flat=True).distinct()
     )
-    default_child = Board.objects.filter(pk=swimlane.board_id).values_list("default_child_board_id", flat=True).first()
+    default_child = lane_board.default_child_board_id
     if default_child is not None:
         board_ids.add(default_child)
     boards = list(

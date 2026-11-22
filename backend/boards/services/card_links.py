@@ -607,11 +607,12 @@ def child_board_options_for_viewer(parent, user):
       higher, by name, each with ``can_set_default`` (ADMIN on both boards).
     * ``can_set_default``: ADMIN on the parent's board.
     * ``default_team`` (#2211): the parent's lane team as ``{"swimlane":
-      {"id", "name"}, "member_ids"}`` (active members, team order), or None
-      when the lane has no team. Each ``boards`` entry (and ``fixed_board``
-      when the viewer can open it) then carries ``default_assignee_id``: the
-      member Add child pre-assigns there unless ``apply_default_team`` is
-      false. The parent's lane decides; the child board's own lanes are not
+      {"id", "name"}, "member_ids"}`` (active members still listed as
+      non-viewers on the parent board, team order), or None when none are.
+      Each ``boards`` entry (and ``fixed_board`` when the viewer can open it)
+      then carries ``default_assignee_id``: the member Add child pre-assigns
+      there unless ``apply_default_team`` is false (or the request's
+      ``expected_assignee_id`` no longer matches). The parent's lane decides; the child board's own lanes are not
       consulted. ``member_ids`` discloses nothing new: anyone who can read the
       parent can already read the lane's ``default_team`` (viewers included).
       The pre-assigned member is notified like any assignment
@@ -631,10 +632,12 @@ def child_board_options_for_viewer(parent, user):
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     out["can_set_default"] = admin_here
-    from .swimlane_team import active_team_ids, default_assignees
+    from .swimlane_team import default_assignees, listed_team_ids
 
     lane = parent.swimlane
-    lane_team = active_team_ids(lane)
+    # Filtered to the parent board's listed non-viewers, so the chooser never
+    # names someone Add child would skip (#2211).
+    lane_team = listed_team_ids(lane, parent_board)
     if lane_team:
         out["default_team"] = {"swimlane": {"id": lane.pk, "name": lane.name}, "member_ids": lane_team}
     fixed_id = (

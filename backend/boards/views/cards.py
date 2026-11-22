@@ -2946,6 +2946,15 @@ class CardViewSet(viewsets.ModelViewSet):
                         "(#2211, since 1.3). Default true; false leaves the child unassigned."
                     ),
                 ),
+                "expected_assignee_id": serializers.IntegerField(
+                    required=False, allow_null=True,
+                    help_text=(
+                        "The person the client showed as pre-assigned (#2211, since 1.3), or null "
+                        "when it showed nobody. When given, the lane team's pick is applied only if "
+                        "it is still this person; otherwise the child is created unassigned, never "
+                        "assigned to someone else. Omitted: the current pick is applied."
+                    ),
+                ),
             },
         ),
         responses={
@@ -2997,11 +3006,24 @@ class CardViewSet(viewsets.ModelViewSet):
         apply_team = body.get("apply_default_team", True)
         if not isinstance(apply_team, bool):
             raise serializers.ValidationError({"apply_default_team": ["Must be a boolean."]})
+        # The dialog picks who to show when it opens and the server picks again
+        # here; between the two the person shown can lose access, and the next
+        # member, only named as "not assigned", would be assigned silently. So
+        # the client sends whom it showed and a different pick assigns nobody.
+        # Strict int-or-null (a bool is not an id); omitted keeps the old behavior.
+        has_expected = "expected_assignee_id" in body
+        expected = body.get("expected_assignee_id")
+        if has_expected and expected is not None and (isinstance(expected, bool) or not isinstance(expected, int)):
+            raise serializers.ValidationError({"expected_assignee_id": ["Must be an integer or null."]})
 
         def make_card(*, board, role, column, swimlane):
             # Read under create_child's board locks, so a member removed from
             # either board in the meantime is not assigned.
-            assignee_id = default_assignee_id(parent.swimlane, board) if apply_team else None
+            assignee_id = (
+                default_assignee_id(parent.swimlane, board, lane_board=parent.board) if apply_team else None
+            )
+            if has_expected and assignee_id != expected:
+                assignee_id = None
 
             def render(card):
                 return _refetched_card_data(

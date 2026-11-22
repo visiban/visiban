@@ -2848,7 +2848,7 @@ Public card objects use `uid` as the identifier and carry no database `id`. `ass
 {"members": [{"id": 12, "boards": [{"id": 7, "name": "Delivery"}], "hidden_count": 0}]}
 ```
 
-The child boards are the boards this lane's parent cards already have children on, plus the board's `default_child_board`. One entry per team member who can't be assigned on at least one of them; members with access everywhere are omitted. `boards` names only boards you can open; the others are counted in `hidden_count`.
+The child boards are the boards this lane's parent cards already have children on, plus the board's `default_child_board`. One entry per team member who can't be assigned on at least one of them; members with access everywhere are omitted, as are members no longer listed as non-viewers on this lane's board (they are never pre-assigned). `boards` names only boards you can open; the others are counted in `hidden_count`.
 
 `GET /api/v1/boards/{id}/default-child-board-options/` — the boards you may pick as this board's `default_child_board`, for the Board settings Rules select (#2208). **Minimum role:** board admin (or site admin); a member gets `403`, a user who cannot open the board `404`.
 

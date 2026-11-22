@@ -1175,7 +1175,7 @@ endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1193,12 +1193,20 @@ and weight limits apply as for any create. `201` returns the new card, as
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
 - **Default team** (#2211, since 1.3): the child is assigned the first member,
   in team order, of the [default team](boards.md) of the lane this card is in
-  who is active and can be assigned on the target board; the target board's
-  own lanes are not consulted. Nobody qualifying leaves it unassigned.
+  who is active, still a listed non-viewer member of this card's board, and
+  can be assigned on the target board; the target board's own lanes are not
+  consulted. Nobody qualifying leaves it unassigned.
   `"apply_default_team": false` skips this; a non-boolean value is `400`
   (keyed `apply_default_team`). The default is `true`. The pre-assigned member
   gets the usual `assigned` notification once, under the same rules as
   `notify_assignee` on `POST .../cards/`.
+- **Expected assignee** (#2211, since 1.3): `expected_assignee_id` is the
+  person the client showed as pre-assigned (the target board's
+  `default_assignee_id` from `child-board-options`), or `null` when it showed
+  nobody. When it is sent, the default team's pick is applied only if it is
+  still that person; otherwise the child is created unassigned, never assigned
+  to someone else. Omitted, the current pick is applied. Anything other than
+  an integer or `null` is `400` (keyed `expected_assignee_id`).
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
   (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
   `swimlane_*` forms), with the same body as `POST .../cards/`.
@@ -1272,8 +1280,9 @@ Any role on this card's board.
   `can_set_default` is true when you administer both boards.
 - `can_set_default` (top level): you administer this card's board.
 - `default_team` (#2211, since 1.3): the default team of this card's lane, as
-  `{"swimlane": {"id", "name"}, "member_ids": [...]}` (active members, team
-  order), or `null` when the lane has no team. Each `boards` entry, and a
+  `{"swimlane": {"id", "name"}, "member_ids": [...]}` (active members still
+  listed as non-viewers on this card's board, team order), or `null` when the
+  lane has no such member. Each `boards` entry, and a
   visible `fixed_board`, then also carries `default_assignee_id`: who Add child
   would assign there (`null` when nobody on the team can be assigned there).
 

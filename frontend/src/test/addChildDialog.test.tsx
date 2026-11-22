@@ -232,7 +232,7 @@ describe('AddChildDialog lane default team (#2211)', () => {
     await user.type(screen.getByLabelText('Title'), 'Kickoff')
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
-    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff' })
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', expected_assignee_id: 10 })
   })
 
   it('Unassign sends apply_default_team false', async () => {
@@ -268,7 +268,27 @@ describe('AddChildDialog lane default team (#2211)', () => {
     await user.type(screen.getByLabelText('Title'), 'Kickoff')
     vi.mocked(addChild).mockResolvedValue({} as never)
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
-    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff' })
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', expected_assignee_id: 10 })
+  })
+
+  it('never shows a parent-board viewer as the chip or in the caption, and opts out of the team', async () => {
+    // A stale pick: the server named Mia, but she is now a viewer on the parent board.
+    const demoted = members.map((m) => (m.user.id === 10 ? { ...m, role: 'viewer' as const } : m))
+    const { user } = setup(TEAM, { members: demoted })
+    await user.type(await screen.findByLabelText('Title'), 'Kickoff')
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
+    expect(screen.queryByText(/Mia Reyes/)).toBeNull()
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', apply_default_team: false })
+  })
+
+  it('drops a parent-board viewer from the "not assigned" caption names', async () => {
+    const demoted = members.map((m) => (m.user.id === 11 ? { ...m, role: 'viewer' as const } : m))
+    setup(TEAM, { members: demoted })
+    const group = await screen.findByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent('Mia Reyes')
+    expect(group).not.toHaveTextContent('Dan Kovacs')
   })
 
   it('names the parent card in the header line and offers "Back to board"', async () => {

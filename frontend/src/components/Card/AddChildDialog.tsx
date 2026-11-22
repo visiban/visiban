@@ -4,7 +4,7 @@ import { addChild, getChildBoardOptions } from "../../api/cards";
 import { patchBoard } from "../../api/boards";
 import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
 import LaneTeamAssignee from "../Board/LaneTeamAssignee";
-import { childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
+import { assignableMembers, childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 
@@ -94,7 +94,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   // #2211: the server names who it pre-assigns on each board (a member who can't be assigned there
   // is skipped and never shown); the other team members are only listed in the caption.
   const team = options?.default_team ?? null;
-  const byId = new Map((members ?? []).map((m) => [m.user.id, m.user]));
+  // Only listed non-viewers, the lane team's own rule, so someone Edit Swimlane and the band hide (a
+  // member demoted to viewer) can never produce a chip or a caption name.
+  const byId = new Map(assignableMembers(members ?? []).map((m) => [m.user.id, m.user]));
   const assigneeId = (fixedVisible ?? chosenBoard)?.default_assignee_id ?? null;
   const teamAssignee = team && assigneeId != null ? byId.get(assigneeId) ?? null : null;
   const teamOthers = team
@@ -114,7 +116,9 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
         board_id: targetId, title: title.trim(),
         // The server applies the lane team unless told not to, so say no whenever no chip was shown
         // (nobody listed, or a stale roster) or the chip was removed: what is applied is what was shown.
-        ...((!teamAssignee || unassigned) && { apply_default_team: false }),
+        // When the chip is kept, name its person: the server picks again at submit, and if its pick is
+        // someone else by then it creates the child unassigned rather than assign who was not shown.
+        ...(!teamAssignee || unassigned ? { apply_default_team: false } : { expected_assignee_id: assigneeId }),
       });
     } catch (err) {
       const r = refusal(err);

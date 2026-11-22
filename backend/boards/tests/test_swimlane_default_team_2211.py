@@ -710,3 +710,159 @@ class TeamPrefetchQueryCountTests(TeamFixture):
         self.assertEqual(data["default_team"], [self.mia.pk, self.dan.pk])
         team_queries = [q for q in ctx.captured_queries if "swimlane_team_members" in q["sql"]]
         self.assertEqual(len(team_queries), 1, team_queries)
+
+
+class ParentEligibilityFixture(TeamFixture):
+    """A parent card in a lane whose team is (kim, mia); both work both boards."""
+
+    def setUp(self):
+        super().setUp()
+        self.parent_card = Card.objects.create(
+            board=self.parent, column=self.column, swimlane=self.lane, title="Opportunity",
+        )
+        # kim works both boards and leads the team; mia is next.
+        self.kim = self.user_with("kim", parent=Role.MEMBER, child=Role.MEMBER)
+        self.set_team(self.kim, self.mia)
+
+    def notes(self, user):
+        from boards.models import Notification
+
+        return list(Notification.objects.filter(recipient=user, action_type=Notification.ActionType.ASSIGNED))
+
+    def add_child(self, **extra):
+        body = {"board_id": self.child.pk, "title": "Task", **extra}
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            return client_for(self.owner).post(
+                f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/children/", body, format="json",
+            )
+
+    def assigned(self, r):
+        self.assertEqual(r.status_code, 201, r.content)
+        return Card.objects.get(pk=r.json()["id"]).assignee_id
+
+    def options(self):
+        r = client_for(self.owner).get(
+            f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def team_access_ids(self):
+        r = client_for(self.owner).get(
+            f"/api/v1/boards/{self.parent.pk}/swimlanes/{self.lane.pk}/default-team-access/"
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        return [m["id"] for m in r.json()["members"]]
+
+
+class ParentBoardEligibilityTests(ParentEligibilityFixture):
+    """Add child pre-assigns only listed non-viewers of the PARENT board (#2211 round-2 BLOCKER).
+
+    The team write and Add card's pick require a listed, non-viewer member of
+    the lane's board; a stored team is not rewritten when someone is demoted to
+    viewer or loses access without a removal, so every reader filters it.
+    """
+
+    def assert_kim_skipped(self):
+        body = self.options()
+        self.assertEqual(body["default_team"]["member_ids"], [self.mia.pk])
+        self.assertEqual([b["default_assignee_id"] for b in body["boards"]], [self.mia.pk])
+        self.assertEqual(self.assigned(self.add_child()), self.mia.pk)
+        self.assertEqual(self.notes(self.kim), [])
+        self.assertEqual(len(self.notes(self.mia)), 1)
+
+    def test_member_demoted_to_viewer_on_the_parent_is_skipped_and_not_notified(self):
+        BoardMembership.objects.filter(board=self.parent, user=self.kim).update(role=Role.VIEWER)
+        self.assert_kim_skipped()
+
+    def test_member_who_lost_parent_access_without_a_removal_is_skipped(self):
+        # A raw delete bypasses the REST/admin pruning, as group or ownership changes can.
+        BoardMembership.objects.filter(board=self.parent, user=self.kim).delete()
+        self.assertTrue(SwimlaneTeamMember.objects.filter(swimlane=self.lane, user=self.kim).exists())
+        self.assert_kim_skipped()
+
+    def test_negative_control_a_listed_member_is_still_pre_assigned(self):
+        body = self.options()
+        self.assertEqual(body["default_team"]["member_ids"], [self.kim.pk, self.mia.pk])
+        self.assertEqual(self.assigned(self.add_child()), self.kim.pk)
+        self.assertEqual(len(self.notes(self.kim)), 1)
+
+    def test_team_access_omits_a_member_demoted_on_the_parent(self):
+        # dan is listed on the parent but can't be assigned on Delivery: reported.
+        from boards.models import CardParentLink
+
+        SwimlaneTeamMember.objects.create(swimlane=self.lane, user=self.dan)
+        child_card = Card.objects.create(
+            board=self.child, column=self.child.columns.get(), swimlane=self.child.swimlanes.get(), title="t",
+        )
+        CardParentLink.objects.create(parent=self.parent_card, child=child_card, created_by=self.owner)
+        BoardMembership.objects.filter(board=self.child, user=self.kim).delete()
+        self.assertEqual(sorted(self.team_access_ids()), sorted([self.kim.pk, self.dan.pk]))
+        BoardMembership.objects.filter(board=self.parent, user=self.kim).update(role=Role.VIEWER)
+        self.assertEqual(self.team_access_ids(), [self.dan.pk])
+
+    def test_helper_fails_closed_without_its_inputs(self):
+        from boards.services.swimlane_team import default_assignee_id, listed_team_ids
+
+        self.assertEqual(listed_team_ids(None, self.parent), [])
+        self.assertEqual(listed_team_ids(self.lane, None), [])
+        # A board that is not the lane's never stands in for it.
+        self.assertEqual(listed_team_ids(self.lane, self.child), [])
+        self.assertEqual(listed_team_ids(self.lane, self.parent), [self.kim.pk, self.mia.pk])
+        # lane_board omitted: the lane's own board is used.
+        self.assertEqual(default_assignee_id(self.lane, self.child), self.kim.pk)
+
+    def test_options_queries_are_flat_when_demoted_members_lead_the_team(self):
+        url = f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+
+        def count():
+            from django.db import connection
+            from django.test.utils import CaptureQueriesContext
+
+            with CaptureQueriesContext(connection) as ctx:
+                r = client_for(self.owner).get(url)
+            self.assertEqual(r.status_code, 200)
+            return len(ctx.captured_queries), r.json()
+
+        SwimlaneTeamMember.objects.filter(swimlane=self.lane).delete()
+        self.set_team(self.mia)
+        before, _ = count()
+        SwimlaneTeamMember.objects.filter(swimlane=self.lane).delete()
+        demoted = [self.user_with(f"v{i}", parent=Role.VIEWER, child=Role.MEMBER) for i in range(3)]
+        self.set_team(*demoted, self.mia)
+        after, body = count()
+        self.assertEqual(after, before)
+        self.assertEqual(body["default_team"]["member_ids"], [self.mia.pk])
+
+
+class ExpectedAssigneeTests(ParentEligibilityFixture):
+    """``expected_assignee_id`` (#2211 round-2 GAP): pre-assignment is never silent."""
+
+    def test_match_assigns_the_person_shown(self):
+        self.assertEqual(self.assigned(self.add_child(expected_assignee_id=self.kim.pk)), self.kim.pk)
+        self.assertEqual(len(self.notes(self.kim)), 1)
+
+    def test_mismatch_creates_the_child_unassigned_never_the_next_member(self):
+        # The dialog showed kim; kim lost Delivery before submit, so the pick is now mia.
+        BoardMembership.objects.filter(board=self.child, user=self.kim).delete()
+        self.assertIsNone(self.assigned(self.add_child(expected_assignee_id=self.kim.pk)))
+        self.assertEqual(self.notes(self.kim) + self.notes(self.mia), [])
+
+    def test_null_expected_means_nobody_was_shown(self):
+        self.assertIsNone(self.assigned(self.add_child(expected_assignee_id=None)))
+        self.assertEqual(self.notes(self.kim), [])
+
+    def test_absent_keeps_todays_behavior(self):
+        BoardMembership.objects.filter(board=self.child, user=self.kim).delete()
+        self.assertEqual(self.assigned(self.add_child()), self.mia.pk)
+
+    def test_opt_out_wins_over_a_matching_expected(self):
+        r = self.add_child(apply_default_team=False, expected_assignee_id=self.kim.pk)
+        self.assertIsNone(self.assigned(r))
+
+    def test_bad_type_is_a_400_and_creates_nothing(self):
+        for value in ("1", True, 1.5, [1], {"id": 1}):
+            r = self.add_child(expected_assignee_id=value)
+            self.assertEqual(r.status_code, 400, (value, r.content))
+            self.assertIn("expected_assignee_id", r.json())
+        self.assertFalse(Card.objects.filter(board=self.child).exists())
