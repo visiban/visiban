@@ -218,6 +218,36 @@ describe('CardChildrenTab scoped board (#2209)', () => {
     expect(screen.getByRole('link', { name: /^Kickoff/ })).toHaveAttribute('href', '/boards/7?card=11&from_parent=5')
   })
 
+  it('offers Undo on the unlink toast to a member of the child board, but not to a viewer there', async () => {
+    vi.mocked(unlinkCardChild).mockResolvedValue(undefined as never)
+    const notify = vi.fn(() => 1)
+    const toastOf = (n: number) => (notify.mock.calls[n] as unknown as [{ title: string; action?: { label: string } }])[0]
+    const mount = (role: string) => render(
+      <ToastContext.Provider value={{ notify, dismiss: vi.fn() }}>
+        <CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" state={state({ data: read(kids, role), reload: vi.fn() })} onExitToTabs={vi.fn()} />
+      </ToastContext.Provider>,
+    )
+    const first = mount('member')
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Kickoff' }))
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(1))
+    expect(toastOf(0).action?.label).toBe('Undo')
+    first.unmount()
+    // A viewer on the child board can unlink, but linking again needs member there: no Undo to fail on.
+    mount('viewer')
+    await userEvent.click(screen.getByRole('button', { name: 'Unlink child Kickoff' }))
+    await waitFor(() => expect(notify).toHaveBeenCalledTimes(2))
+    expect(toastOf(1).title).toBe('Unlinked Kickoff')
+    expect(toastOf(1).action).toBeUndefined()
+  })
+
+  it("puts a child's blocked duration before its labels, priority and due date", () => {
+    const first = row({ id: 11, title: 'Kickoff', column_id: 100, position: 1, blocked: true, blocked_at: new Date(Date.now() - 6 * 86400_000).toISOString(), priority: 'high' })
+    renderTab(state({ data: read([first]) }))
+    const face = screen.getByTestId('child-card-face')
+    expect(face.firstElementChild).toHaveTextContent(/⊘ 6d/)
+    expect(face).toHaveTextContent(/High/)
+  })
+
   describe('narrow sheet', () => {
     const RO = globalThis.ResizeObserver
     beforeEach(() => {

@@ -173,13 +173,16 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const offerUndoUnlink = (child: CardChildRow) => {
     const key = `unlink-child:${child.id}`;
     const childBoardId = child.board_id;
+    const childRole = childBoard?.role ?? "";
     notify({
       key,
       variant: "success",
       title: `Unlinked ${child.title}`,
       announce: false,
       testId: "unlink-child-toast",
-      action: {
+      // Undo re-creates the link, which needs member or higher on the child's board; a viewer there can
+      // unlink (server rule) but would only ever see "Couldn't link again", so offer no Undo.
+      action: !WRITE_ROLES.has(childRole) ? undefined : {
         label: "Undo",
         pendingLabel: "Undoing…",
         undo: true,
@@ -463,12 +466,6 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
                     </a>
                     <ChildCardFace child={child} userTimezone={userTimezone} userDateFormat={userDateFormat} />
                     <div className="flex items-center gap-2 text-xs">
-                      {child.blocked && (
-                        <span className="text-danger">
-                          <span aria-hidden="true">⊘</span>
-                          {child.blocked_at ? ` ${formatBlockedDuration(Date.now() - Date.parse(child.blocked_at), 1)}` : ""}
-                        </span>
-                      )}
                       {child.assignee && <Avatar user={child.assignee} size="sm" />}
                       <span className="flex-1" />
                       {canMove && (
@@ -651,15 +648,22 @@ function ChildMovePopover({ child, boardName, columns, board, error, onMove, onC
 /**
  * The child board's card face next to the title (#2209 "Cards: Delivery's anatomy, without the parent line"):
  * labels (two, then "+N", tinted like the board's pills), priority in words when not Low, and the due date,
- * overdue in danger text. Blocked and the owner stay in the action row below, as before.
+ * overdue in danger text. Blocked comes first, as on the board's card; the owner stays in the action row below.
  */
 function ChildCardFace({ child, userTimezone, userDateFormat }: { child: CardChildRow; userTimezone: string; userDateFormat: string }) {
   const labels = child.labels ?? [];
   const due = child.due_date ? formatDueDate(child.due_date, userTimezone, userDateFormat) : null;
   const showPriority = !!child.priority && child.priority !== "low";
-  if (labels.length === 0 && !due && !showPriority) return null;
+  if (labels.length === 0 && !due && !showPriority && !child.blocked) return null;
   return (
     <div className="flex items-center gap-1.5 flex-wrap text-xs" data-testid="child-card-face">
+      {/* Blocked takes the first metadata slot, as on the board's own card (CardItem). */}
+      {child.blocked && (
+        <span className="text-danger">
+          <span aria-hidden="true">⊘</span>
+          {child.blocked_at ? ` ${formatBlockedDuration(Date.now() - Date.parse(child.blocked_at), 1)}` : ""}
+        </span>
+      )}
       {labels.slice(0, 2).map((l) => (
         <span key={l.id} className="cf-choice-badge border text-xs font-semibold px-1 py-0.5 rounded leading-none" style={colorChipStyle(l.color)} title={l.name}>
           {l.name.length > 12 ? `${l.name.slice(0, 11)}…` : l.name}
