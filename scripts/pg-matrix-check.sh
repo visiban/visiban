@@ -90,7 +90,8 @@ with connection.cursor() as c:
     --durations-path .test_durations \
     --splits "$splits" --group "$group" \
     --junitxml="test-results/junit-pg${got}.xml" \
-    -q
+    -o faulthandler_timeout=300 \
+    -v
 }
 
 main "$@"
