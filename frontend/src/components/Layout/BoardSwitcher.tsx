@@ -145,6 +145,7 @@ export default function BoardSwitcher({ board }: { board: Pick<Board, "id" | "na
                         key={o.id}
                         id={`${baseId}-opt-${o.id}`}
                         role="option"
+                        tabIndex={-1}
                         aria-selected={current}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => go(o.id)}
