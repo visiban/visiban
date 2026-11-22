@@ -68,11 +68,11 @@ function getCardEl(container: HTMLElement): HTMLElement {
 }
 
 // #2508 — a hover (expansion, aging tooltip, peek) must never outlive the
-// pointer. React's mouseleave needs a native mouseout on the card, which the
-// browser does not send when a hovered card node is moved or re-inserted, or
-// while a layout shift slides the board out from under a still pointer (the
-// filter row opening). These tests drive the hover with mouseenter and then
-// send NO mouseleave, the shape of every stuck-hover report.
+// pointer. Only a leave event ends a hover today, and a key press, scroll or
+// window blur sends none; the `fixed` peek can also sit under a resting
+// pointer and keep itself open through its own mouseenter. These tests drive
+// the hover with mouseenter and then send NO mouseleave, the shape of every
+// stuck-hover report. They do not claim how a browser fails to send the leave.
 
 // The hovered card carries the lifted shadow; at rest it carries the flat one.
 const LIFTED = '0 4px 0'

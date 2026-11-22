@@ -51,11 +51,12 @@ test.describe('card peek popover', () => {
     await expect(peek).toHaveCount(0, { timeout: 2_000 })
   })
 
-  // #2508 regression guard for the reported filter-row path (F opens the
-  // filter row and pushes the board down under a still pointer). Chromium
-  // usually self-heals after a layout shift, so this does NOT prove the
-  // mechanism; the Escape test above and the Vitest guard tests do.
-  test('regression guard: pressing F to open the filter row leaves no peek over it', async ({ page }) => {
+  // #2508 demonstrated mechanism: the peek is `position: fixed` and keeps
+  // itself open through its own onMouseEnter, so a pointer resting on it holds
+  // it open until a leave. Pressing F must end it anyway and leave the filter
+  // row usable. Fails with the hover guard disabled (Chromium alone self-heals
+  // after the layout shift, which is why the pointer rests on the peek here).
+  test('pressing F while the pointer rests on the peek closes it and leaves the filter row usable', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     const cardText = page.getByText(CARD.title).first()
     await expect(cardText).toBeVisible({ timeout: 10_000 })
@@ -63,6 +64,11 @@ test.describe('card peek popover', () => {
     await cardText.hover()
     const peek = page.getByRole('tooltip').filter({ hasText: CARD.description })
     await expect(peek).toBeVisible({ timeout: 3_000 })
+
+    const box = await peek.boundingBox()
+    if (!box) throw new Error('peek has no bounding box')
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await expect(peek).toBeVisible()
 
     await page.keyboard.press('f')
     await expect(peek).toHaveCount(0, { timeout: 2_000 })
