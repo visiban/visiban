@@ -190,12 +190,14 @@ describe('AddChildDialog (#2208)', () => {
     expect(screen.queryByLabelText('Title')).toBeNull()
     expect(screen.queryByLabelText('Child board')).toBeNull()
     expect(screen.getByRole('button', { name: 'Add to Delivery' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add to Delivery' })).toHaveAccessibleDescription('This card is archived. Restore it before adding children.')
     expect(addChild).not.toHaveBeenCalled()
   })
 
   it('says "Showing N of M" when the server capped the boards, and preselects the default it kept (#2449)', async () => {
     setup({ ...BASE, default: { id: 8, name: 'Ops' }, boards_total: 240 })
     expect(await screen.findByTestId('child-board-options-cap')).toHaveTextContent('Showing 2 of 240 boards, by name.')
+    expect(screen.getByLabelText('Child board')).toHaveAccessibleDescription(/Showing 2 of 240 boards, by name\./)
     expect(screen.getByRole('button', { name: 'Add to Ops' })).toBeInTheDocument()
   })
 

@@ -338,6 +338,7 @@ describe('Link existing (#2209)', () => {
     const link = screen.getByRole('button', { name: /^Link existing/ })
     for (const b of [add, link]) {
       expect(b).toHaveAttribute('aria-disabled', 'true')
+      expect(b.className).toMatch(/aria-disabled:hover:bg-/)
       expect(b).toHaveAccessibleDescription('This card is archived. Restore it before adding or linking children.')
       await userEvent.click(b)
     }

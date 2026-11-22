@@ -59,6 +59,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
+  const capId = `${uid}-cap`;
+  const archivedReasonId = `${uid}-archived`;
   const titleFieldId = `${uid}-card-title`;
   const [options, setOptions] = useState<ChildBoardOptions | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -96,6 +98,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const canPick = !parentArchived && !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
   const hasDefault = options?.default != null;
   const offerDefault = !fixedVisible && chosenBoard?.can_set_default === true && options?.default?.id !== chosenBoard.id;
+  const capLine = options ? boardsCapLine(options.boards.length, options.boards_total) : null;
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -162,7 +165,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           onSubmit={(e) => { e.preventDefault(); void submit(); }}
         >
           {parentArchived ? (
-            <p role="alert" className="text-sm text-fg-secondary">
+            <p id={archivedReasonId} role="alert" className="text-sm text-fg-secondary">
               This card is archived. Restore it before adding children.
             </p>
           ) : fixedHidden ? (
@@ -187,14 +190,15 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={selectId} className="text-sm text-fg-secondary">Child board</label>
               <SelectDropdown
                 id={selectId}
+                ariaDescribedBy={capLine ? capId : undefined}
                 value={chosen}
                 onChange={(v) => { setChosen(v); setMakeDefault(false); }}
                 placeholder="Choose a board"
                 options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
               />
               <p className="text-xs text-fg-muted">Only boards you can add cards to are listed.</p>
-              {boardsCapLine(options.boards.length, options.boards_total) && (
-                <p className="text-xs text-fg-muted" data-testid="child-board-options-cap">{boardsCapLine(options.boards.length, options.boards_total)}</p>
+              {capLine && (
+                <p id={capId} className="text-xs text-fg-muted" data-testid="child-board-options-cap">{capLine}</p>
               )}
             </div>
           )}
@@ -237,6 +241,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
             <button
               type="submit"
               disabled={!ready}
+              aria-describedby={parentArchived ? archivedReasonId : undefined}
               className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm px-4 py-1.5 max-sm:min-h-11 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {submitting ? "Adding…" : targetName ? `Add to ${targetName}` : "Add child"}

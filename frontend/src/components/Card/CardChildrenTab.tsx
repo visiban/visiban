@@ -316,7 +316,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         type="button"
         onClick={() => { if (!cardArchived) setAdding(true); }}
         {...archivedProps}
-        className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary aria-disabled:hover:bg-button-primary aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Add child" : `Add child${boardName ? ` to ${boardName}` : ""}`}
       </button>
@@ -325,7 +325,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
         type="button"
         onClick={() => void openLinkExisting()}
         {...archivedProps}
-        className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+        className={`${tgt} px-3 py-1.5 text-sm text-fg-secondary border border-line rounded hover:bg-surface-hover aria-disabled:hover:bg-transparent aria-disabled:opacity-40 aria-disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
       >
         {wide ? "Link existing" : "Link existing card"}
       </button>

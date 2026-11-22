@@ -37,6 +37,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   const reasonsId = `${uid}-reasons`;
   const defaultId = `${uid}-default`;
   const defaultHelpId = `${uid}-default-help`;
+  const defaultCapId = `${uid}-default-cap`;
   const reasonsRef = useRef<HTMLDivElement>(null);
   const checked = board.cards_can_have_children;
   // The reason link is router navigation (no full page load); a bare render with no
@@ -140,6 +141,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
       : []),
   ];
 
+  const capLine = boardsCapLine(options.length, optionsTotal);
   return (
     <div className="flex flex-col gap-3">
       <button
@@ -247,13 +249,13 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
           </div>
           <SelectDropdown
             id={defaultId}
-            ariaDescribedBy={defaultHelpId}
+            ariaDescribedBy={capLine ? `${defaultHelpId} ${defaultCapId}` : defaultHelpId}
             value={board.default_child_board != null ? String(board.default_child_board) : "none"}
             onChange={(v) => onUpdate({ default_child_board: v === "none" ? null : Number(v) })}
             options={selectOptions}
           />
-          {boardsCapLine(options.length, optionsTotal) && (
-            <p className="text-xs text-fg-muted mt-1" data-testid="default-child-board-cap">{boardsCapLine(options.length, optionsTotal)}</p>
+          {capLine && (
+            <p id={defaultCapId} className="text-xs text-fg-muted mt-1" data-testid="default-child-board-cap">{capLine}</p>
           )}
         </div>
       )}
