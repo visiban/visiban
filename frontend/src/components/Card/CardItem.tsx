@@ -245,6 +245,10 @@ function sameGateProgress(a: Props["gateProgress"], b: Props["gateProgress"]): b
   return a.index === b.index && a.names.length === b.names.length && a.names.every((n, i) => n === b.names[i]);
 }
 
+// Keys that never end a hover (#2508): they arm a click (Shift+click opens the
+// peek sheet, #2358) rather than act on their own.
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock"]);
+
 const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, current = false, onSelect, density = "comfortable", userTimezone = "", currentUserId, userDateFormat = "MM/DD/YYYY", readOnly = false, peekSuppressed = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, inDoneColumn = false, customFieldDefinitions: allFieldDefinitions = EMPTY_DEFS, boardId, canEdit = false, dimmed = false, onExpandChange, onCardUpdated, onOpenMenu, contextTarget = false, trackStates, trackStatesSpelledOut = false, gateProgress = null }: Props) {
   // Dimension fields (#1921) are tracks, shown as chips; they never pin to the card face.
   const customFieldDefinitions = useMemo(() => allFieldDefinitions.filter((d) => !isDimensionField(d)), [allFieldDefinitions]);
@@ -286,6 +290,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Captured DOMRect of the card element at hover-start time, stored as state so
   // the popover re-renders at the correct position even if the card scrolls.
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [peekMinTop, setPeekMinTop] = useState<number | null>(null);
   // Ref to the card's outer div so we can capture its bounding rect on hover.
   const cardRef = useRef<HTMLDivElement>(null);
   // Context menu (#2059): the pointer type of the last press, so a touch
@@ -406,12 +411,20 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // Bail out if dragging started while we were waiting.
       if (cardRef.current) {
         setAnchorRect(cardRef.current.getBoundingClientRect());
+        // The board region's top (#2508): the peek slides up to stay on screen
+        // (#1457) but never above this, so it never covers the toolbar or the
+        // filter row. Read with the anchor, the same snapshot moment.
+        setPeekMinTop(cardRef.current.closest("[data-board-scroll]")?.getBoundingClientRect().top ?? null);
         setPeekVisible(true);
       }
     }, 600);
   };
 
-  const handleMouseLeave = () => {
+  // The one teardown for every way a hover ends (#2508): the card's own
+  // mouseleave, the peek's mouseleave, and the window-level guard below. Before
+  // it, the peek's mouseleave hid the peek but left the timer and `hovered`
+  // alone, so the two ends of a hover disagreed about what was still live.
+  const endHover = useCallback(() => {
     setHovered(false);
     setShowTooltip(false);
     if (peekTimer.current !== null) {
@@ -419,7 +432,56 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       peekTimer.current = null;
     }
     setPeekVisible(false);
-  };
+  }, []);
+  const handleMouseLeave = endHover;
+
+  // #2508 — a hover (the in-place expansion, the aging tooltip and the peek)
+  // must never outlive the pointer. React's onMouseLeave is synthesized from a
+  // native `mouseout` on the card, and nothing else ends a hover: no key press,
+  // scroll or window blur dismisses it. Demonstrated mechanism: the peek is
+  // `position: fixed` and, with the pointer resting on it, keeps itself
+  // open through its own onMouseEnter, so nothing but a leave would end it. Key, scroll, blur and press now end it.
+  // (Chromium alone usually self-heals after a layout shift, which is why the
+  // card-only path is not the cause.)
+  // The peek is `fixed` at the rect captured
+  // when it opened, so a scroll leaves it floating over whatever is there now,
+  // the toolbar and filter row included. So, while a hover is live, one set of
+  // window listeners re-checks it instead of trusting mouseleave alone: a
+  // pointer move or press outside the card ends it (outside the peek too, for a
+  // move, so the peek stays hoverable; a press on the peek ends it because the
+  // peek has no controls), and any scroll outside the card and peek, any
+  // non-modifier key or the window losing focus ends it. Escape is the WCAG
+  // 1.4.13 dismiss key; the other keys end it too because a key means the
+  // user's attention has moved off the pointer (F opening the filter row is
+  // the reported case). Modifier keys are exempt so Shift+click still lands on
+  // the expanded card it was aimed at (#2358). The peek also never slides
+  // above the board region (`peekMinTop`), so it cannot sit over the toolbar.
+  const hoverLive = hovered || peekVisible;
+  const quickEditOpen = quickEditFieldId !== null;
+  useEffect(() => {
+    if (!hoverLive) return;
+    const inCard = (t: EventTarget | null) => t instanceof Node && !!cardRef.current?.contains(t);
+    const inPeek = (t: EventTarget | null) =>
+      t instanceof Element ? !!t.closest("[data-card-peek]") : t instanceof Node && !!t.parentElement?.closest("[data-card-peek]");
+    const onPointerMove = (e: Event) => { if (!inCard(e.target) && !inPeek(e.target)) endHover(); };
+    const onPointerDown = (e: Event) => { if (!inCard(e.target)) endHover(); };
+    const onScroll = (e: Event) => { if (!inCard(e.target) && !inPeek(e.target)) endHover(); };
+    // The card's own quick-edit list (#371) takes arrow keys while the pointer
+    // may still rest on the card; collapsing the card under it would be wrong.
+    const onKeyDown = (e: KeyboardEvent) => { if (!quickEditOpen && !MODIFIER_KEYS.has(e.key)) endHover(); };
+    window.addEventListener("pointermove", onPointerMove, true);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("blur", endHover);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("blur", endHover);
+    };
+  }, [hoverLive, quickEditOpen, endHover]);
 
   // When dragging starts, clear the timer and hide peek immediately.
   // Using useEffect so we never call setState during render.
@@ -1371,8 +1433,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       <CardPeekPopover
         card={card}
         anchorRect={anchorRect}
+        minTop={peekMinTop}
         onMouseEnter={() => setPeekVisible(true)}
-        onMouseLeave={() => setPeekVisible(false)}
+        onMouseLeave={endHover}
         customFieldDefinitions={customFieldDefinitions}
         userDateFormat={userDateFormat}
         userTimezone={userTimezone}
