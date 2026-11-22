@@ -1173,7 +1173,7 @@ endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>"}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1189,6 +1189,12 @@ and weight limits apply as for any create. `201` returns the new card, as
   under the same locks. A parent's children always stay on one board, so once
   it has a child, Add child only accepts that board. A blank or missing
   `title` is `400` (keyed `title`). Nothing is created when it is refused.
+- **Default team** (#2211, since 1.3): the child is assigned the first member,
+  in team order, of the [default team](boards.md) of the lane this card is in
+  who is active and can be assigned on the target board; the target board's
+  own lanes are not consulted. Nobody qualifying leaves it unassigned.
+  `"apply_default_team": false` skips this; a non-boolean value is `400`
+  (keyed `apply_default_team`). The default is `true`.
 - **Limits:** a hard WIP or weight limit on the target cell answers `409`
   (`wip_hard_blocked`, `wip_limit_exceeded`, `weight_limit_exceeded`, and the
   `swimlane_*` forms), with the same body as `POST .../cards/`.
@@ -1261,6 +1267,11 @@ Any role on this card's board.
   have children and whose first column allows card creation, by name.
   `can_set_default` is true when you administer both boards.
 - `can_set_default` (top level): you administer this card's board.
+- `default_team` (#2211, since 1.3): the default team of this card's lane, as
+  `{"swimlane": {"id", "name"}, "member_ids": [...]}` (active members, team
+  order), or `null` when the lane has no team. Each `boards` entry, and a
+  visible `fixed_board`, then also carries `default_assignee_id`: who Add child
+  would assign there (`null` when nobody on the team can be assigned there).
 
 Empty lists and `null`s when this card's board cannot have children.
 

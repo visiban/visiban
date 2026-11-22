@@ -1,6 +1,6 @@
 import client from "./client";
 import { safeJoinToken, safeShareToken } from "./joinToken";
-import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact } from "../types";
+import type { Board, BoardFull, HealthHistory, HealthStatus, BoardInviteLink, CreatedBoardInviteLink, InviteEmailSent, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, ThresholdDirection, DimensionResolution, TrelloImportMapping, TrelloImportPreview, TrelloImportResult, ImportOptions, ImportBoardResponse, SampleBoardSummary, BoardSummary, ChildrenSettingBlockers, BoardDeleteImpact, SwimlaneDefaultTeamAccess } from "../types";
 import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
@@ -157,6 +157,12 @@ export const reorderColumns = (boardId: number, order: number[]) =>
 // Swimlanes
 export const createSwimlane = (boardId: number, data: { name: string; contact_email?: string; color?: string }) =>
   client.post<Swimlane>(`/api/v1/boards/${boardId}/swimlanes/`, data).then((r) => r.data);
+
+/** Default team members skipped on the child boards this lane feeds (#2211, admins only). */
+export const getSwimlaneDefaultTeamAccess = (boardId: number, swimlaneId: number) =>
+  client
+    .get<SwimlaneDefaultTeamAccess>(`/api/v1/boards/${boardId}/swimlanes/${swimlaneId}/default-team-access/`)
+    .then((r) => r.data);
 
 export const updateSwimlane = (boardId: number, swimlaneId: number, data: Partial<Swimlane>) =>
   client.put<Swimlane>(`/api/v1/boards/${boardId}/swimlanes/${swimlaneId}/`, data).then((r) => r.data);

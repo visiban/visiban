@@ -397,6 +397,8 @@ class ChildBoardOptionsTests(AddChildFixture):
         self.assertEqual(out, {
             "fixed_board": None, "default": None, "can_set_default": False,
             "boards": [{"id": self.child.pk, "name": "Delivery", "can_set_default": False}],
+            # #2211: the parent's lane has no team.
+            "default_team": None,
         })
 
     def test_admin_of_both_can_set_default_and_sees_it(self):

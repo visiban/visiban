@@ -656,3 +656,40 @@ describe('BoardCell gated stage (#2278)', () => {
     expect(screen.getByTestId('card-1')).toBeInTheDocument()
   })
 })
+
+describe('BoardCell lane default team (#2211)', () => {
+  const mia = { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' }
+  const laneDefault = { assignee: mia, others: ['Dan Kovacs'] }
+
+  it('shows the pre-assigned member with the caption and sends them as the assignee', async () => {
+    mockCreateCard.mockResolvedValue(makeCard({ id: 98 }))
+    render(<BoardCell {...defaultProps()} laneDefault={laneDefault} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    const group = screen.getByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent('Mia Reyes')
+    expect(group).toHaveTextContent("From the Customer A default team. Remove anyone this card shouldn't have. Also on the team, not assigned: Dan Kovacs.")
+    await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
+    await user.click(screen.getByText('Add'))
+    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal', assignee_id: 10 }))
+  })
+
+  it('Unassign creates the card with no assignee', async () => {
+    mockCreateCard.mockClear()
+    mockCreateCard.mockResolvedValue(makeCard({ id: 97 }))
+    render(<BoardCell {...defaultProps()} laneDefault={laneDefault} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    await user.click(screen.getByRole('button', { name: 'Unassign Mia Reyes' }))
+    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('No one.')
+    await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
+    await user.click(screen.getByText('Add'))
+    await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal' }))
+  })
+
+  it('renders no Assignees group for a lane without a team', async () => {
+    render(<BoardCell {...defaultProps()} laneDefault={null} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
+  })
+})

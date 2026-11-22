@@ -865,3 +865,23 @@ describe('collapsed lane over a split stage (#1102, spec § Lanes, Collapsed)', 
     expect(cell).toHaveTextContent(`${columns[0].name}: 3 cards`)
   })
 })
+
+describe('SwimlaneRow default team row behind "+N" (#2211)', () => {
+  const members = [
+    { id: 10, role: 'member' as const, joined_at: '', user: { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' } },
+    { id: 11, role: 'member' as const, joined_at: '', user: { id: 11, username: 'dan', display_name: 'Dan Kovacs', avatar_url: '' } },
+  ]
+
+  it('counts the team in "Show N more" and lists it as the first details row', async () => {
+    const user = userEvent.setup()
+    render(<SwimlaneRow {...defaultProps()} swimlane={{ ...swimlane, default_team: [10, 11] }} members={members} />)
+    expect(screen.queryByTestId('lane-default-team-row')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Show 1 more fields for Customer A' }))
+    expect(screen.getByTestId('lane-default-team-row')).toHaveTextContent('Default team: Mia Reyes, Dan Kovacs')
+  })
+
+  it('shows no toggle or row for a lane without a team', () => {
+    render(<SwimlaneRow {...defaultProps()} members={members} />)
+    expect(screen.queryByTestId('swimlane-fields-toggle')).toBeNull()
+  })
+})

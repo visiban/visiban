@@ -5,6 +5,8 @@ import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } fro
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
+import LaneTeamAssignee from "./LaneTeamAssignee";
+import { laneCaption, type LaneDefault } from "../../utils/swimlaneDefaultTeam";
 import { limitBlockedMessage } from "./moveBlockedMessages";
 import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
 import type { GridOverlayCellState } from "../../gridOverlays/slot";
@@ -17,6 +19,8 @@ import { getTrackStates, splitCellBySubColumn, stageSubColumns, cardSubColumnInd
 interface Props {
   column: Column;
   swimlane: Swimlane;
+  /** #2211: who a new card in this lane is pre-assigned from its default team; null when nobody. */
+  laneDefault?: LaneDefault | null;
   cards: Card[];
   boardId: number;
   canEdit: boolean;
@@ -68,7 +72,7 @@ interface Props {
   showSubColumns?: boolean;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, currentUserId, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId, showSubColumns = true }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, currentCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, currentUserId, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel, getDropVerdict, getEntryCriteria, onOpenCardMenu, contextTargetCardId, showSubColumns = true }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const subColumns = stageSubColumns(column);
   const split = subColumns.length >= 2 && showSubColumns;
@@ -111,12 +115,19 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   }, []);
   const [title, setTitle] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  // #2211: the draft starts with the lane team's member; Unassign drops it for this card only.
+  const [unassigned, setUnassigned] = useState(false);
+  const preAssignee = unassigned ? null : laneDefault?.assignee ?? null;
 
   const handleAdd = async () => {
     if (!title.trim()) return;
     setAddError(null);
     try {
-      const card = await createCard(boardId, { column: column.id, swimlane: swimlane.id, title: title.trim() });
+      const card = await createCard(boardId, {
+        column: column.id, swimlane: swimlane.id, title: title.trim(),
+        ...(preAssignee && { assignee_id: preAssignee.id }),
+      });
+      setUnassigned(false);
       onCardAdded(card);
       setTitle("");
       focusTriggerRef.current = true;
@@ -150,7 +161,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   // Several cells can have the input open at once (it has no onBlur close), so the predicate is
   // scoped to focus inside this cell's editor; otherwise the first-registered cell would close.
   const addEditorRef = useRef<HTMLDivElement>(null);
-  const cancelAdd = () => { focusTriggerRef.current = true; setAdding(false); setAddError(null); };
+  const cancelAdd = () => { focusTriggerRef.current = true; setAdding(false); setAddError(null); setUnassigned(false); };
   useInlineEditEscape(() => adding && !!addEditorRef.current?.contains(document.activeElement), cancelAdd);
 
   // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
@@ -380,6 +391,14 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
             placeholder="Card title…"
             className="w-full text-xs border border-primary-emphasis rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"
           />
+          {laneDefault?.assignee && (
+            <LaneTeamAssignee
+              assignee={preAssignee}
+              others={laneDefault.others}
+              caption={laneCaption(swimlane.name)}
+              onUnassign={() => setUnassigned(true)}
+            />
+          )}
           <div className="flex gap-1.5 mt-1.5">
             <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
             <button onClick={cancelAdd} className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>

@@ -982,13 +982,37 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
         required=False, allow_empty=True,
         help_text=(
             "User ids of the lane's default team, in team order (#2211, since 1.3). "
-            "Each must be an active, non-viewer member of the board. Stored settings "
-            "only: the team does not pre-assign new cards yet. Writable by board admins."
+            "Each must be an active, non-viewer member of the board. The first "
+            "eligible member is pre-assigned to new cards created in the lane by the "
+            "web app and to children added from its cards (Add child). Writable by "
+            "board admins."
+        ),
+    )
+    default_team_members = serializers.SerializerMethodField(
+        help_text=(
+            "The lane's default team as `[{id, is_active}]`, in team order (#2211, "
+            "since 1.3). Read-only. A member with `is_active: false` is deactivated: "
+            "never pre-assigned, and a `default_team` write that still lists them is "
+            "refused until they are removed."
         ),
     )
 
     MAX_LIMIT_COLUMN_IDS = 90
     MAX_DEFAULT_TEAM = 50
+
+    @extend_schema_field({
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {"id": {"type": "integer"}, "is_active": {"type": "boolean"}},
+            "required": ["id", "is_active"],
+        },
+    })
+    def get_default_team_members(self, obj):
+        from .services.swimlane_team import team_members_payload
+
+        # ``.all()`` through the lane prefetch (services.swimlane_team.team_prefetch).
+        return team_members_payload(obj)
 
     @extend_schema_field({"type": "array", "items": {"type": "integer"}})
     def get_not_applicable_field_ids(self, obj):
@@ -1007,7 +1031,7 @@ class SwimlaneSerializer(ColorValidationMixin, serializers.ModelSerializer):
             # Additive (#1921): dimensions marked not applicable for this lane.
             "not_applicable_field_ids",
             # Additive (#2211).
-            "default_team",
+            "default_team", "default_team_members",
         ]
         read_only_fields = ["uid"]
         extra_kwargs = {
@@ -1179,7 +1203,7 @@ class SwimlaneAdminSerializer(SwimlaneSerializer):
             # Additive (#1921).
             "not_applicable_field_ids",
             # Additive (#2211).
-            "default_team",
+            "default_team", "default_team_members",
         ]
 
 

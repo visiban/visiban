@@ -2,7 +2,9 @@ import { useEffect, useId, useState } from "react";
 import axios from "axios";
 import { addChild, getChildBoardOptions } from "../../api/cards";
 import { patchBoard } from "../../api/boards";
-import type { ChildBoardOptions } from "../../types";
+import type { ChildBoardOptions, EffectiveBoardMember } from "../../types";
+import LaneTeamAssignee from "../Board/LaneTeamAssignee";
+import { childCaption, memberName } from "../../utils/swimlaneDefaultTeam";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 
@@ -14,6 +16,8 @@ interface Props {
   /** The parent card's title and column, for the header line (#2209). */
   parentTitle?: string;
   parentColumn?: string;
+  /** The parent board's members, to name the lane team's pre-assigned member (#2211). */
+  members?: EffectiveBoardMember[];
   onClose: () => void;
   /** Called once the child exists; the board's own socket event adds it to its board. */
   onAdded: (info: { boardName: string; title: string; defaultNotSet?: boolean }) => void;
@@ -46,7 +50,7 @@ function refusal(err: unknown): { text: string; refetch: boolean } {
  * where a child may go (`child-board-options`): a parent's children share one board, so once it has any the
  * select is replaced by that board's name, and a board the viewer cannot open disables Add child.
  */
-export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, onClose, onAdded, onWriteStart, onWriteFailed }: Props) {
+export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, members, onClose, onAdded, onWriteStart, onWriteFailed }: Props) {
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
@@ -59,6 +63,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  // #2211: Unassign drops the lane team's member for this child only.
+  const [unassigned, setUnassigned] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -85,6 +91,15 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const canPick = !fixedHidden && !fixedBlocked && (fixedVisible != null || chosenBoard != null);
   const hasDefault = options?.default != null;
   const offerDefault = !fixedVisible && chosenBoard?.can_set_default === true && options?.default?.id !== chosenBoard.id;
+  // #2211: the server names who it pre-assigns on each board (a member who can't be assigned there
+  // is skipped and never shown); the other team members are only listed in the caption.
+  const team = options?.default_team ?? null;
+  const byId = new Map((members ?? []).map((m) => [m.user.id, m.user]));
+  const assigneeId = (fixedVisible ?? chosenBoard)?.default_assignee_id ?? null;
+  const teamAssignee = team && assigneeId != null ? byId.get(assigneeId) ?? null : null;
+  const teamOthers = team
+    ? team.member_ids.filter((id) => id !== assigneeId && byId.has(id)).map((id) => memberName(byId.get(id)!))
+    : [];
   const hasTitle = title.trim().length > 0;
   const ready = canPick && hasTitle && !submitting;
 
@@ -95,7 +110,11 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
     setError(null);
     onWriteStart?.();
     try {
-      await addChild(boardId, cardId, { board_id: targetId, title: title.trim() });
+      await addChild(boardId, cardId, {
+        board_id: targetId, title: title.trim(),
+        // Sent only when the chip was removed; the server's default is to apply the team.
+        ...(teamAssignee && unassigned && { apply_default_team: false }),
+      });
     } catch (err) {
       const r = refusal(err);
       onWriteFailed?.();
@@ -173,7 +192,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <SelectDropdown
                 id={selectId}
                 value={chosen}
-                onChange={(v) => { setChosen(v); setMakeDefault(false); }}
+                onChange={(v) => { setChosen(v); setMakeDefault(false); setUnassigned(false); }}
                 placeholder="Choose a board"
                 options={options.boards.map((b) => ({ value: String(b.id), label: b.name }))}
               />
@@ -203,6 +222,16 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 className="w-full bg-surface border border-line text-fg text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               />
             </div>
+          )}
+
+          {!fixedHidden && !fixedBlocked && team && teamAssignee && targetName && (
+            <LaneTeamAssignee
+              size="md"
+              assignee={unassigned ? null : teamAssignee}
+              others={teamOthers}
+              caption={childCaption(team.swimlane.name, boardName, targetName)}
+              onUnassign={() => setUnassigned(true)}
+            />
           )}
 
           {error && <p role="alert" className="text-sm text-danger">{error}</p>}

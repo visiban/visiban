@@ -1,9 +1,11 @@
-"""Swimlane default team (#2211): stored settings only; nothing is pre-assigned.
+"""Swimlane default team (#2211).
 
 Covers the migration (a new join table only), the admin-only write and its
 validation (assignable, active members of this board; fail closed without a
-board), the broadcast payload, card create and Add child (a lane's team must
-NOT pre-assign anyone), and member removal pruning the team (REST and admin).
+board), the broadcast payload, card create (the web app sends the assignee;
+the API does not default it), Add child (the parent lane's first eligible
+member is pre-assigned, #2206 decision G), the child-board access warning,
+the ``is_active`` members payload, and member removal pruning the team.
 """
 import importlib
 from unittest.mock import patch
@@ -223,7 +225,7 @@ class TeamWriteTests(TeamFixture):
 
 
 class CardCreateTests(TeamFixture):
-    """Pre-assignment is not shipped (#2206 decision G): a team assigns nobody."""
+    """POST cards/ does not default the assignee: the web app sends the team's first member."""
 
     def create(self, user=None, **extra):
         body = {"title": "Renewal", "column": self.column.pk, "swimlane": self.lane.pk, **extra}
@@ -255,16 +257,140 @@ class AddChildTests(TeamFixture):
                 f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/children/", body, format="json",
             )
 
-    def test_child_is_unassigned_in_a_lane_with_a_team(self):
-        self.set_team(self.mia)
-        r = self.add_child()
+    def assigned(self, r):
         self.assertEqual(r.status_code, 201, r.content)
-        self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)
+        return Card.objects.get(pk=r.json()["id"]).assignee_id
 
-    def test_unknown_apply_default_team_key_is_ignored(self):
-        # The removed field is not special: like any unknown key it is ignored.
+    def test_child_gets_the_first_member_who_can_be_assigned_there(self):
+        # dan is first but has no access to Delivery: skipped, not refused.
+        self.set_team(self.dan, self.mia)
+        self.assertEqual(self.assigned(self.add_child()), self.mia.pk)
+
+    def test_no_eligible_member_leaves_the_child_unassigned(self):
+        self.set_team(self.dan)
+        self.assertIsNone(self.assigned(self.add_child()))
+
+    def test_lane_without_a_team_leaves_the_child_unassigned(self):
+        self.assertIsNone(self.assigned(self.add_child()))
+
+    def test_apply_default_team_false_leaves_the_child_unassigned(self):
         self.set_team(self.mia)
-        for value in (True, False, "no"):
+        self.assertIsNone(self.assigned(self.add_child(apply_default_team=False)))
+
+    def test_apply_default_team_must_be_a_boolean(self):
+        self.set_team(self.mia)
+        for value in ("no", 1, None):
             r = self.add_child(apply_default_team=value)
-            self.assertEqual(r.status_code, 201, r.content)
-            self.assertIsNone(Card.objects.get(pk=r.json()["id"]).assignee_id)
+            self.assertEqual(r.status_code, 400, (value, r.content))
+            self.assertIn("apply_default_team", r.json())
+        self.assertFalse(Card.objects.filter(board=self.child).exists())
+
+    def test_deactivated_member_is_never_pre_assigned(self):
+        kim = self.user_with("kim", parent=Role.MEMBER, child=Role.MEMBER)
+        self.set_team(kim, self.mia)
+        User.objects.filter(pk=kim.pk).update(is_active=False)
+        self.assertEqual(self.assigned(self.add_child()), self.mia.pk)
+
+    def test_options_carry_the_lane_team_and_each_boards_assignee(self):
+        self.set_team(self.dan, self.mia)
+        r = client_for(self.mia).get(
+            f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        body = r.json()
+        self.assertEqual(body["default_team"], {
+            "swimlane": {"id": self.lane.pk, "name": "Acme Corp"}, "member_ids": [self.dan.pk, self.mia.pk],
+        })
+        self.assertEqual(
+            [(b["id"], b["default_assignee_id"]) for b in body["boards"]], [(self.child.pk, self.mia.pk)]
+        )
+
+    def test_options_without_a_team_have_no_default_team(self):
+        r = client_for(self.mia).get(
+            f"/api/v1/boards/{self.parent.pk}/cards/{self.parent_card.pk}/child-board-options/"
+        )
+        self.assertIsNone(r.json()["default_team"])
+        self.assertNotIn("default_assignee_id", r.json()["boards"][0])
+
+
+class DefaultAssigneeHelperTests(TeamFixture):
+    """``default_assignee_id`` fails closed without its inputs (#1075)."""
+
+    def test_absent_lane_or_board_gives_nobody(self):
+        from boards.services.swimlane_team import default_assignee_id
+
+        self.set_team(self.mia)
+        self.assertIsNone(default_assignee_id(None, self.parent))
+        self.assertIsNone(default_assignee_id(self.lane, None))
+        self.assertEqual(default_assignee_id(self.lane, self.parent), self.mia.pk)
+
+
+class MembersPayloadTests(TeamFixture):
+    def test_payload_marks_a_deactivated_member(self):
+        self.set_team(self.mia, self.dan)
+        User.objects.filter(pk=self.dan.pk).update(is_active=False)
+        lane = self.client_get_lane()
+        self.assertEqual(lane["default_team"], [self.mia.pk, self.dan.pk])
+        self.assertEqual(lane["default_team_members"], [
+            {"id": self.mia.pk, "is_active": True}, {"id": self.dan.pk, "is_active": False},
+        ])
+
+    def client_get_lane(self):
+        r = client_for(self.owner).get(f"/api/v1/boards/{self.parent.pk}/swimlanes/{self.lane.pk}/")
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_share_link_serializer_omits_the_members_payload(self):
+        self.assertNotIn("default_team_members", PublicSwimlaneSerializer(self.lane).data)
+
+
+class TeamAccessTests(TeamFixture):
+    """The Edit swimlane warning (#2211): who is skipped on which child board."""
+
+    def setUp(self):
+        super().setUp()
+        self.parent_card = Card.objects.create(
+            board=self.parent, column=self.column, swimlane=self.lane, title="Opportunity",
+        )
+        child_card = Card.objects.create(
+            board=self.child, column=self.child.columns.get(), swimlane=self.child.swimlanes.get(), title="Task",
+        )
+        from boards.models import CardParentLink
+
+        CardParentLink.objects.create(parent=self.parent_card, child=child_card, created_by=self.owner)
+
+    def url(self):
+        return f"/api/v1/boards/{self.parent.pk}/swimlanes/{self.lane.pk}/default-team-access/"
+
+    def test_admin_sees_who_is_skipped_on_which_board(self):
+        self.set_team(self.mia, self.dan)
+        r = client_for(self.owner).get(self.url())
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r.json(), {"members": [
+            {"id": self.dan.pk, "boards": [{"id": self.child.pk, "name": "Delivery"}], "hidden_count": 0},
+        ]})
+
+    def test_default_child_board_counts_and_a_hidden_board_is_not_named(self):
+        other_owner = User.objects.create_user(username="dt_other", password="pass")
+        onboarding = make_board(other_owner, "Onboarding")
+        Board.objects.filter(pk=self.parent.pk).update(default_child_board=onboarding)
+        BoardMembership.objects.create(board=self.parent, user=other_owner, role=Role.ADMIN)
+        self.set_team(self.mia)
+        body = client_for(self.owner).get(self.url()).json()
+        # The owner can't open Onboarding: counted, not named.
+        self.assertEqual(body, {"members": [{"id": self.mia.pk, "boards": [], "hidden_count": 1}]})
+
+    def test_member_is_refused_and_outsider_gets_404(self):
+        self.set_team(self.dan)
+        self.assertEqual(client_for(self.mia).get(self.url()).status_code, 403)
+        self.assertEqual(client_for(self.outsider).get(self.url()).status_code, 404)
+
+    def test_helper_fails_closed_without_lane_or_viewer(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        from boards.services.swimlane_team import team_access
+
+        self.set_team(self.dan)
+        self.assertEqual(team_access(None, self.owner), {"members": []})
+        self.assertEqual(team_access(self.lane, None), {"members": []})
+        self.assertEqual(team_access(self.lane, AnonymousUser()), {"members": []})

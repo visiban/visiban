@@ -32,6 +32,7 @@ from visiban.permissions import (
 
 from ..card_signals import blocked_q, overdue_q, signal_today
 from .. import broadcast as _broadcast
+from ..services.swimlane_team import default_assignee_id
 from ..services import card_extensions, card_links
 from ..services import cards as card_services
 from ..services.notifications import (
@@ -2933,7 +2934,16 @@ class CardViewSet(viewsets.ModelViewSet):
         methods=["POST"],
         request=inline_serializer(
             "AddChild",
-            fields={"board_id": serializers.IntegerField(), "title": serializers.CharField()},
+            fields={
+                "board_id": serializers.IntegerField(), "title": serializers.CharField(),
+                "apply_default_team": serializers.BooleanField(
+                    required=False, default=True,
+                    help_text=(
+                        "Pre-assign the first eligible member of the parent's lane team "
+                        "(#2211, since 1.3). Default true; false leaves the child unassigned."
+                    ),
+                ),
+            },
         ),
         responses={
             201: OpenApiResponse(description="The new child card, as `POST .../cards/` returns it."),
@@ -2978,8 +2988,18 @@ class CardViewSet(viewsets.ModelViewSet):
         max_len = Card._meta.get_field("title").max_length
         if len(title) > max_len or "\x00" in title:
             raise serializers.ValidationError({"title": [f"Ensure this field has no more than {max_len} characters and no NUL character."]})
+        # #2211: the parent's lane team pre-assigns its first member who can be
+        # assigned on the child board; the child board's own lanes are not
+        # consulted. A strict bool so a typo never silently assigns someone.
+        apply_team = body.get("apply_default_team", True)
+        if not isinstance(apply_team, bool):
+            raise serializers.ValidationError({"apply_default_team": ["Must be a boolean."]})
 
         def make_card(*, board, role, column, swimlane):
+            # Read under create_child's board locks, so a member removed from
+            # either board in the meantime is not assigned.
+            assignee_id = default_assignee_id(parent.swimlane, board) if apply_team else None
+
             def render(card):
                 return _refetched_card_data(
                     card, request, board,
@@ -2993,7 +3013,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 column_id=column.pk, swimlane_id=swimlane.pk,
                 save=lambda position: Card.objects.create(
                     board=board, column=column, swimlane=swimlane, title=title,
-                    created_by=request.user, position=position,
+                    created_by=request.user, position=position, assignee_id=assignee_id,
                 ),
                 render=render,
             )

@@ -4,6 +4,8 @@ import { cardSubColumnIndex, getTrackStates, stageSubColumns } from "../../utils
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Card, CardDensity, Column, CustomFieldDefinition, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { createCard } from "../../api/cards";
+import LaneTeamAssignee from "./LaneTeamAssignee";
+import { laneCaption, laneDefaultAssignee } from "../../utils/swimlaneDefaultTeam";
 import { limitBlockedMessage } from "./moveBlockedMessages";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import EditColumnModal from "./EditColumnModal";
@@ -185,6 +187,8 @@ export default function PhoneBoard({
   const [addingLane, setAddingLane] = useState<number | null>(null);
   const [draft, setDraft] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
+  // #2211: the lane whose composer had its pre-assigned team member removed (Unassign).
+  const [unassignedLane, setUnassignedLane] = useState<number | null>(null);
   const [editingLane, setEditingLane] = useState<number | null>(null);
   // Which tab EditColumnModal opens on, or null when closed; "policy" comes from the policy popover's Edit.
   const [editTab, setEditTab] = useState<"settings" | "policy" | "stage" | null>(null);
@@ -281,12 +285,22 @@ export default function PhoneBoard({
   const doneIds = new Set(columns.filter((c) => c.is_done).map((c) => c.id));
 
   const canAdd = canEdit && column.allow_card_creation;
+  // #2211: the composer starts with the lane team's member; Unassign drops it for this card.
+  const preAssigneeFor = (lane: Swimlane) => {
+    const d = laneDefaultAssignee(lane, members);
+    return { laneDefault: d, assignee: unassignedLane === lane.id ? null : d?.assignee ?? null };
+  };
   const submitCard = async (laneId: number) => {
     const title = draft.trim();
     if (!title) return;
     setAddError(null);
+    const lane = swimlanes.find((l) => l.id === laneId);
+    const assignee = lane ? preAssigneeFor(lane).assignee : null;
     try {
-      const created = await createCard(boardId, { column: column.id, swimlane: laneId, title });
+      const created = await createCard(boardId, {
+        column: column.id, swimlane: laneId, title, ...(assignee && { assignee_id: assignee.id }),
+      });
+      setUnassignedLane(null);
       onCardAdded?.(created);
       setDraft("");
       setAddingLane(null);
@@ -637,15 +651,27 @@ export default function PhoneBoard({
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); void submitCard(lane.id); }
-                      if (e.key === "Escape") { e.stopPropagation(); setAddingLane(null); setAddError(null); }
+                      if (e.key === "Escape") { e.stopPropagation(); setAddingLane(null); setAddError(null); setUnassignedLane(null); }
                     }}
                     aria-label={`New card title in ${column.name}, ${lane.name}`}
                     placeholder="Card title…"
                     className="w-full min-h-11 text-sm border border-primary-emphasis rounded px-3 outline-none bg-surface text-fg placeholder-fg-muted"
                   />
+                  {(() => {
+                    const { laneDefault, assignee } = preAssigneeFor(lane);
+                    return laneDefault?.assignee ? (
+                      <LaneTeamAssignee
+                        size="md"
+                        assignee={assignee}
+                        others={laneDefault.others}
+                        caption={laneCaption(lane.name)}
+                        onUnassign={() => setUnassignedLane(lane.id)}
+                      />
+                    ) : null;
+                  })()}
                   <div className="flex gap-2">
                     <button type="button" className="inline-flex items-center justify-center min-h-11 px-4 text-sm rounded font-medium bg-button-primary text-on-primary hover:bg-button-primary-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => void submitCard(lane.id)}>Add</button>
-                    <button type="button" className="inline-flex items-center justify-center min-h-11 px-3 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => { setAddingLane(null); setAddError(null); }}>Cancel</button>
+                    <button type="button" className="inline-flex items-center justify-center min-h-11 px-3 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis" onClick={() => { setAddingLane(null); setAddError(null); setUnassignedLane(null); }}>Cancel</button>
                   </div>
                   <p className="text-xs min-h-4" role="status" aria-live="polite" aria-atomic="true"><span className="text-danger">{addError}</span></p>
                 </div>

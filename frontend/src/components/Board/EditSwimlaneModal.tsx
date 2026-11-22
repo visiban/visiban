@@ -1,9 +1,9 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { BoardColor } from "../../utils/boardColors";
-import { updateSwimlane, deleteSwimlane } from "../../api/boards";
-import type { Card, Column, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneLimitEnforcement } from "../../types";
+import { updateSwimlane, deleteSwimlane, getSwimlaneDefaultTeamAccess } from "../../api/boards";
+import type { Card, Column, EffectiveBoardMember, Swimlane, SwimlaneCustomFieldDefinition, SwimlaneDefaultTeamAccess, SwimlaneLimitEnforcement } from "../../types";
 import SwimlaneDefaultTeamSection from "./SwimlaneDefaultTeamSection";
-import { liveTeamIds } from "../../utils/swimlaneDefaultTeam";
+import { inactiveTeamIds, liveTeamIds } from "../../utils/swimlaneDefaultTeam";
 import { columnLimitModes, laneUsage, swimlaneLimitModes, type LimitFlags, type LimitMode } from "../../utils/placementLimits";
 import { useOverflowFade } from "../../hooks/useOverflowFade";
 import { COLUMN_COLORS } from "../../constants/colors";
@@ -98,6 +98,18 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
   // Default team (#2211), seeded once; ids of people who left are dropped.
   const [initialTeam] = useState<number[]>(() => liveTeamIds(swimlane.default_team, members ?? []));
   const [team, setTeam] = useState<number[]>(initialTeam);
+  // #2211: deactivated members are shown and must be removed before the team is saved
+  // (the server refuses them); the access warning names who is skipped on new children.
+  const [inactiveIds] = useState<Set<number>>(() => inactiveTeamIds(swimlane));
+  const [teamAccess, setTeamAccess] = useState<SwimlaneDefaultTeamAccess | null>(null);
+  const hasMembers = members != null;
+  useEffect(() => {
+    if (!hasMembers || initialTeam.length === 0) return;
+    let live = true;
+    // A failed load only hides the warning; the team itself still saves.
+    getSwimlaneDefaultTeamAccess(boardId, swimlane.id).then((a) => { if (live) setTeamAccess(a); }).catch(() => {});
+    return () => { live = false; };
+  }, [boardId, swimlane.id, hasMembers, initialTeam.length]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -144,6 +156,10 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       // The server refuses an empty list; say so here and keep the modal open.
       setCountedError("Choose at least one column, or the limit would count nothing.");
       firstCountedRef.current?.focus();
+      return;
+    }
+    if (team.join() !== initialTeam.join() && team.some((id) => inactiveIds.has(id))) {
+      setSaveError("Remove the deactivated people from the default team, then save.");
       return;
     }
     if (invalidFieldIds.current.size > 0) {
@@ -223,7 +239,8 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       // The limits section (#1150) makes this modal taller than a short
       // viewport, so the body scrolls and the footer stays put, as in
       // ImportBoardModal.
-      panelClassName="max-h-[calc(100dvh-2rem)]"
+      // Below 640px it is a full-screen sheet (#2211, #2206 rule 7), footer pinned at the bottom.
+      panelClassName="max-h-[calc(100dvh-2rem)] max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
       noPadding
     >
       {confirmDelete ? (
@@ -442,7 +459,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           {members && (
             <>
               <div className="border-t border-line my-4" />
-              <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} />
+              <SwimlaneDefaultTeamSection members={members} value={team} onChange={setTeam} inactiveIds={inactiveIds} access={teamAccess} />
             </>
           )}
 

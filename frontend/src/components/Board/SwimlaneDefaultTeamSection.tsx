@@ -1,24 +1,40 @@
 import { useId } from "react";
-import type { EffectiveBoardMember } from "../../types";
+import type { EffectiveBoardMember, SwimlaneDefaultTeamAccess } from "../../types";
 import Avatar from "../Common/Avatar";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { assignableMembers } from "../../utils/swimlaneDefaultTeam";
 
 /** Shown in Edit swimlane and checked by tests; one text on desktop and phone (#2211). */
 export const DEFAULT_TEAM_HELP =
-  "The people on this lane's default team. New cards are not pre-assigned from it yet.";
+  "Pre-assigned to new cards and new children created in this lane. Existing cards don't change. " +
+  "A person who can't open a child board used by this lane's parents is skipped when a child is " +
+  "created there; remove them or give them access to clear this warning.";
+
+/** The warning on a member who can't be assigned on a child board this lane feeds (#2211). */
+export function noAccessText(entry: SwimlaneDefaultTeamAccess["members"][number]): string {
+  const names = entry.boards.map((b) => b.name);
+  if (entry.hidden_count > 0) {
+    names.push(`${entry.hidden_count} ${entry.hidden_count === 1 ? "board" : "boards"} you can't open`);
+  }
+  return `No access to ${names.join(", ")}: skipped on new children`;
+}
 
 interface Props {
   members: EffectiveBoardMember[];
   value: number[];
   onChange: (ids: number[]) => void;
+  /** Deactivated team members (`default_team_members`): shown, never offered, removed before a save. */
+  inactiveIds?: Set<number>;
+  /** Who is skipped on which child board; null while loading or when it failed to load. */
+  access?: SwimlaneDefaultTeamAccess | null;
 }
 
 /** The Default team section of Edit swimlane (#2211): rows, Remove, Add a member. */
-export default function SwimlaneDefaultTeamSection({ members, value, onChange }: Props) {
+export default function SwimlaneDefaultTeamSection({ members, value, onChange, inactiveIds, access }: Props) {
   const headingId = useId();
   const byId = new Map(members.map((m) => [m.user.id, m.user]));
-  const candidates = assignableMembers(members).filter((m) => !value.includes(m.user.id));
+  const candidates = assignableMembers(members).filter((m) => !value.includes(m.user.id) && !inactiveIds?.has(m.user.id));
+  const accessById = new Map((access?.members ?? []).map((m) => [m.id, m]));
   const count = `${value.length} ${value.length === 1 ? "person" : "people"}`;
 
   return (
@@ -32,10 +48,19 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange }:
             const user = byId.get(id);
             if (!user) return null;
             const name = user.display_name || user.username;
+            const inactive = inactiveIds?.has(id) ?? false;
+            const noAccess = accessById.get(id);
+            const warning = inactive ? "Deactivated: remove to save the team" : noAccess ? noAccessText(noAccess) : null;
             return (
-              <li key={id} className="flex items-center gap-2 min-h-11">
-                <Avatar user={user} size="sm" />
-                <span className="flex-1 min-w-0 truncate text-sm text-fg">{name}</span>
+              <li
+                key={id}
+                className={`flex items-center gap-2 min-h-11 ${warning ? "border border-dashed border-warning rounded px-1.5 my-0.5" : ""}`}
+              >
+                <Avatar user={user} size="sm" className={warning ? "opacity-60" : ""} />
+                <span className="flex-1 min-w-0 flex flex-col">
+                  <span className="truncate text-sm text-fg">{name}</span>
+                  {warning && <span className="text-xs text-warning">{warning}</span>}
+                </span>
                 <button
                   type="button"
                   aria-label={`Remove ${name} from default team`}

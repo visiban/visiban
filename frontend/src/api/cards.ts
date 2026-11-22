@@ -30,6 +30,8 @@ export const createCard = (boardId: number, data: {
   description?: string;
   priority?: string;
   due_date?: string;
+  /** #2211: the lane team's pre-assigned member, sent explicitly; the server does not default it. */
+  assignee_id?: number;
 }) => client.post<Card>(`/api/v1/boards/${boardId}/cards/`, data).then((r) => r.data);
 
 export const updateCard = (boardId: number, cardId: number, data: CardPatch) =>
@@ -309,7 +311,7 @@ export const getChildBoardOptions = (boardId: number, cardId: number) =>
   client.get<ChildBoardOptions>(`/api/v1/boards/${boardId}/cards/${cardId}/child-board-options/`).then((r) => r.data);
 
 /** `POST /boards/{b}/cards/{id}/children/`: create a card on `targetBoardId` and link it under this one. */
-export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string }) =>
+export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string; apply_default_team?: boolean }) =>
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);
 
 /** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */

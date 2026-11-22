@@ -32,7 +32,7 @@ function hasLimit(col: CardChildrenColumn): col is CardChildrenColumn & { wip_li
 }
 
 interface Props {
-  board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role">;
+  board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role"> & Partial<Pick<BoardFull, "members">>;
   cardId: number;
   cardTitle: string;
   /** The parent's column, for the Add child dialog's header line. */
@@ -538,6 +538,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
           cardId={cardId}
           parentTitle={cardTitle}
           parentColumn={cardColumnName}
+          members={board.members}
           onWriteStart={beginWrite}
           onWriteFailed={() => { localWrite.current = false; }}
           onClose={() => { setAdding(false); queueMicrotask(() => addRef.current?.focus()); }}

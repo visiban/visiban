@@ -606,11 +606,18 @@ def child_board_options_for_viewer(parent, user):
     * ``boards``: every qualifying board where the viewer holds MEMBER or
       higher, by name, each with ``can_set_default`` (ADMIN on both boards).
     * ``can_set_default``: ADMIN on the parent's board.
+    * ``default_team`` (#2211): the parent's lane team as ``{"swimlane":
+      {"id", "name"}, "member_ids"}`` (active members, team order), or None
+      when the lane has no team. Each ``boards`` entry (and ``fixed_board``
+      when the viewer can open it) then carries ``default_assignee_id``: the
+      member Add child pre-assigns there unless ``apply_default_team`` is
+      false. The parent's lane decides; the child board's own lanes are not
+      consulted.
 
     Empty (no boards, no default) when the parent's board is not a parent
     tier. No user fails closed to the empty answer (#1075).
     """
-    out = {"fixed_board": None, "default": None, "boards": [], "can_set_default": False}
+    out = {"fixed_board": None, "default": None, "boards": [], "can_set_default": False, "default_team": None}
     if user is None or not getattr(user, "is_authenticated", False):
         return out
     parent_board = parent.board
@@ -621,6 +628,12 @@ def child_board_options_for_viewer(parent, user):
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
     out["can_set_default"] = admin_here
+    from .swimlane_team import default_assignee_id, team_members_payload
+
+    lane = parent.swimlane
+    lane_team = [m["id"] for m in team_members_payload(lane) if m["is_active"]]
+    if lane_team:
+        out["default_team"] = {"swimlane": {"id": lane.pk, "name": lane.name}, "member_ids": lane_team}
     fixed_id = (
         CardParentLink.objects.filter(parent_id=parent.pk).order_by("pk")
         .values_list("child__board_id", flat=True).first()
@@ -638,6 +651,8 @@ def child_board_options_for_viewer(parent, user):
                 "hidden": False, "id": fixed.pk, "name": fixed.name,
                 "can_add": fixed_role in LINK_WRITE_ROLES and board_qualifies_as_child(fixed),
             }
+            if lane_team:
+                out["fixed_board"]["default_assignee_id"] = default_assignee_id(lane, fixed)
     candidates = list(
         _qualifying(_accessible_boards(user).exclude(pk=parent_board.pk))
         .select_related(GROUP_ANCESTOR_SELECT_RELATED)
@@ -648,10 +663,13 @@ def child_board_options_for_viewer(parent, user):
         role = roles.get(b.pk)
         if role not in LINK_WRITE_ROLES:
             continue
-        out["boards"].append({
+        entry = {
             "id": b.pk, "name": b.name,
             "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
-        })
+        }
+        if lane_team:
+            entry["default_assignee_id"] = default_assignee_id(lane, b)
+        out["boards"].append(entry)
         if b.pk == parent_board.default_child_board_id:
             out["default"] = {"id": b.pk, "name": b.name}
     return out

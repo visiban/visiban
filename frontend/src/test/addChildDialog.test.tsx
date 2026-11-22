@@ -211,3 +211,49 @@ describe('AddChildDialog (#2208)', () => {
     expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Quick' })
   })
 })
+
+describe('AddChildDialog lane default team (#2211)', () => {
+  const members = [
+    { id: 10, role: 'member' as const, joined_at: '', user: { id: 10, username: 'mia', display_name: 'Mia Reyes', avatar_url: '' } },
+    { id: 11, role: 'member' as const, joined_at: '', user: { id: 11, username: 'dan', display_name: 'Dan Kovacs', avatar_url: '' } },
+  ]
+  const TEAM: ChildBoardOptions = {
+    ...BASE,
+    default: { id: 7, name: 'Delivery' },
+    boards: [{ id: 7, name: 'Delivery', can_set_default: false, default_assignee_id: 10 }, { id: 8, name: 'Ops', can_set_default: false, default_assignee_id: null }],
+    default_team: { swimlane: { id: 3, name: 'Acme Corp' }, member_ids: [11, 10] },
+  }
+
+  it('shows the board\'s pre-assigned member with the Add child caption and applies the team', async () => {
+    const { user } = setup(TEAM, { members })
+    const group = await screen.findByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent('Mia Reyes')
+    expect(group).toHaveTextContent("From the Acme Corp default team on Pipeline, the lane the parent is in. Delivery's own lanes are not consulted. Also on the team, not assigned: Dan Kovacs.")
+    await user.type(screen.getByLabelText('Title'), 'Kickoff')
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff' })
+  })
+
+  it('Unassign sends apply_default_team false', async () => {
+    const { user } = setup(TEAM, { members })
+    await user.click(await screen.findByRole('button', { name: 'Unassign Mia Reyes' }))
+    await user.type(screen.getByLabelText('Title'), 'Kickoff')
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', apply_default_team: false })
+  })
+
+  it('shows no chip on a board where nobody on the team can be assigned', async () => {
+    const { user } = setup(TEAM, { members })
+    await screen.findByRole('group', { name: 'Assignees' })
+    await choose(user, 'Ops')
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
+  })
+
+  it('shows no chip without the members list or without a team', async () => {
+    setup(TEAM)
+    await screen.findByRole('button', { name: 'Add to Delivery' })
+    expect(screen.queryByRole('group', { name: 'Assignees' })).toBeNull()
+  })
+})

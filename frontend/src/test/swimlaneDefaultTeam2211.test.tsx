@@ -3,15 +3,18 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
 import { DEFAULT_TEAM_HELP } from '../components/Board/SwimlaneDefaultTeamSection'
-import { assignableMembers, liveTeamIds } from '../utils/swimlaneDefaultTeam'
+import { assignableMembers, childCaption, laneCaption, laneDefaultAssignee, liveTeamIds, teamRowNames } from '../utils/swimlaneDefaultTeam'
+import { noAccessText } from '../components/Board/SwimlaneDefaultTeamSection'
+import { waitFor } from '@testing-library/react'
 import type { EffectiveBoardMember, Swimlane } from '../types'
 
 vi.mock('../api/boards', () => ({
   updateSwimlane: vi.fn(),
   deleteSwimlane: vi.fn(),
+  getSwimlaneDefaultTeamAccess: vi.fn(() => Promise.resolve({ members: [] })),
 }))
 
-import { updateSwimlane } from '../api/boards'
+import { getSwimlaneDefaultTeamAccess, updateSwimlane } from '../api/boards'
 
 const mockUpdate = updateSwimlane as ReturnType<typeof vi.fn>
 
@@ -137,5 +140,79 @@ describe('Swimlane default team (#2211)', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(mockUpdate).toHaveBeenCalledTimes(1)
     expect(mockUpdate.mock.calls[0][2].default_team).toEqual([])
+  })
+})
+
+describe('lane default team pre-assignment helpers (#2211)', () => {
+  it('pre-assigns the first active, assignable member and names the rest', () => {
+    const l = lane({ default_team: [12, 11, 10], default_team_members: [{ id: 12, is_active: true }, { id: 11, is_active: false }, { id: 10, is_active: true }] })
+    // 12 is a viewer (dropped), 11 is deactivated (never pre-assigned or named).
+    const d = laneDefaultAssignee(l, MEMBERS)
+    expect(d?.assignee?.id).toBe(10)
+    expect(d?.others).toEqual([])
+    expect(teamRowNames(l, MEMBERS)).toEqual(['Mia Reyes'])
+  })
+
+  it('is null for a lane with no team, no members or nobody eligible', () => {
+    expect(laneDefaultAssignee(lane(), MEMBERS)).toBeNull()
+    expect(laneDefaultAssignee(lane({ default_team: [10] }), undefined)).toBeNull()
+    expect(laneDefaultAssignee(lane({ default_team: [12] }), MEMBERS)).toBeNull()
+    expect(teamRowNames(lane(), undefined)).toEqual([])
+  })
+
+  it('keeps team order and works without default_team_members (older server)', () => {
+    const d = laneDefaultAssignee(lane({ default_team: [11, 10] }), MEMBERS)
+    expect(d?.assignee?.id).toBe(11)
+    expect(d?.others).toEqual(['Mia Reyes'])
+  })
+
+  it('captions and the no-access warning', () => {
+    expect(laneCaption('Acme Corp')).toBe("From the Acme Corp default team. Remove anyone this card shouldn't have.")
+    expect(childCaption('Acme Corp', 'Pipeline', 'Delivery')).toBe("From the Acme Corp default team on Pipeline, the lane the parent is in. Delivery's own lanes are not consulted.")
+    expect(noAccessText({ id: 1, boards: [{ id: 2, name: 'Delivery' }, { id: 3, name: 'Onboarding' }], hidden_count: 0 })).toBe('No access to Delivery, Onboarding: skipped on new children')
+    expect(noAccessText({ id: 1, boards: [], hidden_count: 2 })).toBe("No access to 2 boards you can't open: skipped on new children")
+    expect(noAccessText({ id: 1, boards: [{ id: 2, name: 'Delivery' }], hidden_count: 1 })).toBe("No access to Delivery, 1 board you can't open: skipped on new children")
+  })
+})
+
+describe('Edit swimlane deactivated members and access warning (#2211)', () => {
+  beforeEach(() => { mockUpdate.mockReset() })
+
+  it('marks a deactivated member, blocks a team save until they are removed, then saves', async () => {
+    mockUpdate.mockResolvedValue(lane())
+    const l = lane({ default_team: [10, 11], default_team_members: [{ id: 10, is_active: true }, { id: 11, is_active: false }] })
+    renderModal(l)
+    const team = screen.getByRole('group', { name: 'Default team' })
+    expect(team).toHaveTextContent('Deactivated: remove to save the team')
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
+    await user.click(screen.getByRole('button', { name: /^Save/ }))
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(screen.getByText('Remove the deactivated people from the default team, then save.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' }))
+    await user.click(screen.getByRole('button', { name: /^Save/ }))
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(1, 1, expect.objectContaining({ default_team: [] })))
+  })
+
+  it('does not offer a removed deactivated person again in Add a member', async () => {
+    renderModal(lane({ default_team: [11], default_team_members: [{ id: 11, is_active: false }] }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' }))
+    await user.click(screen.getByRole('button', { name: /Add a member/ }))
+    expect(screen.getByText('Mia Reyes')).toBeInTheDocument()
+    expect(screen.queryByText('Dan Kovacs')).toBeNull()
+  })
+
+  it('shows who is skipped on new children, from the access endpoint', async () => {
+    vi.mocked(getSwimlaneDefaultTeamAccess).mockResolvedValueOnce({ members: [{ id: 11, boards: [{ id: 5, name: 'Delivery' }], hidden_count: 0 }] })
+    renderModal(lane({ default_team: [10, 11] }))
+    expect(await screen.findByText('No access to Delivery: skipped on new children')).toBeInTheDocument()
+    expect(getSwimlaneDefaultTeamAccess).toHaveBeenCalledWith(1, 1)
+  })
+
+  it('does not ask for access when the lane has no team', () => {
+    vi.mocked(getSwimlaneDefaultTeamAccess).mockClear()
+    renderModal(lane())
+    expect(getSwimlaneDefaultTeamAccess).not.toHaveBeenCalled()
   })
 })
