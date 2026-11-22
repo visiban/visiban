@@ -391,7 +391,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             rollup_board_health(board)
             publish_blocked_peers(peers, self.request, boards=[board])
 
-    @_SET_COLLAPSED_SCHEMA
     @extend_schema(
         responses={200: inline_serializer(
             "SwimlaneDefaultTeamAccess",
@@ -415,6 +414,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         swimlane = get_object_or_404(Swimlane.objects.prefetch_related(team_prefetch()), pk=pk, board=board)
         return Response(team_access(swimlane, request.user))
 
+    @_SET_COLLAPSED_SCHEMA
     @action(detail=True, methods=["patch"], url_path="set-collapsed")
     def set_collapsed_kebab(self, request, board_pk=None, pk=None):
         """Canonical kebab-case alias for the swimlane is_collapsed toggle (#816).

@@ -394,3 +394,34 @@ class TeamAccessTests(TeamFixture):
         self.assertEqual(team_access(None, self.owner), {"members": []})
         self.assertEqual(team_access(self.lane, None), {"members": []})
         self.assertEqual(team_access(self.lane, AnonymousUser()), {"members": []})
+
+
+class SchemaTests(TestCase):
+    """Each lane action documents its own operation (#2211 security-review GAP).
+
+    ``default-team-access`` was once inserted between ``@_SET_COLLAPSED_SCHEMA``
+    and the ``set-collapsed`` action it decorates, so the GET took the PATCH's
+    schema and ``set-collapsed`` lost its request body.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        import contextlib
+        import io
+
+        from drf_spectacular.generators import SchemaGenerator
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            cls.paths = SchemaGenerator().get_schema(request=None, public=True)["paths"]
+
+    def test_set_collapsed_keeps_its_body_and_team_access_has_its_own_schema(self):
+        base = "/api/v1/boards/{board_pk}/swimlanes/{id}/"
+        kebab = self.paths[base + "set-collapsed/"]["patch"]
+        access = self.paths[base + "default-team-access/"]["get"]
+        self.assertIn("requestBody", kebab)
+        self.assertNotIn("Default team", kebab.get("description", ""))
+        self.assertNotIn("requestBody", access)
+        self.assertIn("Default team members", access["description"])
+        ref = access["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        self.assertTrue(ref.endswith("/SwimlaneDefaultTeamAccess"), ref)
