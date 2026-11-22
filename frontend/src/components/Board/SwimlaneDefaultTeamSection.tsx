@@ -79,7 +79,10 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
                 key={id}
                 className={`flex items-center gap-2 min-h-11 ${warning ? "border border-dashed border-warning rounded px-1.5 my-0.5" : ""}`}
               >
-                <Avatar user={user} size="sm" className={warning ? "opacity-60" : ""} />
+                {/* Full opacity even on a warning row: the canvas's 60% avatar measured 1.6-4.0:1
+                    initials and 1.8-2.5:1 disc (#2211 Playwright), below 4.5:1 and 3:1. The dashed
+                    border and the warning line carry the state. */}
+                <Avatar user={user} size="sm" />
                 <span className="flex-1 min-w-0 flex flex-col">
                   <span className="truncate text-sm text-fg">{name}</span>
                   {warning && <span id={warningId} className="text-xs text-warning">{warning}</span>}
