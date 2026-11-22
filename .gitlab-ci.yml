@@ -892,6 +892,11 @@ backend-test:
     - uv pip install --system --quiet -r backend/requirements-test.txt
   script:
     - cd backend
+    # #2534: shards intermittently stalled with no output, and -q hid which
+    # test was running. -v prints each node id (before its result, so a hung
+    # test is the last line). faulthandler_timeout dumps every thread's stack
+    # to stderr when a single test runs over 300 s, without killing it; 300 s
+    # is about 2x the slowest test in .test_durations (~154 s).
     - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
         --splitting-algorithm least_duration
         --durations-path .test_durations
@@ -899,7 +904,8 @@ backend-test:
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
         --nomigrations -m "not migrations"
-        -q
+        -o faulthandler_timeout=300
+        -v
   artifacts:
     paths:
       - backend/.coverage.*
