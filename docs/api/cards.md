@@ -1296,7 +1296,7 @@ A read-only key on the card object, resolved for the caller:
   on the hidden shape.
   Since #2443 the visible shape also carries `siblings_total` and
   `siblings_done`, for "2 of 5 siblings done": how many live (unarchived)
-  children the parent has **on this card's board**, this card included, and how
+  children the parent has **on this card's board**, this card included while it is live (an archived child read through `GET .../cards/archived/` is not counted), and how
   many of them are done. Done means what it means in the parent's
   `children_rollup`: in a done column and not blocked (a manual block, or an
   open `blocks` relation from a live card on the same board), so a blocked

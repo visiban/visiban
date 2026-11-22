@@ -710,20 +710,12 @@ describe('BoardView socket event routing — new event types', () => {
       expect(linked.silentReload).not.toHaveBeenCalled()
     })
 
-    it('reloads when a reorder changes the first column and the board has linked children', async () => {
+    it('does not reload for a reorder, even one that changes the first column', async () => {
+      // Sibling counts depend on is_done and blocked only, never on column order.
       const ctx = await setup(true)
       act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(11, 0, false), col(10, 1, false)] } }) })
       expect(ctx.applyColumnOrder).toHaveBeenCalled()
-      expect(ctx.silentReload).toHaveBeenCalledTimes(1)
-    })
-
-    it('does not reload for a reorder that keeps the first column, or without linked children', async () => {
-      const linked = await setup(true)
-      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(10, 0, false), col(11, 1, false), col(12, 2, false)] } }) })
-      expect(linked.silentReload).not.toHaveBeenCalled()
-      const bare = await setup(false)
-      act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns: [col(11, 0, false), col(10, 1, false)] } }) })
-      expect(bare.silentReload).not.toHaveBeenCalled()
+      expect(ctx.silentReload).not.toHaveBeenCalled()
     })
   })
 

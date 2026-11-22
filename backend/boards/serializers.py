@@ -3646,7 +3646,7 @@ _PARENT_VISIBLE_KEYS = (
                     "type": "integer", "nullable": True,
                     "description": (
                         "Since 1.3 (#2443): the parent's live children on this card's board, "
-                        "this card included (at most 100). `null` when the caller holds no "
+                        "this card included while it is live (at most 100). `null` when the caller holds no "
                         "role on this card's board."
                     ),
                 },
