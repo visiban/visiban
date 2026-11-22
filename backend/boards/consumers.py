@@ -139,6 +139,19 @@ class BoardConsumer(AsyncWebsocketConsumer):
     # group; only then does disconnect() discard it (#2145).
     _joined = False
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Per-socket audience cache for gated frames (#2443, #2449):
+        # {audience board id: (role or None, monotonic time resolved)}. Emptied
+        # whenever the access re-check re-resolves, and an entry is served only
+        # while younger than this socket's window, so it is never staler than
+        # the access re-check itself. See _may_open_audience.
+        self._audience_cache = {}
+        # The live User row the last access check resolved (connect()'s
+        # handshake user, then each _refresh_role), reused by the audience
+        # lookup until the next re-resolve replaces it. None: load it fresh.
+        self._live_user = None
+
     async def connect(self):
         self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
         self.room = f"board_{self.board_id}"
@@ -172,6 +185,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
             await refuse_handshake(self, CLOSE_ACCESS_DENIED)
             return
         self._role = role
+        self._live_user = user
         self._access_verified_at = _now()
         self._access_window = ACCESS_RECHECK_SECONDS + _jitter()
 
@@ -312,7 +326,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
             return
         # A frame gated to a second board (#2443: the sibling frame, gated to
         # the PARENT's board) goes only to a subscriber who can also open that
-        # board. Judged per frame from a fresh read, after the access re-check;
+        # board. Judged after the access re-check, from a per-socket cache that
+        # is never staler than that re-check (#2449, see _may_open_audience);
         # an absent or malformed audience, or a failed check, drops it.
         gated, audience = audience_gate(payload.get("event"), data, event.get("audience_board_id"))
         if gated and (audience is None or not await self._may_open_audience(audience)):
@@ -404,6 +419,12 @@ class BoardConsumer(AsyncWebsocketConsumer):
         verified_at = self._access_verified_at
         if not force and verified_at is not None and _now() - verified_at < self._access_window:
             return True
+        # Re-resolving: forget every audience answer and the live user from the
+        # previous window first (#2449), so a revoked (or newly granted) role on
+        # an audience board is seen no later than this subscriber's own access.
+        # Cleared before the await so a failed check leaves nothing to reuse.
+        self._audience_cache.clear()
+        self._live_user = None
         role = await self._refresh_role()
         if role is None:
             return False
@@ -419,18 +440,41 @@ class BoardConsumer(AsyncWebsocketConsumer):
         failure of the check (a DB error, say) answers False: the frame is
         withheld, the socket stays open (the subscriber still has access to
         this board, which the re-check just confirmed).
+
+        Why cached (#2449): a sibling frame fires on every link, unlink, move,
+        archive, restore, delete, block or unblock of any child, and Channels
+        runs every socket's DB work in a process on one shared thread, so a
+        fresh lookup per socket per frame serializes 3-6 queries per subscriber
+        across all sockets. The answer, allow or deny alike, is reused only
+        while younger than this socket's access window, and the cache is
+        emptied whenever _check_access re-resolves (including the forced
+        self-subject refresh). So a lost or newly granted audience role is seen
+        within the same bound as the subscriber's own access (about 7 s),
+        never later. A failed check is never cached. The lookup reuses the
+        user row the access check loaded in this window instead of reloading
+        it; with none (a fresh socket state), it loads one.
         """
+        cached = self._audience_cache.get(board_id)
+        if cached is not None and _now() - cached[1] < self._access_window:
+            return cached[0] is not None
+        # Stamped before the read, and stored only if no access re-resolve
+        # (the keepalive's, say) ran while it was in flight, so an entry is
+        # never younger than the state it was read from.
+        started, epoch = _now(), self._access_verified_at
         try:
-            return await self._audience_role(board_id) is not None
+            role = await self._audience_role(board_id, self._live_user)
         except Exception as exc:  # noqa: BLE001 — fail closed on any check failure
             logger.warning(
                 "board audience check failed: board_id=%s error=%s", self.board_id, type(exc).__name__,
             )
             return False
+        if self._access_verified_at == epoch:
+            self._audience_cache[board_id] = (role, started)
+        return role is not None
 
     @database_sync_to_async
-    def _audience_role(self, board_id):
-        return audience_role(self.scope, board_id)
+    def _audience_role(self, board_id, user=None):
+        return audience_role(self.scope, board_id, user=user)
 
     @database_sync_to_async
     def _resolve_role(self, user, board_id):
@@ -452,19 +496,24 @@ class BoardConsumer(AsyncWebsocketConsumer):
         load_live_ws_user returns None and the socket closes with 4003.
         """
         user = load_live_ws_user(self.scope)
+        # Kept for the audience lookup in this window (#2449); None on a denial.
+        self._live_user = user
         if user is None:
             return None
         return _lookup_role(user, self.board_id)
 
 
-def audience_role(scope, board_id):
+def audience_role(scope, board_id, user=None):
     """The socket's live user's effective role on *board_id*, or None (sync; ORM).
 
-    Same ladder and the same fresh user row as the access re-check
-    (``_refresh_role``), so a gated frame is judged on current state: a
-    revoked credential or a deactivated account is no role anywhere.
+    Same ladder as the access re-check (``_refresh_role``). *user* is the live
+    row that re-check loaded in the current window (#2449), so a revoked
+    credential or a deactivated account is no role anywhere once that window
+    ends; without one, the row is loaded here, through the same
+    ``load_live_ws_user``.
     """
-    user = load_live_ws_user(scope)
+    if user is None:
+        user = load_live_ws_user(scope)
     if user is None:
         return None
     return _lookup_role(user, board_id)

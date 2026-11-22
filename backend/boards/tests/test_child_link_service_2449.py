@@ -14,9 +14,10 @@
 """
 import asyncio
 import json
+import os
 from unittest.mock import AsyncMock, patch
 
-from django.db import IntegrityError, connection, transaction
+from django.db import DEFAULT_DB_ALIAS, IntegrityError, connection, connections, transaction
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -24,7 +25,8 @@ from rest_framework.exceptions import NotFound
 from rest_framework.test import APIClient
 
 from boards import consumers
-from boards.consumers import BoardConsumer, _now as board_now
+from accounts.tests.ws_helpers import bound_scope
+from boards.consumers import ACCESS_RECHECK_SECONDS, BoardConsumer, _now as board_now
 from boards.models import (
     BoardEvent, BoardMembership, Card, CardParentLink, CardParentUnlink, CardRelation, Column,
 )
@@ -790,3 +792,192 @@ class SiblingFrameAudienceTests(_RollupFixture, TestCase):
         self.assertEqual(audience_gate("card.updated", {"siblings": True}, None), (False, None))
         self.assertEqual(audience_gate("card.updated", {}, 7), (True, 7))
         self.assertEqual(audience_gate("card.parent_changed", None, None), (False, None))
+
+
+class _Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def _real_lookups(consumer):
+    """Wire *consumer* to its REAL sync lookups, run on this thread (#2449).
+
+    ``_refresh_role`` and ``_audience_role`` are the bodies
+    ``database_sync_to_async`` wraps, called here instead of on the worker
+    thread so the queries hit this TestCase's connection (where
+    ``CaptureQueriesContext`` sees them) and its uncommitted rows. They stay
+    AsyncMocks around the real code so a test can count the lookups.
+    """
+    refresh = BoardConsumer.__dict__["_refresh_role"].func
+    audience = BoardConsumer.__dict__["_audience_role"].func
+    # Inside asyncio.run the ORM would open its own connection (it is
+    # context-local), which cannot see this TestCase's transaction: hand the
+    # loop this test's connection.
+    conn = connections[DEFAULT_DB_ALIAS]
+
+    async def _refresh():
+        connections[DEFAULT_DB_ALIAS] = conn
+        return refresh(consumer)
+
+    async def _audience(board_id, user=None):
+        connections[DEFAULT_DB_ALIAS] = conn
+        return audience(consumer, board_id, user)
+
+    consumer._refresh_role = AsyncMock(side_effect=_refresh)
+    consumer._audience_role = AsyncMock(side_effect=_audience)
+    return consumer
+
+
+class SiblingFrameAudienceCacheTests(_RollupFixture, TestCase):
+    """#2449 (perf-check on #2443): the audience role is cached per socket, per audience board.
+
+    Channels runs every socket's DB work in a process on one shared thread, so
+    a fresh lookup per subscriber per sibling frame serialized the whole
+    fan-out. The answer is now reused inside the socket's access window and
+    dropped whenever the access re-check re-resolves: a lost or new parent role
+    is seen no later than the subscriber's own access. The consumer path is the
+    real ``board_event`` with the real ``load_live_ws_user`` (a bound session
+    credential) and the real role ladder (see ``_real_lookups``).
+    """
+
+    def setUp(self):
+        self._setup_rollup()
+        self.both = self._user("cache_both", parent_role=Role.VIEWER, child_role=Role.MEMBER)
+        self.child_only = self._user("cache_child", child_role=Role.MEMBER)
+        self.clock = _Clock()
+        layer = AsyncMock()
+        self.messages = []
+        layer.group_send.side_effect = lambda group, message: self.messages.append((group, message))
+        for patcher in (
+            patch("boards.broadcast.get_channel_layer", lambda: layer),
+            patch("boards.consumers._now", self.clock),
+            patch("boards.consumers._jitter", lambda: 0),
+            # The real lookups run on the event-loop thread here (_real_lookups).
+            patch.dict(os.environ, {"DJANGO_ALLOW_ASYNC_UNSAFE": "true"}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        with self.captureOnCommitCallbacks(execute=True):
+            card_links.announce_children_changed([self.doing.pk], actor_id=self.owner.pk)
+        self.message = next(m for _g, m in self.messages if m["payload"]["data"].get("siblings"))
+        self.assertEqual(self.message["audience_board_id"], self.pboard.pk)
+
+    def consumer(self, user):
+        consumer = _consumer_on(self.cboard, user)
+        consumer.scope.update(bound_scope(user))
+        consumer._access_verified_at = self.clock()
+        return _real_lookups(consumer)
+
+    def deliver(self, consumer, message=None):
+        consumer.send.reset_mock()
+        asyncio.run(consumer.board_event(message or self.message))
+        return consumer.send.called
+
+    def lapse_window(self):
+        self.clock.now += ACCESS_RECHECK_SECONDS
+
+    def frames(self, consumer, n, *, clear_cache=False):
+        """Deliver *n* sibling frames; return (frames sent, queries run)."""
+        sent = 0
+        with CaptureQueriesContext(connection) as ctx:
+            for _ in range(n):
+                if clear_cache:
+                    consumer._audience_cache.clear()
+                sent += self.deliver(consumer)
+        return sent, len(ctx.captured_queries)
+
+    def test_many_frames_read_the_audience_once_per_window(self):
+        consumer = self.consumer(self.both)
+        sent, first = self.frames(consumer, 1)
+        self.assertEqual(sent, 1)
+        self.assertGreater(first, 0)  # the one real lookup: user row, credential, board, role
+        sent, rest = self.frames(consumer, 20)
+        self.assertEqual((sent, rest), (20, 0))
+        self.assertEqual(consumer._audience_role.await_count, 1)
+        # Window lapses: the access re-check re-resolves once, the audience is
+        # read once more, with the user row that re-check just loaded.
+        self.lapse_window()
+        sent, _ = self.frames(consumer, 5)
+        self.assertEqual(sent, 5)
+        self.assertEqual(consumer._refresh_role.await_count, 1)
+        self.assertEqual(consumer._audience_role.await_count, 2)
+        reused = consumer._audience_role.await_args.args[1]
+        self.assertEqual(getattr(reused, "pk", None), self.both.pk)
+
+    def test_negative_control_without_the_cache_every_frame_pays_the_lookup(self):
+        """The single-pass count above would go red without the cache: each frame costs the lookup."""
+        consumer = self.consumer(self.both)
+        _sent, one = self.frames(consumer, 1, clear_cache=True)
+        sent, many = self.frames(consumer, 20, clear_cache=True)
+        self.assertEqual(sent, 20)
+        self.assertEqual(many, 20 * one)
+        self.assertEqual(consumer._audience_role.await_count, 21)
+
+    def test_a_revoked_parent_role_stops_frames_once_the_window_lapses(self):
+        consumer = self.consumer(self.both)
+        self.assertTrue(self.deliver(consumer))
+        BoardMembership.objects.filter(board=self.pboard, user=self.both).delete()
+        self.assertTrue(self.deliver(consumer))  # bounded staleness: same window as the access re-check
+        self.lapse_window()
+        self.assertFalse(self.deliver(consumer))
+        consumer.close.assert_not_called()  # still a child-board member: withheld, not evicted
+
+    def test_a_granted_parent_role_starts_frames_once_the_window_lapses(self):
+        consumer = self.consumer(self.child_only)
+        self.assertFalse(self.deliver(consumer))
+        BoardMembership.objects.create(board=self.pboard, user=self.child_only, role=Role.VIEWER)
+        self.assertFalse(self.deliver(consumer))  # a cached deny lives one window, never longer
+        self.lapse_window()
+        self.assertTrue(self.deliver(consumer))
+        self.assertEqual(consumer._audience_role.await_count, 2)
+
+    def test_a_self_subject_refresh_empties_the_cache(self):
+        consumer = self.consumer(self.both)
+        self.assertTrue(self.deliver(consumer))
+        BoardMembership.objects.filter(board=self.pboard, user=self.both).delete()
+        own = {"type": "board_event", "payload": {
+            "event": "member.updated", "data": {"user": {"id": self.both.pk}, "role": "member"},
+        }}
+        self.assertTrue(self.deliver(consumer, own))  # forced re-check, inside the window
+        self.assertEqual(consumer._refresh_role.await_count, 1)
+        self.assertFalse(self.deliver(consumer))
+
+    def test_a_failed_check_is_not_cached_and_bad_audiences_still_drop(self):
+        consumer = self.consumer(self.both)
+        real = consumer._audience_role.side_effect
+        consumer._audience_role.side_effect = RuntimeError("db down")
+        self.assertFalse(self.deliver(consumer))
+        self.assertEqual(consumer._audience_cache, {})
+        consumer._audience_role.side_effect = real
+        self.assertTrue(self.deliver(consumer))  # cached allow for the parent's board now
+        for audience in (None, 0, -1, True, "1", self.pboard.pk + 10_000):
+            with self.subTest(audience=audience):
+                m = {k: v for k, v in self.message.items() if k != "audience_board_id"}
+                if audience is not None:
+                    m["audience_board_id"] = audience
+                self.assertFalse(self.deliver(consumer, m))
+        consumer.close.assert_not_called()
+
+    def test_a_lost_live_user_drops_the_frame_after_the_window(self):
+        consumer = self.consumer(self.both)
+        self.assertTrue(self.deliver(consumer))
+        with patch("boards.consumers.load_live_ws_user", lambda scope: None):
+            self.lapse_window()
+            self.assertFalse(self.deliver(consumer))
+        consumer.close.assert_called_once_with(code=4003)
+
+    def test_an_answer_read_across_a_re_resolve_is_not_cached(self):
+        """A keepalive re-check that re-resolves while the lookup is in flight voids its answer."""
+        consumer = self.consumer(self.both)
+        real = consumer._audience_role.side_effect
+
+        async def racing(board_id, user=None):
+            consumer._access_verified_at = self.clock() + 0.5  # the keepalive's re-resolve
+            return await real(board_id, user)
+
+        consumer._audience_role.side_effect = racing
+        self.assertTrue(self.deliver(consumer))
+        self.assertEqual(consumer._audience_cache, {})

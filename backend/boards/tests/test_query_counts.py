@@ -2428,3 +2428,48 @@ class ChildBoardReadsQueryCountTests(TestCase):
                     body = client.get(urls[name]).json()
                     self.assertEqual(len(body["boards"]), 3)
                     self.assertGreater(body["boards_total"], 3)
+
+
+class WsAudienceRoleQueryCountTests(TestCase):
+    """Fan-out pin for the board consumer's audience lookup (#2443, #2449).
+
+    ``consumers.audience_role`` runs once per subscribed socket per audience
+    board per access window (the per-socket cache in
+    ``BoardConsumer._may_open_audience``), and Channels runs every socket's DB
+    work in a process on one shared thread, so every query added here is paid
+    by every subscriber of a child board whenever its sibling counts change.
+    Pinned exactly, for the two shapes the consumer uses: with the live user
+    the access re-check already loaded in this window (the normal path), and
+    without one (it loads the user and checks the handshake credential).
+    """
+
+    # Measured 2026-11-22 (#2449) on SQLite and PostgreSQL 17: a direct member
+    # costs the board (with its group ancestors joined) and one membership
+    # read; a non-member the same, answered None; loading the user adds the
+    # user row and the session-credential check.
+    WITH_USER = 2
+    WITHOUT_USER = 4
+
+    def setUp(self):
+        from accounts.tests.ws_helpers import bound_scope
+
+        owner = User.objects.create_user(username="aud_qc_owner", password="pass")
+        self.board = Board.objects.create(name="Audience QC", owner=owner)
+        self.member = User.objects.create_user(username="aud_qc_member", password="pass")
+        self.outsider = User.objects.create_user(username="aud_qc_out", password="pass")
+        BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.VIEWER)
+        self.scopes = {u.pk: {"user": u, **bound_scope(u)} for u in (self.member, self.outsider)}
+
+    def cost(self, user, *, pass_user):
+        from boards import consumers
+
+        scope = self.scopes[user.pk]
+        with CaptureQueriesContext(connection) as ctx:
+            role = consumers.audience_role(scope, self.board.pk, user=user if pass_user else None)
+        return role, len(ctx.captured_queries)
+
+    def test_audience_lookup_is_pinned(self):
+        for user, expected_role in ((self.member, "viewer"), (self.outsider, None)):
+            for pass_user, budget in ((True, self.WITH_USER), (False, self.WITHOUT_USER)):
+                with self.subTest(user=user.username, pass_user=pass_user):
+                    self.assertEqual(self.cost(user, pass_user=pass_user), (expected_role, budget))
