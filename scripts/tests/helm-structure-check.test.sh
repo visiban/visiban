@@ -28,6 +28,9 @@ case_() {
   CASE_DESC+=("$1"); CASE_WANT+=("$2"); CASE_SPEC+=("$3"); CASE_NEEDLE+=("${4:-}"); CASE_SABOTAGE+=("${5:-}")
 }
 HOOK='templates/tests/api-connection.yaml|s/helm.sh\/hook: test/helm.sh\/hook: pre-install/'
+# Kept as the only pass-direction proof of the control through this file (the
+# sabotage case below also goes through --self-test-case, but only in the fail
+# direction); --self-test proves the same pass in the same CI job.
 case_ "control runs the whole check on the undamaged chart" pass "" "control: the undamaged chart passes"
 # A section that fails only when run alone (hidden dependency on another
 # section's global, an exit) must fail the control, not hide behind run_all_checks.
