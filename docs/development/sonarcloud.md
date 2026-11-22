@@ -32,13 +32,13 @@ The schedule is shared with the other nightly jobs; see
 
 ## Checking touched files before you push
 
-`scripts/sonar-open-issues.sh <file>...` asks SonarCloud's public API (no token) for open `BUG`, `VULNERABILITY`, and `TO_REVIEW` hotspot findings and prints the ones on the files you name. The `completeness-check` gate runs it on `git diff --name-only origin/main...HEAD`; a finding on a touched file is reported as a GAP to fix on the branch or justify.
+`scripts/sonar-open-issues.sh <file>...` asks SonarCloud's public API (no token) for open `BUG`, `VULNERABILITY`, and `TO_REVIEW` hotspot findings and prints the ones on the files you name. The `completeness-check` gate runs it on `git diff --name-only origin/main...HEAD`; a finding on a touched file is reported as a GAP to fix it on the branch or defer it to an open issue named in the MR.
 
 ```bash
 git diff --name-only origin/main...HEAD | xargs scripts/sonar-open-issues.sh
 ```
 
-**Watch out:** It sees only what the last nightly scan of `main` found. Findings your branch introduces appear after it merges. It always exits 0 and prints `sonar: lookup unavailable (<reason>)` when SonarCloud cannot be reached, so read the output rather than the exit code.
+**Watch out:** It sees only what the last nightly scan of `main` found. Findings your branch introduces appear after it merges. It exits 0 on every lookup outcome and prints `sonar: lookup unavailable (<reason>)` when SonarCloud cannot be reached, so read the output rather than the exit code.
 
 ## How coverage reaches Sonar
 

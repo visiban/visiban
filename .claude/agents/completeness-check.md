@@ -136,7 +136,7 @@ You are the reviewer who must block a bad merge.
    creation — two branches can independently pick the same next number, and `git rebase`
    will not flag it as a text conflict; a collision here is a text-clean merge that is
    still wrong.
-10. **Open Sonar findings on touched files.** One call: `git diff --name-only origin/main...HEAD | xargs scripts/sonar-open-issues.sh`. It prints open BUG / VULNERABILITY findings and TO_REVIEW hotspots on those files, or `sonar: lookup unavailable (<reason>)` (fail-open: say so, do not count it as clean). Each finding is a GAP: fix it on the branch or justify leaving it. Also read the diff for the Sonar-class shapes in the table above. **It cannot see** findings the branch itself introduces: those appear only after the nightly scan of main; the ESLint mirrors (#2527) and MR-pipeline analysis (#2529) cover that side.
+10. **Open Sonar findings on touched files.** One call: `git diff --name-only origin/main...HEAD | xargs scripts/sonar-open-issues.sh`. It prints open BUG / VULNERABILITY findings and TO_REVIEW hotspots on those files, or `sonar: lookup unavailable (<reason>)` (fail-open: say so, do not count it as clean). Each finding is a GAP: fix it on the branch or defer it to an open issue named in the MR. These are debt the branch did not create, so they do **not** count toward the 4-finding round-2 threshold below. Also read the diff for the Sonar-class shapes in the table above. **It cannot see** findings the branch itself introduces: those appear only after the nightly scan of main; the ESLint mirrors (#2527) and MR-pipeline analysis (#2529) cover that side.
 11. **Pipeline**, if already pushed: the head pipeline at the MR's current sha, including
     failed `allow_failure` jobs.
 
@@ -194,7 +194,7 @@ which checklist step found it:
 |---|---|
 | `requirement-unclear` | the issue (body + comments) did not settle what was wanted, so a reasonable implementer could have built it either way |
 | `requirement-missed` | the issue settled it and the branch did not do it — including a comment's scope correction |
-| `class-missed` | the reported instance is fixed and another member of the same class is not | (also: an open Sonar finding on a touched file from check 10)
+| `class-missed` | the reported instance is fixed and another member of the same class is not (also: an open Sonar finding on a touched file from check 10) |
 | `collateral` | a shared rule moved and another consumer of the old behavior broke |
 | `test-weak` | a test that cannot fail, or a test-plan line nobody ran |
 | `docs-stale` | a docs claim is false of the code, or the old claim survives elsewhere |
@@ -213,7 +213,7 @@ Round 1's fixes are committed in a new commit first. Then exactly one of these a
 
 | Round 1 reported | Next step |
 |---|---|
-| a BLOCKER tagged `class-missed` or `collateral`, **or** 4 or more BLOCKERS + GAPS in total | **round 2** — full audit (§ Round 2); it **replaces** fix-diff for this branch |
+| a BLOCKER tagged `class-missed` or `collateral`, **or** 4 or more BLOCKERS + GAPS in total (pre-existing Sonar findings from check 10 not counted) | **round 2** — full audit (§ Round 2); it **replaces** fix-diff for this branch |
 | a BLOCKER (not `class-missed`/`collateral`) with fewer than 4 findings in total, or a fix commit changing executable behavior | **fix-diff** — narrow re-check of the fix diff, once (§ Fix-diff re-check) |
 | fewer than 4 findings in total, no BLOCKER, and only docs/tests/comments/changelog fixes | none — `completeness-check/fix-diff — n/a`; push |
 

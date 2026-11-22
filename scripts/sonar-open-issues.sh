@@ -4,7 +4,7 @@
 # Why: Sonar-class defects (floating promises, function refs passed to .forEach, click
 # handlers on non-interactive elements, ...) reached main because nothing looked for them
 # before the push; the nightly `sonar:scan` was the first time anyone saw them.
-# `completeness-check` runs this as its last-look step, so a file the branch touches that
+# `completeness-check` runs this as its Sonar step, so a file the branch touches that
 # already carries an open BUG / VULNERABILITY / TO_REVIEW hotspot is reported as a GAP.
 #
 # Usage:
@@ -13,7 +13,7 @@
 #   scripts/sonar-open-issues.sh --self-test
 #
 # Output: one `sonar: <path>:<line> <rule> <TYPE> <message>` line per finding, then a
-# summary line. Exit is ALWAYS 0: this is advisory, and an unreachable SonarCloud must not
+# summary line. Exit is 0 on every lookup outcome (only a leading-dash misuse exits 2): this is advisory, and an unreachable SonarCloud must not
 # block a push. Fail OPEN and LOUDLY — on a network, HTTP, or parse error it prints
 # `sonar: lookup unavailable (<reason>)` and exits 0 (same fail-open convention as
 # scripts/check-suppression-issues.sh / docs/development/suppressions.md).
@@ -104,6 +104,7 @@ PYSRV
     n=0; while [ ! -s "$tmp/port" ] && [ "$n" -lt 50 ]; do n=$((n + 1)); python3 -c 'import time; time.sleep(0.1)'; done
     rc=0; SONAR_API_BASE="http://127.0.0.1:$(cat "$tmp/port" 2>/dev/null || echo 1)" sh "$0" frontend/src/A.tsx > "$tmp/http.out" 2>&1 || rc=$?
     kill "$srv_pid" 2>/dev/null || true
+    wait "$srv_pid" 2>/dev/null || true
     expect "HTTP non-200 fails open loudly" 'sonar: lookup unavailable (HTTP 404' "$tmp/http.out"
     if [ "$rc" -ne 0 ]; then echo "FAIL: HTTP 404 must exit 0 (got $rc)"; st_fail=1; fi
     if [ "$st_fail" -eq 0 ]; then echo "sonar-open-issues self-test passed"; fi
@@ -183,7 +184,7 @@ hits = sorted(r for r in rows if r[0].removeprefix(prefix) in touched)
 for comp, line, rule, typ, msg in hits:
     print(f"sonar: {comp.removeprefix(prefix)}:{line} {rule} {typ} {msg}")
 if hits:
-    print(f"sonar: {len(hits)} open finding(s) on touched files (report as GAP: fix on branch or justify)")
+    print(f"sonar: {len(hits)} open finding(s) on touched files (report as GAP: fix on the branch or defer it to an open issue named in the MR)")
 else:
     print("sonar: no open BUG/VULNERABILITY/hotspot findings on touched files")
 PY
