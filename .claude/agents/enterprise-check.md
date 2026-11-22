@@ -39,11 +39,13 @@ Apply the guiding principle and check against known category examples:
 - Notifications
 - Import/export of board data
 - Public API for automation
+- Single-board and single-card throughput forecasting (#1100)
 
 **Enterprise (`visiban/visiban-enterprise` only):**
 - SSO / SAML
 - Audit logs
 - Cross-period comparison, scheduled analytics reports, `ANALYTICS_EXTENSIONS` panels (the heatmap, bottleneck detection and the #448 flow charts are OSS; see `docs/architecture/open-core-boundary.md#analytics-split`)
+- Forecasts whose subject is a set of boards (#1100)
 - Automation rules (trigger-based card movement, notifications)
 - Integrations with external services (Slack, Jira, webhooks)
 - Multi-tenancy / white-labeling
