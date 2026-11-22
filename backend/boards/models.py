@@ -909,8 +909,10 @@ class SwimlaneTeamMember(models.Model):
     member from the board deletes their rows on that board's lanes
     (``BoardViewSet.remove_member``). A row is not rewritten when its person is
     demoted to viewer or loses access another way, so every reader filters on
-    read: Edit Swimlane and Add card in the web app, and Add child, its chooser
-    and the team-access warning through ``swimlane_team.listed_team_ids``.
+    read: Edit Swimlane and Add card in the web app, Add child and its chooser
+    through ``swimlane_team.listed_team_ids``, and the team-access warning by
+    applying the same listed-non-viewer filter inline (it keeps deactivated
+    members so the warning can name them).
     """
 
     swimlane = models.ForeignKey(Swimlane, on_delete=models.CASCADE, related_name="team_members")
