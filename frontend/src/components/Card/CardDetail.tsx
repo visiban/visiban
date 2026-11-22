@@ -2575,6 +2575,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardId={card.id}
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
+              cardArchived={!!card.archived_at}
               state={childrenState}
               remoteSignal={childrenRefreshSignal}
               lastMovedAt={card.children_rollup && "last_moved_at" in card.children_rollup ? card.children_rollup.last_moved_at : null}

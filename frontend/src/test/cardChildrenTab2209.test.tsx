@@ -332,6 +332,30 @@ describe('Link existing (#2209)', () => {
     expect(childCandidateReason(candidate({ disabled_reason: 'already_has_parent' }))).toBe("already a child of a card you can't open")
   })
 
+  it('an archived parent keeps Add child and Link existing focusable but inert, with the reason (#2447)', async () => {
+    render(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="Initech" state={state({ data: read(kids) })} onExitToTabs={vi.fn()} cardArchived />)
+    const add = screen.getByRole('button', { name: /^Add child/ })
+    const link = screen.getByRole('button', { name: /^Link existing/ })
+    for (const b of [add, link]) {
+      expect(b).toHaveAttribute('aria-disabled', 'true')
+      expect(b).toHaveAccessibleDescription('This card is archived. Restore it before adding or linking children.')
+      await userEvent.click(b)
+    }
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(getChildBoardOptions).not.toHaveBeenCalled()
+  })
+
+  it('Link existing says the card is archived when the server reports it first (#2447)', async () => {
+    vi.mocked(getChildBoardOptions).mockResolvedValue({
+      fixed_board: { hidden: false, id: 7, name: 'Delivery', can_add: true }, default: null, can_set_default: false, boards: [],
+      disabled_reason: 'parent_archived',
+    })
+    renderTab(state({ data: read(kids) }))
+    await userEvent.click(screen.getByRole('button', { name: 'Link existing' }))
+    expect(await screen.findByText('This card is archived. Restore it before adding or linking children.')).toHaveAttribute('role', 'alert')
+    expect(screen.queryByRole('dialog', { name: 'Link existing card' })).toBeNull()
+  })
+
   it("opens on the fixed child board and links on the child's own board", async () => {
     vi.mocked(getChildBoardOptions).mockResolvedValue({
       fixed_board: { hidden: false, id: 7, name: 'Delivery', can_add: true }, default: null, can_set_default: false, boards: [],
