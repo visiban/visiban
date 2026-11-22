@@ -4644,6 +4644,10 @@ self-test, add a member function and a <code>fold_member</code> line rather than
 <td>Not a gate: the probe both upgrade drills pipe into a running backend container. Listed only because the drills' <code>changes:</code> rules name it.</td>
 </tr>
 <tr>
+<td><code>scripts/pg-activity-watch.py</code></td>
+<td>Not a gate: a background Postgres activity reporter started by the <code>backend-test</code> jobs (#2536). Listed only because the job scripts name it. Its logic is tested by <code>backend/boards/tests/test_pg_activity_watch_2536.py</code>.</td>
+</tr>
+<tr>
 <td><code>scripts/drill-image.sh</code></td>
 <td>A library the five boot and upgrade drills source, not a gate. It pulls the per-commit kaniko image by digest and checks its revision label and architecture, or builds locally (<a href="https://gitlab.com/visiban/visiban/-/issues/2492">#2492</a>). <code>scripts/tests/drill-image.test.sh</code> covers every branch against a stub <code>docker</code>: a matching image is pulled and tagged and never built, and each of these fails: another commit's image, a missing label, a tag instead of a digest, no commit to check against, an architecture mismatch, a pull failure, and an unset variable in CI where the project has a registry. With no registry (<code>CI_REGISTRY_IMAGE</code> empty) the local build is taken and logged.</td>
 </tr>

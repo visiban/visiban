@@ -4349,6 +4349,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#backend-test-shard-stalls-faulthandler-dump-pg-activity-watch-lock-timeout-2534-2536" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        backend-test shard stalls: faulthandler dump, [pg-activity-watch], lock timeout (#2534, #2536)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5076,6 +5087,31 @@ idempotent; <code>gitleaks-commits</code> keeps it too, as it only reads the dif
 upload step). Add the same to any new job
 whose side effect is not safe to repeat. A job that still shows a <code>runner_system_failure</code> after
 two retries points at the runner, not the job; see #2406.</p>
+<h2 id="backend-test-shard-stalls-faulthandler-dump-pg-activity-watch-lock-timeout-2534-2536"><code>backend-test</code> shard stalls: faulthandler dump, <code>[pg-activity-watch]</code>, <code>lock timeout</code> (#2534, #2536)<a class="headerlink" href="#backend-test-shard-stalls-faulthandler-dump-pg-activity-watch-lock-timeout-2534-2536" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> a <code>backend-test</code> shard (or a <code>backend-test-pg-matrix</code> leg) goes silent until the
+job timeout. These diagnostics exist so the next stall names its cause instead of timing out blind.</p>
+<ul>
+<li><strong>faulthandler dump</strong> (#2534): pytest runs with <code>-v</code> and <code>-o faulthandler_timeout=300</code>. A single
+  test over 300 seconds dumps every thread's stack to stderr and names the test. A thread parked in
+  psycopg <code>connection.wait</code> means the client is waiting on the server.</li>
+<li><strong><code>[pg-activity-watch]</code> lines</strong> (#2536): <code>scripts/pg-activity-watch.py</code> runs in the background of
+  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (and, through <code>scripts/pg-matrix-check.sh</code>, of
+  <code>backend-test-pg-matrix-nightly</code>) and checks <code>pg_stat_activity</code> every 30 seconds. It prints one
+  report per stuck query (deduped on pid + query_start)
+  to stderr when a non-idle query runs over 90 seconds or a lock wait lasts over 60 seconds: the
+  stuck backend, <code>pg_blocking_pids</code>, each blocker's state and query, and the ungranted and blocking
+  <code>pg_locks</code> rows. A blocker in <code>idle in transaction</code> is a connection a test leaked. It is
+  diagnostic only and never fails the job.</li>
+<li><strong><code>lock timeout</code> failure</strong> (#2536): four jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>:
+  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (which have the watcher), <code>backend-test-migrations</code>
+  (via the shared <code>*backend-test-variables</code> anchor) and <code>backend-test-pg-matrix-nightly</code> (via
+  <code>extends</code>). <code>backend-test-migrations</code> has the timeout but NOT the watcher, so a lock timeout there
+  comes with no <code>[pg-activity-watch]</code> report. A lock wait over 3 minutes fails the test with <code>canceling statement due to lock timeout</code> instead of
+  hanging. That failure is a real defect (a leaked or contended lock), not a flake. Read the
+  <code>[pg-activity-watch]</code> report just above it for the blocker. There is deliberately no
+  <code>statement_timeout</code> (it could fail legitimately slow statements) and no
+  <code>idle_in_transaction_session_timeout</code> (it would kill the leaked holder and hide it).</li>
+</ul>
 
 
 
