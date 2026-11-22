@@ -3708,6 +3708,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {board.columns.map((col, idx) => (
                 <React.Fragment key={col.id}>
                   <ColumnHeader
+                    showSubColumns={showSubColumns}
                     column={col}
                     cards={board.cards.filter((c) => c.column === col.id)}
                     boardId={board.id}

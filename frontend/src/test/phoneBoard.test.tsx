@@ -737,6 +737,26 @@ describe('PhoneBoard sub-column switcher (#2278)', () => {
   })
 })
 
+describe('PhoneBoard four-way switcher (#2531)', () => {
+  it('keeps the count and the full name accessible when long names truncate', () => {
+    const names = ['Triage and intake', 'Technical review', 'Doing the work', 'Checked and ready']
+    const subs4 = names.map((name, i) => ({ id: 41 + i, uid: `s4${i}`, position: i, name }))
+    setup({ columns: [col(1, 'Build', { sub_columns: subs4 })], cards: [card(1, 1, 1, { gates_passed: 0 })] })
+    const group = screen.getByRole('group', { name: 'Build sub-columns' })
+    const buttons = within(group).getAllByRole('button')
+    expect(buttons).toHaveLength(4)
+    buttons.forEach((b, i) => {
+      expect(b).toHaveAttribute('aria-pressed')
+      expect(b.getAttribute('aria-label')).toContain(names[i])
+      expect(b.className).toContain('min-w-0')
+      const [nameEl, countEl] = Array.from(b.querySelectorAll('span')).filter((s) => !s.hasAttribute('data-testid') && s.textContent !== '')
+      expect(nameEl.className).toContain('truncate')
+      expect(nameEl.className).toContain('min-w-0')
+      expect(countEl.className).toContain('shrink-0')
+    })
+  })
+})
+
 describe('cellOrderOf on a gated stage (#2278 G9)', () => {
   it('steps only within the card\'s own sub-column', () => {
     const column = col(1, 'Build', { sub_columns: [{ id: 31, uid: 's31', position: 0, name: 'Doing' }, { id: 32, uid: 's32', position: 1, name: 'Ready' }] })

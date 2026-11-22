@@ -347,6 +347,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
                   name={sub.name}
                   first={i === 0}
                   dragging={isDraggingCard}
+                  namePill={!blockedBy && entryCriteria.length === 0}
                 >
                   {(bySub[i] ?? []).map((card) => renderCard(card))}
                   {/* A quiet marker so an empty sub-column reads as empty, not missing, and names itself (#2531). aria-hidden: the group's aria-label already names it. */}
@@ -463,7 +464,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
  * here sends `gates_passed` = its index through the one Move path. The
  * dashed left edge is the spec's divider between sub-columns.
  */
-function SubColumnDrop({ id, label, name, first, dragging, children }: { id: string; label: string; name: string; first: boolean; dragging: boolean; children: React.ReactNode }) {
+function SubColumnDrop({ id, label, name, first, dragging, namePill, children }: { id: string; label: string; name: string; first: boolean; dragging: boolean; namePill: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div
@@ -477,7 +478,8 @@ function SubColumnDrop({ id, label, name, first, dragging, children }: { id: str
     >
       {children}
       {/* Drag pill (#2531): names the sub-column the card would land in. Bottom-anchored so it never covers the entry-criteria or WIP-blocked pills; aria-hidden so keyboard moves do not announce it. */}
-      {dragging && isOver && (
+      {/* The cell's own drop message (limit verdict or entry criteria) wins: only one pill shows at a time. */}
+      {dragging && isOver && namePill && (
         <span
           data-testid="sub-column-drag-name"
           aria-hidden="true"

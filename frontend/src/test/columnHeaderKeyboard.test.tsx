@@ -193,6 +193,12 @@ describe('ColumnHeader — split stage (#2278)', () => {
     expect(cells[1]).toHaveTextContent('Ready: 2 waiting')
   })
 
+  it('renders no sub-column row or sentence with Show sub-columns off (#2531)', () => {
+    renderHeader({ column: stage, cards: [card(1, 0), card(2, 1)], showSubColumns: false })
+    expect(screen.queryByTestId('column-sub-counts')).not.toBeInTheDocument()
+    expect(screen.queryByText('Doing: 1 working')).not.toBeInTheDocument()
+  })
+
   it('renders no sub-column summary on an unsplit column (#2386)', () => {
     renderHeader({ column, cards: [card(1, 0)] })
     expect(screen.queryByTestId('column-sub-counts')).not.toBeInTheDocument()

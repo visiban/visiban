@@ -228,4 +228,20 @@ test.describe('keyboard move', () => {
     expect(headX).toHaveLength(3)
     headX.forEach((x, i) => expect(Math.abs(x - laneX[i])).toBeLessThanOrEqual(4))
   })
+
+  test('a four-way split stage at 390px: the switcher has four 44px segments and nothing scrolls sideways (#2531)', async ({ page }) => {
+    await routeAuth(page)
+    const names = ['Triage and intake', 'Technical review', 'Doing the work', 'Checked and ready']
+    const split = { ...COLUMN_TODO, sub_columns: names.map((name, i) => ({ id: i + 1, uid: `sub0000000${i + 1}`, position: i, name })), tracks: [] }
+    await routeBoard(page, { ...BOARD_FULL, columns: BOARD_FULL.columns.map((c) => (c.id === split.id ? split : c)), cards: [{ ...CARD, gates_passed: 0 }] })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const group = page.getByTestId('phone-sub-column-switcher')
+    await expect(group).toBeVisible({ timeout: 10_000 })
+    const buttons = group.getByRole('button')
+    await expect(buttons).toHaveCount(4)
+    for (let i = 0; i < 4; i++) expect((await buttons.nth(i).boundingBox())!.height).toBeGreaterThanOrEqual(44)
+    expect(await group.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  })
 })

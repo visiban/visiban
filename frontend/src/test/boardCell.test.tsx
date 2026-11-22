@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
@@ -629,6 +629,8 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
 })
 
 describe('BoardCell gated stage (#2278)', () => {
+  afterEach(() => { dnd.active = null; dnd.over = new Set() })
+
   const stage: Column = {
     ...column,
     sub_columns: [{ id: 1, uid: 's1', position: 0, name: 'Doing' }, { id: 2, uid: 's2', position: 1, name: 'Ready' }],
@@ -691,8 +693,15 @@ describe('BoardCell gated stage (#2278)', () => {
     expect(pill).toHaveTextContent('Ready')
     expect(pill).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getAllByTestId('sub-column-drag-name')).toHaveLength(1)
-    dnd.active = null
-    dnd.over = new Set()
+  })
+
+  it('hides the name pill while the cell shows entry criteria or a block verdict (#2531)', () => {
+    const props = { ...defaultProps(), column: stage, cards: [makeCard({ id: 1, gates_passed: 0 })], getEntryCriteria: () => ['Spec approved'] }
+    dnd.over = new Set(['cell:10:20', 'cell:10:20:1'])
+    dnd.active = { id: '9' }
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('cell-drop-entry-criteria')).toBeInTheDocument()
+    expect(screen.queryByTestId('sub-column-drag-name')).not.toBeInTheDocument()
   })
 })
 

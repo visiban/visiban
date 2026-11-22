@@ -20,6 +20,8 @@ const ADD_ICON = (
 );
 
 interface Props {
+  /** "Show sub-columns" (#2278): off, a gated stage is one normal-width column and gets no sub-column count row (#2531). */
+  showSubColumns?: boolean;
   /** Colors in use on the board, for the edit modal's custom color popover (#2098). */
   boardColors?: BoardColor[];
   /** This is the board's first not-done column (#2298); shown in its settings. */
@@ -54,7 +56,7 @@ interface Props {
   addCardLanes?: { id: number; name: string; color: string; collapsed: boolean }[];
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes, showSubColumns = true }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -428,7 +430,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
         {/* Split stage (#2278, #2386, #2531): its own row so the dividers line up with the lane's. Each cell shows its full name (wraps to two lines) above its count; working cells show the bare count, the last "N waiting". The "Doing: 5 working" sentence stays for assistive tech and the visual pieces are aria-hidden. */}
         {(() => {
           const cells = subColumnCounts(column, cards);
-          if (cells.length === 0) return null;
+          if (!showSubColumns || cells.length === 0) return null;
           return (
             <div data-testid="column-sub-counts" className="mt-1.5 grid text-fg-secondary" style={{ gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr))` }}>
               {cells.map((cell, i) => (
