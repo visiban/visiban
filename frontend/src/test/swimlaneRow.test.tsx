@@ -7,7 +7,7 @@ import type { Card, Column, CustomFieldDefinition, Swimlane } from '../types'
 import { cellKey } from '../gridOverlays/types'
 import { encodeOverlayLevel } from '../gridOverlays/scale'
 
-vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn() }))
+vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn(), getSwimlaneDefaultTeamAccess: vi.fn().mockResolvedValue({ members: [] }) }))
 import { updateSwimlane } from '../api/boards'
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),

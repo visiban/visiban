@@ -140,6 +140,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
       title={targetName ? `Add child to ${targetName}` : "Add child"}
       labelId={titleId}
       subtitle={parentTitle ? `Parent: ${parentTitle}${parentColumn ? ` · ${parentColumn}` : ""}` : "Where should this child go?"}
+      phoneBack
       maxWidth="max-w-md"
       panelClassName="max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none max-sm:border-0"
     >
@@ -227,10 +228,12 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
           {!fixedHidden && !fixedBlocked && team && teamAssignee && targetName && (
             <LaneTeamAssignee
               size="md"
-              assignee={unassigned ? null : teamAssignee}
+              assignee={teamAssignee}
+              assigned={!unassigned}
               others={teamOthers}
               caption={childCaption(team.swimlane.name, boardName, targetName)}
               onUnassign={() => setUnassigned(true)}
+              onReassign={() => setUnassigned(false)}
             />
           )}
 

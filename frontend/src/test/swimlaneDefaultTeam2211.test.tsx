@@ -210,6 +210,42 @@ describe('Edit swimlane deactivated members and access warning (#2211)', () => {
     expect(getSwimlaneDefaultTeamAccess).toHaveBeenCalledWith(1, 1)
   })
 
+  it('Remove moves focus to the next row, then the previous, then the section, and announces it', async () => {
+    renderModal(lane({ default_team: [10, 11] }))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
+    expect(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' })).toHaveFocus()
+    expect(screen.getByText('Removed Mia Reyes from default team.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' }))
+    expect(screen.getByRole('region', { name: /Default team/ })).toHaveFocus()
+  })
+
+  it('keeps list semantics under the group and links a warning to its Remove', async () => {
+    vi.mocked(getSwimlaneDefaultTeamAccess).mockResolvedValueOnce({ members: [{ id: 11, boards: [{ id: 5, name: 'Delivery' }], hidden_count: 0 }] })
+    renderModal(lane({ default_team: [10, 11] }))
+    await screen.findByText('No access to Delivery: skipped on new children')
+    const group = screen.getByRole('group', { name: 'Default team' })
+    expect(group.tagName).toBe('DIV')
+    expect(within(group).getByRole('list')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Dan Kovacs from default team' }))
+      .toHaveAccessibleDescription('No access to Delivery: skipped on new children')
+    expect(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' })).not.toHaveAttribute('aria-describedby')
+  })
+
+  it('shows the save error as an alert and offers "Back to board"', async () => {
+    const onClose = vi.fn()
+    render(
+      <EditSwimlaneModal boardId={1} swimlane={lane({ default_team: [10, 11], default_team_members: [{ id: 10, is_active: true }, { id: 11, is_active: false }] })}
+        cardCount={0} onUpdated={vi.fn()} onDeleted={vi.fn()} onClose={onClose} members={MEMBERS} />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Remove Mia Reyes from default team' }))
+    await user.click(screen.getByRole('button', { name: /^Save/ }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Remove the deactivated people from the default team, then save.')
+    await user.click(screen.getByRole('button', { name: 'Back to board' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('does not ask for access when the lane has no team', () => {
     vi.mocked(getSwimlaneDefaultTeamAccess).mockClear()
     renderModal(lane())

@@ -681,7 +681,10 @@ describe('BoardCell lane default team (#2211)', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
     await user.click(screen.getByRole('button', { name: 'Unassign Mia Reyes' }))
-    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('No one.')
+    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('No one assigned.')
+    // Focus moves to the "+ Add" pill that replaced the removed chip, and the change is announced.
+    expect(screen.getByRole('button', { name: 'Add Mia Reyes' })).toHaveFocus()
+    expect(screen.getByRole('group', { name: 'Assignees' })).toHaveTextContent('From the')
     await user.type(screen.getByPlaceholderText('Card title…'), 'Renewal')
     await user.click(screen.getByText('Add'))
     await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal' }))

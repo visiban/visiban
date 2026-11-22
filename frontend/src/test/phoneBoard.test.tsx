@@ -9,7 +9,7 @@ import { patchSwimlane } from '../api/boards'
 import { stepOrder, cellOrderOf } from '../utils/phoneReorder'
 
 vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
-vi.mock('../api/boards', () => ({ patchSwimlane: vi.fn() }))
+vi.mock('../api/boards', () => ({ patchSwimlane: vi.fn(), getSwimlaneDefaultTeamAccess: vi.fn().mockResolvedValue({ members: [] }) }))
 // Stubs that expose the wiring: the real controls have their own suites.
 vi.mock('../components/Common/HealthStatusControl', () => ({
   default: (p: { entityName: string; canEdit: boolean; trigger?: string; onSave: (v: string | null) => Promise<unknown>; onOpenChange?: (o: boolean) => void; className?: string }) => (

@@ -5,7 +5,7 @@ import SwimlaneRow from '../components/Board/SwimlaneRow'
 import HealthStatusControl from '../components/Common/HealthStatusControl'
 import type { Card, Column, Swimlane } from '../types'
 
-vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn() }))
+vi.mock('../api/boards', () => ({ updateSwimlane: vi.fn(), patchSwimlane: vi.fn(), getSwimlaneDefaultTeamAccess: vi.fn().mockResolvedValue({ members: [] }) }))
 import { patchSwimlane } from '../api/boards'
 import { mergeSwimlaneFromBroadcast } from '../utils/swimlaneMerge'
 import { InstanceFlagsContext } from '../contexts/InstanceFlagsContext'

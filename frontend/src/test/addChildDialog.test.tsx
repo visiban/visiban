@@ -244,6 +244,32 @@ describe('AddChildDialog lane default team (#2211)', () => {
     expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff', apply_default_team: false })
   })
 
+  it('Unassign keeps the caption, moves focus to "+ Add", and "+ Add" re-applies the team', async () => {
+    const { user } = setup(TEAM, { members })
+    await user.click(await screen.findByRole('button', { name: 'Unassign Mia Reyes' }))
+    const group = screen.getByRole('group', { name: 'Assignees' })
+    expect(group).toHaveTextContent('No one assigned.')
+    expect(group).toHaveTextContent('From the Acme Corp default team on Pipeline')
+    expect(screen.getByRole('status')).toHaveTextContent('Mia Reyes unassigned.')
+    const add = screen.getByRole('button', { name: 'Add Mia Reyes' })
+    expect(add).toHaveFocus()
+    await user.click(add)
+    expect(screen.getByRole('button', { name: 'Unassign Mia Reyes' })).toHaveFocus()
+    await user.type(screen.getByLabelText('Title'), 'Kickoff')
+    vi.mocked(addChild).mockResolvedValue({} as never)
+    await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
+    expect(addChild).toHaveBeenCalledWith(1, 5, { board_id: 7, title: 'Kickoff' })
+  })
+
+  it('names the parent card in the header line and offers "Back to board"', async () => {
+    const { onClose, user } = setup(TEAM, { members, parentTitle: 'Acme: platform renewal', parentColumn: 'Qualify' })
+    const dialog = await screen.findByRole('dialog', { name: 'Add child to Delivery' })
+    expect(dialog).toHaveTextContent('Parent: Acme: platform renewal · Qualify')
+    expect(dialog).not.toHaveTextContent('Where should this child go?')
+    await user.click(screen.getByRole('button', { name: 'Back to board' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it('shows no chip on a board where nobody on the team can be assigned', async () => {
     const { user } = setup(TEAM, { members })
     await screen.findByRole('group', { name: 'Assignees' })

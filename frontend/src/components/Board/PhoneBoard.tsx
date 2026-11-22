@@ -662,10 +662,12 @@ export default function PhoneBoard({
                     return laneDefault?.assignee ? (
                       <LaneTeamAssignee
                         size="md"
-                        assignee={assignee}
+                        assignee={laneDefault.assignee}
+                        assigned={assignee != null}
                         others={laneDefault.others}
                         caption={laneCaption(lane.name)}
                         onUnassign={() => setUnassignedLane(lane.id)}
+                        onReassign={() => setUnassignedLane(null)}
                       />
                     ) : null;
                   })()}

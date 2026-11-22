@@ -236,6 +236,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       title={title}
       maxWidth="max-w-md"
       labelId="edit-swimlane-title"
+      phoneBack
       // The limits section (#1150) makes this modal taller than a short
       // viewport, so the body scrolls and the footer stays put, as in
       // ImportBoardModal.
@@ -251,7 +252,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <span className="font-medium text-fg">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
             </p>
             <div className="flex justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 max-sm:min-h-11 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 OK
               </button>
             </div>
@@ -266,10 +267,10 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
             </p>
             <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
             <div className="flex items-center justify-end gap-3">
-              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 max-sm:min-h-11 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel
               </button>
-              <button onClick={handleDelete} className="px-3 py-1.5 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
+              <button onClick={handleDelete} className="px-3 py-1.5 max-sm:min-h-11 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
                 Delete
               </button>
             </div>
@@ -470,23 +471,26 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           </div>
 
           <div className="px-6 pb-6">
-          <p className="text-xs h-4 mt-2">
-            {saveError && <span className="text-danger">{saveError}</span>}
+          {/* In the pinned footer, so a phone sees it beside Save, not below the fold; role="alert"
+              announces it when it appears. */}
+          <p className="text-xs min-h-4 mt-2">
+            {saveError && <span role="alert" className="text-danger">{saveError}</span>}
           </p>
 
-          <div className="flex justify-between items-center mt-2">
+          {/* Phone: Delete on its own row above Cancel and Save, every button 44px tall (#2206 rule 6). */}
+          <div className="flex justify-between items-center mt-2 max-sm:flex-col max-sm:items-stretch max-sm:gap-2">
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-sm text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+              className="text-sm text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded max-sm:min-h-11 max-sm:self-start max-sm:px-1"
             >
               Delete swimlane
             </button>
-            <div className="flex gap-2">
-              <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+            <div className="flex gap-2 max-sm:justify-end">
+              <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 max-sm:min-h-11 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}
-                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 max-sm:min-h-11 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
               >
                 {saving ? "Saving…" : "Save"}
               </button>

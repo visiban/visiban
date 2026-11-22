@@ -393,10 +393,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
           />
           {laneDefault?.assignee && (
             <LaneTeamAssignee
-              assignee={preAssignee}
+              assignee={laneDefault.assignee}
+              assigned={preAssignee != null}
               others={laneDefault.others}
               caption={laneCaption(swimlane.name)}
               onUnassign={() => setUnassigned(true)}
+              onReassign={() => setUnassigned(false)}
             />
           )}
           <div className="flex gap-1.5 mt-1.5">

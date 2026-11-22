@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { EffectiveBoardMember, SwimlaneDefaultTeamAccess } from "../../types";
 import Avatar from "../Common/Avatar";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -32,18 +32,40 @@ interface Props {
 /** The Default team section of Edit swimlane (#2211): rows, Remove, Add a member. */
 export default function SwimlaneDefaultTeamSection({ members, value, onChange, inactiveIds, access }: Props) {
   const headingId = useId();
+  const warnPrefix = useId();
+  // A Remove button removes its own row, so focus moves to the next row's Remove (else the
+  // previous, else the section) and a status line announces it; focus never drops to <body>.
+  const removeRefs = useRef(new Map<number, HTMLButtonElement>());
+  const sectionRef = useRef<HTMLElement>(null);
+  const focusAfterRemove = useRef<number | null | undefined>(undefined);
+  const [announce, setAnnounce] = useState("");
+  useEffect(() => {
+    if (focusAfterRemove.current === undefined) return;
+    const target = focusAfterRemove.current;
+    focusAfterRemove.current = undefined;
+    const next = target != null ? removeRefs.current.get(target) : undefined;
+    (next ?? sectionRef.current)?.focus();
+  }, [value]);
+  const remove = (id: number, name: string) => {
+    const i = value.indexOf(id);
+    focusAfterRemove.current = value[i + 1] ?? value[i - 1] ?? null;
+    setAnnounce(`Removed ${name} from default team.`);
+    onChange(value.filter((v) => v !== id));
+  };
   const byId = new Map(members.map((m) => [m.user.id, m.user]));
   const candidates = assignableMembers(members).filter((m) => !value.includes(m.user.id) && !inactiveIds?.has(m.user.id));
   const accessById = new Map((access?.members ?? []).map((m) => [m.id, m]));
   const count = `${value.length} ${value.length === 1 ? "person" : "people"}`;
 
   return (
-    <section aria-labelledby={headingId}>
+    <section ref={sectionRef} tabIndex={-1} aria-labelledby={headingId} className="outline-none">
       <h3 id={headingId} className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-2">
         Default team <span className="ml-1.5 normal-case font-normal text-fg-muted">{count}</span>
       </h3>
       {value.length > 0 && (
-        <ul role="group" aria-label="Default team" className="flex flex-col mb-2">
+        // role="group" on a wrapper, never on the <ul>: it would replace the list's semantics.
+        <div role="group" aria-label="Default team">
+        <ul className="flex flex-col mb-2">
           {value.map((id) => {
             const user = byId.get(id);
             if (!user) return null;
@@ -51,6 +73,7 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
             const inactive = inactiveIds?.has(id) ?? false;
             const noAccess = accessById.get(id);
             const warning = inactive ? "Deactivated: remove to save the team" : noAccess ? noAccessText(noAccess) : null;
+            const warningId = `${warnPrefix}-${id}`;
             return (
               <li
                 key={id}
@@ -59,12 +82,14 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
                 <Avatar user={user} size="sm" className={warning ? "opacity-60" : ""} />
                 <span className="flex-1 min-w-0 flex flex-col">
                   <span className="truncate text-sm text-fg">{name}</span>
-                  {warning && <span className="text-xs text-warning">{warning}</span>}
+                  {warning && <span id={warningId} className="text-xs text-warning">{warning}</span>}
                 </span>
                 <button
                   type="button"
+                  ref={(el) => { if (el) removeRefs.current.set(id, el); else removeRefs.current.delete(id); }}
                   aria-label={`Remove ${name} from default team`}
-                  onClick={() => onChange(value.filter((v) => v !== id))}
+                  aria-describedby={warning ? warningId : undefined}
+                  onClick={() => remove(id, name)}
                   className="min-h-11 min-w-11 inline-flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <span aria-hidden="true">×</span>
@@ -73,7 +98,9 @@ export default function SwimlaneDefaultTeamSection({ members, value, onChange, i
             );
           })}
         </ul>
+        </div>
       )}
+      <p role="status" aria-live="polite" className="sr-only">{announce}</p>
       {candidates.length > 0 ? (
         <SingleSelectDropdown<number>
           label="Add a member"
