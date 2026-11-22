@@ -4337,11 +4337,15 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
     for (const section of sections) {
       const entries = SETTINGS_INDEX.filter((e) => e.section === section && e.target)
       const { unmount } = renderSection(section)
-      const panel = await screen.findByRole('tabpanel')
-      for (const e of entries) {
-        await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
+      // try/finally (#2509): a failed lookup must not leave this section mounted for the retry.
+      try {
+        const panel = await screen.findByRole('tabpanel')
+        for (const e of entries) {
+          await waitFor(() => expect(locateSettingTarget(panel, e.target), `${section}: ${e.label}`).not.toBeNull())
+        }
+      } finally {
+        unmount()
       }
-      unmount()
     }
   })
 
@@ -4355,35 +4359,45 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
   const DATA_NAMES = new Set(['to do', 'lane'])
   const textOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
   const isHeading = (el: Element) => ['H3', 'H4', 'LEGEND'].includes(el.tagName)
-  const coveredBy = (panel: HTMLElement, el: HTMLElement, name: string, entries: typeof SETTINGS_INDEX) =>
-    entries.some((e) => {
-      const loc = e.target ? locateSettingTarget(panel, e.target) : null
+  // `located` pairs each index entry with the element it resolves to in this panel, resolved once
+  // per section: the walk below does not change the DOM, so re-resolving every entry for every
+  // control (as the first version did) only multiplied the DOM scans.
+  const coveredBy = (el: HTMLElement, name: string, located: { label: string, loc: HTMLElement | null }[]) =>
+    located.some(({ label, loc }) => {
       if (!loc) return false
       if (loc === el || el.contains(loc)) return true
       if (loc.tagName === 'LABEL' && (loc.contains(el) || (loc as HTMLLabelElement).htmlFor === el.id)) return true
       if (textOf(loc).startsWith(name)) return true
-      return isHeading(el) && e.label.toLowerCase() === name
+      return isHeading(el) && label.toLowerCase() === name
     })
 
-  it('every heading and labelled control in every section has an index entry that lands on it', async () => {
-    const missing: string[] = []
-    for (const section of sections) {
-      const entries = SETTINGS_INDEX.filter((e) => e.section === section)
-      const { unmount } = renderSection(section)
+  // One test per section (#2509). As a single test looping over every section it was the
+  // heaviest test in the file, and on a loaded CI runner it intermittently ran past the 5 s
+  // test timeout. The timed-out attempt is not canceled: its loop kept rendering the next
+  // sections while the retry ran, so the retry failed with "Found multiple elements with the
+  // role tabpanel". Per-section tests leave a timed-out attempt nothing further to render, and
+  // try/finally unmounts the panel even when an assertion throws.
+  it.each(sections)('every heading and labelled control in %s has an index entry that lands on it', async (section) => {
+    const entries = SETTINGS_INDEX.filter((e) => e.section === section)
+    const { unmount } = renderSection(section)
+    try {
       const panel = await screen.findByRole('tabpanel')
       // Panels that fill in after a fetch (Members invites, Webhooks, Issue lens) settle first.
       await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+      const located = entries.map((e) => ({ label: e.label, loc: e.target ? locateSettingTarget(panel, e.target) : null }))
       const els = Array.from(panel.querySelectorAll<HTMLElement>(
         'h3, h4, legend, [role="switch"], [role="combobox"], select, input:not([type="radio"]):not([type="hidden"])',
       ))
+      const missing: string[] = []
       for (const el of els) {
         const name = (isHeading(el) ? textOf(el) : computeAccessibleName(el).replace(/\s+/g, ' ').trim().toLowerCase())
         if (name === '' || DATA_NAMES.has(name)) continue
-        if (!coveredBy(panel, el, name, entries)) missing.push(`${section}: "${name}"`)
+        if (!coveredBy(el, name, located)) missing.push(`${section}: "${name}"`)
       }
+      expect(missing, `controls with no SETTINGS_INDEX entry:\n${missing.join('\n')}`).toEqual([])
+    } finally {
       unmount()
     }
-    expect(missing, `controls with no SETTINGS_INDEX entry:\n${missing.join('\n')}`).toEqual([])
   })
 
   it.each([
