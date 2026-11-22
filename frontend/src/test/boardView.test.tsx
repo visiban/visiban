@@ -4679,6 +4679,17 @@ describe('BoardView leave warning and sub-column steps (#2278)', () => {
     vi.mocked(getCardStatus).mockResolvedValue(null)
   })
 
+  // #2531: the track carries the sub-column count, so each sub-column keeps one column's width.
+  it('gives a four-way split stage a 4fr track in the shared template (#2531)', () => {
+    const four = [...subs, { id: 4, uid: 'sub4', position: 3, name: 'Shipped' }]
+    const cols = columns.map((c) => (c.id === 11 ? { ...c, sub_columns: four } : c)) as BoardFull['columns']
+    mockBoardContextValue = defaultContext({ board: makeBoard({ columns: cols, cards: [reviewCard(1, 0)] as never }) })
+    render(<ToastProvider><BoardView currentUser={fakeUser} /></ToastProvider>)
+    const tpl = screen.getByTestId('board-header-row').style.gridTemplateColumns
+    expect(tpl).toBe('16px minmax(0, 1fr) 8px minmax(0, 4fr) 8px minmax(0, 1fr) 16px')
+    document.querySelectorAll('[data-grid-template]').forEach((lane) => expect(lane.getAttribute('data-grid-template')).toBe(tpl))
+  })
+
   it('drag: dropping on another column warns, a sub-column drop inside the stage does not', async () => {
     const moveSpy = setupBoard()
     await drop('cell:12:20')

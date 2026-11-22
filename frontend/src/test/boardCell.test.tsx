@@ -692,10 +692,22 @@ describe('BoardCell gated stage (#2278)', () => {
     const pill = screen.getByTestId('sub-column-drag-name')
     expect(pill).toHaveTextContent('Ready')
     expect(pill).toHaveAttribute('aria-hidden', 'true')
+    // Bottom-anchored so it never covers the top-anchored verdict or entry-criteria pills.
+    expect(pill.className).toContain('bottom-1')
     expect(screen.getAllByTestId('sub-column-drag-name')).toHaveLength(1)
   })
 
-  it('hides the name pill while the cell shows entry criteria or a block verdict (#2531)', () => {
+  it('hides the name pill while the cell shows a block verdict (#2531)', () => {
+    const verdict = { scope: 'swimlane', kind: 'wip', mode: 'hard', name: 'Payouts', current: 5, limit: 5, cardWeight: 1 } as const
+    const props = { ...defaultProps(), column: stage, cards: [makeCard({ id: 1, gates_passed: 0 })], getDropVerdict: () => [verdict] }
+    dnd.over = new Set(['cell:10:20', 'cell:10:20:1'])
+    dnd.active = { id: '9' }
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('cell-drop-blocked')).toBeInTheDocument()
+    expect(screen.queryByTestId('sub-column-drag-name')).not.toBeInTheDocument()
+  })
+
+  it('hides the name pill while the cell shows entry criteria (#2531)', () => {
     const props = { ...defaultProps(), column: stage, cards: [makeCard({ id: 1, gates_passed: 0 })], getEntryCriteria: () => ['Spec approved'] }
     dnd.over = new Set(['cell:10:20', 'cell:10:20:1'])
     dnd.active = { id: '9' }

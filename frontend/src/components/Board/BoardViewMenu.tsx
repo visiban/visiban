@@ -39,8 +39,8 @@ interface Props {
   onToggleArchived: () => void;
   /**
    * "Show sub-columns" (#2278). Rendered only when the board has a gated stage
-   * (omit the handler otherwise): on, a split stage is double width with one
-   * column per sub-column; off, normal width with a progress bar per card.
+   * (omit the handler otherwise): on, a split stage takes one column's width
+   * per sub-column; off, normal width with a progress bar per card.
    */
   showSubColumns?: boolean;
   onShowSubColumnsChange?: (show: boolean) => void;
