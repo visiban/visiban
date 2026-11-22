@@ -114,16 +114,17 @@ for (const theme of ['light', 'dark'] as const) for (const size of [{ name: 'des
       await routeBoard(page, board)
       await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/children/`, (route) =>
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, visible: true, offset: 0, limit: 50, results: [] }) }))
-      let reads = 0
+      // Fail by state, not by read count: how many reads the Children tab makes before the dialog opens
+      // differs between `vite dev` (StrictMode double-invokes effects) and the production build CI serves.
+      let failing = false
       await page.route(`**/api/v1/boards/${board.id}/cards/${CARD.id}/child-board-options/`, (route) => {
-        reads += 1
-        // The Children tab reads once for its button label; the dialog's own read is the next one.
-        if (reads === 2) return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+        if (failing) return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ boards: [{ id: 12, name: 'Pipeline' }], default: { id: 12, name: 'Pipeline' }, fixed_board: null }) })
       })
       await page.goto(`/boards/${board.id}`)
       await page.getByText(CARD.title).first().click()
       await page.getByRole('tab', { name: /^Children/ }).click()
+      failing = true
       await page.getByRole('button', { name: /^Add child/ }).first().click()
       const dialog = page.getByRole('dialog', { name: /^Add child/ })
       await expect(dialog.getByRole('alert')).toContainText("Couldn't load the boards")
@@ -137,11 +138,11 @@ for (const theme of ['light', 'dark'] as const) for (const size of [{ name: 'des
       // eslint-disable-next-line no-console
       console.log(`CONTRAST ${theme} ${size.name} add-child-retry ${JSON.stringify(ratios)}`)
       for (const [name, r] of Object.entries(ratios)) expect(r, name).toBeGreaterThanOrEqual(4.5)
+      failing = false
       await retry.click()
       // Retry unmounts on click; focus goes to the dialog heading, not <body>.
       await expect(dialog.getByRole('heading', { level: 2 })).toBeFocused()
       await expect(dialog.getByLabel('Title')).toBeVisible()
-      expect(reads).toBe(3)
     })
   })
 }
