@@ -25,16 +25,19 @@ INTERVAL = 30
 LONG_QUERY_SECONDS = 90
 LOCK_WAIT_SECONDS = 60
 QUERY_LIMIT = 500
-COLS = "pid, datname, state, wait_event_type, wait_event, xact_start, query_start, query"
-
-ACTIVITY_SQL = f"""
-SELECT {COLS},
+# Plain literals, never f-strings: every value reaches Postgres as a bound
+# parameter, and SAST (bandit B608) flags any formatted SQL string.
+ACTIVITY_SQL = """
+SELECT pid, datname, state, wait_event_type, wait_event, xact_start, query_start, query,
        EXTRACT(EPOCH FROM now() - query_start) AS query_age,
        pg_blocking_pids(pid) AS blockers
 FROM pg_stat_activity
 WHERE pid <> pg_backend_pid() AND backend_type = 'client backend'
 """
-BACKEND_SQL = f"SELECT {COLS} FROM pg_stat_activity WHERE pid = ANY(%s)"
+BACKEND_SQL = """
+SELECT pid, datname, state, wait_event_type, wait_event, xact_start, query_start, query
+FROM pg_stat_activity WHERE pid = ANY(%s)
+"""
 LOCKS_SQL = """
 SELECT l.pid, l.locktype, l.mode, l.granted, c.relname
 FROM pg_locks l LEFT JOIN pg_class c ON c.oid = l.relation
