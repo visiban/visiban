@@ -1284,9 +1284,18 @@ class CardMovement(models.Model):
     # NULL when that end's column has no sub-columns, and on rows written
     # before 1.3. "Left with gates open" (warn and record only, phase 1) is
     # ``from_gates_open > 0``. Nullable so they are catalog-only on PostgreSQL.
-    from_gates_passed = models.SmallIntegerField(null=True, blank=True)  # pragma: no mutate -- schema constant (migration-check)
-    from_gates_open = models.SmallIntegerField(null=True, blank=True)  # pragma: no mutate -- schema constant (migration-check)
-    to_gates_passed = models.SmallIntegerField(null=True, blank=True)  # pragma: no mutate -- schema constant (migration-check)
+    from_gates_passed = models.SmallIntegerField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
+    from_gates_open = models.SmallIntegerField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
+    to_gates_passed = models.SmallIntegerField(
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+    )
 
     class Meta:
         db_table = "card_movements"

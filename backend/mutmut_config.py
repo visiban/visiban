@@ -72,6 +72,8 @@ _MOVEMENT_TESTS = (
     "test_card_mutation_hooks.py",
     "test_card_edge_cases.py",
     "test_movement_record_mutation_gaps.py",
+    # #2517: the null= of the three gate-position columns (NULL rows survive exclude()).
+    "test_movement_mutation_gaps_2517.py",
 )
 # The list of the 2026-10-09 whole-module re-measure of services/cards.py (96.7%).
 _CARD_SERVICE_TESTS = _MOVEMENT_TESTS + (
