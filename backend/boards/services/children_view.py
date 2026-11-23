@@ -23,7 +23,7 @@ import binascii
 import json
 from datetime import datetime, timedelta, timezone as dt_timezone
 
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Count, F, Prefetch
 from rest_framework.exceptions import NotFound
 from rest_framework.fields import DateTimeField
 
@@ -131,7 +131,8 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     the board (the only unbounded read: parents x live children, at most 100
     children per parent by the write cap), one child-board query plus
     ``get_board_roles``'s two, then for the page only: one parents query, one
-    children query with one blocker prefetch, and one columns query.
+    children query with one blocker prefetch, one live-card count per column
+    and one columns query.
     """
     lanes = list(Swimlane.objects.filter(board_id=board.pk).order_by("position", "pk").values_list(
         "pk", "name", "position",
@@ -219,7 +220,7 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
 
 
 def _page_rows(page, boards, roles, first_position, *, include_done):
-    """The page's parent rows and the child boards they draw, in at most four queries."""
+    """The page's parent rows and the child boards they draw, in at most five queries."""
     if not page:
         return {"rows": [], "child_boards": []}
     from accounts.serializers import BoardUserSerializer
@@ -274,14 +275,17 @@ def _page_rows(page, boards, roles, first_position, *, include_done):
     board_ids = sorted(set(visible.values()))
     columns = {pk: [] for pk in board_ids}
     if board_ids:
-        for col in (
-            Column.objects.filter(board_id__in=board_ids)
-            .annotate(card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
-            .order_by("position", "pk")
-        ):
+        # Live cards per column, counted from ``cards`` with the board in the
+        # filter so the (board, column, archived_at) index serves it; archived
+        # history in done columns is never joined.
+        live = dict(
+            Card.objects.filter(board_id__in=board_ids, archived_at__isnull=True)
+            .order_by().values("column_id").annotate(n=Count("pk")).values_list("column_id", "n")
+        )
+        for col in Column.objects.filter(board_id__in=board_ids).order_by("position", "pk"):
             columns[col.board_id].append({
                 "id": col.pk, "name": col.name, "color": col.color,
-                "wip_limit": col.wip_limit, "is_done": col.is_done, "card_count": col.card_count,
+                "wip_limit": col.wip_limit, "is_done": col.is_done, "card_count": live.get(col.pk, 0),
             })
     out_rows = []
     for e in page:

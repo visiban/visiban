@@ -3860,7 +3860,9 @@ class ChildrenViewBoardSerializer(serializers.Serializer):
 
     id = serializers.IntegerField()
     name = serializers.CharField()
-    role = serializers.ChoiceField(choices=[*BoardMembership.Role.values, "site_admin"])
+    # The same choice set as EFFECTIVE_BOARD_ROLE_CHOICES (defined further down),
+    # pinned to EffectiveBoardRoleEnum in visiban/schema_hooks.py so RoleEnum keeps its name.
+    role = serializers.ChoiceField(choices=[*BoardMembership.Role.choices, ("site_admin", "Site admin")])
     enforce_wip_limits = serializers.BooleanField()
     enforce_wip_hard = serializers.BooleanField()
     columns = ChildrenViewColumnSerializer(many=True)

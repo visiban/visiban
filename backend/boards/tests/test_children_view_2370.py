@@ -284,8 +284,8 @@ class ChildrenViewPagingTests(_ViewFixture, TestCase):
             children_view_for_viewer(self.pboard, self.viewer, include_done=True)
         sqls = [q["sql"] for q in ctx.captured_queries]
         # Lanes, the link rows, child boards, two role queries, then the page:
-        # parents, children, their blockers, the child board's columns.
-        self.assertEqual(len(sqls), 9, "\n".join(sqls))
+        # parents, children, their blockers, live cards per column, columns.
+        self.assertEqual(len(sqls), 10, "\n".join(sqls))
         # Exactly one statement reads every link of the board (the only
         # unbounded read); the page's reads are keyed by the page's ids.
         self.assertEqual(sum('FROM "card_parent_links"' in s for s in sqls), 1)
@@ -305,6 +305,43 @@ class ChildrenViewAccessTests(_ViewFixture, TestCase):
         for role in (Role.VIEWER, Role.COLLABORATOR, Role.MEMBER, Role.ADMIN):
             user = self._user(f"cv_{role}", parent_role=role)
             self.assertEqual(self._get(user).status_code, 200, role)
+
+    def test_only_get_is_routed(self):
+        user = self._user("cv_methods", parent_role=Role.ADMIN, child_role=Role.ADMIN)
+        url = f"/api/v1/boards/{self.pboard.pk}/children-view/"
+        client = self._client(user)
+        for method in ("post", "put", "patch", "delete"):
+            self.assertEqual(getattr(client, method)(url, {}, format="json").status_code, 405, method)
+
+    def test_pending_password_change_is_refused(self):
+        user = self._user("cv_pending", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        user.must_change_password = True
+        user.save(update_fields=["must_change_password"])
+        self.assertEqual(self._get(user).status_code, 403)
+
+    def test_site_admin_and_owner_read_every_child_board(self):
+        site_admin = _make_user("cv_site_admin")
+        site_admin.can_access_all_content = True
+        site_admin.save(update_fields=["can_access_all_content"])
+        # The owner of both boards holds no membership row on the hidden board.
+        BoardMembership.objects.filter(board=self.hboard, user=self.owner).delete()
+        for user, role in ((site_admin, "site_admin"), (self.owner, "admin")):
+            body = self._view(user)
+            self.assertTrue(all(r["rollup"]["visible"] for r in body["rows"]), user)
+            self.assertEqual(body["board_total"]["hidden"], 0)
+            self.assertEqual({b["role"] for b in body["child_boards"]}, {role})
+
+    def test_group_inherited_child_board_role_reveals_the_states(self):
+        from groups.models import Group, GroupMembership
+
+        user = self._user("cv_group", parent_role=Role.VIEWER)
+        group = Group.objects.create(name="Delivery group", owner=self.owner)
+        GroupMembership.objects.create(group=group, user=user, role=GroupMembership.Role.VIEWER)
+        self.cboard.group = group
+        self.cboard.save(update_fields=["group"])
+        row = next(r for r in self._view(user)["rows"] if r["id"] == self.parent.pk)
+        self.assertTrue(row["rollup"]["visible"])
+        self.assertEqual(row["child_board_id"], self.cboard.pk)
 
     def test_board_without_children_is_400_children_not_enabled(self):
         user = self._user("cv_child_tier", parent_role=Role.VIEWER, child_role=Role.VIEWER)
