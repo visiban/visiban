@@ -990,11 +990,11 @@ test.describe('phone board settings modal (#2404)', () => {
 // Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
 // block below (Delete column, Archive card, Add child, Admin Add user, Admin Transfer boards & deactivate, both Delete field dialogs, Move board, Trello import, Join a
 // group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
-// Not swept, tracked in #2407: GroupDetail "Delete board?" (~L2067) and "Delete group" (~L2105) (no e2e opens
-// /groups/:id; they need group server state); CreateGroupModal's post-creation "created" phase (CreateGroupModal.tsx
-// ~L104); the "Delete this card?" branch of CardDetail.tsx (~L2845, one wrapper shared with Archive, probably covered by
-// CardDeleteConfirm but unverified: no e2e here opens it); PolicyConfirmModal and LensConnectionModal (need
-// column-policy / git-lens state); ProfileModal (dead code: imported only by its own test).
+// Also swept in REMAINING: GroupDetail "Delete board?" and "Delete group" (group server state mocked by routeGroup),
+// CreateGroupModal's post-creation "created" phase, the "Delete this card?" branch of CardDetail.tsx (shares one
+// wrapper with Archive), PolicyConfirmModal and LensConnectionModal.
+// The one site left out of the sweep: ProfileModal ("Your profile") is unreachable. Nothing but its own unit test
+// imports it, so no route or opener can show it; it is not swept, and its removal is tracked in #2555.
 // BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
 // exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
@@ -1077,6 +1077,26 @@ async function routeAdminUsers(page: Page) {
   await page.route('**/api/v1/admin/**', (r) => r.fulfill({ json: { count: 0, offset: 0, page_size: 50, results: [] } }))
   await page.route('**/api/v1/admin/users/**', (r) => r.fulfill({ json: { count: 2, offset: 0, page_size: 50, results: [adminRow(1, 'testuser', []), adminRow(5, 'bob', ADMIN_OWNED)] } }))
 }
+
+// /groups/:id server state for the GroupDetail confirm dialogs: the signed-in user owns the group, so the page offers
+// Delete group, and the one board carries cards, so Delete board? shows its type-to-confirm input.
+const GROUP_OWNER = { id: USER.id, username: USER.username, display_name: 'Test User', avatar_url: '' }
+const GROUP_2407 = {
+  id: 7, name: 'Sales', description: '', owner: GROUP_OWNER, parent: null, parent_name: null, member_count: 1, board_count: 1,
+  subgroup_count: 0, created_at: '2024-01-01T00:00:00Z', default_board_member_role: 'member', allowed_priorities: [], shared_labels: [],
+  is_starred: false, navigation_only: false, can_place_boards: true, health_status: null, effective_health_status: null,
+  health_status_source: null,
+}
+async function routeGroup(page: Page) {
+  const ok = (body: unknown) => (r: import('@playwright/test').Route) => r.fulfill({ json: body as object })
+  // An unmocked group socket closes on auth and signs the app out; a stub that only says connected keeps the page up.
+  await page.routeWebSocket('**/ws/groups/7/', (ws) => { ws.send(JSON.stringify({ event: 'connected', data: {} })) })
+  await page.route('**/api/v1/groups/7/**', ok([]))
+  await page.route('**/api/v1/groups/7/', ok(GROUP_2407))
+  await page.route('**/api/v1/groups/7/members/', ok([{ id: 1, user: GROUP_OWNER, role: 'admin', joined_at: '2024-01-01T00:00:00Z' }]))
+  await page.route('**/api/v1/groups/7/boards/', ok([{ ...BOARD_FULL, cards: undefined, owner: GROUP_OWNER, group: 7, card_count: 3, archived_card_count: 0 }]))
+  await page.route(/\/api\/v1\/boards\/\d+\/delete-impact\/?$/, ok({ child_cards: 0, parent_cards: 0, parent_boards: [], child_boards: [] }))
+}
 const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<void>]> = [
   ['Admin Add user', 'Add user', { user: { is_site_admin: true }, start: '/admin?tab=users', setup: routeAdminUsers }, async (page) => {
     await page.getByRole('button', { name: 'Add user', exact: true }).first().click()
@@ -1133,6 +1153,53 @@ const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<
     await page.keyboard.press('Control+,')
     await pickSettingsSection(page.getByRole('dialog', { name: 'Board settings' }), 'Swimlane fields')
     await page.getByRole('dialog', { name: 'Board settings' }).getByRole('button', { name: /Delete/ }).first().dispatchEvent('click')
+  }],
+  ['Delete board (group page)', 'Delete board?', { start: '/groups/7', setup: routeGroup }, async (page) => {
+    await page.getByRole('button', { name: /^More actions for / }).first().dispatchEvent('click')
+    await page.getByRole('menuitem', { name: 'Delete' }).dispatchEvent('click')
+  }],
+  ['Delete group', /^Delete "/, { start: '/groups/7?tab=settings&section=danger-zone', setup: routeGroup }, async (page) => {
+    await page.getByRole('button', { name: 'Delete group', exact: true }).dispatchEvent('click')
+  }],
+  ['Create group (created phase)', /created$/, {
+    start: '/',
+    setup: async (page) => { await page.route('**/api/v1/groups/', (r) => r.request().method() === 'POST' ? r.fulfill({ status: 201, json: { ...GROUP_2407, id: 8, name: 'Ops' } }) : r.fallback()) },
+  }, async (page) => {
+    await page.getByRole('button', { name: 'New group' }).first().dispatchEvent('click')
+    await page.getByPlaceholder('e.g. Engineering').fill('Ops')
+    await page.getByRole('button', { name: 'Create Group' }).dispatchEvent('click')
+  }],
+  ['Delete card (CardDetail)', 'Delete this card?', { setup: (page) => routeCardDetail(page, BOARD_FULL.id, CARD) }, async (page) => {
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    await page.getByRole('button', { name: 'Delete card', exact: true }).dispatchEvent('click')
+  }],
+  ['Connect an issue lens', 'Connect an issue lens', {
+    user: { git_lens_enabled: true },
+    setup: async (page) => { await page.route(`**/api/v1/git-lens/connections/${BOARD_FULL.id}/`, (r) => r.fulfill({ status: 404, json: { detail: 'Not found.' } })) },
+  }, async (page) => {
+    await page.keyboard.press('Control+,')
+    await pickSettingsSection(page.getByRole('dialog', { name: 'Board settings' }), 'Issue lens')
+    await page.getByRole('button', { name: 'Connect a repository' }).dispatchEvent('click')
+  }],
+  // Confirm-on-entry column. The checklist opens only from a drop: the phone layout has no drag and the card menu's
+  // Move to... commits directly, so the drag happens at desktop width, then the viewport shrinks to 390 with the
+  // held move (board state, not layout) still open, and the dialog is swept there.
+  ['Policy confirm', /^Move .* to Done\?$/, {
+    board: { ...BOARD_FULL, columns: [COLUMN_TODO, { ...COLUMN_DONE, policy: { v: 1, entry: ['Tests pass', 'Docs updated'], done: [], mode: 'confirm' } }] } as unknown as typeof BOARD_FULL,
+  }, async (page) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await expect(page.getByTestId('phone-board')).toBeHidden({ timeout: 10_000 })
+    const cardEl = page.locator('[data-tour-step="card"]').filter({ hasText: CARD.title }).first()
+    await expect(cardEl).toBeVisible({ timeout: 10_000 })
+    const from = (await cardEl.boundingBox())!
+    const to = (await page.getByText('Done').first().boundingBox())!
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + 10, { steps: 3 })
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 })
+    await page.mouse.up()
+    await expect(page.getByRole('dialog', { name: /^Move .* to Done\?$/ })).toBeVisible({ timeout: 10_000 })
+    await page.setViewportSize({ width: 390, height: 844 })
   }],
   ['Trello import', '', { start: '/' }, async (page) => {
     await page.getByRole('button', { name: /^Import/ }).first().click()
