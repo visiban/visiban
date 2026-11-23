@@ -673,4 +673,4 @@ Per-card `LIMIT 1` probes through a new `(card, moved_at, id)` index were also t
 
 `aged_flow_cumulative_flow_day` is pending under #2430 with its siblings until a NUC run measures it.
 
-Follow-up: ISSUE_LINK_TBD
+Follow-up: #2559 (stored per-card resting placements).
