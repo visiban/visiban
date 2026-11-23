@@ -490,6 +490,7 @@ export function OrDivider({ label = "or" }: { label?: string }) {
  * Timing Adjustable: a paused countdown never redirects. `onDone` runs once, at zero.
  */
 export function RedirectCountdown({ seconds, destination, onDone }: {
+  /** Read once, on mount. At least 5 (frontend/CLAUDE.md): time to hear the announcement and reach Pause. */
   seconds: number;
   /** Where the redirect goes ("Home", "sign in"); omitted, the copy is "Redirecting in Ns…". */
   destination?: string;
@@ -522,17 +523,17 @@ export function RedirectCountdown({ seconds, destination, onDone }: {
   }, [paused, remaining]);
 
   const toggle = () => {
-    setAnnouncement(paused ? `Redirect resumed: ${place} in ${remaining} seconds.` : "Redirect paused. You can stay on this page.");
+    setAnnouncement(paused ? `Redirect resumed: ${place} in ${remaining} seconds.` : "Redirect paused. Use Resume redirect to continue.");
     setPaused(!paused);
   };
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-fg-tertiary">
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-fg-secondary">
       <span>{paused ? "Redirect paused." : `Redirecting${destination ? ` to ${destination}` : ""} in ${remaining}s\u2026`}</span>
       <button
         type="button"
         onClick={toggle}
-        className="rounded px-1 max-sm:min-h-11 text-fg-secondary underline hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        className="rounded px-2 min-h-6 max-sm:min-h-11 text-fg-secondary underline hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         {paused ? "Resume redirect" : "Pause redirect"}
       </button>

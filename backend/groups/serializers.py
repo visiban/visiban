@@ -722,6 +722,8 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
         query for a whole list). A navigation-only group returns ``[]`` without
         reading anything: ``to_representation`` would blank it anyway, and the
         fallback must not query members of a group the viewer cannot see.
+        Single-object responses (create, update, broadcasts) take the bounded
+        fallback, one query each, accepted: they render one group.
         """
         if self._is_navigation_only(obj):
             return []

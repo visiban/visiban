@@ -92,6 +92,20 @@ class GroupMemberPreviewTests(TestCase):
         self.assertEqual(rows["big"]["member_preview"], [])
         self.assertEqual([u["username"] for u in rows["sub"]["member_preview"]], ["outsider"])
 
+    def test_owned_without_membership_withholds_preview(self):
+        # Ownership alone is not membership (#1829): such a group is never listed
+        # with its members, and retrieving it gives no preview either.
+        owned = Group.objects.create(name="owned", owner=self.owner)
+        other = User.objects.create_user(username="other", password="x")
+        GroupMembership.objects.create(group=owned, user=other, role="admin")
+        row = _rows(self.client.get("/api/v1/groups/")).get("owned")
+        self.assertTrue(row is None or row["member_preview"] == [])
+        r = self.client.get(f"/api/v1/groups/{owned.pk}/")
+        if r.status_code == 200:
+            self.assertEqual(r.data["member_preview"], [])
+        # Parity: whoever is refused the members route sees no preview.
+        self.assertIn(self.client.get(f"/api/v1/groups/{owned.pk}/members/").status_code, (403, 404))
+
     def test_unrelated_group_not_listed(self):
         stranger = User.objects.create_user(username="stranger", password="x")
         hidden = Group.objects.create(name="hidden", owner=stranger)

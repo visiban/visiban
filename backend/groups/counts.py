@@ -51,8 +51,10 @@ def prefetch_member_preview(qs):
     """Prefetch the first ``MEMBER_PREVIEW_LIMIT`` direct members of each group (#2487).
 
     One query for the whole list, bounded per group: a ``ROW_NUMBER()`` window
-    partitioned by group keeps at most ``MEMBER_PREVIEW_LIMIT`` rows each, so a
-    group with 10,000 members costs five rows, not 10,000. Ordered by
+    partitioned by group returns at most ``MEMBER_PREVIEW_LIMIT`` rows each. The
+    database still ranks every membership of each listed group (no index covers
+    ``joined_at``), so a very large group is a latency cost the query count does
+    not show; only five rows per group reach Python. Ordered by
     ``joined_at`` then ``id`` so the owner (the first member) normally leads and
     the order is stable. ``GroupSerializer.get_member_preview`` reads the result
     from ``_member_preview``.

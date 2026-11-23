@@ -59,7 +59,7 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
         >
           <p>Your email address has been confirmed. You can now sign in.</p>
           {/* void: navigate() can return a Promise in React Router v7; nothing to roll back. */}
-          <RedirectCountdown seconds={3} onDone={() => { void navigate("/"); }} />
+          <RedirectCountdown seconds={5} onDone={() => { void navigate("/"); }} />
         </StatusCard>
       )}
 

@@ -563,7 +563,7 @@ describe("#2484 / #2504 shared-part hardening", () => {
         expect(screen.getByText("Redirecting in 2s\u2026")).toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", { name: "Pause redirect" }));
         expect(screen.getByText("Redirect paused.")).toBeInTheDocument();
-        expect(screen.getByRole("status")).toHaveTextContent("Redirect paused. You can stay on this page.");
+        expect(screen.getByRole("status")).toHaveTextContent("Redirect paused. Use Resume redirect to continue.");
         act(() => { vi.advanceTimersByTime(10_000); });
         expect(onDone).not.toHaveBeenCalled();
         fireEvent.click(screen.getByRole("button", { name: "Resume redirect" }));
