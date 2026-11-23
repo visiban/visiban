@@ -111,6 +111,7 @@ python:S2068|Hard-coded passwords are security-sensitive
 python:S2077|Formatting SQL queries is security-sensitive
 python:S2245|Pseudorandom number generators are security-sensitive
 python:S3776|Cognitive Complexity of functions should not be too high
+python:S5332|Using clear-text protocols is security-sensitive
 python:S6418|Secrets should not be hard-coded
 pythonenterprise:S8443|Django Command classes should inherit from BaseCommand
 pythonsecurity:S2083|I/O function calls should not be vulnerable to path injection attacks

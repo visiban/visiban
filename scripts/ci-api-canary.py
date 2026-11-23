@@ -25,6 +25,9 @@ import signal
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+# `python3 scripts/ci-api-canary.py` puts scripts/ on sys.path, so this resolves from any cwd.
+from _paths import PathEscapeError, cli_roots, resolve_within  # noqa: E402  (#2525: confine --log)
+
 
 def make_handler(log_path: str):
     class Handler(BaseHTTPRequestHandler):
@@ -47,7 +50,17 @@ def make_handler(log_path: str):
     return Handler
 
 
+def _confine(log_path: str) -> str:
+    """Resolve --log within the allowed roots (repo, cwd, system temp), or raise PathEscapeError."""
+    return str(resolve_within(cli_roots(), log_path))
+
+
 def start(log_path: str) -> int:
+    try:
+        log_path = _confine(log_path)
+    except PathEscapeError as e:
+        print(f"ERROR: --log {e}", file=sys.stderr)
+        return 2
     open(log_path, "w").close()
     srv = HTTPServer(("127.0.0.1", 0), make_handler(log_path))
     port = srv.server_address[1]
@@ -66,6 +79,11 @@ def start(log_path: str) -> int:
 
 
 def verify(log_path: str, pid: "int | None") -> int:
+    try:
+        log_path = _confine(log_path)
+    except PathEscapeError as e:
+        print(f"ERROR: --log {e}", file=sys.stderr)
+        return 2
     if pid:
         try:
             os.kill(pid, signal.SIGTERM)
@@ -112,6 +130,14 @@ def _self_test() -> int:
             pass
         if verify(os.path.join(tmp, "missing.log"), None) != 2:
             problems.append("missing log must fail")
+    # #2525: a --log outside the allowed roots is rejected (exit 2) by both subcommands.
+    for bad in ("/etc/canary-2525.log", os.path.join(tempfile.gettempdir(), "..", "..", "etc", "canary-2525.log")):
+        for cmd in ("start", "verify"):
+            r = subprocess.run([sys.executable, __file__, cmd, "--log", bad], capture_output=True, text=True)
+            if r.returncode != 2 or "escapes" not in r.stderr:
+                problems.append(f"{cmd} must reject --log {bad} with exit 2 (got {r.returncode})")
+    if os.path.exists("/etc/canary-2525.log"):
+        problems.append("start created a file outside the allowed roots")
     if problems:
         print("self-test FAILED: " + "; ".join(problems), file=sys.stderr)
         return 1

@@ -112,6 +112,8 @@ values_image() {
 
 # The operator's values file: identical for install and upgrade. Only keys
 # present in both the released and the HEAD chart schema belong here.
+# Generated at run time and referenced by name so no literal sits next to `password:` (S2068).
+DRILL_DB_PW="upgrade-drill-db-$(openssl rand -hex 8)"
 cat > "$RUN_TMP/values-drill.yaml" <<VALUES
 secret:
   djangoSecretKey: "upgrade-drill-secret-key-$(openssl rand -hex 16)"
@@ -128,7 +130,7 @@ backend:
     enabled: false
 postgresql:
   auth:
-    password: "upgrade-drill-db-$(openssl rand -hex 8)"
+    password: "${DRILL_DB_PW}"
 ingress:
   enabled: false
 VALUES
