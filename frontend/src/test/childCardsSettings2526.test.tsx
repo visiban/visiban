@@ -5,7 +5,7 @@ import ChildCardsSettings from "../components/Board/ChildCardsSettings";
 
 vi.mock("../api/boards", () => ({
   getChildrenSettingBlockers: vi.fn().mockResolvedValue({ child_cards: 0, parent_cards: 0, default_of: [] }),
-  getDefaultChildBoardOptions: vi.fn().mockResolvedValue([{ id: 7, name: "Seven" }]),
+  getDefaultChildBoardOptions: vi.fn().mockResolvedValue({ boards: [{ id: 7, name: "Seven" }], boards_total: 1 }),
 }));
 
 const base = { id: 1, default_child_board: null, parent_name_singular: "", parent_name_plural: "" };
