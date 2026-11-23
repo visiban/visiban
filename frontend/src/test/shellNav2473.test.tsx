@@ -113,6 +113,18 @@ describe('BoardSwitcher (#2473)', () => {
     expect(screen.getByTestId('loc')).toHaveTextContent('/boards/3')
   })
 
+  it('makes each option focusable and opens it with Space when the option itself has focus (#2526)', () => {
+    renderSwitcher()
+    fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
+    const opt = screen.getByRole('option', { name: /Beta/ })
+    opt.focus()
+    expect(opt).toHaveFocus()
+    fireEvent.keyDown(opt, { key: 'a' })
+    expect(screen.getByTestId('loc')).not.toHaveTextContent('/boards/2')
+    fireEvent.keyDown(opt, { key: ' ' })
+    expect(screen.getByTestId('loc')).toHaveTextContent('/boards/2')
+  })
+
   it('renders the panel outside the h1', () => {
     renderSwitcher()
     fireEvent.click(screen.getByRole('button', { name: 'Alpha, switch board' }))
