@@ -148,6 +148,15 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
                 self.assertEqual(group["card_uids"], full_group["card_uids"][: self.LIMIT])
         self.assertEqual(capped["sampled"], cut)
 
+    def test_throughput_cards_name_every_uid_by_group_names(self):
+        # Each by_group list is cut on its own, so with limit=1 a group can keep
+        # a card the period's top-level list dropped; `cards` must still name it.
+        capped = self.get("throughput", {"group_by": "swimlane", "period": "day", "days": "365", "limit": "1"})
+        top = {uid for sample in capped["samples"] for uid in sample["card_uids"]}
+        grouped = {uid for sample in capped["samples"] for group in sample["by_group"] for uid in group["card_uids"]}
+        self.assertTrue(grouped - top, "fixture no longer exercises a group-only uid")
+        self.assertEqual({c["uid"] for c in capped["cards"]}, top | grouped)
+
     def test_throughput_with_one_uid_per_period_is_not_sampled(self):
         capped = self.get("throughput", {"limit": "1000"})
         self.assertFalse(capped["sampled"])
@@ -175,11 +184,21 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
 
     def test_a_bad_limit_is_refused_in_the_query_param_shape(self):
         for bad in ("0", "-1", "abc", "1.5", "ALL", str(2**63)):
-            for metric in ("cycle-time", "overview"):
+            for metric in ("cycle-time", "throughput", "wip-age", "attention", "overview"):
                 with self.subTest(limit=bad, metric=metric):
                     body = self.get(metric, {"limit": bad}, status=400)
                     self.assertEqual(body["code"], "invalid_query_param")
                     self.assertIn("limit", body["detail"])
+
+
+    def test_endpoints_with_nothing_to_cap_still_ignore_limit(self):
+        # `limit` is only on the capping endpoints' serializers: the others treat
+        # it as any unknown parameter, as before 1.3, even an invalid value.
+        for metric in ("dwell", "cumulative-flow", "swimlanes", "blocked"):
+            plain = self.get(metric)
+            for value in ("0", "abc", "3"):
+                with self.subTest(metric=metric, limit=value):
+                    self.assertEqual(self.get(metric, {"limit": value}), plain)
 
 
 class AnalyticsStalledLimitTests(EndpointFixture):

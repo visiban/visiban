@@ -333,6 +333,17 @@ class _ListLimitField(serializers.Field):
         return value
 
 
+class _ListLimitMixin(serializers.Serializer):
+    """``limit`` (#2429), only on the six endpoints that cap a per-card list.
+
+    Kept off the shared filters on purpose: dwell, cumulative flow, swimlanes
+    and blocked have nothing to cap, so a ``limit`` there stays an unknown
+    parameter they ignore, exactly as before 1.3, never a 400.
+    """
+
+    limit = _ListLimitField(required=False)
+
+
 class FlowMetricsQuerySerializer(serializers.Serializer):
     """The filters every ``metrics/*`` endpoint accepts, validated at the boundary.
 
@@ -346,8 +357,6 @@ class FlowMetricsQuerySerializer(serializers.Serializer):
     to_date = serializers.DateField(required=False)
     swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
     label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
-    # Read by the endpoints with per-card lists; the others ignore it (#2429).
-    limit = _ListLimitField(required=False)
 
     def _in_bounds(self, value):
         if not _MIN_FLOW_DATE <= value <= _MAX_FLOW_DATE:
@@ -417,7 +426,7 @@ class GroupedFlowMetricsQuerySerializer(FlowMetricsQuerySerializer):
         return attrs
 
 
-class AnalyticsFilterQuerySerializer(serializers.Serializer):
+class AnalyticsFilterQuerySerializer(_ListLimitMixin, serializers.Serializer):
     """The optional ``swimlane_id`` / ``label_id`` filters of ``analytics`` (#2280).
 
     Validated exactly as on ``metrics/*`` (reusing its validators) so an id on
@@ -426,7 +435,6 @@ class AnalyticsFilterQuerySerializer(serializers.Serializer):
 
     swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
     label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
-    limit = _ListLimitField(required=False)
 
     validate_swimlane_id = FlowMetricsQuerySerializer.validate_swimlane_id
     validate_label_id = FlowMetricsQuerySerializer.validate_label_id
@@ -459,7 +467,15 @@ class SwimlaneComparisonQuerySerializer(FlowMetricsQuerySerializer):
         return definition
 
 
-class ThroughputQuerySerializer(GroupedFlowMetricsQuerySerializer):
+class CappedGroupedFlowMetricsQuerySerializer(_ListLimitMixin, GroupedFlowMetricsQuerySerializer):
+    """``metrics/cycle-time`` and ``metrics/wip-age``: the grouped filters plus ``limit`` (#2429)."""
+
+
+class AttentionQuerySerializer(_ListLimitMixin, FlowMetricsQuerySerializer):
+    """``metrics/attention``: the base filters plus ``limit`` (#2429)."""
+
+
+class ThroughputQuerySerializer(_ListLimitMixin, GroupedFlowMetricsQuerySerializer):
     period = serializers.ChoiceField(choices=["day", "week"], required=False, default="week")
 
 
@@ -1257,7 +1273,9 @@ def _cycle_time_payload(flow, flow_range, grouping, limit=None):
     payload = flow_metrics.cycle_time(flow, flow_range)
     if grouping is not None:
         flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
-    # After grouping: the group percentiles read every sample.
+    # The group percentiles are recomputed from ``flow`` (group_cycle_time),
+    # never from these samples, so the cap cannot change them; it runs after
+    # grouping only so each kept sample carries its ``group_keys``.
     _cap_samples(payload, limit)
     payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
     return payload
@@ -1277,8 +1295,16 @@ def _throughput_payload(flow, flow_range, period, grouping, limit=None):
                     entry["card_uids"] = entry["card_uids"][:limit]
                     sampled = True
         payload["sampled"] = sampled
+    # Over the by_group lists too: each was cut on its own, so with ``limit``
+    # a group can name a card its period's top-level list dropped (#2429).
     payload["cards"] = flow_metrics.card_directory(
-        flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
+        flow,
+        (
+            uid
+            for sample in payload["samples"]
+            for entry in (sample, *sample.get("by_group", ()))
+            for uid in entry["card_uids"]
+        ),
     )
     return payload
 
@@ -1780,7 +1806,7 @@ class BoardAnalyticsMixin:
     def metrics_cycle_time(self, request, pk=None):
         """Cycle time of the cards whose first completion falls in the range."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
+        params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
@@ -1898,7 +1924,7 @@ class BoardAnalyticsMixin:
     def metrics_wip_age(self, request, pk=None):
         """WIP age. A snapshot: the range moves only ``cycle_time_percentiles``."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
+        params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
@@ -1946,7 +1972,7 @@ class BoardAnalyticsMixin:
     def metrics_attention(self, request, pk=None):
         """A snapshot: the range moves only the cycle-time p85 (#2260)."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
-        params = _flow_query(FlowMetricsQuerySerializer, request, board)
+        params = _flow_query(AttentionQuerySerializer, request, board)
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)

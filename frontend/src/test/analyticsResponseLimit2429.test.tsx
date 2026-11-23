@@ -34,7 +34,7 @@ const wipAge = (over: Partial<FlowWipAge> = {}): FlowWipAge => ({
 })
 
 describe('capped analytics responses (#2429)', () => {
-  it('caps the Overview at a size that keeps a 12k-card board under a megabyte', () => {
+  it('caps each Overview list at a bounded size, so per-card lists stop growing with the board', () => {
     expect(OVERVIEW_LIST_LIMIT).toBeGreaterThan(0)
     expect(OVERVIEW_LIST_LIMIT).toBeLessThanOrEqual(500)
   })

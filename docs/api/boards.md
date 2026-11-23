@@ -578,7 +578,9 @@ Every number a response states (`sample_size`, `percentiles`, `cycle_time_percen
 | `attention` | `items` to the first `limit`, in their documented order, so the oldest stay | `items_total`, `sampled` |
 | `overview` | each section as its own endpoint does | as above, per section |
 
-`sampled` is `true` when a list was actually cut, `false` when it fit. `cards` names only the cards the cut lists still name. Downsampling is deterministic: the same board and query give the same samples. The Analytics page sends `limit=300`.
+`sampled` is `true` when a list was actually cut, `false` when it fit. `cards` names exactly the cards the cut lists still name, `throughput`'s `by_group[].card_uids` included. Downsampling is deterministic: the same board and query give the same samples. The Analytics page sends `limit=300`. `dwell`, `cumulative-flow`, `swimlanes` and `blocked` have no per-card list to cap and ignore `limit` like any unknown parameter, whatever its value.
+
+Response sizes quoted for `limit` are raw JSON bytes. The shipped nginx and Helm frontend configurations gzip `application/json`, so a browser behind them receives much less; daphne itself and the development Vite proxy do not compress, so a development or direct-to-backend client receives the raw size.
 
 <a id="flow-metric-breakdowns"></a>
 **Breakdowns** (`group_by`, #2265). The new parameters follow the 1.0+ compatibility rules, but may still change until 1.3 GA. Without `group_by` every response is exactly what it was before this parameter existed. With it, the response is the same plus:
