@@ -5102,10 +5102,10 @@ job timeout. These diagnostics exist so the next stall names its cause instead o
   stuck backend, <code>pg_blocking_pids</code>, each blocker's state and query, and the ungranted and blocking
   <code>pg_locks</code> rows. A blocker in <code>idle in transaction</code> is a connection a test leaked. It is
   diagnostic only and never fails the job.</li>
-<li><strong><code>lock timeout</code> failure</strong> (#2536): four jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>:
-  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (which have the watcher), <code>backend-test-migrations</code>
+<li><strong><code>lock timeout</code> failure</strong> (#2536): five jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>:
+  <code>backend-test</code> and <code>backend-test-pg-matrix</code> (which have the watcher), <code>backend-test-migrations</code> and <code>backend-test-slow</code>
   (via the shared <code>*backend-test-variables</code> anchor) and <code>backend-test-pg-matrix-nightly</code> (via
-  <code>extends</code>). <code>backend-test-migrations</code> has the timeout but NOT the watcher, so a lock timeout there
+  <code>extends</code>). <code>backend-test-migrations</code> and <code>backend-test-slow</code> have the timeout but NOT the watcher, so a lock timeout there
   comes with no <code>[pg-activity-watch]</code> report. A lock wait over 3 minutes fails the test with <code>canceling statement due to lock timeout</code> instead of
   hanging. That failure is a real defect (a leaked or contended lock), not a flake. Read the
   <code>[pg-activity-watch]</code> report just above it for the blocker. There is deliberately no
