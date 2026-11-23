@@ -57,6 +57,10 @@ from _paths import REPO_ROOT, cli_roots, resolve_within
 
 PROJECT = "visiban%2Fvisiban"
 SUITE = "backend-test"
+# backend-test-slow (#2524) runs the `slow`-marked tests the shards deselect, so
+# a refresh that read only the shards would drop those tests from the file. It
+# is optional: a pipeline that did not create the job has no such suite.
+OPTIONAL_SUITES = ("backend-test-slow",)
 
 
 def nodeid_key(nodeid: str) -> tuple[str, str] | None:
@@ -82,6 +86,22 @@ def rows_from_test_report(report: dict, suite: str) -> list[tuple[str, str, floa
         for s in suites
         for c in s.get("test_cases", [])
     ]
+
+
+def rows_from_suites(report: dict, suites: list[str] | None) -> list[tuple[str, str, float]]:
+    """Rows for the named suites, or for the default set when none are named.
+
+    Named suites must all exist. The default set requires `backend-test` and
+    adds each optional suite (`backend-test-slow`) only when the report has it.
+    """
+    if suites:
+        return [row for name in suites for row in rows_from_test_report(report, name)]
+    present = {s.get("name") for s in report.get("test_suites", [])}
+    rows = rows_from_test_report(report, SUITE)
+    for name in OPTIONAL_SUITES:
+        if name in present:
+            rows += rows_from_test_report(report, name)
+    return rows
 
 
 def rows_from_junit(text: str) -> list[tuple[str, str, float]]:
@@ -161,7 +181,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pipeline", help="pipeline id, or `latest` for the newest green main push pipeline")
     ap.add_argument("--test-report", help="GitLab pipeline test_report JSON file")
     ap.add_argument("--junit", nargs="*", default=[], help="JUnit XML files")
-    ap.add_argument("--suite", default=SUITE, help=f"test-report suite name (default {SUITE})")
+    ap.add_argument(
+        "--suite",
+        action="append",
+        help=f"test-report suite name, repeatable (default {SUITE} plus {', '.join(OPTIONAL_SUITES)} when present)",
+    )
     ap.add_argument("--collected", help="output of `pytest --collect-only -q`, run in backend/")
     ap.add_argument("--collect", action="store_true", help="run the collection here instead of --collected")
     ap.add_argument("--output", help="write here (default: stdout)")
@@ -173,10 +197,10 @@ def main(argv: list[str] | None = None) -> int:
         pid = latest_pipeline() if args.pipeline == "latest" else int(args.pipeline)
         print(f"pipeline {pid}", file=sys.stderr)
         report = glab_json(f"projects/{PROJECT}/pipelines/{pid}/test_report")
-        rows += rows_from_test_report(report, args.suite)
+        rows += rows_from_suites(report, args.suite)
     if args.test_report:
         report = json.loads(resolve_within(roots, args.test_report).read_text())
-        rows += rows_from_test_report(report, args.suite)
+        rows += rows_from_suites(report, args.suite)
     for path in args.junit:
         rows += rows_from_junit(resolve_within(roots, path).read_text())
     if not rows:

@@ -161,6 +161,8 @@ ALWAYS_REQUIRED = (
     "backend-test-coverage",
     # The full migration apply moved out of the backend-test shards (#2490).
     "backend-test-migrations",
+    # Slow seed/sample tests (#2524): created on every default-branch push.
+    "backend-test-slow",
     "backend-test-git-lens",
     "backend-test-mcp",
     "frontend-test",

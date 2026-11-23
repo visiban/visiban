@@ -102,6 +102,7 @@ Every push triggers a GitLab CI pipeline that builds and validates the project. 
 | **lint** | `frontend-lint` | ESLint + TypeScript type checking (`tsc --noEmit`) |
 | **test** | `backend-test` | Django test suite with coverage (90% minimum threshold) |
 | **test** | `backend-test-migrations` | Applies the full migration graph and runs `-m migrations` tests (blocking) |
+| **test** | `backend-test-slow` | Runs the `slow`-marked seed/sample tests on main, nightly and relevant MRs (blocking) |
 | **test** | `frontend-test` | Vitest test suite |
 | **test** | `migration-check` | Verifies all model changes have corresponding migrations |
 | **test** | `backend-docker-build` | Kaniko image build; pushes the per-commit image to the CI-only `ci/` registry path for the helm drills (#2492) |

@@ -4,6 +4,7 @@ import datetime
 from io import StringIO
 from unittest import mock
 
+import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, TransactionTestCase, override_settings
@@ -586,6 +587,7 @@ class SeedScaleTests(TestCase):
         self.assertNotIn(" (2)", " ".join(names))
         self.assertFalse(Board.objects.filter(name=LOAD_TEST_BOARD_NAME).exists())
 
+    @pytest.mark.slow
     def test_scale_n_creates_separate_load_test_board(self):
         """--scale > 1 must never touch 'Visiban Demo Board' — it seeds a
         distinctly-named board instead, so the manual demo refresh job and the
@@ -595,6 +597,7 @@ class SeedScaleTests(TestCase):
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
         self.assertEqual(board.swimlanes.count(), 30)
 
+    @pytest.mark.slow
     def test_scale_n_seeds_deep_movement_history(self):
         """The load-test fixture carries ~10+ movements on moved cards (#1883),
         so a read that loads every movement per card shows up as latency; the
@@ -642,6 +645,7 @@ class SeedScaleTests(TestCase):
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
         self.assertGreater(board.cards.count(), len(CARD_TITLES))
 
+    @pytest.mark.slow
     def test_scale_n_board_has_20_members_default_board_5(self):
         """#1723: the load-test board is padded to 20 members; the default stays at 5."""
         _seed(scale=2)
@@ -654,6 +658,7 @@ class SeedScaleTests(TestCase):
             _seed(scale=0)
         self.assertIn("--scale", str(ctx.exception))
 
+    @pytest.mark.slow
     def test_scale_n_wipe_only_deletes_load_test_board(self):
         """--wipe with --scale > 1 must be scoped to the load-test board, leaving
         an existing demo board (if any) untouched."""
@@ -671,6 +676,7 @@ class SeedExtraBoardsTests(TestCase):
         _seed(scale=2)
         self.assertFalse(Board.objects.filter(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX).exists())
 
+    @pytest.mark.slow
     def test_extra_boards_give_demo3_many_accessible_boards(self):
         from boards.views._helpers import get_accessible_boards_queryset
 
@@ -688,6 +694,7 @@ class SeedExtraBoardsTests(TestCase):
         for board in Board.objects.filter(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX):
             self.assertEqual(board.cards.count(), 8)
 
+    @pytest.mark.slow
     def test_extra_boards_do_not_change_main_fixture(self):
         _seed(scale=2)
         before = sorted(Board.objects.get(name=LOAD_TEST_BOARD_NAME).cards.values_list("title", flat=True))
@@ -695,16 +702,19 @@ class SeedExtraBoardsTests(TestCase):
         after = sorted(Board.objects.get(name=LOAD_TEST_BOARD_NAME).cards.values_list("title", flat=True))
         self.assertEqual(before, after)
 
+    @pytest.mark.slow
     def test_wipe_replaces_extra_boards_rather_than_accumulating(self):
         _seed(scale=2, extra_boards=3)
         _seed(scale=2, extra_boards=2, wipe=True)
         self.assertEqual(Board.objects.filter(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX).count(), 2)
 
+    @pytest.mark.slow
     def test_wipe_with_scale_1_leaves_extra_boards_alone(self):
         _seed(scale=2, extra_boards=2)
         _seed(scale=1, wipe=True)
         self.assertEqual(Board.objects.filter(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX).count(), 2)
 
+    @pytest.mark.slow
     def test_scale_wipe_deletes_only_load_test_and_prefixed_boards(self):
         """The prefix match must not reach unrelated boards, including look-alikes."""
         from accounts.models import User
@@ -770,6 +780,7 @@ class SeedNotificationsTests(TestCase):
         others = rows.exclude(action_type=Notification.ActionType.MENTIONED)
         self.assertFalse(others.exclude(mention_source__isnull=True).exists())
 
+    @pytest.mark.slow
     def test_with_notifications_works_alongside_scale(self):
         _seed(scale=2, with_notifications=True)
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
@@ -874,6 +885,7 @@ class SeedDemoSiteTests(TestCase):
         self.assertEqual(sorted(r["Coverage"] for r in rows.values()).count("Full"), len(rows) - 2)
         self.assertEqual({r["Coverage"] for r in rows.values()}, {"Full", "Partial", "Gap"})
 
+    @pytest.mark.slow
     def test_seeds_seven_showcase_boards_plus_the_trello_import(self):
         _seed(demo_site=True)
         seeded = set(Board.objects.exclude(name=BOARD_NAME).values_list("name", flat=True))
@@ -1030,6 +1042,7 @@ class SeedDemoSiteTests(TestCase):
                 _seed(demo_site=True)
         self.assertFalse(Board.objects.exists())
 
+    @pytest.mark.slow
     def test_wipe_resets_tour_flag_and_password_for_existing_users(self):
         _seed(demo_site=True)
         User.objects.filter(username__in=["admin", "maya"]).update(has_completed_tour=True)
@@ -1040,6 +1053,7 @@ class SeedDemoSiteTests(TestCase):
         # The visitor is re-pinned to "done" on every run (#1179).
         self.assertTrue(User.objects.get(username="visitor").has_completed_tour)
 
+    @pytest.mark.slow
     def test_second_run_without_wipe_skips_existing_boards(self):
         _seed(demo_site=True)
         out, _ = _seed(demo_site=True)
@@ -1065,6 +1079,7 @@ class SeedDemoSiteTests(TestCase):
             with self.assertRaises(CommandError):
                 _seed(demo_site=True)
 
+    @pytest.mark.slow
     def test_wipe_rerun_is_idempotent(self):
         _seed(demo_site=True)
         _seed(demo_site=True, wipe=True)
@@ -1073,6 +1088,7 @@ class SeedDemoSiteTests(TestCase):
             self.assertEqual(Card.objects.filter(board__name=name).count(), self.spec_card_count(name))
         self.assertEqual(User.objects.filter(username="admin").count(), 1)
 
+    @pytest.mark.slow
     def test_wipe_removes_boards_retired_by_1389(self):
         """A database seeded before #1389 and reseeded with --wipe alone (no
         --reset-database) must not keep the retired showcase boards."""
@@ -1279,6 +1295,7 @@ class SeedDemoSiteShowcaseTests(TestCase):
             self.assertGreaterEqual(buckets["stale"], 2, (name, buckets))
             self.assertLessEqual(buckets["stale"], 5, (name, buckets))
 
+    @pytest.mark.slow
     def test_staleness_matches_the_api_annotation(self):
         from boards.serializers import _annotate_is_stale
 
@@ -1335,6 +1352,7 @@ class SeedDemoSiteEntityBoardsTests(TestCase):
         self.assertEqual(resp.status_code, 200, board.name)
         return resp.json()
 
+    @pytest.mark.slow
     def test_each_entity_board_pins_three_public_row_fields_with_values_on_every_lane(self):
         for name in self.ENTITY_BOARDS:
             board = Board.objects.get(name=name)
@@ -1500,6 +1518,7 @@ class DemoSiteResetIsDeterministicTests(TestCase):
         )
         return cards, card_values, row_values, labels, last_moves
 
+    @pytest.mark.slow
     def test_wipe_and_reseed_reproduces_the_same_content(self):
         _seed(demo_site=True)
         first = self._snapshot()
@@ -1903,6 +1922,7 @@ class OverlayBoardUrlTests(TransactionTestCase):
         (9, TRELLO),  # appended last (#1908), so the overlay board stays /boards/6
     ]
 
+    @pytest.mark.slow
     def test_overlay_board_keeps_its_url(self):
         _seed(demo_site=True)  # an existing demo, so the sequences have moved on
         for _ in range(2):
@@ -1994,6 +2014,7 @@ class DemoSiteTrelloBoardTests(TestCase):
 
         self.assertTrue(BoardEvent.objects.filter(board_id=self.board.pk, event="board.created").exists())
 
+    @pytest.mark.slow
     def test_wipe_reseed_recreates_it_once(self):
         _seed(demo_site=True, wipe=True)
         self.assertEqual(Board.objects.filter(name=TRELLO).count(), 1)
@@ -2003,6 +2024,7 @@ class DemoSiteTrelloBoardTests(TestCase):
 class SeedWipeChangeFeedTests(TestCase):
     """#1889 (#1636): --wipe ends each deleted board's change feed."""
 
+    @pytest.mark.slow
     def test_wipe_reseed_leaves_no_board_without_board_deleted(self):
         from boards.models import BoardEvent
 
@@ -2028,6 +2050,7 @@ class DemoSiteFiltersAndDensityTests(TestCase):
     def setUpTestData(cls):
         _seed(demo_site=True)
 
+    @pytest.mark.slow
     def test_the_visitor_has_saved_filters_that_match_cards(self):
         from rest_framework.test import APIClient
 

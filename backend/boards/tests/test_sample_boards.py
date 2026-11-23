@@ -21,6 +21,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
@@ -363,6 +364,7 @@ class SampleBoardImportTests(TestCase):
         self.assertEqual(resp.status_code, 201, (path.name, getattr(resp, "data", None)))
         return Board.objects.get(pk=resp.data["id"])
 
+    @pytest.mark.slow
     def test_every_sample_imports_without_losing_anything(self):
         for path in TEMPLATES:
             data = _load(path)
@@ -471,6 +473,7 @@ class SampleBoardHistoryTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
+    @pytest.mark.slow
     def test_every_sample_card_is_fully_explained_by_its_history(self):
         from boards.tests.history_reconciliation import board_history_problems
 

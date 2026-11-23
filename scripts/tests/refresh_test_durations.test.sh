@@ -87,6 +87,31 @@ if python3 "$SCRIPT" --junit "$WORK/junit-1.xml" --collected "$WORK/collected.tx
    | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d == {"boards/tests/test_a.py::ATests::test_one": 0.25, "boards/tests/test_a.py::test_param[x-1]": 0.75}, d'; then
   ok "reads JUnit XML"; else bad "reads JUnit XML"; fi
 
+# #2524: the default reads backend-test AND backend-test-slow, so a refresh
+# keeps the slow tests; a report without the slow suite still works (above).
+cat > "$WORK/collected2.txt" <<'EOF'
+boards/tests/test_a.py::ATests::test_one
+boards/tests/test_s.py::SlowTests::test_slow
+
+7 tests collected in 0.10s
+EOF
+cat > "$WORK/report2.json" <<'EOF'
+{"test_suites": [
+  {"name": "backend-test", "test_cases": [
+    {"classname": "boards.tests.test_a.ATests", "name": "test_one", "execution_time": 1.0}]},
+  {"name": "backend-test-slow", "test_cases": [
+    {"classname": "boards.tests.test_s.SlowTests", "name": "test_slow", "execution_time": 40.0}]}
+]}
+EOF
+if python3 "$SCRIPT" --test-report "$WORK/report2.json" --collected "$WORK/collected2.txt" \
+     --output "$WORK/out2.json" 2>/dev/null \
+   && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d=={'boards/tests/test_a.py::ATests::test_one':1.0,'boards/tests/test_s.py::SlowTests::test_slow':40.0}, d" "$WORK/out2.json"; then
+  ok "default reads both backend-test and backend-test-slow"; else bad "default reads both suites"; fi
+if python3 "$SCRIPT" --test-report "$WORK/report2.json" --suite backend-test --collected "$WORK/collected2.txt" \
+     --output "$WORK/out3.json" 2>/dev/null \
+   && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert list(d)==['boards/tests/test_a.py::ATests::test_one'], d" "$WORK/out3.json"; then
+  ok "an explicit --suite reads only that suite"; else bad "explicit --suite"; fi
+
 if python3 "$SCRIPT" --test-report "$WORK/report.json" --suite no-such-suite --collected "$WORK/collected.txt" >/dev/null 2>&1; then
   bad "missing suite is refused"; else ok "missing suite is refused"; fi
 

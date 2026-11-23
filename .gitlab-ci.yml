@@ -899,7 +899,9 @@ backend-lint:
 # The shards skip migrations (--nomigrations -m "not migrations", #2490): the
 # test DB is built from the models, saving ~73 s of setup per shard. Tests that
 # need the real migration graph carry @pytest.mark.migrations and run, with the
-# full migration apply, in backend-test-migrations below.
+# full migration apply, in backend-test-migrations below. Tests that cost
+# >= ~10 s on Postgres (the seed/sample command suites) carry @pytest.mark.slow
+# and run in backend-test-slow instead, which is path-gated on MRs (#2524).
 # These jobs gate the pipeline on test failures (fast, parallel).
 # Coverage is measured separately by backend-test-coverage in a single-process
 # run — see that job's comment for why sharded coverage combining is not used.
@@ -982,7 +984,7 @@ backend-test:
         --group $CI_NODE_INDEX
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
-        --nomigrations -m "not migrations"
+        --strict-markers --nomigrations -m "not migrations and not slow"
         -o faulthandler_timeout=300
         -v
   artifacts:
@@ -1021,6 +1023,7 @@ backend-test-migrations:
     - cd backend
     - coverage run --parallel --data-file=.coverage.migrations -m pytest
         -m migrations
+        --strict-markers
         --junitxml=test-results/junit-migrations.xml
         -q
   allow_failure: false
@@ -1029,6 +1032,83 @@ backend-test-migrations:
       - backend/.coverage.*
     reports:
       junit: backend/test-results/junit-migrations.xml
+    when: always
+    expire_in: 1 day
+
+# The slow tests (#2524): @pytest.mark.slow marks tests that cost >= ~10 s on
+# Postgres (the seed/sample command suites: 25 tests, 433 s = ~7.2 runner-minutes
+# per pipeline by backend/.test_durations).
+# backend-test deselects them; this single job runs them, so the MR path keeps
+# the cheap seed tests and pays for the expensive ones only where they can
+# change. It runs on:
+#   * the Nightly schedule (FUZZ_DEEP == "true") and default-branch pushes, so
+#     every slow test still runs on main and every night;
+#   * MRs touching the seed/sample commands, their data and fixture modules,
+#     models, migrations, pytest config, requirements or this file.
+# Every other schedule (the weekly mutation and nightly load-test schedules)
+# skips it (Sonar and CVE ride the Nightly, which runs it). On those,
+# backend-test and backend-test-coverage still run (`changes:` is always true on
+# a schedule) but without .coverage.slow; measured impact ~5 statements of
+# 31,449 (~0.016%) (#2489 caveat).
+# Instrumented like the shards: backend-test-coverage lists it with
+# `needs: optional: true`, so an MR pipeline that did not create this job still
+# combines the remaining data; a pipeline that did create it waits for it.
+# Rules are spelled out (no aliases) because
+# scripts/wait-for-main-pipeline.py --check-ci-file reads rules as text.
+backend-test-slow:
+  extends: .pip-cache
+  stage: test
+  timeout: 30m
+  needs: []
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $FUZZ_DEEP == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/boards/tests/test_seed_demo_data.py
+        - backend/boards/tests/test_sample_boards.py
+        - backend/boards/tests/test_container_delete_vs_card_entry_lock.py
+        - backend/boards/tests/history_reconciliation.py
+        - backend/boards/views/import_export.py
+        - backend/boards/import_schemas.py
+        - backend/boards/import_errors.py
+        - backend/boards/management/commands/seed_demo_data.py
+        - backend/boards/management/commands/seed_template_boards.py
+        - backend/boards/management/commands/_*.py
+        - backend/boards/sample_boards/**/*
+        - backend/boards/seed_data/**/*
+        - backend/boards/services/sample_boards.py
+        - backend/**/models.py
+        - backend/**/migrations/**/*
+        - backend/setup.cfg
+        - backend/conftest.py
+        - backend/.coveragerc
+        - backend/requirements*.txt
+        - sample-boards/**/*
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  services: *backend-test-services
+  variables: *backend-test-variables
+  cache: *backend-test-cache
+  before_script: *backend-test-before-script
+  script:
+    - cd backend
+    # --nomigrations like the shards. No pytest-split: one job runs the whole
+    # marked set (25 tests) so there is nothing to balance.
+    - coverage run --parallel --data-file=.coverage.slow -m pytest
+        -m "slow and not migrations"
+        --strict-markers --nomigrations
+        --junitxml=test-results/junit-slow.xml
+        -o faulthandler_timeout=300
+        -v
+  allow_failure: false
+  artifacts:
+    paths:
+      - backend/.coverage.*
+    reports:
+      junit: backend/test-results/junit-slow.xml
     when: always
     expire_in: 1 day
 
@@ -1087,6 +1167,10 @@ backend-test-coverage:
   needs:
     - backend-test
     - backend-test-migrations
+    # optional (#2524): only created on Nightly, default-branch pushes and MRs
+    # touching the seed/sample paths; its absence must not fail this job.
+    - job: backend-test-slow
+      optional: true
     - backend-test-git-lens
     - backend-test-mcp
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
