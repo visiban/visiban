@@ -200,7 +200,13 @@ export function findBoardCardElement(cardId: number): HTMLElement | null {
 /** Reads the anchor rule's inputs off the DOM around a rendered card. */
 export function measureCardSheetGeometry(cardEl: HTMLElement): SheetGeometry {
   const card = cardEl.getBoundingClientRect();
-  const cell = (cardEl.closest("[data-board-cell]") as HTMLElement | null) ?? cardEl;
+  // A staged cell is split into sub-columns and `[data-board-cell]` spans all
+  // of them, so anchor to the card's own sub-column first (#2540); the cell
+  // (unsplit columns) and then the card are the fallbacks.
+  const cell =
+    (cardEl.closest("[data-sub-column-drop]") as HTMLElement | null) ??
+    (cardEl.closest("[data-board-cell]") as HTMLElement | null) ??
+    cardEl;
   const col = cell.getBoundingClientRect();
   const root = cardEl.closest(BOARD_SCROLL_SELECTOR);
   // No lane label to avoid since the swimlane bands (#2271): the sheet may use the board's whole left edge.

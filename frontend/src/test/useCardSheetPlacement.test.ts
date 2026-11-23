@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import {
   SHEET_GAP, SHEET_WIDTH, NOTCH_INSET,
-  classifyTransition, computeCardSheetPlacement, computeNotch, sameFrame, samePlacement, useCardSheetPlacement,
+  classifyTransition, computeCardSheetPlacement, measureCardSheetGeometry, computeNotch, sameFrame, samePlacement, useCardSheetPlacement,
 } from '../hooks/useCardSheetPlacement'
 import type { SheetGeometry, SheetPlacement } from '../hooks/useCardSheetPlacement'
 
@@ -254,5 +254,57 @@ describe('computeCardSheetPlacement width (#2507)', () => {
     const flipped = computeCardSheetPlacement({ viewportWidth: 1600, viewportHeight: VH, geometry: far, width: 400 })
     expect(flipped.side).toBe('left')
     expect(flipped.left).toBe(1300 - SHEET_GAP - 400)
+  })
+})
+
+// #2540 — a staged cell is split; anchor to the card's sub-column, not the stage.
+describe('measureCardSheetGeometry sub-column anchor (#2540)', () => {
+  const rect = (left: number, right: number) => () =>
+    ({ left, right, top: 0, bottom: 40, width: right - left, height: 40, x: left, y: 0, toJSON: () => ({}) })
+  let board: HTMLElement
+  const build = (withSub: boolean) => {
+    board = document.createElement('div')
+    board.setAttribute('data-board-scroll', '')
+    const cell = document.createElement('div')
+    cell.setAttribute('data-board-cell', '')
+    cell.getBoundingClientRect = rect(240, 900)
+    const card = document.createElement('div')
+    card.setAttribute('data-card-id', '1')
+    card.getBoundingClientRect = rect(400, 500)
+    if (withSub) {
+      const sub = document.createElement('div')
+      sub.setAttribute('data-sub-column-drop', 'cell:1:2:1')
+      sub.getBoundingClientRect = rect(380, 520)
+      sub.appendChild(card)
+      cell.appendChild(sub)
+    } else {
+      cell.appendChild(card)
+    }
+    board.appendChild(cell)
+    document.body.appendChild(board)
+    return card
+  }
+  afterEach(() => { board.remove(); window.innerWidth = 1024 })
+
+  it("uses the card's sub-column edges when the cell is split", () => {
+    expect(measureCardSheetGeometry(build(true)).column).toEqual({ left: 380, right: 520 })
+  })
+
+  it('falls back to the cell edges without a sub-column', () => {
+    expect(measureCardSheetGeometry(build(false)).column).toEqual({ left: 240, right: 900 })
+  })
+
+  it('re-places when the locationKey changes as the card moves sub-column', () => {
+    window.innerWidth = 1600
+    const card = build(true)
+    const sub2 = document.createElement('div')
+    sub2.setAttribute('data-sub-column-drop', 'cell:1:2:2')
+    sub2.getBoundingClientRect = rect(530, 670)
+    board.querySelector('[data-board-cell]')!.appendChild(sub2)
+    const { result, rerender } = renderHook(({ k }) => useCardSheetPlacement(1, k), { initialProps: { k: 'a:b:0' } })
+    const before = result.current.placement
+    sub2.appendChild(card)
+    rerender({ k: 'a:b:1' })
+    expect(result.current.placement).not.toEqual(before)
   })
 })

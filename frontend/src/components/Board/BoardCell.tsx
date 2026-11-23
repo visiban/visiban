@@ -235,7 +235,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
   return (
     <div
       ref={(el) => { cellRef.current = el; setNodeRef(el); }}
-      // The card detail sheet anchors to this cell's column edges (#1914).
+      // The card detail sheet anchors to this cell's column edges (#1914), or to the
+      // card's sub-column edges when the cell is split into stages (#2540).
       data-board-cell
       data-column-id={column.id}
       data-swimlane-id={swimlane.id}
