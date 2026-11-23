@@ -218,7 +218,8 @@ def default_child_blockers_for_viewer(board, user):
     ``{"child_cards": N, "parent_cards": M, "default_of": [...]}``:
     ``child_cards`` are this board's cards that are children of other cards
     (blocks ON), ``parent_cards`` this board's cards that have children (blocks
-    OFF, the shipped refusal), and ``default_of`` the boards whose default
+    nothing since #2446: the count the turn-off confirm states, since those
+    cards stay parents), and ``default_of`` the boards whose default
     child board this is (blocks ON). Each ``default_of`` entry is
     ``{"id", "name", "can_change"}`` when ``user`` can open that board, else
     ``{"hidden": True}``: no name or id for a board the viewer cannot open

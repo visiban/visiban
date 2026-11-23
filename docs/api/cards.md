@@ -1433,12 +1433,12 @@ an unknown board.
 ```
 
 `disabled_reason` is `link_exists` (already this card's child),
-`already_has_parent` (another card's child), `parent_archived` (this card
-is archived, since 1.3, #2447; not for a card that was linked to this card and
-then unlinked, which may be linked back), `children_limit` (this card has 100
-children) or `child_is_parent` (the candidate has children of its own, so it
-would become a third tier; since 1.3, #2446, when the candidate board's setting
-was turned off while its cards had children), in that precedence, else `null`.
+`child_is_parent` (the candidate has children of its own, so it would become a
+third tier; since 1.3, #2446, when the candidate board's setting was turned off
+while its cards had children), `already_has_parent` (another card's child),
+`parent_archived` (this card is archived, since 1.3, #2447; not for a card that
+was linked to this card and then unlinked, which may be linked back) or
+`children_limit` (this card has 100 children), in that precedence, else `null`.
 The values are an open set: a client shows an unknown value as unavailable.
 The picker also answers for a leftover parent (#2446), the same as for a card on a parent board. `parent_title` names the other parent only
 when you can open its board. Link a row with `POST

@@ -613,8 +613,9 @@ class BoardViewSet(
         description=(
             "What stands in the way of turning `cards_can_have_children` on or off "
             "(#2208, since 1.3). Turning it on is refused while `child_cards` > 0 or "
-            "`default_of` is not empty; turning it off is refused while "
-            "`parent_cards` > 0. Minimum role: board admin."
+            "`default_of` is not empty. Turning it off is never refused (#2446): "
+            "`parent_cards` counts the cards that keep their children and stay "
+            "parents, which the client confirms first. Minimum role: board admin."
         ),
     )
     @action(detail=True, methods=["get"], url_path="children-setting-blockers")
