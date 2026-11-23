@@ -1698,6 +1698,73 @@ def _empty_rollup():
     }
 
 
+def rollup_link_rows(links, *extra):
+    """The per-live-link rows every parent-side rollup is computed from (#2210, #2370).
+
+    ``links`` is a ``CardParentLink`` queryset naming the parents to read;
+    ``extra`` appends more ``values_list`` fields after the fixed seven:
+    ``(parent_id, child_board_id, blocked_at, has_blocker, is_done,
+    column_position, last_moved_at, *extra)``, ordered by link pk so the first
+    row of a parent is its first live link. Archived children leave in SQL, so
+    their correlated subqueries never run. The last-move subquery is one
+    top-1 probe per link on CardMovement's ``(card, -moved_at)`` index. ONE
+    query, however many parents.
+    """
+    last_move = (
+        CardMovement.objects.filter(card_id=OuterRef("child_id"))
+        .order_by("-moved_at").values("moved_at")[:1]
+    )
+    return list(
+        links.filter(child__archived_at__isnull=True)
+        .annotate(_has_blocker=Exists(_open_blocker_of_child()), _last_moved=Subquery(last_move))
+        .order_by("pk")
+        .values_list(
+            "parent_id", "child__board_id", "child__blocked_at",
+            "_has_blocker", "child__column__is_done", "child__column__position", "_last_moved",
+            *extra,
+        )
+    )
+
+
+def first_link_boards(rows):
+    """``{parent_id: child_board_id}`` of each parent's first live link: the only board read.
+
+    One child board per parent is a write rule with no database constraint, so
+    every rollup reads only this board's children (see
+    :func:`children_for_viewer`); a child on any other board is never counted.
+    """
+    board_of = {}
+    for parent_id, child_board_id, *_ in rows:
+        board_of.setdefault(parent_id, child_board_id)
+    return board_of
+
+
+def rollup_child_boards(board_ids):
+    """The child boards, with their group chain and first column position, in ONE query."""
+    return list(
+        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
+        .filter(pk__in=board_ids)
+        .annotate(_first_position=Min("columns__position"))
+    )
+
+
+def rollup_state(blocked_at, has_blocker, is_done, position, first_position):
+    """The one bucket a live child falls in: ``blocked``, ``done``, ``todo`` or ``doing``.
+
+    Blocked (a manual block or an open ``blocks`` relation from a live
+    same-board card, the #449 predicate) overrides the column, in any column;
+    else done (``Column.is_done``); else to do (the child board's first
+    column); else doing.
+    """
+    if blocked_at is not None or has_blocker:
+        return "blocked"
+    if is_done:
+        return "done"
+    if position == first_position:
+        return "todo"
+    return "doing"
+
+
 def rollups_for_viewer(parent_ids, user):
     """The one parent-side child rollup for every transport (Rule 10). Per viewer.
 
@@ -1738,50 +1805,22 @@ def rollups_for_viewer(parent_ids, user):
     if not ids:
         return {}
     out = {pid: _empty_rollup() for pid in ids}
-    open_blocker = _open_blocker_of_child()
-    last_move = (
-        CardMovement.objects.filter(card_id=OuterRef("child_id"))
-        .order_by("-moved_at").values("moved_at")[:1]
-    )
-    rows = list(
-        # Archived children leave the rollup in SQL, so their correlated
-        # subqueries never run and archived history does not grow the read.
-        CardParentLink.objects.filter(parent_id__in=ids, child__archived_at__isnull=True)
-        .annotate(_has_blocker=Exists(open_blocker), _last_moved=Subquery(last_move))
-        .order_by("pk")
-        .values_list(
-            "parent_id", "child__board_id", "child__blocked_at",
-            "_has_blocker", "child__column__is_done", "child__column__position", "_last_moved",
-        )
-    )
+    rows = rollup_link_rows(CardParentLink.objects.filter(parent_id__in=ids))
     if not rows:
         return out
-    board_of = {}  # parent -> the board of its first link, the only board read
-    for parent_id, child_board_id, *_ in rows:
-        board_of.setdefault(parent_id, child_board_id)
-    boards = list(
-        Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED)
-        .filter(pk__in=set(board_of.values()))
-        .annotate(_first_position=Min("columns__position"))
-    )
+    board_of = first_link_boards(rows)
+    boards = rollup_child_boards(set(board_of.values()))
     first_position = {b.pk: b._first_position for b in boards}
     if user is None or not getattr(user, "is_authenticated", False):
         roles = {}
     else:
         roles = get_board_roles(user, boards)
-    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved in rows:
+    for parent_id, child_board_id, blocked_at, has_blocker, is_done, position, moved, *_ in rows:
         if board_of[parent_id] != child_board_id:
             continue
         r = out[parent_id]
         r["total"] += 1
-        if blocked_at is not None or has_blocker:
-            r["blocked"] += 1
-        elif is_done:
-            r["done"] += 1
-        elif position == first_position.get(child_board_id):
-            r["todo"] += 1
-        else:
-            r["doing"] += 1
+        r[rollup_state(blocked_at, has_blocker, is_done, position, first_position.get(child_board_id))] += 1
         if moved is not None and (r["last_moved_at"] is None or moved > r["last_moved_at"]):
             r["last_moved_at"] = moved
     for parent_id, child_board_id in board_of.items():

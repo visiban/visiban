@@ -48,10 +48,10 @@ from ..permissions import (
 from ..serializers import (
     EXPAND_QUERY_PARAMETER,
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
-    BoardMembershipSerializer, ParentBoardOptionSerializer, SavedFilterSerializer, SwimlaneSerializer,
+    BoardMembershipSerializer, ChildrenViewSerializer, ParentBoardOptionSerializer, SavedFilterSerializer, SwimlaneSerializer,
     _swimlane_custom_field_prefetch,
 )
-from ..services import card_links
+from ..services import card_links, children_view as _children_view
 from ..services.swimlane_team import team_prefetch
 from ..services.card_links import announce_cards_removal, check_flag_flip
 from ..services.feed import (
@@ -72,6 +72,17 @@ from ._helpers import (
 from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
 from .invites import BoardInviteLinksMixin
+
+#: The 400 ``code`` of ``GET .../children-view/`` on a board whose cards cannot
+#: have children (#2370).
+CHILDREN_NOT_ENABLED = "children_not_enabled"
+CHILDREN_VIEW_400_SCHEMA = {
+    **INVALID_QUERY_PARAM_SCHEMA,
+    "properties": {
+        **INVALID_QUERY_PARAM_SCHEMA["properties"],
+        "code": {"type": "string", "enum": [INVALID_QUERY_PARAM, CHILDREN_NOT_ENABLED]},
+    },
+}
 
 logger = logging.getLogger(__name__)
 
@@ -1209,6 +1220,64 @@ class BoardViewSet(
         if role not in card_links.LINK_WRITE_ROLES:
             raise PermissionDenied(card_links._PERM_DENIED)
         return Response({"results": card_links.parent_boards_for_viewer(request.user, board)})
+
+    @extend_schema(
+        operation_id="api_v1_boards_children_view_retrieve",
+        parameters=[
+            OpenApiParameter(
+                "lane", OpenApiTypes.INT, OpenApiParameter.QUERY, required=False,
+                description="Only this lane's parent rows. Lane rollups always cover every lane. A lane of another board is 404.",
+            ),
+            OpenApiParameter(
+                "cursor", OpenApiTypes.STR, OpenApiParameter.QUERY, required=False,
+                description="`next_cursor` from the previous page.",
+            ),
+            OpenApiParameter(
+                "done", OpenApiTypes.BOOL, OpenApiParameter.QUERY, required=False,
+                description="Also list done children in `rows[].children` (default false). Counts always include them.",
+            ),
+        ],
+        responses={
+            200: ChildrenViewSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "`lane`, `cursor` or `done` is malformed (`invalid_query_param`), or this "
+                    "board's cards cannot have children (`children_not_enabled`)."
+                ),
+                response=CHILDREN_VIEW_400_SCHEMA,
+            ),
+            404: OpenApiResponse(description="No such board, no access, or `lane` is not a lane of this board."),
+        },
+        description=(
+            "Children mode (#2370, since 1.3): all work in progress on this parent-tier board, "
+            "by lane and parent, computed for the caller. Lane rollups count only children the "
+            "caller can open; children on boards the caller can't open are only counted "
+            "(`hidden`), and their parents are locked rows with a count. 20 parent rows per "
+            "page: rows with blocked children first, then the most recent move. Minimum role: "
+            "any role on this board. Not available on share links."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="children-view")
+    def children_view(self, request, pk=None):
+        """Children mode on the Board tab: lane rollups and parent rows (#2370)."""
+        board, _role = get_board_for_user(pk, request.user, slim=True)
+        if not board.cards_can_have_children:
+            raise CodedValidationError(CHILDREN_NOT_ENABLED, "Cards on this board cannot have children.")
+        params = request.query_params
+        lane_id = None
+        if "lane" in params:
+            raw = params["lane"]
+            # An id, never a slug (#2370 link format); 18 digits bounds the int.
+            if not raw.isascii() or not raw.isdigit() or len(raw) > 18:
+                raise CodedValidationError(INVALID_QUERY_PARAM, "lane must be a lane id.")
+            lane_id = int(raw)
+        done = params.get("done", "false").lower()
+        if done not in ("true", "false", "1", "0"):
+            raise CodedValidationError(INVALID_QUERY_PARAM, "done must be true or false.")
+        return Response(_children_view.children_view_for_viewer(
+            board, request.user, lane_id=lane_id, cursor=params.get("cursor"),
+            include_done=done in ("true", "1"),
+        ))
 
     @extend_schema(
         operation_id="api_v1_boards_events_list",

@@ -2728,6 +2728,80 @@ ordered by name, uncapped. `member` or higher on this board (`403` below it,
 Cards on `GET .../full/` carry a `parent` key; see
 [Cards: `parent` on a card](cards.md#parent-on-a-card).
 
+## Children mode (since 1.3)
+
+### `GET /api/v1/boards/{id}/children-view/`
+
+Since 1.3 (#2370); follows the 1.0+ compatibility rules from 1.3 GA (it may
+change before GA). All work in progress on a board whose cards can have
+children, by lane and parent, computed for you. It backs the Board tab's
+Children mode. Any role on the board; `404` without access. A board whose
+cards cannot have children answers `400` with `code: "children_not_enabled"`.
+Not available on [share links](#public-share-endpoint), which carry none of
+this.
+
+**Query parameters** (all optional)
+
+| Name | Meaning |
+|---|---|
+| `lane` | A lane id of this board. Only that lane's parent rows are returned; `lanes` still covers every lane. A lane of another board, or an unknown id, is `404`. |
+| `cursor` | The previous page's `next_cursor`. |
+| `done` | `true` also lists done children in `rows[].children`. Default `false`. Counts always include done children. |
+
+A malformed `lane`, `cursor` or `done` is `400` with `code: "invalid_query_param"`.
+
+```json
+{"board_total": {"in_progress": 4, "total": 6, "blocked": 2, "hidden": 4},
+ "lanes": [{"id": 3, "name": "Acme Corp", "position": 0, "parents": 2,
+            "child_boards": 1, "total": 6, "in_progress": 4, "done": 2,
+            "doing": 1, "todo": 1, "blocked": 2, "hidden": 4, "folded": 1}],
+ "rows": [{"id": 40, "title": "Analytics module", "swimlane_id": 3,
+           "column_id": 9, "column_name": "Proposal", "assignee": null,
+           "rollup": {"visible": true, "total": 5, "done": 1, "doing": 1,
+                      "todo": 1, "blocked": 2,
+                      "last_moved_at": "2026-11-20T10:00:00Z"},
+           "in_progress": 4, "folded": false, "child_board_id": 7,
+           "children": [{"id": 51, "title": "Pen-test scoping call",
+                         "column_id": 30, "swimlane_id": 12, "position": 3,
+                         "state": "blocked", "assignee": null,
+                         "blocked": true,
+                         "blocked_at": "2026-11-14T09:00:00Z"}]},
+          {"id": 41, "title": "Data migration", "swimlane_id": 3,
+           "column_id": 9, "column_name": "Proposal", "assignee": null,
+           "rollup": {"visible": false, "total": 4},
+           "in_progress": null, "folded": false, "child_board_id": null,
+           "children": []}],
+ "child_boards": [{"id": 7, "name": "Delivery", "role": "member",
+                   "enforce_wip_limits": false, "enforce_wip_hard": false,
+                   "columns": [{"id": 30, "name": "Doing", "color": "#3B82F6",
+                                "wip_limit": 5, "is_done": false,
+                                "card_count": 9}]}],
+ "next_cursor": null}
+```
+
+- **Rows.** One per live parent card with at least one live child, 20 per
+  page. Rows with blocked children come first, then the most recent child
+  move; parents with nothing in progress (`folded`) come last in their lane.
+  Without `lane`, rows run lane by lane, in lane order.
+- **States.** The same partition as a card's
+  [`children_rollup`](cards.md#parent-and-children-since-13): blocked (a
+  manual block or an open blocking relation, in any column) overrides the
+  column, then done (a done column), to do (the child board's first column),
+  else doing. "In progress" is everything but done. Archived parents and
+  children are not counted.
+- **Children you can't open.** A parent whose child board you can't open is a
+  locked row: `rollup` is `{"visible": false, "total"}`, `in_progress` and
+  `child_board_id` are `null`, and `children` is empty. Its children count
+  only in the lane's and the board's `hidden`, never in `total`, the states or
+  `folded`, and never change the row order. No title, board, column or state
+  of theirs is sent.
+- **Child boards.** `child_boards` describes each board you can open that the
+  page's rows use: your `role` there and its columns, each `card_count`
+  counting the whole column. A parent reads only the board of its first live
+  link.
+- **Cost.** The number of queries does not grow with lanes, parents or
+  children.
+
 ## Public share endpoint
 
 ### `GET /api/share/{token}/`
