@@ -11,15 +11,15 @@ import { contrastRatio, effectiveBackground, surfaceColor, textColor } from './c
 const ADMIN_BOARD = { ...BOARD_FULL, current_user_role: 'admin' as const, cards_can_have_children: false }
 const OTHER_BOARD = { ...BOARD_FULL, id: 12, name: 'Pipeline', current_user_role: 'admin' as const, cards_can_have_children: true }
 
-async function openRules(page: Page, theme: 'light' | 'dark', blockers: 'ok' | 'default-of' | 'fail') {
+async function openRules(page: Page, theme: 'light' | 'dark', blockers: 'ok' | 'default-of' | 'fail' | 'parents', board = ADMIN_BOARD) {
   await routeAuth(page)
   await page.addInitScript((t) => localStorage.setItem('user:prefs:theme', t), theme)
-  await routeBoard(page, ADMIN_BOARD)
+  await routeBoard(page, board)
   await page.route(`**/api/v1/boards/${ADMIN_BOARD.id}/children-setting-blockers/`, (route) => {
     if (blockers === 'fail') return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
     const body = blockers === 'default-of'
       ? { child_cards: 0, parent_cards: 0, default_of: [{ hidden: false, id: 12, name: 'Pipeline', can_change: true }] }
-      : { child_cards: 0, parent_cards: 0, default_of: [] }
+      : { child_cards: 0, parent_cards: blockers === 'parents' ? 3 : 0, default_of: [] }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
   })
   await page.route(`**/api/v1/boards/${ADMIN_BOARD.id}/default-child-board-options/`, (route) =>
@@ -102,6 +102,28 @@ test.describe('child board settings at 390px', () => {
     await expect(dialog.getByTestId('children-blockers-unavailable')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
+
+  // #2446: the turn-off confirm (#2208 spec, canvas 2f c) keeps both 44px buttons on one row, focus on Turn off.
+  for (const theme of ['light', 'dark'] as const) {
+    test(`the turn-off confirm fits at 390px (${theme})`, async ({ page }) => {
+      const dialog = await openRules(page, theme, 'parents', { ...ADMIN_BOARD, cards_can_have_children: true })
+      // Let the blockers read land so the body carries the count (the confirm opens without it too).
+      await expect(dialog.getByTestId('children-status')).toHaveText(/^On\./)
+      await page.waitForLoadState('networkidle')
+      await dialog.getByTestId('children-switch').click()
+      const group = dialog.getByRole('group', { name: /^Turn off children on / })
+      await expect(group).toBeVisible()
+      const keep = group.getByRole('button', { name: 'Keep it on' })
+      const off = group.getByRole('button', { name: 'Turn off' })
+      await expect(off).toBeFocused()
+      const [k, o] = [(await keep.boundingBox())!, (await off.boundingBox())!]
+      expect(k.height).toBeGreaterThanOrEqual(43.5)
+      expect(o.height).toBeGreaterThanOrEqual(43.5)
+      expect(Math.abs(k.y - o.y)).toBeLessThan(1)
+      expect(k.x + k.width).toBeLessThanOrEqual(o.x)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    })
+  }
 })
 
 for (const theme of ['light', 'dark'] as const) for (const size of [{ name: 'desktop', width: 1280, height: 800 }, { name: '390px', width: 390, height: 844 }]) {
