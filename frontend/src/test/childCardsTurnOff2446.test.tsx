@@ -143,6 +143,26 @@ describe("ChildCardsSettings turn-off confirm (#2446)", () => {
     expect(screen.queryByTestId("children-off-confirm")).toBeNull();
   });
 
+  it.each([
+    ["pending", () => new Promise<never>(() => undefined)],
+    ["failed", () => Promise.reject(new Error("down"))],
+  ])("with the blockers read %s, a click asks first with count-free copy instead of saving", async (_state, impl) => {
+    vi.mocked(getChildrenSettingBlockers).mockImplementation(impl as () => Promise<never>);
+    const onUpdate = vi.fn().mockResolvedValue(null);
+    const user = userEvent.setup();
+    render(<ChildCardsSettings board={board} onUpdate={onUpdate} />);
+    const sw = await screen.findByRole("switch");
+    await waitFor(() => expect(getChildrenSettingBlockers).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    await user.click(sw);
+    const group = await screen.findByRole("group", { name: "Turn off children on Pipeline?" });
+    expect(group).toHaveTextContent(turnOffBody(null));
+    expect(group).not.toHaveTextContent(/\d/);
+    expect(onUpdate).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Turn off" }));
+    expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: false });
+  });
+
   it("uses singular copy for one parent and a generic name when the board has none", async () => {
     vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 1, default_of: [] });
     const user = userEvent.setup();

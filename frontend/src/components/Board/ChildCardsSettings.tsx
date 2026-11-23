@@ -52,11 +52,16 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   // router (a unit test) keeps a plain anchor.
   const inRouter = useInRouterContext();
   const [blockers, setBlockers] = useState<ChildrenSettingBlockers | null>(null);
+  // The flag value `blockers` was read for: after a flip the held answer is for the old state
+  // until the re-read lands, so it counts as unknown (#2446).
+  const [blockersFor, setBlockersFor] = useState<boolean | null>(null);
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
   // How many boards qualify in all (#2449): the list holds at most 100.
   const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
-  // The server still refuses a bad flip on save, so this only explains; it does not gate.
+  // For turning ON the server still refuses a bad flip on save, so this only explains. Turning OFF
+  // is never refused since #2446, so there the turn-off confirm is the only guard: an unknown
+  // parent count (pending or failed read) shows it with count-free copy rather than skipping it.
   const [blockersFailed, setBlockersFailed] = useState(false);
   const [blockersTry, setBlockersTry] = useState(0);
   // Retry unmounts once the read succeeds; focus then moves to the switch it explains instead of
@@ -73,10 +78,12 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   // Re-read after every flip or default change: another admin's link or default move changes the answer.
   useEffect(() => {
     let live = true;
+    const readFor = checked;
     getChildrenSettingBlockers(board.id)
       .then((b) => {
         if (!live) return;
         setBlockers(b);
+        setBlockersFor(readFor);
         setBlockersFailed(false);
         if (focusSwitchAfterRetry.current) {
           focusSwitchAfterRetry.current = false;
@@ -132,7 +139,8 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   // Turning off is never refused for parent links any more (#2446), so only the turn-on side has reasons.
   const reasons = checked ? [] : turnOnReasons;
   const blocked = reasons.length > 0;
-  const parentCount = checked && blockers ? blockers.parent_cards : 0;
+  // null = unknown: no answer yet for this flag value, or the read failed.
+  const parentCount = !checked ? 0 : blockers && blockersFor === checked ? blockers.parent_cards : null;
   const boardName = board.name || "this board";
   const offTitle = `Turn off children on ${boardName}?`;
   const offBody = turnOffBody(parentCount);
@@ -170,7 +178,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
       return;
     }
     if (savingOffRef.current) return;
-    if (checked && parentCount > 0) {
+    if (checked && (parentCount === null || parentCount > 0)) {
       setConfirmingOff(true);
       return;
     }
