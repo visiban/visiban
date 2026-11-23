@@ -28,7 +28,9 @@ from rest_framework.test import APIClient
 
 from accounts.models import SCOPE_MCP_READ, SCOPE_READ, PersonalAccessToken, User
 from boards.models import Board, BoardMembership, Card, CardBlock, Column, Swimlane
+from boards.services import flow_metrics
 from boards.tests.test_flow_metrics import FlowFixture
+from boards.tests.test_flow_range_narrowing_2425 import AgedBoardMixin, _full_range_load
 from mcp_server import tools
 from mcp_server.context import reset_current_user, set_current_user
 
@@ -277,6 +279,48 @@ class BoardFlowMetricsTests(McpFlowFixture):
             self.path(self.backlog, 25, self.doing, 5, self.done, 2)
             self.path(self.backlog, 12, self.review, 3)
         self.assertEqual(count(), few)
+
+
+class BoardFlowMetricsAgedTests(AgedBoardMixin, McpFlowFixture):
+    """On a board with years of archived history, the tool loads only the range's cards (#2445)."""
+
+    def test_aged_board_matches_the_whole_history_load_for_every_window_and_lane(self):
+        self.aged_board()
+        for window_days in (1, 7, 30, 90, 365):
+            for swimlane_id in (None, self.other_lane.id):
+                with self.subTest(window_days=window_days, swimlane_id=swimlane_id):
+                    narrowed = self.call(
+                        "board_flow_metrics", board_id=self.board.id, window_days=window_days,
+                        swimlane_id=swimlane_id,
+                    )
+                    with mock.patch.object(flow_metrics, "load_range_flow", _full_range_load):
+                        full = self.call(
+                            "board_flow_metrics", board_id=self.board.id, window_days=window_days,
+                            swimlane_id=swimlane_id,
+                        )
+                    self.assertNotIn("error", narrowed)
+                    self.assertEqual(narrowed, full)
+
+    def test_old_archived_history_is_not_loaded(self):
+        """A tool reverting to ``load_board_flow`` would still match, so pin the narrowed load itself."""
+        self.aged_board()
+        full_count = len(flow_metrics.load_board_flow(self.board, now=self.now).cards)
+        loaded = []
+
+        def spy(*args, _real=flow_metrics.load_range_flow, **kwargs):
+            flow = _real(*args, **kwargs)
+            loaded.append(len(flow.cards))
+            return flow
+
+        with (
+            mock.patch.object(flow_metrics, "load_range_flow", side_effect=spy) as patched,
+            mock.patch.object(flow_metrics, "load_board_flow", wraps=flow_metrics.load_board_flow) as whole,
+        ):
+            self.call("board_flow_metrics", board_id=self.board.id, window_days=90)
+        self.assertEqual(patched.call_count, 1)
+        # load_range_flow itself goes through load_board_flow, always narrowed.
+        self.assertTrue(all(call.kwargs.get("cards_matching") is not None for call in whole.call_args_list))
+        self.assertLess(loaded[0], full_count / 3)
 
 
 class AgingCardsTests(McpFlowFixture):

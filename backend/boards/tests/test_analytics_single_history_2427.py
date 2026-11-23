@@ -1,4 +1,4 @@
-"""/analytics/ holds one window of history at a time (#2427).
+"""/analytics/ reads one window of history, once (#2427, #2451).
 
 ``fixtures/analytics_2427_pinned.json`` was generated from the pre-change ``analytics()``
 (``boards/views/analytics.py`` at origin/main, before #2427) with the pinned clock ``NOW``
@@ -6,13 +6,15 @@ below, by running this module's ``_pinned_responses()`` against that code. It mu
 passing on both the old and the new view.
 """
 import datetime
-import gc
 import json
 import os
-import weakref
 from unittest import mock
 
-from boards.models import Card, CardBlock
+from django.db import connection
+from django.db.models import Q
+from django.test.utils import CaptureQueriesContext
+
+from boards.models import Card, CardBlock, CardMovement, SubColumn
 from boards.services import flow_metrics
 from boards.tests.test_analytics_query_shape_1884 import AnalyticsQueryShapeTests as _Shape
 
@@ -77,36 +79,137 @@ class AnalyticsSingleHistoryTests(_Shape):
         with open(os.path.join(os.path.dirname(__file__), "fixtures", "analytics_2427_pinned.json")) as fh:
             self.assertEqual(got, json.load(fh))
 
-    def test_history_is_loaded_once_and_released_before_heatmap_load(self):
+    def test_history_is_read_once(self):
+        """The heatmap's figures come off the flow load's one movement read (#2427, #2451).
+
+        #2427 released the flow history before the heatmap read the window's
+        cards and movements again; #2451 removed that second read. One
+        ``load_board_flow``, one top-level query on the movements table, and
+        no correlated movement subquery on the card read.
+        """
         self._archived_history_fixture()
-        refs = []
-        real_load = flow_metrics.load_recent_dwell
-
-        def spy_load(*a, **k):
-            flow = real_load(*a, **k)
-            refs.append(weakref.ref(flow))
-            return flow
-
-        released = []
-        real_base = flow_metrics._base_cards
-
-        def spy_base(*a, **k):
-            # load_recent_dwell itself calls _base_cards (flow_metrics.py ~1077); the spy
-            # skips that call only because ``refs`` is still empty at that point.
-            if refs:
-                gc.collect()
-                released.append(refs[0]() is None)
-            return real_base(*a, **k)
-
-        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy_load) as load, \
-                mock.patch.object(flow_metrics, "_base_cards", side_effect=spy_base):
+        with mock.patch.object(flow_metrics, "load_board_flow", wraps=flow_metrics.load_board_flow) as load, \
+                CaptureQueriesContext(connection) as ctx:
             self._body(365)
         self.assertEqual(load.call_count, 1)
-        self.assertTrue(released, "no _base_cards call after the history load")
-        # The property: the history is gone by the first _base_cards call after the load.
-        self.assertTrue(released[0], "flow history still alive at the first post-load _base_cards call")
-        # Separate, count-only guard: today the heatmap load makes exactly one such call.
-        self.assertEqual(len(released), 1)
+        table = CardMovement._meta.db_table
+        reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{table}"')]
+        self.assertEqual(len(reads), 1, reads)
+        card_table = Card._meta.db_table
+        card_reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{card_table}"')]
+        # The flow load's card read selects no per-card movement annotation
+        # (the four correlated subqueries are gone); movements appear only in
+        # its WHERE narrowing.
+        self.assertTrue(card_reads)
+        self.assertTrue(all(f'"{table}"' not in sql.split(" FROM ", 1)[0] for sql in card_reads), card_reads)
+
+
+    def test_a_live_done_card_idle_since_before_the_buffer_is_not_loaded(self):
+        """It adds nothing to the heatmap, so the single load leaves its history out (#2451)."""
+        self._archived_history_fixture()
+        a, _b = self.lanes
+        idle = self._card(a, "idle_done", [(self.todo, 60), (self.doing, 50), (self.done, 40)])
+        recent = self._card(a, "recent_done", [(self.todo, 12), (self.doing, 11), (self.done, 10)])
+        loaded = []
+        real = flow_metrics.load_recent_dwell
+
+        def spy(*a, **k):
+            flow = real(*a, **k)
+            loaded.extend(card.id for card in flow.cards)
+            return flow
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy):
+            body = self._body(7)  # a 14-day buffer
+        self.assertNotIn(idle.id, loaded)
+        self.assertIn(recent.id, loaded)
+        # And the answer is the one a load of every live card gives.
+        real_q = flow_metrics.load_recent_dwell
+
+        def every_live(*a, also_matching=None, **k):
+            return real_q(*a, also_matching=Q(archived_at__isnull=True), **k)
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=every_live):
+            self.assertEqual(self._body(7), body)
+
+
+    def _gated_doing(self):
+        for i, name in enumerate(("Work", "Ready")):
+            SubColumn.objects.create(column=self.doing, position=i, name=name)
+
+    def _wait_keys(self, body):
+        return [
+            (lane["throughput_wait_avg_days_per_column"], lane["age_wait_avg_days_per_column"])
+            for lane in body["swimlanes"]
+        ]
+
+    def test_only_live_done_cards_in_the_buffer_report_no_wait_keys(self):
+        """The heatmap's extra cards must not add the gated stages' wait keys (#2451).
+
+        Every live card is in Done and the one movement is older than the
+        7-day range but inside its 14-day buffer, so no card can be a dwell
+        sample. The pre-#2451 view loaded no card here, read no gate index,
+        and returned ``{}`` for both wait fields; the extra heatmap cards must
+        not turn that into ``{"Doing": null}``.
+        """
+        self._gated_doing()
+        card = self._card(self.lanes[0], "done10", [(self.todo, 20), (self.doing, 15), (self.done, 10)])
+        loaded = []
+        real = flow_metrics.load_recent_dwell
+
+        def spy(*a, **k):
+            flow = real(*a, **k)
+            loaded.extend(c.id for c in flow.cards)
+            return flow
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy):
+            body = self._body(7)
+        # The card is read for the heatmap (the case under test), yet adds no key.
+        self.assertEqual(loaded, [card.id])
+        self.assertEqual(self._wait_keys(body), [({}, {}), ({}, {})])
+
+    def test_a_dwell_card_keeps_the_wait_keys(self):
+        """The mirror: one card the dwell load selects anyway, and the keys appear (#2451)."""
+        self._gated_doing()
+        self._card(self.lanes[0], "done10", [(self.todo, 20), (self.doing, 15), (self.done, 10)])
+        self._card(self.lanes[1], "doing", [(self.todo, 6), (self.doing, 3)])
+        for throughput, age in self._wait_keys(self._body(7)):
+            self.assertEqual(set(throughput), {"Doing"})
+            self.assertEqual(set(age), {"Doing"})
+
+    def test_stalled_cards_tie_on_position_by_id(self):
+        """Two stalled cards at one position list in id order, whatever order the load gives them (#2451)."""
+        self._fixture()
+        a, _b = self.lanes
+        first = self._card(a, "stall1", [(self.todo, 60), (self.doing, 40)])
+        second = self._card(a, "stall2", [(self.todo, 60), (self.doing, 40)])
+        real = flow_metrics.load_recent_dwell
+
+        def reversed_load(*args, on_card_rows=None, **kwargs):
+            # Hand the view its cards newest id first, so only the sort key
+            # can put them back in id order.
+            calls = []
+            flow = real(*args, on_card_rows=lambda card, rows: calls.append((card, rows)), **kwargs)
+            for card, rows in reversed(calls):
+                on_card_rows(card, rows)
+            return flow
+
+        self.url = f"/api/v1/boards/{self.board.pk}/analytics/?days=90"
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=reversed_load):
+            r = self._get()
+        self.assertEqual(r.status_code, 200)
+        lane = next(sw for sw in json.loads(r.content)["swimlanes"] if sw["name"] == "A")
+        ids = [c["id"] for c in lane["stalled_cards"] if c["id"] in (first.id, second.id)]
+        self.assertEqual(ids, [first.id, second.id])
+
+    def test_tied_moved_at_credits_the_stay_by_movement_id(self):
+        """Two movements at one ``moved_at``: the lower id happened first, so Doing gets no stay (#2451).
+
+        On the pre-#2451 database order the stay was credited to Doing (12.0).
+        """
+        a, _b = self.lanes
+        self._card(a, "tied", [(self.todo, 50), (self.doing, 12), (self.todo, 12)])
+        lane = next(sw for sw in self._body(30)["swimlanes"] if sw["name"] == "A")
+        self.assertEqual(lane["avg_days_per_column"]["Doing"], 0.0)
 
 
 # Keep pytest from collecting the parent's tests a second time under this module.

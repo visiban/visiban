@@ -7,7 +7,7 @@ import statistics
 from typing import NamedTuple
 from types import SimpleNamespace
 
-from django.db.models import Count, Exists, F, OuterRef, Q, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from drf_spectacular.types import OpenApiTypes
@@ -438,24 +438,138 @@ class CumulativeFlowQuerySerializer(FlowMetricsQuerySerializer):
     validate_date = FlowMetricsQuerySerializer._in_bounds
 
 
-class _AnalyticsMove(NamedTuple):
-    """One buffered movement as the heatmap reads it (#2427)."""
+class _HeatmapCard(NamedTuple):
+    """One card's part of the ``analytics`` heatmap, derived as the flow load analyzes it (#2427, #2451)."""
 
-    to_column_id: int | None
-    moved_at: datetime.datetime
+    id: int
+    swimlane_id: int
+    position: int
+    # ``(column name, clamped days)`` per stay, in the order the frozen
+    # avg_days_per_column has always appended them.
+    dwells: list
+    velocity: float | None
+    stalled: dict | None
 
 
-class _AnalyticsCard:
-    """One card row of the ``analytics`` heatmap: the fields it reads, and its buffered movements (#2427)."""
+def _heatmap_card(card, rows, *, now, days, period_cutoff, buffer_cutoff, stall_cutoff, col_id_to_name, done_col_ids):
+    """The heatmap's frozen per-card figures from the card's whole history (#2451).
 
-    __slots__ = (
-        "id", "uid", "title", "swimlane_id", "column_id", "archived_at", "created_at",
-        "_last_moved_at", "_last_col_id", "_first_moved_at", "_pre_buffer_col_id", "_analytics_movements",
-    )
+    ``rows`` is every movement of the card in ``(moved_at, id)`` order, from
+    the flow service's load. Before #2451 the view read the same rows a
+    second time: four per-card SQL annotations (last move, its destination,
+    first move, the destination before the buffer) and the movements inside
+    a 2x-window buffer. Each is read here off ``rows`` instead, with the same
+    order and the same columns (``to_column_id``, the FK, NULL once a column
+    is deleted), so every number is unchanged (``analytics_2427_pinned.json``).
+    """
+    last_moved_at = rows[-1].moved_at if rows else None
+    last_col_id = rows[-1].to_column_id if rows else None
+    first_moved_at = rows[0].moved_at if rows else None
+    # The column the card was in when the movement buffer opens (its last
+    # movement before the buffer). Seeds the frozen clamped dwell for a column
+    # entered before the buffer (#2295). None when it had no earlier movement.
+    pre_buffer_col_id = None
+    first_in_buffer = len(rows)
+    for index, mv in enumerate(rows):
+        if mv.moved_at >= buffer_cutoff:
+            first_in_buffer = index
+            break
+        pre_buffer_col_id = mv.to_column_id
+    # The 2x analysis-window buffer: all the frozen clamped-dwell logic reads
+    # (movements entering just before period_cutoff). Stall detection and
+    # velocity use the whole-history figures above.
+    movements = rows[first_in_buffer:]
+    dwells = []
 
-    def __init__(self, **fields):
-        for name, value in fields.items():
-            setattr(self, name, value)
+    # ── Clamped dwell (the frozen avg_days_per_column) ──────────────
+    # A column entered before the buffer has no buffered movement of its own:
+    # seed it with a leading stand-in dated at the buffer start, whose clamp to
+    # period_cutoff gives the in-window dwell. It also covers an archived card
+    # with no buffered movements. An active card with none is the
+    # long-dwelling case below.
+    dwell_moves = movements
+    if pre_buffer_col_id is not None and (movements or card.archived_at is not None):
+        stand_in = SimpleNamespace(to_column_id=pre_buffer_col_id, moved_at=buffer_cutoff)
+        # Leading in-buffer movements into the same column (swimlane-only
+        # moves, archived/unarchived rows) continue the stay the stand-in
+        # already carries; keeping any would split one visit into several
+        # dwell entries. Skip every leading one, not just the first.
+        first_other = 0
+        while first_other < len(movements) and movements[first_other].to_column_id == pre_buffer_col_id:
+            first_other += 1
+        dwell_moves = [stand_in, *movements[first_other:]]
+    for i, mv in enumerate(dwell_moves):
+        col_name = col_id_to_name.get(mv.to_column_id)
+        if not col_name:
+            continue
+        # Done columns are terminal — dwell is not tracked here. The card's
+        # clock stops at entry into a done column; counting time spent there
+        # would inflate the heatmap with post-completion idle time.
+        if mv.to_column_id in done_col_ids:
+            continue
+        # For archived cards use archived_at as the terminal timestamp so
+        # dwell time covers only the active period, not time since archiving.
+        exit_ = dwell_moves[i + 1].moved_at if i + 1 < len(dwell_moves) else (card.archived_at or now)
+        # Skip movements that ended entirely before the analysis window.
+        if exit_ <= period_cutoff:
+            continue
+        effective_entry_clamped = max(mv.moved_at, period_cutoff)
+        dwells.append((col_name, (exit_ - effective_entry_clamped).total_seconds() / 86400))
+
+    # ── Long-dwelling cards (no movements in the 2× buffer) ──────────
+    # Cards sitting in their current column since before the buffer start
+    # still contribute to the deprecated avg_days_per_column: their clamped
+    # dwell is exactly ``days`` (entry clamped to period_cutoff, exit = now).
+    # The ``last_moved_at is not None`` guard excludes never-moved cards.
+    if (
+        not movements
+        and last_moved_at is not None
+        and card.archived_at is None
+        and card.column_id not in done_col_ids
+    ):
+        stale_col_name = col_id_to_name.get(card.column_id)
+        if stale_col_name:
+            dwells.append((stale_col_name, float(days)))
+
+    # ── Velocity ──────────────────────────────────────────────────────
+    # Only cards whose last movement fell at or after period_cutoff, measured
+    # from the card's first-ever movement. A card whose only movement is its
+    # creation row has not moved yet: its 0.0 days is no cycle (#2297).
+    # Creation is always a card's first movement, so the last one is a
+    # creation row only when it is the only one, and it is then also the
+    # card's first-ever movement. from_column_id is not a usable test: it
+    # goes NULL when a column is deleted, which would drop a real move out.
+    velocity = None
+    if (
+        movements
+        and movements[-1].moved_at >= period_cutoff
+        and first_moved_at is not None
+        and not (len(movements) == 1 and movements[0].moved_at == first_moved_at)
+    ):
+        velocity = (movements[-1].moved_at - first_moved_at).total_seconds() / 86400
+
+    # ── Stalled detection ────────────────────────────────────────────
+    # Cards in done columns are excluded — they have completed the workflow.
+    # The last movement's destination and time cover all-time history, so
+    # cards stalled before the buffer are still detected correctly.
+    stalled = None
+    if card.archived_at is None:
+        last_col_is_done = last_col_id in done_col_ids or card.column_id in done_col_ids
+        # A card with no movement counts from created_at, matching
+        # is_stale on the card serializer and Needs attention (#2291).
+        last_moved = last_moved_at or card.created_at
+        if not last_col_is_done and last_moved is not None and last_moved < stall_cutoff:
+            stalled = {
+                "id": card.id,
+                "uid": card.uid,
+                "title": card.title,
+                "days_since_move": (now - last_moved).days,
+                # The floor above shows a card 7.9 days unmoved as "7" under a
+                # 7-day threshold; this one matches Needs attention's
+                # unfloored days (#2297).
+                "days_since_move_exact": round((now - last_moved).total_seconds() / 86400, 1),
+            }
+    return _HeatmapCard(card.id, card.swimlane_id, card.position, dwells, velocity, stalled)
 
 
 def _flow_query(serializer_class, request, board, **context):
@@ -1301,8 +1415,43 @@ class BoardAnalyticsMixin:
         # Current and completed dwell come from the flow service (#448), so the
         # heatmap's Current and In period modes agree with the flow charts.
         flow_range = flow_metrics.rolling_range(days, now=now)
+        # The heatmap's own frozen figures (avg_days_per_column, velocity,
+        # stalled cards) read the same cards' movements, so they are derived
+        # from the flow service's one history load, card by card as it is
+        # analyzed, instead of a second read of the window (#2451). The heatmap
+        # reads live cards and cards archived in the period. The dwell load
+        # already holds every live card outside a done column and every card
+        # archived in the period; ``extra`` adds the live done cards with a
+        # movement in the 2x buffer. A live done card with none adds nothing
+        # to the heatmap (no buffered stay, no velocity, never stalled, not
+        # long-dwelling), so it is left out rather than loaded whole (perf-check
+        # on !2451). A live done card is no dwell sample, and ``load_recent_dwell``
+        # resets the gate index when only such cards were loaded, so the flow
+        # answers, the wait keys included, do not move either. The term is an
+        # uncorrelated, board-bounded IN, not a correlated EXISTS inside the OR
+        # (#2502).
+        buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
+        heatmap_cards: list[_HeatmapCard] = []
+
+        def heatmap_card(card, rows):
+            # The heatmap reads live cards and cards archived within the
+            # period; cards archived earlier would inflate past-column counts
+            # without adding value to the selected view. The flow load also
+            # holds archived cards with a movement in the range, which the
+            # heatmap never read.
+            if card.archived_at is not None and card.archived_at < period_cutoff:
+                return
+            heatmap_cards.append(_heatmap_card(
+                card, rows, now=now, days=days, period_cutoff=period_cutoff, buffer_cutoff=buffer_cutoff,
+                stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
+            ))
+
+        extra = Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
+            card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
+        ).values("card_id"))
         flow = flow_metrics.load_recent_dwell(
             board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
+            also_matching=extra, on_card_rows=heatmap_card,
         )
         current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
         completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
@@ -1310,85 +1459,18 @@ class BoardAnalyticsMixin:
         completed_wait = flow_metrics.completed_wait_by_swimlane(flow, flow_range)
         gated_columns = [col for col in active_columns if col.uid in flow.gate_last]
         blocked = flow_metrics.blocked_time(flow, flow_range)
-        # Everything read from the flow service is now in the dicts above. Drop
-        # the board's loaded history before the heatmap's own cards and
-        # movements load below, so the two never sit in memory together (#2427).
+        # Everything read from the flow service is now in the dicts above.
         del flow
 
         swimlane_results = []
         all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
-        # Load cards within the analysis window and their movements in two
-        # queries (cards + buffered movements), then group by swimlane to avoid
-        # O(swimlanes) extra card+movement queries.
-        # Include cards archived within the window so their dwell-time data
-        # contributes to the heatmap.  Cards archived before the window would
-        # inflate past-column counts without adding value to the selected view.
-        # Stall detection needs all currently-active (non-archived) cards
-        # regardless of the period window, so we load the union.
-        #
-        # Three per-card movement aggregates are annotated at the SQL level so
-        # the movement query can be scoped to a bounded window without losing
-        # velocity and stall-detection data that may predate the window. All
-        # three are correlated subqueries compiled into the main SELECT — no
-        # extra round-trips to the database (still 2 queries: cards + movements).
-        buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
-        _mv_qs = CardMovement.objects.filter(card=OuterRef("pk"))
-        _last_mv_qs = _mv_qs.order_by("-moved_at", "-id")
-        window_cards = flow_metrics._base_cards(board, swimlane_filter, label_filter).filter(
-            Q(archived_at__isnull=True) | Q(archived_at__gte=period_cutoff)
-        )
-        # Plain rows, not model instances (#2427): on a 12k-card board with a
-        # year of history a days=365 request read ~600k movements, and as
-        # deferred CardMovement instances they were most of its 691 MB peak.
-        # The same two queries (cards, then their movements in the buffer),
-        # the same rows and order, so the same numbers.
-        all_cards = [
-            _AnalyticsCard(**row)
-            for row in window_cards.annotate(
-                # Most-recent movement timestamp — used for stall detection.
-                _last_moved_at=Subquery(_last_mv_qs.values("moved_at")[:1]),
-                # Most-recent movement destination — mirrors movements[-1].to_column_id
-                # so stall detection works even for cards stalled before the movement buffer.
-                _last_col_id=Subquery(_last_mv_qs.values("to_column_id")[:1]),
-                # First-ever movement timestamp — used for velocity so cycle time is
-                # measured from origin rather than from the window start.
-                _first_moved_at=Subquery(
-                    _mv_qs.order_by("moved_at").values("moved_at")[:1]
-                ),
-                # The column the card was in when the movement buffer opens
-                # (its last movement before the buffer). Seeds the frozen clamped
-                # dwell for a column entered before the buffer (#2295). NULL when
-                # the card had no earlier movement.
-                _pre_buffer_col_id=Subquery(
-                    _mv_qs.filter(moved_at__lt=buffer_cutoff).order_by("-moved_at", "-id").values("to_column_id")[:1]
-                ),
-            )
-            .order_by("swimlane_id", "position")
-            # Only the card fields this method reads. Without it every card's
-            # description and other wide columns are loaded and discarded (#1884).
-            .values(*_AnalyticsCard.__slots__[:-1])
-        ]
-        # Scope the movements to a 2× analysis-window buffer: all the frozen
-        # clamped-dwell logic reads (movements entering just before
-        # period_cutoff). load_recent_dwell above holds the whole history
-        # of every card relevant to the window, as compact tuples, but is
-        # released before this runs; this query is the heatmap's own frozen
-        # avg_days_per_column path. Stall detection
-        # and velocity use the card-level annotations above instead, so no
-        # historical data is lost. Ordered at the DB level so no per-card sort.
-        movements_by_card: dict[int, list] = {}
-        for card_id, to_column_id, moved_at in (
-            CardMovement.objects.filter(card__in=window_cards.order_by().values("id"), moved_at__gte=buffer_cutoff)
-            .order_by("moved_at")
-            .values_list("card_id", "to_column_id", "moved_at")
-            .iterator(chunk_size=2000)
-        ):
-            movements_by_card.setdefault(card_id, []).append(_AnalyticsMove(to_column_id, moved_at))
-        for _c in all_cards:
-            _c._analytics_movements = movements_by_card.get(_c.id, [])
+        # The order the heatmap always read its cards in (swimlane, then card
+        # position; id breaks the ties the database used to break arbitrarily),
+        # so the dwell lists, and the stalled list, fill in the same order.
+        heatmap_cards.sort(key=lambda c: (c.swimlane_id, c.position, c.id))
         cards_by_swimlane: dict[int, list] = {}
-        for _c in all_cards:
+        for _c in heatmap_cards:
             cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
 
         # swimlane id -> unrounded (avg, age, throughput) means, for the outlier flags.
@@ -1404,111 +1486,13 @@ class BoardAnalyticsMixin:
             deal_velocity_days = []
 
             for card in cards:
-                # The card's buffer movements from the query above, already
-                # ordered by moved_at at the DB level. The query is scoped to a 2× window
-                # buffer — movements contains only entries from period_cutoff - days onward.
-                movements = card._analytics_movements
-
-                # ── Clamped dwell (the frozen avg_days_per_column) ──────────────
-                # A column entered before the prefetch buffer has no prefetched
-                # movement of its own: seed it with a leading stand-in dated at the
-                # buffer start, whose clamp to period_cutoff gives the in-window
-                # dwell. It also covers an archived card with no prefetched
-                # movements. An active card with none is the long-dwelling case below.
-                dwell_moves = movements
-                if card._pre_buffer_col_id is not None and (movements or card.archived_at is not None):
-                    stand_in = SimpleNamespace(to_column_id=card._pre_buffer_col_id, moved_at=buffer_cutoff)
-                    # Leading in-buffer movements into the same column (swimlane-only
-                    # moves, archived/unarchived rows) continue the stay the stand-in
-                    # already carries; keeping any would split one visit into several
-                    # dwell entries. Skip every leading one, not just the first.
-                    first_other = 0
-                    while first_other < len(movements) and movements[first_other].to_column_id == card._pre_buffer_col_id:
-                        first_other += 1
-                    dwell_moves = [stand_in, *movements[first_other:]]
-                for i, mv in enumerate(dwell_moves):
-                    col_name = col_id_to_name.get(mv.to_column_id)
-                    if not col_name:
-                        continue
-                    # Done columns are terminal — dwell is not tracked here. The card's
-                    # clock stops at entry into a done column; counting time spent there
-                    # would inflate the heatmap with post-completion idle time.
-                    if mv.to_column_id in done_col_ids:
-                        continue
-                    # For archived cards use archived_at as the terminal timestamp so
-                    # dwell time covers only the active period, not time since archiving.
-                    exit_ = dwell_moves[i + 1].moved_at if i + 1 < len(dwell_moves) else (card.archived_at or now)
-                    # Skip movements that ended entirely before the analysis window.
-                    if exit_ <= period_cutoff:
-                        continue
-                    effective_entry_clamped = max(mv.moved_at, period_cutoff)
-                    col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
-                    all_col_dwells[col_name].append((exit_ - effective_entry_clamped).total_seconds() / 86400)
-
-                # ── Long-dwelling cards (no movements in the 2× buffer) ──────────
-                # Cards that have been sitting in their current column since before the
-                # buffer start have no entries in the prefetch but still need to
-                # contribute to col_dwells (deprecated avg_days_per_column).
-                # Their clamped dwell equals exactly `days` (entry clamped to
-                # period_cutoff, exit = now).  throughput_dwells is
-                # not affected — the card hasn't left the column during the period.
-                # The `_last_moved_at is not None` guard excludes newly-created cards
-                # that have never been moved (no movement record → dwell is not meaningful).
-                if (
-                    not movements
-                    and card._last_moved_at is not None
-                    and card.archived_at is None
-                    and card.column_id not in done_col_ids
-                ):
-                    stale_col_name = col_id_to_name.get(card.column_id)
-                    if stale_col_name:
-                        col_dwells[stale_col_name].append(float(days))
-                        all_col_dwells[stale_col_name].append(float(days))
-
-                # ── Velocity ──────────────────────────────────────────────────────
-                # Only count cards whose last movement in the window fell at or after
-                # period_cutoff, so the metric reflects recent throughput.
-                # _first_moved_at annotation gives the card's true first-ever movement
-                # so cycle time is measured from origin — important for cards older than
-                # the 2× prefetch buffer where movements[0] is not the true start.
-                # A card whose only movement is its creation row has not moved
-                # yet: its 0.0 days is no cycle, and would pull the average down
-                # (#2297). Creation is always a card's first movement, so the last
-                # one is a creation row only when it is the only one, and it is
-                # then also the card's first-ever movement. from_column_id is not
-                # a usable test: it goes NULL when a column is deleted, which
-                # would drop a real move out of it.
-                if (
-                    movements
-                    and movements[-1].moved_at >= period_cutoff
-                    and card._first_moved_at is not None
-                    and not (len(movements) == 1 and movements[0].moved_at == card._first_moved_at)
-                ):
-                    deal_velocity_days.append(
-                        (movements[-1].moved_at - card._first_moved_at).total_seconds() / 86400
-                    )
-
-                # ── Stalled detection ────────────────────────────────────────────
-                # Cards in done columns are excluded — they have completed the workflow.
-                # Uses the _last_col_id annotation (mirrors movements[-1].to_column_id)
-                # and _last_moved_at (covers all-time history) so cards stalled before
-                # the prefetch window are still detected correctly.
-                if card.archived_at is None:
-                    last_col_is_done = card._last_col_id in done_col_ids or card.column_id in done_col_ids
-                    # A card with no movement counts from created_at, matching
-                    # is_stale on the card serializer and Needs attention (#2291).
-                    last_moved_at = card._last_moved_at or card.created_at
-                    if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
-                        stalled_cards.append({
-                            "id": card.id,
-                            "uid": card.uid,
-                            "title": card.title,
-                            "days_since_move": (now - last_moved_at).days,
-                            # The floor above shows a card 7.9 days unmoved as "7"
-                            # under a 7-day threshold; this one matches Needs
-                            # attention's unfloored days (#2297).
-                            "days_since_move_exact": round((now - last_moved_at).total_seconds() / 86400, 1),
-                        })
+                for col_name, dwell in card.dwells:
+                    col_dwells[col_name].append(dwell)
+                    all_col_dwells[col_name].append(dwell)
+                if card.velocity is not None:
+                    deal_velocity_days.append(card.velocity)
+                if card.stalled is not None:
+                    stalled_cards.append(card.stalled)
 
             def _mean(vals: list[float]) -> float | None:
                 return sum(vals) / len(vals) if vals else None
