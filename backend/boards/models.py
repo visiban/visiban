@@ -1327,18 +1327,6 @@ class CardMovement(models.Model):
                 fields=["board", "-moved_at", "-id"],  # pragma: no mutate -- schema constant (migration-check)
                 name="movement_board_moved_id_idx",  # pragma: no mutate -- schema constant (migration-check)
             ),
-            # Cumulative flow and its ?date= drill-down probe each card for a
-            # few deciding rows (its first row, its last transition, its last
-            # archive-type row), each a LIMIT 1 walk ordered by (moved_at, id)
-            # in one direction or the other (#2444). The id tie-break is in
-            # the index so the walk needs no sort. Built concurrently in
-            # migration 0133. movement_card_moved_idx (card, -moved_at) is a
-            # prefix of it in all but direction, so it becomes a drop
-            # candidate once its readers are checked (a separate migration).
-            models.Index(
-                fields=["card", "moved_at", "id"],  # pragma: no mutate -- schema constant (migration-check)
-                name="movement_card_moved_at_id_idx",  # pragma: no mutate -- schema constant (migration-check)
-            ),
         ]
 
     def save(self, *args, **kwargs):
