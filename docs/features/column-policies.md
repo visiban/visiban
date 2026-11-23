@@ -8,9 +8,9 @@ A board admin can give each column a short **policy**: its **entry criteria** (w
 
 **Why it matters:** "make policies explicit" is a core Kanban practice, alongside WIP limits. When the rules for a stage live only in people's heads, "Review" means something different to each person, and cards move on before they are ready.
 
-**How it works:** the policy is text the board shows at the moments it matters: in the column header, while you drag a card over the column, and in card detail. In **Ask the mover to confirm** mode, a card dropped into the column opens a checklist of its entry criteria first.
+**How it works:** the policy is text the board shows at the moments it matters: in the column header, while you drag a card over the column, and in card detail. In **Ask the mover to confirm** mode, a card dropped into the column first opens its entry criteria for the mover to confirm. Entry criteria belong to the column, not to one card: to choose between them, sub-columns, tracks and a card's own to-dos, see [Breaking work down: which tool?](breaking-work-down.md).
 
-**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The confirm checklist is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button, **Move to…** in a card's [actions menu](board.md#card-actions-menu) and **Move card to…** in the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette), an admin's **Move anyway (admin override)** after a limit block, and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
+**Yes, but:** a policy is guidance, not enforcement. The server never refuses a move because of it. The entry-criteria confirm is a prompt in the web app only; the API, the [MCP server](mcp-server.md), bulk moves, the card detail **Move** button, **Move to…** in a card's [actions menu](board.md#card-actions-menu) and **Move card to…** in the [command palette](keyboard-shortcuts.md#card-actions-in-the-command-palette), an admin's **Move anyway (admin override)** after a limit block, and board import never show it. Use [WIP limits](board.md) when you need a hard rule.
 
 ---
 
@@ -51,9 +51,9 @@ When you open a card, its column's **Definition of done** is listed in the *Deta
 
 While you drag a card over a column with entry criteria, the drop target lists them (**Entry: …**). With the keyboard, the criteria are read aloud as you move over the column.
 
-In **Ask the mover to confirm** mode, dropping the card opens **Move "…" to Review?** with the entry criteria as a checklist. **Move to Review** stays unavailable until every item is checked. **Keep in In progress** (named after the card's current column), Escape, or clicking outside cancels the move. Either way, focus returns to the card.
+In **Ask the mover to confirm** mode, dropping the card opens **Move "…" to Review?** with each entry criterion as a box to tick. **Move to Review** stays unavailable until every criterion is ticked. **Keep in In progress** (named after the card's current column), Escape, or clicking outside cancels the move. Either way, focus returns to the card.
 
-A [WIP or weight limit](board.md) comes first: if the drop would be blocked by a limit, no checklist opens, and the move is refused as usual. If a board admin then uses **Move anyway (admin override)** on the blocked-move notice, the card moves in without the checklist. Moving a card within the same column never asks.
+A [WIP or weight limit](board.md) comes first: if the drop would be blocked by a limit, the entry criteria do not open, and the move is refused as usual. If a board admin then uses **Move anyway (admin override)** on the blocked-move notice, the card moves in without the entry-criteria confirm. Moving a card within the same column never asks.
 
 ## Export, import and templates
 

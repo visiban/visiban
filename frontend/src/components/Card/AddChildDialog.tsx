@@ -71,6 +71,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const capId = `${uid}-cap`;
   const archivedReasonId = `${uid}-archived`;
   const titleFieldId = `${uid}-card-title`;
+  const titleHintId = `${uid}-title-hint`;
   const [options, setOptions] = useState<ChildBoardOptions | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [chosen, setChosen] = useState<string>("");
@@ -259,8 +260,11 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 maxLength={255}
                 onChange={(e) => setTitle(e.target.value)}
                 readOnly={submitting}
+                aria-describedby={titleHintId}
                 className="w-full bg-surface border border-line text-fg text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               />
+              {/* #2542: static hint at the point of choice between a child card and a checklist item. */}
+              <p id={titleHintId} className="text-xs text-fg-muted" data-testid="child-title-hint">A child card has its own workflow on another board. For a simple to-do, use the checklist.</p>
             </div>
           )}
 

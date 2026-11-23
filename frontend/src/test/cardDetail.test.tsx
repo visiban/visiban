@@ -880,6 +880,8 @@ describe('CardDetail', () => {
     render(<CardDetail {...props} />)
     // "Add item" input must not be present for viewers
     expect(screen.queryByPlaceholderText('Add item (Enter)…')).not.toBeInTheDocument()
+    // ...and neither is its hint, which has nothing to describe (#2542).
+    expect(screen.queryByTestId('checklist-hint')).not.toBeInTheDocument()
   })
 
   it('hides delete/archive buttons for member who does not own the card', () => {
@@ -1516,6 +1518,29 @@ describe('CardDetail', () => {
       fireEvent.click(header)
       expect(header).toHaveAttribute('aria-expanded', 'true')
       expect(screen.getByText('No checklist items yet.')).toBeInTheDocument()
+    })
+
+    // #2542: a static hint at the point of choice between a checklist item and a child card.
+    it('describes the add input with a hint that does not mention children when the card cannot have them', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
+      const input = screen.getByRole('textbox', { name: 'Add checklist item' })
+      const hint = screen.getByTestId('checklist-hint')
+      expect(hint).toHaveTextContent(/^Steps for this card only\.$/)
+      expect(hint).toHaveClass('text-xs', 'text-fg-muted')
+      expect(input).toHaveAttribute('aria-describedby', hint.id)
+      expect(input).toHaveAccessibleDescription('Steps for this card only.')
+      // Static text: no link or button inside it, so it adds no tab stop.
+      expect(hint.querySelector('a, button, [tabindex]')).toBeNull()
+    })
+
+    it('points to the Children tab when the card can have children', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      const props = memberProps()
+      props.board = { ...props.board, cards_can_have_children: true }
+      render(<CardDetail {...props} currentUser={fakeUser} />)
+      const input = screen.getByRole('textbox', { name: 'Add checklist item' })
+      expect(input).toHaveAccessibleDescription('Steps for this card only. For work with its own workflow on another board, use the Children tab.')
     })
 
     it('shows the failure copy when the assign is refused', async () => {

@@ -350,10 +350,13 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
 
   return (
     <div ref={rootRef} className="flex flex-col gap-5" data-testid="stage-settings-panel" aria-busy={saving}>
+      {/* #2543: "stage" is defined once, here and in board.md; the tab and menu item keep their names. */}
+      <p className="text-xs text-fg-tertiary" data-testid="stage-definition">A stage is a column. This tab holds its sub-columns and tracks. A stage with sub-columns is a gated stage.</p>
       <fieldset disabled={saving} className="contents">
-        <section aria-labelledby={`${uid}-subs`}>
+        {/* #2542: the hint at this point of choice says it applies to every card in the column. */}
+        <section aria-labelledby={`${uid}-subs`} aria-describedby={`${uid}-subs-hint`}>
           <h3 id={`${uid}-subs`} className="text-sm font-semibold text-fg">Sub-columns, in order</h3>
-          <p className="mt-0.5 text-xs text-fg-tertiary">One WIP limit covers the whole stage. Time in the last sub-column is recorded as waiting.</p>
+          <p id={`${uid}-subs-hint`} className="mt-0.5 text-xs text-fg-tertiary">Steps every card in this column goes through, in order. One WIP limit covers the whole stage. Time in the last sub-column is recorded as waiting.</p>
           <ol className="mt-2 flex flex-col gap-1.5">
             {subs.map((s, i) => (
               <li key={s.key} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -429,9 +432,9 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
           {subError && <p id={`${uid}-suberr`} className="mt-1 text-xs text-danger" role="alert">{subError}</p>}
         </section>
 
-        <section aria-labelledby={`${uid}-tracks`}>
+        <section aria-labelledby={`${uid}-tracks`} aria-describedby={`${uid}-tracks-hint`}>
           <h3 id={`${uid}-tracks`} className="text-sm font-semibold text-fg">Tracks, any order</h3>
-          <p className="mt-0.5 text-xs text-fg-tertiary">Each track is open, done or not applicable and shows as a chip on the card.</p>
+          <p id={`${uid}-tracks-hint`} className="mt-0.5 text-xs text-fg-tertiary">Checks every card in this column needs, in any order. Each shows as a chip on the card. For one card's to-dos, use its checklist.</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {tracks.map((t, i) => (
               <li key={t.key} className="flex items-center gap-2">
@@ -459,7 +462,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
               value={newTrackName}
               maxLength={100}
               aria-invalid={trackNameTaken || undefined}
-              aria-describedby={trackNameTaken ? `${uid}-track-taken` : undefined}
+              aria-describedby={trackNameTaken ? `${uid}-tracks-hint ${uid}-track-taken` : `${uid}-tracks-hint`}
               onChange={(e) => setNewTrackName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNewTrack(); } }}
               className={INPUT}

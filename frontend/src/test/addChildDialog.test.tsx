@@ -52,6 +52,9 @@ describe('AddChildDialog (#2208)', () => {
     expect(primary).toBeDisabled()
     await user.type(screen.getByLabelText('Title'), 'Write the plan')
     expect(primary).toBeDisabled()
+    // #2542: a static hint tells a child card from a checklist item, tied to the Title field.
+    expect(screen.getByLabelText('Title')).toHaveAccessibleDescription('A child card has its own workflow on another board. For a simple to-do, use the checklist.')
+    expect(screen.getByTestId('child-title-hint')).toHaveClass('text-xs', 'text-fg-muted')
     await choose(user, 'Delivery')
     const go = screen.getByRole('button', { name: 'Add to Delivery' })
     expect(go).toBeEnabled()
