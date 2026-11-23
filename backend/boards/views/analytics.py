@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import statistics
+from collections import Counter
 from typing import NamedTuple
 from types import SimpleNamespace
 
@@ -157,11 +158,22 @@ _BOARD_ANALYTICS_RESPONSE = inline_serializer(
                         ),
                     },
                 ),
+                "stalled_cards_total": serializers.IntegerField(
+                    required=False,
+                    help_text=(
+                        "Only with `limit` (#2429): this swimlane's stalled cards before the cut. `limit` "
+                        "applies to the stalled cards of all swimlanes together and keeps the board's "
+                        "longest-unmoved ones, each list in its usual order."
+                    ),
+                ),
             },
         ),
         "stalled_threshold_days": serializers.IntegerField(),
         "staleness_threshold_days": serializers.IntegerField(),
         "stale_warning_pct": serializers.IntegerField(),
+        "sampled": serializers.BooleanField(
+            required=False, help_text="Only with `limit` (#2429): true when a swimlane's `stalled_cards` was cut to it.",
+        ),
         "blocked": inline_serializer(
             name="BoardAnalyticsBlocked",
             help_text=(
@@ -297,6 +309,30 @@ _MIN_FLOW_DATE = datetime.date(1970, 1, 1)
 _MAX_FLOW_DATE = datetime.date(9000, 1, 1)
 
 
+class _ListLimitField(serializers.Field):
+    """``limit`` (#2429): a positive integer, or ``all`` for no cap (None).
+
+    Absent and ``all`` mean the same thing, the uncapped response every client
+    got before 1.3, so a caller that never sends it sees no change.
+    """
+
+    default_error_messages = {"invalid": 'Must be a positive integer or "all".'}
+
+    def to_internal_value(self, data):
+        if data == "all":
+            return None
+        try:
+            value = int(data)
+        except (TypeError, ValueError):
+            self.fail("invalid")
+        if not 1 <= value <= MAX_DB_INT:
+            self.fail("invalid")
+        return value
+
+    def to_representation(self, value):
+        return value
+
+
 class FlowMetricsQuerySerializer(serializers.Serializer):
     """The filters every ``metrics/*`` endpoint accepts, validated at the boundary.
 
@@ -310,6 +346,8 @@ class FlowMetricsQuerySerializer(serializers.Serializer):
     to_date = serializers.DateField(required=False)
     swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
     label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+    # Read by the endpoints with per-card lists; the others ignore it (#2429).
+    limit = _ListLimitField(required=False)
 
     def _in_bounds(self, value):
         if not _MIN_FLOW_DATE <= value <= _MAX_FLOW_DATE:
@@ -388,6 +426,7 @@ class AnalyticsFilterQuerySerializer(serializers.Serializer):
 
     swimlane_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
     label_id = serializers.IntegerField(required=False, min_value=1, max_value=MAX_DB_INT)
+    limit = _ListLimitField(required=False)
 
     validate_swimlane_id = FlowMetricsQuerySerializer.validate_swimlane_id
     validate_label_id = FlowMetricsQuerySerializer.validate_label_id
@@ -668,6 +707,21 @@ _FLOW_GROUP_PARAMETERS = [
     ),
 ]
 
+_LIMIT_PARAMETER = OpenApiParameter(
+    name="limit", type={"oneOf": [
+        {"type": "integer", "format": "int64", "minimum": 1, "maximum": MAX_DB_INT},
+        {"type": "string", "enum": ["all"]},
+    ]},
+    location=OpenApiParameter.QUERY, required=False,
+    description=(
+        "Added in 1.3 (#2429). Cap each per-card list at this many entries; `all`, or no `limit`, "
+        "returns every entry, as before. Scatter samples are downsampled (the largest values always "
+        "kept), other lists truncated in their documented order. Every count and percentile is still "
+        "computed from the whole set. With `limit`, the response adds `sampled` and the full sizes "
+        "(`samples_total`, `items_total`, `stalled_cards_total`)."
+    ),
+)
+
 _FLOW_400 = OpenApiResponse(
     description=(
         "A filter is malformed or out of range, names a swimlane or label that is not on "
@@ -784,6 +838,12 @@ _CYCLE_TIME_RESPONSE = inline_serializer(
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "samples_total": serializers.IntegerField(
+            required=False, help_text="Only with `limit` (#2429): samples before downsampling, equal to `sample_size`.",
+        ),
+        "sampled": serializers.BooleanField(
+            required=False, help_text="Only with `limit` (#2429): true when a list in this response was cut to it.",
+        ),
         "grouping": _grouping_field("FlowCycleTime", {
             "sample_size": serializers.IntegerField(),
             "percentiles": _PERCENTILES_FIELD,
@@ -900,6 +960,9 @@ _THROUGHPUT_RESPONSE = inline_serializer(
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "sampled": serializers.BooleanField(
+            required=False, help_text="Only with `limit` (#2429): true when a period's `card_uids` was cut to it; `count` is never cut.",
+        ),
         "grouping": _grouping_field("FlowThroughput", {
             "total": serializers.IntegerField(),
             "median": serializers.IntegerField(allow_null=True),
@@ -999,6 +1062,12 @@ _WIP_AGE_RESPONSE = inline_serializer(
                         "have no sample."
                     ),
                 ),
+                "sample_count": serializers.IntegerField(
+                    required=False, help_text="Only with `limit` (#2429): the column's samples before downsampling.",
+                ),
+                "past_p85_count": serializers.IntegerField(
+                    required=False, help_text="Only with `limit` (#2429): of those, older than the cycle-time p85.",
+                ),
             },
         ),
         "samples": inline_serializer(
@@ -1023,6 +1092,16 @@ _WIP_AGE_RESPONSE = inline_serializer(
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "samples_total": serializers.IntegerField(
+            required=False, help_text="Only with `limit` (#2429): samples before downsampling, equal to `sample_size`.",
+        ),
+        "past_p85_count": serializers.IntegerField(
+            required=False,
+            help_text="Only with `limit` (#2429): samples older than `cycle_time_percentiles.p85`, from the whole set.",
+        ),
+        "sampled": serializers.BooleanField(
+            required=False, help_text="Only with `limit` (#2429): true when a list in this response was cut to it.",
+        ),
         "grouping": _grouping_field("FlowWipAge", {"sample_size": serializers.IntegerField()}),
     },
 )
@@ -1135,6 +1214,12 @@ _ATTENTION_RESPONSE = inline_serializer(
             },
         ),
         "cards": _FLOW_CARD_FIELD,
+        "items_total": serializers.IntegerField(
+            required=False, help_text="Only with `limit` (#2429): items before the cut.",
+        ),
+        "sampled": serializers.BooleanField(
+            required=False, help_text="Only with `limit` (#2429): true when a list in this response was cut to it.",
+        ),
     },
 )
 
@@ -1156,28 +1241,68 @@ _OVERVIEW_RESPONSE = inline_serializer(
 )
 
 
-def _cycle_time_payload(flow, flow_range, grouping):
+def _cap_samples(payload, limit):
+    """Downsample ``payload["samples"]`` to ``limit`` (#2429), after every number was computed.
+
+    Without a limit the payload is left exactly as before, with no new keys, so
+    a client that does not send ``limit`` gets a byte-identical response.
+    """
+    if limit is None:
+        return
+    payload["samples_total"] = len(payload["samples"])
+    payload["samples"], payload["sampled"] = flow_metrics.downsample(payload["samples"], limit)
+
+
+def _cycle_time_payload(flow, flow_range, grouping, limit=None):
     payload = flow_metrics.cycle_time(flow, flow_range)
     if grouping is not None:
         flow_grouping.group_cycle_time(payload, flow, flow_range, grouping)
+    # After grouping: the group percentiles read every sample.
+    _cap_samples(payload, limit)
     payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
     return payload
 
 
-def _throughput_payload(flow, flow_range, period, grouping):
+def _throughput_payload(flow, flow_range, period, grouping, limit=None):
     payload = flow_metrics.throughput(flow, flow_range, period)
     if grouping is not None:
         flow_grouping.group_throughput(payload, flow, flow_range, grouping, period)
+    if limit is not None:
+        # Each period's ``count`` stays the whole count; only the drill-down's
+        # uid list is cut, in its documented order (#2429).
+        sampled = False
+        for sample in payload["samples"]:
+            for entry in (sample, *sample.get("by_group", ())):
+                if len(entry["card_uids"]) > limit:
+                    entry["card_uids"] = entry["card_uids"][:limit]
+                    sampled = True
+        payload["sampled"] = sampled
     payload["cards"] = flow_metrics.card_directory(
         flow, (uid for sample in payload["samples"] for uid in sample["card_uids"]),
     )
     return payload
 
 
-def _wip_age_payload(flow, flow_range, grouping):
+def _wip_age_payload(flow, flow_range, grouping, limit=None):
     payload = flow_metrics.age(flow, flow_range)
     if grouping is not None:
         flow_grouping.group_wip_age(payload, flow, flow_range, grouping)
+    if limit is not None:
+        # The counts a client used to take from the samples (the headline's
+        # "past 85th percentile", the column drawer's), stated from the whole
+        # set so they survive the downsampling below (#2429). Strict ``>`` as
+        # the chart's ring and the attention list use.
+        p85 = payload["cycle_time_percentiles"]["p85"]
+        per_column, past = Counter(), Counter()
+        for sample in payload["samples"]:
+            per_column[sample["column_uid"]] += 1
+            if p85 is not None and sample["value_days"] > p85:
+                past[sample["column_uid"]] += 1
+        payload["past_p85_count"] = sum(past.values())
+        for column in payload["columns"]:
+            column["sample_count"] = per_column[column["column_uid"]]
+            column["past_p85_count"] = past[column["column_uid"]]
+    _cap_samples(payload, limit)
     payload["cards"] = flow_metrics.card_directory(flow, (s["card_uid"] for s in payload["samples"]))
     return payload
 
@@ -1189,8 +1314,13 @@ def _dwell_payload(flow, flow_range, grouping):
     return payload
 
 
-def _attention_payload(board, flow, flow_range):
+def _attention_payload(board, flow, flow_range, limit=None):
     payload = flow_metrics.needs_attention(flow, flow_range, stalled_days=board.staleness_threshold_days)
+    if limit is not None:
+        # Oldest first, so the cut keeps the cards most in need (#2429).
+        payload["items_total"] = len(payload["items"])
+        payload["sampled"] = len(payload["items"]) > limit
+        payload["items"] = payload["items"][:limit]
     payload["cards"] = flow_metrics.card_directory(flow, (item["card_uid"] for item in payload["items"]))
     return payload
 
@@ -1333,6 +1463,7 @@ class BoardAnalyticsMixin:
                 location=OpenApiParameter.QUERY, required=False,
                 description="Only cards currently carrying this label, as on `metrics/*`.",
             ),
+            _LIMIT_PARAMETER,
         ],
         responses={200: _BOARD_ANALYTICS_RESPONSE, 400: _ANALYTICS_400},
     )
@@ -1601,6 +1732,21 @@ class BoardAnalyticsMixin:
                     levels[col.name] = "ok"
             return levels
 
+        limit = filters.get("limit")
+        sampled = False
+        if limit is not None:
+            # One cut across the board, not per swimlane (#2429): a 1,000-lane
+            # board with a few stalled cards each is thousands of cards, and the
+            # heatmap reads only each lane's count. The cut keeps the board's
+            # longest-unmoved cards, each lane's list in its usual order.
+            ranked = sorted(
+                ((-card["days_since_move_exact"], card["id"]) for sw in swimlane_results for card in sw["stalled_cards"]),
+            )
+            keep = {card_id for _, card_id in ranked[:limit]}
+            sampled = len(ranked) > limit
+            for sw in swimlane_results:
+                sw["stalled_cards_total"] = len(sw["stalled_cards"])
+                sw["stalled_cards"] = [card for card in sw["stalled_cards"] if card["id"] in keep]
         for sw in swimlane_results:
             raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
             sw["is_outlier"] = _flags(raw_avg)
@@ -1622,11 +1768,12 @@ class BoardAnalyticsMixin:
             "stale_warning_pct": board.stale_warning_pct,
             # Additive (#1149): blocked time per column and top reasons.
             "blocked": blocked,
+            **({"sampled": sampled} if limit is not None else {}),
         })
 
     @extend_schema(
         summary="Cycle time per completed card, with percentiles",
-        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
+        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS, _LIMIT_PARAMETER],
         responses={200: _CYCLE_TIME_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/cycle-time")
@@ -1637,7 +1784,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow)))
+        return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
     @extend_schema(
         summary="Per-swimlane cycle time, trend, blocked share and status against the board",
@@ -1683,6 +1830,7 @@ class BoardAnalyticsMixin:
                 location=OpenApiParameter.QUERY, required=False,
                 description="Bucket size (default `week`). Only whole periods inside the range are reported.",
             ),
+            _LIMIT_PARAMETER,
         ],
         responses={200: _THROUGHPUT_RESPONSE, 400: _FLOW_400},
     )
@@ -1694,7 +1842,9 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_throughput_payload(flow, flow_range, params["period"], _grouping(board, params, flow)))
+        return Response(_throughput_payload(
+            flow, flow_range, params["period"], _grouping(board, params, flow), params.get("limit"),
+        ))
 
     @extend_schema(
         summary="Cards per column at the end of each UTC day, or the cards behind one day",
@@ -1741,7 +1891,7 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="Age of the cards in progress, with the cycle-time percentiles for the aging zones",
-        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
+        parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS, _LIMIT_PARAMETER],
         responses={200: _WIP_AGE_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/wip-age")
@@ -1752,7 +1902,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow)))
+        return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
     @extend_schema(
         summary="Completed dwell time per column, with percentiles",
@@ -1789,7 +1939,7 @@ class BoardAnalyticsMixin:
 
     @extend_schema(
         summary="Cards that need attention: blocked, past the cycle-time p85, or stalled",
-        parameters=_FLOW_FILTER_PARAMETERS,
+        parameters=[*_FLOW_FILTER_PARAMETERS, _LIMIT_PARAMETER],
         responses={200: _ATTENTION_RESPONSE, 400: _FLOW_400},
     )
     @action(detail=True, methods=["get"], url_path="metrics/attention")
@@ -1800,7 +1950,7 @@ class BoardAnalyticsMixin:
         now = timezone.now()
         flow_range = _flow_range(params, now)
         flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_attention_payload(board, flow, flow_range))
+        return Response(_attention_payload(board, flow, flow_range, params.get("limit")))
 
     @extend_schema(
         summary="Every Analytics overview chart from one history load",
@@ -1818,6 +1968,7 @@ class BoardAnalyticsMixin:
                 location=OpenApiParameter.QUERY, required=False,
                 description="Bucket size of the `throughput` section (default `week`).",
             ),
+            _LIMIT_PARAMETER,
         ],
         responses={200: _OVERVIEW_RESPONSE, 400: _FLOW_400},
     )
@@ -1844,14 +1995,15 @@ class BoardAnalyticsMixin:
             board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
         )
         grouping = _grouping(board, params, flow)
+        limit = params.get("limit")
         return Response({
-            "cycle_time": _cycle_time_payload(flow, flow_range, grouping),
-            "throughput": _throughput_payload(flow, flow_range, params["period"], grouping),
+            "cycle_time": _cycle_time_payload(flow, flow_range, grouping, limit),
+            "throughput": _throughput_payload(flow, flow_range, params["period"], grouping, limit),
             "cumulative_flow": flow_metrics.cumulative_flow(flow, flow_range),
-            "wip_age": _wip_age_payload(flow, flow_range, grouping),
+            "wip_age": _wip_age_payload(flow, flow_range, grouping, limit),
             "dwell": _dwell_payload(flow, flow_range, grouping),
             "blocked": flow_metrics.blocked_summary(flow, flow_range),
-            "attention": _attention_payload(board, flow, flow_range),
+            "attention": _attention_payload(board, flow, flow_range, limit),
         })
 
     @extend_schema(

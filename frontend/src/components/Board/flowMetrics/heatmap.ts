@@ -46,6 +46,8 @@ export interface SwimlaneStat {
   age_wait_avg_days_per_column?: Record<string, number | null>;
   deal_velocity_days: number | null;
   stalled_cards: StalledCard[];
+  /** Only with `limit` (#2429): stalled cards before the cut, which keeps the longest-unmoved. */
+  stalled_cards_total?: number;
 }
 
 /** Manual blocked time in the analytics window (#1149). */
@@ -70,6 +72,8 @@ export interface AnalyticsData {
   stale_warning_pct: number;
   /** Additive (#1149); absent from a server that predates it. */
   blocked?: BlockedSummary;
+  /** Only with `limit` (#2429): true when a swimlane's `stalled_cards` was cut. */
+  sampled?: boolean;
 }
 
 export type ViewMode = "age" | "throughput";
@@ -115,7 +119,7 @@ export function buildCsv(data: AnalyticsData, mode: ViewMode): string {
       sw.name,
       ...cols.map(c => avgMap[c] ?? ""),
       sw.deal_velocity_days ?? "",
-      sw.stalled_cards.length,
+      sw.stalled_cards_total ?? sw.stalled_cards.length,
     ];
   });
   return [header, ...rows].map(r => r.map((element) => csvField(element)).join(",")).join("\n");

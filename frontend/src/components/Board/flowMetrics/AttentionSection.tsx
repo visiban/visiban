@@ -62,6 +62,8 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
   // renders in the service's order and never re-sorts on the client.
   const sorted = data.items;
   const total = sorted.length;
+  // A capped response (#2429) lists the oldest items and states how many there are in all.
+  const overall = data.items_total ?? total;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(requestedPage, totalPages);
   const rows = expanded ? sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : sorted.slice(0, PREVIEW_ROWS);
@@ -77,7 +79,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
             onClick={() => { setExpanded((e) => !e); setPage(1); }}
             className="text-xs text-info underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
-            {expanded ? "Show fewer" : `All ${total} cards`}
+            {expanded ? "Show fewer" : `All ${overall} cards`}
           </button>
         )}
       </div>
@@ -122,6 +124,9 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
             );
           })}
         </ul>
+      )}
+      {expanded && overall > total && (
+        <p className="text-xs text-fg-tertiary">Showing the {total} oldest of {overall} cards.</p>
       )}
       {expanded && totalPages > 1 && (
         <div className="flex items-center justify-between">

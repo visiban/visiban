@@ -65,14 +65,14 @@ export function cumulativeFlowSummary({ columns, bottleneck_column_uid: bottlene
     : "No column that is not done grew in this range.";
 }
 
-export function wipAgeSummary({ sample_size: n, samples, columns, cycle_time_percentiles: zones }: FlowWipAge): string {
+export function wipAgeSummary({ sample_size: n, samples, columns, cycle_time_percentiles: zones, past_p85_count }: FlowWipAge): string {
   if (n === 0) {
     // Live WIP (#2287) counts unstarted cards too, so no ages does not mean no work in progress.
     const live = columns.reduce((sum, c) => sum + (c.wip_count ?? 0), 0);
     return live > 0 ? "No card in progress has an age yet." : "No cards are in progress. Move a card into an in-progress column to see its age.";
   }
   if (zones.p85 === null) return `${plural(n, "card")} in progress.`;
-  const past = cardsPastP85({ samples, cycle_time_percentiles: zones });
+  const past = cardsPastP85({ samples, cycle_time_percentiles: zones, past_p85_count });
   return `${past} of ${plural(n, "card")} in progress ${past === 1 ? "is" : "are"} past the 85th percentile.`;
 }
 
@@ -177,8 +177,10 @@ export function columnsOverLimit(
 }
 
 /** Cards in progress past the 85th percentile of cycle time; 0 without a P85. */
-export function cardsPastP85({ samples, cycle_time_percentiles: zones }: Pick<FlowWipAge, "samples" | "cycle_time_percentiles">): number {
+export function cardsPastP85({ samples, cycle_time_percentiles: zones, past_p85_count }: Pick<FlowWipAge, "samples" | "cycle_time_percentiles" | "past_p85_count">): number {
   if (zones.p85 === null) return 0;
+  // A capped response (#2429) states the count from the whole set; its samples are only a sample.
+  if (past_p85_count !== undefined) return past_p85_count;
   return samples.filter((s) => s.value_days > (zones.p85 as number)).length;
 }
 
@@ -235,4 +237,17 @@ export function blockedSubtitle(
   if (topShare >= 0.5) return "One reason accounts for more than half of all blocked time.";
   if (topShare >= 0.4) return "One reason accounts for nearly half of all blocked time.";
   return fixed;
+}
+
+
+/**
+ * A downsampled scatter says so (#2429): the counts and percentiles stated are
+ * the whole set's, the dots and the table rows a sample of it.
+ */
+export function sampledNote(
+  data: { sampled?: boolean; samples: unknown[]; samples_total?: number },
+  kept: "longest" | "oldest",
+): string | null {
+  if (!data.sampled || data.samples_total === undefined) return null;
+  return `Showing ${data.samples.length} of ${data.samples_total} cards, the ${kept} always included.`;
 }

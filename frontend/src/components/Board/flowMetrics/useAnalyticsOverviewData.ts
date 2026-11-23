@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getBoardAnalytics } from "../../../api/boards";
+import { OVERVIEW_LIST_LIMIT } from "../../../api/analyticsLimits";
 import { getFlowOverview } from "../../../api/flowMetrics";
 import type { FlowFilters, FlowGroupingParams } from "../../../api/flowMetrics";
 import type {
@@ -55,7 +56,10 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     // allSettled never rejects and the `current` flag guards late answers, so fire-and-forget is safe.
     void Promise.allSettled([
       getFlowOverview(boardId, filters, ...extra),
-      getBoardAnalytics(boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }),
+      // The heatmap reads only the stalled-card count (stalled_cards_total), so cap the list (#2429).
+      getBoardAnalytics(
+        boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }, OVERVIEW_LIST_LIMIT,
+      ),
     ]).then(([overview, analytics]) => {
       if (!current) return;
       // One failed request fails every chart it carried, each in its own frame.
