@@ -2669,6 +2669,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-apiv1boardsboard_idcardsidneeded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{board_id}/cards/{id}/needed/
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="POST /api/v1/boards/{board_id}/cards/{id}/needed/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#planned-children-since-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned children (since 1.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6402,10 +6430,11 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 </tr>
 <tr>
 <td><code>system</code></td>
-<td><code>archived</code>, <code>reactivated</code>, and since 1.3 <code>parent_linked</code>, <code>parent_unlinked</code>, <code>child_linked</code>, <code>child_unlinked</code> (#1104), <code>children_removed_board_deleted</code>, <code>parent_removed_board_deleted</code> (#2208)</td>
+<td><code>archived</code>, <code>reactivated</code>, and since 1.3 <code>parent_linked</code>, <code>parent_unlinked</code>, <code>child_linked</code>, <code>child_unlinked</code> (#1104), <code>children_removed_board_deleted</code>, <code>parent_removed_board_deleted</code> (#2208), <code>planned_released</code>, <code>needed_changed</code> (#2371)</td>
 </tr>
 </tbody>
 </table>
+<p>A <code>planned_released</code> entry (#2371) has <code>from_value</code> <code>parent_reached</code> (the parent reached or skipped past the column; no actor) or <code>pulled</code> (the child left To do early), and <code>to_value</code> the child's due date or <code>""</code>. A <code>needed_changed</code> entry has <code>from_value</code> <code>created</code>, <code>manual</code> or <code>column_deleted</code> (no actor) and <code>to_value</code> <code>planned</code> or <code>now</code>. Neither names the parent, its board, its column or the person who moved the parent.</p>
 <p>An <code>unblocked</code> entry's <code>data</code> also carries <code>block_duration_seconds</code> (<em>added in 1.3</em>, #1149): how long the block it closed lasted, or <code>null</code> when no closed block matches (an imported entry whose block history was not imported).</p>
 <p><a id="timeline-gate-entries"></a>
 <strong>Gate entries</strong> (<em>added in 1.3</em>, #2365). A card moving between the sub-columns of a split stage (see <a href="#gated-stages-and-gate-transitions-13-1102">Gated stages and gate transitions</a>) writes a <code>CardGateTransition</code> row per gate crossed, and no movement. Those rows are <code>kind: "gate"</code> entries, with <code>event_type</code> <code>gate_passed</code> or <code>gate_reopened</code>, and <code>data</code> in the same shape as the move response's <code>gate_transitions</code> items (<code>id</code>, <code>card_uid</code>, <code>card_title</code>, <code>column</code>, <code>column_name</code>, <code>column_uid</code>, <code>sub_column_name</code>, <code>sub_column_uid</code>, <code>kind</code>, <code>from_index</code>, <code>to_index</code>, <code>reason</code>, <code>cause</code>, <code>movement</code>, <code>actor</code> as a username, <code>created_at</code>, <code>imported_from_username</code>). <code>sub_column_name</code> is the sub-column the card reached. <code>cause</code> is <code>move</code> for a move between sub-columns, <code>stage_edited</code> when a stage-settings change moved the card (its sub-column was removed), or <code>import</code>.</p>
@@ -7007,7 +7036,7 @@ endpoint would refuse you. Neither is sent when <code>visible</code> is <code>fa
 <h3 id="post-apiv1boardsboard_idcardsidchildren"><code>POST /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p><strong>Add child</strong> (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;", "apply_default_team": &lt;bool, optional&gt;, "expected_assignee_id": &lt;int or null, optional&gt;}</code>. The card goes in that board's first
+<code>{"board_id": &lt;int&gt;, "title": "&lt;text&gt;", "apply_default_team": &lt;bool, optional&gt;, "expected_assignee_id": &lt;int or null, optional&gt;, "needed_at_column": &lt;int or null, optional&gt;}</code>. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. <code>201</code> returns the new card, as
 <code>POST .../cards/</code> does.</p>
@@ -7151,6 +7180,78 @@ Any role on this card's board.</p>
   would assign there (<code>null</code> when nobody on the team can be assigned there).</li>
 </ul>
 <p>Empty lists and <code>null</code>s when this card's board cannot have children.</p>
+<ul>
+<li><strong>Needed</strong> (#2371, since 1.3): <code>needed_at_column</code> omitted or <code>null</code> is
+  "Needed: Now", as before. A column id plans the child for when this card
+  reaches that column: it must be a column on this card's board after the
+  one this card is in, else <code>400</code> keyed <code>needed_at_column</code> (also for a
+  non-integer). See <a href="#planned-children-since-13">Planned children</a>.</li>
+</ul>
+<h3 id="post-apiv1boardsboard_idcardsidneeded"><code>POST /api/v1/boards/{board_id}/cards/{id}/needed/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidneeded" title="Permanent link">&para;</a></h3>
+<p><em>Since 1.3 (#2371).</em> Change a child card's <strong>Needed</strong>. Body:
+<code>{"needed_at_column": &lt;int or null&gt;}</code> (required). <code>null</code> is Now; a column id
+plans the child again. <code>200</code> returns
+<code>{"needed_at_column", "planned", "planned_released_at"}</code>.</p>
+<ul>
+<li><strong>Roles:</strong> <code>member</code> or higher on this card's board (<code>403</code> below that).</li>
+<li><strong>A column</strong> also needs <code>member</code> or higher on the parent's board (a viewer there may only set Now), must come after the
+  parent's current column, and the card must be in its board's first column.
+  Every refusal is <code>400</code> keyed <code>needed_at_column</code> and names no column.</li>
+<li>A card with no parent, or a missing key, is <code>400</code>. The card's due date is
+  kept. A change records a <code>needed_changed</code> history row; a no-op records none.</li>
+</ul>
+<h4 id="planned-children-since-13">Planned children (since 1.3)<a class="headerlink" href="#planned-children-since-13" title="Permanent link">&para;</a></h4>
+<p>On the reads that carry <code>parent</code> (<code>/full/</code>, the card list, retrieve and
+<code>archived/</code>), every card also carries:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>planned</code></td>
+<td>bool</td>
+<td>Needed is a later parent column and the child is not yet released. Its <code>due_date</code> is inactive: not Overdue, Due soon or Stale. <code>is_stale</code> applies this rule on every read (board, card, card query, share link) whether or not these fields are present.</td>
+</tr>
+<tr>
+<td><code>needed_now</code></td>
+<td>bool</td>
+<td>Released (the parent reached or skipped past the column, its column was deleted, or Needed was set to Now by hand), and still in its board's first column with no move since. <code>needed_now_reason</code> says which.</td>
+</tr>
+<tr>
+<td><code>needed_at_column</code></td>
+<td>int or null</td>
+<td>The parent board's column; <code>null</code> for Now and whenever you cannot open the parent's board.</td>
+</tr>
+<tr>
+<td><code>needed_at_column_name</code></td>
+<td>string or null</td>
+<td>That column's name, under the same rule.</td>
+</tr>
+<tr>
+<td><code>planned_released_at</code></td>
+<td>datetime or null</td>
+<td>When the child stopped being planned: the parent reached its column, it was pulled, its column was deleted, or Needed was set to Now by hand. Stale restarts from it. An already released child keeps its first value.</td>
+</tr>
+<tr>
+<td><code>needed_now_reason</code></td>
+<td><code>"parent"</code>, <code>"cancelled"</code> or null</td>
+<td>Why a <code>needed_now</code> child was released; <code>null</code> whenever <code>needed_now</code> is false. <code>parent</code>: the parent reached or skipped past the Needed column. <code>cancelled</code>: the plan was called off (its column was deleted, or Needed was set to Now by hand, which also turns an earlier <code>parent</code> into <code>cancelled</code>; deleting the Needed column of an already released link does the same, and writes no history row). It carries the cause only, never the parent, its column or who moved it, so every reader gets it, including one who cannot open the parent's board.</td>
+</tr>
+</tbody>
+</table>
+<p>Like <code>parent</code>, they are absent from write responses, <code>card.*</code> event payloads,
+webhooks, MCP, exports and share links. A release by the parent sends no new
+event type: the parent's move already sends <code>card.parent_changed</code> to the
+child board, and clients re-read. History rows: <code>planned_released</code>
+(<code>from_value</code> <code>parent_reached</code> or <code>pulled</code>, <code>to_value</code> the due date now
+counting, blank for none; no actor when the parent's move caused it) and
+<code>needed_changed</code> (<code>from_value</code> <code>created</code>, <code>manual</code> or <code>column_deleted</code>;
+<code>to_value</code> <code>planned</code> or <code>now</code>).</p>
 <h3 id="delete-apiv1boardsboard_idcardsidchildrenchild_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidchildrenchild_id" title="Permanent link">&para;</a></h3>
 <p>Unlink one child from this parent. <code>member</code> or higher on the parent's board,
 and a role on the child's board. A child id that is not linked to this parent,

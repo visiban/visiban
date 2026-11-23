@@ -1145,6 +1145,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#planned-children" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Planned children
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5614,6 +5625,19 @@
 <li><strong>Deleting the child board</strong> clears the default; Add child then asks which board to use. Each parent that lost children records "N children removed: their board was deleted", and each child of a deleted parent board records "Parent removed: its board was deleted". The deleted board is never named in that history.</li>
 <li><strong>Add child chooser:</strong> a card on a parent board with member access or above shows an <strong>Add child</strong> button on its Children tab (#2209; before, in its detail panel). It opens a dialog (a full-screen sheet on a phone) titled <strong>Add child to <board></strong> once the board is known (<strong>Add child</strong> until then), with a header line "Parent: <card title> · <column>". With a default, the board is preselected and the button reads <strong>Add to <board></strong>; without one, members see <strong>Choose a board</strong> and the button stays disabled until a board and a title are given. Admins of both boards also get <strong>Use <board> as the default for <this board></strong>, which sets the default in a second request after the child is added. Once a card has children, the select is replaced by the board they are on; if you cannot open that board, Add child is unavailable. A board that is no longer available is reported and the list is re-read. If the boards cannot be loaded, the dialog says so and offers <strong>Retry</strong>. An archived card cannot get new children (<em>1.3, #2447</em>): the dialog says "This card is archived. Restore it before adding children." and Add stays disabled, and the server refuses the add with <code>parent_archived</code> if it is tried anyway. Restoring the card lifts it; archiving a parent never removes the children it already has. One exception: a card that was a child of the archived card and was then unlinked from it may be linked back, so an unlink can be undone; the server refuses only cards that were never its children.</li>
 <li><strong>Delete confirm:</strong> the confirm for deleting a board that holds children of cards on other boards says how many parents lose them, naming the parent boards you can open and "another board you can't open" for the rest.</li>
+</ul>
+<h3 id="planned-children">Planned children<a class="headerlink" href="#planned-children" title="Permanent link">&para;</a></h3>
+<p><em>Added in 1.3 (#2371).</em> A child can be work you already know the parent will need at a <strong>later stage</strong>, for example a workshop needed once the parent reaches Proposal. Such a child is a real card in the child board's first column (To do), but it is <strong>planned</strong>: it waits quietly until it is needed.</p>
+<ul>
+<li><strong>Needed.</strong> Add child accepts an optional <strong>Needed</strong> value: <strong>Now</strong> (the default, and every child before 1.3) or a column on the parent's board after the one the parent is in. Through the API this is <code>needed_at_column</code> on <code>POST .../children/</code>.</li>
+<li><strong>Inactive date.</strong> A planned child's due date is saved but does not count: the card is left out of Overdue, Due soon and Stale until it is released. That holds wherever the server works these out (the board and card reads, the card query, a public share link's Stale flag, the stale digest, the due-soon notification and the lane health counts) and in the board view itself: its filters, chips, lane squares, the card face, the peek sheet and card detail. Export and MCP carry the date but no Stale or Overdue value of their own. Every other card, To do included, keeps its date exactly as before.</li>
+<li><strong>Known gaps.</strong> Three places still judge a planned child by its due date: the <strong>Overdue</strong> badge on a public share link (worked out in the browser from the date, #2553), the child rows in the parent's <strong>Children</strong> tab (#2553), and Analytics <strong>Needs attention</strong> (#2554).</li>
+<li><strong>Release.</strong> The child stops being planned when the parent reaches that column <strong>or skips past it</strong>, or when someone pulls the child out of To do. The release is stored, so a parent moving back never makes the child planned again. After release, Stale is measured from the release, not from the child's last move. A released child (by its parent, a column delete, or setting Needed to Now) reads "needed now" until it leaves To do.</li>
+<li><strong>Renaming</strong> the column changes nothing (the child follows the column). <strong>Deleting</strong> it makes the child "Needed: Now", with a history note, and releases it: its Stale clock restarts then, so a child planned for weeks does not turn Stale the moment its column goes. Setting a planned child to Now by hand does the same; a child that was already released keeps its original release time. <strong>Unlinking</strong> the child, or deleting the parent's board, removes the link and with it the plan, so any stored date counts at once.</li>
+<li><strong>Changing Needed by hand</strong> (<code>POST .../cards/&lt;id&gt;/needed/</code>) needs member access on the child's board. Choosing a column also needs member access to the parent's board, and the child must still be in its board's first column; anyone may set it back to Now. The stored date is kept either way.</li>
+<li><strong>History.</strong> The child's history records each change into or out of planned: created planned, released (by the parent or by a pull, with the date that now counts), Needed changed by hand, and Needed reset because its column was deleted. These entries never name the parent, its board, its column or the person who moved it, because the reader may be unable to open the parent's board.</li>
+<li><strong>Who sees what.</strong> Every reader of the child sees whether it is planned or needed now. The column name (<code>needed_at_column_name</code>) is shown only to someone who can open the parent's board; anyone else sees "planned for a later stage".</li>
+<li><strong>Needed now, on the card.</strong> A child released by its parent reads "Needed now: parent is in Proposal" to someone who can open the parent, and "Needed now: the parent moved on" to anyone else. A child whose plan was cancelled, or whose parent's release was overridden (the Needed column was deleted, or Needed was set to Now), reads a plain "Needed now". Through the API, <code>needed_now_reason</code> is <code>parent</code> or <code>cancelled</code>.</li>
 </ul>
 <h2 id="children-tab-parent-side">Children tab (parent side)<a class="headerlink" href="#children-tab-parent-side" title="Permanent link">&para;</a></h2>
 <p><em>Added in 1.3 (#2209).</em> A card on a parent board has a <strong>Children</strong> tab between Details and Comments, with the number of its children in the tab name. The tab is a filtered view of the child board, scoped to this card: the children stay ordinary cards on their own board, with that board's columns, colors, WIP limits and history.</p>
