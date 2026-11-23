@@ -5,12 +5,17 @@ children keeps them and may get more; no other card there may; a leftover
 parent can never become a child; and both ends of a link are never one board.
 """
 
-from django.db import transaction
-from django.test import TestCase
+import threading
+from unittest import skipUnless
+from unittest.mock import patch
+
+from django.db import connection, connections, transaction
+from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
 from boards.models import BoardEvent, BoardMembership, CardParentLink, CardParentUnlink
 from boards.services import card_links
+from boards.tests.lock_wait import assert_blocked_on_lock
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane, _make_user
 from visiban.exceptions import CodedValidationError
 
@@ -169,3 +174,80 @@ class PickersAndReadsTests(_Fixture, TestCase):
         self.assertTrue(
             BoardEvent.objects.filter(board_id=self.cboard.pk, event="card.parent_changed").exists()
         )
+
+
+HOLD_TIMEOUT = 10
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class LastChildUnlinkRaceTests(_Fixture, TransactionTestCase):
+    """The last child's unlink and a new link to the same leftover parent race (#2446).
+
+    The per-card rule is read under the parent's card lock, so a link that
+    arrives while the unlink of the parent's last child is uncommitted waits,
+    then sees a card with no children on a flag-off board and is refused. Without
+    the lock both could pass: the link would read "has a child" before the
+    unlink committed and leave a parent on a board that may not have any.
+    """
+
+    def setUp(self):
+        self._setup()
+        self._turn_off()
+        self.child2 = _make_card(self.ccol, self.clane, title="Second child")
+
+    def _thread(self, name, fn, results):
+        def run():
+            try:
+                results[name] = fn()
+            except Exception as exc:  # surfaced by the status assertions
+                results[name] = exc
+            finally:
+                connections.close_all()  # release this thread's DB connection (backend test conventions)
+
+        t = threading.Thread(target=run, name=name)
+        t.start()
+        return t
+
+    def _api(self):
+        c = APIClient()
+        c.force_authenticate(self.owner)
+        return c
+
+    def test_link_waits_for_the_last_child_unlink_then_is_refused(self):
+        paused, release, results = threading.Event(), threading.Event(), {}
+        real = card_links._announce
+
+        def held(*args, **kwargs):
+            if threading.current_thread().name == "unlinker" and not paused.is_set():
+                paused.set()
+                release.wait(HOLD_TIMEOUT)
+            return real(*args, **kwargs)
+
+        # Patched once, in the main thread: a patch inside a worker leaks process-wide.
+        with patch.object(card_links, "_announce", side_effect=held):
+            unlinker = self._thread(
+                "unlinker",
+                lambda: self._api().delete(f"/api/v1/boards/{self.cboard.pk}/cards/{self.child.pk}/parent/"),
+                results,
+            )
+            self.assertTrue(paused.wait(HOLD_TIMEOUT), "unlink never reached its hold")
+            linker = self._thread(
+                "linker",
+                lambda: self._api().post(
+                    f"/api/v1/boards/{self.cboard.pk}/cards/{self.child2.pk}/parent/",
+                    {"parent_id": self.leftover.pk}, format="json",
+                ),
+                results,
+            )
+            try:
+                assert_blocked_on_lock(self, linker, "the link did not wait for the last child's unlink")
+            finally:
+                release.set()
+                unlinker.join(HOLD_TIMEOUT)
+                linker.join(HOLD_TIMEOUT)
+
+        self.assertIn(results["unlinker"].status_code, (200, 204), results["unlinker"])
+        res = results["linker"]
+        self.assertEqual(res.status_code, 400, getattr(res, "content", res))
+        self.assertIn(b"link_not_allowed", res.content)
+        self.assertFalse(CardParentLink.objects.filter(parent=self.leftover).exists())
