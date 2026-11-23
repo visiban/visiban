@@ -4989,7 +4989,7 @@ any CI job — see below.</p>
 <ul>
 <li><strong><code>check-release-attestations</code></strong> is narrower: it runs only on the schedule that sets <code>CVE_SCAN</code> (Nightly), so it needs no schedule of its own.</li>
 <li><strong><code>renovate</code></strong> (#2464) is narrower too: it runs only on the schedule that sets <code>CVE_SCAN</code> (Nightly), and only when the <code>RENOVATE_TOKEN</code> variable exists. See <a href="../../maintainers/renovate/">Renovate</a>.</li>
-<li><strong>Helm and compose drills</strong> (<code>helm-install</code>, <code>helm-netpol</code>, <code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code>, so they run on the load-test and weekly mutation schedules.</li>
+<li><strong>Helm and compose jobs</strong> (<code>helm-lint</code>, <code>helm-template</code>, <code>helm-install</code>, <code>helm-netpol</code>, <code>compose-prod-drill</code>) skip any schedule that sets <code>SONAR_SCHEDULED</code> (#2471), so the Helm drills run on the load-test and weekly mutation schedules, and <code>helm-lint</code> and <code>helm-template</code> run on those only when their paths changed.</li>
 <li><strong>Load test:</strong> it keeps its own schedule, three hours earlier than the Nightly one, because its latency budgets are noisy on a busy runner.</li>
 <li><strong>Mutation testing:</strong> it keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see <a href="../mutation-testing/#runner-load">Runner load</a>), which didn't fit alongside the Nightly jobs.</li>
 <li>
