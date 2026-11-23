@@ -64,12 +64,15 @@ describe('BoardCell drop verdict (#1150)', () => {
 
   it('draws the idle empty-cell slot with the 3:1 boundary token (#2505)', () => {
     dnd.isOver = false // a drag is active but the pointer is elsewhere: the slot is neither open nor blocked
-    const { container } = renderCell()
-    const slot = container.querySelector('[aria-hidden="true"].h-10') as HTMLElement
-    expect(slot).not.toBeNull()
-    expect(slot).toHaveClass('border-dashed', 'border-line-boundary')
-    expect(slot).not.toHaveClass('border-line-strong')
-    dnd.isOver = true
+    try {
+      const { container } = renderCell()
+      const slot = container.querySelector('[aria-hidden="true"].h-10') as HTMLElement
+      expect(slot).not.toBeNull()
+      expect(slot).toHaveClass('border-dashed', 'border-line-boundary')
+      expect(slot).not.toHaveClass('border-line-strong')
+    } finally {
+      dnd.isOver = true // restore the shared default even when an assertion fails
+    }
   })
 
   it('uses the hard glyph for a hard limit', () => {
