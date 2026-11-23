@@ -1949,7 +1949,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
   })
 
   it('shows the server refusal inline when live links block the flip (#1104)', async () => {
-    const msg = 'Cannot change this setting while 2 card link(s) depend on it. Remove those links first.'
+    const msg = 'Cannot turn on "cards can have children" while 2 card(s) on this board are children of another board\'s cards. Remove those links first.'
     const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { cards_can_have_children: [msg] } } })
     const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true }, onUpdate)
     await user.click(await screen.findByRole('switch', { name: SWITCH }))
@@ -2093,15 +2093,24 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
     expect(retry).toHaveFocus()
   })
 
-  it('turning off with live parent links is a blocked state, not a confirm', async () => {
+  it('turning off with live parent links asks first and saves on Turn off (#2446)', async () => {
     vi.mocked(getChildrenSettingBlockers).mockResolvedValue({ child_cards: 0, parent_cards: 9, default_of: [] })
     const { user, onUpdate } = await openRules({ ...fakeBoard, cards_can_have_children: true })
     const sw = await screen.findByRole('switch', { name: SWITCH })
-    await waitFor(() => expect(sw).toHaveAttribute('aria-disabled', 'true'))
-    expect(screen.getByTestId('children-status')).toHaveTextContent("On. Can't be turned off: 1 reason below.")
-    expect(screen.getByRole('group', { name: 'Cards here already have children' })).toHaveTextContent('9 cards here have children')
+    await waitFor(() => expect(getChildrenSettingBlockers).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 0))
+    expect(sw).not.toHaveAttribute('aria-disabled')
     await user.click(sw)
+    const group = await screen.findByRole('group', { name: `Turn off children on ${fakeBoard.name}?` })
+    expect(group).toHaveTextContent('9 cards here have children')
     expect(onUpdate).not.toHaveBeenCalled()
+    // Escape cancels the confirm only; the modal stays open.
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('children-off-confirm')).toBeNull()
+    expect(sw).toHaveFocus()
+    await user.click(sw)
+    await user.click(await screen.findByRole('button', { name: 'Turn off' }))
+    expect(onUpdate).toHaveBeenCalledWith({ cards_can_have_children: false })
   })
 
   it('shows the default child board select only while on, listing the admin options', async () => {

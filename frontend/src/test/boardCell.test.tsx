@@ -753,6 +753,17 @@ describe('BoardCell lane default team (#2211)', () => {
     await waitFor(() => expect(mockCreateCard).toHaveBeenCalledWith(1, { column: 10, swimlane: 20, title: 'Renewal' }))
   })
 
+  it('keeps 44px Unassign and "+ Add" targets in the desktop cell (#2520, #2206 rule 6)', async () => {
+    render(<BoardCell {...defaultProps()} laneDefault={laneDefault} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))
+    const unassign = screen.getByRole('button', { name: 'Unassign Mia Reyes' })
+    expect(unassign).toHaveClass('min-h-11', 'min-w-11')
+    expect(unassign).not.toHaveClass('h-6')
+    await user.click(unassign)
+    expect(screen.getByRole('button', { name: 'Add Mia Reyes' })).toHaveClass('min-h-11')
+  })
+
   it('renders no Assignees group for a lane without a team', async () => {
     render(<BoardCell {...defaultProps()} laneDefault={null} />)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Add card to To Do in Customer A' }))

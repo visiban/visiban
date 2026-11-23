@@ -166,8 +166,10 @@ def _with_parents(ctx, rows, user, *, board=None, served_board=None):
     ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
         [c.pk for c in rows], user, known_boards=() if hint is None else (hint,),
     )
-    if board is not None and board.cards_can_have_children:
-        ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer([c.pk for c in rows], user)
+    # #2446: a flag-off board's leftover parents carry a rollup too.
+    rollups = card_links.rollups_for_board_cards(board, [c.pk for c in rows], user)
+    if rollups is not None:
+        ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = rollups
     return ctx
 
 

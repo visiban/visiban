@@ -17,7 +17,7 @@ interface Props {
   onUnassign: () => void;
   /** The "+ Add" pill: assigns the pre-assigned person again. */
   onReassign: () => void;
-  /** Phone surfaces use 14px text and 44px targets; desktop cells 12px. */
+  /** Phone surfaces use 14px text; desktop cells 12px. Targets are 44px at both sizes (#2520). */
   size?: "sm" | "md";
   /** Visible label naming where the chip came from (inline add: "Pre-assigned from lane team"). */
   sourceLabel?: string;
@@ -37,9 +37,10 @@ export default function LaneTeamAssignee({
   assignee, assigned, others, caption, onUnassign, onReassign, size = "sm", sourceLabel,
 }: Props) {
   const text = size === "md" ? "text-sm" : "text-xs";
-  // 44px targets at the phone/dialog size; the 12px desktop cell keeps a 24px target so the chip
-  // does not overflow its pill (WCAG 2.5.8 minimum).
-  const target = size === "md" ? "min-h-11 min-w-11" : "h-6 w-6";
+  // 44px Unassign and "+ Add" targets at every size (#2206 rule 6, #2520): the desktop inline cell
+  // grows taller rather than shrinking the target to the 12px text. Both controls share the height,
+  // so swapping one for the other never shifts the cell.
+  const target = "min-h-11 min-w-11";
   const name = memberName(assignee);
   const notAssigned = others.length > 0 ? ` Also on the team, not assigned: ${others.join(", ")}.` : "";
   const labelId = useId();
@@ -83,7 +84,7 @@ export default function LaneTeamAssignee({
               type="button"
               aria-label={`Add ${name}`}
               onClick={() => { moveFocus.current = true; setAnnounce(`${name} assigned.`); onReassign(); }}
-              className={`${size === "md" ? "min-h-11" : "min-h-6"} px-2.5 inline-flex items-center rounded-full border border-dashed border-line-strong ${text} text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
+              className={`min-h-11 px-2.5 inline-flex items-center rounded-full border border-dashed border-line-strong ${text} text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis`}
             >
               <span aria-hidden="true">+ Add</span>
             </button>

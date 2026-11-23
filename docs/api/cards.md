@@ -1125,14 +1125,14 @@ Link this card (the child) to a parent. Body: `{"parent_id": <int>}`.
 
 | `code` | Meaning |
 |---|---|
-| `link_not_allowed` | The parent's board is not a parent board, or this card's board is one |
+| `link_not_allowed` | That parent may not get children: its board is not a parent board and the card is not a leftover parent (a card that still has children on a board whose setting was turned off, since 1.3, #2446). Also returned when this card's board is a parent board, or the parent is on this card's own board. A card that was linked to that parent and then unlinked may be linked back (Undo) |
 | `self_link` | `parent_id` is this card |
 | `link_exists` | Already linked to that parent |
 | `already_has_parent` | This card has another parent; unlink it first |
 | `children_on_other_board` | That parent's children are on another board |
 | `children_limit` | That parent has 100 children |
 | `parent_archived` | That parent is archived: restore it first (since 1.3, #2447). Checked after `link_exists`, so re-saving a link the card already has still answers `link_exists`, and archiving or restoring a parent never removes its existing links. One exception: a card that was linked to that parent and then unlinked may be linked back while it is archived, so an unlink can be undone. A card never linked to it is refused. Add child (`POST .../children/`) refuses an archived parent with the same code, always: its new card was never linked |
-| `child_is_parent` / `parent_is_child` | Would make a third tier |
+| `child_is_parent` / `parent_is_child` | Would make a third tier: this card has children of its own (for example a leftover parent, #2446), or the parent is itself a child |
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/parent/`
 
@@ -1433,10 +1433,14 @@ an unknown board.
 ```
 
 `disabled_reason` is `link_exists` (already this card's child),
-`already_has_parent` (another card's child), `parent_archived` (this card
-is archived, since 1.3, #2447; not for a card that was linked to this card and
-then unlinked, which may be linked back) or `children_limit` (this card has 100
-children), in that precedence, else `null`. `parent_title` names the other parent only
+`child_is_parent` (the candidate has children of its own, so it would become a
+third tier; since 1.3, #2446, when the candidate board's setting was turned off
+while its cards had children), `already_has_parent` (another card's child),
+`parent_archived` (this card is archived, since 1.3, #2447; not for a card that
+was linked to this card and then unlinked, which may be linked back) or
+`children_limit` (this card has 100 children), in that precedence, else `null`.
+The values are an open set: a client shows an unknown value as unavailable.
+The picker also answers for a leftover parent (#2446), the same as for a card on a parent board. `parent_title` names the other parent only
 when you can open its board. Link a row with `POST
 /api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}` on
 the child's board, so the child board's role authorizes it.

@@ -2486,6 +2486,64 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     expect(byId(result.current.board, 2)).toBe(before.cards.find((c) => c.id === 2))
   })
 
+  it('applyCardChildrenRollups drops a rollup for null and leaves a card without one alone (#2446)', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    act(() => { result.current.applyCardChildrenRollups(new Map([[1, rollup(1)]])) })
+    const before = result.current.board!
+    act(() => { result.current.applyCardChildrenRollups(new Map([[2, null]])) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardChildrenRollups(new Map([[1, null]])) })
+    expect(byId(result.current.board, 1)).not.toHaveProperty('children_rollup')
+    expect(byId(result.current.board, 2)).toBe(before.cards.find((c) => c.id === 2))
+  })
+
+  describe('turning Child cards off drops the empty rollups (#2446)', () => {
+    const empty: CardChildrenRollup = { visible: true, total: 0, done: 0, doing: 0, todo: 0, blocked: 0, last_moved_at: null }
+    // Card 1 is a real parent (it keeps a leftover rollup), card 2 has no children, card 3 had no rollup.
+    const flagOnCards = () => [card(1, 1, { children_rollup: rollup(1) }), card(2, 1, { children_rollup: empty }), card(3, 1)]
+
+    it('on the acting client PATCH', async () => {
+      mockPatchBoard.mockResolvedValueOnce({})
+      const { result } = await renderBoard(flagOnCards(), { cards_can_have_children: true })
+      const keep = byId(result.current.board, 3)
+      await act(async () => { await result.current.updateBoardSettings({ cards_can_have_children: false }) })
+      expect(result.current.board!.cards_can_have_children).toBe(false)
+      expect(byId(result.current.board, 1)!.children_rollup).toEqual(rollup(1))
+      expect(byId(result.current.board, 2)).not.toHaveProperty('children_rollup')
+      expect(byId(result.current.board, 3)).toBe(keep)
+    })
+
+    it('on board.updated from another client', async () => {
+      const { result } = await renderBoard(flagOnCards(), { cards_can_have_children: true })
+      act(() => { result.current.mergeBoardState({ cards_can_have_children: false }) })
+      expect(byId(result.current.board, 1)!.children_rollup).toEqual(rollup(1))
+      expect(byId(result.current.board, 2)).not.toHaveProperty('children_rollup')
+    })
+
+    it('when the flip is replayed over a snapshot read before it', async () => {
+      mockPatchBoard.mockResolvedValueOnce({})
+      const { result } = await renderBoard(flagOnCards(), { cards_can_have_children: true })
+      const fetch = startFetch(result)
+      await act(async () => { await result.current.updateBoardSettings({ cards_can_have_children: false }) })
+      await fetch.resolve(makeBoard({ cards: flagOnCards(), cards_can_have_children: true }))
+      expect(result.current.board!.cards_can_have_children).toBe(false)
+      expect(byId(result.current.board, 1)!.children_rollup).toEqual(rollup(1))
+      expect(byId(result.current.board, 2)).not.toHaveProperty('children_rollup')
+    })
+
+    it('keeps rollups when the flag turns on or does not change', async () => {
+      // A flag-off board's empty rollup belongs to a leftover parent whose children are all archived.
+      const { result } = await renderBoard([card(1, 1, { children_rollup: empty }), card(2, 1)], { cards_can_have_children: false })
+      const before = result.current.board!.cards
+      act(() => { result.current.mergeBoardState({ name: 'Renamed' }) })
+      expect(result.current.board!.cards).toBe(before)
+      act(() => { result.current.mergeBoardState({ cards_can_have_children: true }) })
+      expect(result.current.board!.cards).toBe(before)
+      act(() => { result.current.mergeBoardState({ cards_can_have_children: true }) })
+      expect(result.current.board!.cards).toBe(before)
+    })
+  })
+
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {
     const { result } = await renderBoard([card(1, 2)])
     const fetch = startFetch(result)

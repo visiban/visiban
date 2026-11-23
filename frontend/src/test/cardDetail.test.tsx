@@ -286,8 +286,12 @@ describe('CardDetail', () => {
       // No children, a plain board, or the zero-child rollup: no chip.
       rerender(<CardDetail {...defaultProps()} card={makeCard({ children_rollup: { ...rollup, total: 0 } })} board={makeBoard({ cards_can_have_children: true })} />)
       expect(screen.queryByTestId('card-detail-parent-chip')).not.toBeInTheDocument()
-      rerender(<CardDetail {...defaultProps()} card={withKids} board={makeBoard({ cards_can_have_children: false })} />)
+      rerender(<CardDetail {...defaultProps()} card={makeCard({})} board={makeBoard({ cards_can_have_children: false })} />)
       expect(screen.queryByTestId('card-detail-parent-chip')).not.toBeInTheDocument()
+      // #2446: a leftover parent on a board whose switch was turned off keeps its chip and Children tab.
+      rerender(<CardDetail {...defaultProps()} card={withKids} board={makeBoard({ cards_can_have_children: false })} />)
+      expect(screen.getByTestId('card-detail-parent-chip')).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /Children/ })).toBeInTheDocument()
     })
 
     it('the Parent chip opens the Children tab (#2455)', async () => {

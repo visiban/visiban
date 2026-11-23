@@ -185,10 +185,11 @@ class LinkAllowedTruthTableTests(TestCase):
         cc = _make_card(_make_column(c), _make_swimlane(c))
         CardParentLink.objects.create(parent=pc, child=cc)
         card_links.check_flag_flip(p, True)  # unchanged value: no raise
-        for board, value in ((p, False), (c, True)):
-            with self.subTest(board=board.name), self.assertRaises(ValidationError) as ctx:
-                card_links.check_flag_flip(board, value)
-            self.assertIn("cards_can_have_children", ctx.exception.detail)
+        with self.assertRaises(ValidationError) as ctx:
+            card_links.check_flag_flip(c, True)
+        self.assertIn("cards_can_have_children", ctx.exception.detail)
+        # #2446: turning the parent board OFF keeps its parents; no refusal.
+        card_links.check_flag_flip(p, False)
 
 
 class CardsCanHaveChildrenMigrationTests(TestCase):

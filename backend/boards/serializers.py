@@ -3730,7 +3730,8 @@ CARD_CHILDREN_ROLLUP_CONTEXT_KEY = "card_children_rollups"
     "readOnly": True,
     "description": (
         "Progress of this card's children (#2210, since 1.3), resolved for the caller. "
-        "Present only on cards of a board with `cards_can_have_children`, on `/full/`, "
+        "Present on cards of a board with `cards_can_have_children`, and (since #2446) on a "
+        "card of any other board that still has children, on `/full/`, "
         "the card list and retrieve; absent from write responses, every event payload, "
         "feed row and webhook, and share links. `visible: false` when the caller cannot "
         "open the child board: then only `total` is sent. States partition `total`: "
@@ -3981,7 +3982,7 @@ class ChildCandidateSerializer(serializers.Serializer):
     swimlane_name = serializers.CharField()
     assignee = BoardUserSerializer(allow_null=True)
     disabled_reason = serializers.ChoiceField(
-        choices=["link_exists", "already_has_parent", "children_limit"], allow_null=True,
+        choices=["link_exists", "child_is_parent", "already_has_parent", "parent_archived", "children_limit"], allow_null=True,
         help_text="Why this card cannot be linked under this parent; `null` when it can. Same codes as the link write's 400.",
     )
     parent_title = serializers.CharField(
@@ -5434,12 +5435,12 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
                 # so the children's board costs no extra query (#2536).
                 known_boards=(obj,),
             )
-            # ``children_rollup`` (#2210), for the same viewer, only on a
-            # parent-tier board: zero queries on every other board.
-            if obj.cards_can_have_children:
-                ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_viewer(
-                    [c.pk for c in cards], self.context["card_parent_viewer"],
-                )
+            # ``children_rollup`` (#2210), for the same viewer: every card of
+            # a parent-tier board, and on a flag-off board only its leftover
+            # parents (#2446; one ids query there).
+            ctx[CARD_CHILDREN_ROLLUP_CONTEXT_KEY] = card_links.rollups_for_board_cards(
+                obj, [c.pk for c in cards], self.context["card_parent_viewer"],
+            )
         return CardSerializer(cards, many=True, context=ctx).data
 
     # Schema only (#1137): these rows are the effective roster, not

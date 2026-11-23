@@ -5,10 +5,15 @@ import type { Board, ChildrenSettingBlockers } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import ParentNameSettings from "./ParentNameSettings";
 import { boardsCapLine } from "../Card/childBoardOptionsCap";
+import { buttonClasses } from "../Page/buttonClasses";
+import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
+import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
+import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { turnOffBody } from "./childCardsTurnOff";
 
 interface Props {
   board: Pick<Board, "id" | "cards_can_have_children" | "default_child_board"> &
-    Partial<Pick<Board, "parent_name_singular" | "parent_name_plural">>;
+    Partial<Pick<Board, "name" | "parent_name_singular" | "parent_name_plural">>;
   /** Board admins only: the section is not rendered for anyone else (the page shows a read-only line). */
   onUpdate: (patch: Record<string, unknown>) => void | Promise<unknown>;
   /** Server refusal of the last flip (#1104), shown inline so a race past the blockers read is not silent. */
@@ -26,9 +31,12 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  *
  * The switch is a whole-row `button role="switch"`. When the server's blockers say the flip would be
  * refused it stays focusable but `aria-disabled`; activating it only moves focus to the reasons, which sit
- * in a `role="group"`. The turn-off confirm is not built: turning off with live parent links is refused,
- * so that case is a blocked state too, not a confirm.
+ * in a `role="group"`. Only turning ON can be blocked. Turning OFF while cards here have children is
+ * allowed (#2446): those parents keep their children, tab, rollup and Add child (the server's per-card
+ * rule), so the flip asks first in an inline confirm (#2208 spec, canvas 2f c) instead of refusing.
+ * With no parent links there is nothing to keep and the flip saves at once.
  */
+
 export default function ChildCardsSettings({ board, onUpdate, error = null, onShowChildCards }: Props) {
   const uid = useId();
   const labelId = `${uid}-label`;
@@ -44,25 +52,38 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
   // router (a unit test) keeps a plain anchor.
   const inRouter = useInRouterContext();
   const [blockers, setBlockers] = useState<ChildrenSettingBlockers | null>(null);
+  // The flag value `blockers` was read for: after a flip the held answer is for the old state
+  // until the re-read lands, so it counts as unknown (#2446).
+  const [blockersFor, setBlockersFor] = useState<boolean | null>(null);
   const [options, setOptions] = useState<{ id: number; name: string }[]>([]);
   // How many boards qualify in all (#2449): the list holds at most 100.
   const [optionsTotal, setOptionsTotal] = useState<number | undefined>(undefined);
   // A failed blockers read must not leave the switch looking usable with no explanation (#2448).
-  // The server still refuses a bad flip on save, so this only explains; it does not gate.
+  // For turning ON the server still refuses a bad flip on save, so this only explains. Turning OFF
+  // is never refused since #2446, so there the turn-off confirm is the only guard: an unknown
+  // parent count (pending or failed read) shows it with count-free copy rather than skipping it.
   const [blockersFailed, setBlockersFailed] = useState(false);
   const [blockersTry, setBlockersTry] = useState(0);
   // Retry unmounts once the read succeeds; focus then moves to the switch it explains instead of
   // falling to <body> (frontend/CLAUDE.md, focus anchors). A failed retry keeps Retry, and focus.
   const switchRef = useRef<HTMLButtonElement>(null);
   const focusSwitchAfterRetry = useRef(false);
+  // Turn-off confirm (#2446). `saving` drives the buttons; the ref lets Escape read it without a stale closure.
+  const [confirmingOff, setConfirmingOff] = useState(false);
+  const [savingOff, setSavingOff] = useState(false);
+  const savingOffRef = useRef(false);
+  const turnOffRef = useRef<HTMLButtonElement>(null);
+  const confirmTrigger = useConfirmFocusReturn<"children-off">(confirmingOff ? "children-off" : null);
 
   // Re-read after every flip or default change: another admin's link or default move changes the answer.
   useEffect(() => {
     let live = true;
+    const readFor = checked;
     getChildrenSettingBlockers(board.id)
       .then((b) => {
         if (!live) return;
         setBlockers(b);
+        setBlockersFor(readFor);
         setBlockersFailed(false);
         if (focusSwitchAfterRetry.current) {
           focusSwitchAfterRetry.current = false;
@@ -88,7 +109,6 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
 
   // Reasons the flip is refused, as the server decides it on save.
   const turnOnReasons: Reason[] = [];
-  const turnOffReasons: Reason[] = [];
   if (blockers) {
     if (!checked) {
       if (blockers.child_cards > 0) {
@@ -114,15 +134,35 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
           });
         }
       });
-    } else if (blockers.parent_cards > 0) {
-      turnOffReasons.push({
-        key: "parents",
-        text: `${plural(blockers.parent_cards, "card here has", "cards here have")} children. Remove those links before turning children off.`,
-      });
     }
   }
-  const reasons = checked ? turnOffReasons : turnOnReasons;
+  // Turning off is never refused for parent links any more (#2446), so only the turn-on side has reasons.
+  const reasons = checked ? [] : turnOnReasons;
   const blocked = reasons.length > 0;
+  // null = unknown: no answer yet for this flag value, or the read failed.
+  const parentCount = !checked ? 0 : blockers && blockersFor === checked ? blockers.parent_cards : null;
+  const boardName = board.name || "this board";
+  const offTitle = `Turn off children on ${boardName}?`;
+  const offBody = turnOffBody(parentCount);
+  useConfirmAnnouncement(confirmingOff ? `${offTitle} ${offBody}` : null);
+
+  // Open: focus goes to Turn off (the primary action), per the spec.
+  useEffect(() => {
+    if (confirmingOff) turnOffRef.current?.focus();
+  }, [confirmingOff]);
+
+  const cancelOff = () => {
+    setConfirmingOff(false);
+    switchRef.current?.focus();
+  };
+
+  // Above ModalWrapper's 40 so Escape cancels the confirm, not the modal; swallowed while the request runs (#2054).
+  useEscapeStack(() => {
+    if (!confirmingOff) return false;
+    if (savingOffRef.current) return true;
+    cancelOff();
+    return true;
+  }, 41);
 
   // The parent resolves with the failure (shown through `error`) rather than rejecting, so a rejection is
   // unexpected; swallow it here so it never becomes an unhandled rejection.
@@ -137,7 +177,27 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
       reasonsRef.current?.focus();
       return;
     }
+    if (savingOffRef.current) return;
+    if (checked && (parentCount === null || parentCount > 0)) {
+      setConfirmingOff(true);
+      return;
+    }
     save({ cards_can_have_children: !checked });
+  };
+
+  const confirmOff = () => {
+    if (savingOffRef.current) return;
+    savingOffRef.current = true;
+    setSavingOff(true);
+    void Promise.resolve()
+      .then(() => onUpdate({ cards_can_have_children: false }))
+      .catch(() => undefined)
+      .finally(() => {
+        savingOffRef.current = false;
+        setSavingOff(false);
+        // Closing unmounts the focused button; useConfirmFocusReturn puts focus back on the switch.
+        setConfirmingOff(false);
+      });
   };
 
   const defaultInList = board.default_child_board != null && options.some((o) => o.id === board.default_child_board);
@@ -154,15 +214,16 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
     <div className="flex flex-col gap-3">
       <button
         type="button"
-        ref={switchRef}
+        ref={(el) => { switchRef.current = el; confirmTrigger("children-off")(el); }}
         role="switch"
         aria-checked={checked}
-        aria-disabled={blocked ? true : undefined}
+        // Also inert while the turn-off save runs: `activate` ignores it then (savingOffRef).
+        aria-disabled={blocked || savingOff ? true : undefined}
         aria-labelledby={labelId}
         aria-describedby={`${helpId} ${statusId}${blocked ? ` ${reasonsId}` : ""}`}
         onClick={activate}
         data-testid="children-switch"
-        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${blocked ? "cursor-not-allowed" : ""}`}
+        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${blocked || savingOff ? "cursor-not-allowed" : ""}`}
       >
         <span className="min-w-0 flex-1">
           <span id={labelId} className="block text-sm text-fg-secondary">Cards on this board can have children</span>
@@ -181,7 +242,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
         {checked ? "On." : "Off."}
         {blocked && (
           <span className="text-warning-on-tint">
-            {" "}{checked ? "Can't be turned off" : "Can't be turned on"}: {plural(reasons.length, "reason", "reasons")} below.
+            {" "}Can't be turned on: {plural(reasons.length, "reason", "reasons")} below.
           </span>
         )}
         {blockersFailed && (
@@ -199,6 +260,39 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
         {error && <span className="block text-danger mt-1" data-testid="children-error">{error}</span>}
       </p>
 
+      {confirmingOff && (
+        <div
+          role="group"
+          aria-labelledby={`${uid}-off-title`}
+          aria-describedby={`${uid}-off-body`}
+          data-testid="children-off-confirm"
+          className="rounded border border-line bg-surface-raised p-3"
+        >
+          <p id={`${uid}-off-title`} className="text-sm font-medium text-fg break-words">{offTitle}</p>
+          <p id={`${uid}-off-body`} className="text-xs text-fg-muted mt-0.5">{offBody}</p>
+          <div className="mt-2 flex flex-row items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => { if (!savingOffRef.current) cancelOff(); }}
+              aria-disabled={savingOff ? true : undefined}
+              className={buttonClasses("quiet", { className: "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed" })}
+            >
+              Keep it on
+            </button>
+            <button
+              type="button"
+              ref={turnOffRef}
+              onClick={confirmOff}
+              aria-disabled={savingOff ? true : undefined}
+              data-testid="children-off-confirm-button"
+              className={buttonClasses("primary", { className: "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed" })}
+            >
+              {savingOff ? "Turning off…" : "Turn off"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {blocked && (
         <div
           id={reasonsId}
@@ -209,12 +303,10 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
           className="rounded border border-line bg-surface-raised p-3 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <p id={`${reasonsId}-title`} className="text-sm font-medium text-fg">
-            {checked ? "Cards here already have children" : "A child can't also have children"}
+            A child can't also have children
           </p>
           <p className="text-xs text-fg-muted mt-0.5">
-            {checked
-              ? "A parent board keeps its links until they are removed."
-              : `Exactly two tiers. ${plural(reasons.length, "thing", "things")} on this board stand in the way:`}
+            {`Exactly two tiers. ${plural(reasons.length, "thing", "things")} on this board stand in the way:`}
           </p>
           <ul className="mt-2 flex flex-col gap-2">
             {reasons.map((r) => (

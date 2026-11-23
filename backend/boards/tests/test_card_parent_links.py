@@ -432,26 +432,41 @@ class FlagFlipRefusalTests(_LinkFixture, TestCase):
         CardParentLink.objects.create(parent=self.parent, child=self.child)
 
     def test_hook_refuses_flips_under_live_links(self):
-        self.assertEqual(card_links.links_blocking_flag_flip(self.pboard, False), 1)
+        # #2446: turning OFF never invalidates a link (leftover parents keep
+        # their children); turning a child board ON still does.
+        self.assertEqual(card_links.links_blocking_flag_flip(self.pboard, False), 0)
         self.assertEqual(card_links.links_blocking_flag_flip(self.cboard, True), 1)
         self.assertEqual(card_links.links_blocking_flag_flip(self.pboard, True), 0)
-        for board, value in ((self.pboard, False), (self.cboard, True)):
-            res = self._client(self.owner).patch(
-                f"/api/v1/boards/{board.pk}/", {"cards_can_have_children": value}, format="json",
-            )
-            self.assertEqual(res.status_code, 400, res.content)
-            self.assertIn("cards_can_have_children", res.json())
-            board.refresh_from_db()
-            self.assertIs(board.cards_can_have_children, not value)
+        res = self._client(self.owner).patch(
+            f"/api/v1/boards/{self.cboard.pk}/", {"cards_can_have_children": True}, format="json",
+        )
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn("cards_can_have_children", res.json())
+        self.cboard.refresh_from_db()
+        self.assertFalse(self.cboard.cards_can_have_children)
+        res = self._client(self.owner).patch(
+            f"/api/v1/boards/{self.pboard.pk}/", {"cards_can_have_children": False}, format="json",
+        )
+        self.assertEqual(res.status_code, 200, res.content)
+        self.pboard.refresh_from_db()
+        self.assertFalse(self.pboard.cards_can_have_children)
+        self.assertTrue(CardParentLink.objects.filter(parent=self.parent, child=self.child).exists())
 
     def test_django_admin_save_refuses_the_flip(self):
+        """ON over live child links stays refused; OFF over live parent links saves (#2446)."""
         request = RequestFactory().post("/")
         request.user = self.owner
-        self.pboard.cards_can_have_children = False
+        self.cboard.cards_can_have_children = True
         with self.assertRaises(_FlagFlipRefused), transaction.atomic():
+            BoardAdmin(Board, django_admin.site).save_model(request, self.cboard, None, True)
+        self.cboard.refresh_from_db()
+        self.assertFalse(self.cboard.cards_can_have_children)
+        self.pboard.cards_can_have_children = False
+        with transaction.atomic():
             BoardAdmin(Board, django_admin.site).save_model(request, self.pboard, None, True)
         self.pboard.refresh_from_db()
-        self.assertTrue(self.pboard.cards_can_have_children)
+        self.assertFalse(self.pboard.cards_can_have_children)
+        self.assertTrue(CardParentLink.objects.exists())
 
     def test_django_admin_move_to_another_board_unlinks(self):
         other_board = _make_board(self.owner, name="Elsewhere")
@@ -527,21 +542,23 @@ class FlagFlipAdminFormTests(_LinkFixture, TestCase):
         Board.objects.filter(pk=self.pboard.pk).update(allowed_priorities=["low"])
 
     def test_change_form_refuses_the_flip_with_a_message(self):
-        url = reverse("admin:boards_board_change", args=[self.pboard.pk])
+        # #2446: the refused flip is turning the CHILD board on.
+        Board.objects.filter(pk=self.cboard.pk).update(allowed_priorities=["low"])
+        url = reverse("admin:boards_board_change", args=[self.cboard.pk])
         page = self.web.get(url)
         self.assertEqual(page.status_code, 200)
-        res = self.web.post(url, page_data(page, cards_can_have_children=False, name="Renamed"))
+        res = self.web.post(url, page_data(page, cards_can_have_children=True, name="Renamed"))
         self.assertEqual(res.status_code, 302)
         self.assertEqual(res["Location"], url)
         [message] = list(get_messages(res.wsgi_request))
-        self.assertIn("card link(s) depend on it", str(message))
+        self.assertIn("Cannot turn on \"cards can have children\" while 1 card(s) on this board are children", str(message))
         self.assertEqual(message.level_tag, "error")
-        board = Board.objects.get(pk=self.pboard.pk)
+        board = Board.objects.get(pk=self.cboard.pk)
         # The save rolled back whole: neither the flag nor the other field changed.
-        self.assertTrue(board.cards_can_have_children)
-        self.assertEqual(board.name, "Portfolio")
+        self.assertFalse(board.cards_can_have_children)
+        self.assertNotEqual(board.name, "Renamed")
         self.assertTrue(CardParentLink.objects.exists())
-        self.assertFalse(BoardEvent.objects.filter(board_id=self.pboard.pk).exists())
+        self.assertFalse(BoardEvent.objects.filter(board_id=self.cboard.pk).exists())
 
 
 class LinkEventScopingTests(_LinkFixture, TestCase):
@@ -652,11 +669,23 @@ class ConcurrentLinkTests(_LinkFixture, TransactionTestCase):
         return results[second_name]
 
     def test_flag_flip_waits_for_the_link_and_is_refused(self):
+        # #2446: only turning the CHILD board ON is refused; the link holds
+        # both board locks, so the flip waits, then counts the new link.
+        res = self._race("flipper", lambda: self._client(self.owner).patch(
+            f"/api/v1/boards/{self.cboard.pk}/", {"cards_can_have_children": True}, format="json",
+        ))
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(Board.objects.get(pk=self.cboard.pk).cards_can_have_children)
+
+    def test_turn_off_waits_for_the_link_and_keeps_it(self):
+        # #2446: turning the parent board OFF is never refused and the
+        # just-committed link survives as a leftover parent.
         res = self._race("flipper", lambda: self._client(self.owner).patch(
             f"/api/v1/boards/{self.pboard.pk}/", {"cards_can_have_children": False}, format="json",
         ))
-        self.assertEqual(res.status_code, 400)
-        self.assertTrue(Board.objects.get(pk=self.pboard.pk).cards_can_have_children)
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Board.objects.get(pk=self.pboard.pk).cards_can_have_children)
+        self.assertEqual(CardParentLink.objects.count(), 1)
 
     def test_second_parent_for_the_same_child_is_refused(self):
         p2 = _make_card(self.parent.column, self.parent.swimlane, title="P2")

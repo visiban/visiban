@@ -1967,7 +1967,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="child-cards-heading">
                 <h3 id="child-cards-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Child cards</h3>
                 {isAdmin ? (
-                  <ChildCardsSettings board={board} error={childCardsError} onShowChildCards={onShowChildCards} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { void flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
+                  <ChildCardsSettings board={board} error={childCardsError} onShowChildCards={onShowChildCards} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { /* awaited so the turn-off confirm (#2446) stays open, Escape swallowed, until the save settles */ await flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.

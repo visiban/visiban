@@ -1314,6 +1314,21 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
     spy.mockRestore()
   })
 
+  it('drops the rollup of a leftover parent on a flag-off board when the re-read has none (#2446)', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(undefined)
+    try {
+      const leftover = { id: 7, uid: 'crd007', title: 'Leftover parent', column: 10, swimlane: 20, children_rollup: rollup }
+      const ctx = makeContext({ board: makeBoard({ cards_can_have_children: false, cards: [leftover as never] }) })
+      mockBoardContextValue = ctx
+      render(<BoardView />)
+      await act(async () => {})
+      await act(async () => { getOnEvent.dispatch({ event: 'card.children_changed', data: { parent_id: 7 } }) })
+      expect(ctx.applyCardChildrenRollups).toHaveBeenCalledWith(new Map([[7, null]]))
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it.each(['card.created', 'card.unarchived'])(
     '%s on a parent-tier board reads the card rollup, which the frame never carries',
     async (name) => {
@@ -1330,7 +1345,32 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
     },
   )
 
-  it.each(['card.created', 'card.unarchived'])('%s on a child-tier board does not read a rollup', async (name) => {
+  it('card.unarchived on a flag-off board reads the rollup, so a restored leftover parent keeps it (#2446)', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
+    const ctx = makeContext({ board: makeBoard({ cards_can_have_children: false }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const card = { id: 5, uid: 'crd005', title: 'Leftover parent', column: 10, swimlane: 20 }
+    await act(async () => { getOnEvent.dispatch({ event: 'card.unarchived', data: card as unknown as Record<string, unknown> }) })
+    expect(spy).toHaveBeenCalledWith(expect.any(Number), 5)
+    expect(ctx.applyCardChildrenRollups).toHaveBeenCalledWith(new Map([[5, rollup]]))
+    spy.mockRestore()
+  })
+
+  it('card.unarchived of a plain card on a flag-off board applies nothing', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(undefined)
+    const ctx = makeContext({ board: makeBoard({ cards_can_have_children: false }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const card = { id: 5, uid: 'crd005', title: 'Child', column: 10, swimlane: 20 }
+    await act(async () => { getOnEvent.dispatch({ event: 'card.unarchived', data: card as unknown as Record<string, unknown> }) })
+    expect(ctx.applyCardChildrenRollups).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it.each(['card.created'])('%s on a child-tier board does not read a rollup', async (name) => {
     const spy = vi.spyOn(cardsApi, 'getCardChildrenRollup').mockResolvedValue(rollup)
     const ctx = makeContext({ board: makeBoard({ cards_can_have_children: false }) })
     mockBoardContextValue = ctx

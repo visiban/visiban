@@ -1310,11 +1310,14 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             if locked_flag is not None and locked_flag != obj.cards_can_have_children:
                 from .services.card_links import links_blocking_flag_flip
 
+                # Non-zero only when turning the flag ON (turning it off is never
+                # refused since #2446), so the message names that direction.
                 blocking = links_blocking_flag_flip(obj, obj.cards_can_have_children)
                 if blocking:
                     raise _FlagFlipRefused(
-                        f"Cannot change \"cards can have children\" while {blocking} "
-                        "card link(s) depend on it. Remove those links first."
+                        f"Cannot turn on \"cards can have children\" while {blocking} "
+                        "card(s) on this board are children of another board's cards. "
+                        "Remove those links first."
                     )
                 # #2208 part 2: the REST rule (card_links.flag_flip_refusal).
                 if obj.cards_can_have_children:
