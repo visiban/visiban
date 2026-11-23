@@ -99,7 +99,7 @@ test.describe('board phone layout', () => {
     expect(await overlappingControls(page)).toEqual([])
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
     expect(faces.length).toBeGreaterThan(0)
-    for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
+    for (const h of faces) expect(h).toBeGreaterThanOrEqual(45.5) // 46px: holds the 44px More actions button inside the face (#2402)
   })
 
   test('a long board name in a group shrinks so Star and Health stay inside the viewport (#2333)', async ({ page }) => {
