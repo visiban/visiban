@@ -145,7 +145,7 @@ export default function LensToolbar({
           className={`inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded border transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             showFilters || activeCount > 0 ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg border-line-strong hover:bg-surface-hover"
           }`}
-          aria-pressed={showFilters || activeCount > 0}
+          aria-pressed={showFilters}
           aria-keyshortcuts="f"
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >

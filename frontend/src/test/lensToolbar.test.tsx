@@ -54,6 +54,18 @@ describe('LensToolbar', () => {
     expect(screen.getByRole('button', { name: 'Filters, 2 active' }).textContent).toBe('Filters 2')
   })
 
+  it('aria-pressed is false while the bar is hidden, but active filters still tint the button (#2465)', () => {
+    setup({ url: '/?state=open&milestone=0.3', showFilters: false })
+    const filters = screen.getByRole('button', { name: 'Filters, 2 active' })
+    expect(filters).toHaveAttribute('aria-pressed', 'false')
+    expect(filters.className).toContain('bg-info/10')
+  })
+
+  it('aria-pressed is true while the bar is shown, with or without active filters (#2465)', () => {
+    setup({ url: '/?state=open&milestone=0.3', showFilters: true })
+    expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('marks the active layout toggle with the underline cue, not tint alone (#2188)', () => {
     setup()
     const filters = screen.getByRole('button', { name: 'Filters' })
