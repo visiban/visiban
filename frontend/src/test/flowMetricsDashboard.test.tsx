@@ -426,7 +426,7 @@ describe('the panels', () => {
     const at = (uid: string, value: number) => ({ ...age.samples[0], card_uid: uid, value_days: value, is_blocked: false })
     mockAll({ age: { ...age, sample_size: 1, cards: [cardA, cardB], samples: [at('n1', 2)] } })
     await renderLoaded()
-    const names = ['Throughput legend', 'Cumulative flow legend', 'WIP aging legend']
+    const names = ['Throughput legend', 'Cumulative flow legend', 'WIP age legend']
     for (const name of names) expect(screen.getByRole('list', { name })).toBeInTheDocument()
   })
 

@@ -1,9 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { FlowFilters } from "../../api/flowMetrics";
 import type { Column, CustomFieldDefinition } from "../../types";
 import AnalyticsOverview from "./flowMetrics/AnalyticsOverview";
 import AnalyticsSwimlanes from "./flowMetrics/AnalyticsSwimlanes";
+import { ANALYTICS_PARAM, parseAnalyticsFilters, parseAnalyticsTab, useAnalyticsUrlParams, writeAnalyticsFilters, writeAnalyticsTab } from "./flowMetrics/analyticsUrlState";
+import type { AnalyticsUrlSource } from "./flowMetrics/analyticsUrlState";
+import { breakdownFields, breakdownFromParam, breakdownToParam } from "./flowMetrics/breakdown";
+import type { Breakdown } from "./flowMetrics/breakdown";
 import { formatDate } from "./flowMetrics/flowFormat";
 import { useAnalyticsFilters } from "./flowMetrics/useAnalyticsFilters";
 
@@ -27,6 +31,12 @@ interface Props {
   swimlaneFields?: { id: number; name: string }[];
   /** "Go to board" and "Open on board" switch back to the board. */
   onGoToBoard?: () => void;
+  /**
+   * The router's search params (#2318). Period, Swimlane, Label, Break down by and the
+   * Overview/Swimlanes choice are kept there, beside `?view=analytics`, so a reload or a
+   * copied link restores them. Omitted, they live in local state.
+   */
+  urlSource?: AnalyticsUrlSource;
 }
 
 /** The period in words, in UTC like every bucket: "Aug 16 – Nov 14". */
@@ -61,24 +71,49 @@ function AnalyticsTitleRow({ boardName, filters, headingRef }: {
 
 /**
  * The Analytics tab (#448, #2261). It owns the page's one filter selection, so
- * a later Swimlanes view (#2267, a `<nav>` between the title row and the
+ * the Swimlanes view (#2267, a `<nav>` between the title row and the
  * Overview) shares the same Period and Label. One return: the Overview keeps
  * its position whatever any region is doing.
+ *
+ * The selection, the view and the breakdown are URL state (#2318). An unknown
+ * value in the URL is ignored, never an error: a swimlane or label the board
+ * does not have, a period the bar does not offer, a field that is not a
+ * breakdown choice.
  */
 export default function AnalyticsView({
-  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [], customFields,
+  boardId, currentUserRole, onOpenCard, swimlanes = [], labels = [], columns = [], boardName, onGoToBoard, swimlaneFields = [], customFields, urlSource,
 }: Props) {
-  const { filters, setFilters } = useAnalyticsFilters();
+  const url = useAnalyticsUrlParams(urlSource);
+  const { params: urlParams, update: updateUrl } = url;
+  const { filters: urlFilters, setFilters } = useAnalyticsFilters(url);
+  // An id the board does not have (a deleted lane, a link from another board) is dropped. An empty
+  // list is "not loaded or not given", so it cannot say an id is unknown.
+  const filters = useMemo<FlowFilters>(() => ({
+    ...urlFilters,
+    swimlaneId: swimlanes.length === 0 || swimlanes.some((s) => s.id === urlFilters.swimlaneId) ? urlFilters.swimlaneId : null,
+    labelId: labels.length === 0 || labels.some((l) => l.id === urlFilters.labelId) ? urlFilters.labelId : null,
+  }), [urlFilters, swimlanes, labels]);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [view, setView] = useState<"overview" | "swimlanes">("overview");
+  const view = parseAnalyticsTab(urlParams);
+  const setView = useCallback((next: "overview" | "swimlanes") => updateUrl((p) => writeAnalyticsTab(p, next)), [updateUrl]);
+  const eligibleFields = useMemo(() => breakdownFields(customFields ?? []), [customFields]);
+  const breakdownRaw = urlParams.get(ANALYTICS_PARAM.by);
+  const breakdown = useMemo(() => breakdownFromParam(breakdownRaw, eligibleFields), [breakdownRaw, eligibleFields]);
+  const setBreakdown = useCallback((next: Breakdown) => updateUrl((p) => {
+    const value = breakdownToParam(next);
+    if (value === null) p.delete(ANALYTICS_PARAM.by); else p.set(ANALYTICS_PARAM.by, value);
+  }), [updateUrl]);
   // The title row names the period of the numbers on screen, not the live selection (it lags during a refetch).
   const [fetchedFilters, setFetchedFilters] = useState<FlowFilters | null>(null);
   // One update: the Overview mounts already filtered to the lane, never unfiltered first.
   const openSwimlane = useCallback((swimlaneId: number) => {
-    setFilters((f) => ({ ...f, swimlaneId }));
+    // One URL write for both, so the Overview never mounts unfiltered.
+    updateUrl((p) => {
+      writeAnalyticsFilters(p, { ...parseAnalyticsFilters(p), swimlaneId });
+      writeAnalyticsTab(p, "overview");
+    });
     setFetchedFilters(null);
-    setView("overview");
-  }, [setFilters]);
+  }, [updateUrl]);
   return (
     <div className="flex-1 overflow-y-auto bg-page" data-testid="analytics-page">
       <div className="flex flex-col gap-4 p-4 min-w-0">
@@ -91,7 +126,7 @@ export default function AnalyticsView({
               aria-current={view === id ? "page" : undefined}
               onClick={(event) => {
                 if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-                event.preventDefault(); // the view is page state, not a URL
+                event.preventDefault(); // the choice is written to ?a_tab= (replace), not followed as a hash link
                 if (view !== id) { setFetchedFilters(null); setView(id); }
               }}
               className={`px-1 py-2 -mb-px text-sm border-b-2 min-h-6 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded-t ${
@@ -121,6 +156,8 @@ export default function AnalyticsView({
           labels={labels}
           columns={columns}
           customFields={customFields}
+          breakdown={breakdown}
+          onBreakdownChange={setBreakdown}
           currentUserRole={currentUserRole}
           onOpenCard={onOpenCard}
           onGoToBoard={onGoToBoard}

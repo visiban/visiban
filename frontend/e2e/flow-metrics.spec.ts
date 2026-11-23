@@ -209,6 +209,26 @@ test.describe('flow metrics dashboard', () => {
     await expect(page.getByTestId('flow-wip-age')).toBeVisible()
   })
 
+  test('keeps Period in the URL (replace) and restores it on reload and from a copied link (#2318)', async ({ page }) => {
+    await openAnalytics(page)
+    await page.getByRole('button', { name: /^Date range/ }).click()
+    await page.getByRole('menuitem', { name: 'Last 30 days' }).click()
+    await expect(page).toHaveURL(/view=analytics/)
+    await expect(page).toHaveURL(/a_days=30/)
+    await page.reload()
+    await expect(page.getByRole('button', { name: /^Date range/ })).toContainText('30')
+    await page.getByRole('button', { name: /^Date range/ }).click()
+    await page.getByRole('menuitem', { name: 'Last 90 days' }).click()
+    await expect(page).not.toHaveURL(/a_days/)
+  })
+
+  test('groups the Overview under the four questions (#2457)', async ({ page }) => {
+    await openAnalytics(page)
+    for (const name of ['What is happening?', 'How fast does work move?', 'Where is work stuck?', 'Why is it stuck?']) {
+      await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible()
+    }
+  })
+
   test('a filter that matches nothing shows the no-match state, and Clear all filters restores the page (#2264)', async ({ page }) => {
     await openAnalytics(page)
     // Registered last, so it answers first: only a swimlane-filtered request is empty.
@@ -320,9 +340,9 @@ test.describe('flow metrics dashboard', () => {
   test('the table is reachable with the keyboard and goes one column wide on a narrow screen', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 900 })
     await openAnalytics(page)
-    // Cumulative flow and Throughput share a row from lg; below it they stack.
+    // Throughput and Cycle time share a row from lg ("How fast does work move?"); below it they stack.
     const [first, second] = await Promise.all(
-      [page.getByTestId('flow-cumulative'), page.getByTestId('flow-throughput')].map((panel) => panel.boundingBox()),
+      [page.getByTestId('flow-throughput'), page.getByTestId('flow-cycle-time')].map((panel) => panel.boundingBox()),
     )
     expect(second?.y).toBeGreaterThan((first?.y ?? 0) + (first?.height ?? 0) - 1)
     const panels = [page.getByTestId('flow-cycle-time')]

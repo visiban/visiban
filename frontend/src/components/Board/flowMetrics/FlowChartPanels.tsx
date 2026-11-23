@@ -231,7 +231,7 @@ export function WipAgePanel({
     <ChartPanel
       view={view}
       onViewChange={onViewChange}
-      title="WIP aging"
+      title="WIP age"
       summary={withMeaning(wipAgeSummary(data), groups.length > 0 ? noun : undefined, "Marks are colored by")}
       definition={`Age: ${data.definition}`}
       notes={compact([

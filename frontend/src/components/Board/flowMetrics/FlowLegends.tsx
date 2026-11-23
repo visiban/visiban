@@ -38,7 +38,7 @@ const TIER_LABELS: Record<AgeTier, string> = {
 };
 
 /**
- * Key for the WIP aging tiers (#2284), in the shapes the chart draws: a dot, and for past P85 a dot inside a ring (the ring
+ * Key for the WIP age tiers (#2284), in the shapes the chart draws: a dot, and for past P85 a dot inside a ring (the ring
  * is the non-hue cue). Only tiers with a mark on screen are listed; under a breakdown the marks take group colors, so the
  * chart passes no tiers. The blocked square keeps its meaning under a breakdown, so it is keyed whenever a blocked card is drawn,
  * in the neutral color (the shape, not the hue, is the cue).
@@ -46,7 +46,7 @@ const TIER_LABELS: Record<AgeTier, string> = {
 export function WipAgeLegend({ tiers, blocked = false }: { tiers: AgeTier[]; blocked?: boolean }) {
   if (tiers.length === 0 && !blocked) return null;
   return (
-    <ul className={LIST} aria-label="WIP aging legend" data-testid="wip-age-legend">
+    <ul className={LIST} aria-label="WIP age legend" data-testid="wip-age-legend">
       {tiers.map((tier) => (
         <li key={tier} className="flex items-center gap-1.5" data-legend-tier={tier}>
           <svg width={18} height={18} aria-hidden="true">

@@ -24,6 +24,26 @@ export function breakdownParams(breakdown: Breakdown): FlowGroupingParams | unde
 
 export const breakdownKey = (b: Breakdown) => (b.by === "custom_field" ? `custom_field:${b.fieldId}` : b.by);
 
+/**
+ * The Breakdown as it is written in the URL (#2318): `swimlane`, `label` or `field_<id>`.
+ * None is the default, so it is never written (null).
+ */
+export function breakdownToParam(b: Breakdown): string | null {
+  if (b.by === "none") return null;
+  return b.by === "custom_field" ? `field_${b.fieldId}` : b.by;
+}
+
+/**
+ * The Breakdown a URL value names, or None for anything unknown: a field that is not (or is
+ * no longer) one of the board's eligible `fields` is ignored, as is any other value.
+ */
+export function breakdownFromParam(raw: string | null, fields: readonly Pick<CustomFieldDefinition, "id" | "name">[]): Breakdown {
+  if (raw === "swimlane" || raw === "label") return { by: raw };
+  const match = raw === null ? null : /^field_([1-9]\d{0,9})$/.exec(raw);
+  const field = match ? fields.find((f) => f.id === Number(match[1])) : undefined;
+  return field ? { by: "custom_field", fieldId: field.id, fieldName: field.name } : NO_BREAKDOWN;
+}
+
 /** Card fields a breakdown can use: dropdown and checkbox only, in board order. */
 export function breakdownFields<T extends Pick<CustomFieldDefinition, "field_type" | "position">>(defs: readonly T[]): T[] {
   return defs
