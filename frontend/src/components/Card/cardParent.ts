@@ -64,6 +64,8 @@ export function childCandidateReason(c: ChildCandidate): string | null {
   if (c.disabled_reason === "link_exists") return "already a child of this card";
   if (c.disabled_reason === "children_limit") return "this card has 100 children (the limit)";
   if (c.disabled_reason === "parent_archived") return "this card is archived";
+  // #2446: a leftover parent on a board whose Child cards switch is off.
+  if (c.disabled_reason === "child_is_parent") return "has children of its own";
   if (c.disabled_reason === "already_has_parent") {
     return c.parent_title ? `already a child of ${c.parent_title}` : "already a child of a card you can't open";
   }

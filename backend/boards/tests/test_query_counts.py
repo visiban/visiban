@@ -204,7 +204,7 @@ class BoardFullQueryCountTests(TestCase):
     # second time anywhere in this serialization. The budget here cannot
     # detect a regression of that prefetch being removed; BoardForUserPrefetchTests
     # below asserts the prefetch cache directly for that reason.
-    BUDGET = 21  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant)
+    BUDGET = 22  # +1 #1104: the card-parent link lookup (constant; +2 more only when a card is linked); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="x")
@@ -293,7 +293,7 @@ class BoardFullQueryCountTests(TestCase):
     # measured count, not 2x: the regression it guards is one constant extra
     # query, get_members() re-reading the all-content user list that
     # get_cards() already loaded.
-    SITE_ADMIN_READER_QUERIES = 21  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant)
+    SITE_ADMIN_READER_QUERIES = 22  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def test_full_site_admin_reader_reuses_all_content_list(self):
         reader = User.objects.create_user(
@@ -481,7 +481,7 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
     # 21 measured with one board-level + one swimlane-level custom field
     # definition in the fixture (#1334); 23 is generous headroom for
     # middleware and the group-inherited membership walk.
-    BUDGET = 24  # +1 #2211: swimlanes__team_members prefetch (constant)
+    BUDGET = 25  # +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from groups.models import Group, GroupMembership
@@ -827,7 +827,7 @@ class ParkedPrefetchQueryCountTests(TestCase):
     query, raise it deliberately with a note.
     """
 
-    FULL_QUERIES = 21  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant)
+    FULL_QUERIES = 22  # +2 #1102/#1921: columns__sub_columns, columns__stage_tracks prefetches; +1 #1104 card-parent link lookup (constant); +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         from boards.models import CustomFieldDefinition
@@ -1212,7 +1212,7 @@ class IsStaleAnnotationQueryCountTests(TestCase):
     the full/ query count does not grow when is_stale-affecting cards are added.
     """
 
-    BUDGET = 21  # +1 #2211: swimlanes__team_members prefetch (constant)
+    BUDGET = 22  # +1 #2211: swimlanes__team_members prefetch (constant); +1 #2446: the leftover-parent ids lookup on a flag-off board (constant; it gates children_rollup)
 
     def setUp(self):
         self.user = User.objects.create_user(username="u_stale", password="x")
@@ -1921,8 +1921,8 @@ class CardMutationQueryCountTests(TestCase):
             # + the board row FOR SHARE and the label_ids re-read (#1632)
             # - the two movements prefetches (card fetch + response re-fetch)
             # that last-move subquery annotations replaced (#1883).
-            len(ctx), 32,
-            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 32. "
+            len(ctx), 33,  # +1 #2446: announce_parent_changed reads the card's child links on every board
+            f"PATCH cards/{{id}}/ used {len(ctx)} queries — expected exactly 33. "
             "If this grew by exactly one, check for a reader that fell back "
             "from a to_attr-parked list to the manager's .all() (#1223); if "
             "it is a legitimate change, re-measure and move this number in "
@@ -2299,7 +2299,8 @@ class CardParentQueryCountTests(TestCase):
         from boards.services import card_links
 
         fx = self.fx
-        with self.assertNumQueries(0):
+        # #2446: one query on a flag-off board too (it may hold leftover parents).
+        with self.assertNumQueries(1):
             card_links.announce_parent_changed(fx.child.pk, fx.cboard, actor_id=None)
         with self.assertNumQueries(1):
             card_links.announce_parent_changed(fx.parent.pk, fx.pboard, actor_id=None)

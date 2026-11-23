@@ -68,7 +68,7 @@ CARD_LIST_BUDGET = 14  # 9 measured here on Postgres (#1341)
 # The main fixture has no card parent links, so FULL_BUDGET describes the
 # no-link case; the with-links case costs 2 more queries and is pinned by
 # CardParentQueryCountTests. The linked fixture (#2424) has its own budgets below.
-FULL_BUDGET = 21  # 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup; +1 #2211 swimlanes__team_members
+FULL_BUDGET = 22  # 17 measured on Postgres (#1341); +1 #1104 card-parent link lookup; +1 #2211 swimlanes__team_members; +1 #2446 leftover-parent ids lookup on a flag-off board
 # #2424: the 500-card child board, every card linked to a parent on one of 5 parent
 # boards. Kept apart from the no-link budgets above so those, and the flat
 # query-count tests they are shared with, are untouched. Both are driven through

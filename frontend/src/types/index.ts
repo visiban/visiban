@@ -987,7 +987,7 @@ export interface ChildCandidate {
   swimlane_id: number;
   swimlane_name: string;
   assignee: BoardUser | null;
-  disabled_reason: "link_exists" | "already_has_parent" | "parent_archived" | "children_limit" | null;
+  disabled_reason: "link_exists" | "child_is_parent" | "already_has_parent" | "parent_archived" | "children_limit" | null;
   /** For `already_has_parent`: that parent's title when the viewer can open its board, else null. */
   parent_title: string | null;
 }

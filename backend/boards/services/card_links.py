@@ -1,12 +1,18 @@
 """Cross-board parent/child card links (#1104) and their two-tier rules (#2208).
 
-Cards link parent -> child across boards, and the hierarchy is two-tier by
-design: a board is either a parent tier (``cards_can_have_children`` is True)
-or a child tier (False), never both. Making the tier a property of the board
-rather than of each card keeps the rule structural: an admin decides once what
-a board is for, and a card can never end up as both a grandparent and a child.
-The per-card check in :func:`create_link` is defense in depth on top of this
-predicate, not a substitute for it.
+Cards link parent -> child across boards, and the hierarchy is exactly two
+tiers. The board flag ``cards_can_have_children`` OPENS the parent tier: on a
+board with it on, any card may get children, and no card there can be a child
+(turning it on stays refused while any card on the board is one). Since #2446
+an admin may turn the flag OFF while cards have children: those leftover
+parents keep their children and may still get more (Add child, Link existing),
+and no other card on the board can. So on a flag-off board the tier is a
+property of each CARD (:func:`card_can_have_children`), and the per-card
+checks in :func:`_check_link_rules_under_lock` (``child_is_parent``,
+``parent_is_child``, ``same_board``) are the rule, not defense in depth. They
+run under the card row locks both link writes take, so two writes on one card
+serialize. Child-side reads (is any card on this board a child?) stay
+board-level and stay correct, because a flag-ON board never holds a child.
 
 This module is the ONE place that writes a link and the ONE place that
 computes a parent's children for a viewer (threat model, Rule 10). REST calls
@@ -73,18 +79,60 @@ def link_allowed(parent_board, child_board) -> bool:
     return bool(parent_board.cards_can_have_children) and not child_board.cards_can_have_children
 
 
+def card_can_have_children(card) -> bool:
+    """True when ``card`` may get a new child (#2446): the per-card two-tier rule.
+
+    On a board whose flag is on, every card may. On a flag-off board, only a
+    leftover parent may: a card that already has at least one child link
+    (archived children count, as in the turn-off confirm). Once its last
+    child is unlinked it is an ordinary card again; the write path's
+    ``CardParentUnlink`` exception still lets that pair be linked back (Undo).
+    A missing card fails closed (#1075). Stores nothing: derived from the
+    link rows every time.
+    """
+    if card is None or getattr(card, "pk", None) is None:
+        return False
+    if card.board.cards_can_have_children:
+        return True
+    return CardParentLink.objects.filter(parent_id=card.pk).exists()
+
+
+def rollups_for_board_cards(board, card_ids, user):
+    """``children_rollup`` for ``card_ids`` on ``board``, as the card reads attach it (#2210, #2446).
+
+    On a flag-on board, every card gets one (:func:`rollups_for_viewer`). On a
+    flag-off board, only leftover parents do: one indexed ids query finds the
+    cards that have children, and only those are resolved, so a card with no
+    children there keeps omitting the field. The presence of
+    ``children_rollup`` is therefore the client's per-card "can have
+    children" signal. A missing board fails closed to ``None`` (#1075).
+    """
+    if board is None:
+        return None
+    ids = list(card_ids)
+    if board.cards_can_have_children:
+        return rollups_for_viewer(ids, user)
+    if not ids:
+        return {}
+    leftover = sorted(set(
+        CardParentLink.objects.filter(parent_id__in=ids).values_list("parent_id", flat=True)
+    ))
+    return rollups_for_viewer(leftover, user) if leftover else {}
+
+
 def links_blocking_flag_flip(board, new_value: bool) -> int:
     """Count the existing links that flipping ``board`` to ``new_value`` would invalidate.
 
-    Turning the flag OFF on a parent board would leave its cards' children
-    linked to a child-tier parent; turning it ON on a child board would make
-    its linked children sit on a parent tier. Either breaks :func:`link_allowed`
-    for a link that already exists. Callers hold the board row lock, and
+    Turning the flag ON on a child board would make its linked children sit on
+    a parent tier, which breaks "exactly two tiers" for a link that already
+    exists. Turning it OFF invalidates nothing since #2446: the cards that
+    already have children keep them and stay parents (:func:`card_can_have_children`),
+    so this is 0 for ``new_value=False``. Callers hold the board row lock, and
     :func:`create_link` takes the same lock, so a flip and a link serialize.
     """
     if new_value:
         return CardParentLink.objects.filter(child__board_id=board.pk).count()
-    return CardParentLink.objects.filter(parent__board_id=board.pk).count()
+    return 0
 
 
 def boards_defaulting_to(board):
@@ -103,8 +151,9 @@ def flag_flip_refusal(board, new_value: bool):
     """The message refusing a flip of ``board``'s flag to ``new_value``, or ``None``.
 
     One rule for the REST PATCH and the Django admin. A no-op (``None``) when
-    the value is unchanged. Turning the flag off on a board whose cards have
-    children stays refused (the turn-off confirm is a later step of #2208).
+    the value is unchanged. Turning the flag OFF is never refused since #2446
+    (the client confirms it first when cards here have children); turning it
+    ON is refused while cards here are children or this board is a default.
     """
     if new_value == board.cards_can_have_children:
         return None
@@ -494,14 +543,27 @@ def _check_link_rules_under_lock(parent, child_board, *, child=None):
     )
     parent.board.cards_can_have_children = flags[parent.board_id]
     child_board.cards_can_have_children = flags[child_board.pk]
-    if not link_allowed(parent.board, child_board):
+    # #2446: the parent side is per card. A flag-off board's leftover parent
+    # (it still has children) passes; so does a pair this parent had and lost
+    # (Undo of the last unlink, the same CardParentUnlink exception as #2447).
+    # Read under the parent card's lock, so a concurrent last-child unlink is
+    # seen.
+    parent_tier = card_can_have_children(parent) or (
+        child is not None
+        and CardParentUnlink.objects.filter(parent_id=parent.pk, child_id=child.pk).exists()
+    )
+    if child_board.cards_can_have_children or not parent_tier:
         raise CodedValidationError(
             "link_not_allowed",
             "A parent must be on a board whose cards can have children, and "
             "the child on a board whose cards cannot.",
         )
-    # Defense in depth for "exactly two tiers": the board predicate makes
-    # these unreachable while every flag flip goes through check_flag_flip.
+    # Since #2446 a flag-off board can hold a parent, so the board flags no
+    # longer keep both ends off one board: refuse it explicitly.
+    if parent.board_id == child_board.pk:
+        raise CodedValidationError("link_not_allowed", "A card's child must be on another board.")
+    # "Exactly two tiers" on a flag-off board rests on these two per-card
+    # checks (#2446), read under the card locks.
     if child is not None and CardParentLink.objects.filter(parent_id=child.pk).exists():
         raise CodedValidationError("child_is_parent", "This card has children, so it cannot have a parent.")
     if CardParentLink.objects.filter(child_id=parent.pk).exists():
@@ -741,13 +803,16 @@ def child_board_options_for_viewer(parent, user):
     if user is None or not getattr(user, "is_authenticated", False):
         return out
     parent_board = parent.board
-    if not parent_board.cards_can_have_children:
+    # #2446: a leftover parent on a flag-off board keeps Add child (its
+    # existing child board, ``fixed_board``); no other card there gets one.
+    if not card_can_have_children(parent):
         return out
     parent_role = get_board_roles(user, [parent_board])[parent_board.pk]
     if parent_role is None:
         return out
     admin_here = parent_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
-    out["can_set_default"] = admin_here
+    # A flag-off board has no default child board (the PATCH refuses one).
+    out["can_set_default"] = admin_here and parent_board.cards_can_have_children
     if parent.archived_at is not None:
         out["disabled_reason"] = "parent_archived"
 
@@ -791,7 +856,7 @@ def child_board_options_for_viewer(parent, user):
             out["default"] = {"id": b.pk, "name": b.name}
         rows.append({
             "id": b.pk, "name": b.name,
-            "can_set_default": admin_here and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
+            "can_set_default": out["can_set_default"] and role in (BoardMembership.Role.ADMIN, SITE_ADMIN),
         })
     out["boards_total"] = len(rows)
     out["boards"] = _options_page(rows, out["default"] and out["default"]["id"])
@@ -1465,6 +1530,9 @@ def parent_candidates_for_viewer(user, child, parent_board, search):
     """
     if child.board.cards_can_have_children:
         return []
+    # #2446: a leftover parent (it has children) can never get a parent.
+    if CardParentLink.objects.filter(parent_id=child.pk).exists():
+        return []
     q = search
     digits = q.isascii() and q.isdigit() and len(q) <= _ID_SEARCH_MAX_DIGITS
     if len(q) < 2 and not digits:
@@ -1575,9 +1643,12 @@ def child_candidates_for_viewer(user, parent, child_board, search):
     was linked to it and then unlinked, which may be linked back),
     ``children_limit`` (this parent is full). ``parent_title`` names that other
     parent only when the viewer can open its board; otherwise it is ``null``
-    and the picker says "a card you can't open".
+    and the picker says "a card you can't open". ``child_is_parent`` (#2446):
+    the card has children of its own (a leftover parent on a flag-off board),
+    so it cannot become a child.
     """
-    if not parent.board.cards_can_have_children:
+    # #2446: a leftover parent on a flag-off board keeps Link existing.
+    if not card_can_have_children(parent):
         return []
     q = search
     digits = q.isascii() and q.isdigit() and len(q) <= _ID_SEARCH_MAX_DIGITS
@@ -1595,7 +1666,11 @@ def child_candidates_for_viewer(user, parent, child_board, search):
             "column", "swimlane", "assignee",
             f"parent_link__parent__board__{GROUP_ANCESTOR_SELECT_RELATED}",
         )
-        .annotate(exact_rank=exact)
+        .annotate(
+            exact_rank=exact,
+            # #2446: a leftover parent on this (flag-off) board can't be a child.
+            has_children=Exists(CardParentLink.objects.filter(parent_id=OuterRef("pk"))),
+        )
         .order_by("exact_rank", Lower("title"), "pk")[:CHILD_CANDIDATE_LIMIT]
     )
     full = CardParentLink.objects.filter(parent_id=parent.pk).count() >= CHILDREN_PER_PARENT_LIMIT
@@ -1625,6 +1700,10 @@ def child_candidates_for_viewer(user, parent, child_board, search):
         parent_title = None
         if link is not None and link.parent_id == parent.pk:
             reason = "link_exists"
+        elif c.has_children:
+            # The write's precedence: child_is_parent is checked before the
+            # child's own parent.
+            reason = "child_is_parent"
         elif link is not None:
             reason = "already_has_parent"
             if roles.get(link.parent.board_id) is not None:
@@ -1655,12 +1734,12 @@ def announce_parent_changed(card_id, board, *, actor_id):
     Called inside the write's transaction: ``record_board_event`` writes the
     feed row there and publishes on commit, so a rollback sends nothing.
     Ids only, never a title (the accepted timing disclosure, Rule 8 residual).
-    Zero queries on a board that cannot have children; else one, and at most
-    one event per child board (all of a parent's children share one board, so
-    in practice one event of at most ``CHILDREN_PER_PARENT_LIMIT`` ids).
+    One query on every board (#2446: a flag-off board can hold leftover
+    parents, so the flag no longer proves there are no children to ping), and
+    at most one event per child board (all of a parent's children share one
+    board, so in practice one event of at most ``CHILDREN_PER_PARENT_LIMIT`` ids).
+    ``board`` is kept for the callers' signature.
     """
-    if not board.cards_can_have_children:
-        return
     by_board = {}
     for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card_id).values_list(
         "child_id", "child__board_id",
@@ -1895,12 +1974,10 @@ def announce_parent_container_renamed(board, *, column_id=None, swimlane_id=None
     disclosure (Rule 8 residual). Call inside the write's transaction;
     ``record_board_event`` publishes on commit.
 
-    Cost: zero queries on a board that cannot have children; else at most
-    two (a per-child-board count, then the ids of the boards under the cap),
-    however many parents the container holds.
+    Cost: at most two queries (a per-child-board count, then the ids of the
+    boards under the cap), however many parents the container holds. Run on
+    every board since #2446: a flag-off board can hold leftover parents.
     """
-    if not board.cards_can_have_children:
-        return
     links = CardParentLink.objects.filter(parent__board_id=board.pk)
     if column_id is not None:
         links = links.filter(parent__column_id=column_id)

@@ -399,8 +399,10 @@ class ContainerRenameTests(_RollupFixture, TestCase):
             (other_board.pk, {"card_ids": [other_parent.pk]}),
         ]))
 
-    def test_plain_board_costs_zero_queries(self):
-        with self.assertNumQueries(0):
+    def test_plain_board_costs_one_query_and_sends_nothing(self):
+        # #2446: a flag-off board may hold leftover parents, so a rename reads
+        # its links once (no parents here: no ping).
+        with self.captureOnCommitCallbacks(execute=True), self.assertNumQueries(1):
             card_links.announce_parent_container_renamed(self.cboard, actor_id=None)
 
 
