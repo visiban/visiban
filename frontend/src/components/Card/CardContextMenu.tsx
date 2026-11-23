@@ -95,6 +95,8 @@ export default function CardContextMenu({ anchor, label, header, entries, column
     .map((id) => entries.find((e) => e.id === id))
     .filter((e): e is CardActionEntry => !!e);
 
+  // ignoreScrollFrom is kept deliberately: it also guards any future anchored popover in a clipped card face; remove
+  // only after a wider e2e pass.
   const dismiss = useCallback(() => onClose("outside"), [onClose]);
   const top = useAnchoredPlacement(panelRef, { anchor, onResize: dismiss, onOutsideScroll: dismiss, ignoreScrollFrom: isCardFace });
   const subTop = useAnchoredPlacement(subRef, {

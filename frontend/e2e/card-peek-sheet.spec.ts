@@ -161,6 +161,36 @@ test.describe('card peek sheet', () => {
       const m = await more.boundingBox()
       expect(s?.height).toBeGreaterThanOrEqual(44)
       expect(s?.width).toBeGreaterThanOrEqual(44)
+      // #2402: boundingBox() ignores clipping, so measure the part of each button an ancestor's overflow leaves visible,
+      // and check that focusing a button scrolls neither the face nor any ancestor.
+      const visible = (loc: typeof summary) => loc.evaluate((el) => {
+        let r = el.getBoundingClientRect()
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const o = getComputedStyle(p)
+          if (o.overflowX === 'visible' && o.overflowY === 'visible') continue
+          const c = p.getBoundingClientRect()
+          r = new DOMRect(Math.max(r.left, c.left), Math.max(r.top, c.top), Math.max(0, Math.min(r.right, c.right) - Math.max(r.left, c.left)), Math.max(0, Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top)))
+        }
+        return { w: r.width, h: r.height }
+      })
+      for (const b of [summary, more]) {
+        const v = await visible(b)
+        expect(v.h).toBeGreaterThanOrEqual(43.5)
+        expect(v.w).toBeGreaterThanOrEqual(43.5)
+      }
+      // NOTE: the scrollTop assertions below are a sanity check, not proof of #2402: only the clipped-box check above
+      // goes red without the fix.
+      const scrolls = () => card.evaluate((el) => {
+        const out: number[] = []
+        for (let p: Element | null = el; p; p = p.parentElement) out.push(p.scrollTop)
+        return out
+      })
+      const baseline = await scrolls()
+      await summary.focus()
+      expect(await scrolls()).toEqual(baseline)
+      await more.focus()
+      expect(await scrolls()).toEqual(baseline)
+      await card.focus()
       expect((s!.x + s!.width <= m!.x + 0.5) || (m!.x + m!.width <= s!.x + 0.5)).toBe(true)
       await summary.tap()
       const sheet = page.getByTestId('card-peek-sheet')
@@ -172,6 +202,43 @@ test.describe('card peek sheet', () => {
       await page.getByRole('menuitem', { name: /Show summary/ }).tap()
       await expect(sheet).toBeVisible()
     })
+  })
+})
+
+test.describe('card face 44px buttons on a touch tablet (#2402)', () => {
+  // 1024px is the grid, not PhoneBoard, so only CardItem's own coarse-pointer min-height keeps the buttons in the face.
+  test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true })
+
+  const visibleBox = (loc: import('@playwright/test').Locator) => loc.evaluate((el) => {
+    let r = el.getBoundingClientRect()
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const o = getComputedStyle(p)
+      if (o.overflowX === 'visible' && o.overflowY === 'visible') continue
+      const c = p.getBoundingClientRect()
+      r = new DOMRect(Math.max(r.left, c.left), Math.max(r.top, c.top), Math.max(0, Math.min(r.right, c.right) - Math.max(r.left, c.left)), Math.max(0, Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top)))
+    }
+    return { w: r.width, h: r.height }
+  })
+
+  test('More actions and Show summary are fully inside the face, and the current card has none', async ({ page }) => {
+    await setup(page)
+    await page.goto(`/boards/${BOARD_FULL.id}`)
+    const card = page.locator(`[data-card-id="${CARD.id}"]`)
+    await expect(card).toBeVisible({ timeout: 10_000 })
+    const check = async () => {
+      await card.focus()
+      for (const id of ['card-show-summary', 'card-more-actions']) {
+        const v = await visibleBox(page.getByTestId(id))
+        expect(v.h, id).toBeGreaterThanOrEqual(43.5)
+        expect(v.w, id).toBeGreaterThanOrEqual(43.5)
+      }
+    }
+    await check()
+    // The `current` card (border-2, 42px padding box) never shows these buttons: BoardView drops onOpenCardMenu while a
+    // peek or detail panel is open, so there is nothing to overhang (asserted so a change to that surfaces here).
+    await card.click({ modifiers: ['Shift'] })
+    await expect(card).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByTestId('card-more-actions')).toHaveCount(0)
   })
 })
 

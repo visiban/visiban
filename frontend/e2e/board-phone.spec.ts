@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE } from './fixtures/board'
+import { BOARD_FULL, BOARD_TEAM, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE, CHILD_BOARD_OPTIONS_TEAM } from './fixtures/board'
 
 
 // Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
@@ -99,7 +99,7 @@ test.describe('board phone layout', () => {
     expect(await overlappingControls(page)).toEqual([])
     const faces = await page.locator('[data-testid="phone-board"] [data-card-id]').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
     expect(faces.length).toBeGreaterThan(0)
-    for (const h of faces) expect(h).toBeGreaterThanOrEqual(43.5)
+    for (const h of faces) expect(h).toBeGreaterThanOrEqual(45.5) // 46px: holds the 44px More actions button inside the face (#2402)
   })
 
   test('a long board name in a group shrinks so Star and Health stay inside the viewport (#2333)', async ({ page }) => {
@@ -986,13 +986,17 @@ test.describe('phone board settings modal (#2404)', () => {
 })
 
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
-// lifted to 44px at 390px through it. Swept here, one test per modal, from the existing mocked routes: Keyboard shortcuts,
-// Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board, Export Board and
-// Import board (dashboard). Not swept yet: Add child; BoardView "Delete column?"; CardDetail "Delete/Archive this card?";
-// Move board; Trello import; Policy confirm; Lens connection; the two "Delete field?" dialogs (Board settings Fields and
-// Swimlane fields tabs); Profile; Force password change; Force username rename; Connect provider
-// "Delete board?"; Create group (2 sites); Group detail "Transfer ownership" and "Delete group"; Dashboard "Join a
-// group" and "Delete board?"; Admin "Add User" and "Transfer boards & deactivate". #2407 stays open and is the tracker.
+// lifted to 44px at 390px through it. Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
+// Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
+// block below (Delete column, Archive card, Add child, Admin Add user, Admin Transfer boards & deactivate, both Delete field dialogs, Move board, Trello import, Join a
+// group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
+// Not swept, tracked in #2407: GroupDetail "Delete board?" (~L2067) and "Delete group" (~L2105) (no e2e opens
+// /groups/:id; they need group server state); CreateGroupModal's post-creation "created" phase (CreateGroupModal.tsx
+// ~L104); the "Delete this card?" branch of CardDetail.tsx (~L2845, one wrapper shared with Archive, probably covered by
+// CardDeleteConfirm but unverified: no e2e here opens it); PolicyConfirmModal and LensConnectionModal (need
+// column-policy / git-lens state); ProfileModal (dead code: imported only by its own test).
+// BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
+// exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -1033,8 +1037,127 @@ test.describe('phone ModalWrapper modals (#2407)', () => {
       await page.goto(`/boards/${BOARD_FULL.id}`)
       await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
       await open(page)
-      const dialog = name ? page.getByRole('dialog', { name, exact: true }) : page.getByRole('dialog').last()
+      const dialog = name ? page.getByRole('dialog', typeof name === 'string' ? { name, exact: true } : { name }) : page.getByRole('dialog').last()
       await expect(dialog).toBeVisible()
+      expect(await smallControls(page, ['[role="dialog"]']), label).toEqual([])
+      const close = dialog.getByRole('button', { name: 'Close' })
+      if (await close.count()) {
+        const title = (await dialog.getByRole('heading').first().boundingBox())!
+        const cb = (await close.boundingBox())!
+        expect(title.x + title.width, `${label} title vs Close`).toBeLessThanOrEqual(cb.x + 0.5)
+      }
+    })
+  }
+})
+
+// #2407 (remaining sites): modals reached from the dashboard, the shell, or a forced state. Each entry routes the
+// minimal extra state its opener needs on top of routeAuth/routeBoard.
+type Extra = { user?: Record<string, unknown>; start?: string; board?: typeof BOARD_FULL; setup?: (page: Page) => Promise<void> }
+
+// A custom field definition for the "Delete field?" dialogs (shape: CustomFieldDefinition in src/types).
+const FIELD_DEF = { id: 5, uid: 'field00005', name: 'Region', field_type: 'text', choices: [], position: 0, show_on_card: false, has_values: false, is_required: false, help_text: '', number_prefix: '', number_suffix: '' }
+const BOARD_WITH_FIELDS = { ...BOARD_FULL, custom_field_definitions: [FIELD_DEF], swimlane_custom_field_definitions: [{ ...FIELD_DEF, id: 6, uid: 'field00006', name: 'Lane owner' }] } as unknown as typeof BOARD_FULL
+
+// The card-detail endpoints a tapped card fetches; every list is empty.
+async function routeCardDetail(page: Page, boardId: number, card: unknown) {
+  const ok = (body: unknown) => (route: import('@playwright/test').Route) => route.fulfill({ json: body as object })
+  await page.route(`**/api/v1/boards/${boardId}/cards/${CARD.id}/`, ok(card))
+  for (const p of ['movements', 'comments', 'activity', 'checklist', 'attachments', 'relations', 'blocks']) await page.route(`**/api/v1/boards/${boardId}/cards/${CARD.id}/${p}/`, ok([]))
+  await page.route(`**/api/v1/boards/${boardId}/cards/${CARD.id}/timeline/**`, ok({ count: 0, next: null, previous: null, results: [] }))
+  await page.route(new RegExp(`/api/v1/boards/${boardId}/cards/${CARD.id}/children/(\\?.*)?$`), ok({ count: 0, visible: true, offset: 0, limit: 50, results: [] }))
+}
+// Site admin → Users, the mocks admin-phone-row-actions.spec.ts uses: the page needs is_site_admin and an admin/** list.
+const ADMIN_OWNED = [{ id: 40, uid: 'boarduid00040', name: 'Ops' }, { id: 41, uid: 'boarduid00041', name: 'Web' }]
+const adminRow = (id: number, username: string, owned: typeof ADMIN_OWNED) => ({
+  id, username, email: `${username}@example.com`, display_name: username, first_name: username, last_name: '', avatar_url: '',
+  is_active: true, is_site_admin: id === 1, can_access_all_content: false, is_superuser: false, must_change_password: false,
+  has_completed_tour: true, date_joined: '2024-01-01T00:00:00Z', owned_boards: owned,
+})
+async function routeAdminUsers(page: Page) {
+  await page.route('**/api/v1/admin/**', (r) => r.fulfill({ json: { count: 0, offset: 0, page_size: 50, results: [] } }))
+  await page.route('**/api/v1/admin/users/**', (r) => r.fulfill({ json: { count: 2, offset: 0, page_size: 50, results: [adminRow(1, 'testuser', []), adminRow(5, 'bob', ADMIN_OWNED)] } }))
+}
+const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<void>]> = [
+  ['Admin Add user', 'Add user', { user: { is_site_admin: true }, start: '/admin?tab=users', setup: routeAdminUsers }, async (page) => {
+    await page.getByRole('button', { name: 'Add user', exact: true }).first().click()
+  }],
+  ['Admin Transfer boards & deactivate', 'Transfer boards & deactivate', { user: { is_site_admin: true }, start: '/admin?tab=users', setup: routeAdminUsers }, async (page) => {
+    await page.getByRole('button', { name: 'More actions for bob' }).click()
+    await page.getByRole('dialog', { name: 'bob' }).getByRole('button', { name: /Transfer boards and deactivate…/ }).click()
+  }],
+  ['Force password change', '', { user: { must_change_password: true }, start: '/' }, async () => {}],
+  ['Force username rename', '', { user: { must_change_username: true }, start: '/' }, async () => {}],
+  ['Connect provider', '', { user: { pending_connect_provider: 'github', pending_connect_identity: 'someone' }, start: '/' }, async () => {}],
+  ['Join a group', 'Join a group', {
+    start: '/',
+    setup: async (page) => { await page.route(/\/api\/v1\/boards\/(\?starred=true)?$/, (r) => r.fulfill({ json: { count: 0, results: [] } })) },
+  }, async (page) => { await page.getByRole('button', { name: /invite link/i }).first().dispatchEvent('click') }],
+  ['Create group', 'New Group', { start: '/' }, async (page) => { await page.getByRole('button', { name: 'New group' }).first().dispatchEvent('click') }],
+  ['Move board', 'Move board', { start: '/' }, async (page) => {
+    await page.getByRole('button', { name: /^More actions for / }).first().dispatchEvent('click')
+    await page.getByRole('menuitem', { name: 'Move to group' }).dispatchEvent('click')
+  }],
+  ['Delete board (dashboard)', 'Delete board?', { start: '/' }, async (page) => {
+    await page.getByRole('button', { name: /^More actions for / }).first().dispatchEvent('click')
+    await page.getByRole('menuitem', { name: 'Delete' }).dispatchEvent('click')
+  }],
+  ['Delete column', 'Delete column?', {}, async (page) => {
+    // The delete button is disabled while the column holds cards, so open the empty Done column.
+    await page.getByTestId('phone-column-switcher').getByRole('tab', { name: /Done/ }).click()
+    await page.getByTestId('phone-column-actions-toggle').dispatchEvent('click')
+    await page.getByTestId('phone-column-actions').dispatchEvent('click')
+    await page.getByRole('button', { name: 'Delete column' }).dispatchEvent('click')
+  }],
+  ['Archive card', '', { setup: (page) => routeCardDetail(page, BOARD_FULL.id, CARD) }, async (page) => {
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    await page.getByRole('button', { name: 'Archive card' }).dispatchEvent('click')
+  }],
+  // Add child retitles itself `Add child to <board>` once the target board resolves, so match the prefix.
+  ['Add child', /^Add child/, {
+    board: BOARD_TEAM as unknown as typeof BOARD_FULL,
+    setup: async (page) => {
+      await routeCardDetail(page, BOARD_TEAM.id, CARD)
+      await page.route(`**/api/v1/boards/${BOARD_TEAM.id}/cards/${CARD.id}/child-board-options/`, (r) => r.fulfill({ json: CHILD_BOARD_OPTIONS_TEAM }))
+    },
+  }, async (page) => {
+    await page.locator(`[data-card-id="${CARD.id}"]`).tap()
+    await page.getByRole('tab', { name: 'Children' }).click()
+    await page.getByTestId('card-children-tab').getByRole('button', { name: /^Add child/ }).click()
+  }],
+  ['Delete field (Card fields)', 'Delete field?', { board: BOARD_WITH_FIELDS }, async (page) => {
+    await page.keyboard.press('Control+,')
+    await pickSettingsSection(page.getByRole('dialog', { name: 'Board settings' }), 'Card fields')
+    await page.getByRole('dialog', { name: 'Board settings' }).getByRole('button', { name: /Delete/ }).first().dispatchEvent('click')
+  }],
+  ['Delete field (Swimlane fields)', 'Delete field?', { board: BOARD_WITH_FIELDS }, async (page) => {
+    await page.keyboard.press('Control+,')
+    await pickSettingsSection(page.getByRole('dialog', { name: 'Board settings' }), 'Swimlane fields')
+    await page.getByRole('dialog', { name: 'Board settings' }).getByRole('button', { name: /Delete/ }).first().dispatchEvent('click')
+  }],
+  ['Trello import', '', { start: '/' }, async (page) => {
+    await page.getByRole('button', { name: /^Import/ }).first().click()
+    await page.getByRole('button', { name: /Trello/ }).first().click()
+  }],
+]
+
+test.describe('phone ModalWrapper modals, remaining sites (#2407)', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  for (const [label, name, extra, open] of REMAINING) {
+    test(`${label}: controls are at least 44px and the title is clear of Close`, async ({ page }) => {
+      await routeAuth(page)
+      if (extra.user) {
+        const u = { ...USER, ...extra.user }
+        for (const p of ['**/api/v1/auth/user/', '**/api/v1/auth/me/']) await page.route(p, (r) => r.fulfill({ json: u }))
+      }
+      const board = extra.board ?? BOARD_FULL
+      await routeBoard(page, board)
+      await extra.setup?.(page)
+      await page.goto(extra.start ?? `/boards/${board.id}`)
+      if (!extra.start) await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
+      await open(page)
+      const dialog = name ? page.getByRole('dialog', typeof name === 'string' ? { name, exact: true } : { name }) : page.getByRole('dialog').last()
+      await expect(dialog).toBeVisible({ timeout: 10_000 })
       expect(await smallControls(page, ['[role="dialog"]']), label).toEqual([])
       const close = dialog.getByRole('button', { name: 'Close' })
       if (await close.count()) {
