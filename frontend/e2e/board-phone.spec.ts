@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, BOARD_TEAM, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE, CHILD_BOARD_OPTIONS_TEAM } from './fixtures/board'
+import { BOARD_FULL, BOARD_LIST_ITEM, BOARD_TEAM, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE, CHILD_BOARD_OPTIONS_TEAM } from './fixtures/board'
 
 
 // Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
@@ -986,13 +986,15 @@ test.describe('phone board settings modal (#2404)', () => {
 })
 
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
-// lifted to 44px at 390px through it. Swept here, one test per modal, from the existing mocked routes: Keyboard shortcuts,
-// Add Column, Add Swimlane, Edit Column, Edit Swimlane, Delete card confirm, New Board, Export Board and
-// Import board (dashboard). Not swept yet: Add child; BoardView "Delete column?"; CardDetail "Delete/Archive this card?";
-// Move board; Trello import; Policy confirm; Lens connection; the two "Delete field?" dialogs (Board settings Fields and
-// Swimlane fields tabs); Profile; Force password change; Force username rename; Connect provider
-// "Delete board?"; Create group (2 sites); Group detail "Transfer ownership" and "Delete group"; Dashboard "Join a
-// group" and "Delete board?"; Admin "Add User" and "Transfer boards & deactivate". #2407 stays open and is the tracker.
+// lifted to 44px at 390px through it. Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
+// Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
+// block below (Delete column, Archive card, Add child, both Delete field dialogs, Move board, Trello import, Join a
+// group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
+// Not swept, and why: GroupDetail "Delete group" and "Delete board?", Admin "Add User" and "Transfer boards &
+// deactivate" (their pages need a group/admin server state whose mock redirected to the login page in the e2e harness;
+// follow-up needed), Lens connection and Policy confirm (need git-lens / column-policy state), ProfileModal (no
+// importer: unreachable in the app). BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
+// exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
