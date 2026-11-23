@@ -32,15 +32,20 @@ export function worstAnalyticsErrorKind(reasons: unknown[]): AnalyticsErrorKind 
 /**
  * What a failed analytics region says, per kind. `null` keeps the region's own generic copy.
  * `wholeHistory` is for a request that reads the board's whole history whatever the period
- * (the cumulative-flow day drill-down), where a shorter period would not help.
+ * (the cumulative-flow day drill-down), where a shorter period would not help. `noPeriod` is
+ * for a surface with no period to shorten (the Summary tab).
  */
-export function analyticsErrorMessage(kind: AnalyticsErrorKind, { wholeHistory = false } = {}): string | null {
+export function analyticsErrorMessage(
+  kind: AnalyticsErrorKind, { wholeHistory = false, noPeriod = false } = {},
+): string | null {
   if (kind === "busy") return "Analytics is busy right now. Try again in a moment.";
   if (kind === "too_large") {
     // The headline matches the API's constant detail; the advice is only what helps on this surface.
-    return wholeHistory
-      ? "This board has more history than this server is set up to analyze, so these cards can't be listed here. Ask your administrator."
-      : "This board has more history than this server is set up to analyze. Try a shorter period, or ask your administrator.";
+    if (wholeHistory) {
+      return "This board has more history than this server is set up to analyze, so these cards can't be listed here. Ask your administrator.";
+    }
+    if (noPeriod) return "This board has more history than this server is set up to analyze. Ask your administrator.";
+    return "This board has more history than this server is set up to analyze. Try a shorter period, or ask your administrator.";
   }
   return null;
 }

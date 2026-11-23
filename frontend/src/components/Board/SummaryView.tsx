@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBoardSummary } from "../../api/boards";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../api/analyticsErrors";
+import type { AnalyticsErrorKind } from "../../api/analyticsErrors";
 import type { BoardSummary } from "../../types";
 import { parseExtensionPanels } from "./parseExtensionPanels";
 import ExtensionPanels from "./ExtensionPanels";
@@ -12,20 +14,45 @@ interface Props {
 export default function SummaryView({ boardId, columns }: Props) {
   const [data, setData] = useState<BoardSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AnalyticsErrorKind | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let current = true;
+    // The summary is admitted through the analytics limits (#2428): a busy server is retried
+    // once after Retry-After, and the pending retry is canceled on unmount or a board change.
+    const controller = new AbortController();
     setLoading(true);
-    getBoardSummary(boardId)
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => { setError("Failed to load summary."); setLoading(false); });
-  }, [boardId]);
+    setError(null);
+    withAnalyticsBusyRetry(() => getBoardSummary(boardId), cancelableWait, controller.signal)
+      .then((d) => { if (current) { setData(d); setLoading(false); } })
+      .catch((reason: unknown) => { if (current) { setError(analyticsErrorKind(reason)); setLoading(false); } });
+    return () => { current = false; controller.abort(); };
+  }, [boardId, attempt]);
 
   // Hook sits above the early returns; the parser tolerates a missing key.
   const panels = useMemo(() => parseExtensionPanels(data?.extension_panels), [data]);
 
   if (loading) return <div className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary">Loading summary…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-danger">{error}</div>;
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-sunken">
+        <p role="alert" className="text-sm text-danger">
+          {analyticsErrorMessage(error, { noPeriod: true }) ?? "Failed to load summary."}
+        </p>
+        {/* Too much history is not retried: the same request would be refused again (#2428). */}
+        {analyticsErrorRetryable(error) && (
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            className="px-3 py-1.5 text-sm rounded border border-line-strong bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
   if (!data) return null;
 
   return (
