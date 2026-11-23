@@ -4520,8 +4520,8 @@ superuser/site-admin/<code>can_access_all_content</code> account), and drives
 describes, checking <code>response_schema_conformance</code>, <code>status_code_conformance</code>, and
 <code>content_type_conformance</code>.</p>
 <p>Runs on any MR or <code>main</code>-branch push that touches <code>backend/**/views/**</code>, <code>**/serializers.py</code>,
-<code>**/urls.py</code>, <code>backend/visiban/settings.py</code>, <code>backend/visiban/schema_hooks.py</code>, or
-<code>backend/schemathesis_hooks.py</code> — no unconditional fallback on <code>main</code>, since nothing downstream depends on
+<code>**/urls.py</code>, <code>backend/visiban/settings.py</code>, <code>backend/visiban/schema_hooks.py</code>,
+<code>backend/schemathesis_hooks.py</code>, or <code>scripts/fuzz_partitions.py</code> — no unconditional fallback on <code>main</code>, since nothing downstream depends on
 this job (#1266). It never runs on a scheduled pipeline.</p>
 <p>The job sets <code>VISIBAN_DISABLE_THROTTLING=True</code> (#1569). Without it, a ~20k-request run from one
 token exhausted the DEBUG-time <code>9999/hour</code> budgets (and the public share-link scopes, which have
@@ -4529,10 +4529,56 @@ no DEBUG bypass), so about 23% of responses were <code>429</code> from the DRF t
 under test. The variable defaults to off, lifts every DRF throttle rate plus allauth's
 <code>login_failed</code> gate, and <code>settings.py</code> refuses to start with it set unless <code>DEBUG=True</code>; it is not
 a production setting.</p>
+<p><strong>Three shards, one per path partition (#2521).</strong> One <code>st run</code> over all ~227 operations hit
+its 600-second <code>--max-time</code> cap on every run and never finished <code>--max-examples 10</code>, so the
+operations at the end of the list got the least search. <code>backend-schema-fuzz</code> is now a
+<code>parallel: matrix:</code> of three jobs, <code>backend-schema-fuzz: [board-children]</code>,
+<code>[boards-groups]</code> and <code>[other]</code>. Each boots its own Postgres, seed, token and server and fuzzes
+only the paths its partition's regex selects (<code>--include-path-regex</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Shard</th>
+<th>Paths</th>
+<th>Operations (2026-11-22)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>board-children</code></td>
+<td><code>/api/v1/boards/{board_pk}/...</code> (cards, columns, swimlanes, comments...)</td>
+<td>89</td>
+</tr>
+<tr>
+<td><code>boards-groups</code></td>
+<td><code>/api/v1/boards/</code> and <code>/api/v1/boards/{id}/...</code>, plus <code>/api/v1/groups/...</code></td>
+<td>85</td>
+</tr>
+<tr>
+<td><code>other</code></td>
+<td>everything else (auth, admin, notifications, health, share, media), including any new top-level prefix</td>
+<td>55</td>
+</tr>
+</tbody>
+</table>
+<p>The partitions live in <code>scripts/fuzz_partitions.py</code>. Before fuzzing, every shard runs its
+<code>check</code> against the schema it is about to fuzz. The check fails the job if a path matches no
+partition or more than one, if a partition selects no operation, or if the job's matrix does
+not list exactly the partitions. The matrix half of that check also runs, with the partition self-test, in the
+<code>fuzz-baseline-unobserved-selftest</code> job, which fires on a CI-file-only change that the shard
+jobs skip. So an operation can never go unfuzzed, or be fuzzed twice,
+without a job turning red. Each shard has <code>FUZZ_MAX_TIME=300</code>, so the total budget is
+900 seconds against 600 before, and the wall clock drops to about 300 seconds plus boot.
+<code>FUZZ_MAX_TIME</code> is the one knob for retuning the budget. To change the partitions, edit
+<code>PARTITIONS</code> in the script and the matrix's <code>FUZZ_SHARD</code> list together; the check fails until
+they agree. Each shard fuzzes against <code>backend/schemathesis-baseline.json</code> filtered to its own
+partition. That keeps <code>st run</code>'s unobserved count and the after-script listing below from
+reporting an entry as unobserved only because another shard owns its path.</p>
 <p><strong>Deep nightly run (<code>backend-schema-fuzz-deep</code>).</strong> The Nightly schedule (<code>FUZZ_DEEP=true</code>,</p>
-<h1 id="1383-runs-the-same-job-with-a-bigger-budget-max-examples-100-and-max-time-2400">1383) runs the same job with a bigger budget: <code>--max-examples 100</code> and <code>--max-time 2400</code><a class="headerlink" href="#1383-runs-the-same-job-with-a-bigger-budget-max-examples-100-and-max-time-2400" title="Permanent link">&para;</a></h1>
-<p>seconds, against the MR job's 10 and 600. Boot, seed, token, checks, and
-<code>backend/schemathesis-baseline.json</code> are shared, because the deep job <code>extends:</code> the MR job.
+<h1 id="1383-runs-one-unsharded-st-run-over-the-whole-schema-with-a-bigger-budget">1383) runs one unsharded <code>st run</code> over the whole schema with a bigger budget:<a class="headerlink" href="#1383-runs-one-unsharded-st-run-over-the-whole-schema-with-a-bigger-budget" title="Permanent link">&para;</a></h1>
+<p><code>--max-examples 100</code> and <code>--max-time 2400</code> seconds, against each MR shard's 10 and 300. Boot,
+seed, token, checks, and <code>backend/schemathesis-baseline.json</code> are shared, because the deep job
+and the MR job both <code>extends:</code> the same hidden template (<code>.backend-schema-fuzz-base</code>).
 It gets a fresh seed each night, printed the same way. It is <code>allow_failure: true</code> so a
 finding does not turn the shared Nightly pipeline red. A finding is still a real defect: when
 the fuzz itself ran and failed, the job files one tracking issue titled
@@ -4725,7 +4771,9 @@ failures are auto-retried, by the pipeline-wide <code>default:</code> block.)</p
    <code>schema_hooks.py</code> rule if it is a whole class). A <strong>schema mismatch</strong> means fixing the
    serializer or its annotation.</li>
 <li>Replay it: the job prints <code>seed=&lt;n&gt;</code> at the start and the failure block ends with an
-   <code>st replay &lt;id&gt;</code> line. To pin the same seed <strong>on a merge request</strong>, push an empty commit
+   <code>st replay &lt;id&gt;</code> line. On <code>backend-schema-fuzz</code>, each shard draws its own seed and prints it
+   with its shard name and path regex (<code>seed=&lt;n&gt; ... shard=boards-groups include-path-regex=...</code>),
+   so take the seed from the log of the shard that failed. To pin the same seed <strong>on a merge request</strong>, push an empty commit
    to the MR branch with a <code>Fuzz-Seed</code> trailer:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>commit<span class="w"> </span>--allow-empty<span class="w"> </span>-m<span class="w"> </span><span class="s2">"ci: replay fuzz seed"</span><span class="w"> </span>-m<span class="w"> </span><span class="s2">"Fuzz-Seed: &lt;n&gt;"</span>
@@ -4733,15 +4781,20 @@ failures are auto-retried, by the pipeline-wide <code>default:</code> block.)</p
 </code></pre></div>
 <p>MR pipelines cannot take pipeline variables, so the trailer is the supported way. The job
    reads it from the MR head commit message, so it applies only while that commit is the
-   head (if the message holds several <code>Fuzz-Seed:</code> lines, the last one wins); push any newer commit to return to a random seed. Because the trailer is read from the MR
+   head (if the message holds several <code>Fuzz-Seed:</code> lines, the last one wins); push any newer commit to return to a random seed.
+   The trailer pins that seed on all three shards. The shard that owns the failing operation
+   replays its run; the other two run the same seed over their own partitions, which is
+   harmless. Compare the failing shard's log, not the others. Because the trailer is read from the MR
    head commit, it relies on non-merged-results pipelines, which is the only kind this repo runs
    today. The value must be a plain
    non-negative integer (anything else fails the job with an error rather than being
    ignored), and the job log states whether the seed came from the trailer, the
    <code>FUZZ_SEED</code> variable (which takes precedence), or was random. To replay a deep nightly
    run, start a pipeline on <code>main</code> (<strong>Build → Pipelines → Run pipeline</strong>) with
-   <code>FUZZ_SEED=&lt;n&gt;</code>, <code>FUZZ_MAX_EXAMPLES=100</code> and <code>FUZZ_MAX_TIME=2400</code>. That runs
-   <code>backend-schema-fuzz</code> at the deep budget. Locally, boot the app against <code>seed_demo_data</code>
+   <code>FUZZ_SEED=&lt;n&gt;</code>, <code>FUZZ_MAX_EXAMPLES=100</code> and <code>FUZZ_MAX_TIME=2400</code>. That runs the
+   <code>backend-schema-fuzz</code> shards at the deep budget. The deep run is unsharded, so the
+   failing operation is fuzzed by whichever shard's partition matches its path
+   (<code>python3 scripts/fuzz_partitions.py regex &lt;shard&gt;</code> prints each regex). Locally, boot the app against <code>seed_demo_data</code>
    and run <code>st run &lt;url&gt;/api/schema/ --seed &lt;n&gt; ...</code> with the flags from the job.</p>
 <blockquote>
 <p><strong>Warning: use a throwaway database.</strong> <code>schemathesis_hooks.py</code> writes to the database it is loaded against (<a href="https://gitlab.com/visiban/visiban/-/issues/1570">#1570</a>): it mints non-expiring, multi-use <code>MEMBER</code> join links (named "schemathesis fuzz fixture"), sets a public share token on the demo board, and creates a pool of disposable rows for DELETE operations. Replay against a scratch database, not one you keep.</p>
