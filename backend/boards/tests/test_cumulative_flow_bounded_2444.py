@@ -177,7 +177,7 @@ class ReductionTests(FlowFixture):
 
 
 class SqlKeyTests(FlowFixture):
-    """``_sql_column_key`` and ``kind`` agree with Python, and ``_deciding_rows`` picks ``_reduce_history``'s rows."""
+    """``_sql_column_key`` and the transition predicate agree with Python, and ``_deciding_rows`` picks ``_reduce_history``'s rows."""
 
     def build_corpus(self, seed=2444, cards=80):
         rnd = random.Random(seed)
@@ -224,20 +224,21 @@ class SqlKeyTests(FlowFixture):
         python = {
             mv.id: mv for rows in self.full_histories().values() for mv in rows
         }
-        annotated = fm._movement_kinds(CardMovement.objects.filter(card__board=self.board, moved_at__lte=self.now), None)
+        annotated = fm._with_keys(CardMovement.objects.filter(card__board=self.board, moved_at__lte=self.now))
+        sql_transitions = set(annotated.filter(fm._TRANSITION_ROW).values_list("id", flat=True))
+        sql_archives = set(annotated.filter(fm._ARCHIVE_TYPES).values_list("id", flat=True))
         to_sql: dict = {}
         to_python: dict = {}
         transitions = 0
-        for movement_id, from_key, to_key, kind in annotated.values_list("id", "from_key", "to_key", "kind"):
+        for movement_id, from_key, to_key in annotated.values_list("id", "from_key", "to_key"):
             mv = python[movement_id]
             for py_key, sql_key in ((mv.from_key, from_key), (mv.to_key, to_key)):
                 self.assertEqual(py_key is None, sql_key is None, movement_id)
                 # One SQL key per Python key and back: equality means the same on both sides.
                 self.assertEqual(to_sql.setdefault(py_key, sql_key), sql_key, (movement_id, py_key))
                 self.assertEqual(to_python.setdefault(sql_key, py_key), py_key, (movement_id, sql_key))
-            self.assertEqual(kind == "T", mv.is_transition, movement_id)
-            if mv.movement_type in (ARCHIVED, UNARCHIVED):
-                self.assertEqual(kind, "A", movement_id)
+            self.assertEqual(movement_id in sql_transitions, mv.is_transition, movement_id)
+            self.assertEqual(movement_id in sql_archives, mv.movement_type in (ARCHIVED, UNARCHIVED), movement_id)
             transitions += mv.is_transition
         self.assertGreater(transitions, 20)
         # The corpus reached a name key spelled like a uid, and both kinds of key.

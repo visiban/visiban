@@ -25,8 +25,8 @@ import datetime
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
-from django.db.models import Case, CharField, Exists, F, OuterRef, Q, Value, When, Window
-from django.db.models.functions import Concat, RowNumber
+from django.db.models import Case, CharField, Exists, F, OuterRef, Q, Value, When
+from django.db.models.functions import Concat
 from django.utils import timezone
 
 from ..models import (
@@ -916,30 +916,17 @@ def _movement_rows(selected, *, column_ids=False):
         yield _movement_from_row(row, interned, column_ids)
 
 
-# The ``kind`` ``_deciding_rows`` gives a row: a transition, an archive-type
-# row (before ``as_of``, or at or after it), anything else.
-_TRANSITION, _ARCHIVE_BEFORE, _ARCHIVE_AFTER, _OTHER = "T", "A", "Z", "O"
+# The predicates the per-card probes of ``_deciding_rows`` filter on (#2444).
+_ARCHIVE_TYPES = Q(movement_type__in=[_ARCHIVED, _UNARCHIVED])
+# ``_Movement.is_transition`` in SQL, on ``_with_keys`` rows.
+_TRANSITION_ROW = (
+    Q(movement_type=_MOVE) & Q(from_key__isnull=False) & Q(to_key__isnull=False) & ~Q(from_key=F("to_key"))
+)
 
 
-def _movement_kinds(movements, as_of):
-    """``movements`` annotated with ``from_key``/``to_key`` (``_sql_column_key``) and ``kind`` (#2444).
-
-    ``kind`` is ``T`` for a transition (``_Movement.is_transition``), ``A``
-    for an archive-type row, ``O`` otherwise. With ``as_of``, only a row
-    dated before it is ``T`` or ``A``; an archive-type row at or after it is
-    ``Z``, and a later transition is ``O``.
-    """
-    before = Q() if as_of is None else Q(moved_at__lt=as_of)
-    archive = Q(movement_type__in=[_ARCHIVED, _UNARCHIVED])
-    transition = (
-        Q(movement_type=_MOVE) & Q(from_key__isnull=False) & Q(to_key__isnull=False) & ~Q(from_key=F("to_key"))
-    )
-    whens = [When(transition & before, then=Value(_TRANSITION)), When(archive & before, then=Value(_ARCHIVE_BEFORE))]
-    if as_of is not None:
-        whens.append(When(archive, then=Value(_ARCHIVE_AFTER)))
-    return movements.annotate(from_key=_sql_column_key("from"), to_key=_sql_column_key("to")).annotate(
-        kind=Case(*whens, default=Value(_OTHER), output_field=CharField()),
-    )
+def _with_keys(movements):
+    """``movements`` annotated with ``from_key``/``to_key``: ``_sql_column_key`` of each side (#2444)."""
+    return movements.annotate(from_key=_sql_column_key("from"), to_key=_sql_column_key("to"))
 
 
 def _deciding_rows(cards, *, now, as_of=None):
@@ -970,33 +957,43 @@ def _deciding_rows(cards, *, now, as_of=None):
     moves a kept one relative to another, and rows that tie on ``moved_at``
     keep their ``id`` order, which is all the stable sort reads.
 
-    ``kind`` is decided on ``_sql_column_key``, the SQL mirror of
+    The transition test runs on ``_sql_column_key``, the SQL mirror of
     ``_column_key``, only to choose rows; the kept rows' keys are rebuilt in
     Python by ``_movement_from_row``, so the replay never reads a SQL key.
 
-    One statement, uncorrelated: ``card_id IN (<cards>)`` carries the board
-    bound, and the window functions rank inside each card (no ``DISTINCT
-    ON``, which SQLite lacks; no per-card subquery, see #2502).
+    How the rows are found: per card, one ``LIMIT 1`` probe per row kind, each
+    a walk of ``movement_card_moved_at_id_idx`` (card, moved_at, id) in one
+    direction that stops at the first row its filter keeps, so the database
+    reads a few index entries per card, not its history. The probes sit in
+    the SELECT list of the card query (one card scan per kind, combined with
+    ``UNION``), and one outer statement reads the chosen rows by primary key.
+    A probe is correlated to its card, but only as a scalar ``LIMIT 1`` in a
+    SELECT list: the #2502 regression was a correlated ``EXISTS`` in a
+    filter's ``OR``, which the planner cannot turn into a semi-join, and
+    ``test_flow_range_plan_2502`` still forbids that shape in every statement.
     """
-    movements = (
-        _movement_kinds(
-            CardMovement.objects.filter(card_id__in=cards.order_by().values("id"), moved_at__lte=now), as_of,
-        )
-        .annotate(
-            first_rank=Window(
-                RowNumber(), partition_by=[F("card_id")], order_by=[F("moved_at").asc(), F("id").asc()],
-            ),
-            kind_rank=Window(
-                RowNumber(), partition_by=[F("card_id"), F("kind")], order_by=[F("moved_at").desc(), F("id").desc()],
-            ),
-        )
-        .filter(Q(first_rank=1) | Q(kind__in=[_TRANSITION, _ARCHIVE_BEFORE, _ARCHIVE_AFTER], kind_rank=1))
+    def probe(movements, *order):
+        live = movements.filter(card_id=OuterRef("pk"), moved_at__lte=now)
+        return cards.order_by().annotate(row_id=live.order_by(*order).values("id")[:1]).values("row_id")
+
+    movements = CardMovement.objects.all()
+    before = {} if as_of is None else {"moved_at__lt": as_of}
+    newest = ("-moved_at", "-id")
+    probes = [
+        probe(movements, "moved_at", "id"),
+        probe(_with_keys(movements).filter(_TRANSITION_ROW, **before), *newest),
+        probe(movements.filter(_ARCHIVE_TYPES, **before), *newest),
+    ]
+    if as_of is not None:
+        probes.append(probe(movements.filter(_ARCHIVE_TYPES, moved_at__gte=as_of), *newest))
+    chosen = (
+        CardMovement.objects.filter(id__in=probes[0].union(*probes[1:]))
         .order_by("card_id", "moved_at", "id")
         .values_list(*_MOVEMENT_FIELDS)
     )
     interned: dict = {}
     current_id, history = None, []
-    for row in movements.iterator(chunk_size=2000):
+    for row in chosen.iterator(chunk_size=2000):
         card_id, movement = _movement_from_row(row, interned, False)
         if card_id != current_id:
             if current_id is not None:
