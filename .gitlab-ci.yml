@@ -6657,6 +6657,13 @@ nightly-load-test:
     LOAD_TEST_AGED_GENERATIONS: "4"
     # runserver's PID, so the script can read its peak RSS from /proc (#2430).
     VISIBAN_LOAD_TEST_SERVER_PID_FILE: "/tmp/visiban_load_test_server.pid"
+    # The overview fan-out measures its two analytics reads (metrics/overview/
+    # and analytics/) concurrently, as the web app sends them, so the server
+    # must admit both at once: at the default of 1 the second would wait behind
+    # the first, which measures queueing rather than the endpoints, and a wait
+    # past the server's bound fails the run with analytics_busy. Two is the
+    # fan-out width (_OVERVIEW_PATHS in scripts/nightly_load_test.py).
+    ANALYTICS_MAX_CONCURRENT: "2"
   before_script:
     - !reference [.pip-floor, script]
     - !reference [.uv-install, script]

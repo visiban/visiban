@@ -383,6 +383,35 @@ def _overview_urls(base_url, board_id):
     return [f"{base_url}/api/v1/boards/{board_id}/{path}?{_OVERVIEW_QUERY}" for path in _OVERVIEW_PATHS]
 
 
+# The documented busy refusal of the analytics concurrency limit: 503 with this code.
+ANALYTICS_BUSY_CODE = "analytics_busy"
+
+
+class AnalyticsBusyRefusal(RuntimeError):
+    """A measured analytics request was refused by the server's concurrency limit."""
+
+
+def _raise_for_status(response):
+    """``raise_for_status``, naming an ``analytics_busy`` refusal on its own.
+
+    A refusal has no meaningful latency, so it fails the run either way, but
+    as itself: the fix is the job's ``ANALYTICS_MAX_CONCURRENT`` (at least the
+    fan-out width), not a performance regression to chase.
+    """
+    if response.status_code == 503:
+        try:
+            code = response.json().get("code")
+        except (ValueError, AttributeError):
+            code = None
+        if code == ANALYTICS_BUSY_CODE:
+            raise AnalyticsBusyRefusal(
+                f"{response.url}: 503 {ANALYTICS_BUSY_CODE}. The server's analytics concurrency limit refused a "
+                "measured request; set ANALYTICS_MAX_CONCURRENT for this job to at least the overview fan-out width "
+                f"({len(_OVERVIEW_PATHS)})."
+            )
+    response.raise_for_status()
+
+
 def _fan_out(fetch, urls):
     """Run ``fetch(url)`` for every URL at once; return wall time to the LAST one, in ms.
 
@@ -415,7 +444,7 @@ def _fan_out_samples(headers, urls, iterations, warmup):
         # One Session per request: a Session is not documented as thread-safe.
         with requests.Session() as sess:
             sess.headers.update(headers)
-            sess.get(url, timeout=120).raise_for_status()
+            _raise_for_status(sess.get(url, timeout=120))
 
     for _ in range(warmup):
         _fan_out(fetch, urls)
@@ -729,6 +758,24 @@ def _self_test():
             failures.append(
                 f"scenario {name!r} has no budget_peak_rss_mb and no pending_memory_budget issue reference (#2430)"
             )
+
+    # A busy refusal is reported as itself, never as a generic HTTP error or a latency.
+    class _Busy:
+        status_code, url = 503, "http://x/metrics/overview/"
+
+        def json(self):
+            return {"code": ANALYTICS_BUSY_CODE, "detail": "x"}
+
+        def raise_for_status(self):
+            raise AssertionError("raise_for_status reached for a busy refusal")
+
+    try:
+        _raise_for_status(_Busy())
+        failures.append("an analytics_busy 503 was not refused")
+    except AnalyticsBusyRefusal:
+        pass
+    except AssertionError as exc:
+        failures.append(str(exc))
 
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
