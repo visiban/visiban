@@ -50,7 +50,7 @@ beforeEach(() => {
 describe('StageSettingsPanel (#2278)', () => {
   it('defines "stage" once and describes each section with a hint that it applies to every card (#2543, #2542)', () => {
     renderPanel()
-    expect(screen.getByTestId('stage-definition')).toHaveTextContent('A stage is a column. This tab holds its sub-columns and tracks. A stage with sub-columns is a gated stage.')
+    expect(screen.getByTestId('stage-definition')).toHaveTextContent('A stage is a column. This tab holds its sub-columns and tracks.')
     // Hints sit on the point of choice, not on the regions (region descriptions are rarely announced).
     expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).not.toHaveAttribute('aria-describedby')
     expect(screen.getByRole('region', { name: 'Tracks, any order' })).not.toHaveAttribute('aria-describedby')

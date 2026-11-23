@@ -351,7 +351,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   return (
     <div ref={rootRef} className="flex flex-col gap-5" data-testid="stage-settings-panel" aria-busy={saving}>
       {/* #2543: "stage" is defined once, here and in board.md; the tab and menu item keep their names. */}
-      <p className="text-xs text-fg-muted" data-testid="stage-definition">A stage is a column. This tab holds its sub-columns and tracks. A stage with sub-columns is a gated stage.</p>
+      <p className="text-xs text-fg-muted" data-testid="stage-definition">A stage is a column. This tab holds its sub-columns and tracks.</p>
       <fieldset disabled={saving} className="contents">
         {/* #2542: the hint at this point of choice says it applies to every card in the column. */}
         <section aria-labelledby={`${uid}-subs`}>
