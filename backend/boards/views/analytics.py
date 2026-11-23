@@ -482,8 +482,10 @@ class ThroughputQuerySerializer(_ListLimitMixin, GroupedFlowMetricsQuerySerializ
 class FlowOverviewQuerySerializer(ThroughputQuerySerializer):
     """``metrics/overview`` (#2426): the filters, ``group_by`` and throughput's ``period``.
 
-    No cumulative-flow ``date``: that drill-down reads the whole history and
-    stays on its own endpoint; a stray one is ignored like any unknown parameter.
+    No cumulative-flow ``date``: that drill-down lists every card of the board
+    resting in a band that day, so it loads every card (with only the few
+    movement rows that decide its placement, #2444) and stays on its own
+    endpoint; a stray one is ignored like any unknown parameter.
     """
 
 
