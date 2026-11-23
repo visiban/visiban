@@ -93,6 +93,41 @@ class AgedBoardMixin:
         legacy.delete()
         return cards
 
+    def aged_board_with_ties(self):
+        """``aged_board`` plus the placement edges ``_deciding_rows`` must get right (#2444)."""
+        cards = self.aged_board()
+        # A transition and an archive at one moved_at, in both id orders.
+        move_then_archive = self.path(self.backlog, 210, self.doing, 180, archived=170)
+        self.row(move_then_archive, self.doing, self.review, 170)
+        CardMovement.objects.filter(card=move_then_archive, movement_type=ARCHIVED).update(moved_at=self.ago(170))
+        archive_then_move = self.path(self.backlog, 210, self.doing, 180, archived=160)
+        self.row(archive_then_move, self.doing, self.done, 160)
+        # An admin archived_at tied with an unarchived row: the synthetic archive sorts after it.
+        admin_tie = self.path(self.backlog, 220, self.review, 200)
+        self.row(admin_tie, self.review, self.review, 190, ARCHIVED)
+        self.row(admin_tie, self.review, self.review, 180, UNARCHIVED)
+        Card.objects.filter(pk=admin_tie.pk).update(archived_at=self.ago(180))
+        # The opposite: an archived event after an admin archived_at suppresses it.
+        admin_then_event = self.path(self.backlog, 220, self.review, 200)
+        self.row(admin_then_event, self.review, self.review, 185, UNARCHIVED)
+        self.row(admin_then_event, self.review, self.review, 165, ARCHIVED)
+        Card.objects.filter(pk=admin_then_event.pk).update(archived_at=self.ago(175))
+        # A done column whose is_done flips after its cards were archived there.
+        ship = Column.objects.create(board=self.board, name="Ship", position=7, is_done=True)
+        self.path(self.backlog, 200, ship, 150, archived=140)
+        self.path(self.backlog, 200, ship, 150, archived=140, lane=self.other_lane).labels.add(self.label)
+        Column.objects.filter(pk=ship.pk).update(is_done=False)
+        # A column deleted and recreated under the same name, plus a name-only row.
+        again = Column.objects.create(board=self.board, name="Again", position=8, is_done=True)
+        self.path(self.backlog, 260, again, 240, archived=230)
+        again.delete()
+        again = Column.objects.create(board=self.board, name="Again", position=8, is_done=True)
+        name_only = self.card(again, created=250, archived=230)
+        mv = self.row(name_only, None, again, 240)
+        CardMovement.objects.filter(pk=mv.pk).update(to_column=None, to_column_uid="", to_column_name="Again")
+        cards["name_only"] = name_only
+        return cards
+
 
 class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
     """Every range endpoint answers exactly as the whole-history load does."""
@@ -154,6 +189,45 @@ class RangeNarrowingEquivalenceTests(AgedBoardMixin, EndpointFixture):
                         params = {**variant, **window, **flt}
                         with self.subTest(metric=metric, params=params):
                             self.assert_same(metric, params)
+
+    def test_cumulative_flow_day_drill_down_matches_the_full_replay(self):
+        """Every day across the deleted column, the ties and the first history day, under each filter (#2444)."""
+        self.aged_board_with_ties()
+
+        def full_day(board, day, *, now, swimlane_id=None, label_id=None, columns=None):
+            return fm.load_board_flow(board, swimlane_id=swimlane_id, label_id=label_id, now=now, columns=columns)
+
+        # Legacy (deleted) is visited 130 -> 125 days ago; the ties sit 160-190
+        # days ago; the oldest history row is 1,150 days ago.
+        spans = [range(122, 134), range(158, 193), range(1148, 1153), (1, 2, 90, 91, 230, 240, 241, 350)]
+        days = sorted({self.now.date() - datetime.timedelta(days=d) for span in spans for d in span})
+        filters = [{}, {"swimlane_id": str(self.other_lane.pk)}, {"label_id": str(self.label.pk)}]
+        nonempty = 0
+        for day in days:
+            for flt in filters:
+                params = {"date": day.isoformat(), **flt}
+                with self.subTest(params=params):
+                    narrowed = self.get("cumulative-flow", params)
+                    with mock.patch.object(fm, "load_cumulative_day", full_day):
+                        full = self.get("cumulative-flow", params)
+                    self.assertEqual(narrowed, full)
+                    nonempty += bool(narrowed["cards"])
+        self.assertGreater(nonempty, len(days))
+
+    def test_cumulative_flow_ranges_match_the_full_replay_with_ties(self):
+        self.aged_board_with_ties()
+        today = self.now.date()
+        windows = [
+            {"days": "90"}, {"days": "365"},
+            {"from_date": (today - datetime.timedelta(days=200)).isoformat(),
+             "to_date": (today - datetime.timedelta(days=120)).isoformat()},
+            {"from_date": (today - datetime.timedelta(days=1151)).isoformat(),
+             "to_date": (today - datetime.timedelta(days=1000)).isoformat()},
+        ]
+        for window in windows:
+            for flt in ({}, {"swimlane_id": str(self.other_lane.pk)}, {"label_id": str(self.label.pk)}):
+                with self.subTest(params={**window, **flt}):
+                    self.assert_same("cumulative-flow", {**window, **flt})
 
     def test_every_endpoint_loads_through_the_narrowed_loader(self):
         """A view reverting to ``load_board_flow`` would still match the full replay, so pin the call itself."""
@@ -279,13 +353,13 @@ class CumulativeFlowRaceTests(AgedBoardMixin, FlowFixture):
         """A card restored between the row query and the movement query streams movements but is not in ``cards``."""
         self.path(self.backlog, 300, self.doing, 200, self.done, 150, archived=140)
         stray = self.path(self.backlog, 5, self.doing, 2)
-        real = fm._movement_rows
+        real = fm._deciding_rows
 
         def with_stray(qs, **kwargs):
             rows = list(real(qs, **kwargs))
             return rows + [(stray.pk, rows[0][1])] if rows else rows
 
         flow_range = fm.rolling_range(30, now=self.now)
-        with mock.patch.object(fm, "_movement_rows", with_stray):
+        with mock.patch.object(fm, "_deciding_rows", with_stray):
             flow = fm.load_cumulative_flow(self.board, flow_range, now=self.now)
         self.assertEqual(flow.settled_placements, {self.done.uid: 1})
