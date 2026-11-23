@@ -1142,6 +1142,8 @@ while that parent is archived (see `parent_archived` above). The record has no
 API, export or event of its own; linking the pair again clears it, and
 deleting either card removes it.
 
+The Board tab's Children mode reads every parent's rollup and children on a board at once through [`GET /boards/{id}/children-view/`](boards.md#children-mode-since-13) (#2370).
+
 ### `GET /api/v1/boards/{board_id}/cards/{id}/children/`
 
 This parent's children, computed for you. Any role on the parent's board.

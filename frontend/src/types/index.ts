@@ -1040,6 +1040,84 @@ export interface CardChildrenRead {
   };
 }
 
+/** `board_total` of `GET /boards/{id}/children-view/` (#2370): children you can open, plus `hidden`. */
+export interface ChildrenViewTotals {
+  /** Not done: to do, doing and blocked. */
+  in_progress: number;
+  total: number;
+  blocked: number;
+  /** Live children on boards you can't open: a count only. */
+  hidden: number;
+}
+
+/** One lane's rollup in Children mode (#2370). States count only children you can open. */
+export interface ChildrenViewLane extends ChildrenViewTotals {
+  id: number;
+  name: string;
+  position: number;
+  /** Parent rows in the lane, locked rows included. */
+  parents: number;
+  /** Distinct child boards you can open under this lane. */
+  child_boards: number;
+  done: number;
+  doing: number;
+  todo: number;
+  /** Parents you can open with nothing in progress. */
+  folded: number;
+  /** Most recent move of a child you can open under the lane; null when none. Never reflects hidden children. */
+  last_moved_at: string | null;
+}
+
+/** A compact child card in a Children mode row (#2370). */
+export interface ChildrenViewChild {
+  id: number;
+  title: string;
+  column_id: number;
+  swimlane_id: number;
+  position: number;
+  state: 'todo' | 'doing' | 'blocked' | 'done';
+  assignee: BoardUser | null;
+  blocked: boolean;
+  blocked_at: string | null;
+}
+
+/** One parent row in Children mode (#2370). A locked row has a hidden rollup and no children. */
+export interface ChildrenViewRow {
+  id: number;
+  title: string;
+  swimlane_id: number;
+  column_id: number;
+  column_name: string;
+  assignee: BoardUser | null;
+  rollup: CardChildrenRollup;
+  /** Null for a locked row (a child board you can't open). */
+  in_progress: number | null;
+  /** Nothing in progress; always false for a locked row. */
+  folded: boolean;
+  /** Null for a locked row. */
+  child_board_id: number | null;
+  children: ChildrenViewChild[];
+}
+
+/** A child board you can open that the page's rows draw (#2370). */
+export interface ChildrenViewBoard {
+  id: number;
+  name: string;
+  role: BoardRole | 'site_admin';
+  enforce_wip_limits: boolean;
+  enforce_wip_hard: boolean;
+  columns: CardChildrenColumn[];
+}
+
+/** `GET /boards/{id}/children-view/?lane=&cursor=&done=` (#2370, since 1.3). */
+export interface ChildrenView {
+  board_total: ChildrenViewTotals;
+  lanes: ChildrenViewLane[];
+  rows: ChildrenViewRow[];
+  child_boards: ChildrenViewBoard[];
+  next_cursor: string | null;
+}
+
 /** One manual block of a card, from `GET .../cards/{id}/blocks/` (#1149). */
 export interface CardBlock {
   id: number;

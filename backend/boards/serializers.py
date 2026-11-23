@@ -3791,6 +3791,101 @@ class CardChildrenRollupField(serializers.Field):
         return {**value, "last_moved_at": self._datetime.to_representation(moved) if moved else None}
 
 
+class _ChildrenViewTotalsSerializer(serializers.Serializer):
+    """Schema only (#2370): ``board_total`` of ``GET /boards/{id}/children-view/``."""
+
+    in_progress = serializers.IntegerField(help_text="Children you can open that are not done: to do, doing and blocked.")
+    total = serializers.IntegerField(help_text="Live children you can open.")
+    blocked = serializers.IntegerField(help_text="Of `total`, blocked (the #449 predicate), in any column.")
+    hidden = serializers.IntegerField(help_text="Live children on boards you can't open: a count only.")
+
+
+class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
+    """Schema only (#2370): one lane's rollup in ``GET /boards/{id}/children-view/``."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    position = serializers.IntegerField()
+    parents = serializers.IntegerField(help_text="Parent rows in this lane, locked rows included.")
+    child_boards = serializers.IntegerField(help_text="Distinct child boards you can open under this lane.")
+    done = serializers.IntegerField()
+    doing = serializers.IntegerField()
+    todo = serializers.IntegerField()
+    folded = serializers.IntegerField(help_text="Parents you can open with nothing in progress.")
+    last_moved_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text="Most recent move of any child you can open under this lane; null when none. Never reflects hidden children.",
+    )
+
+
+class ChildrenViewChildSerializer(serializers.Serializer):
+    """Schema only (#2370): a compact child card in a Children mode row."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    column_id = serializers.IntegerField()
+    swimlane_id = serializers.IntegerField()
+    position = serializers.IntegerField()
+    state = serializers.ChoiceField(choices=["todo", "doing", "blocked", "done"])
+    assignee = BoardUserSerializer(allow_null=True)
+    blocked = serializers.BooleanField()
+    blocked_at = serializers.DateTimeField(allow_null=True)
+
+
+class ChildrenViewRowSerializer(serializers.Serializer):
+    """Schema only (#2370): one parent row in ``GET /boards/{id}/children-view/``."""
+
+    id = serializers.IntegerField()
+    title = serializers.CharField()
+    swimlane_id = serializers.IntegerField()
+    column_id = serializers.IntegerField()
+    column_name = serializers.CharField()
+    assignee = BoardUserSerializer(allow_null=True)
+    rollup = CardChildrenRollupField()
+    in_progress = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
+    folded = serializers.BooleanField(help_text="Nothing in progress; always false for a locked row.")
+    child_board_id = serializers.IntegerField(allow_null=True, help_text="Null when the child board is one you can't open.")
+    children = ChildrenViewChildSerializer(many=True, help_text="Not-done children, plus done ones with `done=true`; empty for a locked row.")
+
+
+class ChildrenViewColumnSerializer(serializers.Serializer):
+    """Schema only (#2370): a child-board column, counted against the whole column."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField()
+    wip_limit = serializers.IntegerField(allow_null=True)
+    is_done = serializers.BooleanField()
+    card_count = serializers.IntegerField(help_text="Live cards in the whole column, not only these children.")
+
+
+class ChildrenViewBoardSerializer(serializers.Serializer):
+    """Schema only (#2370): a child board you can open that this page's rows draw."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    # The same choice set as EFFECTIVE_BOARD_ROLE_CHOICES (defined further down),
+    # pinned to EffectiveBoardRoleEnum in visiban/schema_hooks.py so RoleEnum keeps its name.
+    role = serializers.ChoiceField(choices=[*BoardMembership.Role.choices, ("site_admin", "Site admin")])
+    enforce_wip_limits = serializers.BooleanField()
+    enforce_wip_hard = serializers.BooleanField()
+    columns = ChildrenViewColumnSerializer(many=True)
+
+
+class ChildrenViewSerializer(serializers.Serializer):
+    """Schema only (#2370): ``GET /boards/{id}/children-view/``.
+
+    ``boards.services.children_view`` returns dicts; a test validates a live
+    response against the generated schema.
+    """
+
+    board_total = _ChildrenViewTotalsSerializer()
+    lanes = ChildrenViewLaneSerializer(many=True)
+    rows = ChildrenViewRowSerializer(many=True)
+    child_boards = ChildrenViewBoardSerializer(many=True)
+    next_cursor = serializers.CharField(allow_null=True)
+
+
 class ParentBoardOptionSerializer(serializers.Serializer):
     """Schema only (#1104): a row of ``GET /boards/{id}/parent-boards/``.
 
