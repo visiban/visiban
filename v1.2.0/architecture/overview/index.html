@@ -4585,38 +4585,39 @@
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│  lint                                                       │
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  │  backend-lint    (Ruff + CodeClimate report)             │
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  │  frontend-lint   (ESLint + tsc --noEmit)                 │
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  │  changelog-check (changelog.d/ fragment required)        │
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│                                                             │
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│  test                                                       │
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  │  backend-test-coverage (Django tests, 90% floor)         │
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│  │  frontend-test         (Vitest)                          │
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  │  migration-check       (makemigrations --check + zero-   │
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │                         downtime schema checks)           │
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │  backend-docker-build  (kaniko, per-commit drill image)  │
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│  │  frontend-docker-build (kaniko, per-commit drill image)  │
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  │  helm-lint / helm-template / helm-install / helm-netpol  │
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│                                                             │
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│  security                                                    │
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  │  SAST + Secret Detection (pinned catalog components;     │
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │    see Security Scanners runbook for what blocks)        │
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│  │  backend-sast (Bandit) / frontend-sast (eslint-security) │
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  │  backend-dep-scan / frontend-dep-scan / dep-scan-osv     │
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │  gitleaks-scan, trivy-scan, license-check jobs           │
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│                                                             │
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│  deploy                                                     │
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  │  backend-docker-push / frontend-docker-push (kaniko;     │
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  │    amd64 on any runner, arm64 on a dedicated runner —    │
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>│  │    tags only; see CI Runners)                            │
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>│  │  backend-manifest / frontend-manifest (multi-arch        │
-<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>│  │    manifests, tags only)                                 │
-<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>│  │  backend-image-attest / frontend-image-attest (cosign    │
-<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>│  │    sign + per-arch CycloneDX SBOM attestation, both      │
-<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>│  │    registries, tags only)                                │
-<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>│  │  docs-deploy           (version tags only — mike deploy  │
-<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>│  │                         to gh-pages; stable → "latest",  │
-<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>│  │                         pre-release → "next" alias)      │
-<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>│  │  github-release, helm-publish (tags only)                │
-<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>└─────────────────────────────────────────────────────────────┘
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  │  frontend-lint-typeaware (type-aware ESLint rule)        │
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│  │  changelog-check (changelog.d/ fragment required)        │
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│                                                             │
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  test                                                       │
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│  │  backend-test-coverage (Django tests, 90% floor)         │
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  │  frontend-test         (Vitest)                          │
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │  migration-check       (makemigrations --check + zero-   │
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │                         downtime schema checks)           │
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│  │  backend-docker-build  (kaniko, per-commit drill image)  │
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  │  frontend-docker-build (kaniko, per-commit drill image)  │
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│  │  helm-lint / helm-template / helm-install / helm-netpol  │
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│                                                             │
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  security                                                    │
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │  SAST + Secret Detection (pinned catalog components;     │
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│  │    see Security Scanners runbook for what blocks)        │
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  │  backend-sast (Bandit) / frontend-sast (eslint-security) │
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │  backend-dep-scan / frontend-dep-scan / dep-scan-osv     │
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│  │  gitleaks-scan, trivy-scan, license-check jobs           │
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│                                                             │
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  deploy                                                     │
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  │  backend-docker-push / frontend-docker-push (kaniko;     │
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>│  │    amd64 on any runner, arm64 on a dedicated runner —    │
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>│  │    tags only; see CI Runners)                            │
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>│  │  backend-manifest / frontend-manifest (multi-arch        │
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>│  │    manifests, tags only)                                 │
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>│  │  backend-image-attest / frontend-image-attest (cosign    │
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>│  │    sign + per-arch CycloneDX SBOM attestation, both      │
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>│  │    registries, tags only)                                │
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>│  │  docs-deploy           (version tags only — mike deploy  │
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>│  │                         to gh-pages; stable → "latest",  │
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>│  │                         pre-release → "next" alias)      │
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>│  │  github-release, helm-publish (tags only)                │
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>└─────────────────────────────────────────────────────────────┘
 </code></pre></div>
 <p>Key design decisions:</p>
 <ul>

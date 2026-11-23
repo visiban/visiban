@@ -4511,6 +4511,8 @@ run an extract against a clean copy of the repo:</p>
 <li><strong>PostgreSQL majors are never proposed</strong>, in any file (Compose, Dockerfiles, CI images, Helm
   values). A major changes the on-disk format and needs <code>pg_upgrade</code> or a dump and restore, so it is
   a planned upgrade, not a weekly bump. Minor and patch tags are still proposed.</li>
+<li><strong>eslint-plugin-unicorn majors are disabled</strong>: 66+ needs ESLint 10; re-enable together with the
+  ESLint major.</li>
 <li>Vulnerability alerts open immediately, outside the weekly window.</li>
 <li>At most 5 open Renovate MRs (<code>prConcurrentLimit</code>).</li>
 <li>Every MR targets <code>main</code> and carries the labels <code>dependencies</code> and <code>no-changelog</code>, except

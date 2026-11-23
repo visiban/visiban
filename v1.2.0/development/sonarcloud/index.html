@@ -3221,6 +3221,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#sonar-rules-mirrored-in-eslint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sonar rules mirrored in ESLint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sonar rules mirrored in ESLint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-the-floating-promise-rule-has-its-own-config-and-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the floating-promise rule has its own config and job
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#quality-policy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4614,6 +4642,121 @@ in <code>sonar-project.properties</code>:</p>
 <p>See <a href="../suppressions/#sonarcloud-suppressions">Suppression Markers § SonarCloud suppressions</a>.</p>
 <p><strong>Yes, but:</strong> These properties apply only to CI-based analysis (the <code>sonar:scan</code> job and a local <code>scripts/sonar-scan.sh</code> run). SonarCloud's Automatic Analysis ignores <code>sonar-project.properties</code>, so it must stay off for this project.</p>
 <p>When you add a Django app that has a <code>tests/</code> directory, add that directory to <code>sonar.tests</code> and keep it in step with the <code>backend/*/tests/**</code> exclusion. The two lists are maintained by hand.</p>
+<h2 id="sonar-rules-mirrored-in-eslint">Sonar rules mirrored in ESLint<a class="headerlink" href="#sonar-rules-mirrored-in-eslint" title="Permanent link">&para;</a></h2>
+<p><a id="sonar-rules-mirrored-in-eslint"></a></p>
+<p>Sonar scans <code>main</code> nightly, so a branch can't see the findings it introduces. Where a Sonar rule has an ESLint equivalent, a lint job enforces it on every MR instead.</p>
+<table>
+<thead>
+<tr>
+<th>Sonar rule</th>
+<th>What it flags</th>
+<th>Lint rule</th>
+<th>Config</th>
+<th>CI job</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>typescript:S9383</code></td>
+<td>Floating promise</td>
+<td><code>@typescript-eslint/no-floating-promises</code></td>
+<td><code>frontend/eslint.typeaware.config.js</code></td>
+<td><code>frontend-lint-typeaware</code></td>
+<td><code>error</code> (type-aware, <code>projectService</code>); the job is <code>allow_failure: true</code> for now, see below</td>
+</tr>
+<tr>
+<td><code>typescript:S1082</code></td>
+<td>Click handler with no key handler</td>
+<td><code>jsx-a11y/click-events-have-key-events</code></td>
+<td><code>frontend/eslint.config.js</code></td>
+<td><code>frontend-lint</code></td>
+<td><code>error</code></td>
+</tr>
+<tr>
+<td><code>typescript:S7727</code></td>
+<td>Function reference passed to an array callback method</td>
+<td><code>unicorn/no-array-callback-reference</code></td>
+<td><code>frontend/eslint.config.js</code></td>
+<td><code>frontend-lint</code></td>
+<td><code>error</code> (only this rule, not the unicorn preset)</td>
+</tr>
+<tr>
+<td><code>python:S1244</code></td>
+<td>Float equality</td>
+<td>none</td>
+<td>none</td>
+<td>none</td>
+<td>Uncovered: ruff runs with its default rule set and has no equivalent enabled, and <code>scripts/</code> is not linted by ruff at all (<code>ruff check backend/</code>)</td>
+</tr>
+<tr>
+<td><code>python:S5332</code></td>
+<td>Clear-text <code>http://</code> literal</td>
+<td>none</td>
+<td>none</td>
+<td>none</td>
+<td>Uncovered: neither ruff (default rules) nor bandit flags a bare URL literal, and <code>scripts/</code> is not scanned by either (<code>ruff check backend/</code>, <code>bandit -r backend/ clients/python/</code>)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-the-floating-promise-rule-has-its-own-config-and-job">Why the floating-promise rule has its own config and job<a class="headerlink" href="#why-the-floating-promise-rule-has-its-own-config-and-job" title="Permanent link">&para;</a></h3>
+<p><code>no-floating-promises</code> needs type information, so ESLint has to build the TypeScript program for all of <code>src/</code> (<code>parserOptions.projectService</code>). That costs several times the memory of the untyped lint. With the rule in <code>eslint.config.js</code>, <code>npm run lint</code> died with <code>Reached heap limit</code> under <code>frontend-lint</code>'s <code>--max-old-space-size=1024</code>, and <code>frontend-lint</code> cannot raise its cap: a 1500 MB cap was already OOM-killed (exit 137) on the 2 GB runner. So the rule lives in <code>eslint.typeaware.config.js</code>, which enables only that rule, and runs in <code>frontend-lint-typeaware</code> with its own heap. <code>npm run lint</code> and editors keep the fast untyped parse and never see the rule.</p>
+<p>Measured on 2026-11-22 in <code>node:22-alpine</code> with <code>docker --memory=2g</code>, <code>src/</code> only:</p>
+<table>
+<thead>
+<tr>
+<th>Run</th>
+<th>Heap cap</th>
+<th>Result</th>
+<th>Peak RSS</th>
+<th>Wall clock</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm run lint</code> (main config)</td>
+<td>1024 MB</td>
+<td>passes, 0 errors, 15 warnings</td>
+<td>0.61 GB</td>
+<td>21 s</td>
+</tr>
+<tr>
+<td><code>npm run lint:typeaware</code></td>
+<td>1344 MB</td>
+<td><code>Reached heap limit</code></td>
+<td>1.52 GB</td>
+<td>32 s</td>
+</tr>
+<tr>
+<td><code>npm run lint:typeaware</code></td>
+<td>1408 MB</td>
+<td>passes</td>
+<td>1.59 GB</td>
+<td>25 s</td>
+</tr>
+<tr>
+<td><code>npm run lint:typeaware</code></td>
+<td>1536 MB (the job's cap)</td>
+<td>passes</td>
+<td>1.66 GB</td>
+<td>19 s</td>
+</tr>
+<tr>
+<td><code>npm run lint:typeaware</code></td>
+<td>none (Node's default in a 2 GB container)</td>
+<td><code>Reached heap limit</code></td>
+<td>1.18 GB</td>
+<td>13 s</td>
+</tr>
+</tbody>
+</table>
+<p>The job's 1536 MB cap is about 9% above the smallest one that passes. It is <code>allow_failure: true</code> until it has passed on the real runners: <a href="../../maintainers/ci-runners/">CI Runners</a> records no runner's memory, and <code>frontend-lint</code>'s 1500 MB kill (that job also runs <code>tsc</code>) suggests the runner has less headroom than a 2 GB container. If the job reports <code>Reached heap limit</code> as <code>src/</code> grows, raise the cap only while it stays clear of the runner's limit. Past that, one option is to lint the two <code>allowDefaultProject</code> test files in a separate invocation: they open a second TypeScript program, and without them the rest passed at a 1280 MB cap (macOS, Node 24) instead of 1408 MB.</p>
+<p>Run it locally from <code>frontend/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">NODE_OPTIONS</span><span class="o">=</span>--max-old-space-size<span class="o">=</span><span class="m">1536</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint:typeaware
+</code></pre></div>
+<p>An <code>eslint-disable</code> comment for <code>no-floating-promises</code> is used by the type-aware run and unused by <code>npm run lint</code>. ESLint has no per-rule switch for unused-directive reporting, so <code>eslint.config.js</code> filters out only that rule's unused-directive warnings (<code>typeAwareDirectiveFilter</code>); an unused directive for any other rule still counts toward <code>frontend-lint</code>'s <code>--max-warnings 15</code>. The type-aware config turns unused-directive reporting off, because every other rule's directive is unused there. It also registers the other plugins (with no rules enabled) so their directives resolve; add a plugin there when <code>eslint.config.js</code> gains one.</p>
+<p><code>jsx-a11y/no-static-element-interactions</code> is deliberately not enabled: it is stricter than Sonar S1082 and would flag widespread existing sites.</p>
+<p>Existing violations that couldn't be fixed mechanically carry a <code>// eslint-disable-next-line &lt;rule&gt; -- SUPPRESSED-UNTIL(#N): &lt;reason&gt;</code> marker; see <a href="../suppressions/">Suppression Markers</a>. The rules are pinned by <code>frontend/src/test/eslintSonarRules.test.ts</code>, which lints a Sonar-shaped example (must fire) and its fixed shape (must report nothing, not even a parse error) against the config that enforces each rule. It also checks that the main config neither enforces <code>no-floating-promises</code> nor reports its disable comments as unused, while still reporting an unused directive for any other rule.</p>
 <h2 id="quality-policy">Quality policy<a class="headerlink" href="#quality-policy" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Ratings: A / A / A.</strong> Security, Reliability, and Maintainability are each rated A on
@@ -4639,8 +4782,8 @@ in <code>sonar-project.properties</code>:</p>
 <ol>
 <li>
 <p>Generate both coverage reports:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pytest<span class="w"> </span>--cov<span class="w"> </span>--cov-report<span class="o">=</span>xml
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>../frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pytest<span class="w"> </span>--cov<span class="w"> </span>--cov-report<span class="o">=</span>xml
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>../frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage
 </code></pre></div>
 </li>
 <li>
@@ -4650,7 +4793,7 @@ in <code>sonar-project.properties</code>:</p>
 <li>
 <p>Run the wrapper from the repository root with a SonarCloud token that can run analysis on
    the project:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">SONAR_TOKEN</span><span class="o">=</span>&lt;your-token&gt;<span class="w"> </span>scripts/sonar-scan.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">SONAR_TOKEN</span><span class="o">=</span>&lt;your-token&gt;<span class="w"> </span>scripts/sonar-scan.sh
 </code></pre></div>
 <p><code>scripts/sonar-scan.sh --prep-only</code> writes only the rewritten reports and skips the scan,
 which is a quick way to confirm both resolve a non-zero number of files.</p>
