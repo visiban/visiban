@@ -1,4 +1,5 @@
 import client from "./client";
+import { OVERVIEW_LIST_LIMIT } from "./analyticsLimits";
 import type {
   FlowAttention,
   FlowBlocked,
@@ -98,9 +99,16 @@ export const getFlowAttention = (boardId: number, filters: FlowFilters) =>
  * history once for all seven sections; asking for them separately loads it
  * once per chart. `grouping` breaks down cycle time, throughput, WIP age and dwell.
  */
-export const getFlowOverview = (boardId: number, filters: FlowFilters, grouping?: FlowGroupingParams) =>
+export const getFlowOverview = (
+  boardId: number,
+  filters: FlowFilters,
+  grouping?: FlowGroupingParams,
+  limit: number = OVERVIEW_LIST_LIMIT,
+) =>
   client
-    .get<FlowOverview>(`/api/v1/boards/${boardId}/metrics/overview/`, { params: groupedParams(filters, grouping) })
+    .get<FlowOverview>(`/api/v1/boards/${boardId}/metrics/overview/`, {
+      params: { ...groupedParams(filters, grouping), limit },
+    })
     .then((r) => r.data);
 
 /**

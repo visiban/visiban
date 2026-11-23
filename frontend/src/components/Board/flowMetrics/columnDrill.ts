@@ -27,6 +27,9 @@ export function buildColumnSelection(
   const samples = (wipAge?.samples ?? [])
     .filter((s) => s.column_uid === uid)
     .sort((a, b) => b.value_days - a.value_days);
+  // A capped response (#2429) downsamples the samples and states the column's counts from the whole set.
+  const column = wipAge?.columns.find((c) => c.column_uid === uid);
+  const aged = column?.sample_count ?? samples.length;
   return {
     kind: "column",
     uid,
@@ -34,7 +37,8 @@ export function buildColumnSelection(
     limit: effectiveLimit(columns.find((c) => c.uid === uid)?.wip_limit, filtered),
     count: wipCount(wipAge, uid),
     medianWait: dwell?.columns.find((c) => c.column_uid === uid)?.percentiles.p50 ?? null,
-    pastP85: p85 === null ? null : samples.filter((s) => s.value_days > p85).length,
+    pastP85: p85 === null ? null : (column?.past_p85_count ?? samples.filter((s) => s.value_days > p85).length),
+    notSampled: Math.max(0, aged - samples.length),
     cards: samples.map((s) => ({
       uid: s.card_uid,
       days: s.value_days,

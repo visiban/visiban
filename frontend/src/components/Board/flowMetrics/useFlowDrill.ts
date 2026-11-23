@@ -61,11 +61,12 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
       ],
     });
 
-  const openCards = (title: string, uids: string[]) =>
-    setDrill({ kind: "cards", title, groups: [{ label: null, uids }] });
+  const openCards = (title: string, uids: string[], more = 0) =>
+    setDrill({ kind: "cards", title, groups: [{ label: null, uids }], ...(more > 0 && { more }) });
 
+  // A capped response (#2429) keeps each period's whole count but lists only the first cards.
   const selectThroughputSample = (sample: FlowThroughputSample) =>
-    openCards(`Finished the week of ${formatDate(sample.start)}`, sample.card_uids);
+    openCards(`Finished the week of ${formatDate(sample.start)}`, sample.card_uids, sample.count - sample.card_uids.length);
 
   const selectAgeSample = (sample: FlowAgeSample) => {
     const names = new Map(wipAge?.columns.map((c) => [c.column_uid, c.column_name]));

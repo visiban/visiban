@@ -2598,6 +2598,13 @@ export interface FlowCycleTime {
   samples: FlowCycleTimeSample[];
   cards: FlowCard[];
   grouping?: FlowGrouping<FlowCycleTimeGroup>;
+  /** Only with `limit` (#2429): samples before downsampling, equal to `sample_size`. */
+  samples_total?: number;
+  /**
+   * Only with `limit` (#2429): true when a per-card list here was cut to it.
+   * Every count and percentile is still computed from the whole set.
+   */
+  sampled?: boolean;
 }
 
 export interface FlowThroughputSample {
@@ -2621,6 +2628,8 @@ export interface FlowThroughput {
    * (#2288). Optional: a server older than #2288 omits it.
    */
   completed_in_range?: number;
+  /** Only with `limit` (#2429): true when a period's `card_uids` was cut; `count` never is. */
+  sampled?: boolean;
   median: number | null;
   samples: FlowThroughputSample[];
   cards: FlowCard[];
@@ -2688,10 +2697,27 @@ export interface FlowWipAge {
    * applies to; the samples leave out cards with no age (not started, or
    * incomplete history). Optional: a server older than #2287 omits it.
    */
-  columns: { column_uid: string; column_name: string; wip_count?: number }[];
+  columns: {
+    column_uid: string;
+    column_name: string;
+    wip_count?: number;
+    /** Only with `limit` (#2429): the column's samples before downsampling. */
+    sample_count?: number;
+    /** Only with `limit` (#2429): of those, older than `cycle_time_percentiles.p85`. */
+    past_p85_count?: number;
+  }[];
   samples: FlowAgeSample[];
   cards: FlowCard[];
   grouping?: FlowGrouping<FlowWipAgeGroup>;
+  /** Only with `limit` (#2429): samples before downsampling, equal to `sample_size`. */
+  samples_total?: number;
+  /** Only with `limit` (#2429): samples older than `cycle_time_percentiles.p85`, from the whole set. */
+  past_p85_count?: number;
+  /**
+   * Only with `limit` (#2429): true when a per-card list here was cut to it.
+   * Every count and percentile is still computed from the whole set.
+   */
+  sampled?: boolean;
 }
 
 /** `GET /boards/{id}/metrics/dwell/` (#2260): completed dwell per not-done column. */
@@ -2763,6 +2789,13 @@ export interface FlowAttention {
   cycle_time_percentiles: FlowPercentiles;
   items: FlowAttentionItem[];
   cards: FlowCard[];
+  /** Only with `limit` (#2429): items before the cut, which keeps the oldest. */
+  items_total?: number;
+  /**
+   * Only with `limit` (#2429): true when a per-card list here was cut to it.
+   * Every count and percentile is still computed from the whole set.
+   */
+  sampled?: boolean;
 }
 
 /**

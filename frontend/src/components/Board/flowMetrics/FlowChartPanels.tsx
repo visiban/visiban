@@ -8,7 +8,7 @@ import CumulativeFlowChart from "./CumulativeFlowChart";
 import CycleTimeChart from "./CycleTimeChart";
 import {
   ageMarkColor, ageMarkLabel, bandKey, bandName, cumulativeFlowSummary, cycleTimeSummary, excludedNote, formatDate, formatDays,
-  sparseNote, throughputSummary, wipAgeSummary,
+  sampledNote, sparseNote, throughputSummary, wipAgeSummary,
 } from "./flowFormat";
 import { colorOfGroup, groupNamesOf } from "./breakdown";
 import ThroughputChart from "./ThroughputChart";
@@ -100,6 +100,7 @@ export function CycleTimePanel({
         data.sample_size > 0 ? sparseNote(data.percentiles) : null,
         excludedNote(data.excluded_incomplete_history),
         hasReopened ? "Hollow points were reopened after finishing." : null,
+        sampledNote(data, "longest"),
       ])}
       testId="flow-cycle-time"
       table={<ChartTable label="Cycle time per card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} />}
@@ -240,6 +241,7 @@ export function WipAgePanel({
         hasBlocked ? "Squares are blocked cards." : null,
         hasRinged ? "Ringed cards are past the 85th percentile." : null,
         groups.length > 0 ? null : agingColorNote(hasOrange, hasRed),
+        sampledNote(data, "oldest"),
       ])}
       testId="flow-wip-age"
       table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress. Move a card into an in-progress column to see its age." />}

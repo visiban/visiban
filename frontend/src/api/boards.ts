@@ -196,12 +196,15 @@ export const getBoardAnalytics = (
   days = 30,
   stalledDays?: number,
   filters: BoardAnalyticsFilters = {},
+  limit?: number,
 ) =>
   client
     .get(`/api/v1/boards/${id}/analytics/`, {
       params: {
         days,
         ...(stalledDays !== undefined && { stalled_days: stalledDays }),
+        // Caps each swimlane's stalled_cards (#2429); stalled_cards_total keeps the count.
+        ...(limit !== undefined && { limit }),
         ...(filters.swimlaneId != null && { swimlane_id: filters.swimlaneId }),
         ...(filters.labelId != null && { label_id: filters.labelId }),
       },

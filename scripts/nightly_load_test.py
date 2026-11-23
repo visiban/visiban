@@ -301,6 +301,11 @@ def _check_memory_measured(server_mem, budgets):
 # two reads, as getFlowOverview (flowParams) and getBoardAnalytics do. analytics/ defaults to 30
 # server side, so omitting it would measure a window the overview never asks for.
 _OVERVIEW_DAYS = 90
+# The overview's cap on each per-card list (#2429), mirroring OVERVIEW_LIST_LIMIT in
+# frontend/src/api/analyticsLimits.ts, which getFlowOverview and getBoardAnalytics both send.
+# The self-test fails if the two drift. Without it the scenario measures the uncapped response.
+_OVERVIEW_LIST_LIMIT = 300
+_OVERVIEW_QUERY = f"days={_OVERVIEW_DAYS}&limit={_OVERVIEW_LIST_LIMIT}"
 
 
 def _aged_endpoints(base_url, board_id):
@@ -308,8 +313,9 @@ def _aged_endpoints(base_url, board_id):
     root = f"{base_url}/api/v1/boards/{board_id}"
     return {
         "aged_board_summary": f"{root}/summary/",
-        # ?days=90: what the Analytics overview sends (DEFAULT_DAYS, #2430); the server's own default is 30.
-        "aged_board_analytics": f"{root}/analytics/?days={_OVERVIEW_DAYS}",
+        # ?days=90&limit=300: what the Analytics overview sends (DEFAULT_DAYS, #2430; the cap,
+        # #2429); the server's own default range is 30.
+        "aged_board_analytics": f"{root}/analytics/?{_OVERVIEW_QUERY}",
         # The widest range: 691 MB at 12k active cards in the stress run (#2427).
         "aged_board_analytics_365": f"{root}/analytics/?days=365",
         "aged_flow_cycle_time": f"{root}/metrics/cycle-time/",
@@ -322,7 +328,7 @@ def _aged_endpoints(base_url, board_id):
         "aged_flow_attention": f"{root}/metrics/attention/",
         "aged_flow_swimlanes": f"{root}/metrics/swimlanes/",
         # The single request the overview makes for its seven flow charts (#2426).
-        "aged_flow_overview": f"{root}/metrics/overview/?days={_OVERVIEW_DAYS}",
+        "aged_flow_overview": f"{root}/metrics/overview/?{_OVERVIEW_QUERY}",
     }
 
 
@@ -333,7 +339,7 @@ def _linked_endpoints(base_url, board_id):
 
 
 def _overview_urls(base_url, board_id):
-    return [f"{base_url}/api/v1/boards/{board_id}/{path}?days={_OVERVIEW_DAYS}" for path in _OVERVIEW_PATHS]
+    return [f"{base_url}/api/v1/boards/{board_id}/{path}?{_OVERVIEW_QUERY}" for path in _OVERVIEW_PATHS]
 
 
 def _fan_out(fetch, urls):
@@ -620,23 +626,35 @@ def _self_test():
     aged = _aged_endpoints("http://x", 7)
     if set(aged) != set(_AGED_SCENARIOS) or not aged["aged_board_analytics_365"].endswith("/boards/7/analytics/?days=365"):
         failures.append("_aged_endpoints and _AGED_SCENARIOS disagree, or the 365-day scenario lost its range")
-    if aged["aged_board_analytics"] != "http://x/api/v1/boards/7/analytics/?days=90":
-        failures.append("aged_board_analytics must send exactly ?days=90, as the overview does")
+    if aged["aged_board_analytics"] != "http://x/api/v1/boards/7/analytics/?days=90&limit=300":
+        failures.append("aged_board_analytics must send exactly ?days=90&limit=300, as the overview does")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
     # Exactly what useAnalyticsOverviewData.ts fires since #2426 (two requests; it never calls
     # summary/ or the single-chart endpoints); drift here means the fan-out stops measuring what
-    # the overview does. Query strings included: days=90 on both (no swimlane or label filter,
-    # no grouping, no period, by default).
+    # the overview does. Query strings included: days=90&limit=300 on both (no swimlane or label
+    # filter, no grouping, no period, by default).
     _want_overview = {
-        "http://x/api/v1/boards/1/metrics/overview/?days=90",
-        "http://x/api/v1/boards/1/analytics/?days=90",
+        "http://x/api/v1/boards/1/metrics/overview/?days=90&limit=300",
+        "http://x/api/v1/boards/1/analytics/?days=90&limit=300",
     }
     _got_overview = _overview_urls("http://x", 1)
     if len(_got_overview) != 2 or set(_got_overview) != _want_overview:
         failures.append("the overview fan-out must be exactly the two reads useAnalyticsOverviewData fires")
-    if _aged_endpoints("http://x", 7)["aged_flow_overview"] != "http://x/api/v1/boards/7/metrics/overview/?days=90":
-        failures.append("aged_flow_overview must send exactly the overview's ?days=90")
+    if _aged_endpoints("http://x", 7)["aged_flow_overview"] != "http://x/api/v1/boards/7/metrics/overview/?days=90&limit=300":
+        failures.append("aged_flow_overview must send exactly the overview's ?days=90&limit=300")
+    # The cap must be the frontend's (#2429): a drift would time a response the page never asks for.
+    limits_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "frontend", "src", "api", "analyticsLimits.ts"
+    )
+    try:
+        with open(limits_path, encoding="utf-8") as fh:
+            _limit_match = re.search(r"OVERVIEW_LIST_LIMIT\s*=\s*(\d+)", fh.read())
+    except OSError as exc:
+        _limit_match = None
+        failures.append(f"could not read {limits_path}: {exc}")
+    if _limit_match is None or int(_limit_match.group(1)) != _OVERVIEW_LIST_LIMIT:
+        failures.append("_OVERVIEW_LIST_LIMIT must equal OVERVIEW_LIST_LIMIT in frontend/src/api/analyticsLimits.ts")
     # The fan-out measures the LAST response, not the sum: four 50ms requests at once
     # must take about 50ms, never 200.
     _wall = _fan_out(lambda _u: time.sleep(0.05), ["a", "b", "c", "d"])
@@ -749,7 +767,7 @@ def _endpoints(base_url, board_id, sample_card_id, movements_deep_offset=0, move
         "flow_attention": f"{base_url}/api/v1/boards/{board_id}/metrics/attention/",
         "flow_swimlanes": f"{base_url}/api/v1/boards/{board_id}/metrics/swimlanes/",
         # The one request the overview makes for its seven flow charts (#2426), as it sends it.
-        "flow_overview": f"{base_url}/api/v1/boards/{board_id}/metrics/overview/?days={_OVERVIEW_DAYS}",
+        "flow_overview": f"{base_url}/api/v1/boards/{board_id}/metrics/overview/?{_OVERVIEW_QUERY}",
     }
 
 

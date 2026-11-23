@@ -1251,6 +1251,8 @@ class EndpointFixture(FlowFixture):
 
 
 GROUPING_ONLY_KEYS = {"grouping", "group_keys", "by_group"}
+# The #2429 cap's keys are documented but present only with `limit`.
+LIMIT_ONLY_KEYS = {"sampled", "samples_total", "items_total", "past_p85_count", "sample_count"}
 # Malformed period parameters every flow endpoint refuses the same way, the swimlane comparison included.
 BAD_RANGE_PARAMS = (
     {"from_date": "nope"},
@@ -2060,8 +2062,8 @@ class FlowRedesignEndpointTests(EndpointFixture):
 
     def assert_documented(self, component, obj):
         documented = set(self.schema["components"]["schemas"][component]["properties"])
-        # The #2265 breakdown keys are documented but present only with group_by.
-        self.assertEqual(set(obj), documented - (GROUPING_ONLY_KEYS - set(obj)), component)
+        # The #2265 breakdown keys are documented but present only with group_by, the #2429 ones only with limit.
+        self.assertEqual(set(obj), documented - ((GROUPING_ONLY_KEYS | LIMIT_ONLY_KEYS) - set(obj)), component)
 
     def test_a_user_who_must_change_their_password_is_refused(self):
         self.user.must_change_password = True
@@ -2100,6 +2102,17 @@ class FlowRedesignEndpointTests(EndpointFixture):
         self.assert_documented("FlowThroughputSample", throughput["samples"][0])
         overview = self.client.get(self.url("overview")).json()
         self.assert_documented("FlowOverview", overview)
+        # With `limit` (#2429) every capped section carries all of its documented keys.
+        capped = self.client.get(self.url("overview"), {"limit": "1"}).json()
+        for section, component in (
+            ("cycle_time", "FlowCycleTime"), ("throughput", "FlowThroughput"),
+            ("wip_age", "FlowWipAge"), ("attention", "FlowAttention"),
+        ):
+            with self.subTest(section=section):
+                self.assert_documented(component, capped[section])
+                self.assertIn("sampled", capped[section])
+        self.assert_documented("FlowWipAgeColumn", capped["wip_age"]["columns"][0])
+        self.assertIn("past_p85_count", capped["wip_age"]["columns"][0])
 
     def test_attention_uses_the_board_staleness_threshold(self):
         self.board.staleness_threshold_days = 3

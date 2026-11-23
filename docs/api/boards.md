@@ -452,6 +452,7 @@ Time-in-stage heatmap derived from `CardMovement` records.
 | `stalled_days` | integer | board's `staleness_threshold_days` | When provided, overrides the board setting for stalled-card detection in this request only. Must be a positive integer (`≥ 1`, `≤ 90`). Returns `400` if non-integer, `≤ 0`, or `> 90`. Omit to use the board's configured threshold. |
 | `swimlane_id` | integer | none | Only cards currently in this swimlane, as on the [flow metrics](#flow-metrics) endpoints. Narrows the dwell, velocity, stalled-card and `blocked` sections together; `swimlanes` lists only that swimlane. |
 | `label_id` | integer | none | Only cards currently carrying this label. Combines with `swimlane_id` (both must match). |
+| `limit` | integer or `all` | `all` | *Added in 1.3 (#2429).* Caps the stalled cards of **all swimlanes together** at this many, keeping the board's longest-unmoved cards; each swimlane's list keeps its usual order and gains `stalled_cards_total` (its count before the cut), and the response gains `sampled`. Without it, or with `all`, the response is unchanged. Every other field is unaffected. See [Capped lists](#flow-metric-limit). |
 
 A `swimlane_id` or `label_id` that is not on this board, including one that belongs to another board, returns the same `400` as one that does not exist. Without either parameter the response is unchanged.
 
@@ -561,8 +562,26 @@ CSV export (`Export CSV` button) is available to any board member whose role mee
 | `label_id` | integer | none | Cards now carrying this label of this board. |
 | `group_by` | `swimlane`, `label` or `custom_field` | none | Break the numbers down (see [Breakdowns](#flow-metric-breakdowns)). On cycle-time, throughput, wip-age, dwell and overview; ignored elsewhere. |
 | `group_by_field_id` | integer | none | A dropdown or checkbox custom field of this board. On cycle-time, throughput, wip-age, dwell and overview it names a card field, is required with `group_by=custom_field` and is refused with any other `group_by`. On `metrics/swimlanes` it names a swimlane field and is honored on its own, with no `group_by`. Ignored on the other endpoints. |
+| `limit` | integer or `all` | `all` | *Added in 1.3 (#2429).* Cap each per-card list at this many entries, `1` or more. On cycle-time, throughput, wip-age, attention and overview; ignored elsewhere, whatever its value. See [Capped lists](#flow-metric-limit). |
 
 A bad value, or a swimlane or label that is not on this board, returns `400` with `{"detail": "...", "code": "invalid_query_param"}`. A `group_by_field_id` that does not exist, is on another board, or is not a dropdown or checkbox field of the right kind (card field, or swimlane field on `metrics/swimlanes`) gets one and the same `400` (`group_by_field_id: Not a dropdown or checkbox card field on this board.`, or `... swimlane field ...` on `metrics/swimlanes`), so the answer says nothing about the field. A board you cannot access returns `404`.
+
+<a id="flow-metric-limit"></a>
+**Capped lists** (`limit`, *added in 1.3*, #2429). A per-card list grows with the board: on a board with 12,000 cards in flight, `wip-age` alone is several megabytes. `limit` is an optional cap on each per-card list, taken by `cycle-time`, `throughput`, `wip-age`, `attention`, `overview` and [`analytics`](#get-apiv1boardsidanalytics). Its value is a positive integer, or `all` for no cap. **Without `limit`, or with `limit=all`, every response is exactly what it was before this parameter existed**, so an existing API or MCP client sees no change. An empty `limit=` counts as absent and returns the uncapped response too. Any other value returns `400` (`code: invalid_query_param`, `limit: Must be a positive integer or "all".`).
+
+Every number a response states (`sample_size`, `percentiles`, `cycle_time_percentiles`, `wip_count`, `count`, `total`, `median`, the grouping aggregates) is still computed from the whole set. Only the lists shrink:
+
+| Endpoint | What `limit` cuts | Added with `limit` |
+|---|---|---|
+| `cycle-time` | `samples`, downsampled: the `limit / 4` longest cycle times are always kept, the rest an even spread over the others in their usual order (by completion) | `samples_total`, `sampled` |
+| `wip-age` | `samples`, downsampled the same way: the oldest are always kept | `samples_total`, `past_p85_count` (samples older than the cycle-time p85, strict `>`), each column's `sample_count` and `past_p85_count`, `sampled` |
+| `throughput` | each period's `card_uids` (and `by_group[].card_uids`) to the first `limit`; `count` is never cut | `sampled` |
+| `attention` | `items` to the first `limit`, in their usual order: cards in progress first, oldest first, then the rest by days without movement, so a card not in progress is cut before any card in progress | `items_total`, `sampled` |
+| `overview` | each section as its own endpoint does | as above, per section |
+
+`sampled` is `true` when a list was actually cut, `false` when it fit. `cards` names exactly the cards the cut lists still name, `throughput`'s `by_group[].card_uids` included. Downsampling is deterministic: the same board and query give the same samples. The Analytics page sends `limit=300`. `dwell`, `cumulative-flow`, `swimlanes` and `blocked` have no per-card list to cap and ignore `limit` like any unknown parameter, whatever its value.
+
+Response sizes quoted for `limit` are raw JSON bytes. The shipped nginx and Helm frontend configurations gzip `application/json`, so a browser behind them receives much less; daphne itself and the development Vite proxy do not compress, so a development or direct-to-backend client receives the raw size.
 
 <a id="flow-metric-breakdowns"></a>
 **Breakdowns** (`group_by`, #2265). The new parameters follow the 1.0+ compatibility rules, but may still change until 1.3 GA. Without `group_by` every response is exactly what it was before this parameter existed. With it, the response is the same plus:
@@ -816,7 +835,7 @@ It differs from the `stalled_cards` list on the analytics endpoint in two ways: 
 
 *Added in 1.3 (#2426).* Every chart of the Analytics overview in one response, computed from **one** load of the board's history. Calling `cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked` and `attention` separately loads and replays that history seven times, which on a board with years of archived work holds several copies of it in the server process at once; the Analytics page uses this endpoint instead. The single-metric endpoints are unchanged and still answer on their own.
 
-**Query parameters:** the [shared filters](#flow-metrics) (`days`, or `from_date`/`to_date`, plus `swimlane_id`, `label_id`), `group_by` and `group_by_field_id` as on the four breakdown endpoints, and `period` (`day` or `week`, default `week`) as on `throughput`. A bad value gets the same `400` (`code: invalid_query_param`) as on those endpoints. The cumulative-flow `date` drill-down is not taken here; use `metrics/cumulative-flow/?date=` for it.
+**Query parameters:** the [shared filters](#flow-metrics) (`days`, or `from_date`/`to_date`, plus `swimlane_id`, `label_id`), `group_by` and `group_by_field_id` as on the four breakdown endpoints, `period` (`day` or `week`, default `week`) as on `throughput`, and `limit` (see [Capped lists](#flow-metric-limit)), which caps each section's lists as its own endpoint does. A bad value gets the same `400` (`code: invalid_query_param`) as on those endpoints. The cumulative-flow `date` drill-down is not taken here; use `metrics/cumulative-flow/?date=` for it.
 
 ```json
 {

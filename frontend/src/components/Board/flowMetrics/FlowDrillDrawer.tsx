@@ -30,6 +30,8 @@ export type DrillSelection =
       title: string;
       /** Null while the list is loading. */
       groups: { label: string | null; uids: string[] }[] | null;
+      /** Cards the response counted but did not list (#2429: a capped period). */
+      more?: number;
       failed?: boolean;
       onRetry?: () => void;
     }
@@ -43,6 +45,8 @@ export type DrillSelection =
       medianWait: number | null;
       /** Cards in the column older than the 85th percentile of cycle time; null when the server withholds it. */
       pastP85: number | null;
+      /** Cards with an age left out of `cards` because the Overview downsamples a large column (#2429). */
+      notSampled?: number;
       cards: ColumnDrillCard[];
     };
 
@@ -293,9 +297,14 @@ function ColumnBody({
       )}
       {selection.count === 0 && <p className="text-xs text-fg-tertiary">No cards in this column now.</p>}
       {/* The count is every card in the column (#2287); only cards with an age are listed. */}
-      {selection.count > selection.cards.length && (
+      {(selection.notSampled ?? 0) > 0 && (
         <p className="text-xs text-fg-tertiary">
-          {pluralize(selection.count - selection.cards.length, "card")} not listed: no age yet (not started, or missing history).
+          {pluralize(selection.notSampled ?? 0, "more card")} not listed: a large column shows a sample, the oldest always included.
+        </p>
+      )}
+      {selection.count > selection.cards.length + (selection.notSampled ?? 0) && (
+        <p className="text-xs text-fg-tertiary">
+          {pluralize(selection.count - selection.cards.length - (selection.notSampled ?? 0), "card")} not listed: no age yet (not started, or missing history).
         </p>
       )}
     </div>
@@ -351,6 +360,9 @@ function CardList({
           </ul>
         </section>
       ))}
+      {(selection.more ?? 0) > 0 && (
+        <p className="text-xs text-fg-tertiary">{pluralize(selection.more ?? 0, "more card")} not listed.</p>
+      )}
     </div>
   );
 }

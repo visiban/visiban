@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { OVERVIEW_LIST_LIMIT } from '../api/analyticsLimits'
 import { useEffect } from 'react'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -147,7 +148,7 @@ describe('AnalyticsView: one filter bar drives the page without remounting the c
       expect(calls()).toEqual(before.map((n) => n + 1))
       expect(vi.mocked(getBoardAnalytics)).toHaveBeenLastCalledWith(9, filters.days, undefined, {
         swimlaneId: filters.swimlaneId, labelId: filters.labelId,
-      })
+      }, OVERVIEW_LIST_LIMIT)
       expect(mounts).toEqual({ cycle: 1, throughput: 1, cumulative: 1, age: 1 })
       before = calls()
     }

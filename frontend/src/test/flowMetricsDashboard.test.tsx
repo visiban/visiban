@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { OVERVIEW_LIST_LIMIT } from '../api/analyticsLimits'
 import { chartTint } from '../utils/chartScale'
 import { columnAlpha } from '../components/Board/flowMetrics/flowRowData'
 import { HATCH_CSS, HATCH_GROUND_COLOR, HATCH_PERIOD, HATCH_SPEC, HATCH_STRIPE_COLOR } from '../components/Board/flowMetrics/hatch'
@@ -1096,7 +1097,7 @@ describe('one filter selection for the whole Overview (#2261)', () => {
     for (const mock of [cycleMock, throughputMock, cumulativeMock, ageMock, dwellMock, blockedMock]) {
       expect(mock).toHaveBeenLastCalledWith(9, filters)
     }
-    expect(analyticsMock).toHaveBeenLastCalledWith(9, 90, undefined, { swimlaneId: null, labelId: 4 })
+    expect(analyticsMock).toHaveBeenLastCalledWith(9, 90, undefined, { swimlaneId: null, labelId: 4 }, OVERVIEW_LIST_LIMIT)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 })

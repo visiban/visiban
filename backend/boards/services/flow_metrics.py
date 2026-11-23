@@ -183,6 +183,40 @@ def percentiles(values):
     return {f"p{p}": percentile(ordered, p) for p in PERCENTILES}
 
 
+# ── Response size (#2429) ──────────────────────────────────────────────────
+
+# Share of a downsampled list reserved for the largest values. A scatter is read
+# for its tail, so the longest cycles and the oldest WIP are always plotted.
+DOWNSAMPLE_OUTLIER_SHARE = 4  # one in four kept samples is an outlier
+
+
+def downsample(samples, limit, value_key="value_days"):
+    """At most ``limit`` of ``samples``, in their original order, and whether any were dropped.
+
+    WHY this shape (#2429): a 12k-card board's scatter is 12k dots and megabytes
+    of JSON that the chart cannot show apart. Every number the response states
+    (``sample_size``, ``percentiles``, counts) is computed by the caller on the
+    whole list *before* this runs, so sampling moves only which dots are drawn.
+    The ``limit // 4`` largest values (at least one, so a limit below 4 still
+    keeps the largest) are always kept, because the tail is what
+    a cycle-time or aging chart is read for, and the rest is an even stride over
+    the remaining samples in their original order (by time for cycle time, by
+    column then age for WIP age), so the shape of the cloud is kept. It is
+    deterministic: the same board and query give the same dots. ``limit`` None
+    returns the list unchanged.
+    """
+    if limit is None or len(samples) <= limit:
+        return samples, False
+    by_value = sorted(range(len(samples)), key=lambda i: (-samples[i][value_key], i))
+    kept = set(by_value[: max(1, limit // DOWNSAMPLE_OUTLIER_SHARE)])
+    rest = [i for i in range(len(samples)) if i not in kept]
+    room = limit - len(kept)
+    if room:  # 0 only when limit is 1: the largest alone fills it
+        step = len(rest) / room
+        kept.update(rest[int(k * step)] for k in range(room))
+    return [samples[i] for i in sorted(kept)], True
+
+
 # ── Time ranges ────────────────────────────────────────────────────────────
 
 
