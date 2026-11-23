@@ -4762,7 +4762,7 @@
 <hr />
 <h2 id="supported-postgresql-versions">Supported PostgreSQL versions<a class="headerlink" href="#supported-postgresql-versions" title="Permanent link">&para;</a></h2>
 <p>Visiban supports <strong>PostgreSQL 15, 16, 17 and 18</strong>. The Compose file and the Helm chart ship PostgreSQL 17. An external database (<code>externalDatabase</code> in Helm, your own <code>DATABASE_URL</code> in Compose) can run any supported major.</p>
-<p><strong>Why this range:</strong> Django 5.2 needs PostgreSQL 14 or newer, and PostgreSQL 14 reached upstream end of life in November 2026. The floor is the oldest major that still gets security fixes. CI applies every migration and runs a rotating slice of the backend tests on each major in the range (#2463).</p>
+<p><strong>Why this range:</strong> Django 5.2 needs PostgreSQL 14 or newer, and PostgreSQL 14 reached upstream end of life in November 2026. The floor is the oldest major that still gets security fixes. CI applies every migration and runs a rotating slice of the backend tests on each major in the range, and a failure on any major blocks the merge (#2463, #2481).</p>
 <p><strong>Watch out:</strong> the shipped major changes only in a release whose notes say so. The new major refuses to start on a data directory from the old one, so that upgrade needs a dump and restore. See <a href="../../getting-started/installation/#when-the-local-stack-wont-start">When the local stack won't start</a>.</p>
 <h2 id="standard-upgrade-steps">Standard upgrade steps<a class="headerlink" href="#standard-upgrade-steps" title="Permanent link">&para;</a></h2>
 <p>These steps apply to a single-server Docker Compose deployment.</p>

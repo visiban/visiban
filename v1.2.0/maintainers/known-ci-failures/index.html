@@ -4328,6 +4328,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#backend-test-pg-matrix-leg-red-for-a-failure-the-mr-did-not-cause-2481" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        backend-test-pg-matrix leg red for a failure the MR did not cause (#2481)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#hermetic-ci-script-tests-protected-variables-are-poisoned-2461" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5041,6 +5052,26 @@ nothing re-runs it automatically.</p>
 <code>WARNING: ... FAILING OPEN</code> and pass, the same convention as
 <code>scripts/check-suppression-issues.sh</code>. A green latest <code>main</code> pipeline is authoritative even if
 a change-conditional job that failed earlier did not re-run in it.</p>
+<h2 id="backend-test-pg-matrix-leg-red-for-a-failure-the-mr-did-not-cause-2481"><code>backend-test-pg-matrix</code> leg red for a failure the MR did not cause (#2481)<a class="headerlink" href="#backend-test-pg-matrix-leg-red-for-a-failure-the-mr-did-not-cause-2481" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> a <code>backend-test-pg-matrix</code> leg (PG 15, 16 or 18) fails on an MR whose diff cannot explain
+it. Each pipeline runs one rotating group, <code>(CI_PIPELINE_IID mod 8) + 1</code>, and the job log names it.</p>
+<p><strong>Why a retry will not help:</strong> a retry reruns the same pipeline IID, so it gets the same group and
+the same result. Only a new pipeline rotates to another group.</p>
+<p><strong>Triage:</strong></p>
+<ol>
+<li>Open the latest <code>backend-test-pg-matrix-nightly</code> run (schedules only) and look at the same group
+   and major. It runs all 8 groups on every major, so a red there confirms a pre-existing
+   failure; a green there points back at the MR.</li>
+<li>File a failure specific to one major (or one group) as its own issue, with the group, the major
+   and the failing test names. Do not fix it inside an unrelated MR.</li>
+<li>A leg that is red on a <code>main</code> push pipeline makes <code>main</code> red: <code>main-red-tripwire</code> opens the single
+   <code>main is red</code> issue and <code>main-red-guard</code> fails every MR pipeline until <code>main</code> is green. See
+   <a href="#main-red-guard-fails-an-mr-main-is-red"><code>main-red-guard</code> fails an MR</a> for the guard.</li>
+</ol>
+<p><strong>Unblocking:</strong> the only escape hatch that exists is the <strong><code>main-fix</code></strong> label, which lets the fix MR
+past <code>main-red-guard</code>; it does not skip the red leg itself. Fix the failing test, or its cause, on a
+branch that carries the label. There is no documented revert procedure; do not label an unrelated
+MR <code>main-fix</code>.</p>
 <h2 id="hermetic-ci-script-tests-protected-variables-are-poisoned-2461">Hermetic CI-script tests: protected variables are poisoned (#2461)<a class="headerlink" href="#hermetic-ci-script-tests-protected-variables-are-poisoned-2461" title="Permanent link">&para;</a></h2>
 <p>Protected variables (<code>GITLAB_API_TOKEN</code>, ...) exist on <code>main</code> pipelines but not in MR pipelines
 from unprotected branches, so a test that quietly reads one passed on the MR and failed only
