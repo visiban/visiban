@@ -633,10 +633,14 @@ class SeedScaleTests(TestCase):
         """At high scale the fixed 152-title corpus is exhausted well before the
         target card count — cards must keep generating (with a cycled/suffixed
         title) rather than silently stopping early (the pre-#1082 `break`)."""
-        _seed(scale=20)
+        # Scale 3 is the smallest that still exhausts the corpus (30 swimlanes x
+        # ~11-13 cards); scale 20 proved the same property with ~7x the cards
+        # (153 s on Postgres CI, #2524).
+        from boards.management.commands.seed_demo_data import CARD_TITLES
+
+        _seed(scale=3)
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
-        # 200 swimlanes x 11-13 cards each is comfortably > 152 unique titles.
-        self.assertGreater(board.cards.count(), 2000)
+        self.assertGreater(board.cards.count(), len(CARD_TITLES))
 
     def test_scale_n_board_has_20_members_default_board_5(self):
         """#1723: the load-test board is padded to 20 members; the default stays at 5."""
