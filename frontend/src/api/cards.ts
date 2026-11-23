@@ -313,7 +313,7 @@ export const getChildBoardOptions = (boardId: number, cardId: number) =>
   client.get<ChildBoardOptions>(`/api/v1/boards/${boardId}/cards/${cardId}/child-board-options/`).then((r) => r.data);
 
 /** `POST /boards/{b}/cards/{id}/children/`: create a card on `targetBoardId` and link it under this one. */
-export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string; apply_default_team?: boolean; expected_assignee_id?: number | null }) =>
+export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string; apply_default_team?: boolean; expected_assignee_id?: number | null; needed_at_column?: number | null }) =>
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);
 
 /** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */
@@ -338,3 +338,9 @@ export const getChildCandidates = (
 /** `DELETE /boards/{b}/cards/{id}/children/{child}/`: unlink one child from the parent's end (#1104). */
 export const unlinkCardChild = (boardId: number, cardId: number, childId: number) =>
   client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/children/${childId}/`);
+
+/** Change a child's Needed (#2371): `null` is Now, a column id plans it for that parent column. */
+export const setNeeded = (boardId: number, cardId: number, neededAtColumn: number | null) =>
+  client.post<{ needed_at_column: number | null; planned: boolean; planned_released_at: string | null }>(
+    `/boards/${boardId}/cards/${cardId}/needed/`, { needed_at_column: neededAtColumn },
+  ).then((r) => r.data);

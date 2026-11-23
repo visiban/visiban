@@ -30,6 +30,11 @@ interface Props {
   onWriteStart?: () => void;
   /** Called when the add itself failed, so the pending mark can be cleared. */
   onWriteFailed?: () => void;
+  /**
+   * The parent board's columns after the parent's own (#2371), for "Needed". Empty or absent hides the field, and
+   * the child is Needed: Now as before.
+   */
+  laterColumns?: { id: number; name: string }[];
 }
 
 /**
@@ -59,7 +64,7 @@ function refusal(err: unknown): { text: string; refetch: boolean } {
  * where a child may go (`child-board-options`): a parent's children share one board, so once it has any the
  * select is replaced by that board's name, and a board the viewer cannot open disables Add child.
  */
-export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, members, onClose, onAdded, onWriteStart, onWriteFailed }: Props) {
+export default function AddChildDialog({ boardId, boardName, cardId, parentTitle, parentColumn, members, onClose, onAdded, onWriteStart, onWriteFailed, laterColumns }: Props) {
   const uid = useId();
   const titleId = `${uid}-title`;
   const selectId = `${uid}-board`;
@@ -76,6 +81,10 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const [reload, setReload] = useState(0);
   // #2211: Unassign drops the lane team's member for this child only.
   const [unassigned, setUnassigned] = useState(false);
+  // #2371: "now", or the id of a later parent column the child is planned for.
+  const [needed, setNeeded] = useState("now");
+  const neededId = `${uid}-needed`;
+  const neededHelpId = `${uid}-needed-help`;
 
   useEffect(() => {
     let live = true;
@@ -133,6 +142,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
         // When the chip is kept, name its person: the server picks again at submit, and if its pick is
         // someone else by then it creates the child unassigned rather than assign who was not shown.
         ...(!teamAssignee || unassigned ? { apply_default_team: false } : { expected_assignee_id: assigneeId }),
+        // #2371: omitted is Needed: Now, exactly as before the field existed.
+        ...(needed !== "now" && { needed_at_column: Number(needed) }),
       });
     } catch (err) {
       const r = refusal(err);
@@ -249,6 +260,26 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
                 readOnly={submitting}
                 className="w-full bg-surface border border-line text-fg text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               />
+            </div>
+          )}
+
+          {!fixedHidden && !fixedBlocked && !parentArchived && laterColumns && laterColumns.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor={neededId} className="text-sm text-fg-secondary">Needed</label>
+              <SelectDropdown
+                id={neededId}
+                ariaDescribedBy={neededHelpId}
+                value={needed}
+                onChange={setNeeded}
+                options={[
+                  { value: "now", label: "Now" },
+                  ...laterColumns.map((c) => ({ value: String(c.id), label: `When the parent reaches ${c.name}` })),
+                ]}
+              />
+              <p id={neededHelpId} className="text-xs text-fg-muted">Options: Now, then each later column on {boardName}.</p>
+              {needed !== "now" && (
+                <p className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
+              )}
             </div>
           )}
 

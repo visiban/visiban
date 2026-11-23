@@ -205,6 +205,13 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", children: "Children", comments: "Comments", history: "History" };
 
+/** The columns after `columnId` in board order (#2371): what Add child's "Needed" offers. */
+function laterParentColumns(columns: { id: number; name: string; position: number }[], columnId: number) {
+  const sorted = [...columns].sort((a, b) => a.position - b.position);
+  const at = sorted.findIndex((c) => c.id === columnId);
+  return at < 0 ? [] : sorted.slice(at + 1).map((c) => ({ id: c.id, name: c.name }));
+}
+
 export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
@@ -2578,6 +2585,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardId={card.id}
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
+              laterColumns={laterParentColumns(board.columns, card.column)}
               cardArchived={!!card.archived_at}
               canHaveChildren={canHaveChildren}
               state={childrenState}

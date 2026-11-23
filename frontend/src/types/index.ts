@@ -878,6 +878,18 @@ export interface Card {
    * replaces a card wholesale carries the last value over (like `parent`).
    */
   children_rollup?: CardChildrenRollup;
+  /**
+   * Planned children (#2371, since 1.3). Present on the same reads as `parent` and absent from writes and frames,
+   * so a store that replaces a card wholesale carries the last value over. `planned`: Needed is a later parent
+   * column and the child is not released yet, so its `due_date` is inactive (never Overdue, Due soon or Stale).
+   */
+  planned?: boolean;
+  /** Released by the parent reaching (or skipping past) the column, and still in To do. */
+  needed_now?: boolean;
+  /** The parent board's column; `null` for Now and whenever the viewer can't open the parent's board. */
+  needed_at_column?: number | null;
+  needed_at_column_name?: string | null;
+  planned_released_at?: string | null;
 }
 
 /** Child progress when the viewer can open the child board (#2210). States partition `total`. */

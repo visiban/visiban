@@ -50,3 +50,35 @@ export function buildCardStatusLine(input: {
     shortSrPrefix: idleDays > 0 ? "Stale " : "",
   };
 }
+
+/**
+ * A planned child's status line (#2371), shown only when the card has no overdue, due-soon or stale line. Its date
+ * is inactive while planned, so it never feeds those. Order: date passed while planned (warning) > needed now
+ * (warning; the Stale line replaces it once stale) > planned (tertiary, the quietest). No glyph: the clock means
+ * Stale or idle only (#2206 rule 4). The parent's column is named only when the viewer can open the parent.
+ */
+export interface PlannedStatusLine {
+  kind: "planned-passed" | "needed-now" | "planned";
+  tone: "warning" | "tertiary";
+  text: string;
+}
+
+export function buildPlannedStatusLine(
+  card: {
+    planned?: boolean; needed_now?: boolean; needed_at_column_name?: string | null; due_date: string | null;
+    is_stale: boolean; parent?: { hidden: boolean; column_name?: string } | null;
+  },
+  today: string,
+): PlannedStatusLine | null {
+  const due = card.due_date ? card.due_date.slice(0, 10) : null;
+  if (card.planned) {
+    if (due && due < today) return { kind: "planned-passed", tone: "warning", text: `${formatShortMonthDay(due)} passed while planned` };
+    const stage = card.needed_at_column_name ? `Planned for ${card.needed_at_column_name}` : "Planned for a later stage";
+    return { kind: "planned", tone: "tertiary", text: due ? `${stage} · ${formatShortMonthDay(due)}, counts once needed` : stage };
+  }
+  if (card.needed_now && !card.is_stale) {
+    const column = card.parent && !card.parent.hidden ? card.parent.column_name : undefined;
+    return { kind: "needed-now", tone: "warning", text: column ? `Needed now: parent is in ${column}` : "Needed now: the parent moved on" };
+  }
+  return null;
+}
