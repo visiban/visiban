@@ -1767,6 +1767,11 @@ export interface Group {
   parent: number | null;
   parent_name: string | null;
   member_count: number;
+  /**
+   * #2487: up to the first five direct members, by join date (the home page's avatar stack).
+   * Optional for older servers; empty on a navigation-only group. `member_count` is the total.
+   */
+  member_preview?: BoardUser[];
   board_count: number;
   subgroup_count: number;
   created_at: string;
