@@ -281,8 +281,8 @@ class CumulativeFlowRaceTests(AgedBoardMixin, FlowFixture):
         stray = self.path(self.backlog, 5, self.doing, 2)
         real = fm._movement_rows
 
-        def with_stray(qs):
-            rows = list(real(qs))
+        def with_stray(qs, **kwargs):
+            rows = list(real(qs, **kwargs))
             return rows + [(stray.pk, rows[0][1])] if rows else rows
 
         flow_range = fm.rolling_range(30, now=self.now)

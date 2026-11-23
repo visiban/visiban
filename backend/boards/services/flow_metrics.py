@@ -284,6 +284,10 @@ class _Movement(NamedTuple):
     # The swimlane the row left the card in (#2334): ``to_swimlane_id``, None
     # when that swimlane was deleted or an import named one the board lacks.
     to_lane: int | None = None
+    # The raw ``to_column_id`` FK (NULL once the column is deleted), read only
+    # for an ``on_card_rows`` caller: the ``/analytics/`` heatmap's frozen
+    # rules match columns by this id (#2451). None otherwise.
+    to_column_id: int | None = None
 
     @property
     def is_transition(self):
@@ -356,6 +360,10 @@ class CardFlow:
     # The current swimlane's name, joined on the card query (#2283), so the
     # drill-down's directory can name it without a query of its own.
     swimlane_name: str = ""
+    # The card row's ``column_id`` and ``position``, for the ``/analytics/``
+    # heatmap, which reads its cards off this load (#2451).
+    column_id: int | None = None
+    position: int = 0
     has_creation: bool = False
     created_in_done: bool = False
     # Created, then the first transition reached a done column: the card has
@@ -721,7 +729,7 @@ def _base_cards(board, swimlane_id, label_id):
 
 def load_board_flow(
     board, *, swimlane_id=None, label_id=None, now=None, columns=None, cards_matching=None,
-    gate_index_as_full=False,
+    gate_index_as_full=False, on_card_rows=None,
 ):
     """Load and analyze a board's history in a fixed number of queries.
 
@@ -737,6 +745,13 @@ def load_board_flow(
     filter selects any card at all (one EXISTS query, only in that case), so a
     dwell response's ``work_percentiles`` does not turn from ``{p50: null...}``
     into ``null`` just because no card is recent (#2425).
+
+    ``on_card_rows(card, rows)`` is called once per loaded card, after it is
+    analyzed, with its whole history in ``(moved_at, id)`` order and each
+    row's ``to_column_id`` filled. It lets a caller derive its own per-card
+    figures from this one read instead of reading the same movements again
+    (#2451). Each card's rows are dropped once it is analyzed, so the load
+    holds one card's raw history less at a time as the analysis proceeds.
     """
     now = now or timezone.now()
     if columns is None:
@@ -753,19 +768,24 @@ def load_board_flow(
             assignee_id=row["assignee_id"], created_at=row["created_at"],
             archived_at=row["archived_at"], blocked_at=row["blocked_at"],
             column_uid=row["column__uid"], blocked_reason=row["blocked_reason"],
-            swimlane_name=row["swimlane__name"],
+            swimlane_name=row["swimlane__name"], column_id=row["column_id"], position=row["position"],
         )
         for row in selected.order_by("id").values(
             "id", "uid", "title", "swimlane_id", "assignee_id", "created_at",
             "archived_at", "blocked_at", "column__uid", "blocked_reason", "swimlane__name",
+            "column_id", "position",
         )
     ]
 
     rows_by_card: dict[int, list] = {}
-    for card_id, movement in _movement_rows(selected):
+    for card_id, movement in _movement_rows(selected, column_ids=on_card_rows is not None):
         rows_by_card.setdefault(card_id, []).append(movement)
     for card in cards:
-        _analyze_card(card, rows_by_card.get(card.id, []), done_uids, now, committed_uids)
+        rows = rows_by_card.pop(card.id, [])
+        _analyze_card(card, rows, done_uids, now, committed_uids)
+        if on_card_rows is not None:
+            on_card_rows(card, rows)
+    del rows_by_card
     # No cards, no gate history to read: a narrowed load that selects nothing
     # stays query-free (NarrowedLoadTests), unless the caller asked for the
     # full load's index (see ``gate_index_as_full``).
@@ -784,27 +804,36 @@ def load_board_flow(
     )
 
 
-def _movement_rows(selected):
+def _movement_rows(selected, *, column_ids=False):
     """``(card_id, _Movement)`` for every movement of ``selected``, by card then ``(moved_at, id)``.
 
     Streamed in chunks, so a caller that folds each card's rows as they arrive
-    holds one card's history at a time.
+    holds one card's history at a time. ``column_ids`` also reads the raw
+    ``to_column_id`` (a local column, no join) into ``_Movement.to_column_id``.
     """
+    fields = (
+        "card_id", "moved_at", "movement_type",
+        "from_column_uid", "from_column__uid", "from_column_name",
+        "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
+        # The local FK columns, never ``to_swimlane__*``: no join (#2334).
+        "to_swimlane_id",
+    )
+    if column_ids:
+        fields = (*fields, "to_column_id")
     movements = (
         CardMovement.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "moved_at", "id")
-        .values_list(
-            "card_id", "moved_at", "movement_type",
-            "from_column_uid", "from_column__uid", "from_column_name",
-            "to_column_uid", "to_column__uid", "to_column_name", "to_gates_passed", "id",
-            # The local FK column, never ``to_swimlane__*``: no join (#2334).
-            "to_swimlane_id",
-        )
+        .values_list(*fields)
     )
-    for (
-        card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
-        to_lane,
-    ) in movements.iterator(chunk_size=2000):
+    # One int object per column id rather than one per row: the ids repeat on
+    # every row, and on a year of history that is ~600k ints (#2451).
+    interned: dict = {}
+    for row in movements.iterator(chunk_size=2000):
+        (
+            card_id, moved_at, kind, from_uid, from_fk, from_name, to_uid, to_fk, to_name, to_gates, movement_id,
+            to_lane,
+        ) = row[:12]
+        to_column_id = interned.setdefault(row[12], row[12]) if column_ids else None
         yield card_id, _Movement(
             moved_at, kind,
             _column_key(from_uid, from_fk, from_name),
@@ -812,6 +841,7 @@ def _movement_rows(selected):
             to_gates,
             movement_id,
             to_lane,
+            to_column_id,
         )
 
 
@@ -981,12 +1011,20 @@ def load_recent_completions(board, flow_range, *, columns):
     return load_board_flow(board, now=flow_range.end, columns=columns, cards_matching=Exists(entered_done))
 
 
-def load_recent_dwell(board, flow_range, *, columns, swimlane_id=None, label_id=None):
+def load_recent_dwell(
+    board, flow_range, *, columns, swimlane_id=None, label_id=None, also_matching=None, on_card_rows=None,
+):
     """Only the cards current dwell or a visit closing in ``flow_range`` can come from.
 
     An open visit needs a live card outside a done column. A visit closes at a
     movement or at ``archived_at``, so a card with neither in the range has no
     visit closing in it. Finished work older than the range is therefore skipped.
+
+    ``also_matching`` loads more cards for a caller that reads its own figures
+    through ``on_card_rows`` (#2451). It cannot change a dwell answer: any
+    card is either in the set above or has no open visit and no visit closing
+    in the range, so it adds no sample (the ``can_affect_range`` argument,
+    which keeps every live card for the same reason).
     """
     moved = CardMovement.objects.filter(
         card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
@@ -996,9 +1034,11 @@ def load_recent_dwell(board, flow_range, *, columns, swimlane_id=None, label_id=
         | Q(archived_at__gte=flow_range.start)
         | Exists(moved)
     )
+    if also_matching is not None:
+        relevant = relevant | also_matching
     return load_board_flow(
         board, swimlane_id=swimlane_id, label_id=label_id, now=flow_range.end,
-        columns=columns, cards_matching=relevant,
+        columns=columns, cards_matching=relevant, on_card_rows=on_card_rows,
     )
 
 

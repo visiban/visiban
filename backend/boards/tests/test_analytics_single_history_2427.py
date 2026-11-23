@@ -1,4 +1,4 @@
-"""/analytics/ holds one window of history at a time (#2427).
+"""/analytics/ reads one window of history, once (#2427, #2451).
 
 ``fixtures/analytics_2427_pinned.json`` was generated from the pre-change ``analytics()``
 (``boards/views/analytics.py`` at origin/main, before #2427) with the pinned clock ``NOW``
@@ -6,13 +6,14 @@ below, by running this module's ``_pinned_responses()`` against that code. It mu
 passing on both the old and the new view.
 """
 import datetime
-import gc
 import json
 import os
-import weakref
 from unittest import mock
 
-from boards.models import Card, CardBlock
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
+from boards.models import Card, CardBlock, CardMovement
 from boards.services import flow_metrics
 from boards.tests.test_analytics_query_shape_1884 import AnalyticsQueryShapeTests as _Shape
 
@@ -77,36 +78,28 @@ class AnalyticsSingleHistoryTests(_Shape):
         with open(os.path.join(os.path.dirname(__file__), "fixtures", "analytics_2427_pinned.json")) as fh:
             self.assertEqual(got, json.load(fh))
 
-    def test_history_is_loaded_once_and_released_before_heatmap_load(self):
+    def test_history_is_read_once(self):
+        """The heatmap's figures come off the flow load's one movement read (#2427, #2451).
+
+        #2427 released the flow history before the heatmap read the window's
+        cards and movements again; #2451 removed that second read. One
+        ``load_board_flow``, one top-level query on the movements table, and
+        no correlated movement subquery on the card read.
+        """
         self._archived_history_fixture()
-        refs = []
-        real_load = flow_metrics.load_recent_dwell
-
-        def spy_load(*a, **k):
-            flow = real_load(*a, **k)
-            refs.append(weakref.ref(flow))
-            return flow
-
-        released = []
-        real_base = flow_metrics._base_cards
-
-        def spy_base(*a, **k):
-            # load_recent_dwell itself calls _base_cards (flow_metrics.py ~1077); the spy
-            # skips that call only because ``refs`` is still empty at that point.
-            if refs:
-                gc.collect()
-                released.append(refs[0]() is None)
-            return real_base(*a, **k)
-
-        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy_load) as load, \
-                mock.patch.object(flow_metrics, "_base_cards", side_effect=spy_base):
+        with mock.patch.object(flow_metrics, "load_board_flow", wraps=flow_metrics.load_board_flow) as load, \
+                CaptureQueriesContext(connection) as ctx:
             self._body(365)
         self.assertEqual(load.call_count, 1)
-        self.assertTrue(released, "no _base_cards call after the history load")
-        # The property: the history is gone by the first _base_cards call after the load.
-        self.assertTrue(released[0], "flow history still alive at the first post-load _base_cards call")
-        # Separate, count-only guard: today the heatmap load makes exactly one such call.
-        self.assertEqual(len(released), 1)
+        table = CardMovement._meta.db_table
+        reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{table}"')]
+        self.assertEqual(len(reads), 1, reads)
+        card_table = Card._meta.db_table
+        card_reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{card_table}"')]
+        # The flow load's card read; its narrowing EXISTS is the only movement
+        # reference in it (the four per-card annotations are gone).
+        self.assertTrue(card_reads)
+        self.assertTrue(all(sql.count(f'"{table}"') <= 1 for sql in card_reads), card_reads)
 
 
 # Keep pytest from collecting the parent's tests a second time under this module.
