@@ -26,7 +26,7 @@
 | Notifications list | `GET /api/v1/notifications/` | The highest-QPS authenticated endpoint in the product — the frontend polls it every 15-30s |
 | Notifications unread count | `GET /api/v1/notifications/unread-count/` | Same polling cadence as the list endpoint |
 | Summary and Analytics | `GET /api/v1/boards/{id}/summary/`, `GET /api/v1/boards/{id}/analytics/` | Both replay movement history in Python since [#448](https://gitlab.com/visiban/visiban/-/issues/448), for the cards relevant to their window: a query-count guard cannot see that cost. Gated since [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigned their budgets from NUC job 18170442650 |
-| Flow metrics | `GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/` | Each replays movement history in Python ([#448](https://gitlab.com/visiban/visiban/-/issues/448)). Since [#2425](https://gitlab.com/visiban/visiban/-/issues/2425) only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. `cumulative-flow` still places every older card, because finished work stays in the done band for ever, but since [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) it reads only the at most three rows per card that decide where the card rests (the first row, the last transition, the last archive-type row), each found by a per-card `LIMIT 1` index probe, not the card's whole history. It still places every older card, so its cost grows with the number of archived cards: it is not bounded by the board's age. See [the #2444 section](#cumulative-flows-whole-history-read--2444). Gated since [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigned their budgets from NUC job 18170442650 |
+| Flow metrics | `GET /api/v1/boards/{id}/metrics/{cycle-time,throughput,cumulative-flow,wip-age,dwell,blocked,attention,swimlanes}/` | Each replays movement history in Python ([#448](https://gitlab.com/visiban/visiban/-/issues/448)). Since [#2425](https://gitlab.com/visiban/visiban/-/issues/2425) only the cards that can change the requested range are replayed (every live card, plus any card archived, created or moved since the range opened), so cost follows the board's live and recent work, not its age. `cumulative-flow` still places every older card, because finished work stays in the done band for ever, but since [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) it reads only the at most three rows per card that decide where the card rests (the first row, the last transition, the last archive-type row), chosen in SQL, not the card's whole history. It still places every older card, so its cost grows with the number of archived cards: it is not bounded by the board's age. See [the #2444 section](#cumulative-flows-whole-history-read--2444). Gated since [#2110](https://gitlab.com/visiban/visiban/-/issues/2110) assigned their budgets from NUC job 18170442650 |
 | Single-request overview | `GET /api/v1/boards/{id}/metrics/overview/?days=90&limit=300` (`flow_overview`, `aged_flow_overview`) | The one request the Analytics overview makes for its seven flow charts since [#2426](https://gitlab.com/visiban/visiban/-/issues/2426): one history load serves them all, where the seven `metrics/*` reads above each loaded their own copy. Sent with `?days=90&limit=300`, the overview's default range and its cap on each per-card list (`OVERVIEW_LIST_LIMIT`, `frontend/src/api/analyticsLimits.ts`, [#2429](https://gitlab.com/visiban/visiban/-/issues/2429); the self-test fails if the script's copy drifts). Measured but not gated until a NUC run assigns its budgets ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430)); the merged #2426 notes pin its query count (12, flat in history), not a latency or memory figure, so none is quoted here |
 | Aged-board reads | The summary, `analytics/?days=90&limit=300`, `analytics/?days=365` (uncapped), the eight `metrics/*` reads (uncapped) and `metrics/overview/?days=90&limit=300` on the aged board (`aged_board_summary`, `aged_board_analytics`, `aged_board_analytics_365`, `aged_flow_*`) | The same active cards as the load-test board plus years of archived history ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430)). Analytics breaks on board *age*, not on the shape of the active board: in the 2026-11-20 stress run the same 2.4k active cards cost 8-10x more per `metrics/*` request with three years of archived cards behind them. `aged_flow_cumulative_flow` and `aged_flow_cumulative_flow_day` (`metrics/cumulative-flow/?date=`, a day 540 days back, the drill-down the overview does not send) measure the [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) bound: both read at most three rows per card (four for a drill-down day), not its whole history, but both still place every card older than the range, so both grow with the archived card count. The MCP `board_flow_metrics` tool is not timed here; since [#2445](https://gitlab.com/visiban/visiban/-/issues/2445) it uses the same range-bounded load as `metrics/*`, pinned by `BoardFlowMetricsAgedTests` in `mcp_server/tests/test_mcp_flow.py`. Run as `loadtest_analytics`, 10 timed requests each (an aged request costs seconds), so its p95 is the slowest sample |
 | Overview fan-out | Two reads at once, the set `useAnalyticsOverviewData` fires since [#2426](https://gitlab.com/visiban/visiban/-/issues/2426): `GET /api/v1/boards/{id}/metrics/overview/?days=90&limit=300` (`getFlowOverview`, `frontend/src/api/flowMetrics.ts`) and `GET /api/v1/boards/{id}/analytics/?days=90&limit=300` (`getBoardAnalytics`, `frontend/src/api/boards.ts`; never `summary`), `days=90` being the overview's default range (`DEFAULT_DAYS`; `analytics/` would otherwise default to 30 server side) and `limit=300` its cap on each per-card list (`OVERVIEW_LIST_LIMIT`, [#2429](https://gitlab.com/visiban/visiban/-/issues/2429)). `analytics_overview` on the load-test board and `aged_analytics_overview` on the aged board | What opening the analytics overview does to one server process. Before #2426 this was eight reads, each loading the board's history into the same process at once; the two-read set is what the page does now, and the standalone `metrics/*` scenarios still measure the individual endpoints. The sample is the wall time to the LAST response, never the sum, and the peak RSS is of the one process, where the per-request figures add up |
@@ -631,69 +631,46 @@ Both now go through `flow_metrics._deciding_rows`, which reads per card only the
 - the last archive-type row;
 - for a drill-down day only, the last archive-type row after that day. That row decides whether an admin-set `archived_at` counts.
 
-The replay is unchanged, so every response is byte-identical. `load_cumulative_day` serves the drill-down.
-
-### How the rows are found
-
-Each row kind is one scalar `LIMIT 1` subquery per card in the card query's SELECT list. The first-row probe walks `movement_card_moved_at_id_idx` `(card, moved_at, id)` forward. The transition probe walks it backward. For the archive-type probes the planner reads the card's few rows through `card_movements_card_id` and sorts them. The index is built concurrently in migration 0133. The probes are combined with `UNION`, and one outer statement reads the chosen rows by id in `(card_id, moved_at, id)` order. The statement count is unchanged.
-
-A first version chose the rows with two `ROW_NUMBER()` windows in one uncorrelated statement. The windows read every row of the selected cards on the server: 278,861 rows for the range and 329,563 for a drill-down day.
-
-The probe shape needed a deliberate change to the #2502 plan guard (`test_flow_range_plan_2502.py`). [#2502](https://gitlab.com/visiban/visiban/-/issues/2502) was a correlated `EXISTS` inside a filter's `OR`, which PostgreSQL cannot turn into a semi-join. The guard used to fail any correlation to the outer card row. It now allows one only inside a SELECT-list subquery that ends in `LIMIT 1` and is named with `AS`. Every other correlation still fails. That covers `EXISTS`, `NOT EXISTS` and `IN` in any filter, an `EXISTS` in an `OR`, a filter on a probe annotation, and a SELECT-list subquery without `LIMIT 1`. `NarrowedGuardControlTests` builds each of those shapes and asserts that the guard fails it.
+The rows are chosen in one uncorrelated statement with two `ROW_NUMBER()` windows, and the replay is unchanged, so every response is byte-identical. `load_cumulative_day` serves the drill-down.
 
 ### Measured (local, not the NUC)
 
 Setup:
 
-- The numbers are in-process service calls (load plus payload, the drill-down's card directory included) on local PostgreSQL 17. No HTTP request was timed.
-- The fixture is `seed_demo_data --force --scale 20 --aged-generations 12` on a fresh database, followed by `VACUUM ANALYZE`.
-- The aged board has 31,330 cards and 329,563 movements. The load-test board has 2,395 cards and 24,919 movements. The load-test board stands in for the "80 days" row.
+- The numbers are in-process service calls (load plus payload, the drill-down's card directory included) on local PostgreSQL. No HTTP request was timed.
+- The fixture is `seed_demo_data --force --scale 20 --aged-generations 12` followed by `VACUUM ANALYZE`. The aged board has 31,330 cards and 329,563 movements. The load-test board has 2,395 cards and 24,919 movements, and it stands in for the "80 days" row.
+- The drill-down day is 540 days back.
 - Each figure is the median of 7 runs, in ms.
-- "db" is the time spent inside cursor `execute` calls. With a server-side cursor that undercounts the fetches.
-- "py-peak" is the `tracemalloc` peak. Peak RSS is not available on macOS.
-- Both tables come from the same run. That run was about 40% slower across the board than the first #2444 measurement, because the machine was busier. Compare ratios, not absolute times.
+- "py-peak" is the `tracemalloc` peak, not RSS: `/proc` is not available on macOS.
 
-| Request | Board | main | #2444 | #2444 db | py-peak main → #2444 |
-|---|---|---|---|---|---|
-| `cumulative-flow` (90 days) | aged | 1,542 | 1,132 | 617 | 31.6 → 31.6 MiB |
-| `cumulative-flow` (90 days) | load-test | 176 | 178 | 34 | 11.7 → 11.5 MiB |
-| `cumulative-flow?date=` (540 days back) | aged | 2,062 | 1,118 | 769 | 150.0 → 43.4 MiB |
-| `cumulative-flow?date=` (540 days back) | load-test | 163 | 98 | 76 | 11.7 → 3.8 MiB |
-| `wip-age`, for reference | aged / load-test | — | 417 / 199 | 123 / 42 | 23.8 / 11.7 MiB |
+| Request | Board | main | #2444 | py-peak main → #2444 |
+|---|---|---|---|---|
+| `cumulative-flow` (90 days) | aged | 1,083 | 772 | 31.6 → 31.4 MiB |
+| `cumulative-flow` (90 days) | load-test | 130 | 128 | 11.7 → 11.7 MiB |
+| `cumulative-flow?date=` | aged | 1,488 | 653 | 150.0 → 43.3 MiB |
+| `cumulative-flow?date=` | load-test | 120 | 45 | 11.7 → 3.3 MiB |
+| `wip-age`, for reference | aged / load-test | — | 295 / 137 (2.15x) | — |
 
-The deciding-rows read on its own includes the Python rows. It returned the same rows from both shapes:
+`EXPLAIN (ANALYZE, BUFFERS)` on the deciding-rows statement:
 
-| Read | Rows | Window statement | Per-card probes |
+| | Rows read by the windows | Rows returned | Time |
 |---|---|---|---|
-| Range (aged board, skipped cards) | 46,750 | 575 | 610 |
-| Drill-down (aged board, all cards) | 44,212 | 708 | 861 |
+| Range (skipped cards) | 278,861 | 46,750 | 398 ms |
+| Drill-down (all cards) | 329,563 | 44,212 | 500 ms |
 
-`EXPLAIN (ANALYZE, BUFFERS)` on the probe statement shows:
-
-- Each probe is one index walk with one loop per card and no heap read for the first row. A probe costs 0.001-0.003 ms, and that holds for cards with no transition.
-- The cost sits around the probes. Each `UNION` branch scans the cards again and re-evaluates the range's exclusion subquery, at 70-130 ms per branch.
-- The outer read by id is a hash join over a sequential scan of every board's `card_movements` (354,482 rows).
-- The final sort spills about 5 MB to disk.
-- On the drill-down, the inflated cost estimate triggers JIT optimization: 341 ms of its 761 ms.
-
-So the probes made the database read a few index entries per card, as intended, but they did not make the request faster than the window statement.
+Both windows are fed by an incremental sort presorted on `card_id` from `card_movements_card_id`. That sort is an in-memory quicksort with a 31 kB peak per group and no spill. An index on `(card, moved_at, id)` would not remove it, because the second window partitions on the computed `kind`. No index was added.
 
 **The #2425 1.5x acceptance is not met, for latency or for memory.**
 
 | Request | Latency, aged / load-test | `tracemalloc` peak, aged / load-test |
 |---|---|---|
-| `cumulative-flow` | 6.4x | 2.7x |
-| `cumulative-flow?date=` | 11.4x | 11.4x |
+| `cumulative-flow` | 6.0x (772 / 128 ms) | 2.7x (31.4 / 11.7 MiB) |
+| `cumulative-flow?date=` | 14.5x (653 / 45 ms) | 13.1x (43.3 / 3.3 MiB) |
 
-The bound is structural:
+The remaining cost is server-side: the windows still read every row of the selected cards (about 400-500 ms), although only three or four per card reach Python. Both requests also place every card older than the range, so the rows that reach Python grow with the archived card count.
 
-- Both requests place every card older than the range, one placement per archived card. The rows that reach Python grow with the archived card count, whichever shape picks them.
-- The range load alone already costs about 2x on the aged board (`wip-age` 417 against 199 ms). Even at zero cost for the deciding read, `cumulative-flow` would sit near 3x.
-- The drill-down's answer lists every card resting in a band that day. On the aged board that is 3,572 card uids and 917 KiB of JSON. The load-test board has no history 540 days back, so its drill-down that day is empty, and its ratio is not a like-for-like comparison.
-
-Reaching 1.5x would need a stored placement per settled card (or per day), not a cheaper read of the movement history. That is follow-up work.
-
-`movement_card_moved_idx` `(card, -moved_at)` is now a prefix, in reverse, of `movement_card_moved_at_id_idx`, so it is a drop candidate. Its readers (the card serializer's latest-movement subqueries in `boards/serializers.py`, notifications) read `(card, moved_at DESC, id DESC)`, which the new index serves backward. Drop it in a later migration of its own with `RemoveIndexConcurrently`, as 0117 did, once those plans are checked.
+Per-card `LIMIT 1` probes through a new `(card, moved_at, id)` index were also tried. They measured no faster (6.4x and 11.4x), slightly slower than the window statement, so they were not kept. Only a stored placement per settled card (or per day) could reach 1.5x.
 
 `aged_flow_cumulative_flow_day` is pending under #2430 with its siblings until a NUC run measures it.
 
+Follow-up: ISSUE_LINK_TBD
