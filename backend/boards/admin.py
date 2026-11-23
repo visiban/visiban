@@ -509,6 +509,13 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                     from .services.card_links import announce_children_changed
 
                     announce_children_changed([obj.pk], board=obj.board, actor_id=request.user.pk)
+                    # Planned children (#2371): a column change here releases
+                    # what a move_card column change releases (the only
+                    # column write that bypasses _move_card_attempt).
+                    if stored.column_id != obj.column_id:
+                        from .services.planned_children import release_on_move
+
+                        release_on_move(obj, to_column=obj.column, actor=request.user)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it

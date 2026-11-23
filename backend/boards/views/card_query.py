@@ -20,7 +20,6 @@ import datetime
 
 import django_filters
 from django.db.models import Q
-from django.utils import timezone
 from rest_framework import mixins, serializers, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle
@@ -43,7 +42,7 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
     ParkedCustomFieldValueListSerializer, ParkedLabelListSerializer, _blocker_count,
-    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset,
+    _card_attachments, _is_blocked, _card_checklist_items, _card_queryset, _row_is_stale,
     _checklist_open_assignee_ids, _checklist_open_due_dates, _column_entered_at,
     _last_moved_at, _last_move_is_creation,
 )
@@ -201,13 +200,9 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # threshold. obj.board is select_related and the newest movement is
         # annotated by _card_queryset(), so this costs Python time, not
         # queries — the per-row branch here does not affect the query-count
-        # guard.
-        threshold = obj.board.staleness_threshold_days
-        cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_moved_at = _last_moved_at(obj)
-        if last_moved_at is not None:
-            return last_moved_at < cutoff
-        return (timezone.now() - obj.created_at).days >= threshold
+        # guard. The planned rule (#2371) reads the clock _card_queryset()
+        # annotates, through the helper every other is_stale reader shares.
+        return _row_is_stale(obj)
 
 
 # ---------------------------------------------------------------------------

@@ -64,6 +64,7 @@ import CardSheetDockToggle from "./CardSheetDockToggle";
 import ChecklistItemControls from "./ChecklistItemControls";
 import { checklistToday } from "../../utils/checklistFaceSuffix";
 import { parentSingular } from "../../utils/parentItemNames";
+import { activeDueDate } from "../../utils/plannedFields";
 
 /** The #445 card-face fields, recomputed from the detail sheet's checklist so
  *  the face suffix updates at once after a local edit. Mirrors the server's
@@ -204,6 +205,13 @@ function SectionSkeleton({ rows, testId }: { rows: number; testId: string }) {
 }
 
 const TAB_LABELS: Record<CardDetailTab, string> = { details: "Details", children: "Children", comments: "Comments", history: "History" };
+
+/** The columns after `columnId` in board order (#2371): what Add child's "Needed" offers. */
+function laterParentColumns(columns: { id: number; name: string; position: number }[], columnId: number) {
+  const sorted = [...columns].sort((a, b) => a.position - b.position);
+  const at = sorted.findIndex((c) => c.id === columnId);
+  return at < 0 ? [] : sorted.slice(at + 1).map((c) => ({ id: c.id, name: c.name }));
+}
 
 export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
@@ -1997,7 +2005,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             opacity:0 inputs don't trigger the native calendar, so the container
                             onClick explicitly calls showPicker() / focus() as a fallback. */}
                         <div className="max-sm:min-h-11 relative flex-1 cursor-pointer rounded-lg focus-within:ring-2 focus-within:ring-primary-emphasis">
-                          <div className={`max-sm:min-h-11 text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(localCard.due_date, !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
+                          <div className={`max-sm:min-h-11 text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${isOverdue(activeDueDate(localCard), !!board.columns.find((c) => c.id === localCard.column)?.is_done || !!localCard.archived_at) ? "bg-danger/10 border-danger/40 text-danger-on-tint" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -2578,6 +2586,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardId={card.id}
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
+              laterColumns={laterParentColumns(board.columns, card.column)}
               cardArchived={!!card.archived_at}
               canHaveChildren={canHaveChildren}
               state={childrenState}

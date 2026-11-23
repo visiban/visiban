@@ -17,7 +17,7 @@ import {
   deleteCardAttachment, getChecklist, addChecklistItem,
   updateChecklistItem, deleteChecklistItem,
   archiveCard, unarchiveCard, getArchivedCards,
-  blockCard, unblockCard, getCardBlocks,
+  blockCard, unblockCard, getCardBlocks, setNeeded, getCardParentState,
 } from '../api/cards'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock client cast; the real client type is broader than any single test needs
@@ -26,6 +26,32 @@ const mockClient = client as any
 describe('cards API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('setNeeded posts under /api/v1 (#2371)', async () => {
+    const body = { needed_at_column: 7, planned: true, planned_released_at: null }
+    mockClient.post.mockResolvedValue({ data: body })
+    const result = await setNeeded(5, 9, 7)
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/needed/', { needed_at_column: 7 })
+    expect(result).toEqual(body)
+  })
+
+  it('getCardParentState carries the parent and every planned field the read sent, the reason included (#2371)', async () => {
+    const state = {
+      parent: { hidden: true }, planned: false, needed_now: true, needed_at_column: null,
+      needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent',
+    }
+    mockClient.get.mockResolvedValue({ data: { id: 9, title: 'x', ...state } })
+    expect(await getCardParentState(5, 9)).toEqual(state)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/')
+    mockClient.get.mockResolvedValue({ data: { id: 9, title: 'x' } })
+    expect(await getCardParentState(5, 9)).toEqual({ parent: null })
+  })
+
+  it('setNeeded sends null for Now (#2371)', async () => {
+    mockClient.post.mockResolvedValue({ data: { needed_at_column: null, planned: false, planned_released_at: null } })
+    await setNeeded(5, 9, null)
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/cards/9/needed/', { needed_at_column: null })
   })
 
   it('createCard posts to correct URL', async () => {

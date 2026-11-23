@@ -125,6 +125,17 @@ describe('CardPeekSheet', () => {
     expect(screen.getByTestId('card-peek-banner')).toHaveTextContent('Was due')
   })
 
+  it('a planned child with a passed date gets no Was due banner (#2371)', () => {
+    setup({ card: { ...card, due_date: '2020-01-01', planned: true, is_stale: false } })
+    expect(screen.queryByTestId('card-peek-banner')).toBeNull()
+  })
+
+  it('a released child counts its idle days from the release (#2371)', () => {
+    const released = new Date(Date.now() - 3 * 86_400_000 - 3_600_000).toISOString()
+    setup({ card: { ...card, due_date: null, is_stale: true, last_moved_at: '2020-01-01T00:00:00Z', planned_released_at: released } })
+    expect(screen.getByTestId('card-peek-banner')).toHaveTextContent('No movement for 3 days')
+  })
+
   it('handles empty and failed history', async () => {
     getCardMovements.mockResolvedValueOnce([])
     const { unmount } = (() => { setup(); return { unmount: () => {} } })()

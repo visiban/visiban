@@ -12,12 +12,13 @@ import {
   blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
 } from "../../utils/blockedState";
 import Avatar from "../Common/Avatar";
-import { formatDueDate } from "../../utils/date";
+import { formatDueDate, todayInTimezone } from "../../utils/date";
 import { agingReference, agingTint, formatAgingTooltip, staleBadgeToneClass, urgencyBadgeToneClass } from "../../utils/agingTint";
 import AgingCue from "./AgingCue";
 import UrgencyGlyph from "./UrgencyGlyph";
-import { buildCardStatusLine, type CardStatusKind } from "../../utils/cardStatusLine";
+import { buildCardStatusLine, buildPlannedStatusLine, type CardStatusKind } from "../../utils/cardStatusLine";
 import { classifyCardUrgency } from "../../utils/cardUrgency";
+import { instanceTimezone } from "../../utils/instanceTimezone";
 import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import CustomFieldLink from "./CustomFieldLink";
@@ -32,6 +33,7 @@ import { colorChipStyle } from "../../utils/colorContrast";
 import type { CardMenuAnchor } from "./CardContextMenu";
 import TrackChips, { GateProgress } from "./TrackChips";
 import { isDimensionField, type CardTrackState } from "../../utils/stages";
+import { activeDueDate } from "../../utils/plannedFields";
 
 
 
@@ -562,7 +564,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // badge, the status line and the border must classify the same instant, so a
   // midnight or due-soon boundary can never fall between two calls.
   const urgencyNow = Date.now();
-  const isOverdueCard = classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: false, last_moved_at: null }, urgencyNow)?.kind === "overdue";
+  // A planned child's date is inactive (#2371): never overdue or due soon until it is released.
+  const activeDue = activeDueDate(card);
+  const isOverdueCard = classifyCardUrgency({ due_date: activeDue, closed: cardClosed, is_stale: false, last_moved_at: null }, urgencyNow)?.kind === "overdue";
   const priorityColor = colorForPriority(card.priority);
   const borderColor = isOverdueCard ? "rgb(var(--danger-emphasis))" : undefined;
   // Urgency now owns the border, so priority (otherwise read from its hue) goes
@@ -579,7 +583,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const urgency = density === "dense"
     ? null
     : classifyCardUrgency(
-        { due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
+        { due_date: activeDue, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: card.last_moved_at, last_move_is_creation: card.last_move_is_creation },
         urgencyNow,
       );
   // The status line (#2272) is the one place the status shows,
@@ -587,7 +591,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // the row at Standard, a short form at Dense. The compact layout keeps the
   // AgingCue glyph and has no status line.
   const statusUrgency = !compact
-    ? classifyCardUrgency({ due_date: card.due_date, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null }, urgencyNow)
+    ? classifyCardUrgency({ due_date: activeDue, closed: cardClosed, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null }, urgencyNow)
     : null;
   const status = statusUrgency && (statusUrgency.kind === "overdue" || statusUrgency.kind === "due-soon" || statusUrgency.kind === "stale")
     ? buildCardStatusLine({
@@ -597,8 +601,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         idleDays: aging.stage !== "none" ? aging.idleDays : 0,
       })
     : null;
-  const statusInline = status !== null && density !== "comfortable";
-  const statusRow = status !== null && density === "comfortable";
+  // #2371: the planned-child line, only when there is no overdue, due-soon or stale line.
+  const planned = !compact && !status && !cardClosed
+    ? buildPlannedStatusLine(card, todayInTimezone(instanceTimezone(), new Date(urgencyNow)))
+    : null;
+  const statusInline = (status !== null || planned !== null) && density !== "comfortable";
+  const statusRow = (status !== null || planned !== null) && density === "comfortable";
   // The badge is only ever the calm "Just moved" cue (#2393). `urgency` and
   // `statusUrgency` classify the same inputs at the same instant and differ only
   // in `last_moved_at`, which decides nothing but the lowest-priority "recent"
@@ -722,6 +730,17 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       ) : (
         status.text
       )}
+    </span>
+  ) : planned ? (
+    <span
+      data-testid="card-status-line"
+      data-status-kind={planned.kind}
+      // A column name is user text of any length: the line truncates and carries the full text in `title`, and
+      // Dense shows the short form (#2371 ux-review).
+      title={planned.text}
+      className={`min-w-0 max-w-full truncate text-xs font-semibold ${planned.tone === "warning" ? urgencyBadgeToneClass("warning", aging.stage) : "text-fg-tertiary"}`}
+    >
+      {density === "dense" ? planned.shortText : planned.text}
     </span>
   ) : null;
 

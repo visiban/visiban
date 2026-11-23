@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { shareLinkIssuedAtFromEvent, shareLinkPatchFromEvent, stripPerUserBoardFields } from "../../utils/boardEventPayload";
 import { boardColorsInUse } from "../../utils/boardColors";
-import { getCardChildrenRollup, getCardParent, getCardStatus } from "../../api/cards";
+import { getCardChildrenRollup, getCardParentState, getCardStatus } from "../../api/cards";
+import { plannedStateMovesWithCard, type CardPlannedFields } from "../../utils/plannedFields";
 import { CARD_PARENT_REFETCH_EVENT } from "../Card/cardParent";
 import { resetTour } from "../../api/auth";
 import { getGroup } from "../../api/groups";
@@ -804,12 +805,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       seqs.set(id, n);
       return n;
     });
-    void Promise.allSettled(ids.map((id) => getCardParent(boardId, id))).then((results) => {
+    // The same read carries the planned-child fields (#2371): a parent reaching the column, a column
+    // delete or a Needed change pings `card.parent_changed` too, and the frame never carries them.
+    void Promise.allSettled(ids.map((id) => getCardParentState(boardId, id))).then((results) => {
       const parents = new Map<number, CardParent | null>();
+      const planned = new Map<number, CardPlannedFields>();
       results.forEach((r, i) => {
-        if (r.status === "fulfilled" && seqs.get(ids[i]) === issued[i]) parents.set(ids[i], r.value);
+        if (r.status !== "fulfilled" || seqs.get(ids[i]) !== issued[i]) return;
+        const { parent, ...fields } = r.value;
+        parents.set(ids[i], parent);
+        if (Object.keys(fields).length > 0) planned.set(ids[i], fields);
       });
-      if (parents.size > 0) applyCardParents(parents);
+      if (parents.size === 0) return;
+      if (planned.size > 0) applyCardParents(parents, planned);
+      else applyCardParents(parents);
     });
   }, [applyCardParents, silentReload]);
   // `card.parent_changed {card_ids, siblings: true}` (#2443): a write to one child changed the
@@ -831,7 +840,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return n;
     });
     const [first, ...rest] = onBoard;
-    void getCardParent(boardId, first).then((parent) => {
+    // Only `parent` is shared; the planned fields are per card and a sibling ping changes none of them.
+    void getCardParentState(boardId, first).then(({ parent }) => {
       if (parent === null) {
         if (seqs.get(first) === issued[0]) applyCardParents(new Map([[first, null]]));
         refetchCardParents(rest);
@@ -926,7 +936,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // only the card is applied, as before. The frame's event_id orders it
       // against other moves that set the same cards' positions.
       const moved = d as unknown as CardMovedEventPayload;
+      // A planned or needed-now child's own move pulls it (#2371): the frame carries no planned
+      // fields, so re-read them, as a `card.parent_changed` ping would.
+      const shownBefore = boardRef.current?.cards.find((c) => c.id === moved.card?.id);
       onCardUpdated(moved.card, moved.sibling_positions, event.event_id);
+      if (shownBefore && plannedStateMovesWithCard(shownBefore)) refetchCardParents([shownBefore.id]);
     } else if (event.event === "card.updated") {
       const updatedCard = d as unknown as Card;
       onCardUpdated(updatedCard);

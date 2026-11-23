@@ -210,6 +210,10 @@ class ColumnViewSet(viewsets.ModelViewSet):
             # children re-bucket into "to do" with no card write to ping on
             # (#2500). Snapshot under the locks, diff after the delete.
             rollup_before = column_rollup_state(board)
+            # Planned children needed at this column become "Needed: Now"
+            # (#2371): the history note, before SET_NULL clears the field.
+            from ..services.planned_children import clear_for_deleted_column
+            clear_for_deleted_column(instance, actor=self.request.user)
             instance.delete()
             announce_column_rollup_changed(board, rollup_before, actor_id=self.request.user.id)
             _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)

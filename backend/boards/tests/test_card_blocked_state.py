@@ -438,9 +438,14 @@ class BlockBroadcastTests(_BlockTestBase):
         # A complete card, so clients can replace it wholesale.
         # ``parent`` (#1104) is opt-in per read path and never in an event payload:
         # a broadcast is built with the actor's request, so a parent resolved for
-        # the actor would reach every reader of the frame.
+        # the actor would reach every reader of the frame. The planned-child
+        # fields (#2371) are opt-in the same way.
         self.assertEqual(
-            set(payload), set(CardSerializer().fields) - {"label_ids", "assignee_id", "parent", "children_rollup", "notify_assignee"},
+            set(payload),
+            set(CardSerializer().fields) - {
+                "label_ids", "assignee_id", "parent", "children_rollup", "notify_assignee",
+                "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
+            },
         )
 
     def test_unblock_broadcasts_card_updated(self):

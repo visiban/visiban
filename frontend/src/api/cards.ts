@@ -1,5 +1,6 @@
 import client from "./client";
 import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
+import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 export interface CardPatch {
   title?: string;
@@ -171,6 +172,13 @@ export const getCardExtensions = (boardId: number, cardId: number): Promise<unkn
 export const getCardParent = (boardId: number, cardId: number): Promise<CardParent | null> =>
   getCard(boardId, cardId).then((c) => c.parent ?? null);
 
+/** The per-reader fields `card.parent_changed` re-reads: `parent` (#1104) and the planned-child fields (#2371). */
+export type CardParentState = { parent: CardParent | null } & CardPlannedFields;
+
+/** Read `parent` and the planned fields for one card, in one card read (the planned fields are absent if not sent). */
+export const getCardParentState = (boardId: number, cardId: number): Promise<CardParentState> =>
+  getCard(boardId, cardId).then((c) => ({ parent: c.parent ?? null, ...pickPlannedFields(c) }));
+
 /** Read `children_rollup` for one parent card (#2210): the `card.children_changed` refetch. */
 export const getCardChildrenRollup = (boardId: number, cardId: number): Promise<CardChildrenRollup | undefined> =>
   getCard(boardId, cardId).then((c) => c.children_rollup);
@@ -313,7 +321,7 @@ export const getChildBoardOptions = (boardId: number, cardId: number) =>
   client.get<ChildBoardOptions>(`/api/v1/boards/${boardId}/cards/${cardId}/child-board-options/`).then((r) => r.data);
 
 /** `POST /boards/{b}/cards/{id}/children/`: create a card on `targetBoardId` and link it under this one. */
-export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string; apply_default_team?: boolean; expected_assignee_id?: number | null }) =>
+export const addChild = (boardId: number, cardId: number, data: { board_id: number; title: string; apply_default_team?: boolean; expected_assignee_id?: number | null; needed_at_column?: number | null }) =>
   client.post<Card>(`/api/v1/boards/${boardId}/cards/${cardId}/children/`, data).then((r) => r.data);
 
 /** `GET /boards/{b}/cards/{id}/children/`: one page of a parent's children, per viewer (#1104, #2209). */
@@ -338,3 +346,9 @@ export const getChildCandidates = (
 /** `DELETE /boards/{b}/cards/{id}/children/{child}/`: unlink one child from the parent's end (#1104). */
 export const unlinkCardChild = (boardId: number, cardId: number, childId: number) =>
   client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/children/${childId}/`);
+
+/** Change a child's Needed (#2371): `null` is Now, a column id plans it for that parent column. */
+export const setNeeded = (boardId: number, cardId: number, neededAtColumn: number | null) =>
+  client.post<{ needed_at_column: number | null; planned: boolean; planned_released_at: string | null }>(
+    `/api/v1/boards/${boardId}/cards/${cardId}/needed/`, { needed_at_column: neededAtColumn },
+  ).then((r) => r.data);

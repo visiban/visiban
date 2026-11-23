@@ -679,7 +679,7 @@ def resolve_child_board(user, parent_board, board_id):
     return board, role
 
 
-def create_child(*, user, parent, parent_role, board_id, make_card):
+def create_child(*, user, parent, parent_role, board_id, make_card, needed_at_column=None):
     """Add child (#2208): create a card on ``board_id`` and link it under ``parent``, atomically.
 
     One request, one transaction: a child that cannot be linked is never
@@ -699,6 +699,10 @@ def create_child(*, user, parent, parent_role, board_id, make_card):
     ``create_card`` and then :func:`create_link` as two steps would take the
     child board ``FOR SHARE`` and then ask to upgrade it, which deadlocks two
     concurrent Add childs.
+
+    ``needed_at_column`` (#2371) is the raw "Needed" value: ``None`` for Now,
+    else a later column on the parent's board, validated under the parent's
+    lock (``planned_children.resolve_needed_column``).
 
     Returns the ``CardMutationResult`` of the create.
     """
@@ -729,9 +733,16 @@ def create_child(*, user, parent, parent_role, board_id, make_card):
         if column is None or lane is None or not column.allow_card_creation:
             # The target stopped qualifying after the lookup (a column edit).
             raise NotFound()
+        from . import planned_children
+
+        needed = planned_children.resolve_needed_column(parent, needed_at_column)
         result = make_card(board=child_board, role=child_role, column=column, swimlane=lane)
-        CardParentLink.objects.create(parent=parent, child=result.card, created_by=user)
+        CardParentLink.objects.create(
+            parent=parent, child=result.card, created_by=user, needed_at_column=needed,
+        )
         _record(result.card.pk, CardActivity.EventType.PARENT_LINKED, user)
+        if needed is not None:
+            planned_children.record_created_planned(result.card, user)
         _record(parent.pk, CardActivity.EventType.CHILD_LINKED, user)
         _announce(parent.board_id, parent.pk, child_board.pk, result.card.pk, user.id)
     return result
@@ -1286,7 +1297,7 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
 _HIDDEN_PARENT = {"hidden": True}
 
 
-def parents_for_viewer(child_ids, user, *, known_boards=()):
+def parents_for_viewer(child_ids, user, *, known_boards=(), planned=None):
     """The one parent read for every transport (Rule 10). Computed per viewer.
 
     ``known_boards`` (#2536) are boards the caller already holds, loaded with
@@ -1331,6 +1342,11 @@ def parents_for_viewer(child_ids, user, *, known_boards=()):
     plus ``get_board_roles``'s fixed two, however many
     parents or parent boards there are, plus ONE grouped sibling count when
     any entry is visible (flat in the number of parents and children).
+
+
+    ``planned`` (#2371): a dict this call fills with
+    ``planned_children.planned_entry`` for each linked card with Needed set,
+    read from the same links query (no extra query).
     """
     ids = list(child_ids)
     if not ids:
@@ -1347,7 +1363,7 @@ def parents_for_viewer(child_ids, user, *, known_boards=()):
     # One chain per statement is pinned by
     # test_parents_for_viewer_query_shape_2536. ``child_board_id`` is a plain
     # column off the child card (one join, no chain): the loop needs only the id.
-    links = list(
+    links_qs = (
         CardParentLink.objects.filter(child_id__in=ids)
         .select_related(
             "parent__column", "parent__swimlane",
@@ -1355,9 +1371,16 @@ def parents_for_viewer(child_ids, user, *, known_boards=()):
         )
         .annotate(child_board_id=F("child__board_id"))
     )
+    if planned is not None:
+        from . import planned_children
+
+        links_qs = planned_children.annotate_links(links_qs)
+    links = list(links_qs)
     if not links:
         return {}
     if user is None or not getattr(user, "is_authenticated", False):
+        if planned is not None:
+            planned.update(planned_children.planned_entries(links, {}))
         return {link.child_id: dict(_HIDDEN_PARENT) for link in links}
     boards = {link.parent.board_id: link.parent.board for link in links}
     child_board_ids = {link.child_board_id for link in links}
@@ -1375,6 +1398,8 @@ def parents_for_viewer(child_ids, user, *, known_boards=()):
     # ``boards``: roles.get() is then None and its sibling counts are null,
     # the same fail-closed answer as a board the viewer holds no role on.
     roles = get_board_roles(user, boards.values())
+    if planned is not None:
+        planned.update(planned_children.planned_entries(links, roles))
     siblings = _sibling_counts(
         {
             (link.parent_id, link.child_board_id) for link in links
@@ -1741,6 +1766,9 @@ def announce_parent_changed(card_id, board, *, actor_id):
     at most one event per child board (all of a parent's children share one
     board, so in practice one event of at most ``CHILDREN_PER_PARENT_LIMIT`` ids).
     ``board`` is kept for the callers' signature.
+
+    Returns the child ids it pinged, so a move can skip the planned-children
+    release query for a card with no children (#2371).
     """
     by_board = {}
     for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card_id).values_list(
@@ -1752,6 +1780,7 @@ def announce_parent_changed(card_id, board, *, actor_id):
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": sorted(by_board[child_board_id])}, actor_id=actor_id,
         )
+    return [child_id for ids in by_board.values() for child_id in ids]
 
 
 # ─── Parent-side rollup and child-side pings (#2210, #2416) ──────────────────
@@ -1934,10 +1963,14 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
     :func:`_announce_siblings`'s ``card.parent_changed {card_ids, siblings}``.
     That covers a sibling moving into or out of a done column: ``move_card``
     calls this on every column change. Still one query.
+
+    Returns the ids in ``card_ids`` that have a parent, or ``None`` when it
+    did not read the links (no ids, or a parent-tier board), so a move can
+    skip the planned-children release query for a card with no parent (#2371).
     """
     ids = list(card_ids)
     if not ids or (board is not None and board.cards_can_have_children):
-        return
+        return None
     idset = set(ids)
     rows = list(
         CardParentLink.objects.filter(
@@ -1954,6 +1987,7 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
         [(p, pb, c, cb) for pb, p, c, cb, archived_at in rows if archived_at is None],
         actor_id=actor_id, changed=idset,
     )
+    return {c for _pb, _p, c, _cb, _a in rows if c in idset}
 
 
 #: Above this many linked children on one child board, a parent container

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import BoardSettingsModal from '../components/Board/BoardSettingsModal'
-import { useBoard, reorderWithinCellOptimistically } from '../hooks/useBoard'
+import { useBoard, reorderWithinCellOptimistically, carryParent } from '../hooks/useBoard'
 import { mergeSwimlaneFromBroadcast, swimlaneForRole } from '../utils/swimlaneMerge'
 import type { BoardFull, Card, CardChildrenRollup, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from '../types'
 
@@ -3690,6 +3690,17 @@ describe('useBoard — per-reader card parent (#1104)', () => {
     expect(result.current.board!.cards[0]).toEqual({ ...before.cards[0], parent: { hidden: true } })
   })
 
+  it('applyCardParents also sets the planned fields when the re-read sent them (#2371)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    const before = result.current.board!
+    const id = before.cards[0].id
+    const fields = { planned: false, needed_now: true, needed_at_column: null, needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' as const }
+    act(() => { result.current.applyCardParents(new Map([[id, null]]), new Map([[id, fields]])) })
+    expect(result.current.board!.cards[0]).toEqual({ ...before.cards[0], parent: null, ...fields })
+  })
+
   it('updateBoardSettings resolves null on success and with the error on failure', async () => {
     mockGetBoardFull.mockResolvedValue(makeBoard())
     const { result } = renderHook(() => useBoard())
@@ -3702,6 +3713,18 @@ describe('useBoard — per-reader card parent (#1104)', () => {
     mockPatchBoard.mockRejectedValueOnce(err)
     await act(async () => { out = await result.current.updateBoardSettings({ cards_can_have_children: false }) })
     expect(out).toBe(err)
+  })
+})
+
+describe('carryParent keeps the planned fields across a wholesale replace (#2371)', () => {
+  it('copies every planned field from the stored card when the incoming copy has none, and never overrides a sent value', () => {
+    const prev = { id: 1, planned: false, needed_now: true, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' } as unknown as Card
+    const out = carryParent({ id: 1 } as unknown as Card, prev)
+    expect(out).toMatchObject({ planned: false, needed_now: true, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' })
+    expect(carryParent({ id: 1, planned: true } as unknown as Card, prev).planned).toBe(true)
+    // The server sends the set together, so a read that sent it wins whole, the reason included.
+    expect(carryParent({ id: 1, planned: false, needed_now_reason: 'cancelled' } as unknown as Card, prev).needed_now_reason).toBe('cancelled')
+    expect(carryParent({ id: 1 } as unknown as Card, { id: 1 } as unknown as Card)).not.toHaveProperty('planned')
   })
 })
 

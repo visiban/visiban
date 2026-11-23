@@ -2250,14 +2250,27 @@ def _move_card_attempt(
         )
         # A parent's column and lane show on each of its children (#1104); a
         # reorder within one cell changes neither, so it pings nothing.
+        child_ids = None
         if column_changed or swimlane_changed:
             from .card_links import announce_parent_changed
-            announce_parent_changed(card.pk, board, actor_id=actor.id)
+            child_ids = announce_parent_changed(card.pk, board, actor_id=actor.id)
         # A child's column is its rollup state on the parent (#2210): ping the
         # parent's board, ids only. A lane change alone changes no state.
         if column_changed:
             from .card_links import announce_children_changed
-            announce_children_changed([card.pk], board=board, actor_id=actor.id)
+            with_parent = announce_children_changed([card.pk], board=board, actor_id=actor.id)
+            # Planned children (#2371): a pulled child, or a parent reaching
+            # the column its planned children are needed at, releases them.
+            # The two pings above already read this card's links (under the
+            # card's row lock, which every link write also takes), so a card
+            # with neither children nor a parent, the common case, pays no
+            # release query; ``None`` means a ping did not look.
+            from .planned_children import release_on_move
+            release_on_move(
+                card, to_column=target_column, actor=actor,
+                may_be_parent=child_ids is None or bool(child_ids),
+                may_be_child=with_parent is None or bool(with_parent),
+            )
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 

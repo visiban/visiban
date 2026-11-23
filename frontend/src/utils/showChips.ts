@@ -1,5 +1,6 @@
 import type { Card, Column } from "../types";
 import { classifyCardUrgency } from "./cardUrgency";
+import { activeDueDate, type CardPlannedFields } from "./plannedFields";
 
 /**
  * Show chips (#2272): a one-click quick view above the grid. `all` is the
@@ -27,15 +28,15 @@ export function parseShowChip(value: string | null): ShowChipKey {
  * Which chip a card belongs to, by the same precedence the card face uses for
  * its one status line: overdue, then due soon, then stale. Stale is ignored in
  * a done column (finished, not idle), and so are overdue and due soon (#2313).
- * A card on track belongs to no chip.
+ * A card on track belongs to no chip. A planned child's date is inactive (#2371).
  */
 export function cardShowChip(
-  card: Pick<Card, "due_date" | "is_stale">,
+  card: Pick<Card, "due_date" | "is_stale"> & CardPlannedFields,
   inDoneColumn: boolean,
   now: number = Date.now(),
 ): Exclude<ShowChipKey, "all"> | null {
   const kind = classifyCardUrgency(
-    { due_date: card.due_date, closed: inDoneColumn, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null },
+    { due_date: activeDueDate(card), closed: inDoneColumn, is_stale: card.is_stale && !inDoneColumn, last_moved_at: null },
     now,
   )?.kind;
   if (kind === "overdue") return "overdue";
@@ -50,7 +51,7 @@ function doneColumnIds(columns: Pick<Column, "id" | "is_done">[]): Set<number> {
 
 /** Counts for the whole board (archived cards excluded), independent of any filter. */
 export function showChipCounts(
-  cards: Pick<Card, "column" | "due_date" | "is_stale" | "archived_at">[],
+  cards: (Pick<Card, "column" | "due_date" | "is_stale" | "archived_at"> & CardPlannedFields)[],
   columns: Pick<Column, "id" | "is_done">[],
   now: number = Date.now(),
 ): Record<ShowChipKey, number> {
@@ -67,7 +68,7 @@ export function showChipCounts(
 
 /** Ids of the cards a non-`all` chip keeps. */
 export function showChipCardIds(
-  cards: Pick<Card, "id" | "column" | "due_date" | "is_stale">[],
+  cards: (Pick<Card, "id" | "column" | "due_date" | "is_stale"> & CardPlannedFields)[],
   columns: Pick<Column, "id" | "is_done">[],
   chip: Exclude<ShowChipKey, "all">,
   now: number = Date.now(),

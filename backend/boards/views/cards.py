@@ -163,8 +163,13 @@ def _with_parents(ctx, rows, user, *, board=None, served_board=None):
     # Either board is the served board from get_board_for_user() (ancestor
     # chain loaded), so the children's board costs no extra query (#2536).
     hint = board if board is not None else served_board
+    from ..services.planned_children import CARD_PLANNED_CONTEXT_KEY
+
+    ctx[CARD_PLANNED_CONTEXT_KEY] = {}
     ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
         [c.pk for c in rows], user, known_boards=() if hint is None else (hint,),
+        # #2371: filled from the same links query, no extra query.
+        planned=ctx[CARD_PLANNED_CONTEXT_KEY],
     )
     # #2446: a flag-off board's leftover parents carry a rollup too.
     rollups = card_links.rollups_for_board_cards(board, [c.pk for c in rows], user)
@@ -1672,6 +1677,8 @@ class CardViewSet(viewsets.ModelViewSet):
             "parent_linked", "parent_unlinked", "child_linked", "child_unlinked",
             # Since 1.3 (#2208): the other end's whole board was deleted.
             "children_removed_board_deleted", "parent_removed_board_deleted",
+            # Since 1.3 (#2371): planned children.
+            "planned_released", "needed_changed",
         ],
     }
     # Every group timeline() accepts, as published in the schema (#1975).
@@ -2934,6 +2941,43 @@ class CardViewSet(viewsets.ModelViewSet):
         )
 
     @extend_schema(
+        request=inline_serializer(
+            "CardNeededUpdate",
+            fields={"needed_at_column": serializers.IntegerField(allow_null=True)},
+        ),
+        responses={200: OpenApiResponse(description=(
+            "`{needed_at_column, planned, planned_released_at}` after the change."
+        ))},
+        description=(
+            "Change this child card's Needed (#2371, since 1.3): `null` is Now, a column id "
+            "plans the child for when its parent reaches that column. Minimum role: member "
+            "on this card's board. A column needs member or higher on the parent's board too, must "
+            "come after the parent's current column, and the card must be in its board's "
+            "first column; any refusal is a 400 on `needed_at_column` that names no column. "
+            "The card's due date is kept either way. Records a `needed_changed` history row."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="needed")
+    def needed(self, request, board_pk=None, pk=None):
+        """Set this child's Needed: Now (null) or a later parent column (#2371)."""
+        from ..services import planned_children
+
+        board, role = self._board_and_role()
+        # IDOR gate: the card in the URL must be on the board resolved above.
+        card = get_object_or_404(Card.objects.select_related("board"), pk=pk, board=board)
+        body = require_json_object(request)
+        if "needed_at_column" not in body:
+            raise serializers.ValidationError({"needed_at_column": ["This field is required."]})
+        link = planned_children.set_needed(
+            card, user=request.user, child_role=role, value=body["needed_at_column"],
+        )
+        return Response({
+            "needed_at_column": link.needed_at_column_id,
+            "planned": link.needed_at_column_id is not None and link.planned_released_at is None,
+            "planned_released_at": link.planned_released_at,
+        })
+
+    @extend_schema(
         methods=["GET"],
         parameters=[OFFSET_QUERY_PARAMETER],
         responses={200: OpenApiResponse(description=(
@@ -3061,6 +3105,8 @@ class CardViewSet(viewsets.ModelViewSet):
         result = card_links.create_child(
             user=request.user, parent=parent, parent_role=role,
             board_id=body.get("board_id"), make_card=make_card,
+            # #2371: optional; omitted or null is "Needed: Now", as before.
+            needed_at_column=body.get("needed_at_column"),
         )
         return Response(result.payload, status=status.HTTP_201_CREATED)
 

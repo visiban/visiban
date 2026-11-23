@@ -8,6 +8,7 @@ import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
 import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
 export type MoveOutcome = { ok: true } | { ok: false; error: unknown };
@@ -181,6 +182,11 @@ export function carryParent(incoming: Card, previous: Card | undefined): Card {
   // refreshes it (applyCardChildrenRollups).
   if (incoming.children_rollup === undefined && previous?.children_rollup !== undefined) {
     out = { ...out, children_rollup: previous.children_rollup };
+  }
+  // The planned-child fields (#2371) are per-reader the same way; `card.parent_changed`
+  // refreshes them (applyCardParents), and a planned card's own move re-reads them.
+  if (incoming.planned === undefined && previous?.planned !== undefined) {
+    out = { ...out, ...pickPlannedFields(previous) };
   }
   return out;
 }
@@ -1601,14 +1607,18 @@ export function useBoard() {
   // `card.parent_changed` refetch results (#1104): sets only `parent`, so a
   // read that raced a newer edit cannot revert any other field. Ids no longer
   // on the board are skipped.
-  const applyCardParents = useCallback((parents: ReadonlyMap<number, CardParent | null>) => {
+  const applyCardParents = useCallback((
+    parents: ReadonlyMap<number, CardParent | null>,
+    planned?: ReadonlyMap<number, CardPlannedFields>,
+  ) => {
     if (parents.size === 0) return;
     writeBoard((b) => {
       let changed = false;
       const cards = b.cards.map((c) => {
         if (!parents.has(c.id)) return c;
         changed = true;
-        return { ...c, parent: parents.get(c.id) ?? null };
+        // #2371: the planned fields from the same read, when it sent them.
+        return { ...c, parent: parents.get(c.id) ?? null, ...planned?.get(c.id) };
       });
       return changed ? { ...b, cards } : b;
     });

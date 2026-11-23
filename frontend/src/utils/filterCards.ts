@@ -8,6 +8,7 @@ import { isCardBlocked } from "./blockedState";
 import { matchesStageFilters, type StageFilterContext } from "./stageFilter";
 import { isNumberFilterActive, matchesNumberFilter } from "./numberFilter";
 import { matchesParentFilter } from "./parentFilter";
+import { activeDueDate } from "./plannedFields";
 
 /**
  * Whether any *client-side* filter dimension is active — everything
@@ -183,7 +184,7 @@ export function filterCards(
         if (filters.dueDate === "overdue") {
           // The one overdue rule (#2313): instance time zone, open cards only; not the
           // browser's or the user's date.
-          if (!isOverdue(card.due_date, !!card.archived_at || !!doneColumnIds?.has(card.column))) return false;
+          if (!isOverdue(activeDueDate(card), !!card.archived_at || !!doneColumnIds?.has(card.column))) return false;
         }
         if (filters.dueDate === "today") {
           if (card.due_date !== todayStr) return false;

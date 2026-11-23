@@ -1069,13 +1069,69 @@ describe('BoardView — board invites (#1444)', () => {
   })
 })
 
+/**
+ * The parent refetch reads `getCardParentState` (parent plus the #2371 planned fields, one card read). These tests
+ * drive its `parent` half through a plain mock; the planned half is left out, as a read that sent none.
+ */
+function spyParentRead() {
+  const parent = vi.fn<(boardId: number, cardId: number) => Promise<CardParent | null>>()
+  const state = vi.spyOn(cardsApi, 'getCardParentState').mockImplementation((b, id) => parent(b, id).then((p) => ({ parent: p })))
+  const restore = parent.mockRestore.bind(parent)
+  parent.mockRestore = () => { state.mockRestore(); restore() }
+  return parent
+}
+
+// #2371: a parent reaching the column, a column delete and a Needed change all ping `card.parent_changed`
+// (ids only); the re-read carries the planned fields, which the frame never does.
+describe('BoardView — planned children refresh (#2371)', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const released = { planned: false, needed_now: true, needed_at_column: 31, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' as const }
+  const nowAgain = { planned: false, needed_now: false, needed_at_column: null, needed_at_column_name: null, planned_released_at: null, needed_now_reason: null }
+  const cancelled = { planned: false, needed_now: true, needed_at_column: null, needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'cancelled' as const }
+
+  it.each([
+    ['the parent reached the column (release)', released],
+    ['the Needed column was deleted', cancelled],
+    ['the child left To do', nowAgain],
+  ])('applies the planned fields with the parent when %s', async (_name, fields) => {
+    const spy = vi.spyOn(cardsApi, 'getCardParentState').mockResolvedValue({ parent: { hidden: true }, ...fields })
+    const ctx = makeContext({ board: makeBoard({ cards: [makeCard({ id: 5, planned: true })] }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => { getOnEvent.dispatch({ event: 'card.parent_changed', data: { card_ids: [5] } }) })
+    expect(spy).toHaveBeenCalledWith(1, 5)
+    expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, { hidden: true }]]), new Map([[5, fields]]))
+    spy.mockRestore()
+  })
+
+  it('a planned card\'s own card.moved re-reads its planned fields; an ordinary card\'s does not', async () => {
+    const spy = vi.spyOn(cardsApi, 'getCardParentState').mockResolvedValue({ parent: null, ...nowAgain })
+    const ctx = makeContext({ board: makeBoard({ cards: [makeCard({ id: 5, planned: true }), makeCard({ id: 6, uid: 'crd006' })] }) })
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    await act(async () => {
+      getOnEvent.dispatch({ event: 'card.moved', data: { card: makeCard({ id: 6, uid: 'crd006', column: 11 }), movement: null } as unknown as Record<string, unknown> })
+    })
+    expect(spy).not.toHaveBeenCalled()
+    await act(async () => {
+      getOnEvent.dispatch({ event: 'card.moved', data: { card: makeCard({ id: 5, column: 11 }), movement: null } as unknown as Record<string, unknown> })
+    })
+    expect(spy).toHaveBeenCalledWith(1, 5)
+    expect(ctx.applyCardParents).toHaveBeenCalledWith(new Map([[5, null]]), new Map([[5, nowAgain]]))
+    spy.mockRestore()
+  })
+})
+
 describe('BoardView — card.parent_changed (#1104)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('re-reads each listed card and applies only its parent', async () => {
-    const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(async (_b, id) => (id === 5 ? { hidden: true } : null))
+    const spy = spyParentRead().mockImplementation(async (_b, id) => (id === 5 ? { hidden: true } : null))
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -1089,7 +1145,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
 
   it('applies only the newest read for a card when two re-reads resolve out of order (#1104)', async () => {
     const resolvers: Array<(p: { hidden: true } | null) => void> = []
-    const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(
+    const spy = spyParentRead().mockImplementation(
       () => new Promise((res) => { resolvers.push(res as (p: { hidden: true } | null) => void) }),
     )
     const ctx = makeContext()
@@ -1108,7 +1164,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
   })
 
   it('re-reads the board instead when more than 20 cards are listed', async () => {
-    const spy = vi.spyOn(cardsApi, 'getCardParent')
+    const spy = spyParentRead()
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -1122,7 +1178,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
 
   it('card.unarchived re-reads the restored card parent, which the frame never carries', async () => {
     const parent = { hidden: true as const }
-    const spy = vi.spyOn(cardsApi, 'getCardParent').mockResolvedValue(parent)
+    const spy = spyParentRead().mockResolvedValue(parent)
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -1140,7 +1196,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     const siblingsBoard = () => makeBoard({ cards: [makeCard({ id: 5 }), makeCard({ id: 6 }), makeCard({ id: 8 })] })
 
     it('reads one listed card on this board and applies its parent to every listed sibling', async () => {
-      const spy = vi.spyOn(cardsApi, 'getCardParent').mockResolvedValue(shared)
+      const spy = spyParentRead().mockResolvedValue(shared)
       const ctx = makeContext({ board: siblingsBoard() })
       mockBoardContextValue = ctx
       render(<BoardView />)
@@ -1156,7 +1212,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
     })
 
     it('falls back to per-card reads when the representative is no longer a child', async () => {
-      const spy = vi.spyOn(cardsApi, 'getCardParent').mockImplementation(async (_b, id) => (id === 5 ? null : shared))
+      const spy = spyParentRead().mockImplementation(async (_b, id) => (id === 5 ? null : shared))
       const ctx = makeContext({ board: siblingsBoard() })
       mockBoardContextValue = ctx
       render(<BoardView />)
@@ -1171,7 +1227,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
 
     it('reads nothing for ids not on this board, keeps the last value on a failed read, and drops a stale read', async () => {
       const resolvers: Array<(p: CardParent | null) => void> = []
-      const spy = vi.spyOn(cardsApi, 'getCardParent')
+      const spy = spyParentRead()
         .mockRejectedValueOnce(new Error('x'))
         .mockImplementation(() => new Promise((res) => { resolvers.push(res) }))
       const ctx = makeContext({ board: siblingsBoard() })
@@ -1195,7 +1251,7 @@ describe('BoardView — card.parent_changed (#1104)', () => {
   })
 
   it('answers the card detail refetch event, and skips a failed read', async () => {
-    const spy = vi.spyOn(cardsApi, 'getCardParent').mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(null)
+    const spy = spyParentRead().mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(null)
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -1383,7 +1439,7 @@ describe('BoardView — card.children_changed (#2210) and rename reload (#2416)'
   })
 
   it('a card.parent_changed with reload re-reads the board (#2416)', async () => {
-    const spy = vi.spyOn(cardsApi, 'getCardParent')
+    const spy = spyParentRead()
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)

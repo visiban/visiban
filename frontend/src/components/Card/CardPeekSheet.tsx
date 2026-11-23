@@ -24,6 +24,8 @@ import CardPeekHistory from "./CardPeekHistory";
 import CustomFieldValueDisplay from "./CustomFieldValueDisplay";
 import { colorChipStyle } from "../../utils/colorContrast";
 import Avatar from "../Common/Avatar";
+import { activeDueDate } from "../../utils/plannedFields";
+import { agingReference } from "../../utils/agingTint";
 
 const OUTSIDE_CONTROL_SELECTOR = 'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="link"], [role="menuitem"]';
 
@@ -274,9 +276,11 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const lane = board.swimlanes.find((s) => s.id === card.swimlane);
   // A card payload that omits labels (older server, partial socket update) still opens the sheet (#2391).
   const labels = card.labels ?? [];
-  const overdue = isOverdue(card.due_date, !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
-  const idleDays = card.last_moved_at
-    ? Math.floor((Date.now() - new Date(card.last_moved_at).getTime()) / 86_400_000)
+  const overdue = isOverdue(activeDueDate(card), !!board.columns.find((c) => c.id === card.column)?.is_done || !!card.archived_at);
+  // The card face's aging reference: a released planned child counts from its release (#2371).
+  const agingRef = agingReference(card);
+  const idleDays = agingRef
+    ? Math.floor((Date.now() - new Date(agingRef).getTime()) / 86_400_000)
     : 0;
   const banner = overdue && card.due_date
     ? `Was due ${formatDateStr(card.due_date, userDateFormat)}`

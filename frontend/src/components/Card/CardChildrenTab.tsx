@@ -42,6 +42,8 @@ interface Props {
   canHaveChildren?: boolean;
   /** The parent's column, for the Add child dialog's header line. */
   cardColumnName?: string;
+  /** The parent board's columns after the parent's (#2371), for Add child's "Needed". */
+  laterColumns?: { id: number; name: string }[];
   state: ChildrenState;
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
@@ -74,7 +76,7 @@ const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding 
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false }: Props) {
+export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
@@ -561,6 +563,7 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
           cardId={cardId}
           parentTitle={cardTitle}
           parentColumn={cardColumnName}
+          laterColumns={laterColumns}
           members={board.members}
           onWriteStart={beginWrite}
           onWriteFailed={() => { localWrite.current = false; }}

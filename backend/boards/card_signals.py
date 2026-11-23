@@ -29,7 +29,7 @@ import datetime
 import zoneinfo
 
 from django.conf import settings
-from django.db.models import Exists, F, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 
 
@@ -76,7 +76,52 @@ def overdue_q(today):
     exclude done or archived cards; compose with :func:`open_cards_q`, or use
     :func:`overdue_signal_q`, which does.
     """
-    return Q(due_date__lt=today)
+    return Q(due_date__lt=today) & not_planned_q()
+
+
+def planned_link_exists():
+    """EXISTS a planned link for the outer ``Card`` (#2371): THE planned predicate.
+
+    A planned child has ``needed_at_column`` set and ``planned_released_at``
+    NULL. Boolean only and keyed on ``child_id``: it selects no parent id, no
+    column and no board, so a surface with no viewer (share link, export, MCP,
+    the digests) can apply it without learning anything about the parent
+    (Rule 19). EXISTS, not a join through the reverse one-to-one, so a negated
+    lookup cannot drop cards with no link at all.
+    """
+    from .models import CardParentLink
+
+    return Exists(CardParentLink.objects.filter(
+        child_id=OuterRef("pk"), needed_at_column__isnull=False, planned_released_at__isnull=True,
+    ))
+
+
+def planned_released_at():
+    """When the outer ``Card``'s planned link was released, else NULL (#2371).
+
+    The Stale clock of a released child restarts here: it is stale only when
+    both its last move and this release predate the cutoff. The value is the
+    child's own link timestamp, never parent data. Not keyed on
+    ``needed_at_column``: the release outlives that field, which a column
+    delete (``SET_NULL``) or a later "Needed: Now" clears, and the restarted
+    clock must survive both.
+    """
+    from .models import CardParentLink
+
+    return Subquery(CardParentLink.objects.filter(
+        child_id=OuterRef("pk"), planned_released_at__isnull=False,
+    ).values("planned_released_at")[:1])
+
+
+def not_planned_q():
+    """Cards whose due date counts: every card except a planned child (#2371).
+
+    A planned child's date is stored but inactive until it is released, so it
+    is never Overdue or Due soon (and never Stale, see
+    ``serializers._annotate_is_stale``). Every other card, To do included,
+    keeps its date exactly as before.
+    """
+    return ~planned_link_exists()
 
 
 def overdue_signal_q(today):

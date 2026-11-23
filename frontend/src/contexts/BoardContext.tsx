@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
 import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardPlannedFields } from "../utils/plannedFields";
 
 export interface BoardContextType {
   board: BoardFull | null;
@@ -61,8 +62,8 @@ export interface BoardContextType {
   evictSwimlane: (swimlaneUid: string) => void;
   evictCardByUid: (cardUid: string) => void;
   mergeBoardState: (patch: Partial<BoardFull>) => void;
-  /** Set only `parent` on the given cards: the `card.parent_changed` re-read (#1104). */
-  applyCardParents: (parents: ReadonlyMap<number, CardParent | null>) => void;
+  /** Set only `parent` (and, when given, the planned fields, #2371) on the given cards: the `card.parent_changed` re-read (#1104). */
+  applyCardParents: (parents: ReadonlyMap<number, CardParent | null>, planned?: ReadonlyMap<number, CardPlannedFields>) => void;
   /** Set only `children_rollup` on the given cards: the `card.children_changed` re-read (#2210). */
   /** `null` drops a card's rollup (#2446: a leftover parent lost its last child). */
   applyCardChildrenRollups: (rollups: ReadonlyMap<number, CardChildrenRollup | null>) => void;

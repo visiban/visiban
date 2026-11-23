@@ -53,7 +53,7 @@ from .permissions import (
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
+    CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     CardGateTransition, StageTrack, SubColumn, SwimlaneTrackException,
@@ -3169,6 +3169,62 @@ def _annotate_column_entered_at(qs):
     )
 
 
+def _annotate_planned_clock(qs):
+    """Annotate ``_planned_active`` and ``_planned_released_at`` (#2371). Idempotent.
+
+    The planned half of the Stale rule, shared by every ``is_stale`` reader so
+    a card reports the same value on every surface (Rule 10): a planned child
+    is never stale, and a released child's clock restarts at the release.
+    Boolean and the child's own link timestamp only, no parent data, so the
+    share link, export, MCP and the digests may carry it (Rule 19).
+    """
+    if "_planned_active" in qs.query.annotations:
+        return qs
+    from .card_signals import planned_link_exists, planned_released_at
+
+    return qs.annotate(_planned_active=planned_link_exists(), _planned_released_at=planned_released_at())
+
+
+def _planned_stale_exempt(obj, cutoff):
+    """True when the planned rule keeps ``obj`` from being stale at ``cutoff`` (#2371).
+
+    Reads :func:`_annotate_planned_clock`'s annotations; a card that did not
+    come through an annotated queryset (a single card serialized after a
+    write) reads its link row instead, one query, so it still agrees with the
+    list it will be merged into rather than silently skipping the rule.
+    """
+    if hasattr(obj, "_planned_active"):
+        active, released = obj._planned_active, obj._planned_released_at
+    else:
+        # Any link row, not only one with Needed set: a release survives its
+        # column's delete and a later "Needed: Now" (see planned_released_at).
+        rows = list(
+            CardParentLink.objects.filter(child_id=obj.pk)
+            .values_list("needed_at_column_id", "planned_released_at")[:1]
+        )
+        needed, released = rows[0] if rows else (None, None)
+        active = needed is not None and released is None
+    return bool(active) or (released is not None and released >= cutoff)
+
+
+def _row_is_stale(obj):
+    """Per-row ``is_stale`` for a card read without ``_is_stale_annotated``.
+
+    The same rule as :func:`_annotate_is_stale`, with the card's own board's
+    threshold (``obj.board`` must be select_related). Shared by the card, the
+    share-link and the cross-board query serializers so they cannot disagree.
+    """
+    threshold = obj.board.staleness_threshold_days
+    now = timezone.now()
+    cutoff = now - datetime.timedelta(days=threshold)
+    if _planned_stale_exempt(obj, cutoff):
+        return False
+    last_moved_at = _last_moved_at(obj)
+    if last_moved_at is not None:
+        return last_moved_at < cutoff
+    return (now - obj.created_at).days >= threshold
+
+
 def _annotate_is_stale(qs, stale_cutoff):
     """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
 
@@ -3188,9 +3244,14 @@ def _annotate_is_stale(qs, stale_cutoff):
     # Reuse the _last_moved_at annotation (#1883) rather than running a second
     # correlated subquery for the same value; _annotate_last_move is
     # idempotent, so callers may apply it before or after this.
-    qs = _annotate_last_move(qs)
+    qs = _annotate_planned_clock(_annotate_last_move(qs))
     return qs.annotate(
         _is_stale_annotated=_db_models.Case(
+            # Planned children (#2371): never stale while planned, and once
+            # released the clock is max(last move, release), so a release
+            # inside the window keeps the card fresh whatever its last move.
+            _db_models.When(_planned_active=True, then=_db_models.Value(False)),
+            _db_models.When(_planned_released_at__gte=stale_cutoff, then=_db_models.Value(False)),
             # Card has at least one movement and it predates the cutoff.
             _db_models.When(
                 _last_moved_at__lt=stale_cutoff,
@@ -3572,7 +3633,9 @@ def _card_queryset(qs, stale_cutoff=None):
             _active_blockers_prefetch(),
         )
     )
-    qs = _annotate_column_entered_at(_annotate_last_move(qs))
+    # The planned clock (#2371) is annotated on every card read, not only with
+    # a stale_cutoff, so the per-row fallbacks need no query of their own.
+    qs = _annotate_planned_clock(_annotate_column_entered_at(_annotate_last_move(qs)))
     if stale_cutoff is not None:
         qs = _annotate_is_stale(qs, stale_cutoff)
     return qs
@@ -3715,6 +3778,86 @@ class CardParentField(serializers.Field):
 
     def to_representation(self, value):
         return value
+
+
+#: The planned-child fields (#2371, since 1.3), each opt-in like ``parent``.
+_PLANNED_FIELD_SCHEMAS = {
+    "planned": {"type": "boolean", "description": (
+        "Since 1.3 (#2371): this child is planned for a later parent column and not yet "
+        "released. Its `due_date` is stored but inactive: not Overdue, Due soon or Stale "
+        "until released."
+    )},
+    "needed_now": {"type": "boolean", "description": (
+        "Since 1.3 (#2371): this child was planned and has been released (its parent "
+        "reached or skipped past the column, its Needed column was deleted, or Needed was "
+        "set to Now by hand), and it has not left its board's first column since."
+    )},
+    "needed_at_column": {"type": "integer", "nullable": True, "description": (
+        "Since 1.3 (#2371): the parent board's column this child is needed at. `null` for "
+        "Needed: Now, and whenever the caller cannot open the parent's board."
+    )},
+    "needed_at_column_name": {"type": "string", "nullable": True, "description": (
+        "Since 1.3 (#2371): that column's name; `null` under the same rule."
+    )},
+    "planned_released_at": {"type": "string", "format": "date-time", "nullable": True, "description": (
+        "Since 1.3 (#2371): when the child stopped being planned (the parent reached the "
+        "column, the child was pulled, its column was deleted, or Needed was set to Now by "
+        "hand). Stale is measured from it after release."
+    )},
+    "needed_now_reason": {"type": "string", "enum": ["parent", "cancelled", None], "nullable": True, "description": (
+        "Since 1.3 (#2371): why a `needed_now` child was released, and `null` when it is not "
+        "needed now. `parent`: the parent reached or skipped past the Needed column. "
+        "`cancelled`: the plan was called off (its Needed column was deleted, or Needed was "
+        "set to Now by hand; deleting the Needed column of an already released link does the same, and writes no history row). The cause only; it names no parent, column or person."
+    )},
+}
+
+
+_PLANNED_NULLABLE_KEYS = frozenset({
+    "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
+})
+
+
+class CardPlannedField(serializers.Field):
+    """One planned-child field (#2371). Read-only, opt-in per call.
+
+    ``get_attribute`` raises ``SkipField`` without the planned context key, so
+    every write response, broadcast payload, export, MCP tool and webhook
+    omits it (#1075), exactly like :class:`CardParentField`; the map is filled
+    by ``parents_for_viewer`` in the same links query, so it costs no query.
+    A card absent from the map has no planned link (``NOT_PLANNED``).
+    """
+
+    def __init__(self, key, **kwargs):
+        self._key = key
+        kwargs.setdefault("source", "*")
+        kwargs["read_only"] = True
+        # Only the parent-board facts can be null (hidden from a viewer who cannot
+        # open the parent, or unset); ``planned`` and ``needed_now`` never are, and
+        # the schema must say so (tightening it after release is a type change).
+        kwargs.setdefault("allow_null", key in _PLANNED_NULLABLE_KEYS)
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        from .services.planned_children import CARD_PLANNED_CONTEXT_KEY, NOT_PLANNED
+
+        planned = self.context.get(CARD_PLANNED_CONTEXT_KEY)
+        if planned is None:
+            raise serializers.SkipField()
+        return planned.get(instance.pk, NOT_PLANNED)[self._key]
+
+    def to_representation(self, value):
+        return value
+
+
+def _planned_field(key):
+    # One subclass per key: ``extend_schema_field`` stores its schema on the
+    # class it decorates, so decorating ``CardPlannedField`` itself once per key
+    # left every field documented as the last one (a date-time string).
+    # They are optional in responses through
+    # ``schema_hooks._OMITTABLE_RESPONSE_PROPERTIES``, like ``parent``.
+    cls = type(f"CardPlannedField_{key}", (CardPlannedField,), {})
+    return extend_schema_field({"readOnly": True, **_PLANNED_FIELD_SCHEMAS[key]})(cls)(key)
 
 
 #: Serializer-context key holding ``card_links.rollups_for_viewer``'s result
@@ -4054,6 +4197,13 @@ class CardSerializer(serializers.ModelSerializer):
     parent = CardParentField()
     # Child rollup (#2210). Omitted unless the caller set CARD_CHILDREN_ROLLUP_CONTEXT_KEY.
     children_rollup = CardChildrenRollupField()
+    # Planned children (#2371). Omitted unless the caller set CARD_PLANNED_CONTEXT_KEY.
+    planned = _planned_field("planned")
+    needed_now = _planned_field("needed_now")
+    needed_at_column = _planned_field("needed_at_column")
+    needed_at_column_name = _planned_field("needed_at_column_name")
+    planned_released_at = _planned_field("planned_released_at")
+    needed_now_reason = _planned_field("needed_now_reason")
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -4127,6 +4277,10 @@ class CardSerializer(serializers.ModelSerializer):
             # Parent card (#1104, since 1.3). Read-only and opt-in per call;
             # see CardParentField.
             "parent", "children_rollup",
+            # Planned children (#2371, since 1.3). Read-only and opt-in per
+            # call, like parent; Needed changes through POST .../needed/.
+            "planned", "needed_now", "needed_at_column", "needed_at_column_name",
+            "planned_released_at", "needed_now_reason",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
@@ -4342,6 +4496,9 @@ class CardSerializer(serializers.ModelSerializer):
         return _checklist_open_assignee_ids(obj)
 
     def get_is_stale(self, obj) -> bool:
+        # Planned children (#2371) are handled inside both paths below
+        # (_annotate_is_stale and _row_is_stale), never from the viewer-named
+        # planned context, so every endpoint reports the same value (Rule 10).
         # Fast path: use the queryset-level annotation when it was pre-computed
         # by _card_queryset(stale_cutoff=...) — avoids a timezone.now() call per
         # card and mirrors the per-row fallback exactly (#669).
@@ -4351,12 +4508,7 @@ class CardSerializer(serializers.ModelSerializer):
         # stale_cutoff (e.g. single-card re-fetch after a move or archive).
         # obj.board requires select_related("board") on the queryset.
         # _last_moved_at() reads the _annotate_last_move annotation (#1883).
-        threshold = obj.board.staleness_threshold_days
-        cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_moved_at = _last_moved_at(obj)
-        if last_moved_at is not None:
-            return last_moved_at < cutoff
-        return (timezone.now() - obj.created_at).days >= threshold
+        return _row_is_stale(obj)
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):
@@ -5429,11 +5581,16 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # ``parent`` (fail closed, #1075).
         if "card_parent_viewer" in self.context:
             from .services import card_links
+            from .services.planned_children import CARD_PLANNED_CONTEXT_KEY
+
+            ctx[CARD_PLANNED_CONTEXT_KEY] = {}
             ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
                 [c.pk for c in cards], self.context["card_parent_viewer"],
                 # ``obj`` came from get_board_for_user() with the ancestor chain,
                 # so the children's board costs no extra query (#2536).
                 known_boards=(obj,),
+                # #2371: filled from the same links query, no extra query.
+                planned=ctx[CARD_PLANNED_CONTEXT_KEY],
             )
             # ``children_rollup`` (#2210), for the same viewer: every card of
             # a parent-tier board, and on a flag-off board only its leftover
@@ -6290,12 +6447,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # Fallback for cold-cache callers that did not annotate (e.g. tests
         # that build a public card queryset by hand).  obj.board is available
         # via select_related("board") in the public get_cards() prefetch.
-        threshold = obj.board.staleness_threshold_days
-        cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_moved_at = _last_moved_at(obj)
-        if last_moved_at is not None:
-            return last_moved_at < cutoff
-        return (timezone.now() - obj.created_at).days >= threshold
+        return _row_is_stale(obj)
 
 
 class PublicBoardSerializer(serializers.ModelSerializer):

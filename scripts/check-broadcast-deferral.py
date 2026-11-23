@@ -312,6 +312,16 @@ LOOP_FANOUT_BY_DESIGN: dict[str, str] = {
         "all of a parent's children share one board, so in practice it is a "
         "one-iteration loop."
     ),
+    "backend/boards/services/planned_children.py::clear_for_deleted_column": (
+        "One card.parent_changed per CHILD BOARD that held a planned child "
+        "needing the deleted column (#2371). The loop iterates child boards "
+        "(distinct channels), grouped above the loop, and each frame carries "
+        "only that board's own child card ids (ids only, no titles or parent "
+        "data), so they cannot be collapsed into one payload; the same shape "
+        "as announce_parent_changed. record_board_event() defers each publish "
+        "with on_commit. Bounded by the number of boards that planned children "
+        "of one parent's column, in practice a handful."
+    ),
     "backend/boards/admin.py::CardAdmin.delete_queryset": (
         "Admin bulk delete spans boards, so the loop iterates channels. Each "
         "frame is that board's own card.deleted; there is no single channel to "

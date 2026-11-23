@@ -56,6 +56,7 @@ copy_tree() {
   ( cd "$REPO_ROOT" && tar cf - \
       backend/boards/views backend/boards/models.py backend/boards/serializers.py \
       backend/groups/views.py backend/git_lens/views.py backend/webhooks/views.py \
+      backend/boards/services/planned_children.py \
   ) | ( cd "$1" && tar xf - )
 }
 

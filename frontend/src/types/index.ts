@@ -878,6 +878,24 @@ export interface Card {
    * replaces a card wholesale carries the last value over (like `parent`).
    */
   children_rollup?: CardChildrenRollup;
+  /**
+   * Planned children (#2371, since 1.3). Present on the same reads as `parent` and absent from writes and frames,
+   * so a store that replaces a card wholesale carries the last value over. `planned`: Needed is a later parent
+   * column and the child is not released yet, so its `due_date` is inactive (never Overdue, Due soon or Stale).
+   */
+  planned?: boolean;
+  /** Released (see `needed_now_reason` for why) and still in To do, with no move since. */
+  needed_now?: boolean;
+  /** The parent board's column; `null` for Now and whenever the viewer can't open the parent's board. */
+  needed_at_column?: number | null;
+  needed_at_column_name?: string | null;
+  planned_released_at?: string | null;
+  /**
+   * Why a `needed_now` child was released; `null` when it is not needed now. `parent`: the parent reached (or
+   * skipped past) the Needed column. `cancelled`: the plan was called off (the column was deleted, or Needed set to
+   * Now). The cause only, so every reader of the child gets it, including one who can't open the parent.
+   */
+  needed_now_reason?: "parent" | "cancelled" | null;
 }
 
 /** Child progress when the viewer can open the child board (#2210). States partition `total`. */
@@ -1323,7 +1341,11 @@ export type CardActivityEventType =
   // #2208: the other end's whole board was deleted. On the parent's row
   // to_value is how many children it lost; no board name is ever stored.
   | "children_removed_board_deleted"
-  | "parent_removed_board_deleted";
+  | "parent_removed_board_deleted"
+  // #2371 planned children. from_value is a cause code, to_value a due date or
+  // "planned"/"now"; neither names the parent, its column or who moved it.
+  | "planned_released"
+  | "needed_changed";
 
 export interface CardActivity {
   id: number;

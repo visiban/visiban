@@ -931,7 +931,12 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     # Adding it to a persisted payload would need a redaction rule first.
     # #2210: ``children_rollup`` is opt-in the same way and holds only counts.
     # #2211: ``notify_assignee`` is write-only (create request flag), never rendered.
-    CARD_NEVER_PERSISTED = {"parent", "children_rollup", "notify_assignee"}
+    # The planned-child fields (#2371) are opt-in read fields like ``parent``: a
+    # history row never stores the parent's column, which a reader may not open.
+    CARD_NEVER_PERSISTED = {
+        "parent", "children_rollup", "notify_assignee",
+        "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
+    }
 
     def test_card_fields(self):
         self.assertEqual(
