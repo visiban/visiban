@@ -990,10 +990,13 @@ test.describe('phone board settings modal (#2404)', () => {
 // Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
 // block below (Delete column, Archive card, Add child, both Delete field dialogs, Move board, Trello import, Join a
 // group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
-// Not swept, and why: GroupDetail "Delete group" and "Delete board?", Admin "Add User" and "Transfer boards &
-// deactivate" (their pages need a group/admin server state whose mock redirected to the login page in the e2e harness;
-// follow-up needed), Lens connection and Policy confirm (need git-lens / column-policy state), ProfileModal (no
-// importer: unreachable in the app). BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
+// Not swept, tracked in #2407: GroupDetail "Delete board?" (~L2067) and "Delete group" (~L2105) and Admin "Add user"
+// (~L144) and "Transfer boards & deactivate" (~L567): their pages need group/admin server state, and the harness
+// redirected to the login page after a second auth/user/ call; CreateGroupModal's post-creation "created" phase
+// (CreateGroupModal.tsx ~L104); the "Delete this card?" branch of CardDetail.tsx (~L2845, one wrapper shared with
+// Archive, probably covered by CardDeleteConfirm but unverified: no e2e here opens it); PolicyConfirmModal and
+// LensConnectionModal (need column-policy / git-lens state); ProfileModal (dead code: imported only by its own test).
+// BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
 // exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
@@ -1035,7 +1038,7 @@ test.describe('phone ModalWrapper modals (#2407)', () => {
       await page.goto(`/boards/${BOARD_FULL.id}`)
       await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
       await open(page)
-      const dialog = name ? page.getByRole('dialog', { name, exact: true }) : page.getByRole('dialog').last()
+      const dialog = name ? page.getByRole('dialog', typeof name === 'string' ? { name, exact: true } : { name }) : page.getByRole('dialog').last()
       await expect(dialog).toBeVisible()
       expect(await smallControls(page, ['[role="dialog"]']), label).toEqual([])
       const close = dialog.getByRole('button', { name: 'Close' })
@@ -1064,7 +1067,7 @@ async function routeCardDetail(page: Page, boardId: number, card: unknown) {
   await page.route(`**/api/v1/boards/${boardId}/cards/${CARD.id}/timeline/**`, ok({ count: 0, next: null, previous: null, results: [] }))
   await page.route(new RegExp(`/api/v1/boards/${boardId}/cards/${CARD.id}/children/(\\?.*)?$`), ok({ count: 0, visible: true, offset: 0, limit: 50, results: [] }))
 }
-const REMAINING: Array<[string, string, Extra, (page: Page) => Promise<void>]> = [
+const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<void>]> = [
   ['Force password change', '', { user: { must_change_password: true }, start: '/' }, async () => {}],
   ['Force username rename', '', { user: { must_change_username: true }, start: '/' }, async () => {}],
   ['Connect provider', '', { user: { pending_connect_provider: 'github', pending_connect_identity: 'someone' }, start: '/' }, async () => {}],
@@ -1092,7 +1095,8 @@ const REMAINING: Array<[string, string, Extra, (page: Page) => Promise<void>]> =
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
     await page.getByRole('button', { name: 'Archive card' }).dispatchEvent('click')
   }],
-  ['Add child', 'Add child', {
+  // Add child retitles itself `Add child to <board>` once the target board resolves, so match the prefix.
+  ['Add child', /^Add child/, {
     board: BOARD_TEAM as unknown as typeof BOARD_FULL,
     setup: async (page) => {
       await routeCardDetail(page, BOARD_TEAM.id, CARD)
@@ -1135,7 +1139,7 @@ test.describe('phone ModalWrapper modals, remaining sites (#2407)', () => {
       await page.goto(extra.start ?? `/boards/${board.id}`)
       if (!extra.start) await expect(page.getByTestId('phone-board')).toBeVisible({ timeout: 10_000 })
       await open(page)
-      const dialog = name ? page.getByRole('dialog', { name, exact: true }) : page.getByRole('dialog').last()
+      const dialog = name ? page.getByRole('dialog', typeof name === 'string' ? { name, exact: true } : { name }) : page.getByRole('dialog').last()
       await expect(dialog).toBeVisible({ timeout: 10_000 })
       expect(await smallControls(page, ['[role="dialog"]']), label).toEqual([])
       const close = dialog.getByRole('button', { name: 'Close' })

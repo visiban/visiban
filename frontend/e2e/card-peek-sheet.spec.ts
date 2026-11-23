@@ -178,6 +178,8 @@ test.describe('card peek sheet', () => {
         expect(v.h).toBeGreaterThanOrEqual(43.5)
         expect(v.w).toBeGreaterThanOrEqual(43.5)
       }
+      // NOTE: the scrollTop assertions below are a sanity check, not proof of #2402: only the clipped-box check above
+      // goes red without the fix.
       const scrolls = () => card.evaluate((el) => {
         const out: number[] = []
         for (let p: Element | null = el; p; p = p.parentElement) out.push(p.scrollTop)
