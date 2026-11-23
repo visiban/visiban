@@ -669,11 +669,23 @@ class ConcurrentLinkTests(_LinkFixture, TransactionTestCase):
         return results[second_name]
 
     def test_flag_flip_waits_for_the_link_and_is_refused(self):
+        # #2446: only turning the CHILD board ON is refused; the link holds
+        # both board locks, so the flip waits, then counts the new link.
+        res = self._race("flipper", lambda: self._client(self.owner).patch(
+            f"/api/v1/boards/{self.cboard.pk}/", {"cards_can_have_children": True}, format="json",
+        ))
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(Board.objects.get(pk=self.cboard.pk).cards_can_have_children)
+
+    def test_turn_off_waits_for_the_link_and_keeps_it(self):
+        # #2446: turning the parent board OFF is never refused and the
+        # just-committed link survives as a leftover parent.
         res = self._race("flipper", lambda: self._client(self.owner).patch(
             f"/api/v1/boards/{self.pboard.pk}/", {"cards_can_have_children": False}, format="json",
         ))
-        self.assertEqual(res.status_code, 400)
-        self.assertTrue(Board.objects.get(pk=self.pboard.pk).cards_can_have_children)
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Board.objects.get(pk=self.pboard.pk).cards_can_have_children)
+        self.assertEqual(CardParentLink.objects.count(), 1)
 
     def test_second_parent_for_the_same_child_is_refused(self):
         p2 = _make_card(self.parent.column, self.parent.swimlane, title="P2")
