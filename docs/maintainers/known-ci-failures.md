@@ -516,6 +516,30 @@ nothing re-runs it automatically.
 `scripts/check-suppression-issues.sh`. A green latest `main` pipeline is authoritative even if
 a change-conditional job that failed earlier did not re-run in it.
 
+## `backend-test-pg-matrix` leg red for a failure the MR did not cause (#2481)
+
+**Signature:** a `backend-test-pg-matrix` leg (PG 15, 16 or 18) fails on an MR whose diff cannot explain
+it. Each pipeline runs one rotating group, `(CI_PIPELINE_IID mod 8) + 1`, and the job log names it.
+
+**Why a retry will not help:** a retry reruns the same pipeline IID, so it gets the same group and
+the same result. Only a new pipeline rotates to another group.
+
+**Triage:**
+
+1. Open the latest `backend-test-pg-matrix-nightly` run (schedules only) and look at the same group
+   and major. It runs all 8 groups on every major, so a red there confirms a pre-existing
+   failure; a green there points back at the MR.
+2. File a failure specific to one major (or one group) as its own issue, with the group, the major
+   and the failing test names. Do not fix it inside an unrelated MR.
+3. A leg that is red on a `main` push pipeline makes `main` red: `main-red-tripwire` opens the single
+   `main is red` issue and `main-red-guard` fails every MR pipeline until `main` is green. See
+   [`main-red-guard` fails an MR](#main-red-guard-fails-an-mr-main-is-red) for the guard.
+
+**Unblocking:** the only escape hatch that exists is the **`main-fix`** label, which lets the fix MR
+past `main-red-guard`; it does not skip the red leg itself. Fix the failing test, or its cause, on a
+branch that carries the label. There is no documented revert procedure; do not label an unrelated
+MR `main-fix`.
+
 ## Hermetic CI-script tests: protected variables are poisoned (#2461)
 
 Protected variables (`GITLAB_API_TOKEN`, ...) exist on `main` pipelines but not in MR pipelines
