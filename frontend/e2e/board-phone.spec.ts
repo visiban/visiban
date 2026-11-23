@@ -993,8 +993,8 @@ test.describe('phone board settings modal (#2404)', () => {
 // Also swept in REMAINING: GroupDetail "Delete board?" and "Delete group" (group server state mocked by routeGroup),
 // CreateGroupModal's post-creation "created" phase, the "Delete this card?" branch of CardDetail.tsx (shares one
 // wrapper with Archive), PolicyConfirmModal and LensConnectionModal.
-// Not a sweep target: ProfileModal ("Your profile") is unreachable. Nothing but its own unit test imports it, so no
-// route or opener can show it; removal is tracked separately rather than swept here.
+// The one site left out of the sweep: ProfileModal ("Your profile") is unreachable. Nothing but its own unit test
+// imports it, so no route or opener can show it; it is not swept, and its removal is tracked in #2555.
 // BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
 // exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
