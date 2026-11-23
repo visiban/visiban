@@ -344,12 +344,14 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
                   key={sub.id}
                   id={`${id}:${i}`}
                   label={`${column.name}: ${sub.name}`}
+                  name={sub.name}
                   first={i === 0}
                   dragging={isDraggingCard}
+                  namePill={!blockedBy && entryCriteria.length === 0}
                 >
                   {(bySub[i] ?? []).map((card) => renderCard(card))}
-                  {/* A quiet marker so an empty sub-column reads as empty, not missing. */}
-                  {(bySub[i]?.length ?? 0) === 0 && cards.length > 0 && <p data-testid="sub-column-empty" className="px-1 py-2 text-xs text-fg-muted">Empty</p>}
+                  {/* A quiet marker so an empty sub-column reads as empty, not missing, and names itself (#2531). aria-hidden: the group's aria-label already names it. */}
+                  {(bySub[i]?.length ?? 0) === 0 && cards.length > 0 && <p data-testid="sub-column-empty" title={sub.name} aria-hidden="true" className="px-1 py-2 text-xs text-fg-muted truncate">{sub.name}</p>}
                 </SubColumnDrop>
               ))}
             </div>
@@ -462,7 +464,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
  * here sends `gates_passed` = its index through the one Move path. The
  * dashed left edge is the spec's divider between sub-columns.
  */
-function SubColumnDrop({ id, label, first, dragging, children }: { id: string; label: string; first: boolean; dragging: boolean; children: React.ReactNode }) {
+function SubColumnDrop({ id, label, name, first, dragging, namePill, children }: { id: string; label: string; name: string; first: boolean; dragging: boolean; namePill: boolean; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
     <div
@@ -470,11 +472,22 @@ function SubColumnDrop({ id, label, first, dragging, children }: { id: string; l
       role="group"
       aria-label={label}
       data-sub-column-drop={id}
-      className={`flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-boundary pl-1"} ${
+      className={`relative flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-boundary pl-1"} ${
         dragging && isOver ? "bg-primary/20 outline-dashed outline-1 outline-info" : ""
       }`}
     >
       {children}
+      {/* Drag pill (#2531): names the sub-column the card would land in. Bottom-anchored so it never covers the entry-criteria or WIP-blocked pills; aria-hidden so keyboard moves do not announce it. */}
+      {/* The cell's own drop message (limit verdict or entry criteria) wins: only one pill shows at a time. */}
+      {dragging && isOver && namePill && (
+        <span
+          data-testid="sub-column-drag-name"
+          aria-hidden="true"
+          className="absolute bottom-1 left-1 z-[6] max-w-[calc(100%-0.5rem)] truncate rounded bg-canvas px-1.5 py-0.5 shadow text-xs font-medium text-fg-secondary pointer-events-none"
+        >
+          {name}
+        </span>
+      )}
     </div>
   );
 }

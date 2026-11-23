@@ -41,14 +41,16 @@ export const COLUMN_WIDTH_MAX = 600;
 
 /**
  * - `column`: a normal stage, `minmax(0, 1fr)`.
- * - `split`: a stage split into two sub-columns, `minmax(0, 2fr)` (#2278).
+ * - `split`: a stage split into two sub-columns, `minmax(0, 2fr)` (#2278). A split stage
+ *   takes one column's width per sub-column (#2531): `N fr` for N sub-columns, so a
+ *   three- or four-way stage carries `subs` on the object form.
  * - `narrow`: a hidden or collapsed column stub, fixed 40px.
  * - `{ kind, width }`: a column (or split stage) the user resized. The saved px
  *   width becomes the track's weight, `width / 220` fr, so a column dragged to
  *   440 is twice as wide as a default one at any board width. A width of 220
  *   renders exactly like the plain `column` / `split` track.
  */
-export type BoardTrack = "column" | "split" | "narrow" | { kind: "column" | "split"; width: number };
+export type BoardTrack = "column" | "split" | "narrow" | { kind: "column" | "split"; width: number; subs?: number };
 
 /** Clamp a saved column width (or the default when unset) to the resize bounds. */
 export function clampColumnWidth(width: number | undefined | null): number {
@@ -57,9 +59,12 @@ export function clampColumnWidth(width: number | undefined | null): number {
 }
 
 /** A column's track: plain `column` at the default width, a weighted one otherwise. */
-export function columnTrack(width: number | undefined | null, split = false): BoardTrack {
+export function columnTrack(width: number | undefined | null, split: boolean | number = false): BoardTrack {
   const w = clampColumnWidth(width);
-  const kind = split ? "split" : "column";
+  const subs = typeof split === "number" ? split : split ? 2 : 0;
+  const kind = subs >= 2 ? "split" : "column";
+  // Two sub-columns keep the plain "split" track (2fr); wider stages carry their count.
+  if (kind === "split" && subs > 2) return { kind, width: w, subs };
   return w === DEFAULT_COLUMN_WIDTH ? kind : { kind, width: w };
 }
 
@@ -78,18 +83,21 @@ function trackFr(track: BoardTrack): number {
   if (track === "narrow") return 0;
   if (track === "split") return 2;
   if (track === "column") return 1;
-  return (track.kind === "split" ? 2 : 1) * (track.width / DEFAULT_COLUMN_WIDTH);
+  return (track.kind === "split" ? (track.subs ?? 2) : 1) * (track.width / DEFAULT_COLUMN_WIDTH);
 }
 
 /**
- * Narrowest px width a track may render at: 160 for a column, two 160px
- * sub-columns plus their 8px gap for a split stage, 40 for a stub. BoardView
+ * Narrowest px width a track may render at: 160 for a column, N 160px
+ * sub-columns plus their 8px gaps for a split stage, 40 for a stub. BoardView
  * publishes these on the grid as `data-track-floors` for `measureTrackLeftOf`.
  */
 export function trackFloor(track: BoardTrack): number {
   if (track === "narrow") return BOARD_NARROW_TRACK;
   const kind = typeof track === "string" ? track : track.kind;
-  if (kind === "split") return BOARD_TRACK_FLOOR * 2 + BOARD_GRID_GAP;
+  if (kind === "split") {
+    const subs = typeof track === "string" ? 2 : (track.subs ?? 2);
+    return BOARD_TRACK_FLOOR * subs + BOARD_GRID_GAP * (subs - 1);
+  }
   return BOARD_TRACK_FLOOR;
 }
 

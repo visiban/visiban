@@ -2731,11 +2731,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // (`minmax(0, 1fr)` at the default 220px), 40px for a hidden or collapsed
   // stub, 8px between. Every row reads this one string, so a resize moves the
   // header cell and every lane cell of that column together.
-  // A gated stage (#1102) takes a double-width track while "Show sub-columns"
+  // A gated stage (#1102) takes one column's width per sub-column (#2531) while "Show sub-columns"
   // is on (#2278); off, it renders at normal width with progress bars.
   const showSubColumns = viewPrefs.showSubColumns !== false;
   const gridTracks = useMemo<BoardTrack[]>(
-    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id), showSubColumns && isGatedStage(col)))),
+    () => board.columns.map((col) => (isNarrowColumn(col.id) ? "narrow" : columnTrack(colWidths.get(col.id), showSubColumns && isGatedStage(col) ? stageSubColumns(col).length : false))),
     [board.columns, isNarrowColumn, colWidths, showSubColumns],
   );
   const gridTemplate = useMemo(() => boardGridTemplate(gridTracks), [gridTracks]);
@@ -3643,6 +3643,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               canEdit={canEdit}
               filteredCardIds={filteredCardIds}
               collapsedSwimlaneIds={collapsedSwimlaneIds}
+              showSubColumns={showSubColumns}
               onToggleSwimlane={toggleCollapsedSwimlane}
               selectedCardIds={selectedCardIds}
               highlightedCardId={highlightedCardId}
@@ -3708,6 +3709,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {board.columns.map((col, idx) => (
                 <React.Fragment key={col.id}>
                   <ColumnHeader
+                    showSubColumns={showSubColumns}
                     column={col}
                     cards={board.cards.filter((c) => c.column === col.id)}
                     boardId={board.id}

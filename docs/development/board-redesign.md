@@ -51,7 +51,7 @@ Top to bottom:
 
 The landmarks in `frontend/CLAUDE.md` § Top chrome do not change: `banner`, `navigation: Breadcrumb`, `navigation: Board toolbar`, `search: Board filters`, `main`.
 
-The column grid is one CSS grid template shared by the header row, every lane's cells and every collapsed strip: one `minmax(0, 1fr)` track per column and `minmax(0, 2fr)` for a column split into two sub-columns. Gap 8px. Below 1240px of board width the grid scrolls sideways inside its own box; the page does not.
+The column grid is one CSS grid template shared by the header row, every lane's cells and every collapsed strip: one `minmax(0, 1fr)` track per column and one column's width per sub-column for a split stage (`minmax(0, 2fr)` for two, `3fr` for three, `4fr` for four; #2531). Gap 8px. Below 1240px of board width the grid scrolls sideways inside its own box; the page does not.
 
 ## Toolbar and header
 
@@ -101,7 +101,7 @@ Each header is a panel tinted with the column color: color dot, name (wraps, nev
 | Under limit | "2 / 4" | column color, proportional |
 | At limit | "4 / 4" | column color, full |
 | Over limit | "8 / 6 over" in warning text | warning color, full |
-| Split stage | "8 / 8", then one divided row of sub-columns, each a bold name with its count right-aligned ("5 working" or "3 waiting") | as above |
+| Split stage | "8 / 8", then one row of sub-columns aligned to the lane's sub-column dividers (dashed, `border-line-boundary`). Each shows its name (bold, wraps to two lines) above its count. Working sub-columns show the bare count, and the last shows "N waiting" | as above |
 
 Headers stay visible when the board scrolls vertically.
 
@@ -144,7 +144,7 @@ Screenshot: `components.png`.
 - A cell is a well (the deepest surface) with 6px padding and 6px between cards.
 - Lane height follows the tallest cell. An empty cell is 56px tall.
 - An empty cell shows a quiet plus sign and the whole cell is the add target. On hover or focus it gains a dashed border and the label "Add card". A populated cell's blank space below the cards is a full-height "+ Add card" button with the same hover look.
-- A split cell is one well with a dashed vertical divider between its sub-columns.
+- A split cell is one well with a dashed vertical divider between its sub-columns. In a populated split cell an empty sub-column shows its own name in muted text; a fully empty cell shows no names. While a card is dragged, the hovered sub-column shows a name pill at its bottom (#2531).
 
 ## Cards
 
@@ -200,7 +200,7 @@ Screenshots: `board-dark.png`, `components.png`.
 
 The rule from #1102 and #1920 holds: if the order of the checks matters they are sub-columns; if not, they are tracks.
 
-- **Sub-columns** (#1102): a stage's ordered steps. The stage takes a double-width grid track. One WIP limit covers the whole stage. The last sub-column is counted as waiting.
+- **Sub-columns** (#1102): a stage's ordered steps. The stage takes one column's width of grid track per sub-column (two get `2fr`, four get `4fr`; floor 160px each plus the 8px gaps). One WIP limit covers the whole stage. The last sub-column is counted as waiting.
 - **Tracks** (#1920): facts that finish in any order. Each track on a card is done, open or not applicable, shown as a chip: check icon on a success tint, hollow circle with a border, or dash on a neutral fill. Icon and fill both change, so the state never depends on color alone.
 - The column structure is identical in every swimlane. A swimlane can only mark a track not applicable.
 - With "Show sub-columns" off, a split stage renders at normal width and each card shows a segmented progress bar, as #1102 specifies.
@@ -255,7 +255,7 @@ Screenshot: `components.png`, "Cells and drag and drop".
 Screenshot: `board-phone.png`.
 
 - One column at a time. A horizontally scrolling row of column buttons (color dot, name, count) selects it; under it, the column's limit line and meter.
-- A split stage adds a two-part segmented control for its sub-columns.
+- A split stage adds a segmented control with one segment per sub-column; each name truncates, the count never does, and the full name is the button's accessible name. With "Show sub-columns" off there is no switcher: the stage shows all its cards in one list, as the grid's unsplit cell does (#2531).
 - Lanes stack. Each lane band shows the name, "2 here", then lane fields and counts on a second line: the "N fields" toggle on a legacy board (every field `band_visibility` null, #2439; a board with tiers uses "Show N more") (then the first two lane fields while it is closed), overdue, stale, the lane WIP line and the rollup, in the desktop band's order and tiers (#2329). The first line is the one collapse target (44px); the second line sits outside it, because a URL field is a link and the "N fields" toggle is a button. Tapping an item on the second line, such as "4 overdue", does nothing; only line one collapses the lane. On a legacy board, admins get the same "Change field order" link after the open field grid as on the grid. "2 here" is the selected column's cell count, not the lane card count #2328 removed from the desktop band. Lane health, Add card and Lane actions are the band's last line, inside the tinted box behind a divider (#2277, #2498), and lanes sit further apart than a lane's own contents so each action row reads as its lane's. The second line uses the desktop band's tones (`board-dark.png`), not the dimmer `board-phone.png` draft, so a lane reads the same at every width.
 - Cards show title, subtitle, track chips with their state in words ("Technical: done"), label, status and pinned fields.
 - The same four tabs as desktop: Board, Summary, History, Analytics. Search is an icon button in the header; Filter, Activity, Export (when the viewer can export) and Settings (admins), then More, are icon buttons at the end of the tab strip, which is the second and last chrome row (#2348, about 92px at 390px against the png's 105). The Filter button also opens the View options. Star, Health, Notifications and the account menu stay in the header beside the board name; the png leaves them out, and this layout is an implementer proposal awaiting owner ratification in #2348, not an owner decision (the issue's ux-review proposed it, minus moving Search and folding Activity away). The board name gets about 82px at 390px beside six 44px header controls, under the 120px rule; moving Star and Health into More is the open follow-up. The tab strip scrolls (the active tab is scrolled into view and the right edge fades). With all five buttons it is 122px wide for 356px of tabs at 390px (#2435), so about one and a half tabs show at once; the toolbar stays one row (owner decision 2026-11-20). The connection status shows only when it is not healthy.
@@ -355,7 +355,7 @@ Decided in #2275: the lane WIP limit reuses #1150's `Swimlane.wip_limit`, and th
 For `ux-review` and `completeness-check` on the implementing MRs:
 
 - [ ] Toolbar holds only the four tabs, Filter, View, Activity, Export, Settings, the overflow menu and the connection status
-- [ ] One grid template drives headers, cells and collapsed strips; a split stage is double width
+- [ ] One grid template drives headers, cells and collapsed strips; a split stage takes one column's width per sub-column
 - [ ] Column names wrap and never truncate; the count line matches [Column headers](#column-headers)
 - [ ] The lane band replaces the label panel and wraps without sideways scroll
 - [ ] Only overdue cards have a colored border; stale is warning text with a clock icon

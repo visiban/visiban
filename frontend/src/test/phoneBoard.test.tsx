@@ -735,6 +735,39 @@ describe('PhoneBoard sub-column switcher (#2278)', () => {
     expect(screen.getByText('Card 2')).toBeInTheDocument()
     expect(screen.queryByText('Card 1')).not.toBeInTheDocument()
   })
+
+  it.each([['by default', {}], ['with Show sub-columns on', { showSubColumns: true }]])('shows the switcher %s (#2531)', (_label, extra) => {
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, ...extra })
+    expect(screen.getByTestId('phone-sub-column-switcher')).toBeInTheDocument()
+  })
+
+  it('renders no switcher with Show sub-columns off and keeps every card of the stage visible (#2531)', () => {
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, showSubColumns: false })
+    expect(screen.queryByTestId('phone-sub-column-switcher')).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Build sub-columns' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('phone-sub-column-status')).not.toBeInTheDocument()
+    for (const name of ['Card 1', 'Card 2', 'Card 3']) expect(screen.getByText(name)).toBeInTheDocument()
+  })
+})
+
+describe('PhoneBoard four-way switcher (#2531)', () => {
+  it('keeps the count and the full name accessible when long names truncate', () => {
+    const names = ['Triage and intake', 'Technical review', 'Doing the work', 'Checked and ready']
+    const subs4 = names.map((name, i) => ({ id: 41 + i, uid: `s4${i}`, position: i, name }))
+    setup({ columns: [col(1, 'Build', { sub_columns: subs4 })], cards: [card(1, 1, 1, { gates_passed: 0 })] })
+    const group = screen.getByRole('group', { name: 'Build sub-columns' })
+    const buttons = within(group).getAllByRole('button')
+    expect(buttons).toHaveLength(4)
+    buttons.forEach((b, i) => {
+      expect(b).toHaveAttribute('aria-pressed')
+      expect(b.getAttribute('aria-label')).toContain(names[i])
+      expect(b.className).toContain('min-w-0')
+      const [nameEl, countEl] = Array.from(b.querySelectorAll('span')).filter((s) => !s.hasAttribute('data-testid') && s.textContent !== '')
+      expect(nameEl.className).toContain('truncate')
+      expect(nameEl.className).toContain('min-w-0')
+      expect(countEl.className).toContain('shrink-0')
+    })
+  })
 })
 
 describe('cellOrderOf on a gated stage (#2278 G9)', () => {

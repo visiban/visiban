@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardCell from '../components/Board/BoardCell'
@@ -7,10 +7,10 @@ import { EscapeLowerHandlers } from './escapeSelectionProbe'
 import type { Card, Column, Swimlane } from '../types'
 
 // Mutable so a test can simulate an in-flight drag (#1287).
-const dnd = vi.hoisted(() => ({ active: null as { id: string } | null }))
+const dnd = vi.hoisted(() => ({ active: null as { id: string } | null, over: new Set<string>() }))
 
 vi.mock('@dnd-kit/core', () => ({
-  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useDroppable: ({ id }: { id: string }) => ({ setNodeRef: () => {}, isOver: dnd.over.has(id) }),
   useDndContext: () => ({ active: dnd.active }),
 }))
 
@@ -629,6 +629,8 @@ describe('BoardCell — focus returns to the add-card opener (#2087)', () => {
 })
 
 describe('BoardCell gated stage (#2278)', () => {
+  afterEach(() => { dnd.active = null; dnd.over = new Set() })
+
   const stage: Column = {
     ...column,
     sub_columns: [{ id: 1, uid: 's1', position: 0, name: 'Doing' }, { id: 2, uid: 's2', position: 1, name: 'Ready' }],
@@ -654,6 +656,64 @@ describe('BoardCell gated stage (#2278)', () => {
     render(<BoardCell {...props} showSubColumns={false} />)
     expect(screen.queryByTestId('cell-sub-columns')).not.toBeInTheDocument()
     expect(screen.getByTestId('card-1')).toBeInTheDocument()
+  })
+
+  it('names an empty sub-column in a populated split cell instead of "Empty" (#2531)', () => {
+    const props = defaultProps()
+    props.column = stage
+    props.cards = [makeCard({ id: 1, gates_passed: 1 })]
+    render(<BoardCell {...props} />)
+    const marker = screen.getByTestId('sub-column-empty')
+    expect(marker).toHaveTextContent('Doing')
+    expect(marker).toHaveAttribute('title', 'Doing')
+    expect(marker).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByText('Empty')).not.toBeInTheDocument()
+  })
+
+  it('shows no sub-column names in a fully empty split cell (#2531)', () => {
+    const props = defaultProps()
+    props.column = stage
+    props.cards = []
+    render(<BoardCell {...props} />)
+    expect(screen.queryByTestId('sub-column-empty')).not.toBeInTheDocument()
+  })
+
+  it('shows a name pill on the hovered sub-column only while a card is dragged (#2531)', () => {
+    const props = defaultProps()
+    props.column = stage
+    props.cards = [makeCard({ id: 1, gates_passed: 0 })]
+    const dragId = `cell:10:20:1`
+    dnd.over = new Set([dragId])
+    const idle = render(<BoardCell {...props} />)
+    expect(screen.queryByTestId('sub-column-drag-name')).not.toBeInTheDocument()
+    idle.unmount()
+    dnd.active = { id: 'card:1' }
+    render(<BoardCell {...props} />)
+    const pill = screen.getByTestId('sub-column-drag-name')
+    expect(pill).toHaveTextContent('Ready')
+    expect(pill).toHaveAttribute('aria-hidden', 'true')
+    // Bottom-anchored so it never covers the top-anchored verdict or entry-criteria pills.
+    expect(pill.className).toContain('bottom-1')
+    expect(screen.getAllByTestId('sub-column-drag-name')).toHaveLength(1)
+  })
+
+  it('hides the name pill while the cell shows a block verdict (#2531)', () => {
+    const verdict = { scope: 'swimlane', kind: 'wip', mode: 'hard', name: 'Payouts', current: 5, limit: 5, cardWeight: 1 } as const
+    const props = { ...defaultProps(), column: stage, cards: [makeCard({ id: 1, gates_passed: 0 })], getDropVerdict: () => [verdict] }
+    dnd.over = new Set(['cell:10:20', 'cell:10:20:1'])
+    dnd.active = { id: '9' }
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('cell-drop-blocked')).toBeInTheDocument()
+    expect(screen.queryByTestId('sub-column-drag-name')).not.toBeInTheDocument()
+  })
+
+  it('hides the name pill while the cell shows entry criteria (#2531)', () => {
+    const props = { ...defaultProps(), column: stage, cards: [makeCard({ id: 1, gates_passed: 0 })], getEntryCriteria: () => ['Spec approved'] }
+    dnd.over = new Set(['cell:10:20', 'cell:10:20:1'])
+    dnd.active = { id: '9' }
+    render(<BoardCell {...props} />)
+    expect(screen.getByTestId('cell-drop-entry-criteria')).toBeInTheDocument()
+    expect(screen.queryByTestId('sub-column-drag-name')).not.toBeInTheDocument()
   })
 })
 

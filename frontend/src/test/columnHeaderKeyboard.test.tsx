@@ -171,17 +171,32 @@ describe('ColumnHeader — split stage (#2278)', () => {
     expect(screen.getByText('Ready: 2 waiting')).toBeInTheDocument()
   })
 
-  it('lays the counts out as divided columns with a bold name and a right-aligned count (#2386)', () => {
+  it('lays the counts out as a dashed-divided grid: name above count, bare working count, "N waiting" last (#2531)', () => {
     renderHeader({ column: stage, cards: [card(1, 0), card(2, 1), card(3, 1)] })
     const cells = screen.getAllByTestId('column-sub-count')
     expect(cells).toHaveLength(2)
-    expect(screen.getByTestId('column-sub-counts').className).toContain('divide-x')
+    const row = screen.getByTestId('column-sub-counts')
+    expect(row.className).toContain('grid')
+    expect(row.className).not.toContain('divide-x')
+    expect(row.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))')
+    expect(cells[0].className).not.toContain('border-l')
+    expect(cells[1].className).toContain('border-dashed')
+    expect(cells[1].className).toContain('border-line-boundary')
     const first = cells[0].querySelectorAll('[aria-hidden="true"]')
     expect(first[0]).toHaveTextContent('Doing')
     expect(first[0].className).toContain('font-semibold')
-    expect(first[1]).toHaveTextContent('1 working')
-    expect(first[1].className).toContain('text-right')
+    expect(first[0].className).toContain('line-clamp-2')
+    expect(first[0]).toHaveAttribute('title', 'Doing')
+    expect(first[1].textContent).toBe('1')
+    const last = cells[1].querySelectorAll('[aria-hidden="true"]')
+    expect(last[1].textContent).toBe('2 waiting')
     expect(cells[1]).toHaveTextContent('Ready: 2 waiting')
+  })
+
+  it('renders no sub-column row or sentence with Show sub-columns off (#2531)', () => {
+    renderHeader({ column: stage, cards: [card(1, 0), card(2, 1)], showSubColumns: false })
+    expect(screen.queryByTestId('column-sub-counts')).not.toBeInTheDocument()
+    expect(screen.queryByText('Doing: 1 working')).not.toBeInTheDocument()
   })
 
   it('renders no sub-column summary on an unsplit column (#2386)', () => {

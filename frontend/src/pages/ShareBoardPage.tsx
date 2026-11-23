@@ -179,7 +179,7 @@ function StaticBoardGrid({ board }: { board: BoardPublic }) {
 
   const colCardCount = (colId: number) => board.cards.filter((c) => c.column === colId).length;
 
-  // A split stage takes one column width per sub-column (#1102), like the board's double-width grid track.
+  // A split stage takes one column width per sub-column (#1102), like the board's N-sub-column grid track.
   const colW = 220;
   const colWidth = (col: PublicColumn) => colW * Math.max(1, stageSubColumns(col).length);
   const labelW = 160;
