@@ -3188,6 +3188,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#checking-touched-files-before-you-push" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Checking touched files before you push
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-coverage-reaches-sonar" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4471,6 +4482,11 @@
 <td><code>.gitlab-ci.yml</code>, <code>security</code> stage</td>
 <td>Scheduled pipelines only, when the schedule sets <code>SONAR_SCHEDULED=true</code>; advisory (<code>allow_failure</code>)</td>
 </tr>
+<tr>
+<td><code>sonar-open-issues-selftest</code> (member of <code>lint-selftests-alpine</code>)</td>
+<td><code>.gitlab-ci.yml</code>, <code>lint</code> stage</td>
+<td>MRs that touch <code>scripts/sonar-open-issues.sh</code> or the CI file; also <code>main</code></td>
+</tr>
 </tbody>
 </table>
 <p><code>sonar:scan</code> runs on the <strong>Nightly</strong> pipeline schedule (03:00 ET), never on MR or push
@@ -4483,6 +4499,11 @@ the schedule's pipeline history or at the dashboard's last-analysis date. The
 <a href="../../maintainers/sonarcloud/#when-the-nightly-sonarscan-is-yellow">runbook</a> says how to check.</p>
 <p>The schedule is shared with the other nightly jobs; see
 <a href="../ci-gates/">CI Gate Self-Tests</a> for the full schedule table.</p>
+<h2 id="checking-touched-files-before-you-push">Checking touched files before you push<a class="headerlink" href="#checking-touched-files-before-you-push" title="Permanent link">&para;</a></h2>
+<p><code>scripts/sonar-open-issues.sh &lt;file&gt;...</code> asks SonarCloud's public API (no token) for open <code>BUG</code>, <code>VULNERABILITY</code>, and <code>TO_REVIEW</code> hotspot findings and prints the ones on the files you name. The <code>completeness-check</code> gate runs it on <code>git diff --name-only origin/main...HEAD</code>; a finding on a touched file is reported as a GAP to fix it on the branch or defer it to an open issue named in the MR.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>diff<span class="w"> </span>--name-only<span class="w"> </span>origin/main...HEAD<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>scripts/sonar-open-issues.sh
+</code></pre></div>
+<p><strong>Watch out:</strong> It sees only what the last nightly scan of <code>main</code> found. Findings your branch introduces appear after it merges. It exits 0 on every lookup outcome and prints <code>sonar: lookup unavailable (&lt;reason&gt;)</code> when SonarCloud cannot be reached, so read the output rather than the exit code.</p>
 <h2 id="how-coverage-reaches-sonar">How coverage reaches Sonar<a class="headerlink" href="#how-coverage-reaches-sonar" title="Permanent link">&para;</a></h2>
 <p>SonarCloud doesn't run tests. It imports the coverage reports that the <code>test</code> stage already
 produces. <code>sonar:scan</code> declares <code>needs:</code> on both producer jobs with <code>artifacts: true</code>:</p>
@@ -4618,8 +4639,8 @@ in <code>sonar-project.properties</code>:</p>
 <ol>
 <li>
 <p>Generate both coverage reports:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pytest<span class="w"> </span>--cov<span class="w"> </span>--cov-report<span class="o">=</span>xml
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>../frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>pytest<span class="w"> </span>--cov<span class="w"> </span>--cov-report<span class="o">=</span>xml
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>../frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--<span class="w"> </span>--coverage
 </code></pre></div>
 </li>
 <li>
@@ -4629,7 +4650,7 @@ in <code>sonar-project.properties</code>:</p>
 <li>
 <p>Run the wrapper from the repository root with a SonarCloud token that can run analysis on
    the project:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">SONAR_TOKEN</span><span class="o">=</span>&lt;your-token&gt;<span class="w"> </span>scripts/sonar-scan.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">SONAR_TOKEN</span><span class="o">=</span>&lt;your-token&gt;<span class="w"> </span>scripts/sonar-scan.sh
 </code></pre></div>
 <p><code>scripts/sonar-scan.sh --prep-only</code> writes only the rewritten reports and skips the scan,
 which is a quick way to confirm both resolve a non-zero number of files.</p>
