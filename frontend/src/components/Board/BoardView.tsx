@@ -2742,7 +2742,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const gridMinWidth = useMemo(() => boardGridMinWidth(gridTracks), [gridTracks]);
   // Each column track's floor, read by a separator drag (measureTrackLeftOf) to
   // keep the resized edge under the pointer when the min width holds the grid open.
-  const gridTrackFloors = useMemo(() => gridTracks.map(trackFloor).join(" "), [gridTracks]);
+  const gridTrackFloors = useMemo(() => gridTracks.map((gridTrack) => trackFloor(gridTrack)).join(" "), [gridTracks]);
   useBoardViewWidthVar(scrollEl);
 
   // Custom collision detection: restrict candidates by the type of item being dragged
@@ -2910,7 +2910,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // blocked move is refused before anyone would check them.
     const criteria = verdict.length > 0 || Number.isNaN(cardId) ? [] : getEntryCriteria(cardId, col);
     const suffix = verdict.length > 0
-      ? `. ${verdict.map(trippedLimitSentence).join(" ")}`
+      ? `. ${verdict.map((element) => trippedLimitSentence(element)).join(" ")}`
       : criteria.length > 0 ? `. ${entryCriteriaSentence(col.name, criteria)}` : "";
     // The throttle keeps a fast pointer drag from flooding the live region,
     // but it must never swallow a blocked cell's verdict, which is the only
@@ -3361,7 +3361,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 showArchived={showArchived}
                 onToggleArchived={() => setShowArchived((v) => !v)}
                 showSubColumns={showSubColumns}
-                onShowSubColumnsChange={board.columns.some(isGatedStage) ? setShowSubColumns : undefined}
+                onShowSubColumnsChange={board.columns.some((element) => isGatedStage(element)) ? setShowSubColumns : undefined}
                 cardFieldNames={board.custom_field_definitions.filter((d) => d.show_on_card).map((d) => d.name)}
                 onChangeCardFields={isAdmin ? openCardFields : undefined}
               />
@@ -4025,8 +4025,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           board={board}
           selectedCardIds={selectedCardIds}
           onCardsUpdated={(cards) => cards.forEach((c) => onCardUpdated(c))}
-          onCardsDeleted={(ids) => ids.forEach(onCardDeleted)}
-          onCardsArchived={(ids) => { ids.forEach(onCardArchived); if (ids.length > 0) showArchiveToast(); }}
+          onCardsDeleted={(ids) => ids.forEach((id) => { onCardDeleted(id); })}
+          onCardsArchived={(ids) => { ids.forEach((id) => { onCardArchived(id); }); if (ids.length > 0) showArchiveToast(); }}
           onClearSelection={clearSelection}
           currentUser={currentUser}
           cardActionCtx={cardActionContext}

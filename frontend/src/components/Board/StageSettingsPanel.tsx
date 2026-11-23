@@ -138,7 +138,7 @@ export default function StageSettingsPanel({ boardId, column, swimlanes, definit
   };
   const trackError = anyEmptyTrack
     ? "Every track needs a name."
-    : tracks.some(trackInvalid)
+    : tracks.some((track) => trackInvalid(track))
       ? "Track names must be different from each other and from the board's other fields."
       : null;
 

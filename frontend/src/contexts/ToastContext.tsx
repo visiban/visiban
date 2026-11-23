@@ -219,7 +219,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       }
       handles.push(setTimeout(() => close(t.id, "timeout"), Math.max(0, deadline - now)));
     }
-    return () => handles.forEach(clearTimeout);
+    return () => handles.forEach((handle) => { clearTimeout(handle); });
   }, [state.visible, paused, pendingIds, close]);
 
   useEffect(() => {
@@ -233,7 +233,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const guards = guardTimers.current;
     return () => {
       mounted.current = false;
-      guards.forEach(clearTimeout);
+      guards.forEach((guard) => { clearTimeout(guard); });
       guards.clear();
       if (flushTimer.current !== null) clearTimeout(flushTimer.current);
     };

@@ -540,7 +540,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                     {EMPTY_COPY[filter]}
                   </p>
                 ) : (
-                  <ListWell as="ul" label="All boards">{visibleBoards.map(renderBoardRow)}</ListWell>
+                  <ListWell as="ul" label="All boards">{visibleBoards.map((visibleBoard) => renderBoardRow(visibleBoard))}</ListWell>
                 )}
               </div>
             </section>

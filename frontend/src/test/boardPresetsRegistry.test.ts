@@ -172,7 +172,7 @@ describe('presetDifferences', () => {
       { element: 'density', current: 'Dense', preset: 'Standard' },
       { element: 'overlay', current: 'Card count', preset: 'No overlay' },
     ])
-    expect(diffs.map(formatPresetDifference)).toEqual([
+    expect(diffs.map((diff) => formatPresetDifference(diff))).toEqual([
       'Density: Dense (preset: Standard)',
       'Overlay: Card count (preset: No overlay)',
     ])

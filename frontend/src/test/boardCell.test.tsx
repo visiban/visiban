@@ -23,6 +23,7 @@ vi.mock('../api/cards', () => ({ createCard: vi.fn() }))
 
 vi.mock('../components/Card/CardItem', () => ({
   default: ({ card, onClick, compact, inDoneColumn, current, onSelect, peekSuppressed, dimmed, onExpandChange, onOpenMenu, contextTarget }: { card: Card; peekSuppressed?: boolean; onClick?: () => void; compact?: boolean; inDoneColumn?: boolean; current?: boolean; onSelect?: () => void; dimmed?: boolean; onExpandChange?: (id: number, expanded: boolean) => void; onOpenMenu?: unknown; contextTarget?: boolean }) => (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- test stub: a bare clickable div standing in for the real card, never rendered to users
     <div data-testid={`card-${card.id}`} data-card-id={card.id} data-has-menu={String(!!onOpenMenu)} data-context-target={String(!!contextTarget)} data-compact={String(compact ?? false)} data-in-done-column={String(inDoneColumn ?? false)} data-current={String(current ?? false)} data-selectable={String(!!onSelect)} data-peek-suppressed={String(peekSuppressed ?? false)} data-dimmed={String(dimmed ?? false)} onClick={onClick}>{card.title}{onSelect && <button data-testid={`select-${card.id}`} onClick={(e) => { e.stopPropagation(); onSelect() }} />}
       <button data-testid={`expand-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, true) }} />
       <button data-testid={`collapse-${card.id}`} onClick={(e) => { e.stopPropagation(); onExpandChange?.(card.id, false) }} />

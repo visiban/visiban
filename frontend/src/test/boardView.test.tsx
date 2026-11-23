@@ -171,6 +171,7 @@ vi.mock('../components/Board/SwimlaneRow', () => ({
   },
 }))
 vi.mock('../components/Card/CardItem', () => ({
+  // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- test stub: a bare clickable div standing in for the real card, never rendered to users
   default: ({ card, compact, overlay, inDoneColumn, onClick }: { card: { title: string }; compact?: boolean; overlay?: boolean; inDoneColumn?: boolean; onClick?: (opts?: { peek?: boolean }) => void }) => <div onClick={(e) => onClick?.(e.shiftKey ? { peek: true } : undefined)} data-compact={String(compact ?? false)} data-overlay={String(!!overlay)} data-in-done-column={String(inDoneColumn ?? false)}>{card.title}</div>,
 }))
 // #2278: the sub-column Move tests hand BoardView's props to the REAL CardDetail.

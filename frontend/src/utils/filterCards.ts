@@ -30,7 +30,7 @@ export function hasActiveClientFilters(filters: FilterState): boolean {
     filters.labelIds.length > 0 ||
     filters.priorities.length > 0 ||
     filters.dueDate !== null ||
-    Object.values(filters.customFields).some(isCustomFieldFilterActive) ||
+    Object.values(filters.customFields).some((element) => isCustomFieldFilterActive(element)) ||
     !!filters.blockedOnly ||
     (filters.subColumnIds?.length ?? 0) > 0 ||
     (filters.trackStates?.length ?? 0) > 0 ||

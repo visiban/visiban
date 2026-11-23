@@ -4,7 +4,26 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import security from 'eslint-plugin-security'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import unicorn from 'eslint-plugin-unicorn'
 import { defineConfig, globalIgnores } from 'eslint/config'
+
+// #2527: rules that eslint.typeaware.config.js enforces and this config does
+// not. An eslint-disable comment for one of them is used by that run and
+// unused by this one, and ESLint has no per-rule switch for unused-directive
+// reporting, so without this filter each such comment would add a warning to
+// frontend-lint's --max-warnings 15 budget. Every other unused directive is
+// still reported.
+const TYPE_AWARE_ONLY_RULES = ['@typescript-eslint/no-floating-promises']
+const isTypeAwareOnlyUnusedDirective = (m) =>
+  m.ruleId === null &&
+  TYPE_AWARE_ONLY_RULES.some((rule) => m.message === `Unused eslint-disable directive (no problems were reported from '${rule}').`)
+const typeAwareDirectiveFilter = {
+  meta: { name: 'visiban/type-aware-directive-filter' },
+  preprocess: (text) => [text],
+  postprocess: ([messages]) => messages.filter((m) => !isTypeAwareOnlyUnusedDirective(m)),
+  supportsAutofix: true,
+}
 
 export default defineConfig([
   globalIgnores(['dist', '.vite']),
@@ -65,6 +84,27 @@ export default defineConfig([
           message: 'Discarded timer with a delay: it can fire after unmount. Hold the id in a ref and clear it on unmount (#1319).',
         })),
       ],
+    },
+  },
+  // #2527: lint rules that mirror Sonar findings SonarCloud only reports on
+  // main (nightly), so a branch otherwise cannot see them. See
+  // docs/development/sonarcloud.md#sonar-rules-mirrored-in-eslint.
+  //   typescript:S1082 click, no key     -> jsx-a11y/click-events-have-key-events
+  //   typescript:S7727 fn ref to array cb -> unicorn/no-array-callback-reference
+  // The third, typescript:S9383 (floating promise ->
+  // @typescript-eslint/no-floating-promises), is type-aware and lives in
+  // eslint.typeaware.config.js instead (`npm run lint:typeaware`, CI job
+  // frontend-lint-typeaware): building the TypeScript program for src/ pushes
+  // this run past frontend-lint's 1024 MB heap cap on the 2 GB runner.
+  // Its eslint-disable comments are therefore unused here; the processor
+  // drops only those unused-directive warnings (typeAwareDirectiveFilter).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { 'jsx-a11y': jsxA11y, unicorn },
+    processor: typeAwareDirectiveFilter,
+    rules: {
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'unicorn/no-array-callback-reference': 'error',
     },
   },
   // Security SAST rules — scoped to src/ to keep the scan focused and avoid

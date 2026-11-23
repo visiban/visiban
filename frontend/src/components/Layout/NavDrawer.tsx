@@ -193,9 +193,9 @@ export default function NavDrawer({ user }: { user: User }) {
             <SkeletonRows />
           ) : (
             <>
-              {starredBoards.length > 0 && <Section title="Starred">{starredBoards.map(boardLink)}</Section>}
+              {starredBoards.length > 0 && <Section title="Starred">{starredBoards.map((starredBoard) => boardLink(starredBoard))}</Section>}
               {tree.length > 0 && <Section title="Groups">{groupRows(tree, 0)}</Section>}
-              {personalBoards.length > 0 && <Section title="Personal boards">{personalBoards.map(boardLink)}</Section>}
+              {personalBoards.length > 0 && <Section title="Personal boards">{personalBoards.map((personalBoard) => boardLink(personalBoard))}</Section>}
             </>
           )}
         </nav>

@@ -106,7 +106,7 @@ function measureIn(tracks: BoardTrack[], view: number, sepIndex: number, withWra
   row.style.gridTemplateColumns = tpl
   row.appendChild(sep)
   if (withWrapper) {
-    wrapper.dataset.trackFloors = tracks.map(trackFloor).join(' ')
+    wrapper.dataset.trackFloors = tracks.map((track) => trackFloor(track)).join(' ')
     wrapper.appendChild(row)
     box.appendChild(wrapper)
   } else {

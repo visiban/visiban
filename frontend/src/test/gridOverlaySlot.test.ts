@@ -45,7 +45,7 @@ function fixedOverlay(values: Record<string, number>): GridOverlay {
 }
 
 function ctx(columnIds: number[], swimlaneIds: number[], cards: Card[] = [], isFiltered = false): GridOverlayContext {
-  return { columns: columnIds.map(makeColumn), swimlanes: swimlaneIds.map(makeSwimlane), cards, isFiltered, now: 0 }
+  return { columns: columnIds.map((columnId) => makeColumn(columnId)), swimlanes: swimlaneIds.map((swimlaneId) => makeSwimlane(swimlaneId)), cards, isFiltered, now: 0 }
 }
 
 describe('overlay scale — dual encoding (#969)', () => {

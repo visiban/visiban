@@ -3321,6 +3321,43 @@ frontend-lint:
     - npx tsc -p tsconfig.app.json --noEmit
     - npx tsc -p tsconfig.e2e.json --noEmit
 
+# The type-aware half of the Sonar-mirroring lint rules (#2527):
+# @typescript-eslint/no-floating-promises (typescript:S9383), configured in
+# frontend/eslint.typeaware.config.js. Split out of frontend-lint because the
+# rule needs the TypeScript program for all of src/ (projectService), and that
+# run does not fit frontend-lint's 1024 MB heap cap: with the rule in
+# eslint.config.js, `npm run lint` died with "Reached heap limit" under
+# --max-old-space-size=1024 (node:22-alpine), and frontend-lint's 1500 MB
+# attempt was already OOM-killed (exit 137) on the 2 GB runner. Measured
+# 2026-11-22 on its own (node:22-alpine, docker --memory=2g): the smallest
+# heap cap that passes is 1408 MB (1344 fails), peak RSS about 1.6 GB, about
+# 25 s. 1536 adds about 9% headroom and is still well under the 2 GB limit.
+# allow_failure: true until it has passed on the real runners: no runner's
+# memory is recorded in docs/maintainers/ci-runners.md, and the frontend-lint
+# 1500 MB kill above says the real headroom is smaller than a 2 GB container's.
+frontend-lint-typeaware:
+  extends: .npm-cache
+  stage: lint
+  image: ${DOCKERHUB_MIRROR}/node:22-alpine
+  variables:
+    NODE_OPTIONS: "--max-old-space-size=1536"
+  # No unconditional main fallback (#1266): nothing needs this job.
+  rules:
+    - changes: &frontend-lint-typeaware-paths
+        - frontend/src/**/*
+        - frontend/eslint*.config.*
+        - frontend/package*.json
+        - frontend/tsconfig*.json
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *frontend-lint-typeaware-paths
+  allow_failure: true
+  before_script:
+    - cd frontend
+    - npm ci --prefer-offline
+  script:
+    - npm run lint:typeaware
+
 # Validates renovate.json (#2464). Its own job, not a frontend-lint step: it runs
 # only when renovate.json or this file changes, and on node 24 because
 # renovate@44.165.3 declares engines.node ^24.11.0 (frontend-lint is on node 22).
@@ -4193,14 +4230,16 @@ frontend-sast:
       import reactHooks from 'eslint-plugin-react-hooks';
       import reactRefresh from 'eslint-plugin-react-refresh';
       import tseslint from 'typescript-eslint';
+      import jsxA11y from 'eslint-plugin-jsx-a11y';
+      import unicorn from 'eslint-plugin-unicorn';
       const rules = { 'security/detect-object-injection': 'warn', 'security/detect-non-literal-regexp': 'error', 'security/detect-non-literal-require': 'error', 'security/detect-possible-timing-attacks': 'warn', 'security/detect-eval-with-expression': 'error' };
-      // Register react-hooks, react-refresh, and @typescript-eslint plugins so that
+      // Register react-hooks, react-refresh, jsx-a11y, unicorn, and @typescript-eslint plugins so that
       // eslint-disable-next-line comments referencing their rules are recognised as
       // valid (prevents "Definition for rule X was not found" errors).  No rules from
       // these plugins are enabled — only security/ rules are enforced here.
       const linterOptions = { reportUnusedDisableDirectives: 'off' };
       export default [
-        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security, 'react-hooks': reactHooks, 'react-refresh': reactRefresh, '@typescript-eslint': tseslint.plugin }, rules },
+        { files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser }, linterOptions, plugins: { security, 'react-hooks': reactHooks, 'react-refresh': reactRefresh, '@typescript-eslint': tseslint.plugin, 'jsx-a11y': jsxA11y, unicorn }, rules },
         { files: ['**/*.{js,mjs,jsx}'], linterOptions, plugins: { security }, rules },
       ];
       ESLINTEOF

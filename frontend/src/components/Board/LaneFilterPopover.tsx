@@ -254,7 +254,7 @@ export default function LaneFilterPopover({ filter, fields, onChange, anchorRect
   };
   const updateRule = (rid: number, patch: Partial<LaneRule>) => {
     const apply = (r: LaneRule) => (r.id === rid ? { ...r, ...patch } : r);
-    commit(items.map((it) => (it.kind === "rule" ? apply(it) : { ...it, rules: it.rules.map(apply) })));
+    commit(items.map((it) => (it.kind === "rule" ? apply(it) : { ...it, rules: it.rules.map((element) => apply(element)) })));
   };
   const setItemJoin = (iid: number, join: FieldRuleJoin) =>
     commit(items.map((it) => (it.id === iid ? { ...it, join } : it)));

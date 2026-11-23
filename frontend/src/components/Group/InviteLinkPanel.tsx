@@ -813,7 +813,7 @@ export default function InviteLinkPanel({
               {pendingLinks.length === 0 ? (
                 <p className="text-xs text-fg-muted">No pending invites.</p>
               ) : (
-                <ul className="flex flex-col gap-2">{pendingLinks.map(boardRow)}</ul>
+                <ul className="flex flex-col gap-2">{pendingLinks.map((pendingLink) => boardRow(pendingLink))}</ul>
               )}
               {pastLinks.length > 0 && (
                 <>
@@ -825,7 +825,7 @@ export default function InviteLinkPanel({
                   >
                     {showPast ? "Hide past invites" : `Show past invites (${pastLinks.length})`}
                   </button>
-                  {showPast && <ul className="flex flex-col gap-2">{pastLinks.map(boardRow)}</ul>}
+                  {showPast && <ul className="flex flex-col gap-2">{pastLinks.map((pastLink) => boardRow(pastLink))}</ul>}
                 </>
               )}
             </>

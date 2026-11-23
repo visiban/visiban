@@ -663,7 +663,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     const ghostVisible = (quickEditEnabled || (!!overlay && canEdit && !readOnly)) && (d.field_type === "checkbox" || d.field_type === "dropdown");
     return (v && v.value !== "") || density === "dense" || ghostVisible;
   };
-  const hasVisibleCustomFieldChips = pinnedFields.some(showsPinnedChip);
+  const hasVisibleCustomFieldChips = pinnedFields.some((pinnedField) => showsPinnedChip(pinnedField));
 
   const commitCustomFieldValue = async (fieldId: number, value: string) => {
     if (boardId === undefined || !onCardUpdated) return;

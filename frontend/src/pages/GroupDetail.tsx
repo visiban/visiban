@@ -1470,7 +1470,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <p className="rounded-[10px] border border-line bg-canvas px-4 py-8 text-center text-fg-secondary text-sm">No boards yet.</p>
       ) : (
         <ListWell as="ul" label="Boards">
-          {boards.map(renderBoardRow)}
+          {boards.map((board) => renderBoardRow(board))}
           {/* Subgroup boards */}
           {showSubgroupBoards && (
             loadingSubgroupBoards ? (

@@ -4481,7 +4481,7 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
   it('lists each result once, with a unique key', () => {
     const all = new Set(sections)
     for (const q of ['fields', 'webhooks', 'export', 'card', 'swimlane', 'health', 'invite', 'share']) {
-      const keys = findSettings(q, all).map(settingKey)
+      const keys = findSettings(q, all).map((element) => settingKey(element))
       expect(new Set(keys).size, q).toBe(keys.length)
     }
     expect(findSettings('fields', all).filter((e) => e.label === 'Card fields')).toHaveLength(1)

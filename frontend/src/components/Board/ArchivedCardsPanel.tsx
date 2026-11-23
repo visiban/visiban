@@ -106,7 +106,7 @@ export default function ArchivedCardsPanel({ board, onUnarchived, currentUser, s
   const boardCardsRef = useRef(board.cards);
   boardCardsRef.current = board.cards;
   const removeLoaded = (match: (c: Card) => boolean): boolean => {
-    if (!loadedRef.current.some(match)) return false;
+    if (!loadedRef.current.some((element) => match(element))) return false;
     loadedRef.current = loadedRef.current.filter((c) => !match(c));
     totalSeq.current += 1;
     setCards((prev) => prev.filter((c) => !match(c)));

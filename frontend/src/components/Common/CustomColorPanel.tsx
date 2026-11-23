@@ -78,7 +78,7 @@ export default function CustomColorPanel({
 
   const parsedHex = normalizeHex(`#${hexText}`);
   const hexInvalid = parsedHex === null;
-  const anyOver = channels.some(channelOver);
+  const anyOver = channels.some((channel) => channelOver(channel));
   const anyEmpty = channels.some((v) => v === "");
   const applyBlocked = hexInvalid || anyOver || anyEmpty;
   const showHexError = hexInvalid && hexRevealed;

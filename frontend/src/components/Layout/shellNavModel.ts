@@ -66,7 +66,7 @@ export function buildSwitcherSections(
   };
   const fromBoard = (b: Board): SwitcherOption => ({ id: b.id, name: b.name, tone: boardTone(byId.get(b.id) ?? b) });
 
-  const starred = data.starredBoards.map(fromBoard).filter(take);
+  const starred = data.starredBoards.map((element) => fromBoard(element)).filter((element) => take(element));
   // #2474 adds `openedAt` to each recents entry. Until an entry carries it,
   // the row simply omits the "<N> ago" text.
   const recent = data.recentBoards
@@ -76,12 +76,12 @@ export function buildSwitcherSections(
       tone: boardTone(byId.get(e.id)),
       ago: typeof e.openedAt === "number" ? ago(e.openedAt, now) : undefined,
     }))
-    .filter(take);
+    .filter((element) => take(element));
   const personal = current.group === null;
   const rest = data.boards
     .filter((b) => (personal ? b.group === null : b.group === current.group))
-    .map(fromBoard)
-    .filter(take);
+    .map((element) => fromBoard(element))
+    .filter((element) => take(element));
   return [
     { title: "Starred", options: starred },
     { title: "Recent on this device", options: recent },

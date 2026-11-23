@@ -71,7 +71,7 @@ export function summarize(boards: Board[], groups: Group[]): SummaryParts {
   return {
     boards: boards.length,
     groups: groups.filter((g) => !g.navigation_only).length,
-    atRisk: boards.filter(isAtRisk).length,
+    atRisk: boards.filter((board) => isAtRisk(board)).length,
     stale,
     blocked,
     autoBoards,
@@ -107,7 +107,7 @@ export function filterBoards(boards: Board[], filter: BoardFilter): Board[] {
   switch (filter) {
     case "starred": return boards.filter((b) => b.is_starred);
     case "personal": return boards.filter((b) => !b.group);
-    case "at_risk": return boards.filter(isAtRisk);
+    case "at_risk": return boards.filter((board) => isAtRisk(board));
     default: return boards;
   }
 }

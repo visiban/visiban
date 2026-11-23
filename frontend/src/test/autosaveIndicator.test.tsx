@@ -73,7 +73,7 @@ describe('useAutosaveStatus', () => {
     const { result } = renderHook(() => useAutosaveStatus())
     const promise = Promise.resolve()
 
-    act(() => { result.current.runSave(promise) })
+    act(() => { void result.current.runSave(promise) })
     expect(result.current.status).toBe('saving')
 
     await act(async () => { await promise })
@@ -99,7 +99,7 @@ describe('useAutosaveStatus', () => {
     const { result } = renderHook(() => useAutosaveStatus())
     const promise = Promise.reject(new Error('fail'))
 
-    act(() => { result.current.runSave(promise) })
+    act(() => { void result.current.runSave(promise) })
     expect(result.current.status).toBe('saving')
 
     await act(async () => { await promise.catch(() => {}) })
