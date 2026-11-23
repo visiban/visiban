@@ -99,10 +99,10 @@ class GroupMemberPreviewTests(TestCase):
         other = User.objects.create_user(username="other", password="x")
         GroupMembership.objects.create(group=owned, user=other, role="admin")
         row = _rows(self.client.get("/api/v1/groups/")).get("owned")
-        self.assertTrue(row is None or row["member_preview"] == [])
+        self.assertIsNone(row)
         r = self.client.get(f"/api/v1/groups/{owned.pk}/")
-        if r.status_code == 200:
-            self.assertEqual(r.data["member_preview"], [])
+        self.assertEqual(r.status_code, 404)
+        self.assertNotIn("member_preview", getattr(r, "data", None) or {})
         # Parity: whoever is refused the members route sees no preview.
         self.assertIn(self.client.get(f"/api/v1/groups/{owned.pk}/members/").status_code, (403, 404))
 

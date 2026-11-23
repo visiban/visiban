@@ -47,7 +47,7 @@ Home (`/`) is a status page, not just a list of boards *(new in 1.3, #2474)*. Th
 - **All boards** lists every board you can open, personal and in groups. Filter by **All**, **Starred**, **Personal** or **At risk** (each shows its count; on a phone the filter is a select). Each row has a star toggle, the name and description, the "Not reviewed in N days" cue, stale and blocked counts, the status, and when the board was last updated. A board without auto health shows "Stale, blocked: no data" rather than 0. The **...** menu has **Move to group** and, if you may delete the board, **Delete**; on a phone it also holds **Star**. **At risk** includes boards whose status is Off track.
 - **Groups** lists the groups you can see with their board and member counts, and the avatars of the first few members (the rest as "+N") *(1.3+, #2487)*.
 - **Needs attention** lists boards and subgroups with stale or blocked cards, or whose health status is overdue for review, worst first (blocked, then stale, then days overdue). It is hidden when nothing needs attention.
-- **Groups** and **Needs attention** show five rows each; **Show all N** under a longer list expands it in place, and **Show fewer** collapses it *(1.3+, #2487)*. On a phone or tablet both sit below **All boards**: Groups, then Needs attention.
+- **Groups** and **Needs attention** show five rows each; **Show all N** under a longer list expands it in place, and **Show fewer** collapses it *(1.3+, #2487)*. On a phone or tablet both sit below **All boards**: Groups, then Needs attention (to be confirmed against the Phone canvas, #2558).
 
 **Import**, **New group** and **New board** sit beside the heading and in the header. In a hosted demo, creating and importing boards is disabled with the reason shown.
 

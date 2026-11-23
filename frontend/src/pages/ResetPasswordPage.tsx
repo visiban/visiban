@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { confirmPasswordReset } from "../api/auth";
-import { Button, CenteredHeader, CenteredLayout, Field, StatusCard, buttonClasses } from "../components/Page";
+import { Button, CenteredHeader, CenteredLayout, Field, RedirectCountdown, StatusCard, buttonClasses } from "../components/Page";
 
 export default function ResetPasswordPage() {
   const { uid, token } = useParams<{ uid: string; token: string }>();
@@ -12,7 +12,6 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [tokenInvalid, setTokenInvalid] = useState(!uid || !token);
-  const [countdown, setCountdown] = useState(3);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   const tokenErrorHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -25,24 +24,6 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     if (tokenInvalid) tokenErrorHeadingRef.current?.focus();
   }, [tokenInvalid]);
-
-  // Auto-redirect countdown after successful reset.
-  useEffect(() => {
-    if (!success) return;
-    const timer = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(timer);
-          // void: navigate() can return a Promise in React Router v7; fire-and-forget,
-          // there is nothing to roll back if the navigation itself rejects.
-          void navigate("/");
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [success, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +69,8 @@ export default function ResetPasswordPage() {
           actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Sign in</Button>}
         >
           <p>Your password has been reset. You can now sign in with your new password.</p>
-          <p className="mt-2 text-xs text-fg-tertiary">Redirecting in {countdown}s…</p>
+          {/* void: navigate() can return a Promise in React Router v7; nothing to roll back. */}
+          <RedirectCountdown seconds={5} onDone={() => { void navigate("/"); }} />
         </StatusCard>
       ) : tokenInvalid ? (
         <StatusCard

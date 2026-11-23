@@ -93,26 +93,43 @@ describe('ResetPasswordPage', () => {
     expect(mockConfirm).toHaveBeenCalledWith('abc', 'tok-en123', 'NewPassword9876', 'NewPassword9876')
   })
 
-  it('auto-redirects to / after the post-reset countdown reaches zero (#1374)', async () => {
-    // Fake timers only for this test — mirrors ConfirmEmailPage's countdown test.
+  async function reachSuccess() {
+    mockConfirm.mockResolvedValue(undefined)
+    renderPage()
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword9876' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+    await act(async () => {})
+    expect(screen.getByText('Password updated')).toBeInTheDocument()
+  }
+
+  it('announces the redirect and navigates to / after the 5-second countdown (#1374, #2484)', async () => {
     vi.useFakeTimers()
     try {
-      mockConfirm.mockResolvedValue(undefined)
-      renderPage()
+      await reachSuccess()
+      expect(screen.getByRole('status')).toHaveTextContent(/taken to the next page in 5 seconds/)
+      expect(screen.getByText('Redirecting in 5s\u2026')).toBeInTheDocument()
 
-      fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'NewPassword9876' } })
-      fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'NewPassword9876' } })
-      fireEvent.click(screen.getByRole('button', { name: 'Set new password' }))
+      await act(async () => { vi.advanceTimersByTime(4000) })
+      expect(screen.queryByText('login-page')).not.toBeInTheDocument()
 
-      // Flush the resolved promise microtask and React re-render
-      await act(async () => {})
-
-      expect(screen.getByText('Password updated')).toBeInTheDocument()
-
-      // Advance past the full 3-second countdown
-      await act(async () => { vi.advanceTimersByTime(3000) })
-
+      await act(async () => { vi.advanceTimersByTime(1000) })
       expect(screen.getByText('login-page')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not navigate while the redirect is paused (WCAG 2.2.1)', async () => {
+    vi.useFakeTimers()
+    try {
+      await reachSuccess()
+      fireEvent.click(screen.getByRole('button', { name: 'Pause redirect' }))
+      expect(screen.getByRole('status')).toHaveTextContent(/Redirect paused/)
+
+      await act(async () => { vi.advanceTimersByTime(20000) })
+      expect(screen.queryByText('login-page')).not.toBeInTheDocument()
+      expect(screen.getByText('Password updated')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

@@ -632,6 +632,12 @@ roster lists), and an invite join (`groups/views.py` `JoinGroupView.post`,
 `groups/invite_registration.py`), whose `get_or_create` keeps such an existing
 row instead of replacing it, so the user stays without access.
 
+The group `member_preview` (`groups/serializers.py` `GroupSerializer.get_member_preview`,
+`groups/counts.py` `prefetch_member_preview`) also reads direct membership rows
+outside the enum, for the home page avatar stack: at most five per group, the
+public user shape only, blanked for a navigation-only group and when the
+serializer has no request context.
+
 ## Rule 10: A second transport is no broader than REST for the same role
 
 **Rule.** Where a feature reaches the same data over a second transport
