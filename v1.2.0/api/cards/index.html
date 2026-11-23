@@ -6976,6 +6976,7 @@ remembers the pair, so the card can be linked back to the same parent even
 while that parent is archived (see <code>parent_archived</code> above). The record has no
 API, export or event of its own; linking the pair again clears it, and
 deleting either card removes it.</p>
+<p>The Board tab's Children mode reads every parent's rollup and children on a board at once through <a href="../boards/#children-mode-since-13"><code>GET /boards/{id}/children-view/</code></a> (#2370).</p>
 <h3 id="get-apiv1boardsboard_idcardsidchildren"><code>GET /api/v1/boards/{board_id}/cards/{id}/children/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidchildren" title="Permanent link">&para;</a></h3>
 <p>This parent's children, computed for you. Any role on the parent's board.
 Query: <code>offset</code> (pages of 50).</p>
