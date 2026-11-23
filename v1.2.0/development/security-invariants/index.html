@@ -5850,6 +5850,11 @@ display or availability effects that grant nothing: the group <code>member_count
 roster lists), and an invite join (<code>groups/views.py</code> <code>JoinGroupView.post</code>,
 <code>groups/invite_registration.py</code>), whose <code>get_or_create</code> keeps such an existing
 row instead of replacing it, so the user stays without access.</p>
+<p>The group <code>member_preview</code> (<code>groups/serializers.py</code> <code>GroupSerializer.get_member_preview</code>,
+<code>groups/counts.py</code> <code>prefetch_member_preview</code>) also reads direct membership rows
+outside the enum, for the home page avatar stack: at most five per group, the
+public user shape only, blanked for a navigation-only group and when the
+context carries neither <code>group_access</code> nor a request.</p>
 <h2 id="rule-10-a-second-transport-is-no-broader-than-rest-for-the-same-role">Rule 10: A second transport is no broader than REST for the same role<a class="headerlink" href="#rule-10-a-second-transport-is-no-broader-than-rest-for-the-same-role" title="Permanent link">&para;</a></h2>
 <p><strong>Rule.</strong> Where a feature reaches the same data over a second transport
 (WebSocket, MCP, change feed, export), its access predicate and its output
