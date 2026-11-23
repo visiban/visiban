@@ -263,7 +263,7 @@ describe('Analytics blocked time (#1149), from metrics/blocked (#2261)', () => {
     await screen.findByTestId('flow-cycle-time')
     const section = screen.getByTestId('analytics-blocked')
     expect(within(section).getByRole('heading', { name: 'Why cards get blocked' })).toBeInTheDocument()
-    expect(screen.getByTestId('analytics-blocked-empty')).toHaveTextContent(/No blocked reasons recorded in this period/)
+    expect(screen.getByTestId('analytics-blocked-empty')).toHaveTextContent(/No block reasons recorded in this period/)
     expect(screen.getByTestId('analytics-blocked-empty')).toHaveTextContent(/Mark a card as blocked/)
   })
 })

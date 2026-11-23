@@ -37,7 +37,7 @@ export default function BlockedSection({ blocked, days }: Props) {
       >
         <h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2>
         <p className="text-sm text-fg-tertiary" data-testid="analytics-blocked-empty">
-          No blocked reasons recorded in this period. Mark a card as blocked and give a reason on the board, and the reasons rank here by time blocked.
+          No block reasons recorded in this period. Mark a card as blocked and give a reason on the board, and the reasons rank here by time blocked.
         </p>
       </section>
     );

@@ -224,7 +224,7 @@ export default function AnalyticsOverview({
         </div>
       ) : (
         <>
-          <AnalyticsQuestion id="happening" title="What is happening?" hint="Where work is piling up and the headline numbers.">
+          <AnalyticsQuestion id="happening" title="What is happening?" hint="Where the bottleneck is, and the headline numbers.">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-w-0">
               <RegionSlot busy={busy} className="lg:col-span-2">
                 <BottleneckPanel

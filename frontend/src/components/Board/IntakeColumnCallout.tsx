@@ -61,7 +61,7 @@ export default function IntakeColumnCallout({ idPrefix }: { idPrefix: string }) 
           <span className="font-medium text-fg">This is the board's intake column.</span> Analytics doesn't name it as the bottleneck.
         </p>
         <MoreDisclosure bodyId={bodyId}>
-          <p>New work arrives here, so a growing queue is demand, not a hold-up. This column still appears in the cumulative flow, WIP, WIP aging, dwell, and cycle-time charts.</p>
+          <p>New work arrives here, so a growing queue is demand, not a hold-up. This column still appears in the cumulative flow, WIP, WIP age, dwell, and cycle-time charts.</p>
           <p>The role follows position. If you move this column, or add a new not-done column to its left, the first not-done column becomes the intake column.</p>
           <a
             href={BOTTLENECK_DOCS_URL}
