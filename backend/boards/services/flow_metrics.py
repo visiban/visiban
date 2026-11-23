@@ -1021,10 +1021,14 @@ def load_recent_dwell(
     visit closing in it. Finished work older than the range is therefore skipped.
 
     ``also_matching`` loads more cards for a caller that reads its own figures
-    through ``on_card_rows`` (#2451). It cannot change a dwell answer: any
-    card is either in the set above or has no open visit and no visit closing
-    in the range, so it adds no sample (the ``can_affect_range`` argument,
-    which keeps every live card for the same reason).
+    through ``on_card_rows`` (#2451). Such a card adds no dwell or wait
+    sample: any card outside the set above has no open visit and no visit
+    closing in the range (the ``can_affect_range`` argument, which keeps every
+    live card for the same reason). It can still make the load non-empty
+    where the set above is empty, and a non-empty load reads the board's gate
+    index (``load_board_flow``'s ``any_card``), which the heatmap turns into a
+    ``wait`` key per gated stage. So when no loaded card is in the set above,
+    ``gate_last`` is reset to ``{}``, the answer a load of that set gives.
     """
     moved = CardMovement.objects.filter(
         card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
@@ -1034,12 +1038,34 @@ def load_recent_dwell(
         | Q(archived_at__gte=flow_range.start)
         | Exists(moved)
     )
-    if also_matching is not None:
-        relevant = relevant | also_matching
-    return load_board_flow(
+    if also_matching is None:
+        return load_board_flow(
+            board, swimlane_id=swimlane_id, label_id=label_id, now=flow_range.end,
+            columns=columns, cards_matching=relevant, on_card_rows=on_card_rows,
+        )
+
+    done_ids = {c.id for c in columns if c.is_done}
+    in_dwell_set = False
+
+    def note(card, rows):
+        # ``relevant`` above, in Python, on the rows the load already holds.
+        nonlocal in_dwell_set
+        if not in_dwell_set and (
+            (card.archived_at is None and card.column_id not in done_ids)
+            or (card.archived_at is not None and card.archived_at >= flow_range.start)
+            or any(flow_range.start <= row.moved_at <= flow_range.end for row in rows)
+        ):
+            in_dwell_set = True
+        if on_card_rows is not None:
+            on_card_rows(card, rows)
+
+    flow = load_board_flow(
         board, swimlane_id=swimlane_id, label_id=label_id, now=flow_range.end,
-        columns=columns, cards_matching=relevant, on_card_rows=on_card_rows,
+        columns=columns, cards_matching=relevant | also_matching, on_card_rows=note,
     )
+    if not in_dwell_set:
+        flow.gate_last = {}
+    return flow
 
 
 def range_boundary(flow_range, now):

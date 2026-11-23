@@ -14,7 +14,7 @@ from django.db import connection
 from django.db.models import Q
 from django.test.utils import CaptureQueriesContext
 
-from boards.models import Card, CardBlock, CardMovement
+from boards.models import Card, CardBlock, CardMovement, SubColumn
 from boards.services import flow_metrics
 from boards.tests.test_analytics_query_shape_1884 import AnalyticsQueryShapeTests as _Shape
 
@@ -130,6 +130,76 @@ class AnalyticsSingleHistoryTests(_Shape):
 
         with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=every_live):
             self.assertEqual(self._body(7), body)
+
+
+    def _gated_doing(self):
+        for i, name in enumerate(("Work", "Ready")):
+            SubColumn.objects.create(column=self.doing, position=i, name=name)
+
+    def _wait_keys(self, body):
+        return [
+            (lane["throughput_wait_avg_days_per_column"], lane["age_wait_avg_days_per_column"])
+            for lane in body["swimlanes"]
+        ]
+
+    def test_only_live_done_cards_in_the_buffer_report_no_wait_keys(self):
+        """The heatmap's extra cards must not add the gated stages' wait keys (#2451).
+
+        Every live card is in Done and the one movement is older than the
+        7-day range but inside its 14-day buffer, so no card can be a dwell
+        sample. The pre-#2451 view loaded no card here, read no gate index,
+        and returned ``{}`` for both wait fields; the extra heatmap cards must
+        not turn that into ``{"Doing": null}``.
+        """
+        self._gated_doing()
+        card = self._card(self.lanes[0], "done10", [(self.todo, 20), (self.doing, 15), (self.done, 10)])
+        loaded = []
+        real = flow_metrics.load_recent_dwell
+
+        def spy(*a, **k):
+            flow = real(*a, **k)
+            loaded.extend(c.id for c in flow.cards)
+            return flow
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy):
+            body = self._body(7)
+        # The card is read for the heatmap (the case under test), yet adds no key.
+        self.assertEqual(loaded, [card.id])
+        self.assertEqual(self._wait_keys(body), [({}, {}), ({}, {})])
+
+    def test_a_dwell_card_keeps_the_wait_keys(self):
+        """The mirror: one card the dwell load selects anyway, and the keys appear (#2451)."""
+        self._gated_doing()
+        self._card(self.lanes[0], "done10", [(self.todo, 20), (self.doing, 15), (self.done, 10)])
+        self._card(self.lanes[1], "doing", [(self.todo, 6), (self.doing, 3)])
+        for throughput, age in self._wait_keys(self._body(7)):
+            self.assertEqual(set(throughput), {"Doing"})
+            self.assertEqual(set(age), {"Doing"})
+
+    def test_stalled_cards_tie_on_position_by_id(self):
+        """Two stalled cards at one position list in id order, whatever order the load gives them (#2451)."""
+        self._fixture()
+        a, _b = self.lanes
+        first = self._card(a, "stall1", [(self.todo, 60), (self.doing, 40)])
+        second = self._card(a, "stall2", [(self.todo, 60), (self.doing, 40)])
+        real = flow_metrics.load_recent_dwell
+
+        def reversed_load(*args, on_card_rows=None, **kwargs):
+            # Hand the view its cards newest id first, so only the sort key
+            # can put them back in id order.
+            calls = []
+            flow = real(*args, on_card_rows=lambda card, rows: calls.append((card, rows)), **kwargs)
+            for card, rows in reversed(calls):
+                on_card_rows(card, rows)
+            return flow
+
+        self.url = f"/api/v1/boards/{self.board.pk}/analytics/?days=90"
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=reversed_load):
+            r = self._get()
+        self.assertEqual(r.status_code, 200)
+        lane = next(sw for sw in json.loads(r.content)["swimlanes"] if sw["name"] == "A")
+        ids = [c["id"] for c in lane["stalled_cards"] if c["id"] in (first.id, second.id)]
+        self.assertEqual(ids, [first.id, second.id])
 
 
 # Keep pytest from collecting the parent's tests a second time under this module.

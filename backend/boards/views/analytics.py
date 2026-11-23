@@ -1425,9 +1425,11 @@ class BoardAnalyticsMixin:
         # movement in the 2x buffer. A live done card with none adds nothing
         # to the heatmap (no buffered stay, no velocity, never stalled, not
         # long-dwelling), so it is left out rather than loaded whole (perf-check
-        # on !2451). A live done card is no dwell sample, so the flow answers do
-        # not move either. The term is an uncorrelated, board-bounded IN, not a
-        # correlated EXISTS inside the OR (#2502).
+        # on !2451). A live done card is no dwell sample, and ``load_recent_dwell``
+        # resets the gate index when only such cards were loaded, so the flow
+        # answers, the wait keys included, do not move either. The term is an
+        # uncorrelated, board-bounded IN, not a correlated EXISTS inside the OR
+        # (#2502).
         buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         heatmap_cards: list[_HeatmapCard] = []
 
