@@ -2428,7 +2428,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 )}
                 {canComment && (
                   // #2542: static hint at the point of choice; it names the Children tab only where this card can have children.
-                  <p id={checklistHintId} className="mt-1 px-1 text-xs text-fg-muted" data-testid="checklist-hint">
+                  <p id={checklistHintId} className="mt-1 text-xs text-fg-muted" data-testid="checklist-hint">
                     {canHaveChildren
                       ? "Steps for this card only. For work with its own workflow on another board, use the Children tab."
                       : "Steps for this card only."}

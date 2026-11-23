@@ -7,14 +7,16 @@ import { trackStateLabel } from "../../utils/stages";
  * (WCAG 1.4.1): done = check on `bg-success/20`, open = hollow circle with a
  * border, not applicable = dash on a neutral fill. Every chip's accessible
  * name spells the state out ("Technical: done"); `spelledOut` also prints it
- * (phone width). The chips are not controls (#2542): the list's name says where
+ * (phone width). The chips are not controls (#2542): an sr-only line before the list says where
  * a track's value is set (once per card, not once per chip, to keep a board of
  * cards terse for screen readers), and each chip's tooltip repeats it.
  */
 export default function TrackChips({ tracks, spelledOut = false }: { tracks: CardTrackState[]; spelledOut?: boolean }) {
   if (tracks.length === 0) return null;
   return (
-    <ul data-testid="card-track-chips" aria-label="Tracks, set in the card's Custom fields" className="mt-1 flex flex-wrap gap-1">
+    <>
+    <span className="sr-only">Tracks, set in the card's Custom fields.</span>
+    <ul data-testid="card-track-chips" className="mt-1 flex flex-wrap gap-1">
       {tracks.map((t) => {
         // A lane-derived state says so in words, not only in a tooltip (#2278 N1).
         const words = `${t.name}: ${trackStateLabel(t.state)}${t.fromLane ? " for this swimlane" : ""}`;
@@ -37,6 +39,7 @@ export default function TrackChips({ tracks, spelledOut = false }: { tracks: Car
         );
       })}
     </ul>
+    </>
   );
 }
 
