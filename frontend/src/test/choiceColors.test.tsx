@@ -319,7 +319,7 @@ describe("ChoiceColorPicker (#1391)", () => {
     // Automatic is a hollow dashed circle — never a fill that reads as a pick.
     const swatch = trigger.querySelector("[data-swatch]") as HTMLElement;
     expect(swatch).toHaveAttribute("data-swatch", "automatic");
-    expect(swatch).toHaveClass("border-dashed", "border-line-strong");
+    expect(swatch).toHaveClass("border-dashed", "border-line-boundary");
     expect(swatch.style.backgroundColor).toBe("");
     expect(trigger).toHaveClass("p-0.5");
     await user.click(trigger);

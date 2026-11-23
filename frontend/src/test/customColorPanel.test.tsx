@@ -288,6 +288,9 @@ describe('ColorSwatchPicker allowCustom', () => {
     const buttons = Array.from(group.querySelectorAll('button'))
     const trigger = emptyTrigger()
     expect(buttons[buttons.length - 1]).toBe(trigger)
+    // #2505: the dashed outline is the only cue, so it needs the 3:1 boundary token, not line-strong.
+    expect(trigger).toHaveClass('border-dashed', 'border-line-boundary')
+    expect(trigger).not.toHaveClass('border-line-strong')
     expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
     expect(trigger).toHaveAttribute('title', 'Custom color')
