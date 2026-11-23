@@ -984,7 +984,7 @@ backend-test:
         --group $CI_NODE_INDEX
         --splits $CI_NODE_TOTAL
         --junitxml=test-results/junit-${CI_NODE_INDEX}.xml
-        --nomigrations -m "not migrations and not slow"
+        --strict-markers --nomigrations -m "not migrations and not slow"
         -o faulthandler_timeout=300
         -v
   artifacts:
@@ -1023,6 +1023,7 @@ backend-test-migrations:
     - cd backend
     - coverage run --parallel --data-file=.coverage.migrations -m pytest
         -m migrations
+        --strict-markers
         --junitxml=test-results/junit-migrations.xml
         -q
   allow_failure: false
@@ -1044,7 +1045,8 @@ backend-test-migrations:
 #     every slow test still runs on main and every night;
 #   * MRs touching the seed/sample commands, their data and fixture modules,
 #     models, migrations, pytest config, requirements or this file.
-# Every other schedule (weekly mutation, Sonar, CVE ...) skips it. On those,
+# Every other schedule (the weekly mutation and nightly load-test schedules)
+# skips it (Sonar and CVE ride the Nightly, which runs it). On those,
 # backend-test and backend-test-coverage still run (`changes:` is always true on
 # a schedule) but without .coverage.slow; measured impact ~5 statements of
 # 31,449 (~0.016%) (#2489 caveat).
@@ -1069,6 +1071,9 @@ backend-test-slow:
         - backend/boards/tests/test_sample_boards.py
         - backend/boards/tests/test_container_delete_vs_card_entry_lock.py
         - backend/boards/tests/history_reconciliation.py
+        - backend/boards/views/import_export.py
+        - backend/boards/import_schemas.py
+        - backend/boards/import_errors.py
         - backend/boards/management/commands/seed_demo_data.py
         - backend/boards/management/commands/seed_template_boards.py
         - backend/boards/management/commands/_*.py
@@ -1094,7 +1099,7 @@ backend-test-slow:
     # marked set (25 tests) so there is nothing to balance.
     - coverage run --parallel --data-file=.coverage.slow -m pytest
         -m "slow and not migrations"
-        --nomigrations
+        --strict-markers --nomigrations
         --junitxml=test-results/junit-slow.xml
         -o faulthandler_timeout=300
         -v
