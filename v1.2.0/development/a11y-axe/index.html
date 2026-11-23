@@ -4426,13 +4426,13 @@ rule and the fix. Then find the element from its selector.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">source</span><span class="w"> </span>../.envrc
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>npx<span class="w"> </span>playwright<span class="w"> </span><span class="nb">test</span><span class="w"> </span>e2e/a11y.spec.ts
 </code></pre></div>
-<p>Common fixes: give icon-only buttons an <code>aria-label</code>; make an <code>aria-label</code> start with the visible
-text (WCAG 2.5.3); use the contrast-checked color tokens in <code>frontend/CLAUDE.md</code> rather than
+<p>Common fixes: give icon-only buttons an <code>aria-label</code>; make an <code>aria-label</code> contain the visible
+text as whole words, in order (WCAG 2.5.3; axe splits on punctuation, ignores parentheses, and a count
+in an adjacent span needs a real space before it); use the contrast-checked color tokens in <code>frontend/CLAUDE.md</code> rather than
 <code>text-info</code> on tinted backgrounds; never nest a button or link inside another interactive element.</p>
 <h2 id="the-baseline">The baseline<a class="headerlink" href="#the-baseline" title="Permanent link">&para;</a></h2>
 <p>When the gate landed, the scanned states already had violations. They are recorded in <code>BASELINE</code>
-in the spec, each tied to an open issue: #2466 (color-contrast), #2467
-(label-content-name-mismatch), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
+in the spec, each tied to an open issue: #2466 (color-contrast), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
 issue, then remove the matching entries. Never add an entry for a regression you just introduced;
 fix the regression. A new entry needs an open tracking issue.</p>
 <p>Each entry names its issue only as a <code>// SUPPRESSED-UNTIL(#N)</code> comment on the same line:</p>
