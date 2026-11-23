@@ -94,10 +94,15 @@ async function checkAssignees(group: Locator) {
   expect(await contrast(group.getByText('Mia Reyes', { exact: true }))).toBeGreaterThanOrEqual(TEXT)
   expect(await contrast(group.locator('p').filter({ hasText: 'default team' }))).toBeGreaterThanOrEqual(TEXT)
   expect(await contrast(group.getByText('Assignees', { exact: true }))).toBeGreaterThanOrEqual(TEXT)
+  // 44px targets on every surface, the desktop cell included (#2520, #2206 rule 6).
+  const unassignBox = (await group.getByRole('button', { name: 'Unassign Mia Reyes' }).boundingBox())!
+  expect(unassignBox.height).toBeGreaterThanOrEqual(44)
+  expect(unassignBox.width).toBeGreaterThanOrEqual(44)
   // Unassign, then the "+ Add" pill takes focus and its label is readable.
   await group.getByRole('button', { name: 'Unassign Mia Reyes' }).click()
   const add = group.getByRole('button', { name: 'Add Mia Reyes' })
   await expect(add).toBeFocused()
+  expect((await add.boundingBox())!.height).toBeGreaterThanOrEqual(44)
   expect(await contrast(add)).toBeGreaterThanOrEqual(TEXT)
   expect(await contrast(group.getByText('No one assigned.'))).toBeGreaterThanOrEqual(TEXT)
   await expect(group).toContainText('default team')
