@@ -1169,7 +1169,7 @@ const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<
     await page.getByPlaceholder('e.g. Engineering').fill('Ops')
     await page.getByRole('button', { name: 'Create Group' }).dispatchEvent('click')
   }],
-  ['Delete card (CardDetail)', '', { setup: (page) => routeCardDetail(page, BOARD_FULL.id, CARD) }, async (page) => {
+  ['Delete card (CardDetail)', 'Delete this card?', { setup: (page) => routeCardDetail(page, BOARD_FULL.id, CARD) }, async (page) => {
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
     await page.getByRole('button', { name: 'Delete card', exact: true }).dispatchEvent('click')
   }],
@@ -1188,6 +1188,7 @@ const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<
     board: { ...BOARD_FULL, columns: [COLUMN_TODO, { ...COLUMN_DONE, policy: { v: 1, entry: ['Tests pass', 'Docs updated'], done: [], mode: 'confirm' } }] } as unknown as typeof BOARD_FULL,
   }, async (page) => {
     await page.setViewportSize({ width: 1280, height: 800 })
+    await expect(page.getByTestId('phone-board')).toBeHidden({ timeout: 10_000 })
     const cardEl = page.locator('[data-tour-step="card"]').filter({ hasText: CARD.title }).first()
     await expect(cardEl).toBeVisible({ timeout: 10_000 })
     const from = (await cardEl.boundingBox())!
