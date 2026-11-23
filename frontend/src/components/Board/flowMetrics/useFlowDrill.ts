@@ -114,7 +114,7 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
           const kind = analyticsErrorKind(error);
           setDrill({
             kind: "cards", title, groups: null, failed: true,
-            failedMessage: analyticsErrorMessage(kind) ?? undefined,
+            failedMessage: analyticsErrorMessage(kind, { wholeHistory: true }) ?? undefined,
             onRetry: analyticsErrorRetryable(kind) ? load : undefined,
           });
         });

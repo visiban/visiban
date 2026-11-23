@@ -742,7 +742,7 @@ describe('the drill-down drawer', () => {
     await renderLoaded()
     await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
     const dialog = within(await screen.findByRole('dialog', { name: /^Cards on/ }))
-    expect(await dialog.findByRole('alert')).toHaveTextContent('This board has too much history to analyze here.')
+    expect(await dialog.findByRole('alert')).toHaveTextContent('This board has too much history to list these cards here.')
     expect(dialog.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 

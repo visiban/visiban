@@ -213,10 +213,10 @@ export default function AnalyticsSwimlanes({
         <div className={`flex flex-col gap-4 min-w-0 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
           {failed && (
             <div role="alert" className="text-sm text-fg-secondary flex flex-wrap items-center gap-3">
-              Could not refresh swimlanes. The numbers below are from the last load.
-              <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              {analyticsErrorMessage(failedKind) ?? "Could not refresh swimlanes."} The numbers below are from the last load.
+              {analyticsErrorRetryable(failedKind) && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Retry
-              </button>
+              </button>}
             </div>
           )}
           <section

@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 # app's Analytics page, which opens the overview and the heatmap together.
 PER_USER_MAX_IN_FLIGHT = 2
 # Requests that may wait for a slot at once, process-wide. Kept small so the
-# running plus waiting requests stay well under the database pool's default
-# maximum (DATABASE_POOL_MAX_SIZE, 10): a waiting request holds a connection.
+# running plus waiting requests stay well under the default connection pool
+# size (DATABASE_POOL_MAX_SIZE, 10).
 MAX_WAITERS = 4
 # How long a REST request waits for a slot before it is refused. MCP tools
 # never wait.
@@ -135,7 +135,9 @@ def movement_budget():
 
 
 def _user_key(user):
-    # Absent input denies (#1075): never admit a request that has no key.
+    # Absent input denies (#1075): never admit a request that has no key. A
+    # programming-error guard: every caller authenticates and authorizes the
+    # board first, so no real request reaches this without a user.
     if user is None or not getattr(user, "is_authenticated", False) or getattr(user, "pk", None) is None:
         raise ValueError("analytics_slot needs an authenticated user")
     return user.pk
@@ -156,6 +158,11 @@ def _admit(key, wait):
             try:
                 if _on_wait is not None:
                     _on_wait()
+            except BaseException:
+                _waiting -= 1
+                _release_key(key)
+                raise
+            try:
                 deadline = time.monotonic() + REST_WAIT_SECONDS
                 while _running >= limit:
                     remaining = deadline - time.monotonic()

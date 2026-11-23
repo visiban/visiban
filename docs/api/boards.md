@@ -332,6 +332,8 @@ Available templates: **Sales Pipeline**, **Customer Support**, **Customer Succes
 ### `GET /api/v1/boards/{id}/summary/`
 Board health summary: per-swimlane card counts, stage distribution, and velocity. Uses a fixed number of queries regardless of board size. *Changed in 1.3* (#448): velocity and cycle time replay the history of the cards that entered a done column in the last 30 days, so the cost grows with recent completions rather than with the board's whole history (before, this was SQL aggregates only).
 
+**Errors:** besides `404` for a board you cannot access, `503` `analytics_busy` (with `Retry-After: 10`) and `422` `analytics_too_large`. *Added in 1.3* (#2428). See [Analytics refusals](index.md#analytics-refusals-analytics_busy-analytics_too_large).
+
 **Response shape:**
 
 ```json
@@ -443,6 +445,8 @@ ANALYTICS_EXTENSIONS.append(delivery_risk)
 
 ### `GET /api/v1/boards/{id}/analytics/`
 Time-in-stage heatmap derived from `CardMovement` records.
+
+**Errors:** besides `400` for a bad query parameter, `404` for a board you cannot access, `503` `analytics_busy` (with `Retry-After: 10`) and `422` `analytics_too_large`. *Added in 1.3* (#2428). See [Analytics refusals](index.md#analytics-refusals-analytics_busy-analytics_too_large).
 
 **Query parameters:**
 

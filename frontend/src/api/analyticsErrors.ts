@@ -29,11 +29,17 @@ export function worstAnalyticsErrorKind(reasons: unknown[]): AnalyticsErrorKind 
   return "other";
 }
 
-/** What a failed analytics region says, per kind. `null` keeps the region's own generic copy. */
-export function analyticsErrorMessage(kind: AnalyticsErrorKind): string | null {
+/**
+ * What a failed analytics region says, per kind. `null` keeps the region's own generic copy.
+ * `wholeHistory` is for a request that reads the board's whole history whatever the period
+ * (the cumulative-flow day drill-down), where a shorter period would not help.
+ */
+export function analyticsErrorMessage(kind: AnalyticsErrorKind, { wholeHistory = false } = {}): string | null {
   if (kind === "busy") return "Analytics is busy right now. Try again in a moment.";
   if (kind === "too_large") {
-    return "This board has too much history to analyze here. Try a shorter period, or ask your administrator.";
+    return wholeHistory
+      ? "This board has too much history to list these cards here. Ask your administrator."
+      : "This board has too much history to analyze here. Try a shorter period, or ask your administrator.";
   }
   return null;
 }

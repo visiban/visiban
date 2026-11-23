@@ -261,7 +261,9 @@ The Analytics endpoints (`summary`, `analytics` and every `metrics/*`, see
 concurrency limit and size limit ([Analytics limits](../administration/configuration.md#analytics-limits)).
 These codes and settings follow the 1.0+ compatibility rules.
 
-When no slot comes free within a few seconds:
+When no slot comes free within a few seconds (or the server already has its
+limit of waiting requests, or you already have two Analytics requests running
+or waiting, in which case the refusal is immediate):
 
 ```json
 { "code": "analytics_busy", "detail": "Analytics is busy on this server right now. Try again in a moment." }

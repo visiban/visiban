@@ -195,6 +195,18 @@ describe('Swimlanes view', () => {
     expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalledTimes(1)
   })
 
+  it('explains a refused refetch and keeps the old numbers without a Retry (#2428)', async () => {
+    const user = await openSwimlanes()
+    vi.mocked(getFlowSwimlanes).mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    await user.click(screen.getByRole('button', { name: /^Date range/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('This board has too much history to analyze here.')
+    expect(alert).toHaveTextContent('The numbers below are from the last load.')
+    expect(within(alert).queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(screen.getAllByTestId('swimlane-row').length).toBeGreaterThan(0)
+  })
+
   it('keeps old numbers with an alert and Retry when a refetch fails, and hides the legend without rows', async () => {
     const user = await openSwimlanes()
     expect(screen.getByTestId('swimlanes-legend')).toBeInTheDocument()

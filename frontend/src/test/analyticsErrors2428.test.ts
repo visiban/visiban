@@ -35,6 +35,10 @@ describe('analyticsErrorKind (#2428)', () => {
       'This board has too much history to analyze here. Try a shorter period, or ask your administrator.',
     )
     expect(analyticsErrorMessage('other')).toBeNull()
+    expect(analyticsErrorMessage('too_large', { wholeHistory: true })).toBe(
+      'This board has too much history to list these cards here. Ask your administrator.',
+    )
+    expect(analyticsErrorMessage('busy', { wholeHistory: true })).toBe('Analytics is busy right now. Try again in a moment.')
     expect(analyticsErrorRetryable('busy')).toBe(true)
     expect(analyticsErrorRetryable('other')).toBe(true)
     expect(analyticsErrorRetryable('too_large')).toBe(false)

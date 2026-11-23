@@ -376,7 +376,7 @@ Every error has a `code` your agent can branch on, and the table below is the co
 | `invalid_position` | Reserved: `position` is schema-typed as an integer, so this is not currently reachable. The supplied move `position` is not an integer. |
 | `invalid_gates_passed` | `move_card`: `gates_passed` (since 1.3) is not an integer, is negative, or is past the target stage's last sub-column. |
 | `analytics_busy` | `board_flow_metrics` and `aging_cards`. *Added in 1.3* (#2428). No analytics slot is free on this server right now (`ANALYTICS_MAX_CONCURRENT`). The tools never wait for one: call again in a few seconds. `{"code": "analytics_busy", "detail": "..."}`. These codes and settings follow the 1.0+ compatibility rules. |
-| `analytics_too_large` | `board_flow_metrics` and `aging_cards`. *Added in 1.3* (#2428). The board has more movement history than one analytics request may read (`ANALYTICS_MAX_MOVEMENTS`). Calling again does not help; an administrator raises the limit. |
+| `analytics_too_large` | `board_flow_metrics` and `aging_cards`. *Added in 1.3* (#2428). The board has more movement history than one analytics request may read (`ANALYTICS_MAX_MOVEMENTS`). Calling again does not help; an administrator raises the limit. `{"code": "analytics_too_large", "detail": "..."}`. These codes and settings follow the 1.0+ compatibility rules. |
 | `card_creation_not_allowed` | `create_card` targeted a column that has card creation turned off. Carries a `column` message instead of `detail`: `{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}`. |
 | `container_changed` | Reserved: no MCP tool deletes containers. A column, swimlane, or board kept gaining cards while it was being locked for deletion; nothing was deleted. Retry. |
 | `links_changed` | Reserved: no MCP tool deletes cards. A card's parent/child links kept changing while it was being locked; nothing was written. Retry. Added in 1.3 (#2409). |
@@ -467,6 +467,8 @@ Flow metrics for one board over a rolling window, from the same service as the R
 
 **Arguments:** `board_id` (integer, required); `window_days` (integer 1 to 365, default `90`, the REST `days` default); `swimlane_id` (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a `validation_error` keyed by the argument. Type coercion and the rejection of non-integers (`30.5`, `"abc"`) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.
 
+**Errors:** besides `board_not_found` and `validation_error`, *since 1.3* (#2428) `analytics_busy` and `analytics_too_large` (see [Tool errors](#tool-errors)). The tool is refused at once when no analytics slot is free; it never waits.
+
 **Returns:**
 
 | Key | Shape |
@@ -488,6 +490,8 @@ The per-card `samples` and `card_uids` lists REST returns are left out so the re
 Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (`history_days`, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; `mcp:read`; compute bucket.
 
 **Arguments:** `board_id` (integer, required); `percentile` (integer 1 to 99, default `85`). A high percentile needs many samples: above 95 a column almost always has a `null` threshold.
+
+**Errors:** besides `board_not_found` and `validation_error`, *since 1.3* (#2428) `analytics_busy` and `analytics_too_large` (see [Tool errors](#tool-errors)). The tool is refused at once when no analytics slot is free; it never waits.
 
 **Returns:** `{percentile, history_days, columns, total, truncated, limit, cards}`.
 

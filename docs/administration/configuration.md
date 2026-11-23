@@ -402,7 +402,9 @@ the instance by uploading in a loop.
 
 Every Analytics request (the Summary tab, the dwell time heatmap, each `metrics/*`
 chart and the MCP flow tools) replays the board's card history in the server
-process. Two settings bound that work. These codes and settings follow the 1.0+ compatibility rules.
+process. Two settings bound that work. Both are per server process, so with
+several pods or worker processes the instance-wide figure is that many times
+larger. These codes and settings follow the 1.0+ compatibility rules.
 
 | Variable | Description | Default |
 |---|---|---|
@@ -433,7 +435,18 @@ Raise `ANALYTICS_MAX_MOVEMENTS` (and the pod's memory limit with it) when a
 board's Analytics page says the board has too much history. Raise
 `ANALYTICS_MAX_CONCURRENT` only with more CPU and memory per pod: analytics is
 CPU-bound, so two requests at once in one process take about twice as long
-each, and other requests on that process wait behind them.
+each. A request waiting for a slot uses a database connection, so with
+connection pooling on keep `ANALYTICS_MAX_CONCURRENT` + 4 (the waiting
+requests) well under `DATABASE_POOL_MAX_SIZE`.
+
+At the default of 1, the Analytics page's two requests run one after the
+other, and a request that waits more than 8 seconds is refused and retried
+once by the web app after `Retry-After`. On boards whose Analytics takes
+longer than that, or when one person opens Analytics in several tabs at once,
+expect an occasional "busy" message, and raise `ANALYTICS_MAX_CONCURRENT`
+together with the pod's CPU and memory.
+
+---
 
 ## Comment and checklist limits
 
