@@ -63,7 +63,7 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     // second. A superseded chain never starts its second request. The chain never rejects and the
     // `current` flag guards late answers, so fire-and-forget is safe.
     const run = async (): Promise<[PromiseSettledResult<FlowOverview>, PromiseSettledResult<unknown>]> => {
-      // The overview first: it renders the page's headline. A busy server is retried once after its
+      // The overview first, the larger request, so a one-slot server serves it without queueing. A busy server is retried once after its
       // Retry-After (#2428); anything else fails as before.
       const [overview] = await Promise.allSettled([
         withAnalyticsBusyRetry(() => getFlowOverview(boardId, filters, ...extra), cancelableWait, controller.signal),
