@@ -8,6 +8,7 @@ from visiban.colors import ColorValidationMixin
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
 from visiban.invite_email import InviteEmailField
 from visiban.query_fallbacks import fk_chain_loaded, note_fallback
+from .counts import MEMBER_PREVIEW_LIMIT
 from .models import (
     HEALTH_NOTE_MAX_LENGTH, HealthChangeKind,
     Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite,
@@ -514,6 +515,15 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     # group's response fail schema conformance (#1119).
     parent_name = serializers.SerializerMethodField(allow_null=True)
     member_count = serializers.SerializerMethodField()
+    # Additive and optional to read (#2487): the home page's Groups avatar stack.
+    member_preview = serializers.SerializerMethodField(
+        help_text=(
+            "Up to the first five direct members of the group (by join date), "
+            "each in the public user shape (id, username, display_name, "
+            "avatar_url; no email). Use member_count for the total. Empty on a "
+            "navigation-only group."
+        ),
+    )
     board_count = serializers.SerializerMethodField()
     subgroup_count = serializers.SerializerMethodField()
     shared_labels = GroupLabelSerializer(source="labels", many=True, read_only=True)
@@ -555,13 +565,13 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             "id", "name", "description", "owner", "parent", "parent_name",
             "member_count", "board_count", "subgroup_count", "created_at",
             "default_board_member_role", "allowed_priorities", "shared_labels",
-            "is_starred", "navigation_only", "can_place_boards",
+            "is_starred", "navigation_only", "can_place_boards", "member_preview",
             "health_status", "effective_health_status", "health_status_source",
             *HEALTH_HISTORY_FIELDS, *HEALTH_REVIEW_FIELDS,
         ]
         read_only_fields = [
             "owner", "created_at", "shared_labels", "is_starred", "navigation_only",
-            "can_place_boards",
+            "can_place_boards", "member_preview",
         ]
         list_serializer_class = HealthStatusListSerializer
         # Schema-only (#1077): see visiban/field_enforcement.py.
@@ -601,6 +611,8 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     _NAVIGATION_ONLY_EMPTY = {
         "description": "",
         "member_count": 0,
+        # #2487: who belongs to a group the viewer cannot see is withheld like the count.
+        "member_preview": [],
         "board_count": 0,
         "subgroup_count": 0,
         "allowed_priorities": [],
@@ -701,6 +713,27 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
             return obj._member_count
         note_fallback(self, "get_member_count")
         return obj.memberships.count()
+
+    @extend_schema_field(BoardUserSerializer(many=True))
+    def get_member_preview(self, obj):
+        """The first ``MEMBER_PREVIEW_LIMIT`` direct members (#2487).
+
+        Reads ``_member_preview`` from ``prefetch_member_preview`` (one bounded
+        query for a whole list). A navigation-only group returns ``[]`` without
+        reading anything: ``to_representation`` would blank it anyway, and the
+        fallback must not query members of a group the viewer cannot see.
+        Single-object responses (create, update, broadcasts) take the bounded
+        fallback, one query each, accepted: they render one group.
+        """
+        if self._is_navigation_only(obj):
+            return []
+        memberships = getattr(obj, "_member_preview", None)
+        if memberships is None:
+            note_fallback(self, "get_member_preview")
+            memberships = list(
+                obj.memberships.select_related("user").order_by("joined_at", "id")[:MEMBER_PREVIEW_LIMIT]
+            )
+        return BoardUserSerializer([m.user for m in memberships[:MEMBER_PREVIEW_LIMIT]], many=True, context=self.context).data
 
     def get_board_count(self, obj) -> int:
         if hasattr(obj, "_board_count"):

@@ -65,8 +65,8 @@ describe('ConfirmEmailPage', () => {
 
       expect(screen.getByText('Email verified')).toBeInTheDocument()
 
-      // Advance past the full 3-second countdown
-      await act(async () => { vi.advanceTimersByTime(3000) })
+      // Advance past the full 5-second countdown (#2484: at least 5s)
+      await act(async () => { vi.advanceTimersByTime(5000) })
 
       expect(screen.getByText('login-page')).toBeInTheDocument()
     } finally {
@@ -233,11 +233,11 @@ describe('ConfirmEmailPage', () => {
 
       await act(async () => { await vi.runAllTimersAsync() })
 
-      expect(screen.getByText('Redirecting in 3s\u2026')).toBeInTheDocument()
+      expect(screen.getByText('Redirecting in 5s\u2026')).toBeInTheDocument()
 
       await act(async () => { vi.advanceTimersByTime(1000) })
 
-      expect(screen.getByText('Redirecting in 2s\u2026')).toBeInTheDocument()
+      expect(screen.getByText('Redirecting in 4s\u2026')).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

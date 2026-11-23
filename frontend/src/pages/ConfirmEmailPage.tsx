@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { verifyEmail } from "../api/auth";
-import { BrandTile, Button, CenteredLayout, StatusCard } from "../components/Page";
+import { BrandTile, Button, CenteredLayout, RedirectCountdown, StatusCard } from "../components/Page";
 
 /**
  * `isAuthenticated` only changes the "address already in use" next step
@@ -17,7 +17,6 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
   // whoever holds the link, i.e. controls the inbox, so it discloses nothing
   // they couldn't already learn (see accounts.views.VerifyEmailView).
   const [status, setStatus] = useState<"loading" | "success" | "error" | "in_use">("loading");
-  const [countdown, setCountdown] = useState(3);
   const hasFired = useRef(false);
   const successHeadingRef = useRef<HTMLHeadingElement>(null);
   const errorHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -40,23 +39,6 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
     if (status === "in_use") inUseHeadingRef.current?.focus();
   }, [status]);
 
-  useEffect(() => {
-    if (status !== "success") return;
-    const timer = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          clearInterval(timer);
-          // void: navigate() can return a Promise in React Router v7; fire-and-forget,
-          // there is nothing to roll back if the navigation itself rejects.
-          void navigate("/");
-          return 0;
-        }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [status, navigate]);
-
   return (
     <CenteredLayout testId="confirm-email-page">
       {status === "loading" && (
@@ -76,7 +58,8 @@ export default function ConfirmEmailPage({ isAuthenticated = false }: { isAuthen
           actions={<Button variant="primary" size="lg" fullWidth onClick={() => navigate("/")}>Sign in</Button>}
         >
           <p>Your email address has been confirmed. You can now sign in.</p>
-          <p className="mt-2 text-xs text-fg-tertiary">Redirecting in {countdown}s…</p>
+          {/* void: navigate() can return a Promise in React Router v7; nothing to roll back. */}
+          <RedirectCountdown seconds={5} onDone={() => { void navigate("/"); }} />
         </StatusCard>
       )}
 

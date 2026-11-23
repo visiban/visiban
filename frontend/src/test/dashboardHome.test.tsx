@@ -157,7 +157,10 @@ describe('Home status page (#2474)', () => {
       const select = screen.getByRole('combobox', { name: 'Filter boards' })
       expect(within(select).getByRole('option', { name: 'Personal (2)' })).toBeInTheDocument()
       await u.selectOptions(select, 'at_risk')
-      const list = screen.getByRole('list', { name: 'All boards' })
+      // The section's heading names it; the list carries no second "All boards" label (#2487).
+      const section = screen.getByRole('region', { name: 'All boards' })
+      const list = within(section).getByRole('list')
+      expect(list).not.toHaveAttribute('aria-label')
       expect(within(list).getAllByRole('listitem')).toHaveLength(1)
       expect(within(list).getByText('Group Two')).toBeInTheDocument()
     })
@@ -303,5 +306,73 @@ describe('Home status page (#2474)', () => {
     mockListGroups.mockReturnValue(new Promise(() => undefined))
     renderHome()
     expect(screen.getByTestId('home-skeleton')).toBeInTheDocument()
+  })
+
+  describe('side lists and group avatars (#2487)', () => {
+    const grp = (id: number, extra: Record<string, unknown> = {}) => ({
+      id, name: `G${String(id).padStart(2, '0')}`, parent: null, navigation_only: false, owner: user, member_count: 1, board_count: 0, ...extra,
+    })
+
+    it('caps Groups at five with a Show all toggle that expands and collapses in place', async () => {
+      const u = userEvent.setup()
+      mockListBoards.mockResolvedValue([mk(1)])
+      mockListGroups.mockResolvedValue(Array.from({ length: 7 }, (_, i) => grp(i + 1)))
+      renderHome()
+      const section = await screen.findByRole('region', { name: 'Groups' })
+      expect(within(section).getAllByRole('listitem')).toHaveLength(5)
+      const toggle = within(section).getByRole('button', { name: 'Show all 7' })
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      expect(toggle).toHaveAttribute('aria-controls', 'home-groups-list')
+      expect(toggle).toHaveAccessibleDescription('Groups')
+      await u.click(toggle)
+      expect(within(section).getAllByRole('listitem')).toHaveLength(7)
+      const fewer = within(section).getByRole('button', { name: 'Show fewer' })
+      expect(fewer).toHaveAttribute('aria-expanded', 'true')
+      expect(fewer).toHaveFocus()
+      await u.click(fewer)
+      expect(within(section).getAllByRole('listitem')).toHaveLength(5)
+    })
+
+    it('shows no toggle when a side list fits under the cap', async () => {
+      mockListBoards.mockResolvedValue([mk(1)])
+      mockListGroups.mockResolvedValue([grp(1), grp(2)])
+      renderHome()
+      const section = await screen.findByRole('region', { name: 'Groups' })
+      expect(within(section).queryByRole('button', { name: /^Show/ })).not.toBeInTheDocument()
+    })
+
+    it('caps Needs attention at five with its own toggle', async () => {
+      const u = userEvent.setup()
+      mockListBoards.mockResolvedValue(Array.from({ length: 6 }, (_, i) => mk(i + 1, auto(i + 1, 0))))
+      mockListGroups.mockResolvedValue([])
+      renderHome()
+      const section = await screen.findByRole('region', { name: 'Needs attention' })
+      expect(within(section).getAllByRole('listitem')).toHaveLength(5)
+      const toggle = within(section).getByRole('button', { name: 'Show all 6' })
+      expect(toggle).toHaveAccessibleDescription('Needs attention')
+      await u.click(toggle)
+      expect(within(section).getAllByRole('listitem')).toHaveLength(6)
+    })
+
+    it('draws member_preview avatars (at most three) and a +N for the rest', async () => {
+      mockListBoards.mockResolvedValue([mk(1)])
+      const members = [1, 2, 3, 4].map((id) => ({ id, username: `u${id}`, display_name: `User ${id}`, avatar_url: '' }))
+      mockListGroups.mockResolvedValue([grp(1, { member_count: 9, member_preview: members })])
+      renderHome()
+      const section = await screen.findByRole('region', { name: 'Groups' })
+      const stack = within(section).getByTestId('group-avatar-stack')
+      expect(stack).toHaveAttribute('aria-hidden', 'true')
+      expect(stack.children).toHaveLength(4)
+      expect(stack).toHaveTextContent('+6')
+    })
+
+    it('falls back to the owner alone when the server sends no member_preview', async () => {
+      mockListBoards.mockResolvedValue([mk(1)])
+      mockListGroups.mockResolvedValue([grp(1, { member_count: 3 })])
+      renderHome()
+      const stack = within(await screen.findByRole('region', { name: 'Groups' })).getByTestId('group-avatar-stack')
+      expect(stack.children).toHaveLength(2)
+      expect(stack).toHaveTextContent('+2')
+    })
   })
 })

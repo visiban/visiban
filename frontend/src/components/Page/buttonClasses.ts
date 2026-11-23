@@ -1,5 +1,6 @@
 /**
- * The six button variants of the shared look (#2475, frontend/CLAUDE.md § Buttons).
+ * The seven button variants of the shared look (#2475, frontend/CLAUDE.md § Buttons;
+ * `danger-outline` added in #2504).
  *
  * Kept as plain class strings (not only a `<Button>` component) because many call sites render
  * a `<Link>`, an `<a>` or a native `<button>` with its own handlers; they all take the same
@@ -8,7 +9,7 @@
  * style. The class strings are pinned by `src/test/pageParts.test.tsx` and the Cancel scan in
  * `src/test/cancelButtonHover.test.ts` reads `BUTTON_VARIANT_CLASSES.quiet` from here.
  */
-export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "warning" | "icon";
+export type ButtonVariant = "primary" | "secondary" | "quiet" | "danger" | "danger-outline" | "warning" | "icon";
 
 /** `md` is the default 36px control (44px on phones); `lg` is the Centered layout's 48px phone control. */
 export type ButtonSize = "md" | "lg";
@@ -27,6 +28,10 @@ export const BUTTON_VARIANT_CLASSES: Record<ButtonVariant, string> = {
   secondary: "px-3 bg-surface border border-line-strong text-fg font-medium hover:bg-surface-hover focus:ring-primary-emphasis",
   quiet: "px-3 text-fg-secondary hover:text-fg hover:bg-surface-hover focus:ring-primary-emphasis",
   danger: "px-3 bg-danger-bg hover:bg-danger-bg-hover text-on-danger font-medium focus:ring-danger-emphasis",
+  // #2504: a destructive trigger that opens a confirm (Transfer ownership, Delete group). The
+  // filled Danger is kept for the confirm's own action, so the trigger reads lower than the
+  // commit. The classes are the ones the group page spelled out on `secondary` before #2504.
+  "danger-outline": "px-3 bg-surface border border-danger/40 text-danger font-medium hover:bg-danger/20 hover:text-danger-on-tint focus:ring-danger-emphasis",
   warning: "px-3 bg-warning-bg hover:bg-warning-bg-hover text-on-warning font-medium focus:ring-warning-emphasis",
   icon: "shrink-0 text-fg-secondary hover:text-fg hover:bg-surface-hover focus:ring-primary-emphasis",
 };

@@ -358,7 +358,8 @@ describe('AccessTokensTab', () => {
     await userEvent.click(screen.getByTestId(`confirm-revoke-${token1.id}`))
     const confirm = screen.getByTestId(`confirm-revoke-${token1.id}`)
     expect(confirm).toHaveTextContent('Revoking…')
-    expect(confirm).toBeDisabled()
+    // aria-disabled, not disabled, so the focused button keeps focus (#2504).
+    expect(confirm).toHaveAttribute('aria-disabled', 'true')
     expect(confirm).toHaveAttribute('aria-busy', 'true')
     // A second click while pending sends no second request (#1435).
     fireEvent.click(confirm)

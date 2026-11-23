@@ -12,8 +12,11 @@ filters applied afterwards (``id__in`` access scoping, ``favorites__user``) are
 row-preserving for one user, so the old distinct counts were already true totals;
 the subquery counts return the same numbers.
 """
-from django.db.models import Count, IntegerField, OuterRef, Subquery
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, IntegerField, OuterRef, Prefetch, Subquery, Window
+from django.db.models.functions import Coalesce, RowNumber
+
+#: How many members ``GroupSerializer.member_preview`` carries per group (#2487).
+MEMBER_PREVIEW_LIMIT = 5
 
 
 def _count(rows, key):
@@ -42,3 +45,32 @@ def annotate_group_counts(qs):
             Group.objects.filter(parent=OuterRef("pk")), "parent"
         ),
     )
+
+
+def prefetch_member_preview(qs):
+    """Prefetch the first ``MEMBER_PREVIEW_LIMIT`` direct members of each group (#2487).
+
+    One query for the whole list, bounded per group: a ``ROW_NUMBER()`` window
+    partitioned by group returns at most ``MEMBER_PREVIEW_LIMIT`` rows each. The
+    database still ranks every membership of each listed group (no index covers
+    ``joined_at``; the index is tracked in #2557), so a very large group is a latency cost the query count does
+    not show; only five rows per group reach Python. Ordered by
+    ``joined_at`` then ``id`` so the owner (the first member) normally leads and
+    the order is stable. ``GroupSerializer.get_member_preview`` reads the result
+    from ``_member_preview``.
+    """
+    from .models import GroupMembership
+
+    ranked = (
+        GroupMembership.objects.select_related("user")
+        .annotate(
+            _preview_rank=Window(
+                RowNumber(),
+                partition_by=[F("group_id")],
+                order_by=[F("joined_at").asc(), F("id").asc()],
+            )
+        )
+        .filter(_preview_rank__lte=MEMBER_PREVIEW_LIMIT)
+        .order_by("joined_at", "id")
+    )
+    return qs.prefetch_related(Prefetch("memberships", queryset=ranked, to_attr="_member_preview"))

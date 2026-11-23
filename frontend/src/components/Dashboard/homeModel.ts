@@ -201,3 +201,30 @@ export function recentTiles(recents: RecentBoardEntry[], boards: Board[]): Recen
   }
   return out;
 }
+
+/** Side lists (Needs attention, Groups) show this many rows until "Show all" (#2487). */
+export const SIDE_LIST_CAP = 5;
+
+/** The rows a capped side list shows: the first `SIDE_LIST_CAP`, or every row once expanded. */
+export function capSideList<T>(items: readonly T[], expanded: boolean, cap: number = SIDE_LIST_CAP): T[] {
+  return expanded ? items.slice() : items.slice(0, cap);
+}
+
+/** The "Show all" toggle's text: "Show all N" while capped, "Show fewer" once expanded (#2487). */
+export function sideListToggleLabel(total: number, expanded: boolean): string {
+  return expanded ? "Show fewer" : `Show all ${total}`;
+}
+
+/** Avatars a group row's stack draws before its "+N" badge (#2487). */
+export const GROUP_AVATAR_LIMIT = 3;
+
+/**
+ * A group row's avatar stack (#2487): the members the server previewed (`member_preview`, first
+ * by join date), or the owner alone on an older server that sends none, capped at
+ * `GROUP_AVATAR_LIMIT`; `more` is how many members the "+N" badge stands for. Never negative.
+ */
+export function groupAvatarStack(group: Pick<Group, "owner" | "member_count" | "member_preview">): { users: Group["owner"][]; more: number } {
+  const preview = group.member_preview && group.member_preview.length > 0 ? group.member_preview : [group.owner];
+  const users = preview.slice(0, GROUP_AVATAR_LIMIT);
+  return { users, more: Math.max(0, group.member_count - users.length) };
+}

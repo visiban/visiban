@@ -5,7 +5,7 @@
  * `bg-sunken`, Chip `bg-surface-hover`. No part hard-codes a color. See frontend/CLAUDE.md
  * § Shared page layouts and parts.
  */
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
 import { buttonClasses, type ButtonSize, type ButtonVariant } from "./buttonClasses";
 import { STATUS_TONE_LABEL, type StatusControlTone, type StatusTone } from "./model";
 
@@ -13,16 +13,23 @@ import { STATUS_TONE_LABEL, type StatusControlTone, type StatusTone } from "./mo
 // Buttons
 // ---------------------------------------------------------------------------
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
+interface ButtonBaseProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: ButtonSize;
   fullWidth?: boolean;
   buttonRef?: Ref<HTMLButtonElement>;
 }
 
 /**
- * A native button in one of the six variants. `type` defaults to "button" so a part inside a
- * form never submits by accident; an icon-only button must be given an `aria-label`.
+ * The `icon` variant has no visible text, so its accessible name is required at the type level
+ * (#2484, § Buttons #1737): `title` alone is not a reliable name.
+ */
+export type ButtonProps =
+  | (ButtonBaseProps & { variant?: Exclude<ButtonVariant, "icon"> })
+  | (ButtonBaseProps & { variant: "icon"; "aria-label": string });
+
+/**
+ * A native button in one of the seven variants. `type` defaults to "button" so a part inside a
+ * form never submits by accident; the icon variant requires an `aria-label` (#2484).
  */
 export function Button({ variant = "secondary", size, fullWidth, className, type = "button", buttonRef, ...rest }: ButtonProps) {
   return <button ref={buttonRef} type={type} className={buttonClasses(variant, { size, fullWidth, className })} {...rest} />;
@@ -178,9 +185,17 @@ export function ListWell({ children, label, as: Tag = "div" }: { children: React
   );
 }
 
-/** A row in a `ListWell`: 8px radius, highlights to the panel color on hover. */
-export function ListRow({ children, as: Tag = "div" }: { children: ReactNode; as?: "div" | "li" }) {
-  return <Tag className="flex items-center gap-3 min-w-0 rounded-lg px-3 py-2 text-sm text-fg hover:bg-surface transition-colors">{children}</Tag>;
+/**
+ * A row in a `ListWell`, 8px radius. Only an `interactive` row (one whose main content is a
+ * button or link that opens it) highlights to the panel color on hover (#2484): a row that
+ * only holds text and its own small controls must not look clickable.
+ */
+export function ListRow({ children, as: Tag = "div", interactive = false }: { children: ReactNode; as?: "div" | "li"; interactive?: boolean }) {
+  return (
+    <Tag data-interactive={interactive ? "true" : undefined} className={`flex items-center gap-3 min-w-0 rounded-lg px-3 py-2 text-sm text-fg${interactive ? " hover:bg-surface transition-colors" : ""}`}>
+      {children}
+    </Tag>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -364,8 +379,9 @@ export function InlineConfirm({ message, actionLabel, onConfirm, onCancel, busy 
     <div role="group" aria-label={actionLabel} className="rounded-[10px] border border-danger/40 bg-danger/10 p-3">
       <p className="text-sm text-fg">{message}</p>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <Button variant="quiet" buttonRef={cancelRef} onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button variant="danger" onClick={onConfirm} disabled={busy} aria-busy={busy || undefined} data-testid={actionTestId}>{busy && busyLabel ? busyLabel : actionLabel}</Button>
+        {/* aria-disabled, never disabled, while busy (#2504): a disabled button drops the focus it holds to <body>. */}
+        <Button variant="quiet" buttonRef={cancelRef} onClick={() => { if (!busy) onCancel(); }} aria-disabled={busy || undefined} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed">Cancel</Button>
+        <Button variant="danger" onClick={() => { if (!busy) onConfirm(); }} aria-disabled={busy || undefined} aria-busy={busy || undefined} className="aria-disabled:opacity-40 aria-disabled:cursor-not-allowed" data-testid={actionTestId}>{busy && busyLabel ? busyLabel : actionLabel}</Button>
       </div>
     </div>
   );
@@ -381,7 +397,8 @@ export function EmptyState({ title, description, action, icon, headingLevel = "h
   description?: ReactNode;
   action?: ReactNode;
   icon?: ReactNode;
-  headingLevel?: "h1" | "h2" | "h3";
+  /** `h4` under a card's `h3` heading (the group invite panel's "Invite links", #2504). */
+  headingLevel?: "h1" | "h2" | "h3" | "h4";
   testId?: string;
 }) {
   const Tag = headingLevel;
@@ -407,17 +424,26 @@ export interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   /** Sits right of the label, e.g. "Forgot password?". */
   labelAccessory?: ReactNode;
   id?: string;
-  /** `danger` colors the hint as an error (set `aria-invalid` too). */
+  /** `danger` colors the hint as an error. Prefer `error`, which also sets `aria-invalid`. */
   hintTone?: "danger";
+  /**
+   * An error message for the field (#2484). Shown in place of the hint, in the danger color,
+   * tied to the input by `aria-describedby` and marking it `aria-invalid`. Empty means valid.
+   */
+  error?: ReactNode;
   /** Ref to the input, for programmatic focus. */
   inputRef?: Ref<HTMLInputElement>;
 }
 
 /** A visibly labeled input. 36px, 48px on phones (the Centered layout's control height). */
-export function Field({ label, hint, labelAccessory, id, hintTone, inputRef, ...input }: FieldProps) {
+export function Field({ label, hint, labelAccessory, id, hintTone, error, inputRef, ...input }: FieldProps) {
   const generated = useId();
   const inputId = id ?? generated;
   const hintId = `${inputId}-hint`;
+  const errorId = `${inputId}-error`;
+  const hasError = error !== undefined && error !== null && error !== false && error !== "";
+  // The error replaces the hint; a caller's own aria-describedby is kept, after ours.
+  const describedBy = [hasError ? errorId : hint ? hintId : "", input["aria-describedby"] ?? ""].filter(Boolean).join(" ") || undefined;
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -427,11 +453,16 @@ export function Field({ label, hint, labelAccessory, id, hintTone, inputRef, ...
       <input
         id={inputId}
         ref={inputRef}
-        aria-describedby={hint ? hintId : undefined}
-        className="w-full h-9 max-sm:h-12 bg-surface border border-line-strong text-fg placeholder-fg-muted rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+        className={`w-full h-9 max-sm:h-12 bg-surface border text-fg placeholder-fg-muted rounded px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${hasError ? "border-danger" : "border-line-strong"}`}
         {...input}
+        aria-describedby={describedBy}
+        aria-invalid={hasError ? true : input["aria-invalid"]}
       />
-      {hint && <p id={hintId} className={`mt-1 text-xs ${hintTone === "danger" ? "text-danger" : "text-fg-tertiary"}`}>{hint}</p>}
+      {hasError ? (
+        <p id={errorId} className="mt-1 text-xs text-danger">{error}</p>
+      ) : (
+        hint && <p id={hintId} className={`mt-1 text-xs ${hintTone === "danger" ? "text-danger" : "text-fg-tertiary"}`}>{hint}</p>
+      )}
     </div>
   );
 }
@@ -443,6 +474,70 @@ export function OrDivider({ label = "or" }: { label?: string }) {
       <div aria-hidden="true" className="h-px flex-1 bg-line" />
       <span aria-hidden="true" className="text-xs text-fg-tertiary">{label}</span>
       <div aria-hidden="true" className="h-px flex-1 bg-line" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Redirect countdown (Centered layout)
+// ---------------------------------------------------------------------------
+
+/**
+ * "Redirecting to <place> in Ns…" with a Pause / Resume control (#2484), for a status page
+ * that sends the visitor on by itself (invalid invite link, confirmed email). The redirect is
+ * announced once in a polite live region when it starts, and again on pause and resume, never
+ * every second (a per-tick announcement would talk over the page). Pause satisfies WCAG 2.2.1
+ * Timing Adjustable: a paused countdown never redirects. `onDone` runs once, at zero.
+ */
+export function RedirectCountdown({ seconds, destination, onDone }: {
+  /** Read once, on mount. At least 5 (frontend/CLAUDE.md): time to hear the announcement and reach Pause. */
+  seconds: number;
+  /** Where the redirect goes ("Home", "sign in"); omitted, the copy is "Redirecting in Ns…". */
+  destination?: string;
+  onDone: () => void;
+}) {
+  const [remaining, setRemaining] = useState(seconds);
+  const [paused, setPaused] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const doneRef = useRef(false);
+  const place = destination ?? "the next page";
+
+  // Set after mount: text already present when a live region mounts is not announced.
+  useEffect(() => {
+    setAnnouncement(`You will be taken to ${place} in ${seconds} seconds. Use Pause redirect to stay on this page.`);
+  }, [place, seconds]);
+
+  // One interval per running stretch: pausing clears it, resuming starts a fresh one.
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => setRemaining((r) => Math.max(0, r - 1)), 1000);
+    return () => clearInterval(id);
+  }, [paused]);
+
+  useEffect(() => {
+    if (paused || remaining > 0 || doneRef.current) return;
+    doneRef.current = true;
+    onDoneRef.current();
+  }, [paused, remaining]);
+
+  const toggle = () => {
+    setAnnouncement(paused ? `Redirect resumed: ${place} in ${remaining} seconds.` : "Redirect paused. Use Resume redirect to continue.");
+    setPaused(!paused);
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 text-xs text-fg-secondary">
+      <span>{paused ? "Redirect paused." : `Redirecting${destination ? ` to ${destination}` : ""} in ${remaining}s\u2026`}</span>
+      <button
+        type="button"
+        onClick={toggle}
+        className="rounded px-2 min-h-6 max-sm:min-h-11 text-fg-secondary underline hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+      >
+        {paused ? "Resume redirect" : "Pause redirect"}
+      </button>
+      <p role="status" className="sr-only">{announcement}</p>
     </div>
   );
 }

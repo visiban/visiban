@@ -1263,7 +1263,7 @@ describe('AdminPage — Escape key', () => {
     const confirm = screen.getByRole('button', { name: 'Revoke link' })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
-    expect(await screen.findByRole('button', { name: 'Revoking…' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Revoking…' })).toHaveAttribute('aria-disabled', 'true')
     expect(mockRevokeAdminInviteLink).toHaveBeenCalledTimes(1)
     resolveRevoke({ id: 7, prefix: 'vbnl_zz', status: 'revoked', single_use: false, expires_at: null, use_count: 0, created_by_username: 'admin' })
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Revoking…' })).not.toBeInTheDocument())

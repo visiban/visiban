@@ -87,6 +87,7 @@ Get group details.
 | `parent_name` | string\|null | Parent group display name (convenience field), or `null` |
 | `owner` | object | `{ "id", "username", "display_name", "avatar_url" }` |
 | `member_count` | integer | Total number of direct members (does not include inherited) |
+| `member_preview` | array | *(1.3+)* Up to the first five direct members by join date, each `{ "id", "username", "display_name", "avatar_url" }` (no email). Read-only. Use `member_count` for the total. Fetched in one bounded query for the whole list (#2487). |
 | `board_count` | integer | Number of boards directly in this group |
 | `subgroup_count` | integer | Number of direct subgroups |
 | `is_starred` | boolean | Whether the requesting user has starred this group |
@@ -133,6 +134,7 @@ Group access is inherited downward only: membership in a subgroup grants nothing
 |---|---|
 | `description` | `""` |
 | `member_count`, `board_count`, `subgroup_count` | `0` |
+| `member_preview` | `[]` *(1.3+)* |
 | `shared_labels` | `[]` |
 | `allowed_priorities` | `[]` |
 | `health_status`, `effective_health_status`, `health_status_source`, `health_status_changed_at`, `health_status_changed_by`, `health_status_note`, `health_review_days`, `health_review_due_at` | `null` *(1.3+)* |

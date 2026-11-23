@@ -558,10 +558,13 @@ export default function InviteLinkPanel({
 
   // Always mounted, so the outcome of a revoke that lost to a redemption is
   // announced even though the prompt that started it has closed and (on the
-  // board) the row has moved to the past list (#1421).
+  // board) the row has moved to the past list (#1421). In the group scope it is
+  // the panel's only revoke region (#2504): every revoke failure is announced
+  // here once, instead of one live region per row; the rows show it silently.
+  const announcedRevokeError = revokeError && (!isBoard || revokeError.message === ALREADY_USED_REVOKE_ERROR) ? revokeError.message : "";
   const revokeAnnouncement = (
-    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-      {revokeError?.message === ALREADY_USED_REVOKE_ERROR ? revokeError.message : ""}
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="invite-revoke-announcement">
+      {announcedRevokeError}
     </div>
   );
 
@@ -951,7 +954,7 @@ export default function InviteLinkPanel({
           <Button variant="quiet" onClick={() => void fetchLinks()}>Try again</Button>
         </div>
       ) : links.length === 0 ? (
-        <EmptyState title="No invite links." description="Create one to let people join this group." headingLevel="h3" />
+        <EmptyState title="No invite links." description="Create one to let people join this group." headingLevel="h4" />
       ) : (
         <ListWell as="ul" label="Invite links">
           {links.map((link) => {
@@ -1011,12 +1014,8 @@ export default function InviteLinkPanel({
                     />
                   </div>
                 )}
-                {/* Failure slot only: the question is announced by useConfirmAnnouncement. */}
-                <p role="status" aria-live="polite" aria-atomic="true" className={failed === GENERIC_REVOKE_ERROR ? "px-3 pb-2 text-xs text-danger" : "sr-only"}>
-                  {failed === GENERIC_REVOKE_ERROR ? failed : ""}
-                </p>
-                {/* The already-used outcome is announced by the always-mounted region above; show it, silently. */}
-                {failed === ALREADY_USED_REVOKE_ERROR && <p aria-hidden="true" className="px-3 pb-2 text-xs text-danger">{failed}</p>}
+                {/* Every failure is announced by the panel's one region above (#2504); show it here, silently. */}
+                {failed && <p aria-hidden="true" data-testid="invite-revoke-row-error" className="px-3 pb-2 text-xs text-danger">{failed}</p>}
               </li>
             );
           })}

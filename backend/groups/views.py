@@ -36,7 +36,7 @@ from visiban.invite_recipient import (
     recipient_admits,
 )
 from . import broadcast as _group_broadcast
-from .counts import annotate_group_counts
+from .counts import annotate_group_counts, prefetch_member_preview
 from .invite_registration import link_can_register, lock_invite_group
 from .health import valid_health_status
 from .health_history import history_page, record_health_change, record_if_changed
@@ -498,6 +498,11 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         from .models import get_accessible_group_ids
         qs = self._annotated_groups().filter(id__in=get_accessible_group_ids(self.request.user))
+        if self.action in ("list", "retrieve"):
+            # member_preview (#2487): one bounded query for the whole list. Only
+            # the read actions render it; a write that only resolves the group
+            # (get_object) would pay for a query it never reads.
+            qs = prefetch_member_preview(qs)
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=self.request.user)
         return qs
@@ -1280,9 +1285,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         # navigation-only (group_access_resolver); with only "parent" loaded
         # that walk would issue lazy queries per subgroup.
         related = ["owner"] + ["__".join(["parent"] * d) for d in range(1, 7)]
-        subgroups = annotate_group_counts(
+        subgroups = prefetch_member_preview(annotate_group_counts(
             subgroups.select_related(*related, "health_status_changed_by").prefetch_related("labels")
-        ).annotate(
+        )).annotate(
             _is_starred=Exists(
                 GroupFavorite.objects.filter(user=request.user, group=OuterRef("pk"))
             ),

@@ -309,9 +309,8 @@ function ProfileTab({ user, onUserUpdated, from, onUnsavedChange }: { user: User
                 value={emailPassword}
                 onChange={(e) => setEmailPassword(e.target.value)}
                 required
-                aria-invalid={emailPasswordError ? true : undefined}
-                hint={emailPasswordError ?? "Required to change your email address, to confirm it's you."}
-                hintTone={emailPasswordError ? "danger" : undefined}
+                hint="Required to change your email address, to confirm it's you."
+                error={emailPasswordError ?? undefined}
               />
             </div>
           )}
