@@ -4,7 +4,9 @@ A child whose ``CardParentLink.needed_at_column`` is set is *planned* until
 the parent reaches (or skips past) that column on its own board, or someone
 pulls the child out of To do. While planned, the child's due date is stored
 but inactive: it is left out of Overdue, Due soon and Stale on every surface
-(REST, export, MCP, notifications) through the one predicate :data:`PLANNED_Q`.
+(REST, share link, export, MCP, notifications, health) through the one
+predicate ``card_signals.planned_link_exists`` (``not_planned_q`` for dates,
+``serializers._annotate_is_stale`` / ``_row_is_stale`` for Stale).
 
 **Release is a system write caused by the link, not by a role on the child
 board** (threat model addendum, ``docs/development/security-invariants.md``):
@@ -29,10 +31,6 @@ from ..permissions import get_board_roles
 
 #: A planned link row: Needed set to a later column and not yet released.
 LINK_PLANNED_Q = Q(needed_at_column__isnull=False, planned_released_at__isnull=True)
-
-#: The same predicate from a ``Card`` queryset. Every Overdue, Due soon and
-#: Stale reader excludes it (Rule 10 parity: REST, export, MCP, notifications).
-PLANNED_Q = Q(parent_link__needed_at_column__isnull=False, parent_link__planned_released_at__isnull=True)
 
 #: Serializer-context key holding :func:`planned_fields_for_viewer`'s result.
 #: Set ONLY by the reads that name a viewer, like ``CARD_PARENTS_CONTEXT_KEY``.
@@ -299,21 +297,3 @@ def planned_entries(links, roles):
             "planned_released_at": released.isoformat() if released else None,
         }
     return out
-
-
-def planned_stale_exempt(entry, threshold_days):
-    """True when a planned map entry exempts its card from Stale (#2371).
-
-    Planned: always. Released: until ``threshold_days`` after the release (the
-    stale clock restarts at the release, not at the last move).
-    """
-    if not entry:
-        return False
-    if entry["planned"]:
-        return True
-    released = entry["planned_released_at"]
-    if released is None:
-        return False
-    from datetime import datetime, timedelta
-
-    return datetime.fromisoformat(released) >= timezone.now() - timedelta(days=threshold_days)

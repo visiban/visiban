@@ -1334,7 +1334,7 @@ On the reads that carry `parent` (`/full/`, the card list, retrieve and
 
 | Field | Type | Meaning |
 |---|---|---|
-| `planned` | bool | Needed is a later parent column and the child is not yet released. Its `due_date` is inactive: not Overdue, Due soon or Stale. |
+| `planned` | bool | Needed is a later parent column and the child is not yet released. Its `due_date` is inactive: not Overdue, Due soon or Stale. `is_stale` applies this rule on every read (board, card, card query, share link) whether or not these fields are present. |
 | `needed_now` | bool | Released by the parent reaching (or skipping past) the column, and still in its board's first column with no move since. |
 | `needed_at_column` | int or null | The parent board's column; `null` for Now and whenever you cannot open the parent's board. |
 | `needed_at_column_name` | string or null | That column's name, under the same rule. |

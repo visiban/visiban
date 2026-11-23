@@ -2946,7 +2946,7 @@ class CardParentLink(models.Model):
     # When the child stopped being planned: the parent reached or skipped past
     # ``needed_at_column``, or someone pulled the child out of To do. Stored so
     # a parent moving back never re-plans it. "Planned" is
-    # ``needed_at_column`` set and this null (``planned_children.PLANNED_Q``).
+    # ``needed_at_column`` set and this null (``card_signals.planned_link_exists``).
     planned_released_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

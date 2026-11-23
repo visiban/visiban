@@ -53,7 +53,7 @@ from .permissions import (
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
+    CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
     CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     CardGateTransition, StageTrack, SubColumn, SwimlaneTrackException,
@@ -3169,6 +3169,60 @@ def _annotate_column_entered_at(qs):
     )
 
 
+def _annotate_planned_clock(qs):
+    """Annotate ``_planned_active`` and ``_planned_released_at`` (#2371). Idempotent.
+
+    The planned half of the Stale rule, shared by every ``is_stale`` reader so
+    a card reports the same value on every surface (Rule 10): a planned child
+    is never stale, and a released child's clock restarts at the release.
+    Boolean and the child's own link timestamp only, no parent data, so the
+    share link, export, MCP and the digests may carry it (Rule 19).
+    """
+    if "_planned_active" in qs.query.annotations:
+        return qs
+    from .card_signals import planned_link_exists, planned_released_at
+
+    return qs.annotate(_planned_active=planned_link_exists(), _planned_released_at=planned_released_at())
+
+
+def _planned_stale_exempt(obj, cutoff):
+    """True when the planned rule keeps ``obj`` from being stale at ``cutoff`` (#2371).
+
+    Reads :func:`_annotate_planned_clock`'s annotations; a card that did not
+    come through an annotated queryset (a single card serialized after a
+    write) reads its link row instead, one query, so it still agrees with the
+    list it will be merged into rather than silently skipping the rule.
+    """
+    if hasattr(obj, "_planned_active"):
+        active, released = obj._planned_active, obj._planned_released_at
+    else:
+        rows = list(
+            CardParentLink.objects.filter(child_id=obj.pk, needed_at_column__isnull=False)
+            .values_list("planned_released_at", flat=True)[:1]
+        )
+        active = bool(rows) and rows[0] is None
+        released = rows[0] if rows else None
+    return bool(active) or (released is not None and released >= cutoff)
+
+
+def _row_is_stale(obj):
+    """Per-row ``is_stale`` for a card read without ``_is_stale_annotated``.
+
+    The same rule as :func:`_annotate_is_stale`, with the card's own board's
+    threshold (``obj.board`` must be select_related). Shared by the card, the
+    share-link and the cross-board query serializers so they cannot disagree.
+    """
+    threshold = obj.board.staleness_threshold_days
+    now = timezone.now()
+    cutoff = now - datetime.timedelta(days=threshold)
+    if _planned_stale_exempt(obj, cutoff):
+        return False
+    last_moved_at = _last_moved_at(obj)
+    if last_moved_at is not None:
+        return last_moved_at < cutoff
+    return (now - obj.created_at).days >= threshold
+
+
 def _annotate_is_stale(qs, stale_cutoff):
     """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
 
@@ -3188,9 +3242,14 @@ def _annotate_is_stale(qs, stale_cutoff):
     # Reuse the _last_moved_at annotation (#1883) rather than running a second
     # correlated subquery for the same value; _annotate_last_move is
     # idempotent, so callers may apply it before or after this.
-    qs = _annotate_last_move(qs)
+    qs = _annotate_planned_clock(_annotate_last_move(qs))
     return qs.annotate(
         _is_stale_annotated=_db_models.Case(
+            # Planned children (#2371): never stale while planned, and once
+            # released the clock is max(last move, release), so a release
+            # inside the window keeps the card fresh whatever its last move.
+            _db_models.When(_planned_active=True, then=_db_models.Value(False)),
+            _db_models.When(_planned_released_at__gte=stale_cutoff, then=_db_models.Value(False)),
             # Card has at least one movement and it predates the cutoff.
             _db_models.When(
                 _last_moved_at__lt=stale_cutoff,
@@ -3572,7 +3631,9 @@ def _card_queryset(qs, stale_cutoff=None):
             _active_blockers_prefetch(),
         )
     )
-    qs = _annotate_column_entered_at(_annotate_last_move(qs))
+    # The planned clock (#2371) is annotated on every card read, not only with
+    # a stale_cutoff, so the per-row fallbacks need no query of their own.
+    qs = _annotate_planned_clock(_annotate_column_entered_at(_annotate_last_move(qs)))
     if stale_cutoff is not None:
         qs = _annotate_is_stale(qs, stale_cutoff)
     return qs
@@ -4410,14 +4471,9 @@ class CardSerializer(serializers.ModelSerializer):
         return _checklist_open_assignee_ids(obj)
 
     def get_is_stale(self, obj) -> bool:
-        # Planned children (#2371): never Stale while planned, and measured
-        # from the release once released. Read from the viewer-named planned
-        # map only (no query); surfaces without it keep the plain rule.
-        from .services.planned_children import CARD_PLANNED_CONTEXT_KEY, planned_stale_exempt
-
-        planned = self.context.get(CARD_PLANNED_CONTEXT_KEY)
-        if planned and planned_stale_exempt(planned.get(obj.pk), obj.board.staleness_threshold_days):
-            return False
+        # Planned children (#2371) are handled inside both paths below
+        # (_annotate_is_stale and _row_is_stale), never from the viewer-named
+        # planned context, so every endpoint reports the same value (Rule 10).
         # Fast path: use the queryset-level annotation when it was pre-computed
         # by _card_queryset(stale_cutoff=...) — avoids a timezone.now() call per
         # card and mirrors the per-row fallback exactly (#669).
@@ -4427,12 +4483,7 @@ class CardSerializer(serializers.ModelSerializer):
         # stale_cutoff (e.g. single-card re-fetch after a move or archive).
         # obj.board requires select_related("board") on the queryset.
         # _last_moved_at() reads the _annotate_last_move annotation (#1883).
-        threshold = obj.board.staleness_threshold_days
-        cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_moved_at = _last_moved_at(obj)
-        if last_moved_at is not None:
-            return last_moved_at < cutoff
-        return (timezone.now() - obj.created_at).days >= threshold
+        return _row_is_stale(obj)
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):
@@ -6371,12 +6422,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # Fallback for cold-cache callers that did not annotate (e.g. tests
         # that build a public card queryset by hand).  obj.board is available
         # via select_related("board") in the public get_cards() prefetch.
-        threshold = obj.board.staleness_threshold_days
-        cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        last_moved_at = _last_moved_at(obj)
-        if last_moved_at is not None:
-            return last_moved_at < cutoff
-        return (timezone.now() - obj.created_at).days >= threshold
+        return _row_is_stale(obj)
 
 
 class PublicBoardSerializer(serializers.ModelSerializer):

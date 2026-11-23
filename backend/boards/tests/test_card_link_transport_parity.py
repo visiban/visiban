@@ -9,9 +9,11 @@ that from both sides, so a later change that gives either transport a
 "children" of its own fails here instead of shipping:
 
 * no key in the output names a parent or child link, and
-* the transport issues no query against the link table at all (a transport
-  that reads links has to go through ``children_for_viewer``, and its tests
-  then replace this file's assertion with a REST-parity one).
+* the transport issues no query against the link table (a transport that
+  reads links has to go through ``children_for_viewer``, and its tests then
+  replace this file's assertion with a REST-parity one), except the
+  planned-state predicate of #2371 (``PLANNED_CLOCK_SQL``): a boolean EXISTS
+  and the child's own release time, keyed on the card, never a parent id.
 
 Importing an export that carries link-shaped keys creates no link.
 """
@@ -60,8 +62,33 @@ def _body(res):
     return b"".join(res.streaming_content) if getattr(res, "streaming", False) else res.content
 
 
+# The ONE allowed read of the link table on these transports (#2371, owner
+# decision on Stale/Overdue parity): ``card_signals.planned_link_exists`` (a
+# boolean EXISTS) and ``planned_released_at`` (the child's own release time),
+# both keyed on the outer card's id and filtered only by the planned state.
+# Neither selects ``parent_id`` or a ``needed_at_column_id`` value, so neither
+# can name, count or locate a parent. The pattern is exact on purpose: any
+# other shape of link read (a join, a parent_id, a column id) is not stripped
+# and still fails ``_link_queries``.
+PLANNED_CLOCK_SQL = re.compile(
+    r'\(SELECT (?:1 AS "a"|U\d+\."planned_released_at" AS "planned_released_at") FROM "%s" U\d+ '
+    r'WHERE \(U\d+\."child_id" = \("cards"\."id"\) AND U\d+\."needed_at_column_id" IS NOT NULL '
+    r'AND U\d+\."planned_released_at" IS (?:NOT )?NULL\) LIMIT 1\)' % re.escape(LINK_TABLE)
+)
+
+
 def _link_queries(ctx):
-    return [q["sql"] for q in ctx.captured_queries if LINK_TABLE in q["sql"] or UNLINK_TABLE in q["sql"]]
+    """Queries that read the link tables beyond the planned-state predicate."""
+    out = []
+    for q in ctx.captured_queries:
+        sql = PLANNED_CLOCK_SQL.sub("(planned)", q["sql"])
+        if LINK_TABLE in sql or UNLINK_TABLE in sql:
+            out.append(q["sql"])
+    return out
+
+
+def _planned_reads(ctx):
+    return [q["sql"] for q in ctx.captured_queries if PLANNED_CLOCK_SQL.search(q["sql"])]
 
 
 class _LinkedBoards(_LinkFixture):
@@ -153,6 +180,22 @@ class ShareLinkParityTests(_LinkedBoards, TestCase):
             self.assertNotIn("parent", card)
         self._assert_no_link_keys(body["cards"], "public share cards")
         self.assertEqual(_link_queries(ctx), [], "the public share view read the link table")
+        # The planned predicate (#2371) is the read that IS allowed: it is
+        # present (so the narrowing above is not vacuous) and names no parent.
+        planned = _planned_reads(ctx)
+        self.assertTrue(planned, "the share view should apply the planned Stale rule")
+        for sql in planned:
+            self.assertNotIn('"parent_id"', sql)
+
+    def test_planned_clock_pattern_strips_only_the_planned_predicate(self):
+        from boards.serializers import _annotate_planned_clock
+
+        sql = str(_annotate_planned_clock(Card.objects.filter(pk=1)).query)
+        self.assertEqual(len(PLANNED_CLOCK_SQL.findall(sql)), 2)
+        self.assertNotIn(LINK_TABLE, PLANNED_CLOCK_SQL.sub("(planned)", sql))
+        # A read that selects the parent is not the allowed shape.
+        leak = str(Card.objects.filter(pk=1).values("parent_link__parent_id").query)
+        self.assertIn(LINK_TABLE, PLANNED_CLOCK_SQL.sub("(planned)", leak))
 
 
 @skipUnless(settings.MCP_SERVER_ENABLED, "MCP server disabled; set MCP_SERVER_ENABLED=true to run these.")

@@ -373,9 +373,107 @@ class InactiveDateTests(PlannedFixture):
         CardParentLink.objects.filter(child=child).update(planned_released_at=old)
         self.assertTrue(self.read(child, self.maya)["is_stale"])
 
-    def test_stale_exempt_helper_fails_closed_on_a_missing_entry(self):
-        self.assertFalse(planned_children.planned_stale_exempt(None, 7))
-        self.assertFalse(planned_children.planned_stale_exempt({"planned": False, "planned_released_at": None}, 7))
+    def test_stale_fallback_without_the_annotation_reads_the_link(self):
+        # A card serialized outside an annotated queryset (after a write) still
+        # applies the planned rule, with one link read, rather than skipping it.
+        from boards.serializers import _row_is_stale
+
+        child = self.planned_child()
+        old = timezone.now() - datetime.timedelta(days=400)
+        Card.objects.filter(pk=child.pk).update(created_at=old)
+        CardMovement.objects.filter(card_id=child.pk).update(moved_at=old)
+        bare = Card.objects.select_related("board").get(pk=child.pk)
+        self.assertFalse(hasattr(bare, "_planned_active"))
+        self.assertFalse(_row_is_stale(bare))
+        CardParentLink.objects.filter(child=child).update(planned_released_at=old)
+        self.assertTrue(_row_is_stale(Card.objects.select_related("board").get(pk=child.pk)))
+
+
+class StaleOverdueParityTests(PlannedFixture):
+    """Rule 10 parity (#2371, owner decision): the same planned and released
+    children read the same Stale and Overdue on every surface, with and
+    without the viewer-named planned context."""
+
+    def setUp(self):
+        super().setUp()
+        self.maya.notif_stale = True
+        self.maya.notif_due_soon = True
+        self.maya.save(update_fields=["notif_stale", "notif_due_soon"])
+        old = timezone.now() - datetime.timedelta(days=400)
+        self.planned = self.planned_child()
+        self.fresh = self.planned_child()     # released inside the window
+        self.expired = self.planned_child()   # released long ago
+        self.plain = Card.objects.create(board=self.cboard, column=self.todo, swimlane=self.clane, title="Plain")
+        CardParentLink.objects.filter(child=self.fresh).update(planned_released_at=timezone.now())
+        CardParentLink.objects.filter(child=self.expired).update(planned_released_at=old)
+        cards = [self.planned, self.fresh, self.expired, self.plain]
+        Card.objects.filter(pk__in=[c.pk for c in cards]).update(created_at=old, assignee=self.maya)
+        CardMovement.objects.filter(card_id__in=[c.pk for c in cards]).update(moved_at=old)
+        self.expected = {self.planned.pk: False, self.fresh.pk: False, self.expired.pk: True, self.plain.pk: True}
+
+    def stale_by(self, rows):
+        # The share link has no ids, only uids.
+        by_uid = dict(Card.objects.filter(pk__in=list(self.expected)).values_list("uid", "pk"))
+        out = {}
+        for r in rows:
+            pk = r["id"] if "id" in r else by_uid.get(r.get("uid"))
+            if pk in self.expected:
+                out[pk] = r["is_stale"]
+        return out
+
+    def test_stale_is_the_same_on_every_surface(self):
+        from django.core.management import call_command
+
+        from boards.models import Notification
+        from boards.serializers import _card_queryset
+        from boards.services.health_compute import lane_counts
+
+        ids = list(self.expected)
+        # REST card read (planned context set) and the board read (SQL annotation).
+        self.assertEqual({pk: self.read(Card.objects.get(pk=pk), self.maya)["is_stale"] for pk in ids}, self.expected)
+        full = client_for(self.maya).get(f"/api/v1/boards/{self.cboard.pk}/full/").json()
+        self.assertEqual(self.stale_by(full["cards"]), self.expected)
+        # No planned context: an annotated queryset and a bare instance (fallback).
+        annotated = {c.pk: CardSerializer(c, context={}).data["is_stale"] for c in _card_queryset(Card.objects.filter(pk__in=ids))}
+        self.assertEqual(annotated, self.expected)
+        bare = {pk: CardSerializer(Card.objects.select_related("board").get(pk=pk), context={}).data["is_stale"] for pk in ids}
+        self.assertEqual(bare, self.expected)
+        # Cross-board card query (per-row rule).
+        query = client_for(self.maya).get("/api/v1/cards/", {"board": self.cboard.pk}).json()
+        self.assertEqual(self.stale_by(query["results"]), self.expected)
+        # Share link (anonymous; takes no planned context).
+        token = client_for(self.owner).post(f"/api/v1/boards/{self.cboard.pk}/share/").data["share_token"]
+        public = APIClient().get(f"/api/share/{token}/").json()
+        self.assertEqual(self.stale_by(public["cards"]), self.expected)
+        for card in public["cards"]:
+            for key in ("planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"):
+                self.assertNotIn(key, card)
+        # Stale digest and lane health counts.
+        with patch(PATCH_BROADCAST):
+            call_command("notify_stale_cards", verbosity=0)
+        notified = set(Notification.objects.filter(card_id__in=ids).values_list("card_id", flat=True))
+        self.assertEqual(notified, {pk for pk, stale in self.expected.items() if stale})
+        self.assertEqual(lane_counts(self.cboard)[self.clane.pk]["stale"], 2)
+
+    def test_overdue_and_due_soon_are_the_same_on_every_surface(self):
+        from django.core.management import call_command
+
+        from boards.models import Notification
+        from boards.services.health_compute import lane_counts
+
+        past = datetime.date(2020, 1, 1)
+        soon = timezone.localdate() + datetime.timedelta(days=1)
+        Card.objects.filter(pk__in=[self.planned.pk, self.fresh.pk]).update(due_date=past)
+        late_planned = self.planned_child()
+        late_released = self.planned_child()
+        CardParentLink.objects.filter(child=late_released).update(planned_released_at=timezone.now())
+        Card.objects.filter(pk__in=[late_planned.pk, late_released.pk]).update(due_date=soon, assignee=self.maya)
+        # Overdue: the released child counts, the planned one does not.
+        self.assertEqual(lane_counts(self.cboard)[self.clane.pk]["overdue"], 1)
+        with patch(PATCH_BROADCAST):
+            call_command("notify_due_soon", verbosity=0)
+        notified = set(Notification.objects.filter(card_id__in=[late_planned.pk, late_released.pk]).values_list("card_id", flat=True))
+        self.assertEqual(notified, {late_released.pk})
 
 
 WAIT = 10
