@@ -17,6 +17,7 @@ from django.utils.dateparse import parse_datetime
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
+from accounts.models import SCOPE_READ, SCOPE_WRITE, PersonalAccessToken
 from boards.models import BoardMembership, Card, CardMovement, CardParentLink
 from boards.serializers import PublicBoardSerializer
 from boards.services import children_view
@@ -438,6 +439,41 @@ class ChildrenViewAccessTests(_ViewFixture, TestCase):
         # PublicBoardSerializer gains no field for Children mode (Rule 11).
         fields = set(PublicBoardSerializer().fields)
         self.assertFalse({"lanes", "rows", "child_boards", "board_total", "children_view"} & fields)
+
+
+class ChildrenViewPatScopeTests(_ViewFixture, TestCase):
+    """PAT scopes on ``children-view`` (#2539).
+
+    ``baseline_scopes_for`` maps a safe method to ``read`` by path and method, so
+    this route needs no registration; these tests pin that. A scoped PAT is the
+    intersection of its scopes and its owner's board access, so a ``read`` token
+    still gets 404 on a board its user cannot open.
+    """
+
+    def setUp(self):
+        self._setup_view()
+        self.viewer = self._user("cv_pat_viewer", parent_role=Role.VIEWER, child_role=Role.VIEWER)
+        self.url = f"/api/v1/boards/{self.pboard.pk}/children-view/"
+
+    def _pat_get(self, user, scopes):
+        _, raw = PersonalAccessToken.generate(user, "agent", scopes=scopes)
+        return APIClient().get(self.url, HTTP_AUTHORIZATION=f"Token {raw}")
+
+    def test_read_scoped_pat_reads_a_board_the_user_can_open(self):
+        res = self._pat_get(self.viewer, [SCOPE_READ])
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertIn("lanes", res.json())
+
+    def test_pat_without_the_read_scope_is_refused(self):
+        self.assertEqual(self._pat_get(self.viewer, [SCOPE_WRITE]).status_code, 403)
+
+    def test_pat_with_an_empty_scope_grant_is_refused(self):
+        # An explicit grant of nothing is denied everywhere; the absent-scope branch.
+        self.assertEqual(self._pat_get(self.viewer, []).status_code, 403)
+
+    def test_read_scoped_pat_for_a_user_without_board_access_is_refused(self):
+        stranger = _make_user("cv_pat_stranger")
+        self.assertEqual(self._pat_get(stranger, [SCOPE_READ]).status_code, 404)
 
 
 class ChildrenViewSchemaTests(_ViewFixture, TestCase):
