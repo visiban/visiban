@@ -4234,7 +4234,7 @@ renovate:
     RENOVATE_ONBOARDING: "false"
     RENOVATE_REQUIRE_CONFIG: required
     RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate-bot@visiban.invalid>"
-    # postUpgradeTasks run with the job's environment and token, so the allowlist
+    # postUpgradeTasks run arbitrary repo code inside this job, so the allowlist
     # is one anchored regex for exactly the lock script, never a wildcard (#2482).
     # Must match the command in renovate.json.
     RENOVATE_ALLOWED_COMMANDS: '["^sh scripts/lock-backend-requirements\\.sh$"]'
@@ -4243,10 +4243,14 @@ renovate:
     # (hash-checked, same as backend-lock-check). The image ships neither uv nor pip
     # until containerbase's install-tool provides a Python; pip then installs uv into
     # that Python's bin dir, which is not on PATH by default.
-    - install-tool python 3.12.12
-    - pip install --quiet --require-hashes -r scripts/uv-requirements.txt
-    - export PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts"))'):$PATH"
-    - uv --version
+    # Non-fatal: a failed bootstrap must not stop the npm/Docker/Helm bumps; only
+    # pip MRs then need a manual lock. The 3.12.12 pin is maintained by hand
+    # (Renovate does not bump it). Braces, not a subshell, so the PATH export sticks.
+    - |
+      { install-tool python 3.12.12 \
+        && pip install --quiet --require-hashes -r scripts/uv-requirements.txt \
+        && export PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts"))'):$PATH" \
+        && uv --version; } || echo "WARNING: uv bootstrap failed; Renovate pip MRs will need a manual lock (docs/maintainers/renovate.md)"
     - renovate --token "$RENOVATE_TOKEN"
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
