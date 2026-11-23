@@ -623,7 +623,8 @@ class CardQuerySerializerFieldParityTests(TestCase):
         # no per-card parent viewer, so the key is intentionally absent here.
         # ``children_rollup`` (#2210) is opt-in the same way (CARD_CHILDREN_ROLLUP_CONTEXT_KEY),
         # and so are the planned-child fields (#2371, CARD_PLANNED_CONTEXT_KEY).
-        planned = {"planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"}
+        planned = {"planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+                   "needed_now_reason"}
         missing = card_readable_fields - query_fields - {"parent", "children_rollup"} - planned
         self.assertEqual(
             missing, set(),

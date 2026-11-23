@@ -169,11 +169,15 @@ class ViewerFieldTests(PlannedFixture):
         loose = Card.objects.create(board=self.cboard, column=self.todo, swimlane=self.clane, title="Loose")
         body = self.read(loose, self.maya)
         self.assertEqual((body["planned"], body["needed_now"], body["needed_at_column"]), (False, False, None))
+        self.assertIsNone(body["needed_now_reason"])
 
     def test_absent_context_omits_every_field_and_absent_viewer_hides_the_column(self):
         child = self.planned_child()
         data = CardSerializer(child, context={}).data
-        for key in ("planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"):
+        for key in (
+            "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+            "needed_now_reason",
+        ):
             self.assertNotIn(key, data)
         from boards.services.card_links import parents_for_viewer
 
@@ -196,9 +200,18 @@ class ReleaseTests(PlannedFixture):
         self.assertEqual(self.events(child)[-1], (EV.PLANNED_RELEASED, "parent_reached", "2026-12-04", None))
         body = self.read(child, self.maya)
         self.assertEqual((body["planned"], body["needed_now"]), (False, True))
+        # The cause goes to every reader of the child, including one who cannot
+        # open the parent (column hidden): the face then says "the parent moved on".
+        self.assertEqual((body["needed_now_reason"], body["needed_at_column_name"]), ("parent", "Proposal"))
+        hidden = self.read(child, self.sam)
+        self.assertEqual(
+            (hidden["needed_now"], hidden["needed_now_reason"], hidden["needed_at_column"], hidden["needed_at_column_name"]),
+            (True, "parent", None, None),
+        )
         # Leaving To do ends "needed now"; it is an ordinary card from then on.
         self.move(child, self.cboard, self.doing, self.clane)
-        self.assertFalse(self.read(child, self.maya)["needed_now"])
+        after = self.read(child, self.maya)
+        self.assertEqual((after["needed_now"], after["needed_now_reason"]), (False, None))
 
     def test_skipping_past_releases_and_moving_back_never_replans(self):
         child = self.planned_child(column=self.qualify)
@@ -243,7 +256,14 @@ class ReleaseTests(PlannedFixture):
             [e[:2] for e in self.events(child)],
             [(EV.NEEDED_CHANGED, "created"), (EV.PLANNED_RELEASED, "pulled")],
         )
-        self.assertFalse(self.read(child, self.maya)["needed_now"])
+        pulled = self.read(child, self.maya)
+        self.assertEqual((pulled["needed_now"], pulled["needed_now_reason"]), (False, None))
+
+    def test_planned_child_has_no_reason(self):
+        child = self.planned_child()
+        for user in (self.maya, self.sam):
+            body = self.read(child, user)
+            self.assertEqual((body["planned"], body["needed_now_reason"]), (True, None))
 
     def test_deleting_the_column_makes_it_needed_now_with_a_note(self):
         child = self.planned_child()
@@ -256,9 +276,13 @@ class ReleaseTests(PlannedFixture):
         self.assertEqual(self.events(child)[-1], (EV.NEEDED_CHANGED, "column_deleted", "now", None))
         # Released with no column to name, so the child reads needed now (the
         # card face then says a neutral "Needed now", not that the parent moved).
-        body = self.read(child, self.maya)
-        self.assertEqual((body["planned"], body["needed_now"]), (False, True))
-        self.assertEqual((body["needed_at_column"], body["needed_at_column_name"]), (None, None))
+        # needed_now_reason tells the face the plan was cancelled, so it does not
+        # claim the parent moved, for a reader on either side of the parent.
+        for user in (self.maya, self.sam):
+            body = self.read(child, user)
+            self.assertEqual((body["planned"], body["needed_now"]), (False, True))
+            self.assertEqual((body["needed_at_column"], body["needed_at_column_name"]), (None, None))
+            self.assertEqual(body["needed_now_reason"], "cancelled")
 
 
 class LeftoverParentReleaseTests(PlannedFixture):
@@ -363,6 +387,22 @@ class ManualNeededTests(PlannedFixture):
         # A no-op writes nothing.
         self.post(self.maya, child, self.won.pk)
         self.assertEqual(len(self.events(child)), 3)
+
+    def test_set_now_reads_cancelled_for_every_reader(self):
+        child = self.planned_child()
+        self.assertEqual(self.post(self.maya, child, None).status_code, 200)
+        for user in (self.maya, self.sam):
+            body = self.read(child, user)
+            self.assertEqual((body["needed_now"], body["needed_now_reason"]), (True, "cancelled"))
+
+    def test_set_now_after_the_parent_released_it_reads_cancelled(self):
+        # Needed: Now on an already released link clears its column, so the
+        # face no longer claims the parent's move (the release time stays).
+        child = self.planned_child()
+        self.move(self.parent, self.pboard, self.proposal, self.plane)
+        self.assertEqual(self.read(child, self.maya)["needed_now_reason"], "parent")
+        self.assertEqual(self.post(self.maya, child, None).status_code, 200)
+        self.assertEqual(self.read(child, self.maya)["needed_now_reason"], "cancelled")
 
     def test_hidden_parent_viewer_may_only_set_now(self):
         child = self.planned_child()
@@ -837,7 +877,8 @@ class PlannedSchemaTests(TestCase):
     def test_each_planned_field_has_its_own_type_and_none_is_required(self):
         from drf_spectacular.generators import SchemaGenerator
 
-        card = SchemaGenerator().get_schema(request=None, public=True)["components"]["schemas"]["Card"]
+        schemas = SchemaGenerator().get_schema(request=None, public=True)["components"]["schemas"]
+        card = schemas["Card"]
         props = card["properties"]
         self.assertEqual(props["planned"]["type"], "boolean")
         self.assertEqual(props["needed_now"]["type"], "boolean")
@@ -847,8 +888,15 @@ class PlannedSchemaTests(TestCase):
         # Never null, so never nullable: tightening it after release is a type change.
         for key in ("planned", "needed_now"):
             self.assertFalse(props[key].get("nullable", False), key)
-        for key in ("needed_at_column", "needed_at_column_name", "planned_released_at"):
+        for key in ("needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason"):
             self.assertTrue(props[key]["nullable"], key)
-        for key in ("planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"):
+        # An enum is published as a named component, with NullEnum for null.
+        refs = [b["$ref"].rsplit("/", 1)[-1] for b in props["needed_now_reason"]["oneOf"]]
+        self.assertEqual(refs, ["NeededNowReasonEnum", "NullEnum"])
+        self.assertEqual(schemas["NeededNowReasonEnum"], {"type": "string", "enum": ["parent", "cancelled"]})
+        for key in (
+            "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+            "needed_now_reason",
+        ):
             self.assertTrue(props[key]["readOnly"], key)
             self.assertNotIn(key, card.get("required", []), key)

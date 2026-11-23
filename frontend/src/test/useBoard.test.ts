@@ -3696,7 +3696,7 @@ describe('useBoard — per-reader card parent (#1104)', () => {
     await waitFor(() => expect(result.current.board).not.toBeNull())
     const before = result.current.board!
     const id = before.cards[0].id
-    const fields = { planned: false, needed_now: true, needed_at_column: null, needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z' }
+    const fields = { planned: false, needed_now: true, needed_at_column: null, needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' as const }
     act(() => { result.current.applyCardParents(new Map([[id, null]]), new Map([[id, fields]])) })
     expect(result.current.board!.cards[0]).toEqual({ ...before.cards[0], parent: null, ...fields })
   })
@@ -3717,11 +3717,13 @@ describe('useBoard — per-reader card parent (#1104)', () => {
 })
 
 describe('carryParent keeps the planned fields across a wholesale replace (#2371)', () => {
-  it('copies all five from the stored card when the incoming copy has none, and never overrides a sent value', () => {
-    const prev = { id: 1, planned: true, needed_now: false, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: null } as unknown as Card
+  it('copies every planned field from the stored card when the incoming copy has none, and never overrides a sent value', () => {
+    const prev = { id: 1, planned: false, needed_now: true, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' } as unknown as Card
     const out = carryParent({ id: 1 } as unknown as Card, prev)
-    expect(out).toMatchObject({ planned: true, needed_now: false, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: null })
-    expect(carryParent({ id: 1, planned: false } as unknown as Card, prev).planned).toBe(false)
+    expect(out).toMatchObject({ planned: false, needed_now: true, needed_at_column: 3, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' })
+    expect(carryParent({ id: 1, planned: true } as unknown as Card, prev).planned).toBe(true)
+    // The server sends the set together, so a read that sent it wins whole, the reason included.
+    expect(carryParent({ id: 1, planned: false, needed_now_reason: 'cancelled' } as unknown as Card, prev).needed_now_reason).toBe('cancelled')
     expect(carryParent({ id: 1 } as unknown as Card, { id: 1 } as unknown as Card)).not.toHaveProperty('planned')
   })
 })

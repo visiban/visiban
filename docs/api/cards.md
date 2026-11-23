@@ -1335,10 +1335,11 @@ On the reads that carry `parent` (`/full/`, the card list, retrieve and
 | Field | Type | Meaning |
 |---|---|---|
 | `planned` | bool | Needed is a later parent column and the child is not yet released. Its `due_date` is inactive: not Overdue, Due soon or Stale. `is_stale` applies this rule on every read (board, card, card query, share link) whether or not these fields are present. |
-| `needed_now` | bool | Released (the parent reached or skipped past the column, its column was deleted, or Needed was set to Now by hand), and still in its board's first column with no move since. |
+| `needed_now` | bool | Released (the parent reached or skipped past the column, its column was deleted, or Needed was set to Now by hand), and still in its board's first column with no move since. `needed_now_reason` says which. |
 | `needed_at_column` | int or null | The parent board's column; `null` for Now and whenever you cannot open the parent's board. |
 | `needed_at_column_name` | string or null | That column's name, under the same rule. |
 | `planned_released_at` | datetime or null | When the child stopped being planned: the parent reached its column, it was pulled, its column was deleted, or Needed was set to Now by hand. Stale restarts from it. An already released child keeps its first value. |
+| `needed_now_reason` | `"parent"`, `"cancelled"` or null | Why a `needed_now` child was released; `null` whenever `needed_now` is false. `parent`: the parent reached or skipped past the Needed column. `cancelled`: the plan was called off (its column was deleted, or Needed was set to Now by hand, which also turns an earlier `parent` into `cancelled`). It carries the cause only, never the parent, its column or who moved it, so every reader gets it, including one who cannot open the parent's board. |
 
 Like `parent`, they are absent from write responses, `card.*` event payloads,
 webhooks, MCP, exports and share links. A release by the parent sends no new

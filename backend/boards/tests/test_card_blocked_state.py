@@ -444,7 +444,7 @@ class BlockBroadcastTests(_BlockTestBase):
             set(payload),
             set(CardSerializer().fields) - {
                 "label_ids", "assignee_id", "parent", "children_rollup", "notify_assignee",
-                "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+                "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
             },
         )
 

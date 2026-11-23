@@ -884,12 +884,18 @@ export interface Card {
    * column and the child is not released yet, so its `due_date` is inactive (never Overdue, Due soon or Stale).
    */
   planned?: boolean;
-  /** Released by the parent reaching (or skipping past) the column, and still in To do. */
+  /** Released (see `needed_now_reason` for why) and still in To do, with no move since. */
   needed_now?: boolean;
   /** The parent board's column; `null` for Now and whenever the viewer can't open the parent's board. */
   needed_at_column?: number | null;
   needed_at_column_name?: string | null;
   planned_released_at?: string | null;
+  /**
+   * Why a `needed_now` child was released; `null` when it is not needed now. `parent`: the parent reached (or
+   * skipped past) the Needed column. `cancelled`: the plan was called off (the column was deleted, or Needed set to
+   * Now). The cause only, so every reader of the child gets it, including one who can't open the parent.
+   */
+  needed_now_reason?: "parent" | "cancelled" | null;
 }
 
 /** Child progress when the viewer can open the child board (#2210). States partition `total`. */

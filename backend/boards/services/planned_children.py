@@ -44,7 +44,17 @@ NOT_PLANNED = {
     "needed_at_column": None,
     "needed_at_column_name": None,
     "planned_released_at": None,
+    "needed_now_reason": None,
 }
+
+#: ``needed_now_reason`` values (#2371): why a needed-now child was released.
+#: ``parent``: the parent reached or skipped past the Needed column (the link
+#: still names it). ``cancelled``: the plan was called off, by the column's
+#: delete (``SET_NULL``) or "Needed: Now", so the link names no column. The
+#: cause only: never the parent, its column or who moved it, which the
+#: hidden-parent wording "the parent moved on" already discloses.
+NEEDED_NOW_PARENT = "parent"
+NEEDED_NOW_CANCELLED = "cancelled"
 
 
 def _record(card_id, event_type, actor, cause, to_value):
@@ -356,6 +366,10 @@ def planned_entries(links, roles):
     ``needed_now``: released, still in the child board's first column, and no
     move since the release. A pull is itself a move out of that column, so a
     pulled child never reads as needed now.
+
+    ``needed_now_reason`` (``None`` unless ``needed_now``) says only why it was
+    released, ``parent`` or ``cancelled``, and goes to every reader like
+    ``needed_now``: it names no parent, column or mover.
     """
     out = {}
     for link in links:
@@ -365,15 +379,23 @@ def planned_entries(links, roles):
         released = link.planned_released_at
         moved = link._planned_last_moved
         column = link.needed_at_column
+        needed_now = (
+            released is not None
+            and link._planned_child_col == link._planned_first_col
+            and (moved is None or moved <= released)
+        )
         out[link.child_id] = {
             "planned": released is None,
-            "needed_now": (
-                released is not None
-                and link._planned_child_col == link._planned_first_col
-                and (moved is None or moved <= released)
-            ),
+            "needed_now": needed_now,
             "needed_at_column": link.needed_at_column_id if visible else None,
             "needed_at_column_name": column.name if visible and column is not None else None,
             "planned_released_at": released.isoformat() if released else None,
+            # From the same row, so no query; a parent-caused release keeps its
+            # column, a cancelled plan lost it (SET_NULL or Needed: Now).
+            "needed_now_reason": (
+                None if not needed_now
+                else NEEDED_NOW_PARENT if link.needed_at_column_id is not None
+                else NEEDED_NOW_CANCELLED
+            ),
         }
     return out

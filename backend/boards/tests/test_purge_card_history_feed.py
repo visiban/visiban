@@ -935,7 +935,7 @@ class EveryPayloadFieldIsClassifiedTests(TestCase):
     # history row never stores the parent's column, which a reader may not open.
     CARD_NEVER_PERSISTED = {
         "parent", "children_rollup", "notify_assignee",
-        "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+        "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
     }
 
     def test_card_fields(self):

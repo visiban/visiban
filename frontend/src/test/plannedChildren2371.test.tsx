@@ -84,11 +84,28 @@ describe('buildPlannedStatusLine (#2371)', () => {
   })
 
   it('needed now names the column only for a visible parent, and yields to Stale', () => {
-    expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: false, column_name: 'Proposal' } }, today)?.text)
-      .toBe('Needed now: parent is in Proposal')
-    expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: true } }, today))
-      .toMatchObject({ text: 'Needed now', shortText: 'Needed now' })
-    expect(buildPlannedStatusLine({ ...base, needed_now: true, is_stale: true }, today)).toBeNull()
+    const byParent = { ...base, needed_now: true, needed_now_reason: 'parent' as const }
+    expect(buildPlannedStatusLine({ ...byParent, parent: { hidden: false, column_name: 'Proposal' } }, today))
+      .toEqual({ kind: 'needed-now', tone: 'warning', text: 'Needed now: parent is in Proposal', shortText: 'Needed now' })
+    expect(buildPlannedStatusLine({ ...byParent, is_stale: true }, today)).toBeNull()
     expect(buildPlannedStatusLine(base, today)).toBeNull()
+  })
+
+  it('a hidden parent that moved on says so, with no column (§2)', () => {
+    const byParent = { ...base, needed_now: true, needed_now_reason: 'parent' as const }
+    expect(buildPlannedStatusLine({ ...byParent, parent: { hidden: true } }, today))
+      .toEqual({ kind: 'needed-now', tone: 'warning', text: 'Needed now: the parent moved on', shortText: 'Needed now' })
+    // No parent to read at all (an unlinked reader's copy): the cause still holds.
+    expect(buildPlannedStatusLine(byParent, today)?.text).toBe('Needed now: the parent moved on')
+  })
+
+  it('a cancelled plan, or an unknown cause, is a neutral "Needed now" even with a visible parent', () => {
+    const visible = { hidden: false, column_name: 'Proposal' }
+    for (const reason of ['cancelled', null, undefined] as const) {
+      expect(buildPlannedStatusLine({ ...base, needed_now: true, needed_now_reason: reason, parent: visible }, today))
+        .toEqual({ kind: 'needed-now', tone: 'warning', text: 'Needed now', shortText: 'Needed now' })
+      expect(buildPlannedStatusLine({ ...base, needed_now: true, needed_now_reason: reason, parent: { hidden: true } }, today)?.text)
+        .toBe('Needed now')
+    }
   })
 })

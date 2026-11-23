@@ -68,6 +68,7 @@ export interface PlannedStatusLine {
 export function buildPlannedStatusLine(
   card: {
     planned?: boolean; needed_now?: boolean; needed_at_column_name?: string | null; due_date: string | null;
+    needed_now_reason?: "parent" | "cancelled" | null;
     is_stale: boolean; parent?: { hidden: boolean; column_name?: string } | null;
   },
   today: string,
@@ -87,15 +88,16 @@ export function buildPlannedStatusLine(
     };
   }
   if (card.needed_now && !card.is_stale) {
-    const column = card.parent && !card.parent.hidden ? card.parent.column_name : undefined;
-    return {
-      kind: "needed-now", tone: "warning",
-      // Neutral when no parent column can be named: a release also comes from a column
-      // delete or "Needed: Now", where the parent did not move, and the card carries
-      // no cause (the timeline row does).
-      text: column ? `Needed now: parent is in ${column}` : "Needed now",
-      shortText: "Needed now",
-    };
+    // Only a parent-caused release names the parent; a cancelled plan (its column deleted, or
+    // "Needed: Now") says a neutral "Needed now", since the parent did not move. With no
+    // reason (an older payload) the face cannot tell, so it stays neutral too.
+    let text = "Needed now";
+    if (card.needed_now_reason === "parent") {
+      const column = card.parent && !card.parent.hidden ? card.parent.column_name : undefined;
+      // A viewer who can't open the parent learns only that it moved (§2).
+      text = column ? `Needed now: parent is in ${column}` : "Needed now: the parent moved on";
+    }
+    return { kind: "needed-now", tone: "warning", text, shortText: "Needed now" };
   }
   return null;
 }

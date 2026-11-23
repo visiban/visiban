@@ -3804,10 +3804,18 @@ _PLANNED_FIELD_SCHEMAS = {
         "column, the child was pulled, its column was deleted, or Needed was set to Now by "
         "hand). Stale is measured from it after release."
     )},
+    "needed_now_reason": {"type": "string", "enum": ["parent", "cancelled", None], "nullable": True, "description": (
+        "Since 1.3 (#2371): why a `needed_now` child was released, and `null` when it is not "
+        "needed now. `parent`: the parent reached or skipped past the Needed column. "
+        "`cancelled`: the plan was called off (its Needed column was deleted, or Needed was "
+        "set to Now by hand). The cause only; it names no parent, column or person."
+    )},
 }
 
 
-_PLANNED_NULLABLE_KEYS = frozenset({"needed_at_column", "needed_at_column_name", "planned_released_at"})
+_PLANNED_NULLABLE_KEYS = frozenset({
+    "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
+})
 
 
 class CardPlannedField(serializers.Field):
@@ -3844,7 +3852,7 @@ class CardPlannedField(serializers.Field):
 
 def _planned_field(key):
     # One subclass per key: ``extend_schema_field`` stores its schema on the
-    # class it decorates, so decorating ``CardPlannedField`` itself five times
+    # class it decorates, so decorating ``CardPlannedField`` itself once per key
     # left every field documented as the last one (a date-time string).
     # They are optional in responses through
     # ``schema_hooks._OMITTABLE_RESPONSE_PROPERTIES``, like ``parent``.
@@ -4195,6 +4203,7 @@ class CardSerializer(serializers.ModelSerializer):
     needed_at_column = _planned_field("needed_at_column")
     needed_at_column_name = _planned_field("needed_at_column_name")
     planned_released_at = _planned_field("planned_released_at")
+    needed_now_reason = _planned_field("needed_now_reason")
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -4271,7 +4280,7 @@ class CardSerializer(serializers.ModelSerializer):
             # Planned children (#2371, since 1.3). Read-only and opt-in per
             # call, like parent; Needed changes through POST .../needed/.
             "planned", "needed_now", "needed_at_column", "needed_at_column_name",
-            "planned_released_at",
+            "planned_released_at", "needed_now_reason",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",

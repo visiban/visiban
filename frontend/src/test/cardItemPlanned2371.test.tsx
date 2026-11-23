@@ -59,6 +59,28 @@ describe('CardItem — planned child status line (#2371)', () => {
     expect(line).toHaveTextContent('Jan 2 passed while planned')
   })
 
+  const visibleParent = {
+    hidden: false as const, id: 9, title: 'Hooli: pilot rollout', board_id: 3, board_name: 'Pipeline',
+    column_id: 31, column_name: 'Proposal', swimlane_id: 4, swimlane_name: 'Hooli', archived: false,
+    board_parent_name_singular: '',
+  }
+
+  it.each([
+    ['a visible parent in its column', { needed_now_reason: 'parent' as const, parent: visibleParent }, 'Needed now: parent is in Proposal'],
+    ['a parent the viewer cannot open', { needed_now_reason: 'parent' as const, parent: { hidden: true as const } }, 'Needed now: the parent moved on'],
+    ['a cancelled plan', { needed_now_reason: 'cancelled' as const, parent: visibleParent }, 'Needed now'],
+  ])('needed now for %s: the full line at standard, the short form at dense', (_name, fields, full) => {
+    const { unmount } = render(<CardItem card={makeCard({ planned: false, needed_now: true, ...fields } as Partial<Card>)} density="standard" />)
+    const line = screen.getByTestId('card-status-line')
+    expect(line).toHaveAttribute('data-status-kind', 'needed-now')
+    expect(line.textContent?.trim()).toBe(full)
+    unmount()
+    render(<CardItem card={makeCard({ planned: false, needed_now: true, ...fields } as Partial<Card>)} density="dense" />)
+    const dense = screen.getByTestId('card-status-line')
+    expect(dense).toHaveTextContent(/^Needed now$/)
+    expect(dense).toHaveAttribute('title', full)
+  })
+
   it('a released child in To do reads needed now; an ordinary card has no planned line', () => {
     const { unmount } = render(<CardItem card={makeCard({ planned: false, needed_now: true })} density="standard" />)
     expect(screen.getByTestId('card-status-line')).toHaveTextContent(/^Needed now$/)

@@ -1,11 +1,11 @@
 import type { Card } from "../types";
 
 /**
- * The five per-reader planned-child fields (#2371). Like `parent`, the server sends them only on reads that name a
+ * The per-reader planned-child fields (#2371). Like `parent`, the server sends them only on reads that name a
  * viewer (never on writes or socket frames), so a client re-reads them over REST after an ids-only ping.
  */
 export const PLANNED_FIELD_KEYS = [
-  "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+  "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at", "needed_now_reason",
 ] as const;
 
 export type CardPlannedFields = Partial<Pick<Card, (typeof PLANNED_FIELD_KEYS)[number]>>;

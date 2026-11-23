@@ -380,6 +380,7 @@ _OMITTABLE_RESPONSE_PROPERTIES = (
     ("Card", "needed_at_column"),
     ("Card", "needed_at_column_name"),
     ("Card", "planned_released_at"),
+    ("Card", "needed_now_reason"),
 )
 
 

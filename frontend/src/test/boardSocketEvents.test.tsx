@@ -1086,12 +1086,14 @@ function spyParentRead() {
 describe('BoardView — planned children refresh (#2371)', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  const released = { planned: false, needed_now: true, needed_at_column: 31, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z' }
-  const nowAgain = { planned: false, needed_now: false, needed_at_column: null, needed_at_column_name: null, planned_released_at: null }
+  const released = { planned: false, needed_now: true, needed_at_column: 31, needed_at_column_name: 'Proposal', planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'parent' as const }
+  const nowAgain = { planned: false, needed_now: false, needed_at_column: null, needed_at_column_name: null, planned_released_at: null, needed_now_reason: null }
+  const cancelled = { planned: false, needed_now: true, needed_at_column: null, needed_at_column_name: null, planned_released_at: '2026-11-22T10:00:00Z', needed_now_reason: 'cancelled' as const }
 
   it.each([
     ['the parent reached the column (release)', released],
-    ['the Needed column was deleted', nowAgain],
+    ['the Needed column was deleted', cancelled],
+    ['the child left To do', nowAgain],
   ])('applies the planned fields with the parent when %s', async (_name, fields) => {
     const spy = vi.spyOn(cardsApi, 'getCardParentState').mockResolvedValue({ parent: { hidden: true }, ...fields })
     const ctx = makeContext({ board: makeBoard({ cards: [makeCard({ id: 5, planned: true })] }) })
