@@ -201,6 +201,16 @@ class AnalyticsSingleHistoryTests(_Shape):
         ids = [c["id"] for c in lane["stalled_cards"] if c["id"] in (first.id, second.id)]
         self.assertEqual(ids, [first.id, second.id])
 
+    def test_tied_moved_at_credits_the_stay_by_movement_id(self):
+        """Two movements at one ``moved_at``: the lower id happened first, so Doing gets no stay (#2451).
+
+        On the pre-#2451 database order the stay was credited to Doing (12.0).
+        """
+        a, _b = self.lanes
+        self._card(a, "tied", [(self.todo, 50), (self.doing, 12), (self.todo, 12)])
+        lane = next(sw for sw in self._body(30)["swimlanes"] if sw["name"] == "A")
+        self.assertEqual(lane["avg_days_per_column"]["Doing"], 0.0)
+
 
 # Keep pytest from collecting the parent's tests a second time under this module.
 del _Shape
