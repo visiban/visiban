@@ -1745,9 +1745,12 @@ def _block_spans(flow, flow_range):
     )
     if flow.swimlane_id is not None or flow.label_id is not None:
         rows = rows.filter(card__in=_base_cards(flow.board, flow.swimlane_id, flow.label_id).order_by().values("id"))
+    # Counted as held rows against the request's size limit, like every card-history read (#2428).
+    counter = analytics_admission.row_counter()
     for row in rows.order_by("-blocked_at", "-id").values(
         "card_id", "column_id", "reason", "blocked_at", "unblocked_at", "card__archived_at",
-    ):
+    ).iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         end = min(row["unblocked_at"] or row["card__archived_at"] or flow.now, range_end)
         begin = max(row["blocked_at"], start)
         if end <= begin:
@@ -1890,7 +1893,10 @@ def _blocked_seconds_in_progress(flow, in_progress):
         .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=oldest))
         .values_list("card_id", "blocked_at", "unblocked_at")
     )
-    for card_id, blocked_at, unblocked_at in rows:
+    # Counted as held rows against the request's size limit (#2428).
+    counter = analytics_admission.row_counter()
+    for card_id, blocked_at, unblocked_at in rows.iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         begin = max(blocked_at, starts[card_id])
         end = min(unblocked_at or flow.now, flow.now)
         if end > begin:

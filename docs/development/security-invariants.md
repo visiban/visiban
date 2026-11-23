@@ -1064,12 +1064,14 @@ constant: no counts, limits or queue positions.
 |---|---|---|
 | REST | `boards/views/analytics.py` `BoardAnalyticsMixin`: `summary`, `analytics`, `metrics_cycle_time`, `metrics_swimlanes`, `metrics_throughput`, `metrics_cumulative_flow` (with and without `date`), `metrics_wip_age`, `metrics_dwell`, `metrics_blocked`, `metrics_attention`, `metrics_overview` | `_analytics_slot(request, board, "<action>")` after `get_board_for_user` and parameter validation; waits a bounded time, then `503` |
 | MCP | `mcp_server/tools.py` `board_flow_metrics`, `aging_cards` | `analytics_slot(..., wait=False)` after `_resolve_board` and argument validation, inside the tool body; refusals through `_error_payload` |
-| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows`, `analytics_admission.row_counter` | with no active slot, every load gets a fresh counter at `settings.ANALYTICS_MAX_MOVEMENTS` (and its streamed ceiling) and raises `AnalyticsTooLarge`, never unlimited; every loop over movement or gate-transition rows (`_movement_rows`, `_attach_wait`) calls `row_counter().count_rows(n, held=...)`, and so must any new loop over card history rows |
+| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows`, `analytics_admission.row_counter` | with no active slot, each read (`_movement_rows`, `_attach_wait`, the block-row reads) gets its own fresh counter at `settings.ANALYTICS_MAX_MOVEMENTS` (and its streamed ceiling) and raises `AnalyticsTooLarge`, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take `analytics_slot` so the reads share one ticket; every loop over movement or gate-transition rows (`_movement_rows`, `_attach_wait`) calls `row_counter().count_rows(n, held=...)`, and so must any new loop over card history rows |
 
 Tests: `boards/tests/test_analytics_admission_2428.py` (`CoveragePinTests`
-fails when an analytics action that calls `flow_metrics.load_*` is not gated,
-plus the busy, too-large, order, release and absent-input tests) and
-`mcp_server/tests/test_mcp_flow.py` `FlowToolsAdmissionTests` (runs only with
+fails when a REST analytics action that calls `flow_metrics.load_*` is not
+gated, plus the busy, too-large, order, release and absent-input tests) and
+`mcp_server/tests/test_mcp_flow.py` (`McpCoveragePinTests` fails when an MCP
+tool that calls `flow_metrics.load_*` does not open `analytics_slot`;
+`FlowToolsAdmissionTests` covers the refusals; both run only with
 `MCP_SERVER_ENABLED=true`).
 
 ## How to add a rule

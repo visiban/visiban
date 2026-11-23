@@ -761,7 +761,7 @@ def _self_test():
 
     # A busy refusal is reported as itself, never as a generic HTTP error or a latency.
     class _Busy:
-        status_code, url = 503, "http://x/metrics/overview/"
+        status_code, url = 503, "https://x/metrics/overview/"
 
         def json(self):
             return {"code": ANALYTICS_BUSY_CODE, "detail": "x"}

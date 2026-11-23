@@ -22,7 +22,7 @@ from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, CardMovement, Column, Swimlane
+from boards.models import Board, BoardMembership, CardBlock, CardMovement, Column, Swimlane
 from boards.services import analytics_admission as admission
 from boards.services import flow_metrics
 from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTooLarge, analytics_slot
@@ -239,6 +239,43 @@ class CoveragePinTests(SimpleTestCase):
         for name in replaying:
             with self.subTest(action=name):
                 self.assertIn(f'_analytics_slot(request, board, "{name}")', inspect.getsource(getattr(BoardAnalyticsMixin, name)))
+
+
+class BlockRowsCountTests(FlowFixture):
+    """Block rows are held until the load ends, so they count against the size limit (#2428)."""
+
+    def _blocks(self):
+        card = self.path(self.backlog, 10, self.doing, 8)
+        for days in (6, 4, 2):
+            CardBlock.objects.create(
+                card=card, board=self.board, reason="Vendor",
+                blocked_at=self.ago(days), unblocked_at=self.ago(days - 1),
+            )
+        return card
+
+    def test_block_spans_count_as_held_rows(self):
+        self._blocks()
+        last = flow_metrics.rolling_range(30, now=self.now)
+        flow = flow_metrics.load_board_flow(self.board, now=self.now)
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=2), self.assertRaises(AnalyticsTooLarge):
+            list(flow_metrics._block_spans(flow, last))
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=3):
+            self.assertEqual(len(list(flow_metrics._block_spans(flow, last))), 3)
+        # Inside one request the rows join the shared ticket.
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=100):
+            with analytics_slot(self.user, board_id=self.board.pk, endpoint="test") as ticket:
+                list(flow_metrics._block_spans(flow, last))
+            self.assertEqual(ticket.movements, 3)
+
+    def test_in_progress_blocked_seconds_count_as_held_rows(self):
+        card = self._blocks()
+        flow = flow_metrics.load_board_flow(self.board, now=self.now)
+        in_progress = [c for c in flow.cards if c.uid == card.uid]
+        self.assertTrue(in_progress)
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=2), self.assertRaises(AnalyticsTooLarge):
+            flow_metrics._blocked_seconds_in_progress(flow, in_progress)
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=3):
+            self.assertIn(card.id, flow_metrics._blocked_seconds_in_progress(flow, in_progress))
 
 
 @override_settings(ANALYTICS_MAX_CONCURRENT=1)

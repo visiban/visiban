@@ -9,6 +9,8 @@ Time is frozen by patching ``django.utils.timezone.now``: the tools and the REST
 views both read the wall clock, and a drift of a second would turn the exact
 percentile assertions into flakes.
 """
+import inspect
+import re
 from unittest import mock
 
 import pytest
@@ -22,7 +24,7 @@ if not settings.MCP_SERVER_ENABLED:  # pragma: no cover - exercised only in the 
 
 from django.core.cache import cache
 from django.db import connection
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
@@ -503,6 +505,30 @@ class FlowToolsTransportTests(McpTestCase):
                 _, body = self._tools_call(name, self.raw_token, args)
                 self.assertEqual(self._result(body)["structuredContent"]["result"]["error"]["code"], "throttled")
 
+
+
+class McpCoveragePinTests(SimpleTestCase):
+    """Every MCP tool that replays a board's history opens the analytics gate (#2428)."""
+
+    LOAD_CALL = re.compile(r"flow_metrics\.load_|_load_flow\(|_load_range_flow\(")
+
+    def test_every_tool_that_loads_flow_history_opens_a_slot(self):
+        loaders = {
+            name: inspect.getsource(member)
+            for name, member in vars(tools).items()
+            if inspect.isfunction(member) and member.__module__ == tools.__name__
+            and self.LOAD_CALL.search(inspect.getsource(member))
+        }
+        self.assertTrue(loaders, "the pin found no tool that loads flow history; it is stale")
+        # A helper that loads is covered only through its callers, so those must hold the slot too.
+        for name in list(loaders):
+            for other, member in vars(tools).items():
+                if inspect.isfunction(member) and member.__module__ == tools.__name__ and other != name \
+                        and re.search(rf"\b{re.escape(name)}\(", inspect.getsource(member)):
+                    loaders.setdefault(other, inspect.getsource(member))
+        for name, source in loaders.items():
+            with self.subTest(tool=name):
+                self.assertIn("analytics_slot(", source, "a tool that replays history must take analytics_slot")
 
 
 @override_settings(ANALYTICS_MAX_CONCURRENT=1)
