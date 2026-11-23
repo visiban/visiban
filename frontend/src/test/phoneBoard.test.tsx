@@ -754,6 +754,14 @@ describe('PhoneBoard sub-column switcher (#2278)', () => {
     expect(screen.queryByTestId('phone-sub-column-status')).not.toBeInTheDocument()
     for (const name of ['Card 1', 'Card 2', 'Card 3']) expect(screen.getByText(name)).toBeInTheDocument()
   })
+
+  it('shows the gate progress bar on each card with Show sub-columns off, and none with it on (#2535)', () => {
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, showSubColumns: false })
+    expect(screen.getAllByTestId('card-gate-progress')).toHaveLength(3)
+    cleanup()
+    setup({ columns: [col(1, 'Build', { sub_columns: subs })], cards, showSubColumns: true })
+    expect(screen.queryByTestId('card-gate-progress')).not.toBeInTheDocument()
+  })
 })
 
 describe('PhoneBoard four-way switcher (#2531)', () => {

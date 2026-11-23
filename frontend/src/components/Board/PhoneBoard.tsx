@@ -247,6 +247,8 @@ export default function PhoneBoard({
   // Show sub-columns off (#2531): no switcher and no sub-column filter, so every card in the stage shows,
   // as the grid's single unsplit cell does. The cards keep their sub-column; only the view changes.
   const subs = showSubColumns ? stageSubColumns(column) : [];
+  // Off, a split stage's cards show the grid's segmented gate progress bar instead (#2535, #1102).
+  const gateNames = !showSubColumns ? stageSubColumns(column).map((s) => s.name) : null;
   const activeSub = subs.length > 0 ? Math.min(subIndex, subs.length - 1) : -1;
   const subCounts = subs.map((sub, i) => ({ sub, n: columnCards.filter((c) => cardSubColumnIndex(c, column) === i).length }));
   const limit = column.wip_limit !== null && column.wip_limit > 0 ? column.wip_limit : null;
@@ -716,6 +718,7 @@ export default function PhoneBoard({
                         contextTarget={contextTargetCardId === card.id}
                         trackStates={getTrackStates(card, column, lane, customFieldDefinitions)}
                         trackStatesSpelledOut
+                        gateProgress={gateNames && gateNames.length >= 2 ? { index: cardSubColumnIndex(card, column), names: gateNames } : null}
                       />
                     ))}
                   </div>
