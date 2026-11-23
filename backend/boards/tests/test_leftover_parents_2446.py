@@ -168,6 +168,22 @@ class PickersAndReadsTests(_Fixture, TestCase):
         self.assertIsNone(card_links.rollups_for_board_cards(None, [self.leftover.pk], self.owner))
         self.assertEqual(card_links.rollups_for_board_cards(self.pboard, [self.plain.pk], self.owner), {})
 
+    def test_rollup_helper_absent_viewer_fails_closed(self):
+        """#1075: a flag-off leftover parent read without a viewer discloses no child state.
+
+        The populated case (the owner) gets the full rollup; no user, or an
+        anonymous one, gets only the count-only hidden rollup (decision B of
+        rollups_for_viewer), never the states or timestamp.
+        """
+        from django.contrib.auth.models import AnonymousUser
+
+        full = card_links.rollups_for_board_cards(self.pboard, [self.leftover.pk, self.plain.pk], self.owner)
+        self.assertTrue(full[self.leftover.pk]["visible"])
+        for viewer in (None, AnonymousUser()):
+            with self.subTest(viewer=viewer):
+                out = card_links.rollups_for_board_cards(self.pboard, [self.leftover.pk, self.plain.pk], viewer)
+                self.assertEqual(out, {self.leftover.pk: {"visible": False, "total": 1}})
+
     def test_parent_change_still_pings_the_child_board(self):
         with self.captureOnCommitCallbacks(execute=True), transaction.atomic():
             card_links.announce_parent_changed(self.leftover.pk, self.pboard, actor_id=self.owner.pk)
