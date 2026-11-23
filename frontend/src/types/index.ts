@@ -1335,7 +1335,11 @@ export type CardActivityEventType =
   // #2208: the other end's whole board was deleted. On the parent's row
   // to_value is how many children it lost; no board name is ever stored.
   | "children_removed_board_deleted"
-  | "parent_removed_board_deleted";
+  | "parent_removed_board_deleted"
+  // #2371 planned children. from_value is a cause code, to_value a due date or
+  // "planned"/"now"; neither names the parent, its column or who moved it.
+  | "planned_released"
+  | "needed_changed";
 
 export interface CardActivity {
   id: number;

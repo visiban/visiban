@@ -1,5 +1,6 @@
 import client from "./client";
 import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
+import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 export interface CardPatch {
   title?: string;
@@ -170,6 +171,13 @@ export const getCardExtensions = (boardId: number, cardId: number): Promise<unkn
 /** Read `parent` for one card: `null` (none), hidden, or the visible parent. */
 export const getCardParent = (boardId: number, cardId: number): Promise<CardParent | null> =>
   getCard(boardId, cardId).then((c) => c.parent ?? null);
+
+/** The per-reader fields `card.parent_changed` re-reads: `parent` (#1104) and the planned-child fields (#2371). */
+export type CardParentState = { parent: CardParent | null } & CardPlannedFields;
+
+/** Read `parent` and the planned fields for one card, in one card read (the planned fields are absent if not sent). */
+export const getCardParentState = (boardId: number, cardId: number): Promise<CardParentState> =>
+  getCard(boardId, cardId).then((c) => ({ parent: c.parent ?? null, ...pickPlannedFields(c) }));
 
 /** Read `children_rollup` for one parent card (#2210): the `card.children_changed` refetch. */
 export const getCardChildrenRollup = (boardId: number, cardId: number): Promise<CardChildrenRollup | undefined> =>

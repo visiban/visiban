@@ -85,6 +85,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
   const [needed, setNeeded] = useState("now");
   const neededId = `${uid}-needed`;
   const neededHelpId = `${uid}-needed-help`;
+  const neededHintId = `${uid}-needed-hint`;
 
   useEffect(() => {
     let live = true;
@@ -268,7 +269,8 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               <label htmlFor={neededId} className="text-sm text-fg-secondary">Needed</label>
               <SelectDropdown
                 id={neededId}
-                ariaDescribedBy={neededHelpId}
+                // The lead-time hint appears with a planned choice; describedby carries it to assistive tech.
+                ariaDescribedBy={needed !== "now" ? `${neededHelpId} ${neededHintId}` : neededHelpId}
                 value={needed}
                 onChange={setNeeded}
                 options={[
@@ -278,7 +280,7 @@ export default function AddChildDialog({ boardId, boardName, cardId, parentTitle
               />
               <p id={neededHelpId} className="text-xs text-fg-muted">Options: Now, then each later column on {boardName}.</p>
               {needed !== "now" && (
-                <p className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
+                <p id={neededHintId} className="text-xs text-fg-muted" data-testid="needed-lead-time-hint">Lead time without dates: split the work.</p>
               )}
             </div>
           )}

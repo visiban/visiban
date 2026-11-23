@@ -111,6 +111,7 @@ When a feature has both a self-service control (Settings) and an admin-initiated
 - `bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary`
 - Focus ring: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent`
 - Placeholder: `placeholder-fg-muted`
+- **A dynamic hint under a form field must be reachable by assistive tech (#2371 ux-review).** A hint that appears or changes with the field's value (Add child's "Lead time without dates: split the work." under Needed) gets an id that the field's `aria-describedby` includes while it is shown (alongside any static help id), or is a `role="status"` region; a sighted-only hint is a defect. Reference: `AddChildDialog`.
 - **Inputs in a row with `SingleSelectDropdown` triggers** (rule builders such as `LaneFilterPopover`, #2205/#2226) use `px-2 py-1 text-sm`, matching the trigger, rather than `px-3 py-1.5`, so the row's controls share one height. Standalone form inputs keep `px-3 py-1.5`.
 
 ## Dropdown menus
@@ -1990,7 +1991,7 @@ A parent card on a board whose cards can have children ends in a footer under a 
 | Doing | any column between the first and done | 1px `border-info` outline, left half filled (`text-info`; 5.75:1 dark, 5.17:1 light on the card, where `bg-primary` was 2.83:1 in dark) |
 | To do | the child board's first column | **solid** 1px `border-fg-tertiary` outline |
 | Blocked | manual block or an open `blocks` relation; overrides the column | 1px danger outline plus diagonal stripes |
-| Planned (#2371, not yet shipped) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
+| Planned (#2371; this rollup segment is not yet shipped, the card-face status line is) | planned for a later column | **dashed** 1px `border-fg-tertiary` outline |
 
 Rule: **dashed outline = planned, solid outline = to do.** The blocked count is danger-on-tint text with the filled blocked glyph; only the idle line ("Work idle N days", `text-warning-on-tint`) uses the clock glyph. The footer is one `role="group"` whose `aria-label` begins "Children: …"; its visible rows are `aria-hidden`. A board the viewer can't open shows only "N children on a board you can't open".
 

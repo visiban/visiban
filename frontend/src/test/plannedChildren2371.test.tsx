@@ -46,7 +46,12 @@ describe('Add child: Needed (#2371)', () => {
     const { onAdded } = setup(LATER)
     await user.click(await screen.findByLabelText('Needed'))
     await user.click(await screen.findByRole('option', { name: 'When the parent reaches Proposal' }))
-    expect(screen.getByTestId('needed-lead-time-hint')).toHaveTextContent('Lead time without dates: split the work.')
+    const hint = screen.getByTestId('needed-lead-time-hint')
+    expect(hint).toHaveTextContent('Lead time without dates: split the work.')
+    // The hint is reachable by assistive tech: the select's describedby names it while it is shown.
+    const describedBy = screen.getByLabelText('Needed').getAttribute('aria-describedby')?.split(' ') ?? []
+    expect(describedBy).toContain(hint.id)
+    expect(describedBy).toHaveLength(2)
     await user.type(screen.getByLabelText('Title'), 'Proposal workshop')
     await user.click(screen.getByRole('button', { name: 'Add to Delivery' }))
     await waitFor(() => expect(onAdded).toHaveBeenCalled())
@@ -66,23 +71,23 @@ describe('buildPlannedStatusLine (#2371)', () => {
 
   it('planned, with and without a date and a visible column', () => {
     expect(buildPlannedStatusLine({ ...base, planned: true, needed_at_column_name: 'Proposal' }, today))
-      .toEqual({ kind: 'planned', tone: 'tertiary', text: 'Planned for Proposal' })
+      .toEqual({ kind: 'planned', tone: 'tertiary', text: 'Planned for Proposal', shortText: 'Planned · Proposal' })
     expect(buildPlannedStatusLine({ ...base, planned: true, needed_at_column_name: 'Proposal', due_date: '2026-12-04' }, today)?.text)
       .toBe('Planned for Proposal · Dec 4, counts once needed')
-    expect(buildPlannedStatusLine({ ...base, planned: true, needed_at_column_name: null }, today)?.text)
-      .toBe('Planned for a later stage')
+    expect(buildPlannedStatusLine({ ...base, planned: true, needed_at_column_name: null }, today))
+      .toMatchObject({ text: 'Planned for a later stage', shortText: 'Planned' })
   })
 
   it('a date that passed while planned is a warning', () => {
     expect(buildPlannedStatusLine({ ...base, planned: true, due_date: '2026-11-01' }, today))
-      .toEqual({ kind: 'planned-passed', tone: 'warning', text: 'Nov 1 passed while planned' })
+      .toEqual({ kind: 'planned-passed', tone: 'warning', text: 'Nov 1 passed while planned', shortText: 'Nov 1 passed while planned' })
   })
 
   it('needed now names the column only for a visible parent, and yields to Stale', () => {
     expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: false, column_name: 'Proposal' } }, today)?.text)
       .toBe('Needed now: parent is in Proposal')
-    expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: true } }, today)?.text)
-      .toBe('Needed now: the parent moved on')
+    expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: true } }, today))
+      .toMatchObject({ text: 'Needed now: the parent moved on', shortText: 'Needed now' })
     expect(buildPlannedStatusLine({ ...base, needed_now: true, is_stale: true }, today)).toBeNull()
     expect(buildPlannedStatusLine(base, today)).toBeNull()
   })

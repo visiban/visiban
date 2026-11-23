@@ -99,6 +99,14 @@ export function activityLabel(
     }
     case "parent_removed_board_deleted":
       return "Parent removed: its board was deleted";
+    // #2371 planned children. The rows carry only cause codes, so these
+    // sentences never name the parent, its board or column, or who moved it
+    // (the reader may be unable to open the parent's board).
+    case "planned_released":
+      return d.from_value === "pulled" ? "Needed now: started before the parent got there" : "Needed now";
+    case "needed_changed":
+      if (d.to_value === "now") return d.from_value === "column_deleted" ? "Needed: Now (its column was deleted)" : "Needed: Now";
+      return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";
     case "archived":
       return "Card archived";
     case "reactivated":

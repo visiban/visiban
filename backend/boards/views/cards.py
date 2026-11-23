@@ -1677,6 +1677,8 @@ class CardViewSet(viewsets.ModelViewSet):
             "parent_linked", "parent_unlinked", "child_linked", "child_unlinked",
             # Since 1.3 (#2208): the other end's whole board was deleted.
             "children_removed_board_deleted", "parent_removed_board_deleted",
+            # Since 1.3 (#2371): planned children.
+            "planned_released", "needed_changed",
         ],
     }
     # Every group timeline() accepts, as published in the schema (#1975).

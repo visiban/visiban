@@ -734,9 +734,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     <span
       data-testid="card-status-line"
       data-status-kind={planned.kind}
-      className={`inline-flex items-center gap-1 text-xs font-semibold shrink-0 ${planned.tone === "warning" ? urgencyBadgeToneClass("warning", aging.stage) : "text-fg-tertiary"}`}
+      // A column name is user text of any length: the line truncates and carries the full text in `title`, and
+      // Dense shows the short form (#2371 ux-review).
+      title={planned.text}
+      className={`min-w-0 max-w-full truncate text-xs font-semibold ${planned.tone === "warning" ? urgencyBadgeToneClass("warning", aging.stage) : "text-fg-tertiary"}`}
     >
-      {planned.text}
+      {density === "dense" ? planned.shortText : planned.text}
     </span>
   ) : null;
 

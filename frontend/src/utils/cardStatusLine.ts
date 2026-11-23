@@ -61,6 +61,8 @@ export interface PlannedStatusLine {
   kind: "planned-passed" | "needed-now" | "planned";
   tone: "warning" | "tertiary";
   text: string;
+  /** The Dense form: the state and the stage only (`Planned · Proposal`); `text` goes in `title`. */
+  shortText: string;
 }
 
 export function buildPlannedStatusLine(
@@ -72,13 +74,25 @@ export function buildPlannedStatusLine(
 ): PlannedStatusLine | null {
   const due = card.due_date ? card.due_date.slice(0, 10) : null;
   if (card.planned) {
-    if (due && due < today) return { kind: "planned-passed", tone: "warning", text: `${formatShortMonthDay(due)} passed while planned` };
-    const stage = card.needed_at_column_name ? `Planned for ${card.needed_at_column_name}` : "Planned for a later stage";
-    return { kind: "planned", tone: "tertiary", text: due ? `${stage} · ${formatShortMonthDay(due)}, counts once needed` : stage };
+    if (due && due < today) {
+      const text = `${formatShortMonthDay(due)} passed while planned`;
+      return { kind: "planned-passed", tone: "warning", text, shortText: text };
+    }
+    const name = card.needed_at_column_name;
+    const stage = name ? `Planned for ${name}` : "Planned for a later stage";
+    return {
+      kind: "planned", tone: "tertiary",
+      text: due ? `${stage} · ${formatShortMonthDay(due)}, counts once needed` : stage,
+      shortText: name ? `Planned · ${name}` : "Planned",
+    };
   }
   if (card.needed_now && !card.is_stale) {
     const column = card.parent && !card.parent.hidden ? card.parent.column_name : undefined;
-    return { kind: "needed-now", tone: "warning", text: column ? `Needed now: parent is in ${column}` : "Needed now: the parent moved on" };
+    return {
+      kind: "needed-now", tone: "warning",
+      text: column ? `Needed now: parent is in ${column}` : "Needed now: the parent moved on",
+      shortText: "Needed now",
+    };
   }
   return null;
 }
