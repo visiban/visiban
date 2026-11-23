@@ -202,7 +202,9 @@ export default function BoardActivityDrawer({
             type="button"
             aria-haspopup="dialog"
             aria-expanded={filterShown}
-            aria-label={activeFilters ? `Filter activity, ${activeFilters} active` : "Filter activity"}
+            // The active name opens with the visible words "Filter 2" in order, which axe's
+            // whole-word label-in-name check needs (WCAG 2.5.3, #2467).
+            aria-label={activeFilters ? `Filter, ${activeFilters} active` : "Filter activity"}
             onClick={() => setFilterOpen((o) => !o)}
             className={`relative inline-flex items-center gap-1 px-2 py-1 text-xs rounded border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               activeFilters ? "text-info-on-tint bg-info/10 border-info/40" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover border-line"
@@ -212,6 +214,7 @@ export default function BoardActivityDrawer({
               <path d="M2 4h12M4.5 8h7M7 12h2" />
             </svg>
             Filter
+            {activeFilters > 0 && " "}
             {activeFilters > 0 && (
               <span data-testid="activity-filter-count" aria-hidden="true" className="min-w-4 h-4 px-1 rounded-full bg-primary text-on-primary text-xs leading-4 text-center">
                 {activeFilters}

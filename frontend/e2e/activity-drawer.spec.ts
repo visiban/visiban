@@ -163,7 +163,7 @@ test.describe('board activity drawer', () => {
     await page.getByRole('button', { name: 'Members', exact: true }).focus()
     await page.keyboard.press('Enter')
     await expect(drawer.getByText('Remote-created card')).toHaveCount(0)
-    await expect(drawer.getByRole('button', { name: 'Filter activity, 1 active' })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: 'Filter, 1 active' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'Activity filters' })).toHaveCount(0)
     await expect(drawer).toBeVisible()

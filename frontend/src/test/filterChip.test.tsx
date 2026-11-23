@@ -81,7 +81,18 @@ describe('FilterChip', () => {
 
   it('an assignee chip names its avatar initials so the name contains the visible text (#2467)', () => {
     const user = { username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' } as never
-    render(<FilterChip label="Jane Doe" avatarUser={user} onDismiss={vi.fn()} />)
+    const { container } = render(<FilterChip label="Jane Doe" avatarUser={user} onDismiss={vi.fn()} />)
     expect(screen.getAllByRole('button', { name: 'Remove JD Jane Doe filter' }).length).toBeGreaterThan(0)
+    // axe joins adjacent elements' text with no separator: without a real space the visible
+    // text is the one word "JDJane", which no name can contain (WCAG 2.5.3).
+    const chip = container.querySelector('[role="button"]') as HTMLElement
+    expect(chip.textContent).toBe('JD Jane Doe×')
+  })
+
+  it('a tagged chip keeps a real space between its tag and label, and names both in order (#2467)', () => {
+    const { container } = render(<FilterChip tag="Lanes" label="Tier is Gold" onDismiss={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: 'Lanes: Tier is Gold, remove' }).length).toBeGreaterThan(0)
+    const chip = container.querySelector('[role="button"]') as HTMLElement
+    expect(chip.textContent).toBe('Lanes Tier is Gold×')
   })
 })

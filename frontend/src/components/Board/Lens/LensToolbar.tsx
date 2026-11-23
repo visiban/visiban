@@ -151,6 +151,8 @@ export default function LensToolbar({
         >
           {FilterIcon}
           Filters
+          {/* A real space before the count: "Filters2" would miss the name "Filters, 2 active" (#2467). */}
+          {activeCount > 0 && " "}
           {activeCount > 0 && (
             <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">
               {activeCount}

@@ -127,7 +127,9 @@ function CheckboxDropdownInner<T extends string | number>(
         }}
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label={showBadge ? `${label}, ${badge} active` : undefined}
+        // Built from displayLabel, the text actually painted, then a real space before the
+        // badge, so the name starts with the visible words in order (WCAG 2.5.3, #2467).
+        aria-label={showBadge ? `${displayLabel}, ${badge} active` : undefined}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected.length > 0
             ? "border-primary-soft text-info"
@@ -135,6 +137,7 @@ function CheckboxDropdownInner<T extends string | number>(
         }`}
       >
         {displayLabel}
+        {showBadge && " "}
         {showBadge && (
           <span
             aria-hidden="true"
