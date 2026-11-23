@@ -126,7 +126,7 @@ function NeedsAttention({ data, swimlanes, columns, onOpenCard }: Omit<Props, "a
         </ul>
       )}
       {expanded && overall > total && (
-        <p className="text-xs text-fg-tertiary">Showing the {total} oldest of {overall} cards.</p>
+        <p className="text-xs text-fg-tertiary">Showing the first {total} of {overall} cards, in progress first.</p>
       )}
       {expanded && totalPages > 1 && (
         <div className="flex items-center justify-between">

@@ -731,8 +731,8 @@ _LIMIT_PARAMETER = OpenApiParameter(
     location=OpenApiParameter.QUERY, required=False,
     description=(
         "Added in 1.3 (#2429). Cap each per-card list at this many entries; `all`, or no `limit`, "
-        "returns every entry, as before. Scatter samples are downsampled (the largest values always "
-        "kept), other lists truncated in their documented order. Every count and percentile is still "
+        "returns every entry, as before. Scatter samples are downsampled (the `limit / 4` largest "
+        "values, at least one, always kept), other lists truncated in their documented order. Every count and percentile is still "
         "computed from the whole set. With `limit`, the response adds `sampled` and the full sizes "
         "(`samples_total`, `items_total`, `stalled_cards_total`)."
     ),
@@ -1343,7 +1343,8 @@ def _dwell_payload(flow, flow_range, grouping):
 def _attention_payload(board, flow, flow_range, limit=None):
     payload = flow_metrics.needs_attention(flow, flow_range, stalled_days=board.staleness_threshold_days)
     if limit is not None:
-        # Oldest first, so the cut keeps the cards most in need (#2429).
+        # The list's own order (in progress first by age, then the rest by days
+        # without movement), so the cut drops cards not in progress first (#2429).
         payload["items_total"] = len(payload["items"])
         payload["sampled"] = len(payload["items"]) > limit
         payload["items"] = payload["items"][:limit]

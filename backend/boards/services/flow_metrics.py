@@ -197,7 +197,8 @@ def downsample(samples, limit, value_key="value_days"):
     of JSON that the chart cannot show apart. Every number the response states
     (``sample_size``, ``percentiles``, counts) is computed by the caller on the
     whole list *before* this runs, so sampling moves only which dots are drawn.
-    The ``limit // 4`` largest values are always kept, because the tail is what
+    The ``limit // 4`` largest values (at least one, so a limit below 4 still
+    keeps the largest) are always kept, because the tail is what
     a cycle-time or aging chart is read for, and the rest is an even stride over
     the remaining samples in their original order (by time for cycle time, by
     column then age for WIP age), so the shape of the cloud is kept. It is
@@ -207,11 +208,12 @@ def downsample(samples, limit, value_key="value_days"):
     if limit is None or len(samples) <= limit:
         return samples, False
     by_value = sorted(range(len(samples)), key=lambda i: (-samples[i][value_key], i))
-    kept = set(by_value[: limit // DOWNSAMPLE_OUTLIER_SHARE])
+    kept = set(by_value[: max(1, limit // DOWNSAMPLE_OUTLIER_SHARE)])
     rest = [i for i in range(len(samples)) if i not in kept]
     room = limit - len(kept)
-    step = len(rest) / room
-    kept.update(rest[int(k * step)] for k in range(room))
+    if room:  # 0 only when limit is 1: the largest alone fills it
+        step = len(rest) / room
+        kept.update(rest[int(k * step)] for k in range(room))
     return [samples[i] for i in sorted(kept)], True
 
 

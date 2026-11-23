@@ -92,7 +92,7 @@ describe('capped analytics responses (#2429)', () => {
     }
     render(<AttentionSection attention={{ data }} swimlanes={[]} />)
     await userEvent.click(screen.getByRole('button', { name: 'All 950 cards' }))
-    expect(screen.getByText('Showing the 8 oldest of 950 cards.')).toBeTruthy()
+    expect(screen.getByText('Showing the first 8 of 950 cards, in progress first.')).toBeTruthy()
   })
 
   it('the drawers say how many cards they could not list', () => {

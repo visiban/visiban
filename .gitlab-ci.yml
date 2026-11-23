@@ -816,6 +816,8 @@ lint-selftests-python:
         - scripts/nightly_load_test.py
         - scripts/check_email_login_plan.py
         - backend/nightly-load-test-baseline.json
+        # nightly_load_test.py's self-test checks its overview limit against this (#2429).
+        - frontend/src/api/analyticsLimits.ts
         - .gitlab-ci.yml
   script:
     - |

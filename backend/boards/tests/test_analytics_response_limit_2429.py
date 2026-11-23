@@ -56,16 +56,22 @@ class DownsampleTests(SimpleTestCase):
         self.assertEqual(fm.downsample(samples, 40)[0], kept)
 
     def test_a_limit_below_the_outlier_share_still_fills_the_limit(self):
+        samples = self.samples(50)
+        largest = max(samples, key=lambda s: (s["value_days"], -s["id"]))
+        self.assertNotEqual(largest["id"], 0)  # not kept by the stride's first pick by chance
         for limit in (1, 2, 3, 5):
             with self.subTest(limit=limit):
-                kept, sampled = fm.downsample(self.samples(50), limit)
+                kept, sampled = fm.downsample(samples, limit)
                 self.assertTrue(sampled)
                 self.assertEqual(len(kept), limit)
                 self.assertEqual(len({s["id"] for s in kept}), limit)
+                # Below DOWNSAMPLE_OUTLIER_SHARE, limit // 4 is 0: the largest is still kept.
+                self.assertIn(largest, kept)
 
 
 class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
-    LIMIT = 3
+    # At least DOWNSAMPLE_OUTLIER_SHARE, so outlier retention (not the stride) keeps the longest.
+    LIMIT = 4
 
     def setUp(self):
         super().setUp()
@@ -75,12 +81,22 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
         # Enough live, aging, unmoved work that every capped list is longer than the limit.
         for i in range(8):
             self.path(self.backlog, 40 + i, self.doing, 30 + i)
+        # The longest cycle time (completed last) and the oldest WIP (in Review,
+        # after Doing's eight), placed where the stride would not pick them, so
+        # only outlier retention keeps them (asserted by stride_picks).
+        self.path(self.backlog, 100, self.doing, 95, self.done, 1)
+        self.path(self.backlog, 130, self.review, 120)
 
     def get(self, metric, params=None, status=200):
         with mock.patch("django.utils.timezone.now", return_value=self.now):
             resp = self.client.get(self.url(metric), params or {})
         self.assertEqual(resp.status_code, status, resp.content)
         return resp.json()
+
+    def stride_picks(self, samples):
+        """The positions an even stride alone would keep: the fixture's outlier must be outside
+        them, so only outlier retention keeps it and the "longest kept" assertions can fail."""
+        return {int(k * len(samples) / self.LIMIT) for k in range(self.LIMIT)}
 
     def pair(self, metric, params=None):
         params = params or {}
@@ -92,6 +108,8 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
                 plain = self.get(metric)
                 self.assertFalse(_keys(plain) & NEW_KEYS)
                 self.assertEqual(self.get(metric, {"limit": "all"}), plain)
+                # An empty `limit=` is absent to DRF (a blank non-required field): uncapped, not a 400.
+                self.assertEqual(self.get(metric, {"limit": ""}), plain)
 
     def test_cycle_time_numbers_are_unchanged_by_sampling(self):
         for params in ({}, {"group_by": "swimlane"}, {"days": "365"}):
@@ -106,6 +124,7 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
                 for sample in capped["samples"]:
                     self.assertIn(sample, full["samples"])
                 longest = max(full["samples"], key=lambda s: s["value_days"])
+                self.assertNotIn(full["samples"].index(longest), self.stride_picks(full["samples"]))
                 self.assertIn(longest, capped["samples"])
                 self.assertEqual({c["uid"] for c in capped["cards"]}, {s["card_uid"] for s in capped["samples"]})
 
@@ -132,7 +151,9 @@ class ResponseLimitTests(AgedBoardMixin, EndpointFixture):
         self.assertTrue(capped["sampled"])
         self.assertEqual(capped["samples_total"], len(full["samples"]))
         self.assertEqual(len(capped["samples"]), self.LIMIT)
-        self.assertIn(max(full["samples"], key=lambda s: s["value_days"]), capped["samples"])
+        oldest = max(full["samples"], key=lambda s: s["value_days"])
+        self.assertNotIn(full["samples"].index(oldest), self.stride_picks(full["samples"]))
+        self.assertIn(oldest, capped["samples"])
 
     def test_throughput_counts_are_whole_and_uid_lists_are_cut(self):
         full, capped = self.pair("throughput", {"group_by": "swimlane", "period": "day", "days": "365"})
@@ -223,6 +244,7 @@ class AnalyticsStalledLimitTests(EndpointFixture):
         full = self.get({"days": "90"})
         self.assertFalse(_keys(full) & NEW_KEYS)
         self.assertEqual(self.get({"days": "90", "limit": "all"}), full)
+        self.assertEqual(self.get({"days": "90", "limit": ""}), full)  # blank = absent
         capped = self.get({"days": "90", "limit": "2"})
         stalled, capped_row = self.lane_row(full)["stalled_cards"], self.lane_row(capped)
         self.assertEqual(len(stalled), 6)

@@ -227,14 +227,14 @@
     },
     "flow_overview": {
       "method": "GET",
-      "path": "/api/v1/boards/{id}/metrics/overview/?days=90",
+      "path": "/api/v1/boards/{id}/metrics/overview/?days=90&limit=300",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
       "pending_budget": "#2430",
       "budget_peak_rss_mb": null,
       "pending_memory_budget": "#2430",
-      "note": "The one request the Analytics overview makes for its seven flow charts since #2426 (days=90, as the overview sends it): one history load instead of seven. Measured on the NUC run that re-derives this file (#2430); not gated until then."
+      "note": "The one request the Analytics overview makes for its seven flow charts since #2426 (days=90&limit=300, as the overview sends it since #2429): one history load instead of seven. Measured on the NUC run that re-derives this file (#2430); not gated until then."
     },
     "aged_board_summary": {
       "method": "GET",
@@ -249,7 +249,7 @@
     },
     "aged_board_analytics": {
       "method": "GET",
-      "path": "/api/v1/boards/{aged_id}/analytics/?days=90",
+      "path": "/api/v1/boards/{aged_id}/analytics/?days=90&limit=300",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
@@ -359,7 +359,7 @@
     },
     "aged_flow_overview": {
       "method": "GET",
-      "path": "/api/v1/boards/{aged_id}/metrics/overview/?days=90",
+      "path": "/api/v1/boards/{aged_id}/metrics/overview/?days=90&limit=300",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
@@ -388,7 +388,7 @@
     },
     "analytics_overview": {
       "method": "GET",
-      "path": "2 reads at once, each with ?days=90 as the overview sends since #2426: metrics/overview/ and analytics/ on the load-test board",
+      "path": "2 reads at once, each with ?days=90&limit=300 as the overview sends (#2426, #2429): metrics/overview/ and analytics/ on the load-test board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
@@ -399,7 +399,7 @@
     },
     "aged_analytics_overview": {
       "method": "GET",
-      "path": "the same 2 reads (metrics/overview/ and analytics/), each with ?days=90, on the aged board",
+      "path": "the same 2 reads (metrics/overview/ and analytics/), each with ?days=90&limit=300, on the aged board",
       "measured_p95_ms": null,
       "measured_p99_ms": null,
       "budget_p95_ms": null,
