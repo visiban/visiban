@@ -819,6 +819,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // the fill under the tint pulled the badge to 3.7:1 (#1841). The
       // selection ring alone still marks it.
       className={`group bg-surface rounded-md select-none transition-all border z-0
+        ${menuEnabled ? "[@media(pointer:coarse)]:min-h-[46px]" : ""}
         ${expanded ? "absolute left-0 right-0 overflow-hidden" : "relative"}
         ${readOnly ? "cursor-default" : `cursor-pointer hover:-translate-y-px hover:z-20`}
         ${!current && !isOverdueCard ? "border-line hover:border-line-strong" : ""}

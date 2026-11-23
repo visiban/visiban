@@ -161,6 +161,34 @@ test.describe('card peek sheet', () => {
       const m = await more.boundingBox()
       expect(s?.height).toBeGreaterThanOrEqual(44)
       expect(s?.width).toBeGreaterThanOrEqual(44)
+      // #2402: boundingBox() ignores clipping, so measure the part of each button an ancestor's overflow leaves visible,
+      // and check that focusing a button scrolls neither the face nor any ancestor.
+      const visible = (loc: typeof summary) => loc.evaluate((el) => {
+        let r = el.getBoundingClientRect()
+        for (let p = el.parentElement; p; p = p.parentElement) {
+          const o = getComputedStyle(p)
+          if (o.overflowX === 'visible' && o.overflowY === 'visible') continue
+          const c = p.getBoundingClientRect()
+          r = new DOMRect(Math.max(r.left, c.left), Math.max(r.top, c.top), Math.max(0, Math.min(r.right, c.right) - Math.max(r.left, c.left)), Math.max(0, Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top)))
+        }
+        return { w: r.width, h: r.height }
+      })
+      for (const b of [summary, more]) {
+        const v = await visible(b)
+        expect(v.h).toBeGreaterThanOrEqual(43.5)
+        expect(v.w).toBeGreaterThanOrEqual(43.5)
+      }
+      const scrolls = () => card.evaluate((el) => {
+        const out: number[] = []
+        for (let p: Element | null = el; p; p = p.parentElement) out.push(p.scrollTop)
+        return out
+      })
+      const baseline = await scrolls()
+      await summary.focus()
+      expect(await scrolls()).toEqual(baseline)
+      await more.focus()
+      expect(await scrolls()).toEqual(baseline)
+      await card.focus()
       expect((s!.x + s!.width <= m!.x + 0.5) || (m!.x + m!.width <= s!.x + 0.5)).toBe(true)
       await summary.tap()
       const sheet = page.getByTestId('card-peek-sheet')
