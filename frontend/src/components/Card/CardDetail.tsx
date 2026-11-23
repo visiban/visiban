@@ -32,7 +32,7 @@ import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
 import ActivityTabPanel from "./ActivityTabPanel";
-import { HISTORY_PAGE_LIMIT, cardDetailTabsFor, getRememberedCardDetailTab, rememberCardDetailTab, type CardDetailTab } from "./cardDetailTabMemory";
+import { HISTORY_PAGE_LIMIT, cardDetailTabsFor, getRememberedCardDetailTab, rememberCardDetailTab, type CardDetailTab, cardCanHaveChildren } from "./cardDetailTabMemory";
 import CardChildrenTab from "./CardChildrenTab";
 import { childrenCount, useCardChildren } from "./cardChildren";
 import { lastActivitySummary } from "../../utils/cardTimelineLabels";
@@ -226,11 +226,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [commentBody, setCommentBody] = useState("");
   // Opens on the tab chosen last this session, or a deep link's (#967).
   const [rawTab, setTab] = useState<CardDetailTab>(getRememberedCardDetailTab);
-  // Children is only on a parent-tier board (#2209); a remembered or linked
-  // Children tab on any other board opens Details.
-  const CARD_DETAIL_TABS = cardDetailTabsFor(board);
+  // Children is only on a card with the parent capability (#2209): every card on a
+  // parent-tier board, or a leftover parent on a board whose switch was turned off
+  // (#2446). A remembered or linked Children tab on any other card opens Details.
+  const canHaveChildren = cardCanHaveChildren(board, card);
+  const CARD_DETAIL_TABS = cardDetailTabsFor(board, card);
   const tab: CardDetailTab = CARD_DETAIL_TABS.includes(rawTab) ? rawTab : "details";
-  const childrenState = useCardChildren(board.id, card.id, !!board.cards_can_have_children, refreshSignal + childrenRefreshSignal);
+  const childrenState = useCardChildren(board.id, card.id, canHaveChildren, refreshSignal + childrenRefreshSignal);
   const selectTab = (t: CardDetailTab) => {
     if (t !== tab && bodyScrollRef.current) bodyScrollRef.current.scrollTop = 0;
     setTab(t);
@@ -1678,7 +1680,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 parent_name_singular. The count is the live rollup's total (#2210), never
                 a second field; it also counts children on boards the viewer cannot open.
                 The chip opens the Children tab; 44px on a phone. */}
-            {board.cards_can_have_children && card.children_rollup && card.children_rollup.total > 0 && (
+            {canHaveChildren && card.children_rollup && card.children_rollup.total > 0 && (
               <button
                 type="button"
                 data-testid="card-detail-parent-chip"
@@ -2576,6 +2578,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               cardTitle={card.title}
               cardColumnName={board.columns.find((c) => c.id === card.column)?.name}
               cardArchived={!!card.archived_at}
+              canHaveChildren={canHaveChildren}
               state={childrenState}
               remoteSignal={childrenRefreshSignal}
               lastMovedAt={card.children_rollup && "last_moved_at" in card.children_rollup ? card.children_rollup.last_moved_at : null}

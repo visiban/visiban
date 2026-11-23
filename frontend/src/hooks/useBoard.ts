@@ -1579,13 +1579,22 @@ export function useBoard() {
 
   // `card.children_changed` refetch results (#2210): sets only
   // `children_rollup`, for the same reason as applyCardParents.
-  const applyCardChildrenRollups = useCallback((rollups: ReadonlyMap<number, CardChildrenRollup>) => {
+  // `null` drops the card's rollup (#2446): a leftover parent on a flag-off board stops being a
+  // parent with its last child, and the server then sends none.
+  const applyCardChildrenRollups = useCallback((rollups: ReadonlyMap<number, CardChildrenRollup | null>) => {
     if (rollups.size === 0) return;
     writeBoard((b) => {
       let changed = false;
       const cards = b.cards.map((c) => {
         const r = rollups.get(c.id);
         if (r === undefined) return c;
+        if (r === null) {
+          if (c.children_rollup === undefined) return c;
+          changed = true;
+          const { children_rollup: _dropped, ...rest } = c;
+          void _dropped;
+          return rest;
+        }
         changed = true;
         return { ...c, children_rollup: r };
       });

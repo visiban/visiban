@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cardDetailTabsFor, getRememberedCardDetailTab, parseCardDetailTab, rememberCardDetailTab } from '../components/Card/cardDetailTabMemory'
+import { cardDetailTabsFor, getRememberedCardDetailTab, parseCardDetailTab, rememberCardDetailTab, cardCanHaveChildren } from '../components/Card/cardDetailTabMemory'
 import { lastActivitySummary } from '../utils/cardTimelineLabels'
 
 describe('card detail tab memory (#967)', () => {
@@ -18,6 +18,13 @@ describe('card detail tab memory (#967)', () => {
     expect(cardDetailTabsFor({ cards_can_have_children: true })).toEqual(['details', 'children', 'comments', 'history'])
     expect(cardDetailTabsFor({ cards_can_have_children: false })).toEqual(['details', 'comments', 'history'])
     expect(cardDetailTabsFor({})).toEqual(['details', 'comments', 'history'])
+    // #2446: a leftover parent on a flag-off board (the server sends its rollup) keeps the Children tab.
+    const rollup = { total: 2, done: 0, blocked: 0, hidden: 0 }
+    expect(cardDetailTabsFor({ cards_can_have_children: false }, { children_rollup: rollup })).toEqual(['details', 'children', 'comments', 'history'])
+    expect(cardDetailTabsFor({ cards_can_have_children: false }, { children_rollup: undefined })).toEqual(['details', 'comments', 'history'])
+    expect(cardDetailTabsFor({ cards_can_have_children: false }, null)).toEqual(['details', 'comments', 'history'])
+    expect(cardCanHaveChildren({ cards_can_have_children: true }, {})).toBe(true)
+    expect(cardCanHaveChildren({}, { children_rollup: null })).toBe(false)
   })
 
   it('remembers the last tab in memory, never in storage', () => {

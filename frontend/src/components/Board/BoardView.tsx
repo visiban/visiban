@@ -867,6 +867,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     void getCardChildrenRollup(boardId, parentId).then((r) => {
       if (seqs.get(parentId) !== n) return;
       if (r !== undefined) applyCardChildrenRollups(new Map([[parentId, r]]));
+      // A leftover parent on a flag-off board (#2446) loses its rollup with its last child:
+      // the server stops sending one, so drop the stale footer, tab and chip instead of keeping it.
+      else if (hasRollup && boardRef.current?.cards_can_have_children !== true) applyCardChildrenRollups(new Map([[parentId, null]]));
       setRollupLoading(parentId, false);
     }, () => {
       /* a failed read keeps the last rollup; the next ping or resync retries */
@@ -879,8 +882,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The same payload also carries no `children_rollup` (it is per reader), so
   // a restored or newly created parent card would show no footer until a
   // reload or a ping; read it too, on a parent-tier board only (#2210).
+  // A leftover parent on a flag-off board (#2446) is read too: it keeps its rollup.
   const refetchRollupIfParentTier = useCallback((cardId: number) => {
-    if (boardRef.current?.cards_can_have_children === true) refetchChildrenRollup(cardId);
+    const b = boardRef.current;
+    if (b?.cards_can_have_children === true || b?.cards.find((c) => c.id === cardId)?.children_rollup !== undefined) refetchChildrenRollup(cardId);
   }, [refetchChildrenRollup]);
   const onCardUnarchived = useCallback((card: Card) => {
     unarchiveCard(card);

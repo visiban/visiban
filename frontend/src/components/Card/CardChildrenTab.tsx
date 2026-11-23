@@ -35,6 +35,11 @@ interface Props {
   board: Pick<BoardFull, "id" | "name" | "cards_can_have_children" | "current_user_role"> & Partial<Pick<BoardFull, "members">>;
   cardId: number;
   cardTitle: string;
+  /**
+   * Whether this card may get more children (#2446): true on a parent-tier board, and for a leftover
+   * parent on a board whose switch was turned off. Absent: the board flag decides.
+   */
+  canHaveChildren?: boolean;
   /** The parent's column, for the Add child dialog's header line. */
   cardColumnName?: string;
   state: ChildrenState;
@@ -69,7 +74,7 @@ const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding 
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false }: Props) {
+export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
@@ -126,7 +131,7 @@ export default function CardChildrenTab({ board, cardId, cardTitle, cardColumnNa
   const childBoard = data?.board;
   const columns = childBoard?.columns ?? [];
   const children = data?.visible ? data.results : [];
-  const canLinkHere = board.cards_can_have_children && WRITE_ROLES.has(parentRole);
+  const canLinkHere = (canHaveChildren ?? !!board.cards_can_have_children) && WRITE_ROLES.has(parentRole);
   // With children, the child board's role is known; with none, the chooser decides (#2208).
   const canAddOrLink = canLinkHere && data?.visible !== false && (!childBoard || WRITE_ROLES.has(childBoard.role));
   const canMove = !!childBoard && WRITE_ROLES.has(childBoard.role);

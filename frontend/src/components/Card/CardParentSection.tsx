@@ -36,7 +36,9 @@ const UNLINK_CLASS =
  */
 export default function CardParentSection({ board, card, canEdit, demoMode = false }: Props) {
   const inRouter = useInRouterContext();
-  const childBoard = !board.cards_can_have_children;
+  // A leftover parent on a board whose switch was turned off (#2446) is a parent, not a child: the
+  // server offers it no parent board (a card is never both), so it gets no Parent row.
+  const childBoard = !board.cards_can_have_children && card.children_rollup === undefined;
   const canWrite = canEdit && !demoMode && childBoard;
   const [parentBoards, setParentBoards] = useState<ParentBoardOption[]>([]);
   // What this panel just wrote, until the store's re-read replaces `card.parent`.

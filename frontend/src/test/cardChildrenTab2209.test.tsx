@@ -328,6 +328,7 @@ describe('Link existing (#2209)', () => {
     expect(childCandidateReason(candidate({ disabled_reason: 'link_exists' }))).toBe('already a child of this card')
     expect(childCandidateReason(candidate({ disabled_reason: 'children_limit' }))).toMatch(/100 children/)
     expect(childCandidateReason(candidate({ disabled_reason: 'parent_archived' }))).toBe('this card is archived')
+    expect(childCandidateReason(candidate({ disabled_reason: 'child_is_parent' }))).toBe('has children of its own')
     expect(childCandidateReason(candidate({ disabled_reason: 'already_has_parent', parent_title: 'Acme' }))).toBe('already a child of Acme')
     expect(childCandidateReason(candidate({ disabled_reason: 'already_has_parent' }))).toBe("already a child of a card you can't open")
   })
@@ -802,5 +803,22 @@ describe('Children tab remainder (#2209 slice 3)', () => {
     vi.mocked(linkCardParent).mockRejectedValueOnce(new Error('gone'))
     await act(async () => { await toast.action.onAction() })
     expect(notify).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'unlink-child:10', variant: 'danger' }))
+  })
+})
+
+// #2446: a leftover parent on a board whose Child cards switch is off keeps Add child and Link existing.
+describe('CardChildrenTab per-card capability (#2446)', () => {
+  const offBoard = { ...parentBoard, cards_can_have_children: false }
+  const empty = { count: 0, visible: true, offset: 0, limit: 50, results: [] }
+  it('offers Add child and Link existing on a flag-off board when the card can still have children', () => {
+    render(<CardChildrenTab board={offBoard} cardId={5} cardTitle="P" canHaveChildren state={state({ data: empty })} onExitToTabs={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Add child' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Link existing' })).toBeInTheDocument()
+  })
+  it('offers neither on a flag-off board without the prop, or with it false on a parent board', () => {
+    const { rerender } = render(<CardChildrenTab board={offBoard} cardId={5} cardTitle="P" state={state({ data: empty })} onExitToTabs={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Add child' })).not.toBeInTheDocument()
+    rerender(<CardChildrenTab board={parentBoard} cardId={5} cardTitle="P" canHaveChildren={false} state={state({ data: empty })} onExitToTabs={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Link existing' })).not.toBeInTheDocument()
   })
 })

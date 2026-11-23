@@ -2486,6 +2486,17 @@ describe('useBoard — /full/ responses vs frames that land mid-fetch (#2038)', 
     expect(byId(result.current.board, 2)).toBe(before.cards.find((c) => c.id === 2))
   })
 
+  it('applyCardChildrenRollups drops a rollup for null and leaves a card without one alone (#2446)', async () => {
+    const { result } = await renderBoard([card(1, 1), card(2, 1)])
+    act(() => { result.current.applyCardChildrenRollups(new Map([[1, rollup(1)]])) })
+    const before = result.current.board!
+    act(() => { result.current.applyCardChildrenRollups(new Map([[2, null]])) })
+    expect(result.current.board).toBe(before)
+    act(() => { result.current.applyCardChildrenRollups(new Map([[1, null]])) })
+    expect(byId(result.current.board, 1)).not.toHaveProperty('children_rollup')
+    expect(byId(result.current.board, 2)).toBe(before.cards.find((c) => c.id === 2))
+  })
+
   it('an equal version in the snapshot still replaces a card written during the fetch', async () => {
     const { result } = await renderBoard([card(1, 2)])
     const fetch = startFetch(result)
