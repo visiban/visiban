@@ -354,9 +354,21 @@ interface FetchTouches {
  * the replayed cascade alone, so a snapshot that has it in another column (a
  * move this tab missed) keeps it there.
  */
-function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
-  if (!prev || prev.id !== snapshot.id) return snapshot;
+
+function mergeFullSnapshot(
+  prev: BoardFull | null,
+  snapshot: BoardFull,
+  touches: FetchTouches,
+  // Runs once the cards are merged and before replay, so the caller can see
+  // which written cards kept their local copy.
+  afterCards?: (merged: BoardFull) => void,
+): BoardFull {
+  if (!prev || prev.id !== snapshot.id) {
+    afterCards?.(snapshot);
+    return snapshot;
+  }
   const withCards = mergeSnapshotCards(prev, snapshot, touches);
+  afterCards?.(withCards);
   return touches.replay.reduce((board, write) => write(board), withCards);
 }
 
@@ -741,8 +753,18 @@ export function useBoard() {
   // longer needed from collecting ids.
   const applyFullSnapshot = useCallback((snapshot: BoardFull, touches: FetchTouches) => {
     if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
-    pendingCardLabels.current.clear();
-    setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));
+    setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches, (withCards) => {
+      // A parked label belongs to the local copy that lost it. Drop the entry
+      // only for a card the snapshot replaced; a card this tab wrote during the
+      // fetch keeps its label-stripped copy (see mergeSnapshotCards), so its
+      // entry must survive for the label.created that is still to come (#1933).
+      const snapCards = new Map(snapshot.cards.map((c) => [c.id, c]));
+      const mergedCards = new Map(withCards.cards.map((c) => [c.id, c]));
+      for (const cardId of [...pendingCardLabels.current.keys()]) {
+        const kept = touches.written.has(cardId) && mergedCards.get(cardId) !== snapCards.get(cardId);
+        if (!kept) pendingCardLabels.current.delete(cardId);
+      }
+    }));
   }, []);
 
   // Deleting a column or swimlane cascades to its archived cards, which the

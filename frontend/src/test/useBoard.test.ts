@@ -1341,6 +1341,22 @@ describe('useBoard', () => {
       expect(result.current.board!.cards[0].labels).toEqual([])
     })
 
+    it('keeps the parked label of a card written during a /full/ fetch (#1933)', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      let resolve!: (b: BoardFull) => void
+      mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((res) => { resolve = res }))
+      act(() => { result.current.silentReload() })
+      // The echo lands mid-fetch and strips the not-yet-known label.
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      // The snapshot was read before the echo and the new label.
+      await act(async () => { resolve(makeBoard({ labels: [], cards: [{ ...card, labels: [], version: 1 }] })) })
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].version).toBe(2)
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
     it('does not restore a label that was deleted before it was created here', async () => {
       const { result } = await setup()
       const card = result.current.board!.cards[0]

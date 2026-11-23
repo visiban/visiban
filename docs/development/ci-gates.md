@@ -207,7 +207,7 @@ All three schedules also run every ordinary `main` job, plus the jobs that use a
 
 - **`check-release-attestations`** is narrower: it runs only on the schedule that sets `CVE_SCAN` (Nightly), so it needs no schedule of its own.
 - **`renovate`** (#2464) is narrower too: it runs only on the schedule that sets `CVE_SCAN` (Nightly), and only when the `RENOVATE_TOKEN` variable exists. See [Renovate](../maintainers/renovate.md).
-- **Helm and compose drills** (`helm-install`, `helm-netpol`, `compose-prod-drill`) skip any schedule that sets `SONAR_SCHEDULED`, so they run on the load-test and weekly mutation schedules.
+- **Helm and compose jobs** (`helm-lint`, `helm-template`, `helm-install`, `helm-netpol`, `compose-prod-drill`) skip any schedule that sets `SONAR_SCHEDULED` (#2471), so the Helm drills run on the load-test and weekly mutation schedules, and `helm-lint` and `helm-template` run on those only when their paths changed.
 - **Load test:** it keeps its own schedule, three hours earlier than the Nightly one, because its latency budgets are noisy on a busy runner.
 - **Mutation testing:** it keeps its own weekly schedule because 50 shards are about 27-29 runner-hours (see [Runner load](mutation-testing.md#runner-load)), which didn't fit alongside the Nightly jobs.
 - **`backend-schema-fuzz`**, the MR job, never runs on a schedule; `backend-schema-fuzz-deep` replaces it there.

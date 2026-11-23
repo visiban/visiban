@@ -630,12 +630,12 @@ class SeedScaleTests(TestCase):
         self.assertIn("Acme Corp (2)", names)
 
     def test_scale_n_exceeds_title_corpus_without_truncating(self):
-        """At high scale the fixed 152-title corpus is exhausted well before the
+        """At high scale the fixed title corpus is exhausted well before the
         target card count — cards must keep generating (with a cycled/suffixed
         title) rather than silently stopping early (the pre-#1082 `break`)."""
-        # Scale 3 is the smallest that still exhausts the corpus (30 swimlanes x
-        # ~11-13 cards); scale 20 proved the same property with ~7x the cards
-        # (153 s on Postgres CI, #2524).
+        # A small scale that still exceeds the corpus (129 titles; scale 2
+        # already yields at least 220 cards); scale 20 proved the same property
+        # with several times the cards (153 s on Postgres CI, #2524).
         from boards.management.commands.seed_demo_data import CARD_TITLES
 
         _seed(scale=3)
