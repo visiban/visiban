@@ -329,7 +329,7 @@ class DeletedCardHistoryExportTests(_BoardFixture):
         self.assertEqual(by_uid["a" * 16]["activities"][0]["created_at"], act.created_at.isoformat())
         self.assertEqual(by_uid["a" * 16]["movements"][0]["moved_at"], past.isoformat())
 
-    def test_live_card_movement_with_deleted_column_stays_null(self):
+    def test_live_card_movement_with_deleted_column_uses_snapshot_2052(self):
         card = self._card("Live")
         Card.objects.filter(pk=card.pk).update(column=self.col_done)
         CardMovement.objects.create(
@@ -339,8 +339,53 @@ class DeletedCardHistoryExportTests(_BoardFixture):
         )
         self.col_todo.delete()
         [exported] = [c for c in self._export()["cards"] if c["title"] == "Live"]
-        self.assertIsNone(exported["movements"][0]["from_column"])
+        self.assertEqual(exported["movements"][0]["from_column"], "To Do")
         self.assertEqual(exported["movements"][0]["to_column"], "Done")
+
+    def test_deleted_column_snapshot_round_trips_through_import_2052(self):
+        from django.core.cache import cache
+
+        card = self._card("RT")
+        Card.objects.filter(pk=card.pk).update(column=self.col_done)
+        CardMovement.objects.create(
+            card=card, board=self.board, card_uid=card.uid, card_title="RT",
+            from_column=self.col_todo, to_column=self.col_done, moved_by=self.owner,
+            from_column_name="To Do", to_column_name="Done",
+        )
+        self.col_todo.delete()
+        data = self._export()
+        data["name"] = "Round trip"
+        cache.clear()
+        resp = self.client.post(IMPORT_URL, {"file": _file(data)}, format="multipart")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        imported = CardMovement.objects.filter(
+            board_id=resp.json()["id"], card_title="RT", from_column_name="To Do",
+        )
+        self.assertEqual(imported.count(), 1)
+        self.assertEqual(imported.get().to_column_name, "Done")
+
+    def test_csv_history_uses_snapshot_for_deleted_column_2052(self):
+        card = self._card("Csv")
+        Card.objects.filter(pk=card.pk).update(column=self.col_done)
+        CardMovement.objects.create(
+            card=card, board=self.board, card_uid=card.uid, card_title="Csv",
+            from_column=self.col_todo, to_column=self.col_done, moved_by=self.owner,
+            from_column_name="To Do", to_column_name="Done",
+        )
+        self.col_todo.delete()
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/export/", {"format": "csv"})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertIn("|To Do|Done|", resp.content.decode())
+
+    def test_live_card_movement_without_snapshot_stays_null(self):
+        card = self._card("Live2")
+        CardMovement.objects.create(
+            card=card, board=self.board, card_uid=card.uid, card_title="Live2",
+            from_column=None, to_column=self.col_done, moved_by=self.owner,
+            to_column_name="Done",
+        )
+        [exported] = [c for c in self._export()["cards"] if c["title"] == "Live2"]
+        self.assertIsNone(exported["movements"][0]["from_column"])
 
 
     def test_deleted_card_movement_falls_back_to_the_name_snapshots(self):

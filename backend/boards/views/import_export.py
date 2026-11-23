@@ -274,15 +274,17 @@ class BoardExportThrottle(UserRateThrottle):
 
     scope = "board_export"
 
-def _movement_export_entry(mv, *, name_snapshots=False):
-    """One movement in a JSON export. ``name_snapshots`` falls back to the
-    ``*_name`` snapshot when the column or swimlane is gone (#1796): a deleted
-    card's movements often outlive their columns too, and a null name would
-    leave nothing to read. Live cards' entries keep their 1.0 meaning (null)."""
+def _movement_export_entry(mv):
+    """One movement in a JSON export. A name falls back to the ``*_name``
+    snapshot when the column or swimlane is gone (#1796, #2052): a movement
+    outlives its column, and a null name would leave a re-import unable to
+    attribute the visit. The key stays null only when there is no snapshot
+    either (e.g. a creation movement's absent source), so the schema is
+    unchanged; only previously-null names are filled in."""
     def name(fk, snapshot):
         if fk is not None:
             return fk.name
-        return (snapshot or None) if name_snapshots else None
+        return snapshot or None
 
     return {
         "from_column": name(mv.from_column, mv.from_column_name),
@@ -362,7 +364,7 @@ def _deleted_card_history_export(board):
         return entry
 
     for mv in movements:
-        entry_for(mv, mv.moved_at)["movements"].append(_movement_export_entry(mv, name_snapshots=True))
+        entry_for(mv, mv.moved_at)["movements"].append(_movement_export_entry(mv))
     for act in activities:
         entry_for(act, act.created_at)["activities"].append(_activity_export_entry(act))
     return sorted(
@@ -4065,8 +4067,9 @@ class BoardImportExportMixin:
             last_moved = movements[-1].moved_at.isoformat() if movements else ""
             history_parts = []
             for mv in movements:
-                from_col = s(mv.from_column.name) if mv.from_column else ""
-                to_col = s(mv.to_column.name) if mv.to_column else ""
+                # Snapshot fallback (#2052): a deleted column leaves the FK null.
+                from_col = s(mv.from_column.name if mv.from_column else mv.from_column_name)
+                to_col = s(mv.to_column.name if mv.to_column else mv.to_column_name)
                 moved_by = s(mv.moved_by.username) if mv.moved_by else ""
                 # An imported row (#1675) names its importer, then the source
                 # file's username, inside the same segment. The source name is
