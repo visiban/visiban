@@ -99,9 +99,9 @@ describe("BoardSettingsFieldsTab (#371)", () => {
     render(<BoardSettingsFieldsTab board={board} isAdmin onFieldsUpdated={vi.fn()} />);
     expect(screen.getByText("Sprint")).toBeInTheDocument();
     expect(screen.getByText("Cost")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Unpin Sprint/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pinned, unpin Sprint/ })).toBeInTheDocument();
     // Pinned = persistent state: theme-aware primary-emphasis, not info (#1353)
-    expect(screen.getByRole("button", { name: /Unpin Sprint/ })).toHaveClass("bg-primary-emphasis/10", "border-primary-emphasis/25");
+    expect(screen.getByRole("button", { name: /Pinned, unpin Sprint/ })).toHaveClass("bg-primary-emphasis/10", "border-primary-emphasis/25");
     expect(screen.getByRole("button", { name: /Pin Cost/ })).toBeInTheDocument();
     expect(screen.getByText((_, el) => el?.textContent === "2 of 30 · 1 of 2 pinned")).toBeInTheDocument();
   });
@@ -109,7 +109,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
   it("non-admin rows carry no pin/edit/delete affordances", () => {
     const board = makeBoard([makeDefinition({ id: 1, name: "Sprint", show_on_card: true })]);
     render(<BoardSettingsFieldsTab board={board} isAdmin={false} onFieldsUpdated={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /Unpin/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pinned, unpin/ })).not.toBeInTheDocument();
     expect(screen.getByText("Pinned")).toBeInTheDocument(); // static tag, not a control
   });
 
@@ -413,7 +413,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
         1, 1, expect.objectContaining({ show_on_card: true }),
       ));
-      expect(await screen.findByRole("button", { name: "Unpin Sprint from card face" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Pinned, unpin Sprint from card face" })).toBeInTheDocument();
     });
 
     it("pins a different field from the editor when under the cap", async () => {
@@ -431,7 +431,7 @@ describe("BoardSettingsFieldsTab (#371)", () => {
       await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(
         1, 2, expect.objectContaining({ show_on_card: true }),
       ));
-      expect(await screen.findByRole("button", { name: "Unpin Cost from card face" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Pinned, unpin Cost from card face" })).toBeInTheDocument();
     });
 
     it("leaves the pin alone when the toggle was not touched", async () => {
@@ -1242,7 +1242,7 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
 
   it("an unpinned track is not pinnable and says why", () => {
     render(<BoardSettingsFieldsTab board={makeBoard([track()])} isAdmin onFieldsUpdated={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: /Pin Approval|Unpin Approval/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pin Approval|Pinned, unpin Approval/ })).not.toBeInTheDocument();
     expect(screen.getByText("Tracks show as chips, not pinned fields")).toHaveAttribute("id", "track-pin-reason-7");
     expect(screen.getByText(/0 of 2 pinned/)).toBeInTheDocument();
   });
@@ -1257,7 +1257,7 @@ describe("BoardSettingsFieldsTab — track (dimension) fields (#2278)", () => {
     render(<BoardSettingsFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />);
     expect(screen.getByText(/2 of 2 pinned/)).toBeInTheDocument();
     expect(screen.queryByText("Tracks show as chips, not pinned fields")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Unpin Approval from card face" }));
+    await user.click(screen.getByRole("button", { name: "Pinned, unpin Approval from card face" }));
     await waitFor(() => expect(boardsApi.updateCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_card: false }));
     await waitFor(() => expect(screen.getByText(/1 of 2 pinned/)).toBeInTheDocument());
     expect(screen.getByText("Tracks show as chips, not pinned fields")).toBeInTheDocument();

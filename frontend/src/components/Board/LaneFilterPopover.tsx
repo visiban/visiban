@@ -680,6 +680,7 @@ export function LaneFilterControl({ filter, fields, onChange, fmt, activeRuleCou
         }`}
       >
         Lanes
+        {activeRuleCount > 0 && " "}
         {activeRuleCount > 0 && (
           <span aria-hidden="true" className="bg-primary-emphasis/30 text-info text-xs rounded-full px-1.5 tabular-nums">{activeRuleCount}</span>
         )}

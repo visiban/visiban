@@ -222,7 +222,7 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction, sear
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
             aria-label={searchLabel.ariaLabel}
-            title={searchLabel.ariaLabel}
+            title={searchLabel.title}
             className="flex items-center gap-2 px-3 text-sm text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded-md transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis h-[38px] w-full max-w-md justify-between max-sm:w-11 max-sm:h-11 max-sm:px-0 max-sm:justify-center max-sm:border-transparent max-sm:bg-transparent"
           >
             <span className="flex items-center gap-2 min-w-0">

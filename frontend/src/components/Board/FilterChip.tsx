@@ -1,5 +1,6 @@
 import type { BoardUser } from "../../types";
 import Avatar from "../Common/Avatar";
+import { avatarVisibleText } from "../Common/avatarText";
 
 export interface FilterChipProps {
   label: string;
@@ -17,7 +18,9 @@ export interface FilterChipProps {
 }
 
 export default function FilterChip({ label, colorDot, avatarUser, onDismiss, tag, dataLaneChip }: FilterChipProps) {
-  const name = tag ? `${tag}: ${label}, remove` : `Remove ${label} filter`;
+  // An assignee chip paints avatar initials before its label; the name must contain them (WCAG 2.5.3, #2467).
+  const initials = avatarUser ? avatarVisibleText(avatarUser) : "";
+  const name = tag ? `${tag}: ${label}, remove` : `Remove ${initials ? `${initials} ` : ""}${label} filter`;
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
     if (e.key === "Enter" || e.key === " " || e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();

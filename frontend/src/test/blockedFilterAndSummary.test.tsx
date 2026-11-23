@@ -93,6 +93,8 @@ describe('Blocked only filter (#1149)', () => {
     const onChange = vi.fn()
     const { rerender } = render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={onChange} />)
     const toggle = screen.getByRole('button', { name: 'Blocked only, 2 blocked cards' })
+    // A real space before the count keeps the visible text a whole-word match for the name (#2467).
+    expect(toggle.textContent).toBe('Blocked only 2')
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(toggle)
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, blockedOnly: true })

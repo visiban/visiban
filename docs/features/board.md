@@ -602,7 +602,7 @@ Bare single-key shortcuts (`f`, `/`, `?`, `.`, `b`, `s`, `h`, `a`, `l`, `e`, `c`
 The board toolbar (Row 2) is one row that wraps onto a second line on narrow screens instead of scrolling sideways. From left to right it holds:
 
 - **View tabs** (Board / Summary / History / Analytics)
-- **Filter** button, which opens the [Filter panel](#filter-panel) (press `f` to toggle the filter bar instead)
+- **Filters** button, which opens the [Filter panel](#filter-panel) (press `f` to toggle the filter bar instead)
 - **View** button, which opens the View menu
 - **Activity** button, which opens the activity drawer
 - The overflow menu (`...`) and the connection status, always visible
@@ -626,7 +626,7 @@ The preference is stored per user in `localStorage` under the key `user:prefs:ca
 
 ## Filter panel
 
-The toolbar's **Filter** button opens a panel with:
+The toolbar's **Filters** button opens a panel with:
 
 - A **Search fields and values to filter** box (focused on open; **Esc** clears it, then closes the panel) and three scope chips, **All fields**, **Card fields** and **Swimlane fields**. Type a field name to see **Fields matching** it, or the start of a value to see **Values matching** it: each value row reads, for example, "Region is EMEA" with how many cards or lanes hold it (select it to add that filter). A swimlane field that is set to **Hidden** on the band still appears, marked "(hidden on band)", and every field is searchable whatever its band setting. Admin-only swimlane fields appear only for board admins. Type `field:value` (for example `tier:gold`) and press **Enter** to jump straight to that value. The last value row, **Title contains**, filters cards by title text. Use the up and down arrow keys to move through the results and **Enter** to add one. With the box empty the panel shows one row per field, as below.
 - One row per filterable field: **Assignee**, **Label**, **Priority**, **Due date**, **Blocked**, **Parent** (on a child board with linked cards; 1.3+), **Lanes** (when the board has a swimlane field you can filter on, two or more lanes, or a lane filter set) and each custom field. A row shows its current value, or **Any** when it is not filtering. Click a row to expand its choices in place; only one row is open at a time. A number field's row also has an operator menu (**equals**, **between**, **at least**, **at most**, **is empty**, **has a value**; 1.3+): see [Number filter operators](custom-fields.md#number-filter-operators).
@@ -634,11 +634,11 @@ The toolbar's **Filter** button opens a panel with:
 - Your **saved filters**. Click one to load it and close the panel. Deleting stays in the filter bar.
 - A footer button, **Show filter bar** (or **Hide filter bar (F)**), for search, scope, **My cards** and saving a filter.
 
-The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filter button. The panel edits the same filters as the filter bar, so a change in one shows in the other and in saved filters. Most filters also show in the page address; **Sub-column** and **Track state** do not (see [Sub-columns and tracks](#sub-columns-and-tracks-13)). Pressing `f` still toggles the filter bar, not the panel. While the filter bar is shown, a chevron at its right end (**Hide filter bar**) closes it in one click and returns focus to the Filter button. Hiding the bar does not clear filters: they keep applying, and the Filter button keeps its count.
+The **Lanes** row closes the panel and opens the lane filter rules. Escape closes the panel and returns focus to the Filters button. The panel edits the same filters as the filter bar, so a change in one shows in the other and in saved filters. Most filters also show in the page address; **Sub-column** and **Track state** do not (see [Sub-columns and tracks](#sub-columns-and-tracks-13)). Pressing `f` still toggles the filter bar, not the panel. While the filter bar is shown, a chevron at its right end (**Hide filter bar**) closes it in one click and returns focus to the Filter button. Hiding the bar does not clear filters: they keep applying, and the Filter button keeps its count.
 
 ## Filtering
 
-Click **Filter** in the toolbar to open the [Filter panel](#filter-panel), then choose **Show filter bar** in its footer to open the full filter bar. Press `f` to toggle the filter bar directly. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
+Click **Filters** in the toolbar to open the [Filter panel](#filter-panel), then choose **Show filter bar** in its footer to open the full filter bar. Press `f` to toggle the filter bar directly. Press `/` to open it and focus the search input at once. Filters apply client-side (no round-trip) and stack: all conditions must match.
 
 | Filter | Options |
 |---|---|

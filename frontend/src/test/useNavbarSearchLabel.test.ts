@@ -11,6 +11,7 @@ vi.mock('react-router-dom', async (importOriginal) => ({
 
 vi.mock('../utils/platform', () => ({
   isMacPlatform: () => mockIsMacPlatform(),
+  formatShortcut: () => (mockIsMacPlatform() ? '⌘K' : 'Ctrl+K'),
 }))
 
 import { useNavbarSearchLabel } from '../hooks/useNavbarSearchLabel'
@@ -63,11 +64,12 @@ describe('useNavbarSearchLabel', () => {
     }
   })
 
-  it('uses Cmd+K in aria label on Mac', () => {
+  it('spells the shortcut as the kbd chip does (⌘K) in the aria label on Mac', () => {
     mockIsMacPlatform.mockReturnValue(true)
     mockPathname.mockReturnValue('/boards/1')
     const { result } = renderHook(() => useNavbarSearchLabel())
-    expect(result.current.ariaLabel).toContain('Cmd+K')
+    expect(result.current.ariaLabel).toContain('⌘K')
+    expect(result.current.title).toContain('(Cmd+K)')
   })
 
   it('uses Ctrl+K in aria label on non-Mac', () => {

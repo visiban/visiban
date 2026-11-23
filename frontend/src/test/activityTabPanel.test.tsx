@@ -195,10 +195,12 @@ describe("ActivityTabPanel", () => {
       expect(params).toMatchObject({ include_counts: true });
       const buttons = within(group()).getAllByRole("button");
       expect(buttons.map((b) => b.textContent)).toEqual([
-        "Column moves4", "Sub-column moves5", "Comments3", "Field changes2", "Checklist1", "Attachments0", "System events0",
+        "Column moves 4", "Sub-column moves 5", "Comments 3", "Field changes 2", "Checklist 1", "Attachments 0", "System events 0",
       ]);
       buttons.forEach((b) => expect(b).toHaveAttribute("aria-pressed", "true"));
       expect(toggle(/Column moves/)).toHaveAccessibleName("Column moves, 4");
+      // A real space between label and count keeps the visible text a whole-word match for the name (#2467).
+      expect(toggle(/Column moves/).textContent).toBe("Column moves 4");
       expect(screen.getByRole("status")).toHaveTextContent("1 event");
       // The dropdown is gone.
       expect(screen.queryByRole("button", { name: /^filter/i })).not.toBeInTheDocument();
@@ -219,7 +221,7 @@ describe("ActivityTabPanel", () => {
       await waitFor(() =>
         expect(lastParams()).toMatchObject({ event_types: "move,gate,field,checklist,attachment,system", include_counts: true }));
       expect(toggle(/Comments/)).toHaveAttribute("aria-pressed", "false");
-      expect(toggle(/Comments/).textContent).toBe("Comments3");
+      expect(toggle(/Comments/).textContent).toBe("Comments 3");
       // Turning it back on restores the unfiltered request, in group order.
       await userEvent.setup().click(toggle(/Comments/));
       await waitFor(() => expect(lastParams()).not.toHaveProperty("event_types"));

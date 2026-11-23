@@ -78,4 +78,10 @@ describe('FilterChip', () => {
     expect(avatar.className).toMatch(/\btext-xs\b/)
     expect(avatar.className).not.toMatch(/text-\[(8|9|10|11)px\]/)
   })
+
+  it('an assignee chip names its avatar initials so the name contains the visible text (#2467)', () => {
+    const user = { username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' } as never
+    render(<FilterChip label="Jane Doe" avatarUser={user} onDismiss={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: 'Remove JD Jane Doe filter' }).length).toBeGreaterThan(0)
+  })
 })
