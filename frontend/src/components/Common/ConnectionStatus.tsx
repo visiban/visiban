@@ -112,10 +112,10 @@ export default function ConnectionStatus({
   // Reconnecting reads "Offline" (#2325, spec § States): the board banner says the
   // same word, and the popover still says it is reconnecting and on which attempt.
   const variant = {
-    connected:    { wrapper: "text-success px-1 py-0.5",                                       dot: "w-1.5 h-1.5 rounded-full bg-success-emphasis shrink-0",             label: "Live",           labelClass: "hidden lg:inline",    aria: "Real-time updates active" },
+    connected:    { wrapper: "text-success px-1 py-0.5",                                       dot: "w-1.5 h-1.5 rounded-full bg-success-emphasis shrink-0",             label: "Live",           labelClass: "hidden lg:inline",    aria: "Live, real-time updates active" },
     connecting:   { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: "Connecting\u2026", labelClass: "",                    aria: "Connecting to real-time updates" },
     reconnecting: { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis animate-pulse motion-reduce:animate-none shrink-0",  label: reconnectingLabel, labelClass: "",                    aria: "Offline, reconnecting to real-time updates" },
-    stale:        { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis shrink-0",                label: "Stale",          labelClass: "",                    aria: "Real-time updates delayed" },
+    stale:        { wrapper: "text-warning-on-tint bg-warning/10 border border-warning/30 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-warning-emphasis shrink-0",                label: "Stale",          labelClass: "",                    aria: "Stale, real-time updates delayed" },
     failed:       { wrapper: "text-danger-on-tint bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5", dot: "w-2 h-2 rounded-full bg-danger-emphasis shrink-0",        label: "Offline",        labelClass: "",                    aria: "Offline, real-time updates unavailable" },
   }[effective];
 

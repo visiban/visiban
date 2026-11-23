@@ -1,4 +1,5 @@
-import type { User } from "../../types";
+import { getInitials } from "./avatarText";
+import type { AvatarUser } from "./avatarText";
 
 const PALETTE = [
   "bg-palette-teal",
@@ -19,16 +20,6 @@ function hashUsername(username: string): number {
   return hash;
 }
 
-function getInitials(user: AvatarUser): string {
-  const name = user.display_name?.trim() || `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
-  if (name) {
-    return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  }
-  return (user.username ?? "?").slice(0, 2).toUpperCase();
-}
-
-type AvatarUser = Pick<User, "avatar_url" | "display_name" | "username"> &
-  Partial<Pick<User, "first_name" | "last_name">>;
 
 const SIZE_CLASSES = {
   xs: "w-5 h-5 text-xs",

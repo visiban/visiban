@@ -15,7 +15,7 @@ afterEach(() => {
 describe('ConnectionStatus', () => {
   it('is quiet when connected — only a dot and the Live label at lg+', () => {
     render(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
-    const trigger = screen.getByRole('button', { name: 'Real-time updates active' })
+    const trigger = screen.getByRole('button', { name: 'Live, real-time updates active' })
     expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
@@ -186,11 +186,11 @@ describe('ConnectionStatus viewport dismissals (#1171)', () => {
 describe('ConnectionStatus on phones (#2348)', () => {
   it('hides only the healthy dot below 640px when asked', () => {
     const { rerender } = render(<ConnectionStatus status="connected" lastEventAt={Date.now()} hideWhenHealthyOnPhone />)
-    expect(screen.getByRole('button', { name: 'Real-time updates active', hidden: true })).toHaveClass('max-sm:hidden')
+    expect(screen.getByRole('button', { name: 'Live, real-time updates active', hidden: true })).toHaveClass('max-sm:hidden')
     rerender(<ConnectionStatus status="reconnecting" lastEventAt={null} hideWhenHealthyOnPhone />)
     expect(screen.getByRole('button', { name: /Offline, reconnecting/ })).not.toHaveClass('max-sm:hidden')
     rerender(<ConnectionStatus status="connected" lastEventAt={Date.now()} />)
-    expect(screen.getByRole('button', { name: 'Real-time updates active' })).not.toHaveClass('max-sm:hidden')
+    expect(screen.getByRole('button', { name: 'Live, real-time updates active' })).not.toHaveClass('max-sm:hidden')
   })
 
   it('lifts the details panel buttons to 44px below 640px (#2350)', () => {

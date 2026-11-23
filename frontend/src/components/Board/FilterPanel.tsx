@@ -844,7 +844,7 @@ export default function FilterPanel({
         >
           {icon}
           {/* Icon-only on phones (#2333); the count badge stays. aria-label above names the button. */}
-          <span className="max-sm:sr-only">Filter</span>
+          <span className="max-sm:sr-only">Filters</span>
           {activeCount > 0 && (
             <span className="bg-primary text-on-primary rounded-full px-1.5 text-xs font-medium leading-5">{activeCount}</span>
           )}

@@ -53,6 +53,16 @@ describe('UserMenu', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
+  it('names the trigger with its visible initials so speech input can target it (WCAG 2.5.3, #2467)', () => {
+    renderNavbar()
+    expect(screen.getByRole('button', { name: 'JD, Account menu for Jane Doe' })).toHaveTextContent('JD')
+  })
+
+  it('omits the initials from the trigger name when a photo avatar shows no text', () => {
+    renderNavbar({ user: { ...fakeUser, avatar_url: 'https://example.com/a.png' } })
+    expect(screen.getByRole('button', { name: 'Account menu for Jane Doe' })).toBeInTheDocument()
+  })
+
   it('opens the menu on trigger click and shows the correct items in the correct order with Sign out last', async () => {
     renderNavbar()
     const user = userEvent.setup()

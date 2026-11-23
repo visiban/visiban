@@ -197,7 +197,7 @@ function BlockedOnlyButton({ filters, onChange, blockedCount }: BlockedOnlyButto
       <svg className="w-3 h-3 shrink-0 text-danger" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
       </svg>
-      Blocked only
+      Blocked only{" "}
       <span aria-hidden="true" className="text-xs text-fg-tertiary tabular-nums">{blockedCount}</span>
     </button>
   );

@@ -229,6 +229,8 @@ export default function Navbar({ user, breadcrumb, onLogout, primaryAction, sear
               <SearchIcon />
               <span className="max-sm:hidden truncate">{searchLabel.placeholder}</span>
             </span>
+            {/* The space keeps the placeholder and shortcut as separate words in the button's text, which the aria-label must contain (#2467). */}
+            {" "}
             <kbd aria-hidden="true" className="max-sm:hidden text-xs font-mono px-1.5 rounded border border-line-strong bg-sunken text-fg-muted">{formatShortcut({ mod: true, key: "K" })}</kbd>
           </button>
         </div>

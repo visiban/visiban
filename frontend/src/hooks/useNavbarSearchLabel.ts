@@ -9,7 +9,9 @@ export interface NavbarSearchLabel {
 // Placeholder text on the Row 1 palette trigger varies per surface so the
 // label matches what the palette can actually do there (Option 2 from the
 // #868/#869 UX design). `aria-label` uses plain words for screen readers
-// instead of the visible `⌘K` glyph.
+// instead of the visible `⌘K` glyph. The label also repeats the visible placeholder and
+// shortcut outside any parentheses (axe drops parenthetical text when matching), so the
+// accessible name contains the visible text (WCAG 2.5.3, #2467).
 // `boardsOnly` is for a page that lives on a board URL but has no board loaded
 // (the Unavailable page): it must never promise cards or people (#2473).
 export function useNavbarSearchLabel(boardsOnly = false): NavbarSearchLabel {
@@ -18,9 +20,9 @@ export function useNavbarSearchLabel(boardsOnly = false): NavbarSearchLabel {
 
   // matchPath, not startsWith: /boards/1/typo is the not-found page, not a board.
   if (!boardsOnly && matchPath("/boards/:id", pathname)) {
-    return { placeholder: "Search cards, people, labels, fields", ariaLabel: `Search cards (${mod})` };
+    return { placeholder: "Search cards, people, labels, fields", ariaLabel: `Search cards, people, labels, fields, ${mod}` };
   }
   // Off a board the palette searches only boards and actions (#2473), so the
   // copy never promises cards or people there.
-  return { placeholder: "Jump to a board or action", ariaLabel: `Jump to a board or action (${mod})` };
+  return { placeholder: "Jump to a board or action", ariaLabel: `Jump to a board or action, ${mod}` };
 }

@@ -28,15 +28,15 @@ cd frontend && source ../.envrc
 npx playwright test e2e/a11y.spec.ts
 ```
 
-Common fixes: give icon-only buttons an `aria-label`; make an `aria-label` start with the visible
-text (WCAG 2.5.3); use the contrast-checked color tokens in `frontend/CLAUDE.md` rather than
+Common fixes: give icon-only buttons an `aria-label`; make an `aria-label` contain the visible
+text as whole words, in order (WCAG 2.5.3; axe splits on punctuation, ignores parentheses, and a count
+in an adjacent span needs a real space before it); use the contrast-checked color tokens in `frontend/CLAUDE.md` rather than
 `text-info` on tinted backgrounds; never nest a button or link inside another interactive element.
 
 ## The baseline
 
 When the gate landed, the scanned states already had violations. They are recorded in `BASELINE`
-in the spec, each tied to an open issue: #2466 (color-contrast), #2467
-(label-content-name-mismatch), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
+in the spec, each tied to an open issue: #2466 (color-contrast), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
 issue, then remove the matching entries. Never add an entry for a regression you just introduced;
 fix the regression. A new entry needs an open tracking issue.
 
