@@ -185,6 +185,43 @@ export function carryParent(incoming: Card, previous: Card | undefined): Card {
   return out;
 }
 
+/**
+ * `next` (board state after a settings patch over `prev`) with the empty
+ * `children_rollup`s dropped when the patch turned Child cards off (#2446).
+ *
+ * While the flag is on, every card carries a rollup, the empty ones included
+ * (rollups_for_viewer gives a parent with no children the zero rollup). On a
+ * flag-off board the server sends one only for a leftover parent, and the
+ * client reads its presence as "this card can have children"
+ * (cardCanHaveChildren). Keeping the flag-on rollups after the flip would make
+ * every card look like a leftover parent until a reload, offering Add child
+ * and Link existing that the server then refuses (`link_not_allowed`).
+ *
+ * `total === 0` stands in for "has no children": the flag-on rollup of a card
+ * with links counts its live children. It can drop a real leftover parent
+ * whose children are all archived (the server keeps such a card a parent, but
+ * archived children leave the rollup, so its total is 0 too). That fails
+ * safe: the card loses its Children tab and Add child until the next `/full/`
+ * read, which sends its rollup again; the server never allows a link the
+ * client did not offer. Applied by every path that writes board settings
+ * (the acting client's optimistic PATCH and `board.updated` via
+ * mergeBoardState); a `/full/` snapshot needs no pruning since the server
+ * builds it for the new flag, and a flip replayed over a snapshot read before
+ * it runs through here again.
+ */
+export function dropEmptyRollupsOnChildCardsOff(prev: BoardFull, next: BoardFull): BoardFull {
+  if (!prev.cards_can_have_children || next.cards_can_have_children) return next;
+  let changed = false;
+  const cards = next.cards.map((c) => {
+    if (c.children_rollup?.total !== 0) return c;
+    changed = true;
+    const { children_rollup: _dropped, ...rest } = c;
+    void _dropped;
+    return rest;
+  });
+  return changed ? { ...next, cards } : next;
+}
+
 function replaceCardUnlessStale(cards: Card[], incoming: Card, prepare: (c: Card) => Card = (c) => c): Card[] {
   const i = cards.findIndex((c) => c.id === incoming.id);
   if (i === -1 || isStaleCard(incoming, cards[i])) return cards;
@@ -1624,7 +1661,7 @@ export function useBoard() {
     // BoardView starts on a self role change, including when that reload fails.
     const { archived_card_count: _ignored, ...rest } = patch;
     writeBoard((b) => {
-      const next = { ...b, ...rest };
+      const next = dropEmptyRollupsOnChildCardsOff(b, { ...b, ...rest });
       if (!('current_user_role' in rest)) return next;
       return { ...next, swimlanes: next.swimlanes.map((s) => swimlaneForRole(s, next)) };
     });
@@ -1636,7 +1673,7 @@ export function useBoard() {
     if (!boardRef.current) return null;
     // Recorded although optimistic: a failure reloads, superseding any fetch
     // this was recorded for (#2130).
-    writeBoard((b) => ({ ...b, ...patch }));
+    writeBoard((b) => dropEmptyRollupsOnChildCardsOff(b, { ...b, ...patch }));
     try {
       await apiPatchBoard(boardId, patch);
       return null;
