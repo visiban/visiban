@@ -292,7 +292,10 @@ The script will automatically:
    the tag — not whatever `HEAD` is after the pull
 12. Create a GitLab release with notes from the CHANGELOG (the same summary and notes approved in
    Step 1c). The tag pipeline's `github-release` job reads the same dated CHANGELOG section, so
-   the GitHub Release carries the identical body
+   the GitHub Release carries the identical body, unless it is over GitHub's 125,000-character
+   limit: then `scripts/cap-release-notes.sh` keeps the summary and `### Security` whole, cuts
+   Added/Changed/Fixed at whole entries, and links the GitLab Release (#2537). When showing the
+   notes in Step 1c, say whether the GitHub copy will be capped (`wc -c` over ~124,000)
 
 Do not interrupt the script. If it fails, read the error output before taking any action —
 each failure mode above prints what to check or do manually. The docs are deployed by CI,

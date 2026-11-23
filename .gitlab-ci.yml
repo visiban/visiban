@@ -600,6 +600,7 @@ lint-selftests-alpine:
         - scripts/check-security-deferred.sh
         - scripts/release.sh
         - scripts/extract-release-notes.sh
+        - scripts/cap-release-notes.sh
         - scripts/tests/release.test.sh
         - scripts/**/*
         - docs/administration/image-verification.md
@@ -626,6 +627,7 @@ lint-selftests-alpine:
       m_security_deferred() {
         sh scripts/security-deferred-verdict.sh --self-test
         sh scripts/extract-release-notes.sh --self-test
+        sh scripts/cap-release-notes.sh --self-test
         apk add --no-cache bash jq git coreutils python3
         git config --global --add safe.directory '*'
         bash scripts/check-security-deferred.sh --self-test
@@ -6146,6 +6148,12 @@ github-release:
       if [ "$STABLE" != "true" ]; then
         PRERELEASE_FLAG="--prerelease"
       fi
+
+      # GitHub refuses a Release body over 125,000 characters (#2537); 1.3.0-alpha.1's
+      # notes are ~179,000. Cap them (Security and the summary stay whole) and link the
+      # full notes on the GitLab Release, which release.sh created before this tag ran.
+      # 124000 bytes leaves room for the Docker images footer below.
+      NOTES=$(printf '%s\n' "$NOTES" | sh scripts/cap-release-notes.sh 124000 "https://gitlab.com/visiban/visiban/-/releases/${CI_COMMIT_TAG}")
 
       NOTES_FILE=$(mktemp)
       printf '%s\n\n---\n\n**Docker images**\n\n```\nghcr.io/visiban/visiban/backend:%s\nghcr.io/visiban/visiban/frontend:%s\n```\n' \
