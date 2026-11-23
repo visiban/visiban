@@ -551,7 +551,7 @@ class FlagFlipAdminFormTests(_LinkFixture, TestCase):
         self.assertEqual(res.status_code, 302)
         self.assertEqual(res["Location"], url)
         [message] = list(get_messages(res.wsgi_request))
-        self.assertIn("card link(s) depend on it", str(message))
+        self.assertIn("Cannot turn on \"cards can have children\" while 1 card(s) on this board are children", str(message))
         self.assertEqual(message.level_tag, "error")
         board = Board.objects.get(pk=self.cboard.pk)
         # The save rolled back whole: neither the flag nor the other field changed.
