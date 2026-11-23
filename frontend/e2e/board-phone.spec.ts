@@ -269,7 +269,7 @@ test.describe('board phone layout', () => {
     await page.getByRole('button', { name: 'More board actions' }).click()
     await sweep('[role="menu"]')
     await page.keyboard.press('Escape')
-    await page.getByRole('button', { name: /^Account menu/ }).click()
+    await page.getByRole('button', { name: /Account menu/ }).click()
     await sweep('[role="menu"]')
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: /^Notifications/ }).click()
