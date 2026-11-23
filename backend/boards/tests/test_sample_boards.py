@@ -55,6 +55,11 @@ CARRIED_EVENT_TYPES = {
     CardActivity.EventType.CHILD_LINKED, CardActivity.EventType.CHILD_UNLINKED,
     CardActivity.EventType.PARENT_REMOVED_BOARD_DELETED,
     CardActivity.EventType.CHILDREN_REMOVED_BOARD_DELETED,
+    # Planned-child events (#2371) exist only on a card with a cross-board parent
+    # link (Needed is a column of the PARENT's board), and the importer cannot
+    # create links, so a sample entry would describe a state the import can't
+    # reproduce.
+    CardActivity.EventType.PLANNED_RELEASED, CardActivity.EventType.NEEDED_CHANGED,
 }
 
 # (title regex, columns the card may legitimately sit in) per template.

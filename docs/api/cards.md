@@ -1321,7 +1321,7 @@ plans the child again. `200` returns
 `{"needed_at_column", "planned", "planned_released_at"}`.
 
 - **Roles:** `member` or higher on this card's board (`403` below that).
-- **A column** also needs a role on the parent's board, must come after the
+- **A column** also needs `member` or higher on the parent's board (a viewer there may only set Now), must come after the
   parent's current column, and the card must be in its board's first column.
   Every refusal is `400` keyed `needed_at_column` and names no column.
 - A card with no parent, or a missing key, is `400`. The card's due date is
@@ -1335,7 +1335,7 @@ On the reads that carry `parent` (`/full/`, the card list, retrieve and
 | Field | Type | Meaning |
 |---|---|---|
 | `planned` | bool | Needed is a later parent column and the child is not yet released. Its `due_date` is inactive: not Overdue, Due soon or Stale. `is_stale` applies this rule on every read (board, card, card query, share link) whether or not these fields are present. |
-| `needed_now` | bool | Released by the parent reaching (or skipping past) the column, and still in its board's first column with no move since. |
+| `needed_now` | bool | Released (the parent reached or skipped past the column, its column was deleted, or Needed was set to Now by hand), and still in its board's first column with no move since. |
 | `needed_at_column` | int or null | The parent board's column; `null` for Now and whenever you cannot open the parent's board. |
 | `needed_at_column_name` | string or null | That column's name, under the same rule. |
 | `planned_released_at` | datetime or null | When the child stopped being planned: the parent reached its column, it was pulled, its column was deleted, or Needed was set to Now by hand. Stale restarts from it. An already released child keeps its first value. |

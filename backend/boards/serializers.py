@@ -3788,8 +3788,9 @@ _PLANNED_FIELD_SCHEMAS = {
         "until released."
     )},
     "needed_now": {"type": "boolean", "description": (
-        "Since 1.3 (#2371): the parent reached or skipped past the column this child was "
-        "planned for, and the child has not left its board's first column since."
+        "Since 1.3 (#2371): this child was planned and has been released (its parent "
+        "reached or skipped past the column, its Needed column was deleted, or Needed was "
+        "set to Now by hand), and it has not left its board's first column since."
     )},
     "needed_at_column": {"type": "integer", "nullable": True, "description": (
         "Since 1.3 (#2371): the parent board's column this child is needed at. `null` for "
@@ -3806,6 +3807,9 @@ _PLANNED_FIELD_SCHEMAS = {
 }
 
 
+_PLANNED_NULLABLE_KEYS = frozenset({"needed_at_column", "needed_at_column_name", "planned_released_at"})
+
+
 class CardPlannedField(serializers.Field):
     """One planned-child field (#2371). Read-only, opt-in per call.
 
@@ -3820,7 +3824,10 @@ class CardPlannedField(serializers.Field):
         self._key = key
         kwargs.setdefault("source", "*")
         kwargs["read_only"] = True
-        kwargs.setdefault("allow_null", True)
+        # Only the parent-board facts can be null (hidden from a viewer who cannot
+        # open the parent, or unset); ``planned`` and ``needed_now`` never are, and
+        # the schema must say so (tightening it after release is a type change).
+        kwargs.setdefault("allow_null", key in _PLANNED_NULLABLE_KEYS)
         super().__init__(**kwargs)
 
     def get_attribute(self, instance):

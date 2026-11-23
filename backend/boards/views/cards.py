@@ -2951,7 +2951,7 @@ class CardViewSet(viewsets.ModelViewSet):
         description=(
             "Change this child card's Needed (#2371, since 1.3): `null` is Now, a column id "
             "plans the child for when its parent reaches that column. Minimum role: member "
-            "on this card's board. A column needs a role on the parent's board too, must "
+            "on this card's board. A column needs member or higher on the parent's board too, must "
             "come after the parent's current column, and the card must be in its board's "
             "first column; any refusal is a 400 on `needed_at_column` that names no column. "
             "The card's due date is kept either way. Records a `needed_changed` history row."

@@ -452,6 +452,17 @@ AGENT_REVIEWED: dict[str, str] = {
         "test_group_admin_redeeming_viewer_invite_is_not_downgraded, "
         "test_existing_explicit_membership_is_never_changed."
     ),
+    "backend/boards/views/cards.py::CardViewSet::@action needed [post]": (
+        "Set a planned child's Needed (#2371). Reviewed by the rbac-check agent "
+        "on this branch; its findings were fixed. The role gate lives in "
+        "planned_children.set_needed, which the checker cannot see through the "
+        "service call: the child board role (resolved by _board_and_role, the "
+        "same board the URL names; the card is fetched with board=board, so a "
+        "card on another board is a 404) must be in LINK_WRITE_ROLES, and "
+        "choosing a column also needs LINK_WRITE_ROLES on the PARENT's board "
+        "(a viewer there may only set Now; no access to it is a 404). Tests: "
+        "test_planned_children_2371.py test_parent_board_viewer_may_only_set_now."
+    ),
     "backend/git_lens/views.py::LensUsageAdminView": (
         "Site-admin lens usage telemetry (#1061). permission_classes is "
         "_ADMIN_PERMISSIONS imported from accounts.admin_views -- the same list "
@@ -498,6 +509,10 @@ AGENT_REVIEWED_GUARDS: dict[str, tuple[GuardLink, ...]] = {
         (_IMPORT, f"{_MIXIN}.import_trello", "_resolve_import_group"),
         (_IMPORT, f"{_MIXIN}.import_trello", "_lock_import_group"),
     ) + _PLACEMENT_CHAIN,
+    "backend/boards/views/cards.py::CardViewSet::@action needed [post]": (
+        ("backend/boards/views/cards.py", "CardViewSet.needed", "set_needed"),
+        ("backend/boards/services/planned_children.py", "set_needed", "_write_roles"),
+    ),
     "backend/boards/views/boards.py::BoardViewSet::create": (
         ("backend/boards/serializers.py", "BoardSerializer.validate_group", "_check_group_change"),
         ("backend/boards/serializers.py", "BoardSerializer._check_group_change", "_require_group_admin"),

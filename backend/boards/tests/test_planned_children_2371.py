@@ -254,6 +254,11 @@ class ReleaseTests(PlannedFixture):
         # Actorless (Rule 19): the parent-board admin who deleted the column
         # may hold no role on the child board, whose readers see this row.
         self.assertEqual(self.events(child)[-1], (EV.NEEDED_CHANGED, "column_deleted", "now", None))
+        # Released with no column to name, so the child reads needed now (the
+        # card face then says a neutral "Needed now", not that the parent moved).
+        body = self.read(child, self.maya)
+        self.assertEqual((body["planned"], body["needed_now"]), (False, True))
+        self.assertEqual((body["needed_at_column"], body["needed_at_column_name"]), (None, None))
 
 
 class LeftoverParentReleaseTests(PlannedFixture):
@@ -839,6 +844,11 @@ class PlannedSchemaTests(TestCase):
         self.assertEqual((props["needed_at_column"]["type"], props["needed_at_column"]["nullable"]), ("integer", True))
         self.assertEqual(props["needed_at_column_name"]["type"], "string")
         self.assertEqual(props["planned_released_at"]["format"], "date-time")
+        # Never null, so never nullable: tightening it after release is a type change.
+        for key in ("planned", "needed_now"):
+            self.assertFalse(props[key].get("nullable", False), key)
+        for key in ("needed_at_column", "needed_at_column_name", "planned_released_at"):
+            self.assertTrue(props[key]["nullable"], key)
         for key in ("planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at"):
             self.assertTrue(props[key]["readOnly"], key)
             self.assertNotIn(key, card.get("required", []), key)

@@ -90,7 +90,10 @@ export function buildPlannedStatusLine(
     const column = card.parent && !card.parent.hidden ? card.parent.column_name : undefined;
     return {
       kind: "needed-now", tone: "warning",
-      text: column ? `Needed now: parent is in ${column}` : "Needed now: the parent moved on",
+      // Neutral when no parent column can be named: a release also comes from a column
+      // delete or "Needed: Now", where the parent did not move, and the card carries
+      // no cause (the timeline row does).
+      text: column ? `Needed now: parent is in ${column}` : "Needed now",
       shortText: "Needed now",
     };
   }

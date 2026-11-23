@@ -87,7 +87,7 @@ describe('buildPlannedStatusLine (#2371)', () => {
     expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: false, column_name: 'Proposal' } }, today)?.text)
       .toBe('Needed now: parent is in Proposal')
     expect(buildPlannedStatusLine({ ...base, needed_now: true, parent: { hidden: true } }, today))
-      .toMatchObject({ text: 'Needed now: the parent moved on', shortText: 'Needed now' })
+      .toMatchObject({ text: 'Needed now', shortText: 'Needed now' })
     expect(buildPlannedStatusLine({ ...base, needed_now: true, is_stale: true }, today)).toBeNull()
     expect(buildPlannedStatusLine(base, today)).toBeNull()
   })

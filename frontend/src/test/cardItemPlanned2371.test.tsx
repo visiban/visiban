@@ -61,7 +61,7 @@ describe('CardItem — planned child status line (#2371)', () => {
 
   it('a released child in To do reads needed now; an ordinary card has no planned line', () => {
     const { unmount } = render(<CardItem card={makeCard({ planned: false, needed_now: true })} density="standard" />)
-    expect(screen.getByTestId('card-status-line')).toHaveTextContent('Needed now: the parent moved on')
+    expect(screen.getByTestId('card-status-line')).toHaveTextContent(/^Needed now$/)
     unmount()
     render(<CardItem card={makeCard()} density="standard" />)
     expect(screen.queryByTestId('card-status-line')).toBeNull()
