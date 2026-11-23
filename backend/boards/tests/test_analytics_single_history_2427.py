@@ -11,6 +11,7 @@ import os
 from unittest import mock
 
 from django.db import connection
+from django.db.models import Q
 from django.test.utils import CaptureQueriesContext
 
 from boards.models import Card, CardBlock, CardMovement
@@ -96,10 +97,39 @@ class AnalyticsSingleHistoryTests(_Shape):
         self.assertEqual(len(reads), 1, reads)
         card_table = Card._meta.db_table
         card_reads = [q["sql"] for q in ctx.captured_queries if q["sql"].split(" FROM ", 1)[-1].startswith(f'"{card_table}"')]
-        # The flow load's card read; its narrowing EXISTS is the only movement
-        # reference in it (the four per-card annotations are gone).
+        # The flow load's card read selects no per-card movement annotation
+        # (the four correlated subqueries are gone); movements appear only in
+        # its WHERE narrowing.
         self.assertTrue(card_reads)
-        self.assertTrue(all(sql.count(f'"{table}"') <= 1 for sql in card_reads), card_reads)
+        self.assertTrue(all(f'"{table}"' not in sql.split(" FROM ", 1)[0] for sql in card_reads), card_reads)
+
+
+    def test_a_live_done_card_idle_since_before_the_buffer_is_not_loaded(self):
+        """It adds nothing to the heatmap, so the single load leaves its history out (#2451)."""
+        self._archived_history_fixture()
+        a, _b = self.lanes
+        idle = self._card(a, "idle_done", [(self.todo, 60), (self.doing, 50), (self.done, 40)])
+        recent = self._card(a, "recent_done", [(self.todo, 12), (self.doing, 11), (self.done, 10)])
+        loaded = []
+        real = flow_metrics.load_recent_dwell
+
+        def spy(*a, **k):
+            flow = real(*a, **k)
+            loaded.extend(card.id for card in flow.cards)
+            return flow
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=spy):
+            body = self._body(7)  # a 14-day buffer
+        self.assertNotIn(idle.id, loaded)
+        self.assertIn(recent.id, loaded)
+        # And the answer is the one a load of every live card gives.
+        real_q = flow_metrics.load_recent_dwell
+
+        def every_live(*a, also_matching=None, **k):
+            return real_q(*a, also_matching=Q(archived_at__isnull=True), **k)
+
+        with mock.patch.object(flow_metrics, "load_recent_dwell", side_effect=every_live):
+            self.assertEqual(self._body(7), body)
 
 
 # Keep pytest from collecting the parent's tests a second time under this module.

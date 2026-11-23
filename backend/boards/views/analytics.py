@@ -1418,10 +1418,16 @@ class BoardAnalyticsMixin:
         # The heatmap's own frozen figures (avg_days_per_column, velocity,
         # stalled cards) read the same cards' movements, so they are derived
         # from the flow service's one history load, card by card as it is
-        # analyzed, instead of a second read of the window (#2451). The load
-        # also takes every live card (a live done card is no dwell sample, so
-        # the dwell answers do not move), which with the archived-in-window
-        # cards it already reads is the heatmap's card set.
+        # analyzed, instead of a second read of the window (#2451). The heatmap
+        # reads live cards and cards archived in the period. The dwell load
+        # already holds every live card outside a done column and every card
+        # archived in the period; ``extra`` adds the live done cards with a
+        # movement in the 2x buffer. A live done card with none adds nothing
+        # to the heatmap (no buffered stay, no velocity, never stalled, not
+        # long-dwelling), so it is left out rather than loaded whole (perf-check
+        # on !2451). A live done card is no dwell sample, so the flow answers do
+        # not move either. The term is an uncorrelated, board-bounded IN, not a
+        # correlated EXISTS inside the OR (#2502).
         buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
         heatmap_cards: list[_HeatmapCard] = []
 
@@ -1438,9 +1444,12 @@ class BoardAnalyticsMixin:
                 stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
             ))
 
+        extra = Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
+            card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
+        ).values("card_id"))
         flow = flow_metrics.load_recent_dwell(
             board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
-            also_matching=Q(archived_at__isnull=True), on_card_rows=heatmap_card,
+            also_matching=extra, on_card_rows=heatmap_card,
         )
         current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
         completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
