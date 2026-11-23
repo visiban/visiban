@@ -503,3 +503,63 @@ class FlowToolsTransportTests(McpTestCase):
                 _, body = self._tools_call(name, self.raw_token, args)
                 self.assertEqual(self._result(body)["structuredContent"]["result"]["error"]["code"], "throttled")
 
+
+
+@override_settings(ANALYTICS_MAX_CONCURRENT=1)
+class FlowToolsAdmissionTests(McpFlowFixture):
+    """The flow tools are admitted through the analytics gate and never wait for it (#2428)."""
+
+    TOOLS = (("board_flow_metrics", {}), ("aging_cards", {}))
+
+    def setUp(self):
+        super().setUp()
+        self.seed_completed()
+
+    def tearDown(self):
+        from boards.services import analytics_admission
+
+        self.assertEqual(analytics_admission.occupancy(), (0, 0, {}))
+
+    def test_busy_is_a_coded_error_without_waiting(self):
+        from boards.services import analytics_admission
+
+        other = self.member("viewer", name="flow_2428_other")
+        real_admit = analytics_admission._admit
+        with analytics_admission.analytics_slot(other, board_id=self.board.pk, endpoint="test"):
+            for tool, extra in self.TOOLS:
+                with self.subTest(tool=tool), mock.patch.object(
+                    analytics_admission, "_admit", side_effect=real_admit,
+                ) as admit:
+                    result = self.call(tool, board_id=self.board.pk, **extra)
+                    self.assertEqual(result, {"error": analytics_admission.AnalyticsBusy().body()})
+                    self.assertIs(admit.call_args.args[1], False)
+
+    def test_too_large_is_a_coded_error(self):
+        from boards.services import analytics_admission
+
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=1):
+            for tool, extra in self.TOOLS:
+                with self.subTest(tool=tool):
+                    result = self.call(tool, board_id=self.board.pk, **extra)
+                    self.assertEqual(result, {"error": analytics_admission.AnalyticsTooLarge().body()})
+
+    @override_settings(ANALYTICS_MAX_CONCURRENT=5)
+    def test_every_token_of_one_user_shares_the_per_user_cap(self):
+        # The key is user.pk, and every PAT of a user resolves to the same user,
+        # so two tokens cannot double one user's in-flight allowance.
+        from boards.services import analytics_admission
+
+        twin = User.objects.get(pk=self.user.pk)
+        with analytics_admission.analytics_slot(self.user, board_id=self.board.pk, endpoint="test"):
+            with analytics_admission.analytics_slot(twin, board_id=self.board.pk, endpoint="test"):
+                result = self.call("board_flow_metrics", user=twin, board_id=self.board.pk)
+                self.assertEqual(result["error"]["code"], "analytics_busy")
+                other = self.member("viewer", name="flow_2428_free")
+                self.assertNotIn("error", self.call("board_flow_metrics", user=other, board_id=self.board.pk))
+
+    def test_unknown_board_is_board_not_found_even_when_busy(self):
+        from boards.services import analytics_admission
+
+        other = self.member("viewer", name="flow_2428_other")
+        with analytics_admission.analytics_slot(other, board_id=self.board.pk, endpoint="test"):
+            self.assertEqual(self.call("board_flow_metrics", board_id=999_999)["error"]["code"], "board_not_found")

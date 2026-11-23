@@ -1046,6 +1046,32 @@ deleted) carry no actor.
 | Share link, export, MCP | `PublicCardSerializer`, `import_export.py` export, `mcp_server/tools.py` `_serialize_card` | take no planned context and omit all six planned fields (`planned`, `needed_now`, `needed_at_column`, `needed_at_column_name`, `planned_released_at`, `needed_now_reason`) |
 | Stale / Overdue parity (Rule 10) | `card_signals.planned_link_exists` (the one predicate; `not_planned_q` negates it for `overdue_q` and `notify_due_soon`); `serializers._annotate_is_stale` / `_row_is_stale` (the SQL and per-row Stale rule: planned never stale, released clock = max(last move, release)) | Owner decision (#2371): applied on every surface that computes Stale, Overdue or Due soon on the server, so `is_stale` and Overdue never differ between REST (with or without the planned context), the card query, the share link, `notify_stale_cards`, `notify_due_soon` and `health_compute.lane_counts`. On the share link, export and MCP the predicate is a boolean EXISTS plus the child's own release time keyed on the card, never a parent id or column (`test_card_link_transport_parity.py` `PLANNED_CLOCK_SQL` allows exactly that shape). Export and MCP emit no Stale or Overdue value. Tests: `test_planned_children_2371.py` `StaleOverdueParityTests` |
 
+## Rule 20: Analytics replays are admitted through one gate on every transport
+
+*Since 1.3 (#2428).* Every request that replays a board's history through
+`flow_metrics.load_*` takes a slot from
+`boards.services.analytics_admission.analytics_slot` first, on every
+transport, and reads against one movement budget. The order is fixed: authorize
+the board (Rule 7's `404`), validate parameters (`400`), then take the slot, so
+a refusal never answers for a board the caller cannot see. The slot is keyed on
+the user (`user.pk`, never the token), is released in `try`/`finally`, is
+counted in-process and never in the cache, and an absent or anonymous user is
+never admitted. No caller is exempt, site admins included. The refusal bodies
+(`analytics_busy` `503`, `analytics_too_large` `422`) and `Retry-After` are
+constant: no counts, limits or queue positions.
+
+| Surface | Entry point | Enforcement |
+|---|---|---|
+| REST | `boards/views/analytics.py` `BoardAnalyticsMixin`: `summary`, `analytics`, `metrics_cycle_time`, `metrics_swimlanes`, `metrics_throughput`, `metrics_cumulative_flow` (with and without `date`), `metrics_wip_age`, `metrics_dwell`, `metrics_blocked`, `metrics_attention`, `metrics_overview` | `_analytics_slot(request, board, "<action>")` after `get_board_for_user` and parameter validation; waits a bounded time, then `503` |
+| MCP | `mcp_server/tools.py` `board_flow_metrics`, `aging_cards` | `analytics_slot(..., wait=False)` after `_resolve_board` and argument validation, inside the tool body; refusals through `_error_payload` |
+| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows` | with no active slot, every load still reads against `settings.ANALYTICS_MAX_MOVEMENTS` and raises `AnalyticsTooLarge`, never unlimited |
+
+Tests: `boards/tests/test_analytics_admission_2428.py` (`CoveragePinTests`
+fails when an analytics action that calls `flow_metrics.load_*` is not gated,
+plus the busy, too-large, order, release and absent-input tests) and
+`mcp_server/tests/test_mcp_flow.py` `FlowToolsAdmissionTests` (runs only with
+`MCP_SERVER_ENABLED=true`).
+
 ## How to add a rule
 
 1. Write the rule as a statement of behavior, not an implementation: what must

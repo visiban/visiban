@@ -29,6 +29,7 @@ from django.db.models import Case, CharField, Exists, F, OuterRef, Q, Value, Whe
 from django.db.models.functions import Concat, RowNumber
 from django.utils import timezone
 
+from . import analytics_admission
 from ..models import (
     Card, CardBlock, CardGateTransition, CardMovement, CardRelation, Column, SubColumn,
     SwimlaneCustomFieldValue,
@@ -912,7 +913,19 @@ def _movement_rows(selected, *, column_ids=False):
     # One int object per column id rather than one per row: the ids repeat on
     # every row, and on a year of history that is ~600k ints (#2451).
     interned: dict = {}
+    # The size limit (#2428): rows are counted as they stream, against the
+    # request's ticket when one is active (so every load of one request shares
+    # one budget), else against ANALYTICS_MAX_MOVEMENTS for this load alone.
+    # Refused at the first row past the budget, before more are held.
+    ticket = analytics_admission.active_ticket()
+    budget = ticket.budget if ticket is not None else analytics_admission.movement_budget()
+    counted = ticket.movements if ticket is not None else 0
     for row in movements.iterator(chunk_size=2000):
+        counted += 1
+        if ticket is not None:
+            ticket.movements = counted
+        if counted > budget:
+            raise analytics_admission.AnalyticsTooLarge()
         yield _movement_from_row(row, interned, column_ids)
 
 

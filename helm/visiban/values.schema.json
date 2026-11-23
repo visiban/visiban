@@ -152,6 +152,16 @@
               "type": "integer",
               "minimum": 1
             },
+            "analyticsMaxConcurrent": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ANALYTICS_MAX_CONCURRENT: analytics requests computed at once per backend process (#2428)."
+            },
+            "analyticsMaxMovements": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "ANALYTICS_MAX_MOVEMENTS: movement rows one analytics request may read before it is refused (#2428)."
+            },
             "attachmentMaxPerCard": {
               "description": "ATTACHMENT_MAX_PER_CARD — most attachments one card may hold (#2007). 0 = no limit.",
               "type": "integer",

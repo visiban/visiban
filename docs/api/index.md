@@ -252,6 +252,34 @@ keeps retrying until the cache answers; it does not fall back to the sign-in pag
 which signed the web app user out until they signed in again (#2143). The browser pages under
 `/accounts/` and `/admin/` answer the same JSON `503`.
 
+### Analytics refusals (`analytics_busy`, `analytics_too_large`)
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+The Analytics endpoints (`summary`, `analytics` and every `metrics/*`, see
+[Boards](boards.md#flow-metrics)) are admitted through an operator-configurable
+concurrency limit and size limit ([Analytics limits](../administration/configuration.md#analytics-limits)).
+These codes and settings follow the 1.0+ compatibility rules.
+
+When no slot comes free within a few seconds:
+
+```json
+{ "code": "analytics_busy", "detail": "Analytics is busy on this server right now. Try again in a moment." }
+```
+
+with `503 Service Unavailable` and `Retry-After: 10`. Retry after that many
+seconds. When the board has more movement history than one request may read:
+
+```json
+{ "code": "analytics_too_large", "detail": "This board has too much history to analyze in one request on this server. Try a shorter date range, or ask your administrator." }
+```
+
+with `422 Unprocessable Entity`. Retrying the same request does not help; an
+administrator raises `ANALYTICS_MAX_MOVEMENTS`. Both bodies are always exactly
+these: they never include counts, limits or queue positions. Match on `code`,
+not on the status alone. A board you cannot access is still `404`, and a bad
+parameter still `400`, whatever the limits.
+
 ### Actor fields ("who did it")
 
 > **Settled in 1.2** (#1663)

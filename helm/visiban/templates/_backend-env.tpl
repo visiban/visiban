@@ -147,6 +147,11 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
   value: {{ (hasKey $ctx.Values.backend.settings "commentMaxPerCard" | ternary $ctx.Values.backend.settings.commentMaxPerCard 1000) | int64 | quote }}
 - name: CHECKLIST_MAX_ITEMS_PER_CARD
   value: {{ (hasKey $ctx.Values.backend.settings "checklistMaxItemsPerCard" | ternary $ctx.Values.backend.settings.checklistMaxItemsPerCard 500) | int64 | quote }}
+- name: ANALYTICS_MAX_CONCURRENT
+  {{- /* #2428. int64 before quote as above; the fallback covers `--reuse-values` from a release without the key. The schema keeps both at least 1. */}}
+  value: {{ (hasKey $ctx.Values.backend.settings "analyticsMaxConcurrent" | ternary $ctx.Values.backend.settings.analyticsMaxConcurrent 1) | int64 | quote }}
+- name: ANALYTICS_MAX_MOVEMENTS
+  value: {{ (hasKey $ctx.Values.backend.settings "analyticsMaxMovements" | ternary $ctx.Values.backend.settings.analyticsMaxMovements 400000) | int64 | quote }}
 {{- with $ctx.Values.backend.settings.attachmentUploadRate }}
 - name: ATTACHMENT_THROTTLE_UPLOAD_RATE
   value: {{ . | quote }}
