@@ -658,6 +658,13 @@ export function useBoard() {
   // later board; the map is bounded by the cards moved in this session.
   const positionEventIds = useRef(new Map<number, number>());
 
+  // Label ids a card.updated frame named before the board knew the label
+  // (#1933): card id -> the label objects dropUnknownLabels stripped. A
+  // label.created that races behind the card echo puts them back (addLabel).
+  // Each later card frame for the card replaces its entry, so a label the card
+  // really lost is never restored; a full snapshot and a label delete clear it.
+  const pendingCardLabels = useRef(new Map<number, Label[]>());
+
   // When the latest `/full/` response was applied (Date.now()), or null before
   // the first one. BoardView compares it with the socket's first open (#1968):
   // the socket joins the board's broadcast group only after `/full/` returned,
@@ -734,6 +741,7 @@ export function useBoard() {
   // longer needed from collecting ids.
   const applyFullSnapshot = useCallback((snapshot: BoardFull, touches: FetchTouches) => {
     if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
+    pendingCardLabels.current.clear();
     setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));
   }, []);
 
@@ -1224,7 +1232,12 @@ export function useBoard() {
         const prepared = carryParent(dropUnknownLabels(c, b.labels), stored);
         return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
       });
-      if (!cardStale) record(card.id);
+      if (!cardStale) {
+        record(card.id);
+        const unknown = card.labels.filter((l) => !b.labels.some((bl) => bl.id === l.id));
+        if (unknown.length > 0) pendingCardLabels.current.set(card.id, unknown);
+        else pendingCardLabels.current.delete(card.id);
+      }
       // Only a copy that was applied counts as a write: a frame #1969 dropped
       // as stale must not protect a pre-fetch copy from the snapshot (#2038).
       if (stored && !cardStale) touches?.written.add(card.id);
@@ -1260,8 +1273,27 @@ export function useBoard() {
 
   // An upsert, not an append: replayed over a snapshot that already lists the
   // label (#2130), an append would show it twice.
+  // A card.updated echo can beat its label.created (#1933): updateCard stripped
+  // the then-unknown label and parked it in pendingCardLabels, so it is put back
+  // on those cards here. The pending entries are read and cleared before the
+  // updater is queued, so a re-run updater gives the same result.
   const addLabel = useCallback((label: Label) => {
-    writeBoard((b) => ({ ...b, labels: upsertById(b.labels, label) }));
+    const restore = new Set<number>();
+    for (const [cardId, labels] of pendingCardLabels.current) {
+      if (!labels.some((l) => l.id === label.id)) continue;
+      restore.add(cardId);
+      const rest = labels.filter((l) => l.id !== label.id);
+      if (rest.length > 0) pendingCardLabels.current.set(cardId, rest);
+      else pendingCardLabels.current.delete(cardId);
+    }
+    writeBoard((b) => ({
+      ...b,
+      labels: upsertById(b.labels, label),
+      cards: restore.size === 0 ? b.cards : b.cards.map((c) =>
+        restore.has(c.id) && !c.labels.some((l) => l.id === label.id)
+          ? { ...c, labels: [...c.labels, label] }
+          : c),
+    }));
   }, [writeBoard]);
 
   const updateLabel = useCallback((label: Label) => {
@@ -1279,6 +1311,11 @@ export function useBoard() {
   }, [writeBoard]);
 
   const removeLabel = useCallback((labelUid: string) => {
+    for (const [cardId, labels] of pendingCardLabels.current) {
+      const rest = labels.filter((l) => l.uid !== labelUid);
+      if (rest.length === 0) pendingCardLabels.current.delete(cardId);
+      else if (rest.length !== labels.length) pendingCardLabels.current.set(cardId, rest);
+    }
     // The server drops the card<->label M2M rows silently and broadcasts only
     // `label.deleted` (no per-card `card.updated`), so strip the label from
     // every local card too (#1888); CardItem renders card.labels unfiltered.

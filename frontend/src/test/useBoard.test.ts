@@ -1274,6 +1274,54 @@ describe('useBoard', () => {
     expect(result.current.board!.labels).toHaveLength(1)
   })
 
+  describe('card.updated racing label.created (#1933)', () => {
+    const neu = { id: 9, uid: 'lbluid000009', name: 'New', color: '#3B82F6' }
+    async function setup() {
+      const base = makeBoard({ labels: [] })
+      const tmpl = base.cards[0]
+      mockGetBoardFull.mockResolvedValue({ ...base, cards: [{ ...tmpl, id: 101, uid: 'carduid00101', labels: [] }] })
+      const hook = renderHook(() => useBoard())
+      await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+      return hook
+    }
+
+    it('keeps the label when the card echo arrives before label.created', async () => {
+      const { result } = await setup()
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.labels).toEqual([neu])
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('is unchanged when label.created arrives first', async () => {
+      const { result } = await setup()
+      act(() => { result.current.addLabel(neu) })
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo) })
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('does not restore a label a later card frame removed', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.updateCard({ ...card, labels: [], version: 3 }) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
+    it('does not restore a label that was deleted before it was created here', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.removeLabel(neu.uid) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+  })
+
   it('updateLabel propagates name/color onto cards holding it, preserving other cards (#1888)', async () => {
     const bug = { id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }
     const keep = { id: 2, uid: 'lbluid000002', name: 'Keep', color: '#22C55E' }
