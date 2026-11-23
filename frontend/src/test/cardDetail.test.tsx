@@ -4428,3 +4428,27 @@ describe('CardDetail extension sections (#2212)', () => {
     expect(region.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
+
+describe('CardDetail track hint (#2542)', () => {
+  const defs = [{ id: 5, uid: 'fielduid0005', name: 'Technical', field_type: 'dropdown', choices: ['Yes'], position: 0, show_on_card: false }] as unknown as BoardFull['custom_field_definitions']
+  const withTracks = (tracks: unknown[]) => {
+    const base = makeBoard({ custom_field_definitions: defs })
+    return { ...base, columns: [{ ...base.columns[0], tracks }] } as unknown as BoardFull
+  }
+
+  it('shows a visible static line in Custom fields when the card has tracks, with nothing focusable in it', async () => {
+    const tracks = [{ id: 1, field_id: 5, field_uid: 'fielduid0005', name: 'Technical', position: 0 }]
+    render(<CardDetail {...defaultProps()} board={withTracks(tracks)} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Custom fields/ }))
+    const hint = screen.getByTestId('card-track-hint')
+    expect(hint).toHaveTextContent('Tracks show as chips on the card.')
+    expect(hint.querySelector('a, button, input, select, textarea, [tabindex]')).toBeNull()
+  })
+
+  it('omits the line when the column has no tracks', async () => {
+    render(<CardDetail {...defaultProps()} board={withTracks([])} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Custom fields/ }))
+    expect(screen.getByText('Technical')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-track-hint')).not.toBeInTheDocument()
+  })
+})

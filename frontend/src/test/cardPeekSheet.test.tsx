@@ -528,3 +528,22 @@ describe('CardPeekSheet — a card payload without labels (#2391)', () => {
     expect(screen.getByText('Labels').nextElementSibling).toHaveTextContent('None')
   })
 })
+
+describe('CardPeekSheet track hint (#2542)', () => {
+  const trackBoard = {
+    ...board,
+    columns: board.columns.map((c) => (c.id === 2 ? { ...c, tracks: [{ id: 1, field_id: 1, field_uid: 'f1', name: 'Deal value', position: 0 }] } : c)),
+  } as unknown as BoardFull
+
+  it('shows a visible static where-to-set line under the tracks, with no focusable element', () => {
+    setup({ board: trackBoard })
+    const hint = screen.getByTestId('peek-track-hint')
+    expect(hint).toHaveTextContent("Set in the card's Custom fields.")
+    expect(hint.querySelector('a, button, input, [tabindex]')).toBeNull()
+  })
+
+  it('omits the line when the card has no tracks', () => {
+    setup()
+    expect(screen.queryByTestId('peek-track-hint')).not.toBeInTheDocument()
+  })
+})

@@ -449,7 +449,7 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Labels | Board-scoped, multi-select; displayed on the card as truncated pills (up to 7 characters) |
 | Due date | Optional date; past dates are disabled in the picker; shown on the card in the status line (for example *Overdue Nov 12* or *Due in 3 days*) with a flag icon; only an overdue card has a colored (red) border |
 | Weight | Numeric effort estimate (default 1) |
-| Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle. A line under **Add checklist item** reads "Steps for this card only."; on a card that can have children it adds "For work with its own workflow on another board, use the Children tab." For work that needs its own workflow, or a check every card in the column needs, see [Breaking work down: which tool?](breaking-work-down.md) |
+| Checklist | Sub-tasks with checked/unchecked state, an optional assignee and due date per item, and a progress bar with a session-only **Hide completed** toggle. A line under the add-item field reads "Steps for this card only."; on a card that can have children it adds "For work with its own workflow on another board, use the Children tab." For work that needs its own workflow, or a check every card in the column needs, see [Breaking work down: which tool?](breaking-work-down.md) |
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE_BYTES`) |
 | Comments | Threaded, visible to all board members; type `@` to mention a member; timestamps show relative time ("5m ago", "3h ago") for recent comments and full date + time for older ones |
 
@@ -1214,7 +1214,7 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 - At phone width, a gated stage adds a row of sub-column buttons under the column picker, each with its card count. An empty sub-column says "Empty". With **Show sub-columns** off, the buttons are gone and the stage lists all its cards.
 - The card peek's **Move** lists every sub-column of a gated stage ("Discovery: Ready"), so you can move a card to another sub-column from there too. On a phone, **Move earlier** and **Move later** step within the card's own sub-column.
 
-**Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the **Custom fields** section of the card detail panel. A chip is not a control you can tick: its tooltip, and the chip list's name for screen readers, say "set in the card's Custom fields" (*since 1.3*, #2542). Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
+**Tracks.** Each track on a card is shown as a chip: a check mark for done, an empty circle for open, or a dash for not applicable. The chip's icon and fill both change, so the state does not rely on color. At phone width, the chip also says the state in words ("Technical: done"). A track's value is set like any other custom field, in the **Custom fields** section of the card detail panel. A chip is not a control you can tick: its tooltip and a line that screen readers read before the chips say "set in the card's Custom fields" (*since 1.3*, #2542). Tracks don't appear in the peek's field list and can't be pinned to the card face. See [Dimension fields](custom-fields.md#dimension-fields-13).
 
 **Stage settings.** Board admins open them from the column menu: **Stage settings…** (or the **Stage** tab of the column settings). On a phone, the **Column actions** menu has a **Stage settings** button. The tab opens with one line defining the term: "A stage is a column. This tab holds its sub-columns and tracks. A stage with sub-columns is a gated stage." Each section's helper line says it applies to every card in the column; the tracks line adds "For one card's to-dos, use its checklist."
 
@@ -1225,10 +1225,6 @@ A column can be split into ordered **sub-columns** (#1102), and it can show **tr
 - **Save stage** saves all three groups at once. It saves only the Stage tab. With no unsaved Settings or Policy changes it closes the dialog. With some, the dialog stays open and says "Stage saved", so you can save those changes from their tab or cancel them. If the board's swimlanes can't be loaded, the Stage tab says so and can't be saved.
 
 Not in this release: a rule that every track must be done before a card reaches the last sub-column, and blocking a card from leaving a stage before its last sub-column (#1102, #1920).
-
-**Known limits.**
-
-- A move between sub-columns of the same stage is not shown in the card's **History** yet (#2365). A move to another column is.
 
 ### Filtering by sub-column and track state
 

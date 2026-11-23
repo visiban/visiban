@@ -1355,6 +1355,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     );
 
   const column = board.columns.find((c) => c.id === localCard.column);
+  const cardHasTracks = (column?.tracks?.length ?? 0) > 0;
   const swimlane = board.swimlanes.find((s) => s.id === localCard.swimlane);
 
   const role = board.current_user_role;
@@ -2187,6 +2188,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </button>
                     {customFieldsOpen && (
                       <div className="flex flex-col gap-4">
+                        {cardHasTracks && (
+                          // #2542: static line, no control; tracks are set here and shown as chips on the card.
+                          <p data-testid="card-track-hint" className="-mb-2 text-xs text-fg-muted">Tracks show as chips on the card.</p>
+                        )}
                         {[...board.custom_field_definitions]
                           .sort((a, b) => a.position - b.position)
                           .map((definition) => {
