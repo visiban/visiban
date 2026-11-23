@@ -20,7 +20,7 @@ Kept in its own module so the link service (``card_links``) gains no new
 branch on every link read.
 """
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Case, DateTimeField, F, IntegerField, OuterRef, Q, Subquery, When
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -57,6 +57,35 @@ def _due_iso(due_date):
     return due_date.isoformat() if due_date else ""
 
 
+#: Hold a parent-board column ``FOR SHARE`` (#2371). See :func:`lock_needed_column`.
+_COLUMN_SHARE_LOCK_SQL = {
+    "postgresql": 'SELECT 1 FROM "columns" WHERE "id" = %s AND "board_id" = %s FOR SHARE',
+    None: 'SELECT 1 FROM "columns" WHERE "id" = %s AND "board_id" = %s',
+}
+
+
+def lock_needed_column(column_id, board_id):
+    """Hold the chosen Needed column ``FOR SHARE`` until the caller commits.
+
+    Why: a column delete holds that row (``FOR NO KEY UPDATE``, then its
+    ``DELETE``) across its cascade, whose ``SET_NULL`` sees only the link rows
+    committed before it. A link write naming the column that committed around
+    it failed the deferred foreign key at COMMIT: a 500, the failure #1599 and
+    #1602 fixed for moves and creates. ``FOR SHARE`` conflicts with the
+    delete's locks and not with itself, so Needed writes queue whole behind a
+    delete (and the reverse), and after the wait the re-read finds the column
+    gone and answers the usual 400. Lock order: after the card rows and,
+    in :func:`set_needed`, before the link row, because the delete holds the
+    column and then UPDATEs link rows.
+    Must be called inside ``transaction.atomic()``; a no-op for a bad value.
+    """
+    if isinstance(column_id, bool) or not isinstance(column_id, int):
+        return
+    sql = _COLUMN_SHARE_LOCK_SQL.get(connection.vendor, _COLUMN_SHARE_LOCK_SQL[None])
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [column_id, board_id])
+
+
 def resolve_needed_column(parent, value):
     """The ``Column`` a new or edited child is needed at, or ``None`` for "Now".
 
@@ -69,6 +98,8 @@ def resolve_needed_column(parent, value):
         return None
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValidationError({"needed_at_column": ["Must be an integer or null."]})
+    # Locked, then read: a column a concurrent delete removed reads as missing (400), not a 500 at COMMIT.
+    lock_needed_column(value, parent.board_id)
     column = Column.objects.filter(pk=value, board_id=parent.board_id).first()
     # Re-read, not ``parent.column``: the callers hold the parent's row lock,
     # and the object they were handed may predate a move that committed first.
@@ -191,6 +222,14 @@ def set_needed(card, *, user, child_role, value):
         # planned for a column the parent already passed, never released, its
         # due date silently inactive (#2371 security review).
         lock_card_and_link_peers(card.pk)
+        # The chosen column before the link row (see lock_needed_column): a
+        # column delete holds the column and then UPDATEs the link rows
+        # (SET_NULL), so taking the link row first could deadlock with it.
+        parent_board_id = (
+            CardParentLink.objects.filter(child_id=card.pk).values_list("parent__board_id", flat=True).first()
+        )
+        if parent_board_id is not None:
+            lock_needed_column(value, parent_board_id)
         locked = lock_card_row(card.pk)  # already held; reads the column under it
         if locked is None:
             raise NotFound()
@@ -221,7 +260,10 @@ def set_needed(card, *, user, child_role, value):
         if link.needed_at_column_id == (column.pk if column else None) and was_planned == now_planned:
             return link
         link.needed_at_column = column
-        link.planned_released_at = None
+        # Re-planning clears the release; "Now" keeps it, so a released child
+        # keeps its restarted Stale clock and Needed-now state.
+        if column is not None:
+            link.planned_released_at = None
         link.save(update_fields=["needed_at_column", "planned_released_at"])
         _record(
             card.pk, CardActivity.EventType.NEEDED_CHANGED, user, "manual",
@@ -252,7 +294,8 @@ def annotate_links(qs):
     # subqueries sit inside a CASE on it: PostgreSQL evaluates a THEN branch
     # only for the rows whose WHEN holds, and an ordinary (Now) link row, the
     # common case, pays for neither (#2371 perf review).
-    has_needed = Q(needed_at_column__isnull=False)
+    # A released link keeps its release after its column is deleted or set to Now.
+    has_needed = Q(needed_at_column__isnull=False) | Q(planned_released_at__isnull=False)
     return qs.select_related("needed_at_column").annotate(
         _planned_last_moved=Case(
             When(has_needed, then=Subquery(last_move)), default=None, output_field=DateTimeField(),
@@ -265,7 +308,7 @@ def annotate_links(qs):
 
 
 def planned_entries(links, roles):
-    """``{child_id: fields}`` for each link with Needed set, for one viewer.
+    """``{child_id: fields}`` for each link with Needed set or a release, for one viewer.
 
     ``planned`` and ``needed_now`` describe the child itself (its own board's
     state) and go to every reader of the child. ``needed_at_column`` and
@@ -280,11 +323,12 @@ def planned_entries(links, roles):
     """
     out = {}
     for link in links:
-        if link.needed_at_column_id is None:
+        if link.needed_at_column_id is None and link.planned_released_at is None:
             continue
         visible = roles.get(link.parent.board_id) is not None
         released = link.planned_released_at
         moved = link._planned_last_moved
+        column = link.needed_at_column
         out[link.child_id] = {
             "planned": released is None,
             "needed_now": (
@@ -293,7 +337,7 @@ def planned_entries(links, roles):
                 and (moved is None or moved <= released)
             ),
             "needed_at_column": link.needed_at_column_id if visible else None,
-            "needed_at_column_name": link.needed_at_column.name if visible else None,
+            "needed_at_column_name": column.name if visible and column is not None else None,
             "planned_released_at": released.isoformat() if released else None,
         }
     return out

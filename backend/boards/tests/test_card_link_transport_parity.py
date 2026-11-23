@@ -70,10 +70,17 @@ def _body(res):
 # can name, count or locate a parent. The pattern is exact on purpose: any
 # other shape of link read (a join, a parent_id, a column id) is not stripped
 # and still fails ``_link_queries``.
+_LINK = re.escape(LINK_TABLE)
 PLANNED_CLOCK_SQL = re.compile(
-    r'\(SELECT (?:1 AS "a"|U\d+\."planned_released_at" AS "planned_released_at") FROM "%s" U\d+ '
+    # The boolean: is this card a planned child (Needed set, not released)?
+    r'\(SELECT 1 AS "a" FROM "%s" U\d+ '
     r'WHERE \(U\d+\."child_id" = \("cards"\."id"\) AND U\d+\."needed_at_column_id" IS NOT NULL '
-    r'AND U\d+\."planned_released_at" IS (?:NOT )?NULL\) LIMIT 1\)' % re.escape(LINK_TABLE)
+    r'AND U\d+\."planned_released_at" IS NULL\) LIMIT 1\)'
+    # The scalar: the card's own release time. Not keyed on Needed, since a
+    # release outlives a column delete and a later "Needed: Now".
+    r'|\(SELECT U\d+\."planned_released_at" AS "planned_released_at" FROM "%s" U\d+ '
+    r'WHERE \(U\d+\."child_id" = \("cards"\."id"\) AND U\d+\."planned_released_at" IS NOT NULL\) LIMIT 1\)'
+    % (_LINK, _LINK)
 )
 
 
@@ -196,6 +203,26 @@ class ShareLinkParityTests(_LinkedBoards, TestCase):
         # A read that selects the parent is not the allowed shape.
         leak = str(Card.objects.filter(pk=1).values("parent_link__parent_id").query)
         self.assertIn(LINK_TABLE, PLANNED_CLOCK_SQL.sub("(planned)", leak))
+
+    def test_planned_clock_pattern_keeps_released_shaped_parent_reads(self):
+        """The release-time pattern no longer names Needed, so check it still
+        strips nothing that selects a parent id or a column id, or filters on one."""
+        from django.db.models import OuterRef, Subquery
+
+        def sub(field, **extra):
+            return Subquery(CardParentLink.objects.filter(
+                child_id=OuterRef("pk"), planned_released_at__isnull=False, **extra,
+            ).values(field)[:1])
+
+        for name, expr in [
+            ("selects parent_id", sub("parent_id")),
+            ("selects needed_at_column_id", sub("needed_at_column_id")),
+            ("filters on a parent", sub("planned_released_at", parent_id=1)),
+            ("filters on a column", sub("planned_released_at", needed_at_column_id=1)),
+        ]:
+            sql = str(Card.objects.filter(pk=1).annotate(x=expr).query)
+            with self.subTest(name):
+                self.assertIn(LINK_TABLE, PLANNED_CLOCK_SQL.sub("(planned)", sql))
 
 
 @skipUnless(settings.MCP_SERVER_ENABLED, "MCP server disabled; set MCP_SERVER_ENABLED=true to run these.")

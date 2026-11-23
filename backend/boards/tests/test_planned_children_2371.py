@@ -373,6 +373,48 @@ class InactiveDateTests(PlannedFixture):
         CardParentLink.objects.filter(child=child).update(planned_released_at=old)
         self.assertTrue(self.read(child, self.maya)["is_stale"])
 
+    def _released_old_child(self):
+        """A child created 400 days ago and released by the parent just now."""
+        child = self.planned_child()
+        old = timezone.now() - datetime.timedelta(days=400)
+        Card.objects.filter(pk=child.pk).update(created_at=old)
+        CardMovement.objects.filter(card_id=child.pk).update(moved_at=old)
+        self.assertEqual(self.move(self.parent, self.pboard, self.proposal, self.plane).status_code, 200)
+        released = self.link(child).planned_released_at
+        self.assertIsNotNone(released)
+        return child, released
+
+    def _assert_still_restarted(self, child, released):
+        from boards.serializers import _row_is_stale
+
+        body = self.read(child, self.maya)
+        self.assertEqual((body["is_stale"], body["planned"], body["needed_now"]), (False, False, True))
+        self.assertEqual(body["planned_released_at"], released.isoformat())
+        # The unannotated fallback agrees.
+        self.assertFalse(_row_is_stale(Card.objects.select_related("board").get(pk=child.pk)))
+
+    def test_release_survives_its_column_being_deleted(self):
+        child, released = self._released_old_child()
+        # The parent moves on first, so deleting the column does not take the parent with it.
+        self.assertEqual(self.move(self.parent, self.pboard, self.won, self.plane).status_code, 200)
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.owner).delete(f"/api/v1/boards/{self.pboard.pk}/columns/{self.proposal.pk}/")
+        self.assertEqual(r.status_code, 204, r.content)
+        link = self.link(child)
+        self.assertEqual((link.needed_at_column_id, link.planned_released_at), (None, released))
+        self._assert_still_restarted(child, released)
+
+    def test_release_survives_needed_being_set_to_now(self):
+        child, released = self._released_old_child()
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.maya).post(
+                f"/api/v1/boards/{self.cboard.pk}/cards/{child.pk}/needed/", {"needed_at_column": None}, format="json",
+            )
+        self.assertEqual(r.status_code, 200, r.content)
+        link = self.link(child)
+        self.assertEqual((link.needed_at_column_id, link.planned_released_at), (None, released))
+        self._assert_still_restarted(child, released)
+
     def test_stale_fallback_without_the_annotation_reads_the_link(self):
         # A card serialized outside an annotated queryset (after a write) still
         # applies the planned rule, with one link read, rather than skipping it.
@@ -573,6 +615,45 @@ class PlannedRaceTests(TransactionTestCase):
         link.refresh_from_db()
         self.assertIsNone(link.needed_at_column_id)
         self.assertFalse(CardActivity.objects.filter(card=self.child, event_type=EV.NEEDED_CHANGED).exists())
+
+    def _column_delete(self):
+        """The column delete's shape: the column row held, then its DELETE (SET_NULL on links)."""
+        Column.objects.select_for_update(no_key=True).get(pk=self.proposal.pk)
+        Column.objects.filter(pk=self.proposal.pk).delete()
+
+    def test_set_needed_racing_a_column_delete_answers_400_not_500(self):
+        link = self.link(needed_at_column=self.won)
+
+        def plan():
+            return planned_children.set_needed(
+                self.child, user=self.maya, child_role=Role.MEMBER, value=self.proposal.pk,
+            )
+
+        results = self.run_pair(self._column_delete, plan, "set_needed should queue on the column the delete holds")
+        self.assertIsInstance(results.get("error"), planned_children.ValidationError)
+        link.refresh_from_db()
+        self.assertEqual(link.needed_at_column_id, self.won.pk)
+
+    def test_add_child_racing_a_column_delete_answers_400_not_500(self):
+        from types import SimpleNamespace
+
+        from boards.services import card_links
+
+        def make_card(*, board, role, column, swimlane):
+            card = Card.objects.create(board=board, column=column, swimlane=swimlane, title="Workshop")
+            return SimpleNamespace(card=card)
+
+        Column.objects.filter(pk=self.todo.pk).update(allow_card_creation=True)
+
+        def add():
+            return card_links.create_child(
+                user=self.maya, parent=self.parent, parent_role=Role.MEMBER, board_id=self.cboard.pk,
+                make_card=make_card, needed_at_column=self.proposal.pk,
+            )
+
+        results = self.run_pair(self._column_delete, add, "Add child should queue on the column the delete holds")
+        self.assertIsInstance(results.get("error"), planned_children.ValidationError)
+        self.assertFalse(Card.objects.filter(board=self.cboard, title="Workshop").exists())
 
     def test_two_simultaneous_releases_write_one_history_row(self):
         """A parent reaching the column and the child's own pull, at once:

@@ -101,12 +101,15 @@ def planned_released_at():
 
     The Stale clock of a released child restarts here: it is stale only when
     both its last move and this release predate the cutoff. The value is the
-    child's own link timestamp, never parent data.
+    child's own link timestamp, never parent data. Not keyed on
+    ``needed_at_column``: the release outlives that field, which a column
+    delete (``SET_NULL``) or a later "Needed: Now" clears, and the restarted
+    clock must survive both.
     """
     from .models import CardParentLink
 
     return Subquery(CardParentLink.objects.filter(
-        child_id=OuterRef("pk"), needed_at_column__isnull=False, planned_released_at__isnull=False,
+        child_id=OuterRef("pk"), planned_released_at__isnull=False,
     ).values("planned_released_at")[:1])
 
 

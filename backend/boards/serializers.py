@@ -3196,12 +3196,14 @@ def _planned_stale_exempt(obj, cutoff):
     if hasattr(obj, "_planned_active"):
         active, released = obj._planned_active, obj._planned_released_at
     else:
+        # Any link row, not only one with Needed set: a release survives its
+        # column's delete and a later "Needed: Now" (see planned_released_at).
         rows = list(
-            CardParentLink.objects.filter(child_id=obj.pk, needed_at_column__isnull=False)
-            .values_list("planned_released_at", flat=True)[:1]
+            CardParentLink.objects.filter(child_id=obj.pk)
+            .values_list("needed_at_column_id", "planned_released_at")[:1]
         )
-        active = bool(rows) and rows[0] is None
-        released = rows[0] if rows else None
+        needed, released = rows[0] if rows else (None, None)
+        active = needed is not None and released is None
     return bool(active) or (released is not None and released >= cutoff)
 
 
