@@ -76,7 +76,22 @@ def overdue_q(today):
     exclude done or archived cards; compose with :func:`open_cards_q`, or use
     :func:`overdue_signal_q`, which does.
     """
-    return Q(due_date__lt=today)
+    return Q(due_date__lt=today) & not_planned_q()
+
+
+def not_planned_q():
+    """Cards whose due date counts: every card except a planned child (#2371).
+
+    A planned child's date is stored but inactive until it is released, so it
+    is never Overdue or Due soon. EXISTS, not a join through the reverse
+    one-to-one, so a negated lookup cannot drop cards with no link at all.
+    Every other card, To do included, keeps its date exactly as before.
+    """
+    from .models import CardParentLink
+
+    return ~Exists(CardParentLink.objects.filter(
+        child_id=OuterRef("pk"), needed_at_column__isnull=False, planned_released_at__isnull=True,
+    ))
 
 
 def overdue_signal_q(today):

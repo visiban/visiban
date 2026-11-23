@@ -3717,6 +3717,64 @@ class CardParentField(serializers.Field):
         return value
 
 
+#: The planned-child fields (#2371, since 1.3), each opt-in like ``parent``.
+_PLANNED_FIELD_SCHEMAS = {
+    "planned": {"type": "boolean", "description": (
+        "Since 1.3 (#2371): this child is planned for a later parent column and not yet "
+        "released. Its `due_date` is stored but inactive: not Overdue, Due soon or Stale "
+        "until released."
+    )},
+    "needed_now": {"type": "boolean", "description": (
+        "Since 1.3 (#2371): the parent reached or skipped past the column this child was "
+        "planned for, and the child has not left its board's first column since."
+    )},
+    "needed_at_column": {"type": "integer", "nullable": True, "description": (
+        "Since 1.3 (#2371): the parent board's column this child is needed at. `null` for "
+        "Needed: Now, and whenever the caller cannot open the parent's board."
+    )},
+    "needed_at_column_name": {"type": "string", "nullable": True, "description": (
+        "Since 1.3 (#2371): that column's name; `null` under the same rule."
+    )},
+    "planned_released_at": {"type": "string", "format": "date-time", "nullable": True, "description": (
+        "Since 1.3 (#2371): when the child stopped being planned (the parent reached the "
+        "column, or the child was pulled). Stale is measured from it after release."
+    )},
+}
+
+
+class CardPlannedField(serializers.Field):
+    """One planned-child field (#2371). Read-only, opt-in per call.
+
+    ``get_attribute`` raises ``SkipField`` without the planned context key, so
+    every write response, broadcast payload, export, MCP tool and webhook
+    omits it (#1075), exactly like :class:`CardParentField`; the map is filled
+    by ``parents_for_viewer`` in the same links query, so it costs no query.
+    A card absent from the map has no planned link (``NOT_PLANNED``).
+    """
+
+    def __init__(self, key, **kwargs):
+        self._key = key
+        kwargs.setdefault("source", "*")
+        kwargs["read_only"] = True
+        kwargs.setdefault("allow_null", True)
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        from .services.planned_children import CARD_PLANNED_CONTEXT_KEY, NOT_PLANNED
+
+        planned = self.context.get(CARD_PLANNED_CONTEXT_KEY)
+        if planned is None:
+            raise serializers.SkipField()
+        return planned.get(instance.pk, NOT_PLANNED)[self._key]
+
+    def to_representation(self, value):
+        return value
+
+
+def _planned_field(key):
+    return extend_schema_field({"readOnly": True, **_PLANNED_FIELD_SCHEMAS[key]})(CardPlannedField)(key)
+
+
 #: Serializer-context key holding ``card_links.rollups_for_viewer``'s result
 #: (#2210). Set ONLY by the reads that name a viewer on a parent-tier board
 #: (``/full/``, the card list and retrieve). Absent, ``children_rollup`` is
@@ -4054,6 +4112,12 @@ class CardSerializer(serializers.ModelSerializer):
     parent = CardParentField()
     # Child rollup (#2210). Omitted unless the caller set CARD_CHILDREN_ROLLUP_CONTEXT_KEY.
     children_rollup = CardChildrenRollupField()
+    # Planned children (#2371). Omitted unless the caller set CARD_PLANNED_CONTEXT_KEY.
+    planned = _planned_field("planned")
+    needed_now = _planned_field("needed_now")
+    needed_at_column = _planned_field("needed_at_column")
+    needed_at_column_name = _planned_field("needed_at_column_name")
+    planned_released_at = _planned_field("planned_released_at")
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -4127,6 +4191,10 @@ class CardSerializer(serializers.ModelSerializer):
             # Parent card (#1104, since 1.3). Read-only and opt-in per call;
             # see CardParentField.
             "parent", "children_rollup",
+            # Planned children (#2371, since 1.3). Read-only and opt-in per
+            # call, like parent; Needed changes through POST .../needed/.
+            "planned", "needed_now", "needed_at_column", "needed_at_column_name",
+            "planned_released_at",
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
@@ -4342,6 +4410,14 @@ class CardSerializer(serializers.ModelSerializer):
         return _checklist_open_assignee_ids(obj)
 
     def get_is_stale(self, obj) -> bool:
+        # Planned children (#2371): never Stale while planned, and measured
+        # from the release once released. Read from the viewer-named planned
+        # map only (no query); surfaces without it keep the plain rule.
+        from .services.planned_children import CARD_PLANNED_CONTEXT_KEY, planned_stale_exempt
+
+        planned = self.context.get(CARD_PLANNED_CONTEXT_KEY)
+        if planned and planned_stale_exempt(planned.get(obj.pk), obj.board.staleness_threshold_days):
+            return False
         # Fast path: use the queryset-level annotation when it was pre-computed
         # by _card_queryset(stale_cutoff=...) — avoids a timezone.now() call per
         # card and mirrors the per-row fallback exactly (#669).
@@ -5429,11 +5505,16 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
         # ``parent`` (fail closed, #1075).
         if "card_parent_viewer" in self.context:
             from .services import card_links
+            from .services.planned_children import CARD_PLANNED_CONTEXT_KEY
+
+            ctx[CARD_PLANNED_CONTEXT_KEY] = {}
             ctx[CARD_PARENTS_CONTEXT_KEY] = card_links.parents_for_viewer(
                 [c.pk for c in cards], self.context["card_parent_viewer"],
                 # ``obj`` came from get_board_for_user() with the ancestor chain,
                 # so the children's board costs no extra query (#2536).
                 known_boards=(obj,),
+                # #2371: filled from the same links query, no extra query.
+                planned=ctx[CARD_PLANNED_CONTEXT_KEY],
             )
             # ``children_rollup`` (#2210), for the same viewer: every card of
             # a parent-tier board, and on a flag-off board only its leftover

@@ -1006,6 +1006,27 @@ the strength of the stale `owner` column.
 
 Coverage: `groups/tests/test_group_owner_admin_membership_2114.py`.
 
+## Rule 19: A planned child is released by a system write, not by a role on the child board
+
+*Since 1.3 (#2371).* When a parent card reaches (or skips past) the column a
+planned child is needed at, the child is released even if the person who moved
+the parent holds no role on the child's board. The release is a system write
+caused by the link: it sets `CardParentLink.planned_released_at` with a
+conditional update (claimed once) and writes one `planned_released` history row
+with no actor and no reference to the parent, its board, its column or the
+mover. It grants the mover no read or write on the child board, and the child
+board's readers learn only that the child is now needed (the accepted
+disclosure, as for `card.parent_changed`). Changing Needed by hand is an
+ordinary write: member on the child's board, plus a role on the parent's board
+to choose a column (the choices are its column names).
+
+| Surface | Entry point | Enforcement |
+|---|---|---|
+| REST and MCP move | `boards/services/cards.py` `_move_card_attempt` | calls `planned_children.release_on_move` after the move, inside its transaction |
+| Column delete | `boards/views/columns.py` `ColumnViewSet.perform_destroy` | `planned_children.clear_for_deleted_column` records "Needed: Now", then `SET_NULL` |
+| Manual Needed | `boards/views/cards.py` `CardViewSet.needed` | `planned_children.set_needed`: child-board role, parent-board role for a column |
+| Reads | `card_links.parents_for_viewer(planned=...)` | `needed_at_column(_name)` only with a role on the parent's board; absent viewer fails closed |
+
 ## How to add a rule
 
 1. Write the rule as a statement of behavior, not an implementation: what must

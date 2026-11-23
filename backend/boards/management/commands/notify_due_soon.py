@@ -16,7 +16,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from accounts.models import User
-from boards.card_signals import open_cards_q, signal_midnight, signal_today
+from boards.card_signals import not_planned_q, open_cards_q, signal_midnight, signal_today
 from boards.models import Card, Notification
 from boards.notifications_email import drain_email_on_exit
 from boards.services.notifications import create_notifications, quoted_card_verb
@@ -77,6 +77,8 @@ class Command(BaseCommand):
             # either, matching the board's Due soon status (#2313).
             Card.objects.filter(
                 open_cards_q(),
+                # A planned child's date is inactive until released (#2371).
+                not_planned_q(),
                 assignee_id__isnull=False,
                 due_date__gte=today,
                 due_date__lte=window_end,

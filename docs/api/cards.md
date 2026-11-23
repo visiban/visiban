@@ -1182,7 +1182,7 @@ endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 **Add child** (#2208): create a new card on another board and link it under
 this card, in one request and one transaction. Body:
-`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>}`. The card goes in that board's first
+`{"board_id": <int>, "title": "<text>", "apply_default_team": <bool, optional>, "expected_assignee_id": <int or null, optional>, "needed_at_column": <int or null, optional>}`. The card goes in that board's first
 column (which must allow card creation) and first lane, and that cell's WIP
 and weight limits apply as for any create. `201` returns the new card, as
 `POST .../cards/` does.
@@ -1304,6 +1304,48 @@ Any role on this card's board.
   would assign there (`null` when nobody on the team can be assigned there).
 
 Empty lists and `null`s when this card's board cannot have children.
+
+- **Needed** (#2371, since 1.3): `needed_at_column` omitted or `null` is
+  "Needed: Now", as before. A column id plans the child for when this card
+  reaches that column: it must be a column on this card's board after the
+  one this card is in, else `400` keyed `needed_at_column` (also for a
+  non-integer). See [Planned children](#planned-children-since-13).
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/needed/`
+
+*Since 1.3 (#2371).* Change a child card's **Needed**. Body:
+`{"needed_at_column": <int or null>}` (required). `null` is Now; a column id
+plans the child again. `200` returns
+`{"needed_at_column", "planned", "planned_released_at"}`.
+
+- **Roles:** `member` or higher on this card's board (`403` below that).
+- **A column** also needs a role on the parent's board, must come after the
+  parent's current column, and the card must be in its board's first column.
+  Every refusal is `400` keyed `needed_at_column` and names no column.
+- A card with no parent, or a missing key, is `400`. The card's due date is
+  kept. A change records a `needed_changed` history row; a no-op records none.
+
+#### Planned children (since 1.3)
+
+On the reads that carry `parent` (`/full/`, the card list, retrieve and
+`archived/`), every card also carries:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `planned` | bool | Needed is a later parent column and the child is not yet released. Its `due_date` is inactive: not Overdue, Due soon or Stale. |
+| `needed_now` | bool | Released by the parent reaching (or skipping past) the column, and still in its board's first column with no move since. |
+| `needed_at_column` | int or null | The parent board's column; `null` for Now and whenever you cannot open the parent's board. |
+| `needed_at_column_name` | string or null | That column's name, under the same rule. |
+| `planned_released_at` | datetime or null | When the child stopped being planned. Stale restarts from it. |
+
+Like `parent`, they are absent from write responses, `card.*` event payloads,
+webhooks, MCP, exports and share links. A release by the parent sends no new
+event type: the parent's move already sends `card.parent_changed` to the
+child board, and clients re-read. History rows: `planned_released`
+(`from_value` `parent_reached` or `pulled`, `to_value` the due date now
+counting, blank for none; no actor when the parent's move caused it) and
+`needed_changed` (`from_value` `created`, `manual` or `column_deleted`;
+`to_value` `planned` or `now`).
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/children/{child_id}/`
 

@@ -1522,6 +1522,16 @@ class CardActivity(models.Model):
         # carries nothing.
         CHILDREN_REMOVED_BOARD_DELETED = "children_removed_board_deleted", "Children removed: board deleted"
         PARENT_REMOVED_BOARD_DELETED = "parent_removed_board_deleted", "Parent removed: board deleted"
+        # #2371: planned children. Like the link rows above, they store NO
+        # reference to the parent (not its title, board, column or the person
+        # who moved it): the reader may be unable to open the parent's board.
+        # ``from_value`` is the cause, ``to_value`` the child's own due date
+        # (ISO, blank = none), which is the child's data.
+        # ``planned_released``: from_value ``parent_reached`` | ``pulled``.
+        # ``needed_changed``: from_value ``manual`` | ``column_deleted``;
+        # to_value is ``planned`` or ``now``.
+        PLANNED_RELEASED = "planned_released", "Planned child released"
+        NEEDED_CHANGED = "needed_changed", "Needed changed"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
@@ -2916,11 +2926,42 @@ class CardParentLink(models.Model):
         related_name="created_card_parent_links",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Planned children (#2371, since 1.3): the column on the PARENT's board at
+    # which this child is needed. Null means "Needed: Now" (every link before
+    # 1.3). Stored on the link, not the card, because it only means anything
+    # while the link exists: unlinking (or moving the child off its board,
+    # which unlinks) drops it with the row, so the child's date goes live with
+    # no extra write. SET_NULL when the column is deleted: the child becomes
+    # "Needed: Now" (the view records the history note first,
+    # ``planned_children.clear_for_deleted_column``). Its index is the partial
+    # one in Meta, built concurrently (migration 0132), not the FK default.
+    needed_at_column = models.ForeignKey(
+        Column,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_index=False,
+        related_name="+",
+    )
+    # When the child stopped being planned: the parent reached or skipped past
+    # ``needed_at_column``, or someone pulled the child out of To do. Stored so
+    # a parent moving back never re-plans it. "Planned" is
+    # ``needed_at_column`` set and this null (``planned_children.PLANNED_Q``).
+    planned_released_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "card_parent_links"
         # The parent FK index serves the children list and the per-parent
         # count; the OneToOne's unique index serves "this card's parent".
+        indexes = [
+            # Serves the SET NULL when a column is deleted and the release
+            # lookup on a parent move; partial, so pre-1.3 links cost nothing.
+            models.Index(
+                fields=["needed_at_column"],
+                name="cardparentlink_needed_col_idx",
+                condition=models.Q(needed_at_column__isnull=False),
+            ),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=~models.Q(parent=models.F("child")),

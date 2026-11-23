@@ -2258,6 +2258,10 @@ def _move_card_attempt(
         if column_changed:
             from .card_links import announce_children_changed
             announce_children_changed([card.pk], board=board, actor_id=actor.id)
+            # Planned children (#2371): a pulled child, or a parent reaching
+            # the column its planned children are needed at, releases them.
+            from .planned_children import release_on_move
+            release_on_move(card, board=board, to_column=target_column, actor=actor)
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 
