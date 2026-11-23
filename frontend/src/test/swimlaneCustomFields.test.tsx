@@ -646,7 +646,7 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     ]
     render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin onFieldsUpdated={vi.fn()} />)
     expect(screen.getByText('9 of 30')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^(Pin|Unpin) / })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^(Pin |Pinned, unpin )/ })).toBeNull()
     expect(screen.queryByText(/pinned/i)).toBeNull()
     expect(screen.queryByText(/The row header shows/)).toBeNull()
   })
@@ -1073,7 +1073,7 @@ describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reorder
 
     it('has no row Pin button for a pinned or unpinned field', () => {
       renderTab([{ ...defA, show_on_row: true }, defB])
-      expect(screen.queryByRole('button', { name: /Pin A|Unpin A|Pin B/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /Pin A|unpin A|Pin B/ })).toBeNull()
     })
   })
 

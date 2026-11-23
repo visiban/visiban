@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { User } from "../../types";
 import { userDisplayName } from "../../types";
 import Avatar from "../Common/Avatar";
+import { avatarVisibleText } from "../Common/avatarText";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { useTheme } from "../../context/ThemeContext";
@@ -122,7 +123,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
         onClick={() => onOpenChange(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Account menu for ${displayName}`}
+        aria-label={`${avatarVisibleText(user) ? `${avatarVisibleText(user)}, ` : ""}Account menu for ${displayName}`}
         className="flex items-center justify-center rounded-full p-0.5 max-sm:min-h-11 max-sm:min-w-11 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         <Avatar user={user} size="trigger" />

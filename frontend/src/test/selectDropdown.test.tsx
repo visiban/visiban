@@ -721,8 +721,16 @@ describe('CheckboxDropdown', () => {
   it('shows a badge with the count and a folded-in aria-label when badge is truthy', () => {
     render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} badge={3} />)
     const trigger = screen.getByRole('button')
-    expect(trigger).toHaveTextContent('3')
     expect(trigger).toHaveAttribute('aria-label', 'Filter, 3 active')
+    // A real space before the badge: "Filter3" is one word to axe and misses the name (#2467).
+    expect(trigger.textContent).toBe('Filter 3')
+  })
+
+  it('names a badged trigger from the label it paints, selection summary included (#2467)', () => {
+    render(<CheckboxDropdown label="Assignee" options={cbOptions} selected={['a']} onChange={() => undefined} badge={1} />)
+    const trigger = screen.getByRole('button')
+    expect(trigger.textContent).toBe('Assignee: Option A 1')
+    expect(trigger).toHaveAttribute('aria-label', 'Assignee: Option A, 1 active')
   })
 
   it('suppresses the badge and aria-label when badge is 0', () => {

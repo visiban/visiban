@@ -209,7 +209,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
 
   it('renders the Row 1 global search button on the Dashboard with the Jump-to-a-board-or-action label', () => {
     renderNavbarAt('/')
-    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })).toBeInTheDocument()
   })
 
   it('never promises cards on the Unavailable page, which sits on a board URL (#2473)', () => {
@@ -218,32 +218,34 @@ describe('Navbar — global search entry (#852 / #869)', () => {
         <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} searchBoardsOnly />
       </MemoryRouter>
     )
-    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Search cards/ })).not.toBeInTheDocument()
   })
 
   it('adapts the label to "Search cards" on a board route', () => {
     renderNavbarAt('/boards/42')
-    expect(screen.getByRole('button', { name: /Search cards \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Search cards, people, labels, fields, ⌘K/ })).toBeInTheDocument()
   })
 
   it('uses the boards-and-actions label on Settings (the palette is a nav surface there)', () => {
     renderNavbarAt('/settings')
-    expect(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })).toBeInTheDocument()
   })
 
   it('shows the visible placeholder label and ⌘K hint at lg+', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
+    const btn = screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })
     // Both the visible label and the shortcut hint render in the DOM; they're
     // hidden below lg via `hidden lg:inline` so jsdom still sees them.
     expect(btn).toHaveTextContent('Jump to a board or action')
     expect(btn).toHaveTextContent('⌘K')
+    // Placeholder and chip are separate words in the button's text, as the aria-label repeats them (#2467).
+    expect(btn.textContent).toBe('Jump to a board or action ⌘K')
   })
 
   it('is a 38px field on wider screens and a 44px icon button on phones (#2473)', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
+    const btn = screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })
     expect(btn.className).toMatch(/h-\[38px\]/)
     expect(btn.className).toMatch(/max-sm:w-11/)
     expect(btn.className).toMatch(/max-sm:h-11/)
@@ -254,7 +256,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     window.addEventListener('visiban:open-palette', listener)
     try {
       renderNavbarAt('/')
-      await userEvent.setup().click(screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ }))
+      await userEvent.setup().click(screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ }))
       expect(listener).toHaveBeenCalledOnce()
     } finally {
       window.removeEventListener('visiban:open-palette', listener)
@@ -263,7 +265,7 @@ describe('Navbar — global search entry (#852 / #869)', () => {
 
   it('renders to the left of the notification bell in Row 1', () => {
     renderNavbarAt('/')
-    const btn = screen.getByRole('button', { name: /Jump to a board or action \(Cmd\+K\)/ })
+    const btn = screen.getByRole('button', { name: /Jump to a board or action, ⌘K/ })
     const bell = screen.getByTitle('Notifications')
     // Compare document position — search button precedes the bell.
     expect(btn.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

@@ -937,6 +937,8 @@ describe('CardDetail sheet — loading (#1914, frame 6)', () => {
     await act(async () => { resolveComments([]) })
     await waitFor(() => expect(body).toHaveAttribute('aria-busy', 'false'))
     expect(screen.getByRole('tab', { name: 'Comments, 0' })).toBeInTheDocument()
+    // A real space, not a margin: the visible text must be a whole-word match for the name (#2467).
+    expect(screen.getByRole('tab', { name: 'Comments, 0' }).textContent).toBe('Comments 0')
     expect(screen.queryByText('Loading card details')).not.toBeInTheDocument()
     expect(archive).not.toHaveAttribute('aria-disabled')
     fireEvent.click(archive)

@@ -1860,8 +1860,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 }`}
               >
                 {TAB_LABELS[t]}
+                {/* A real space, not ml-1: the aria-label above must contain the visible "Comments 0" (#2467). */}
+                {count !== undefined && " "}
                 {count !== undefined && (
-                  <span className="ml-1 font-normal text-fg-tertiary" data-testid={`card-tab-count-${t}`}>{count}</span>
+                  <span className="font-normal text-fg-tertiary" data-testid={`card-tab-count-${t}`}>{count}</span>
                 )}
               </button>
             );

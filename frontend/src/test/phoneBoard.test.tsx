@@ -103,7 +103,13 @@ describe('PhoneBoard (#2277)', () => {
     const { onToggleSwimlane } = setup()
     expect(screen.getAllByTestId('phone-lane')).toHaveLength(2)
     expect(screen.getByText('2 here')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /Collapse lane APAC/ }))
+    // A real space keeps the lane name and "N here" separate words, so the visible text is
+    // contained in the name as whole words (axe would otherwise read "APAC2") (#2467).
+    const toggle = screen.getByRole('button', { name: /Collapse lane APAC/ })
+    expect(toggle.textContent).toMatch(/^APAC \d+ here$/)
+    // axe ignores punctuation, so the name's "APAC, N here" holds the visible words in order.
+    expect(toggle.getAttribute('aria-label')?.replace(/,/g, '')).toContain(toggle.textContent as string)
+    await user.click(toggle)
     expect(onToggleSwimlane).toHaveBeenCalledWith(2)
   })
 

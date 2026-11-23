@@ -320,6 +320,7 @@ export default function ActivityTabPanel({
               >
                 <ActiveMark active={on} />
                 <span>{o.label}</span>
+                {count !== undefined && " "}
                 {count !== undefined && <span className="text-fg-tertiary font-normal">{count}</span>}
               </button>
             );

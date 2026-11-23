@@ -1,5 +1,6 @@
 import type { BoardUser } from "../../types";
 import Avatar from "../Common/Avatar";
+import { avatarVisibleText } from "../Common/avatarText";
 
 export interface FilterChipProps {
   label: string;
@@ -17,7 +18,9 @@ export interface FilterChipProps {
 }
 
 export default function FilterChip({ label, colorDot, avatarUser, onDismiss, tag, dataLaneChip }: FilterChipProps) {
-  const name = tag ? `${tag}: ${label}, remove` : `Remove ${label} filter`;
+  // An assignee chip paints avatar initials before its label; the name must contain them (WCAG 2.5.3, #2467).
+  const initials = avatarUser ? avatarVisibleText(avatarUser) : "";
+  const name = tag ? `${tag}: ${label}, remove` : `Remove ${initials ? `${initials} ` : ""}${label} filter`;
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
     if (e.key === "Enter" || e.key === " " || e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
@@ -35,14 +38,21 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss, tag
       onKeyDown={handleKeyDown}
       data-lane-chip={dataLaneChip ? "" : undefined}
     >
+      {/* A real space (not just the flex gap) after the tag and the avatar: axe joins adjacent
+          elements' text with no separator, so "Lanes" + "Tier is Gold" would read as one word
+          "LanesTier" and miss the name (WCAG 2.5.3, #2467). */}
       {tag && (
-        <span className="px-1.5 rounded-full bg-surface-hover text-fg-secondary text-xs shrink-0">{tag}</span>
+        <>
+          <span className="px-1.5 rounded-full bg-surface-hover text-fg-secondary text-xs shrink-0">{tag}</span>{" "}
+        </>
       )}
       {colorDot && (
         <span className="color-dot w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: colorDot }} />
       )}
       {avatarUser && (
-        <Avatar user={avatarUser} size="xs" />
+        <>
+          <Avatar user={avatarUser} size="xs" />{" "}
+        </>
       )}
       <span className="truncate min-w-0">{label}</span>
       <button type="button"

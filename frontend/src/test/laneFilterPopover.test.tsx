@@ -93,6 +93,8 @@ describe('Lanes trigger', () => {
     const lf: LaneFilter = { items: [{ kind: 'rule', id: 1, join: 'and', field: 'name', op: 'is', value: 'Lane 1' }] }
     render(<Harness initial={lf} board={withLanes(makeBoard([], 'member'), [swimlane(1, {})])} />)
     expect(screen.getByRole('button', { name: 'Lanes, 1 active' })).toBeInTheDocument()
+    // A real space before the badge keeps the visible text a whole-word match for the name (#2467).
+    expect(screen.getByRole('button', { name: 'Lanes, 1 active' }).textContent).toBe('Lanes 1')
   })
 
   it('names the active rule count and counts lane rules as one filter dimension', () => {

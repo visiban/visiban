@@ -39,7 +39,7 @@ const STEPS: TourStep[] = [
   {
     selector: '[data-tour-step="filter"]',
     title: "Filter to focus",
-    body: "Use the filter bar to narrow the board by assignee, label, priority, or due date. The Filter button opens the filter panel; press F to toggle the filter bar.",
+    body: "Use the filter bar to narrow the board by assignee, label, priority, or due date. The Filters button opens the filter panel; press F to toggle the filter bar.",
   },
   {
     selector: '[data-tour-step="live-indicator"]',

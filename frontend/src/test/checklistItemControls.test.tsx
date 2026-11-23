@@ -57,4 +57,15 @@ describe('ChecklistItemControls (#445)', () => {
     expect(within(list).getByRole('button', { name: 'Unassigned' })).toHaveAttribute('aria-pressed', 'false')
     expect(within(list).getByRole('button', { name: /Gina \(no longer a board member\)/ })).toHaveAttribute('aria-pressed', 'true')
   })
+
+  it('leads the assignee button name with the avatar initials it paints (#2467)', () => {
+    render(<ChecklistItemControls item={item({ assignee: ALICE })} members={[ALICE]} canEdit today="2026-11-13" onSave={() => {}} />)
+    expect(screen.getByRole('button', { name: 'A, Assigned to Alice. Change assignee for Write spec' })).toHaveTextContent('A')
+  })
+
+  it('omits the initials from the assignee name when the avatar is a photo', () => {
+    const photo = { ...ALICE, avatar_url: 'https://example.com/a.png' }
+    render(<ChecklistItemControls item={item({ assignee: photo })} members={[photo]} canEdit today="2026-11-13" onSave={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Assigned to Alice. Change assignee for Write spec' })).toBeInTheDocument()
+  })
 })

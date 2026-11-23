@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardUser, CardChecklistItem } from "../../types";
 import Avatar from "../Common/Avatar";
+import { avatarVisibleText } from "../Common/avatarText";
 import SelectedCheck from "../Common/SelectedCheck";
 import { userDisplayName } from "../../types";
 
@@ -73,7 +74,9 @@ export default function ChecklistItemControls({ item, members, canEdit, today, o
   const assignedText = assigneeName
     ? `Assigned to ${assigneeName}${notAssignable ? " (no longer a board member)" : ""}`
     : null;
-  const assigneeLabel = assignedText ? `${assignedText}. Change assignee for ${item.text}` : `Assign ${item.text}`;
+  // Lead with the avatar initials the button paints (WCAG 2.5.3, #2467); a photo paints none.
+  const assigneeInitials = avatarVisibleText(assignee);
+  const assigneeLabel = assignedText ? `${assigneeInitials ? `${assigneeInitials}, ` : ""}${assignedText}. Change assignee for ${item.text}` : `Assign ${item.text}`;
 
   const overdue = item.due_date != null && !item.is_checked && item.due_date < today;
   const dueText = item.due_date ? `Due ${formatChecklistDue(item.due_date, true)}${overdue ? ", overdue" : ""}` : null;

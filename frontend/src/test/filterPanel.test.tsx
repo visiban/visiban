@@ -369,6 +369,8 @@ describe('FilterPanel (#2301)', () => {
     )
     const trigger = screen.getByRole('button', { name: 'Filters, 2 active' })
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    // A real space before the badge keeps the visible text a whole-word match for the name (#2467).
+    expect(trigger.textContent).toBe('Filters 2')
     await u.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'Hide filter bar (F)' })).toBeInTheDocument()

@@ -50,7 +50,8 @@ describe('LensToolbar', () => {
 
   it('shows the active-filter count from the URL', () => {
     setup({ url: '/?state=open&milestone=0.3' })
-    expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toBeInTheDocument()
+    // A real space before the count: "Filters2" is one word to axe and misses the name (#2467).
+    expect(screen.getByRole('button', { name: 'Filters, 2 active' }).textContent).toBe('Filters 2')
   })
 
   it('marks the active layout toggle with the underline cue, not tint alone (#2188)', () => {

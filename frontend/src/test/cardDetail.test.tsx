@@ -1447,7 +1447,7 @@ describe('CardDetail', () => {
       expect(unassigned).toHaveFocus()
       fireEvent.click(jane)
       await waitFor(() => expect(mockUpdateChecklistItem).toHaveBeenCalledWith(props.board.id, props.card.id, 1, { assignee_id: fakeUser.id }))
-      expect(await screen.findByRole('button', { name: /^Assigned to .+\. Change assignee for Mine$/ })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: /^(\w+, )?Assigned to .+\. Change assignee for Mine$/ })).toBeInTheDocument()
       expect(props.onUpdated).toHaveBeenLastCalledWith(expect.objectContaining({
         checklist_open_assignee_ids: [fakeUser.id], checklist_open_due_dates: [],
       }))

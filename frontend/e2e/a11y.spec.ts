@@ -32,37 +32,30 @@ type StateName =
 const BASELINE: Partial<Record<StateName, Record<string, { maxNodes: number }>>> = {
   'board view': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'card detail dialog': {
     'button-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
     'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
-    'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
     'label': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
   },
   'command palette': {
     'aria-required-attr': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'filter bar expanded': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'label-content-name-mismatch': { maxNodes: 5 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'settings page': {
-    'label-content-name-mismatch': { maxNodes: 2 }, // SUPPRESSED-UNTIL(#2467)
   },
   'member management modal': {
     'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
     'aria-valid-attr-value': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
-    'label-content-name-mismatch': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2467)
     'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
   },
   'mobile navigation': {
-    'label-content-name-mismatch': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2467)
   },
 }
 

@@ -203,7 +203,10 @@ describe("BoardActivityDrawer", () => {
       expect(screen.getByRole("button", { name: /^filter activity/i })).toHaveAttribute("aria-expanded", "true");
       fireEvent.click(screen.getByRole("button", { name: /^moves$/i }));
       fireEvent.click(screen.getByRole("button", { name: "7d" }));
-      expect(screen.getByRole("button", { name: "Filter activity, 2 active" })).toBeInTheDocument();
+      // The name opens with the visible words in order, and a real space keeps "Filter" and
+      // the count separate words: axe would otherwise read "Filter2" (WCAG 2.5.3, #2467).
+      const active = screen.getByRole("button", { name: "Filter, 2 active" });
+      expect(active.textContent).toBe("Filter 2");
       expect(screen.getByTestId("activity-filter-count")).toHaveTextContent("2");
     });
 

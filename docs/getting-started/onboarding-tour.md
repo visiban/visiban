@@ -15,7 +15,7 @@ Every new user gets an 8-step guided tour the first time they open any board. It
 | 3 | Swimlane collapse chevron | Collapse a lane to focus; press C while hovering to use the keyboard |
 | 4 | Card | Drag cards between columns to update status |
 | 5 | History tab | Every card movement is recorded as an audit trail |
-| 6 | Filter button | Narrow the board by assignee, label, priority, or due date; the Filter button opens the filter panel; press F to toggle the filter bar |
+| 6 | Filters button | Narrow the board by assignee, label, priority, or due date; the Filters button opens the filter panel; press F to toggle the filter bar |
 | 7 | Live indicator | Real-time connection status; changes from teammates appear instantly |
 | 8 | *(full-screen)* | Space + drag to pan across a wide board |
 

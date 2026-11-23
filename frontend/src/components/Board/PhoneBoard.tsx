@@ -538,7 +538,8 @@ export default function PhoneBoard({
                 >
                   <svg aria-hidden="true" className={`w-4 h-4 shrink-0 text-fg-secondary transition-transform ${collapsed ? "-rotate-90" : ""}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 6l4 4 4-4" /></svg>
                   <span aria-hidden="true" className="w-2.5 h-2.5 rounded-sm color-dot" style={{ backgroundColor: lane.color }} />
-                  <span className="text-[17px] font-semibold text-fg min-w-0 break-words">{lane.name}</span>
+                  <span className="text-[17px] font-semibold text-fg min-w-0 break-words">{lane.name}</span>{" "}
+                  {/* The space above keeps "Backlog" and "3 here" separate words for the name check (#2467). */}
                   <span className="ml-auto text-xs font-semibold text-fg whitespace-nowrap">{laneCards.length} here</span>
                 </button>
                 {hasSecondLine && (
