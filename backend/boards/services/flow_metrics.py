@@ -1377,7 +1377,8 @@ def load_cumulative_day(board, day, *, now, swimlane_id=None, label_id=None, col
     completions, lanes) is set, nor ``gate_last``. Only
     ``cumulative_flow_cards`` and ``card_directory`` may read it. Three
     queries: the columns (unless passed), the cards and their deciding rows,
-    plus ``card_directory``'s assignees.
+    plus ``card_directory``'s assignees. The endpoint as a whole runs five
+    (``EndpointQueryCountTests.DAY_BUDGET`` pins it).
     """
     if columns is None:
         columns = list(Column.objects.filter(board=board).order_by("position"))
