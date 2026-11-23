@@ -33,6 +33,8 @@ export type DrillSelection =
       /** Cards the response counted but did not list (#2429: a capped period). */
       more?: number;
       failed?: boolean;
+      /** Why it failed, when the server said (#2428); the generic line otherwise. */
+      failedMessage?: string;
       onRetry?: () => void;
     }
   | {
@@ -321,14 +323,16 @@ function CardList({
   if (selection.failed) {
     return (
       <p className="text-sm text-danger" role="alert">
-        Failed to load these cards.{" "}
-        <button
-          type="button"
-          onClick={selection.onRetry}
-          className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          Retry
-        </button>
+        {selection.failedMessage ?? "Failed to load these cards."}{" "}
+        {selection.onRetry && (
+          <button
+            type="button"
+            onClick={selection.onRetry}
+            className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        )}
       </p>
     );
   }

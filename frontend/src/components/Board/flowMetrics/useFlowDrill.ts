@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFlowCumulativeDay } from "../../../api/flowMetrics";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type {
   FlowAgeSample, FlowAttention, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowCycleTimeSample, FlowThroughput,
@@ -93,7 +94,8 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
     const title = `Cards on ${formatDate(date)}`;
     const load = () => {
       setDrill({ kind: "cards", title, groups: null });
-      getFlowCumulativeDay(boardId, filters, date)
+      // A day's cards read the whole history, so an old board can be too large here (#2428).
+      withAnalyticsBusyRetry(() => getFlowCumulativeDay(boardId, filters, date))
         .then((day) => {
           if (request !== drillRequest.current) return;
           setDayCards(day.cards);
@@ -107,8 +109,14 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
             })),
           });
         })
-        .catch(() => {
-          if (request === drillRequest.current) setDrill({ kind: "cards", title, groups: null, failed: true, onRetry: load });
+        .catch((error: unknown) => {
+          if (request !== drillRequest.current) return;
+          const kind = analyticsErrorKind(error);
+          setDrill({
+            kind: "cards", title, groups: null, failed: true,
+            failedMessage: analyticsErrorMessage(kind) ?? undefined,
+            onRetry: analyticsErrorRetryable(kind) ? load : undefined,
+          });
         });
     };
     load();

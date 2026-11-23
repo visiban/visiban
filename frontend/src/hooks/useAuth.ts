@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentUser, logout as apiLogout } from "../api/auth";
 import { isSessionUnavailableError } from "../api/client";
+import { retryAfterDelayMs } from "../api/retryAfter";
 import { clearRecentBoardsPrefs } from "./useRecentBoardsPref";
 import { stashDemoNextReset } from "../utils/demoReset";
 import type { User } from "../types";
@@ -9,15 +10,9 @@ import type { User } from "../types";
 // can't check the session (#2143). The server's Retry-After decides within
 // them; a missing or unreadable header falls back to the default.
 export const SESSION_RETRY_DEFAULT_MS = 10_000;
-const SESSION_RETRY_MIN_MS = 1_000;
-const SESSION_RETRY_MAX_MS = 60_000;
-
 /** Milliseconds to wait before retrying, from the 503's Retry-After (seconds). */
 export function sessionRetryDelayMs(error: unknown): number {
-  const headers = (error as { response?: { headers?: Record<string, unknown> } }).response?.headers;
-  const seconds = Number(headers?.["retry-after"]);
-  if (!Number.isFinite(seconds) || seconds <= 0) return SESSION_RETRY_DEFAULT_MS;
-  return Math.min(SESSION_RETRY_MAX_MS, Math.max(SESSION_RETRY_MIN_MS, seconds * 1000));
+  return retryAfterDelayMs(error, SESSION_RETRY_DEFAULT_MS);
 }
 
 export function useAuth() {

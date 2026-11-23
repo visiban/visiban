@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getBoardAnalytics } from "../../../api/boards";
 import { OVERVIEW_LIST_LIMIT } from "../../../api/analyticsLimits";
 import { getFlowOverview } from "../../../api/flowMetrics";
+import { worstAnalyticsErrorKind, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters, FlowGroupingParams } from "../../../api/flowMetrics";
 import type {
   FlowAttention, FlowBlocked, FlowCumulativeFlow, FlowCycleTime, FlowDwell, FlowOverview, FlowThroughput, FlowWipAge,
@@ -55,11 +56,12 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
     const extra: [FlowGroupingParams?] = grouping ? [grouping] : [];
     // allSettled never rejects and the `current` flag guards late answers, so fire-and-forget is safe.
     void Promise.allSettled([
-      getFlowOverview(boardId, filters, ...extra),
+      // A busy server is retried once after its Retry-After (#2428); anything else fails as before.
+      withAnalyticsBusyRetry(() => getFlowOverview(boardId, filters, ...extra)),
       // The heatmap reads only the stalled-card count (stalled_cards_total), so cap the list (#2429).
-      getBoardAnalytics(
+      withAnalyticsBusyRetry(() => getBoardAnalytics(
         boardId, filters.days, undefined, { swimlaneId: filters.swimlaneId, labelId: filters.labelId }, OVERVIEW_LIST_LIMIT,
-      ),
+      )),
     ]).then(([overview, analytics]) => {
       if (!current) return;
       // One failed request fails every chart it carried, each in its own frame.
@@ -83,5 +85,9 @@ export function useAnalyticsOverviewData(boardId: number, filters: FlowFilters, 
   const results = settled?.results ?? null;
   const fetchedFilters = settled?.filters ?? null;
   const failed = results !== null && Object.values(results).some((result) => result.error !== undefined);
-  return { results, fetchedFilters, loading, failed };
+  // Why it failed, for the page's one failure line: busy, too much history, or anything else.
+  const failedKind = worstAnalyticsErrorKind(
+    results === null ? [] : Object.values(results).map((result) => result.error).filter((error) => error !== undefined),
+  );
+  return { results, fetchedFilters, loading, failed, failedKind };
 }

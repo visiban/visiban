@@ -737,6 +737,15 @@ describe('the drill-down drawer', () => {
     expect(await dialog.findByText('No cards.')).toBeInTheDocument()
   })
 
+  it('explains a day list over the size limit without a Retry (#2428)', async () => {
+    dayMock.mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    const dialog = within(await screen.findByRole('dialog', { name: /^Cards on/ }))
+    expect(await dialog.findByRole('alert')).toHaveTextContent('This board has too much history to analyze here.')
+    expect(dialog.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
   it('reports failed transitions and retries them', async () => {
     movementsMock.mockRejectedValueOnce(new Error('no'))
     await renderLoaded()

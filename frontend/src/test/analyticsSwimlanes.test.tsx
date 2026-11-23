@@ -183,6 +183,18 @@ describe('Swimlanes view', () => {
     expect(fill(growth)).not.toContain('--warning')
   })
 
+  it('explains too much history without a Retry, and is not retried (#2428)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getFlowSwimlanes).mockReset()
+    vi.mocked(getFlowSwimlanes).mockRejectedValue({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    render(<AnalyticsView {...props} />)
+    await user.click(screen.getByRole('link', { name: 'Swimlanes' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('This board has too much history to analyze here.')
+    expect(within(alert).queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(vi.mocked(getFlowSwimlanes)).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps old numbers with an alert and Retry when a refetch fails, and hides the legend without rows', async () => {
     const user = await openSwimlanes()
     expect(screen.getByTestId('swimlanes-legend')).toBeInTheDocument()

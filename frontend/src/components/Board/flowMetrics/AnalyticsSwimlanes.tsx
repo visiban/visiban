@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { getFlowSwimlanes } from "../../../api/flowMetrics";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type { FlowSwimlaneComparison, FlowSwimlaneRow } from "../../../types";
 import { CHART_COLORS, CHART_HUE } from "../../../utils/chartScale";
@@ -126,6 +127,8 @@ export default function AnalyticsSwimlanes({
   const [fetched, setFetched] = useState<FlowFilters | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // Why the last load failed (#2428): busy and too much history have their own copy.
+  const [failedKind, setFailedKind] = useState<ReturnType<typeof analyticsErrorKind>>("other");
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<SwimlaneSort>("slowest");
   const [groupId, setGroupId] = useState<number | null>(null);
@@ -135,14 +138,16 @@ export default function AnalyticsSwimlanes({
     let current = true;
     setLoading(true);
     setFailed(false);
-    getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined)
+    withAnalyticsBusyRetry(() => getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined))
       .then((result) => {
         if (!current) return;
         setData(result);
         setFetched({ days, labelId, swimlaneId: null });
         setLoading(false);
       })
-      .catch(() => { if (current) { setFailed(true); setLoading(false); } });
+      .catch((error: unknown) => {
+        if (current) { setFailedKind(analyticsErrorKind(error)); setFailed(true); setLoading(false); }
+      });
     return () => { current = false; };
   }, [boardId, days, labelId, groupId, attempt]);
 
@@ -195,10 +200,10 @@ export default function AnalyticsSwimlanes({
       <div role="status" className="sr-only">{loading && data ? "Updating" : ""}</div>
       {failed && !data ? (
         <div role="alert" className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
-          <p className="text-sm text-fg-secondary">Could not load swimlanes.</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <p className="text-sm text-fg-secondary">{analyticsErrorMessage(failedKind) ?? "Could not load swimlanes."}</p>
+          {analyticsErrorRetryable(failedKind) && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Retry
-          </button>
+          </button>}
         </div>
       ) : !data || !finding ? (
         <div className="bg-surface border border-line rounded-lg p-4 h-64 animate-pulse motion-reduce:animate-none" data-testid="panel-skeleton" aria-busy="true">
