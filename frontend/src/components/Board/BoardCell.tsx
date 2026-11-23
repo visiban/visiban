@@ -235,7 +235,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, laneDefault = null
   return (
     <div
       ref={(el) => { cellRef.current = el; setNodeRef(el); }}
-      // The card detail sheet anchors to this cell's column edges (#1914).
+      // The card detail sheet anchors to this cell's column edges (#1914), or to the
+      // card's sub-column edges when the cell is split into stages (#2540).
       data-board-cell
       data-column-id={column.id}
       data-swimlane-id={swimlane.id}
@@ -471,6 +472,7 @@ function SubColumnDrop({ id, label, name, first, dragging, namePill, children }:
       ref={setNodeRef}
       role="group"
       aria-label={label}
+      // The card detail and peek sheets anchor to this sub-column's edges on a split cell (#2540); renaming breaks placement.
       data-sub-column-drop={id}
       className={`relative flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-boundary pl-1"} ${
         dragging && isOver ? "bg-primary/20 outline-dashed outline-1 outline-info" : ""

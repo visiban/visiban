@@ -316,10 +316,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
   // Placement (#1914): anchored beside the card's column at >= 1280px, docked
   // to the right edge below that (or when there is no room or no card element
-  // to anchor to), full-screen at <= 640px. Re-placed when the card moves.
+  // to anchor to), full-screen at <= 640px. Re-placed when the card moves,
+  // including between sub-columns of one stage (gates_passed, #2540).
   // "Dock to edge" (#1915) pins the sheet to the right edge at any width above 640px.
   const [dockedPref, setDockedPref] = useCardSheetDockedPref();
-  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}`, dockedPref);
+  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}:${card.gates_passed ?? 0}`, dockedPref);
   const { placement } = sheet;
 
   // Focus moves to the close button on open (#1914); the dialog is announced

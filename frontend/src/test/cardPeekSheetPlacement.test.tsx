@@ -91,6 +91,31 @@ describe('CardPeekSheet placement (#2507)', () => {
     expect(screen.queryByTestId('card-peek-backdrop')).not.toBeInTheDocument()
   })
 
+  it('re-places when only gates_passed changes: a move between sub-columns of one stage (#2540)', () => {
+    const { cell } = mountBoard()
+    const cardEl = cell.querySelector('[data-card-id]') as HTMLElement
+    const sub = (left: number) => {
+      const el = document.createElement('div')
+      el.setAttribute('data-sub-column-drop', '')
+      stubRect(el, { left, top: 120, width: 110, height: 400 })
+      cell.appendChild(el)
+      return el
+    }
+    const first = sub(240)
+    const second = sub(360)
+    first.appendChild(cardEl)
+    stubRect(cardEl, { left: 248, top: 280, width: 94, height: 60 })
+    const props = { board, canEdit: true, onClose: vi.fn(), onOpenCard: vi.fn(), onMoveCard: vi.fn().mockResolvedValue({ ok: true }) }
+    const { rerender } = render(<CardPeekSheet card={{ ...card, gates_passed: 0 }} {...props} />)
+    const before = sheet().style.left
+
+    second.appendChild(cardEl)
+    stubRect(cardEl, { left: 368, top: 280, width: 94, height: 60 })
+    rerender(<CardPeekSheet card={{ ...card, gates_passed: 1, version: 2 }} {...props} />)
+    expect(sheet().style.left).not.toBe(before)
+    expect(sheet().style.left).toBe(`${470 + 6}px`)
+  })
+
   it('flips to the left of the column when the right side has no room for 400px', () => {
     mountBoard(1250)
     setup()

@@ -16,6 +16,14 @@ export const SHEET_WIDTH = 540;
 export const SHEET_GAP = 6;
 /** Smallest gap kept between an anchored sheet and the viewport's right edge. */
 export const SHEET_EDGE = 16;
+/**
+ * A sub-column's edges sit flush with its card (the cell's 1px border + 5px
+ * padding is outside the sub-column, and sub-columns 2..n have no right
+ * padding), so the anchor is floored to this inset from the card on each side.
+ * It reproduces the unsplit cell's border + padding inset, so the card-to-sheet
+ * distance and the notch clearance match an unsplit cell (#2540).
+ */
+export const SUB_COLUMN_CARD_INSET = 6;
 /** An anchored sheet starts this far below the board toolbar... */
 export const SHEET_TOP_GAP = 8;
 /** ...and ends this far above the viewport's bottom edge. */
@@ -200,8 +208,19 @@ export function findBoardCardElement(cardId: number): HTMLElement | null {
 /** Reads the anchor rule's inputs off the DOM around a rendered card. */
 export function measureCardSheetGeometry(cardEl: HTMLElement): SheetGeometry {
   const card = cardEl.getBoundingClientRect();
-  const cell = (cardEl.closest("[data-board-cell]") as HTMLElement | null) ?? cardEl;
+  // A staged cell is split into sub-columns and `[data-board-cell]` spans all
+  // of them, so anchor to the card's own sub-column first (#2540); the cell
+  // (unsplit columns) and then the card are the fallbacks.
+  const sub = cardEl.closest("[data-sub-column-drop]") as HTMLElement | null;
+  const cell =
+    sub ??
+    (cardEl.closest("[data-board-cell]") as HTMLElement | null) ??
+    cardEl;
   const col = cell.getBoundingClientRect();
+  // Only the sub-column anchor is floored (the cell and card fallbacks are unchanged).
+  const anchor = sub
+    ? { left: Math.min(col.left, card.left - SUB_COLUMN_CARD_INSET), right: Math.max(col.right, card.right + SUB_COLUMN_CARD_INSET) }
+    : { left: col.left, right: col.right };
   const root = cardEl.closest(BOARD_SCROLL_SELECTOR);
   // No lane label to avoid since the swimlane bands (#2271): the sheet may use the board's whole left edge.
   const lanesRight = root?.getBoundingClientRect().left ?? 0;
@@ -214,7 +233,7 @@ export function measureCardSheetGeometry(cardEl: HTMLElement): SheetGeometry {
     root ? root.getBoundingClientRect().top : 0,
   );
   return {
-    column: { left: col.left, right: col.right },
+    column: anchor,
     lanesRight,
     toolbarBottom: chromeBottom,
     cardCenterY: card.top + card.height / 2,

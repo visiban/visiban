@@ -531,6 +531,31 @@ describe('CardDetail sheet — anchor rule (#1914)', () => {
     expect(dialog()).toHaveAttribute('data-sheet-mode', 'docked')
   })
 
+  it('re-places when only gates_passed changes: a move between sub-columns of one stage (#2540)', () => {
+    const { content, cardEl } = mountBoard()
+    const props = defaultProps()
+    const sub = (left: number) => {
+      const el = document.createElement('div')
+      el.setAttribute('data-sub-column-drop', '')
+      stubRect(el, () => ({ left, top: 120, width: 110, height: 400 }))
+      content.appendChild(el)
+      return el
+    }
+    const first = sub(240)
+    const second = sub(360)
+    first.appendChild(cardEl)
+    stubRect(cardEl, () => ({ left: 248, top: 280, width: 94, height: 60 }))
+    const { rerender } = render(<CardDetail {...props} card={makeCard({ gates_passed: 0 })} />)
+    const before = dialog().style.left
+
+    // Same column and swimlane; the card now sits in the stage's second sub-column.
+    second.appendChild(cardEl)
+    stubRect(cardEl, () => ({ left: 368, top: 280, width: 94, height: 60 }))
+    rerender(<CardDetail {...props} card={makeCard({ gates_passed: 1, version: 2 })} />)
+    expect(dialog().style.left).not.toBe(before)
+    expect(dialog().style.left).toBe(`${470 + 6}px`)
+  })
+
   it('re-places on window resize after the 150ms debounce', async () => {
     mountBoard()
     render(<CardDetail {...defaultProps()} />)
