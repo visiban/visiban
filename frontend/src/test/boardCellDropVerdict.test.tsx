@@ -62,6 +62,16 @@ describe('BoardCell drop verdict (#1150)', () => {
     expect(screen.queryByTestId('cell-drop-placeholder')).toBeNull()
   })
 
+  it('draws the idle empty-cell slot with the 3:1 boundary token (#2505)', () => {
+    dnd.isOver = false // a drag is active but the pointer is elsewhere: the slot is neither open nor blocked
+    const { container } = renderCell()
+    const slot = container.querySelector('[aria-hidden="true"].h-10') as HTMLElement
+    expect(slot).not.toBeNull()
+    expect(slot).toHaveClass('border-dashed', 'border-line-boundary')
+    expect(slot).not.toHaveClass('border-line-strong')
+    dnd.isOver = true
+  })
+
   it('uses the hard glyph for a hard limit', () => {
     renderCell(() => [tripped('hard')])
     expect(screen.getByTestId('cell-drop-blocked')).toHaveTextContent('⛔ WIP limit 5/5 · Payouts')
