@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFlowCumulativeDay } from "../../../api/flowMetrics";
-import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type {
   FlowAgeSample, FlowAttention, FlowCard, FlowCumulativeFlow, FlowCycleTime, FlowCycleTimeSample, FlowThroughput,
@@ -27,6 +27,8 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
   const [dayCards, setDayCards] = useState<FlowCard[]>([]);
   // A filter changed while the day's list was loading: drop that late answer.
   const drillRequest = useRef(0);
+  // The day list's pending busy retry, canceled whenever that list is superseded (#2428).
+  const drillRetry = useRef<AbortController | null>(null);
   const { cycle, throughput, cumulative, wipAge, attention } = data;
 
   const cards = useMemo(() => {
@@ -43,12 +45,19 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
     return directory;
   }, [cycle, throughput, wipAge, attention, dayCards]);
 
-  const closeDrill = useCallback(() => {
-    drillRequest.current += 1;
-    setDrill(null);
+  const cancelDrillRetry = useCallback(() => {
+    drillRetry.current?.abort();
+    drillRetry.current = null;
   }, []);
 
+  const closeDrill = useCallback(() => {
+    drillRequest.current += 1;
+    cancelDrillRetry();
+    setDrill(null);
+  }, [cancelDrillRetry]);
+
   useEffect(() => { closeDrill(); }, [filters, closeDrill]);
+  useEffect(() => cancelDrillRetry, [cancelDrillRetry]);
 
   const selectCycleSample = (sample: FlowCycleTimeSample) =>
     setDrill({
@@ -91,11 +100,14 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
   const selectDay = useCallback((date: string) => {
     drillRequest.current += 1;
     const request = drillRequest.current;
+    cancelDrillRetry();
     const title = `Cards on ${formatDate(date)}`;
     const load = () => {
       setDrill({ kind: "cards", title, groups: null });
+      const controller = new AbortController();
+      drillRetry.current = controller;
       // A day's cards read the whole history, so an old board can be too large here (#2428).
-      withAnalyticsBusyRetry(() => getFlowCumulativeDay(boardId, filters, date))
+      withAnalyticsBusyRetry(() => getFlowCumulativeDay(boardId, filters, date), cancelableWait, controller.signal)
         .then((day) => {
           if (request !== drillRequest.current) return;
           setDayCards(day.cards);
@@ -120,7 +132,7 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
         });
     };
     load();
-  }, [boardId, filters, cumulative]);
+  }, [boardId, filters, cumulative, cancelDrillRetry]);
 
   return {
     drill, setDrill, cards, closeDrill, openCards, selectCycleSample, selectThroughputSample, selectAgeSample, selectDay,

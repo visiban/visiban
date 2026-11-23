@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, withAnalyticsBusyRetry, worstAnalyticsErrorKind,
+  AnalyticsRetryCanceled, analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait,
+  withAnalyticsBusyRetry, worstAnalyticsErrorKind,
 } from '../api/analyticsErrors'
 import { retryAfterDelayMs } from '../api/retryAfter'
 import { sessionRetryDelayMs } from '../hooks/useAuth'
@@ -32,11 +33,11 @@ describe('analyticsErrorKind (#2428)', () => {
   it('has copy per kind, and only too_large is not retryable', () => {
     expect(analyticsErrorMessage('busy')).toBe('Analytics is busy right now. Try again in a moment.')
     expect(analyticsErrorMessage('too_large')).toBe(
-      'This board has too much history to analyze here. Try a shorter period, or ask your administrator.',
+      'This board has more history than this server is set up to analyze. Try a shorter period, or ask your administrator.',
     )
     expect(analyticsErrorMessage('other')).toBeNull()
     expect(analyticsErrorMessage('too_large', { wholeHistory: true })).toBe(
-      'This board has too much history to list these cards here. Ask your administrator.',
+      "This board has more history than this server is set up to analyze, so these cards can't be listed here. Ask your administrator.",
     )
     expect(analyticsErrorMessage('busy', { wholeHistory: true })).toBe('Analytics is busy right now. Try again in a moment.')
     expect(analyticsErrorRetryable('busy')).toBe(true)
@@ -82,6 +83,40 @@ describe('withAnalyticsBusyRetry', () => {
     await expect(withAnalyticsBusyRetry(request, async (ms) => { waits.push(ms) })).rejects.toEqual(busy('600'))
     expect(waits).toEqual([60_000])
     expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('drops a pending retry once its signal aborts, clearing the timer', async () => {
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const request = vi.fn().mockRejectedValueOnce(busy('5')).mockResolvedValueOnce('late')
+    const result = withAnalyticsBusyRetry(request, cancelableWait, controller.signal)
+    const outcome = expect(result).rejects.toBeInstanceOf(AnalyticsRetryCanceled)
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(vi.getTimerCount()).toBe(1)
+    controller.abort()
+    await outcome
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it('never sends the retry when the signal aborts during a custom wait, or before it', async () => {
+    const controller = new AbortController()
+    const request = vi.fn().mockRejectedValue(busy('1'))
+    await expect(withAnalyticsBusyRetry(request, async () => { controller.abort() }, controller.signal))
+      .rejects.toBeInstanceOf(AnalyticsRetryCanceled)
+    expect(request).toHaveBeenCalledTimes(1)
+    await expect(cancelableWait(1_000, controller.signal)).rejects.toBeInstanceOf(AnalyticsRetryCanceled)
+  })
+
+  it('waits the full delay with no signal', async () => {
+    vi.useFakeTimers()
+    let done = false
+    void cancelableWait(500).then(() => { done = true })
+    await vi.advanceTimersByTimeAsync(499)
+    expect(done).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(done).toBe(true)
   })
 
   it('never retries too_large or other failures', async () => {

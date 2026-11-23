@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { getFlowSwimlanes } from "../../../api/flowMetrics";
-import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type { FlowSwimlaneComparison, FlowSwimlaneRow } from "../../../types";
 import { CHART_COLORS, CHART_HUE } from "../../../utils/chartScale";
@@ -136,9 +136,11 @@ export default function AnalyticsSwimlanes({
 
   useEffect(() => {
     let current = true;
+    // Cancels a pending busy retry when this load is superseded or the table unmounts (#2428).
+    const controller = new AbortController();
     setLoading(true);
     setFailed(false);
-    withAnalyticsBusyRetry(() => getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined))
+    withAnalyticsBusyRetry(() => getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined), cancelableWait, controller.signal)
       .then((result) => {
         if (!current) return;
         setData(result);
@@ -148,7 +150,7 @@ export default function AnalyticsSwimlanes({
       .catch((error: unknown) => {
         if (current) { setFailedKind(analyticsErrorKind(error)); setFailed(true); setLoading(false); }
       });
-    return () => { current = false; };
+    return () => { current = false; controller.abort(); };
   }, [boardId, days, labelId, groupId, attempt]);
 
   useEffect(() => { onFetchedFilters?.(fetched); }, [fetched, onFetchedFilters]);

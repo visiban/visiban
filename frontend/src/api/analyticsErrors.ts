@@ -37,9 +37,10 @@ export function worstAnalyticsErrorKind(reasons: unknown[]): AnalyticsErrorKind 
 export function analyticsErrorMessage(kind: AnalyticsErrorKind, { wholeHistory = false } = {}): string | null {
   if (kind === "busy") return "Analytics is busy right now. Try again in a moment.";
   if (kind === "too_large") {
+    // The headline matches the API's constant detail; the advice is only what helps on this surface.
     return wholeHistory
-      ? "This board has too much history to list these cards here. Ask your administrator."
-      : "This board has too much history to analyze here. Try a shorter period, or ask your administrator.";
+      ? "This board has more history than this server is set up to analyze, so these cards can't be listed here. Ask your administrator."
+      : "This board has more history than this server is set up to analyze. Try a shorter period, or ask your administrator.";
   }
   return null;
 }
@@ -49,21 +50,44 @@ export function analyticsErrorRetryable(kind: AnalyticsErrorKind): boolean {
   return kind !== "too_large";
 }
 
-const defaultWait = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
+/** The rejection of a busy retry dropped because its caller unmounted or moved on. */
+export class AnalyticsRetryCanceled extends Error {
+  constructor() {
+    super("The analytics retry was canceled.");
+    this.name = "AbortError";
+  }
+}
+
+/** Resolve after `ms`, or reject with `AnalyticsRetryCanceled` (clearing the timer) once `signal` aborts. */
+export function cancelableWait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) { reject(new AnalyticsRetryCanceled()); return; }
+    const onAbort = () => { clearTimeout(timer); reject(new AnalyticsRetryCanceled()); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 /**
  * Run `request`, and when the server answers `analytics_busy`, wait its
  * Retry-After (clamped to 1-60 s) and run it once more. Any other failure, and
  * a second busy, reject as they came, so the caller shows its failure state.
+ *
+ * `signal` cancels the pending retry: once it aborts (the caller unmounted or
+ * its filters changed), the timer is cleared and the request is not sent again,
+ * so a stale retry never takes one of the user's analytics slots.
  */
 export async function withAnalyticsBusyRetry<T>(
-  request: () => Promise<T>, wait: (ms: number) => Promise<void> = defaultWait,
+  request: () => Promise<T>,
+  wait: (ms: number, signal?: AbortSignal) => Promise<void> = cancelableWait,
+  signal?: AbortSignal,
 ): Promise<T> {
   try {
     return await request();
   } catch (error) {
     if (analyticsErrorKind(error) !== "busy") throw error;
-    await wait(retryAfterDelayMs(error, BUSY_RETRY_DEFAULT_MS));
+    await wait(retryAfterDelayMs(error, BUSY_RETRY_DEFAULT_MS), signal);
+    if (signal?.aborted) throw new AnalyticsRetryCanceled();
     return request();
   }
 }
