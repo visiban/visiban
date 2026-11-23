@@ -1949,7 +1949,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
   })
 
   it('shows the server refusal inline when live links block the flip (#1104)', async () => {
-    const msg = 'Cannot change this setting while 2 card link(s) depend on it. Remove those links first.'
+    const msg = 'Cannot turn on "cards can have children" while 2 card(s) on this board are children of another board\'s cards. Remove those links first.'
     const onUpdate = vi.fn().mockResolvedValue({ response: { status: 400, data: { cards_can_have_children: [msg] } } })
     const { user } = await openRules({ ...fakeBoard, cards_can_have_children: true }, onUpdate)
     await user.click(await screen.findByRole('switch', { name: SWITCH }))

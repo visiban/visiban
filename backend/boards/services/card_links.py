@@ -160,7 +160,8 @@ def flag_flip_refusal(board, new_value: bool):
     blocking = links_blocking_flag_flip(board, new_value)
     if blocking:
         return (
-            f"Cannot change this setting while {blocking} card link(s) depend on it. "
+            f"Cannot turn on \"cards can have children\" while {blocking} "
+            "card(s) on this board are children of another board's cards. "
             "Remove those links first."
         )
     if new_value and boards_defaulting_to(board).exists():
