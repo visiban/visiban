@@ -354,9 +354,21 @@ interface FetchTouches {
  * the replayed cascade alone, so a snapshot that has it in another column (a
  * move this tab missed) keeps it there.
  */
-function mergeFullSnapshot(prev: BoardFull | null, snapshot: BoardFull, touches: FetchTouches): BoardFull {
-  if (!prev || prev.id !== snapshot.id) return snapshot;
+
+function mergeFullSnapshot(
+  prev: BoardFull | null,
+  snapshot: BoardFull,
+  touches: FetchTouches,
+  // Runs once the cards are merged and before replay, so the caller can see
+  // which written cards kept their local copy.
+  afterCards?: (merged: BoardFull) => void,
+): BoardFull {
+  if (!prev || prev.id !== snapshot.id) {
+    afterCards?.(snapshot);
+    return snapshot;
+  }
   const withCards = mergeSnapshotCards(prev, snapshot, touches);
+  afterCards?.(withCards);
   return touches.replay.reduce((board, write) => write(board), withCards);
 }
 
@@ -658,6 +670,13 @@ export function useBoard() {
   // later board; the map is bounded by the cards moved in this session.
   const positionEventIds = useRef(new Map<number, number>());
 
+  // Label ids a card.updated frame named before the board knew the label
+  // (#1933): card id -> the label objects dropUnknownLabels stripped. A
+  // label.created that races behind the card echo puts them back (addLabel).
+  // Each later card frame for the card replaces its entry, so a label the card
+  // really lost is never restored; a full snapshot and a label delete clear it.
+  const pendingCardLabels = useRef(new Map<number, Label[]>());
+
   // When the latest `/full/` response was applied (Date.now()), or null before
   // the first one. BoardView compares it with the socket's first open (#1968):
   // the socket joins the board's broadcast group only after `/full/` returned,
@@ -734,7 +753,18 @@ export function useBoard() {
   // longer needed from collecting ids.
   const applyFullSnapshot = useCallback((snapshot: BoardFull, touches: FetchTouches) => {
     if (fetchTouchesRef.current === touches) fetchTouchesRef.current = null;
-    setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches));
+    setBoard((prev) => mergeFullSnapshot(prev, snapshot, touches, (withCards) => {
+      // A parked label belongs to the local copy that lost it. Drop the entry
+      // only for a card the snapshot replaced; a card this tab wrote during the
+      // fetch keeps its label-stripped copy (see mergeSnapshotCards), so its
+      // entry must survive for the label.created that is still to come (#1933).
+      const snapCards = new Map(snapshot.cards.map((c) => [c.id, c]));
+      const mergedCards = new Map(withCards.cards.map((c) => [c.id, c]));
+      for (const cardId of [...pendingCardLabels.current.keys()]) {
+        const kept = touches.written.has(cardId) && mergedCards.get(cardId) !== snapCards.get(cardId);
+        if (!kept) pendingCardLabels.current.delete(cardId);
+      }
+    }));
   }, []);
 
   // Deleting a column or swimlane cascades to its archived cards, which the
@@ -1094,6 +1124,7 @@ export function useBoard() {
     setBoard((b) => {
       if (!b) return b;
       const gone = b.cards.find((c) => c.id === cardId);
+      pendingCardLabels.current.delete(cardId);
       if (gone) touches?.removed.set(gone.uid, false);
       return { ...b, cards: b.cards.filter((c) => c.id !== cardId) };
     });
@@ -1118,7 +1149,10 @@ export function useBoard() {
       if (uid !== undefined) touches?.removed.set(uid, true);
       const gone = b.cards.filter((element) => match(element));
       if (gone.length === 0) return b;
-      for (const c of gone) touches?.removed.set(c.uid, true);
+      for (const c of gone) {
+        touches?.removed.set(c.uid, true);
+        pendingCardLabels.current.delete(c.id);
+      }
       return {
         ...b,
         cards: b.cards.filter((c) => !match(c)),
@@ -1224,7 +1258,12 @@ export function useBoard() {
         const prepared = carryParent(dropUnknownLabels(c, b.labels), stored);
         return keepPosition && stored ? { ...prepared, position: stored.position } : prepared;
       });
-      if (!cardStale) record(card.id);
+      if (!cardStale) {
+        record(card.id);
+        const unknown = card.labels.filter((l) => !b.labels.some((bl) => bl.id === l.id));
+        if (unknown.length > 0) pendingCardLabels.current.set(card.id, unknown);
+        else pendingCardLabels.current.delete(card.id);
+      }
       // Only a copy that was applied counts as a write: a frame #1969 dropped
       // as stale must not protect a pre-fetch copy from the snapshot (#2038).
       if (stored && !cardStale) touches?.written.add(card.id);
@@ -1260,8 +1299,28 @@ export function useBoard() {
 
   // An upsert, not an append: replayed over a snapshot that already lists the
   // label (#2130), an append would show it twice.
+  // A card.updated echo can beat its label.created (#1933): updateCard stripped
+  // the then-unknown label and parked it in pendingCardLabels, so it is put back
+  // on those cards here. The ref is read inside the updater, not when addLabel is
+  // called, because updateCard fills it from its own updater, which may not have
+  // run yet when both frames land in one React batch. Reading is idempotent (a
+  // re-run gives the same result and nothing is deleted here); an entry is
+  // dropped by the card's next frame, a card removal, removeLabel or a snapshot.
   const addLabel = useCallback((label: Label) => {
-    writeBoard((b) => ({ ...b, labels: upsertById(b.labels, label) }));
+    writeBoard((b) => {
+      const restore = new Set<number>();
+      for (const [cardId, labels] of pendingCardLabels.current) {
+        if (labels.some((l) => l.id === label.id)) restore.add(cardId);
+      }
+      return {
+        ...b,
+        labels: upsertById(b.labels, label),
+        cards: restore.size === 0 ? b.cards : b.cards.map((c) =>
+          restore.has(c.id) && !c.labels.some((l) => l.id === label.id)
+            ? { ...c, labels: [...c.labels, label] }
+            : c),
+      };
+    });
   }, [writeBoard]);
 
   const updateLabel = useCallback((label: Label) => {
@@ -1279,6 +1338,11 @@ export function useBoard() {
   }, [writeBoard]);
 
   const removeLabel = useCallback((labelUid: string) => {
+    for (const [cardId, labels] of pendingCardLabels.current) {
+      const rest = labels.filter((l) => l.uid !== labelUid);
+      if (rest.length === 0) pendingCardLabels.current.delete(cardId);
+      else if (rest.length !== labels.length) pendingCardLabels.current.set(cardId, rest);
+    }
     // The server drops the card<->label M2M rows silently and broadcasts only
     // `label.deleted` (no per-card `card.updated`), so strip the label from
     // every local card too (#1888); CardItem renders card.labels unfiltered.

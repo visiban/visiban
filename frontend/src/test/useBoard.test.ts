@@ -1274,6 +1274,99 @@ describe('useBoard', () => {
     expect(result.current.board!.labels).toHaveLength(1)
   })
 
+  describe('card.updated racing label.created (#1933)', () => {
+    const neu = { id: 9, uid: 'lbluid000009', name: 'New', color: '#3B82F6' }
+    async function setup() {
+      const base = makeBoard({ labels: [] })
+      const tmpl = base.cards[0]
+      mockGetBoardFull.mockResolvedValue({ ...base, cards: [{ ...tmpl, id: 101, uid: 'carduid00101', labels: [] }] })
+      const hook = renderHook(() => useBoard())
+      await waitFor(() => expect(hook.result.current.board).not.toBeNull())
+      return hook
+    }
+
+    it('keeps the label when the card echo arrives before label.created', async () => {
+      const { result } = await setup()
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.labels).toEqual([neu])
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('is unchanged when label.created arrives first', async () => {
+      const { result } = await setup()
+      act(() => { result.current.addLabel(neu) })
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo) })
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('does not restore a label a later card frame removed', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.updateCard({ ...card, labels: [], version: 3 }) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
+    it('restores the label when both frames land in one React batch', async () => {
+      const { result } = await setup()
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo); result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('does not restore onto a card that was removed or archived first', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.removeCard(card.id) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards).toEqual([])
+      // Re-added later with no labels, the stale entry must not leak onto it.
+      act(() => { result.current.addCard({ ...card, labels: [], version: 5 }) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
+    it('drops the pending label of an archived card', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.archiveCard(card.id) })
+      act(() => { result.current.addCard({ ...card, labels: [], version: 6 }) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
+    it('keeps the parked label of a card written during a /full/ fetch (#1933)', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      let resolve!: (b: BoardFull) => void
+      mockGetBoardFull.mockReturnValueOnce(new Promise<BoardFull>((res) => { resolve = res }))
+      act(() => { result.current.silentReload() })
+      // The echo lands mid-fetch and strips the not-yet-known label.
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      // The snapshot was read before the echo and the new label.
+      await act(async () => { resolve(makeBoard({ labels: [], cards: [{ ...card, labels: [], version: 1 }] })) })
+      await waitFor(() => expect(result.current.loading).toBe(false))
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].version).toBe(2)
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('does not restore a label that was deleted before it was created here', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.removeLabel(neu.uid) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+  })
+
   it('updateLabel propagates name/color onto cards holding it, preserving other cards (#1888)', async () => {
     const bug = { id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }
     const keep = { id: 2, uid: 'lbluid000002', name: 'Keep', color: '#22C55E' }
