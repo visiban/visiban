@@ -3812,6 +3812,10 @@ class ChildrenViewLaneSerializer(_ChildrenViewTotalsSerializer):
     doing = serializers.IntegerField()
     todo = serializers.IntegerField()
     folded = serializers.IntegerField(help_text="Parents you can open with nothing in progress.")
+    last_moved_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text="Most recent move of any child you can open under this lane; null when none. Never reflects hidden children.",
+    )
 
 
 class ChildrenViewChildSerializer(serializers.Serializer):

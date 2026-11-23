@@ -102,7 +102,7 @@ def _empty_lane(lane_id, name, position):
         "id": lane_id, "name": name, "position": position,
         "parents": 0, "child_boards": 0,
         "total": 0, "in_progress": 0, "done": 0, "doing": 0, "todo": 0, "blocked": 0,
-        "hidden": 0, "folded": 0,
+        "hidden": 0, "folded": 0, "last_moved_at": None,
     }
 
 
@@ -188,6 +188,11 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
         for k in ("total", *_STATES):
             lane[k] += e[k]
         lane["folded"] += 1 if e["folded"] else 0
+        # Visible rows only: a hidden child's move must never reach the lane
+        # (a locked row's last_moved_at was already cleared above).
+        moved = e["last_moved_at"]
+        if moved is not None and (lane["last_moved_at"] is None or moved > lane["last_moved_at"]):
+            lane["last_moved_at"] = moved
     for pk, lane in lane_out.items():
         lane["in_progress"] = lane["total"] - lane["done"]
         lane["child_boards"] = len(lane_boards[pk])
@@ -205,6 +210,9 @@ def children_view_for_viewer(board, user, *, lane_id=None, cursor=None, include_
     page = ordered[:page_size]
     next_cursor = encode_cursor(page[-1][0]) if len(ordered) > page_size else None
     lane_list = list(lane_out.values())
+    for lane in lane_list:
+        moved = lane["last_moved_at"]
+        lane["last_moved_at"] = _datetime.to_representation(moved) if moved else None
     return {
         "board_total": {
             "in_progress": sum(lane["in_progress"] for lane in lane_list),

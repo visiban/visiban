@@ -1064,6 +1064,8 @@ export interface ChildrenViewLane extends ChildrenViewTotals {
   todo: number;
   /** Parents you can open with nothing in progress. */
   folded: number;
+  /** Most recent move of a child you can open under the lane; null when none. Never reflects hidden children. */
+  last_moved_at: string | null;
 }
 
 /** A compact child card in a Children mode row (#2370). */

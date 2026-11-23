@@ -13,6 +13,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
@@ -27,7 +28,7 @@ from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonsch
 
 LANE_KEYS = {
     "id", "name", "position", "parents", "child_boards", "total", "in_progress",
-    "done", "doing", "todo", "blocked", "hidden", "folded",
+    "done", "doing", "todo", "blocked", "hidden", "folded", "last_moved_at",
 }
 ROW_KEYS = {
     "id", "title", "swimlane_id", "column_id", "column_name", "assignee", "rollup",
@@ -161,7 +162,16 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         self.assertNotIn(self.hboard.pk, [b["id"] for b in body["child_boards"]])
 
     def test_hidden_child_state_never_changes_the_viewers_read(self):
+        # A visible, unblocked, never-moved neighbor in the locked row's lane: an
+        # order leak (hidden blocked state or move time reaching the sort key)
+        # would lift the locked row ahead of it, which a lone row cannot show.
+        vis = _make_card(self.parent.column, self.lane2, title="visible neighbor")
+        CardParentLink.objects.create(
+            parent=vis, child=_make_card(self.col_doing, self.lane_c, title="vis kid"), created_by=self.owner,
+        )
         before = self._view(self.viewer)
+        lane2_ids = [r["id"] for r in before["rows"] if r["swimlane_id"] == self.lane2.pk]
+        self.assertEqual(lane2_ids, [vis.pk, self.locked_parent.pk])
         # Block one hidden child, move the other to done, move it recently.
         h1, h2 = self.hidden_children
         h1.blocked_at = timezone.now()
@@ -170,7 +180,34 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
         h2.column = hdone
         h2.save(update_fields=["column"])
         CardMovement.objects.create(card=h2, board=self.hboard, to_column=hdone, moved_by=self.owner)
-        self.assertEqual(self._view(self.viewer), before)
+        after = self._view(self.viewer)
+        self.assertEqual(after, before)
+        self.assertEqual([r["id"] for r in after["rows"] if r["swimlane_id"] == self.lane2.pk],
+                         [vis.pk, self.locked_parent.pk])
+
+    def _move(self, card, board, column, ago):
+        m = CardMovement.objects.create(card=card, board=board, to_column=column, moved_by=self.owner)
+        stamp = timezone.now() - ago
+        CardMovement.objects.filter(pk=m.pk).update(moved_at=stamp)
+        return stamp
+
+    def test_lane_last_moved_at_is_the_max_over_visible_rows(self):
+        self._move(self.doing, self.cboard, self.col_doing, timedelta(days=9))
+        newest = self._move(self.todo, self.cboard, self.todo.column, timedelta(days=2))
+        body = self._view(self.viewer)
+        lanes = {lane["id"]: lane for lane in body["lanes"]}
+        visible = [r["rollup"]["last_moved_at"] for r in body["rows"]
+                   if r["swimlane_id"] == self.lane_p.pk and r["rollup"]["last_moved_at"]]
+        self.assertEqual(lanes[self.lane_p.pk]["last_moved_at"], max(visible))
+        self.assertEqual(parse_datetime(lanes[self.lane_p.pk]["last_moved_at"]), newest)
+        self.assertIsNone(lanes[self.lane2.pk]["last_moved_at"])
+
+    def test_hidden_child_move_never_changes_the_lane_last_moved_at(self):
+        before = {lane["id"]: lane["last_moved_at"] for lane in self._view(self.viewer)["lanes"]}
+        self._move(self.hidden_children[0], self.hboard, self.hcol2, timedelta(minutes=1))
+        after = {lane["id"]: lane["last_moved_at"] for lane in self._view(self.viewer)["lanes"]}
+        self.assertEqual(after, before)
+        self.assertIsNone(after[self.lane2.pk])
 
     def test_archived_children_are_not_counted(self):
         for c in self.hidden_children:

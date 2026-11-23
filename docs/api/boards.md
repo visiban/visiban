@@ -2754,7 +2754,8 @@ A malformed `lane`, `cursor` or `done` is `400` with `code: "invalid_query_param
 {"board_total": {"in_progress": 4, "total": 5, "blocked": 2, "hidden": 4},
  "lanes": [{"id": 3, "name": "Acme Corp", "position": 0, "parents": 2,
             "child_boards": 1, "total": 5, "in_progress": 4, "done": 1,
-            "doing": 1, "todo": 1, "blocked": 2, "hidden": 4, "folded": 0}],
+            "doing": 1, "todo": 1, "blocked": 2, "hidden": 4, "folded": 0,
+            "last_moved_at": "2026-11-20T10:00:00Z"}],
  "rows": [{"id": 40, "title": "Analytics module", "swimlane_id": 3,
            "column_id": 9, "column_name": "Proposal", "assignee": null,
            "rollup": {"visible": true, "total": 5, "done": 1, "doing": 1,
@@ -2784,7 +2785,7 @@ The example lists one of row 40's four not-done children, for brevity.
 | Field | Meaning |
 |---|---|
 | `board_total` | `in_progress`, `total`, `blocked` and `hidden` summed over every lane. |
-| `lanes[]` | Every lane of the board, in lane order: `id`, `name`, `position`; `parents` (parent rows, locked rows included); `child_boards` (distinct child boards you can open); `total` (live children you can open); `in_progress` (`total` minus `done`); `done`, `doing`, `todo`, `blocked`; `hidden` (live children on boards you can't open); `folded` (parents you can open with nothing in progress). |
+| `lanes[]` | Every lane of the board, in lane order: `id`, `name`, `position`; `parents` (parent rows, locked rows included); `child_boards` (distinct child boards you can open); `total` (live children you can open); `in_progress` (`total` minus `done`); `done`, `doing`, `todo`, `blocked`; `hidden` (live children on boards you can't open); `folded` (parents you can open with nothing in progress); `last_moved_at` (the most recent move of any child you can open under the lane, `null` when none; a hidden child's move never changes it). |
 | `rows[]` | `id`, `title`, `swimlane_id`, `column_id`, `column_name` (the parent's own), `assignee` (or `null`), `rollup` (the card's `children_rollup` shape), `in_progress` (`null` on a locked row), `folded` (always `false` on a locked row), `child_board_id` (`null` on a locked row), `children[]`. |
 | `rows[].children[]` | `id`, `title`, `column_id`, `swimlane_id`, `position`, `state` (`todo`, `doing`, `blocked` or `done`), `assignee` (or `null`), `blocked`, `blocked_at` (the manual block's start, else `null`). Not-done children, plus done ones with `done=true`, ordered by column then position. |
 | `child_boards[]` | `id`, `name`, `role` (your role there: `admin`, `member`, `collaborator`, `viewer` or `site_admin`), `enforce_wip_limits`, `enforce_wip_hard`, `columns[]` (`id`, `name`, `color`, `wip_limit` or `null`, `is_done`, `card_count`). |

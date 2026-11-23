@@ -66,6 +66,7 @@ frontend/coverage/
 # committed baseline file (backend/schemathesis-baseline.json), which is
 # tracked deliberately
 backend/.schemathesis/
+**/.schemathesis/
 backend/schemathesis-report/
 
 # SonarQube analysis cache and local scanner working directory (#1369) — the
