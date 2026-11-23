@@ -855,6 +855,10 @@ dependencies:
     if grep -qF -- 'sh scripts/extract-release-notes.sh "${VERSION}" CHANGELOG.md' "$_ci"; then
       echo "SELF-TEST OK: wiring: github-release job uses the shared extractor"
     else echo "SELF-TEST FAILED: wiring: github-release job must call scripts/extract-release-notes.sh" >&2; rc=1; fi
+    # #2537: GitHub refuses a body over 125,000 characters; the job must cap it.
+    if grep -qF -- '| sh scripts/cap-release-notes.sh 124000 ' "$_ci"; then
+      echo "SELF-TEST OK: wiring: github-release job caps the body under GitHub's limit"
+    else echo "SELF-TEST FAILED: wiring: github-release job must pipe the notes through scripts/cap-release-notes.sh" >&2; rc=1; fi
   fi
 
   # The summary must reach confirm_release_notes' input: the gate sees the combined body.
