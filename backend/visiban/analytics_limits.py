@@ -6,7 +6,7 @@ Kept free of Django app imports so ``settings.py`` can call it.
 from django.core.exceptions import ImproperlyConfigured
 
 DEFAULT_ANALYTICS_MAX_CONCURRENT = 1
-DEFAULT_ANALYTICS_MAX_MOVEMENTS = 400_000
+DEFAULT_ANALYTICS_MAX_MOVEMENTS = 150_000
 
 
 def parse_positive_int(raw, *, name, default):

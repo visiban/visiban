@@ -1051,7 +1051,7 @@ deleted) carry no actor.
 *Since 1.3 (#2428).* Every request that replays a board's history through
 `flow_metrics.load_*` takes a slot from
 `boards.services.analytics_admission.analytics_slot` first, on every
-transport, and reads against one movement budget. The order is fixed: authorize
+transport, and counts its movement rows against one budget: held rows against `ANALYTICS_MAX_MOVEMENTS`, rows a pass folds and drops against a fixed ceiling of `STREAMED_ROWS_MULTIPLE` times it. The order is fixed: authorize
 the board (Rule 7's `404`), validate parameters (`400`), then take the slot, so
 a refusal never answers for a board the caller cannot see. The slot is keyed on
 the user (`user.pk`, never the token), is released in `try`/`finally`, is
@@ -1064,7 +1064,7 @@ constant: no counts, limits or queue positions.
 |---|---|---|
 | REST | `boards/views/analytics.py` `BoardAnalyticsMixin`: `summary`, `analytics`, `metrics_cycle_time`, `metrics_swimlanes`, `metrics_throughput`, `metrics_cumulative_flow` (with and without `date`), `metrics_wip_age`, `metrics_dwell`, `metrics_blocked`, `metrics_attention`, `metrics_overview` | `_analytics_slot(request, board, "<action>")` after `get_board_for_user` and parameter validation; waits a bounded time, then `503` |
 | MCP | `mcp_server/tools.py` `board_flow_metrics`, `aging_cards` | `analytics_slot(..., wait=False)` after `_resolve_board` and argument validation, inside the tool body; refusals through `_error_payload` |
-| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows` | with no active slot, every load still reads against `settings.ANALYTICS_MAX_MOVEMENTS` and raises `AnalyticsTooLarge`, never unlimited |
+| Direct service callers (enterprise, management commands) | `boards/services/flow_metrics.py` `_movement_rows`, `analytics_admission.row_counter` | with no active slot, every load gets a fresh counter at `settings.ANALYTICS_MAX_MOVEMENTS` (and its streamed ceiling) and raises `AnalyticsTooLarge`, never unlimited; any new loop over movement rows calls `row_counter().count_rows(n, held=...)` |
 
 Tests: `boards/tests/test_analytics_admission_2428.py` (`CoveragePinTests`
 fails when an analytics action that calls `flow_metrics.load_*` is not gated,

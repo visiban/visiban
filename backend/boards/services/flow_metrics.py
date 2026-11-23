@@ -897,12 +897,14 @@ def _movement_from_row(row, interned, column_ids):
     )
 
 
-def _movement_rows(selected, *, column_ids=False):
+def _movement_rows(selected, *, column_ids=False, held=True):
     """``(card_id, _Movement)`` for every movement of ``selected``, by card then ``(moved_at, id)``.
 
     Streamed in chunks, so a caller that folds each card's rows as they arrive
     holds one card's history at a time. ``column_ids`` also reads the raw
     ``to_column_id`` (a local column, no join) into ``_Movement.to_column_id``.
+    ``held=False`` is for such a folding caller: its rows count against the
+    wider streamed ceiling, not the held-rows budget (#2428).
     """
     fields = (*_MOVEMENT_FIELDS, "to_column_id") if column_ids else _MOVEMENT_FIELDS
     movements = (
@@ -913,19 +915,13 @@ def _movement_rows(selected, *, column_ids=False):
     # One int object per column id rather than one per row: the ids repeat on
     # every row, and on a year of history that is ~600k ints (#2451).
     interned: dict = {}
-    # The size limit (#2428): rows are counted as they stream, against the
-    # request's ticket when one is active (so every load of one request shares
-    # one budget), else against ANALYTICS_MAX_MOVEMENTS for this load alone.
-    # Refused at the first row past the budget, before more are held.
-    ticket = analytics_admission.active_ticket()
-    budget = ticket.budget if ticket is not None else analytics_admission.movement_budget()
-    counted = ticket.movements if ticket is not None else 0
+    # The size limit (#2428): rows are counted as they stream, on the
+    # request's ticket when one is active (every load of one request shares
+    # it), else on a per-load counter at ANALYTICS_MAX_MOVEMENTS. Refused at
+    # the first row past the limit, before more are held.
+    counter = analytics_admission.row_counter()
     for row in movements.iterator(chunk_size=2000):
-        counted += 1
-        if ticket is not None:
-            ticket.movements = counted
-        if counted > budget:
-            raise analytics_admission.AnalyticsTooLarge()
+        counter.count_rows(1, held=held)
         yield _movement_from_row(row, interned, column_ids)
 
 

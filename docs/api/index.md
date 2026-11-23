@@ -270,14 +270,18 @@ or waiting, in which case the refusal is immediate):
 ```
 
 with `503 Service Unavailable` and `Retry-After: 10`. Retry after that many
-seconds. When the board has more movement history than one request may read:
+seconds. When the request needs more of the board's movement history than one request may hold:
 
 ```json
-{ "code": "analytics_too_large", "detail": "This board has too much history to analyze in one request on this server. Try a shorter date range, or ask your administrator." }
+{ "code": "analytics_too_large", "detail": "This board has more history than this server is set up to analyze in one request. Ask your administrator to raise the server's analytics limit." }
 ```
 
 with `422 Unprocessable Entity`. Retrying the same request does not help; an
-administrator raises `ANALYTICS_MAX_MOVEMENTS`. Both bodies are always exactly
+administrator raises `ANALYTICS_MAX_MOVEMENTS`. A shorter `days` range helps only
+where the request's held history follows the range (most `metrics/*` charts); it
+does not help the `date` drill-down, which reads the whole history. The rows are
+counted as they are read, so this refusal can take as long as reading up to the
+limit. Both bodies are always exactly
 these: they never include counts, limits or queue positions. Match on `code`,
 not on the status alone. A board you cannot access is still `404`, and a bad
 parameter still `400`, whatever the limits.

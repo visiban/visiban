@@ -409,7 +409,7 @@ larger. These codes and settings follow the 1.0+ compatibility rules.
 | Variable | Description | Default |
 |---|---|---|
 | `ANALYTICS_MAX_CONCURRENT` | Analytics requests one server process computes at once. A request that finds every slot taken waits up to 8 seconds for one (REST) or is refused at once (MCP) with `503` `analytics_busy` and `Retry-After: 10`. Helm: `backend.settings.analyticsMaxConcurrent`. | `1` |
-| `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may read. A request that would read more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `400000` |
+| `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range) has a fixed ceiling of four times this instead. A request that needs more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `150000` |
 
 Both must be a whole number of at least 1; blank keeps the default. Unlike the
 attachment and comment quotas, `0` does **not** mean "no limit": there is no
@@ -424,15 +424,28 @@ there is effectively the process-wide one.
 
 ### Sizing analytics for your pod
 
-One Analytics request's memory grows with the movement rows it reads, so the
-size limit is what bounds it. Size a pod so that:
+One Analytics request's memory grows with the movement rows it holds, so the
+size limit is what bounds it. Rows a pass reads one card at a time and drops
+cost CPU time, not memory; they are bounded by the fixed ceiling of four times
+`ANALYTICS_MAX_MOVEMENTS`, so even a runaway pass ends. Rows are counted as
+they are read: a request over a limit is refused once it has read up to that
+limit, and holds its slot until then. Size a pod so that:
 
 ```
 baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) < the pod's memory limit
 ```
 
+The defaults are a starting point for the chart's default `512Mi` memory and
+`500m` CPU limits, to be tuned for each deployment. As an example, on a server
+whose baseline is about 120 MB, one Overview request holding close to the default
+150000 rows peaked at roughly 150-190 MB above that baseline (more for a longer
+range; a single chart costs less), so `ANALYTICS_MAX_CONCURRENT=1` leaves headroom
+for the rest of the process's work under `512Mi`. Measure your
+own peak (the `analytics.replay` log line reports each request's `movements`
+held and `streamed`) before raising either setting.
+
 Raise `ANALYTICS_MAX_MOVEMENTS` (and the pod's memory limit with it) when a
-board's Analytics page says the board has too much history. Raise
+board's Analytics page says the board has more history than the server is set up to analyze. Raise
 `ANALYTICS_MAX_CONCURRENT` only with more CPU and memory per pod: analytics is
 CPU-bound, so two requests at once in one process take about twice as long
 each. A request waiting for a slot uses a database connection, so with

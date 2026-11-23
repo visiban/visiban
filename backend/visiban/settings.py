@@ -610,8 +610,9 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
 # Analytics limits (#2428): every flow/analytics request is admitted through
 # boards.services.analytics_admission. ANALYTICS_MAX_CONCURRENT is how many
 # run at once in one server process; ANALYTICS_MAX_MOVEMENTS is how many
-# movement rows one request may read before it is refused with
-# `analytics_too_large`. Size a pod as: baseline memory + ANALYTICS_MAX_CONCURRENT
+# movement rows one request may hold in memory before it is refused with
+# `analytics_too_large` (rows a pass folds and drops card by card count
+# against a fixed multiple of it, analytics_admission.STREAMED_ROWS_MULTIPLE). Size a pod as: baseline memory + ANALYTICS_MAX_CONCURRENT
 # x one request's peak at ANALYTICS_MAX_MOVEMENTS < the pod's memory limit
 # (docs/administration/configuration.md). Unlike the ATTACHMENT_MAX_* quotas,
 # 0 is not "no limit": there is no off switch, and 0, a negative number or a

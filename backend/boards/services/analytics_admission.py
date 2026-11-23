@@ -11,14 +11,20 @@ Two limits, both operator settings:
   The count is kept in-process on purpose, never in the cache: a shared cache
   that cannot be reached would have to either refuse everything or admit
   everything, and the limit exists to bound this process's own work.
-- ``ANALYTICS_MAX_MOVEMENTS``: how many movement rows one request may read.
-  ``flow_metrics._movement_rows`` counts rows as it streams them against the
-  active ticket, so a request is refused as soon as it passes the budget,
-  before it holds more than that many rows, with no extra COUNT query.
+- ``ANALYTICS_MAX_MOVEMENTS``: how many movement rows one request may hold
+  in memory. A load that keeps the rows it reads (``load_board_flow``) counts
+  them as ``held``; a pass that folds each card's rows and drops them (the
+  cumulative-flow settled pass) counts them as streamed, against a fixed
+  internal ceiling of ``STREAMED_ROWS_MULTIPLE`` times the same setting.
+  Held rows are what one request's memory grows with; streamed rows cost
+  CPU time, not memory, so they get the wider ceiling, and a runaway still
+  stops with the same ``analytics_too_large``. Rows are counted as they
+  stream (``Ticket.count_rows``), so a request is refused at the first row
+  past its budget, with no extra COUNT query.
 
 A caller with no active ticket (a direct service caller, enterprise code, a
-test) still gets ``settings.ANALYTICS_MAX_MOVEMENTS`` per load, never an
-unlimited one.
+test) gets a fresh per-load counter at ``settings.ANALYTICS_MAX_MOVEMENTS``
+from ``row_counter()``, never an unlimited one.
 
 No caller is exempt, site admins included. The per-user cap is keyed on
 ``user.pk``, so every token of one user shares it. In demo mode every
@@ -51,13 +57,22 @@ MAX_WAITERS = 4
 # never wait.
 REST_WAIT_SECONDS = 8.0
 RETRY_AFTER_SECONDS = 10
+# The ceiling on streamed rows, as a multiple of ANALYTICS_MAX_MOVEMENTS. A
+# streamed row is folded into its card's placement and dropped, so it costs
+# CPU time and no lasting memory; the ceiling exists only so a runaway pass
+# still ends. Four times the default budget is 600k rows: a streamed row
+# costs some tens of microseconds of replay, so a pass at the ceiling stays
+# well inside the proxy's 90 s read timeout at the chart's default CPU limit,
+# while a board several years old whose recent history fits the budget still
+# gets its whole-history pass.
+STREAMED_ROWS_MULTIPLE = 4
 
 ANALYTICS_BUSY_CODE = "analytics_busy"
 ANALYTICS_BUSY_DETAIL = "Analytics is busy on this server right now. Try again in a moment."
 ANALYTICS_TOO_LARGE_CODE = "analytics_too_large"
 ANALYTICS_TOO_LARGE_DETAIL = (
-    "This board has too much history to analyze in one request on this server. "
-    "Try a shorter date range, or ask your administrator."
+    "This board has more history than this server is set up to analyze in one request. "
+    "Ask your administrator to raise the server's analytics limit."
 )
 
 
@@ -105,13 +120,34 @@ class AnalyticsTooLarge(APIException):
 
 
 class Ticket:
-    """One admitted request's movement budget, shared by every load it runs."""
+    """One request's movement budget, shared by every load it runs.
 
-    __slots__ = ("budget", "movements")
+    ``movements`` counts held rows against ``budget``; ``streamed`` counts
+    rows a pass folds and drops, against ``budget * STREAMED_ROWS_MULTIPLE``.
+    """
+
+    __slots__ = ("budget", "movements", "streamed")
 
     def __init__(self, budget):
         self.budget = budget
         self.movements = 0
+        self.streamed = 0
+
+    def count_rows(self, n, *, held):
+        """Count ``n`` rows just read; raise ``AnalyticsTooLarge`` past the limit.
+
+        ``held`` is whether the caller keeps the rows until the load ends
+        (memory) or folds and drops them as they pass (CPU only). A loop over
+        movement rows calls this once per row (or per chunk) before using it.
+        """
+        if held:
+            self.movements += n
+            if self.movements > self.budget:
+                raise AnalyticsTooLarge()
+        else:
+            self.streamed += n
+            if self.streamed > self.budget * STREAMED_ROWS_MULTIPLE:
+                raise AnalyticsTooLarge()
 
 
 _cond = threading.Condition()
@@ -132,6 +168,16 @@ def active_ticket():
 def movement_budget():
     """The movement budget a load reads against when no ticket is active."""
     return settings.ANALYTICS_MAX_MOVEMENTS
+
+
+def row_counter():
+    """The counter a load counts its rows on: the request's ticket, else a fresh one.
+
+    Absent input never means unlimited (#1075): with no active ticket the
+    load gets its own counter at ``ANALYTICS_MAX_MOVEMENTS``.
+    """
+    ticket = active_ticket()
+    return ticket if ticket is not None else Ticket(movement_budget())
 
 
 def _user_key(user):
@@ -155,23 +201,24 @@ def _admit(key, wait):
                 return False
             _in_flight[key] = _in_flight.get(key, 0) + 1
             _waiting += 1
+            # Every way out of the wait that does not take the slot (a time
+            # out, or an exception from the test seam or from the wait
+            # itself) gives the user's in-flight count back.
+            admitted = False
             try:
                 if _on_wait is not None:
                     _on_wait()
-            except BaseException:
-                _waiting -= 1
-                _release_key(key)
-                raise
-            try:
                 deadline = time.monotonic() + REST_WAIT_SECONDS
                 while _running >= limit:
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
-                        _release_key(key)
                         return False
                     _cond.wait(remaining)
+                admitted = True
             finally:
                 _waiting -= 1
+                if not admitted:
+                    _release_key(key)
         else:
             _in_flight[key] = _in_flight.get(key, 0) + 1
         _running += 1
@@ -195,10 +242,10 @@ def _release(key):
         _cond.notify()
 
 
-def _log(user_id, board_id, endpoint, movements, started, outcome):
+def _log(user_id, board_id, endpoint, movements, streamed, started, outcome):
     logger.info(
-        "analytics.replay user_id=%d board_id=%d endpoint=%s movements=%d duration_ms=%d outcome=%s",
-        user_id, board_id, endpoint, movements, int((time.monotonic() - started) * 1000), outcome,
+        "analytics.replay user_id=%d board_id=%d endpoint=%s movements=%d streamed=%d duration_ms=%d outcome=%s",
+        user_id, board_id, endpoint, movements, streamed, int((time.monotonic() - started) * 1000), outcome,
     )
 
 
@@ -215,7 +262,7 @@ def analytics_slot(user, *, board_id, endpoint, wait=False):
     key = _user_key(user)
     started = time.monotonic()
     if not _admit(key, wait):
-        _log(key, board_id, endpoint, 0, started, "busy")
+        _log(key, board_id, endpoint, 0, 0, started, "busy")
         raise AnalyticsBusy()
     ticket = Ticket(movement_budget())
     previous = active_ticket()
@@ -230,7 +277,7 @@ def analytics_slot(user, *, board_id, endpoint, wait=False):
     finally:
         _local.ticket = previous
         _release(key)
-        _log(key, board_id, endpoint, ticket.movements, started, outcome)
+        _log(key, board_id, endpoint, ticket.movements, ticket.streamed, started, outcome)
 
 
 def occupancy():

@@ -22,7 +22,7 @@ from django.test import SimpleTestCase, TransactionTestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane
+from boards.models import Board, BoardMembership, CardMovement, Column, Swimlane
 from boards.services import analytics_admission as admission
 from boards.services import flow_metrics
 from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTooLarge, analytics_slot
@@ -127,6 +127,30 @@ class AdmissionTests(SimpleTestCase):
                     with analytics_slot(_user(2), board_id=1, endpoint="test", wait=True):
                         self.fail("admitted past the wait")
 
+    def _assert_a_failed_wait_gives_the_slot_back(self, patch):
+        holder = _Holder(_user(1)).start()
+        holder.entered.wait()
+        try:
+            with patch, self.assertRaises(RuntimeError):
+                with analytics_slot(_user(2), board_id=1, endpoint="test", wait=True):
+                    self.fail("admitted past a failed wait")
+            self.assertEqual(admission.occupancy(), (1, 0, {1: 1}))
+        finally:
+            holder.release()
+        _assert_idle(self)
+        with analytics_slot(_user(2), board_id=1, endpoint="test", wait=True):
+            pass
+
+    def test_an_error_from_the_wait_hook_gives_the_slot_back(self):
+        self._assert_a_failed_wait_gives_the_slot_back(
+            mock.patch.object(admission, "_on_wait", side_effect=RuntimeError("hook")),
+        )
+
+    def test_an_error_from_the_wait_itself_gives_the_slot_back(self):
+        self._assert_a_failed_wait_gives_the_slot_back(
+            mock.patch.object(admission._cond, "wait", side_effect=RuntimeError("wait")),
+        )
+
     def test_absent_user_is_never_admitted(self):
         for user in (None, AnonymousUser(), SimpleNamespace(pk=None, is_authenticated=True)):
             with self.subTest(user=user), self.assertRaises(ValueError):
@@ -167,7 +191,7 @@ class AdmissionTests(SimpleTestCase):
                         pass
         self.assertRegex(
             logs.output[0],
-            r"analytics\.replay user_id=7 board_id=3 endpoint=metrics_overview movements=0 duration_ms=\d+ outcome=ok",
+            r"analytics\.replay user_id=7 board_id=3 endpoint=metrics_overview movements=0 streamed=0 duration_ms=\d+ outcome=ok",
         )
         self.assertIn("user_id=8 board_id=3 endpoint=metrics_overview movements=0", logs.output[1])
         self.assertIn("outcome=busy", logs.output[1])
@@ -265,17 +289,64 @@ class AnalyticsGateViewTests(FlowFixture):
         with override_settings(ANALYTICS_MAX_MOVEMENTS=100):
             self.assertEqual(self.client.get(self.url("metrics/overview/")).status_code, 200)
 
-    def test_settled_pass_counts_against_the_same_budget(self):
-        # Archived long before the range: only the cumulative-flow settled pass reads it.
-        self.path(self.backlog, 400, self.doing, 390, self.done, 380, archived=370)
-        self.path(self.backlog, 400, self.doing, 390, self.done, 380, archived=370)
+    def _age_the_board(self, generations=2):
+        # Archived long before the range: only the cumulative-flow settled pass
+        # reads these, card by card, so the board is old but its range is small.
+        for g in range(generations):
+            start = 400 + 100 * g
+            for _ in range(2):
+                self.path(self.backlog, start, self.doing, start - 10, self.done, start - 20, archived=start - 30)
+
+    def _replay_counts(self, suffix):
+        with self.assertLogs("boards.services.analytics_admission", logging.INFO) as logs:
+            response = self.client.get(self.url(suffix))
+        held, streamed = re.search(r"movements=(\d+) streamed=(\d+) ", logs.output[-1]).groups()
+        return response.status_code, int(held), int(streamed)
+
+    def test_settled_pass_is_streamed_not_held(self):
+        self._age_the_board()
+        moves = CardMovement.objects.filter(card__board=self.board)
+        live = moves.filter(card__archived_at__isnull=True).count()
+        settled = moves.filter(card__archived_at__isnull=False).count()
+        self.assertGreater(settled, live)
         with mock.patch("django.utils.timezone.now", return_value=self.now):
-            with override_settings(ANALYTICS_MAX_MOVEMENTS=5):
-                self.assertEqual(self.client.get(self.url("metrics/cycle-time/?days=30")).status_code, 200)
+            self.assertEqual(self._replay_counts("metrics/cumulative-flow/?days=30"), (200, live, settled))
+            # The held budget is the live history alone: the old history is
+            # well past it and still does not count against it.
+            with override_settings(ANALYTICS_MAX_MOVEMENTS=live):
+                self.assertEqual(self.client.get(self.url("metrics/cumulative-flow/?days=30")).status_code, 200)
+
+    def test_an_old_board_gets_its_overview_while_a_held_overrun_is_refused(self):
+        self._age_the_board()
+        total = CardMovement.objects.filter(card__board=self.board).count()
+        yesterday = (self.now.date() - __import__("datetime").timedelta(days=1)).isoformat()
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            status_code, held, streamed = self._replay_counts("metrics/overview/?days=30")
+            self.assertEqual(status_code, 200)
+            self.assertLess(held, total)
+            self.assertGreater(streamed, 0)
+            with override_settings(ANALYTICS_MAX_MOVEMENTS=held):
+                self.assertEqual(self.client.get(self.url("metrics/overview/?days=30")).status_code, 200)
+                # The day drill-down holds the whole history: past the budget, refused.
+                response = self.client.get(self.url(f"metrics/cumulative-flow/?date={yesterday}"))
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response.json(), AnalyticsTooLarge().body())
+            with override_settings(ANALYTICS_MAX_MOVEMENTS=total):
+                self.assertEqual(self.client.get(self.url(f"metrics/cumulative-flow/?date={yesterday}")).status_code, 200)
+
+    def test_streamed_rows_still_stop_at_the_fixed_ceiling(self):
+        self._age_the_board(generations=4)
+        moves = CardMovement.objects.filter(card__board=self.board)
+        live = moves.filter(card__archived_at__isnull=True).count()
+        settled = moves.filter(card__archived_at__isnull=False).count()
+        with mock.patch("django.utils.timezone.now", return_value=self.now):
+            with override_settings(ANALYTICS_MAX_MOVEMENTS=live), \
+                    mock.patch.object(admission, "STREAMED_ROWS_MULTIPLE", settled // live - 1 or 1):
+                self.assertLess(live * admission.STREAMED_ROWS_MULTIPLE, settled)
                 response = self.client.get(self.url("metrics/cumulative-flow/?days=30"))
             self.assertEqual(response.status_code, 422)
-            with override_settings(ANALYTICS_MAX_MOVEMENTS=50):
-                self.assertEqual(self.client.get(self.url("metrics/cumulative-flow/?days=30")).status_code, 200)
+            self.assertEqual(response.json(), AnalyticsTooLarge().body())
+        self.assertGreaterEqual(admission.STREAMED_ROWS_MULTIPLE, 2)
 
     def test_non_member_gets_404_before_any_refusal(self):
         self.client.force_authenticate(self.outsider)
@@ -324,6 +395,18 @@ class AnalyticsGateViewTests(FlowFixture):
 
 class AbsentTicketTests(FlowFixture):
     """With no active ticket (direct service callers), the settings budget still applies (#1075)."""
+
+    def test_row_counter_without_a_ticket_is_a_fresh_settings_budget(self):
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=3):
+            first, second = admission.row_counter(), admission.row_counter()
+        self.assertIsNot(first, second)
+        self.assertEqual((first.budget, first.movements, first.streamed), (3, 0, 0))
+        first.count_rows(3, held=True)
+        with self.assertRaises(AnalyticsTooLarge):
+            first.count_rows(1, held=True)
+        second.count_rows(3 * admission.STREAMED_ROWS_MULTIPLE, held=False)
+        with self.assertRaises(AnalyticsTooLarge):
+            second.count_rows(1, held=False)
 
     def test_direct_load_enforces_the_settings_budget(self):
         self.path(self.backlog, 20, self.doing, 10, self.done, 5)
