@@ -852,6 +852,8 @@
       
         
       
+        
+      
     
     
     
@@ -921,6 +923,34 @@
     
   
     Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/breaking-work-down/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Breaking Work Down: Which Tool?
   
 
     
@@ -1694,7 +1724,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_29" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_30" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1716,14 +1746,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_29" id="__nav_3_29_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_30" id="__nav_3_30_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_29_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_29">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_30_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_30">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6437,8 +6467,8 @@ blocking, whose <code>blocker_count</code> drops as a result.</p>
 <p>A <code>planned_released</code> entry (#2371) has <code>from_value</code> <code>parent_reached</code> (the parent reached or skipped past the column; no actor) or <code>pulled</code> (the child left To do early), and <code>to_value</code> the child's due date or <code>""</code>. A <code>needed_changed</code> entry has <code>from_value</code> <code>created</code>, <code>manual</code> or <code>column_deleted</code> (no actor) and <code>to_value</code> <code>planned</code> or <code>now</code>. Neither names the parent, its board, its column or the person who moved the parent.</p>
 <p>An <code>unblocked</code> entry's <code>data</code> also carries <code>block_duration_seconds</code> (<em>added in 1.3</em>, #1149): how long the block it closed lasted, or <code>null</code> when no closed block matches (an imported entry whose block history was not imported).</p>
 <p><a id="timeline-gate-entries"></a>
-<strong>Gate entries</strong> (<em>added in 1.3</em>, #2365). A card moving between the sub-columns of a split stage (see <a href="#gated-stages-and-gate-transitions-13-1102">Gated stages and gate transitions</a>) writes a <code>CardGateTransition</code> row per gate crossed, and no movement. Those rows are <code>kind: "gate"</code> entries, with <code>event_type</code> <code>gate_passed</code> or <code>gate_reopened</code>, and <code>data</code> in the same shape as the move response's <code>gate_transitions</code> items (<code>id</code>, <code>card_uid</code>, <code>card_title</code>, <code>column</code>, <code>column_name</code>, <code>column_uid</code>, <code>sub_column_name</code>, <code>sub_column_uid</code>, <code>kind</code>, <code>from_index</code>, <code>to_index</code>, <code>reason</code>, <code>cause</code>, <code>movement</code>, <code>actor</code> as a username, <code>created_at</code>, <code>imported_from_username</code>). <code>sub_column_name</code> is the sub-column the card reached. <code>cause</code> is <code>move</code> for a move between sub-columns, <code>stage_edited</code> when a stage-settings change moved the card (its sub-column was removed), or <code>import</code>.</p>
-<p>A gate crossed as part of a column or lane move is <strong>not</strong> a separate entry: that move's entry carries it in <code>data.from_gates_passed</code>, <code>data.from_gates_open</code> and <code>data.to_gates_passed</code> (also added in 1.3; <code>null</code> when neither column is a split stage). So one move never shows as several entries.</p>
+<strong>Gate entries</strong> (<em>added in 1.3</em>, #2365). A card moving between the sub-columns of a gated stage (see <a href="#gated-stages-and-gate-transitions-13-1102">Gated stages and gate transitions</a>) writes a <code>CardGateTransition</code> row per gate crossed, and no movement. Those rows are <code>kind: "gate"</code> entries, with <code>event_type</code> <code>gate_passed</code> or <code>gate_reopened</code>, and <code>data</code> in the same shape as the move response's <code>gate_transitions</code> items (<code>id</code>, <code>card_uid</code>, <code>card_title</code>, <code>column</code>, <code>column_name</code>, <code>column_uid</code>, <code>sub_column_name</code>, <code>sub_column_uid</code>, <code>kind</code>, <code>from_index</code>, <code>to_index</code>, <code>reason</code>, <code>cause</code>, <code>movement</code>, <code>actor</code> as a username, <code>created_at</code>, <code>imported_from_username</code>). <code>sub_column_name</code> is the sub-column the card reached. <code>cause</code> is <code>move</code> for a move between sub-columns, <code>stage_edited</code> when a stage-settings change moved the card (its sub-column was removed), or <code>import</code>.</p>
+<p>A gate crossed as part of a column or lane move is <strong>not</strong> a separate entry: that move's entry carries it in <code>data.from_gates_passed</code>, <code>data.from_gates_open</code> and <code>data.to_gates_passed</code> (also added in 1.3; <code>null</code> when neither column is a gated stage). So one move never shows as several entries.</p>
 <p>Gate entries are included when <code>event_types</code> is omitted, because omitting it means every event type. A client that names its groups (any list without <code>gate</code>) gets the same entries and <code>count</code> as before 1.3. A client that omits <code>event_types</code> and does not know <code>kind: "gate"</code> should skip those entries; the entry envelope is unchanged.</p>
 <p><strong>Response</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
