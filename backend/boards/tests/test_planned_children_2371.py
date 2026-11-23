@@ -190,6 +190,27 @@ class ViewerFieldTests(PlannedFixture):
         self.assertEqual(out, {})
 
 
+class PlannedFieldSurfaceTests(PlannedFixture):
+    """Rule 19: the share link and MCP take no planned context, so none of the
+    six planned fields, ``needed_now_reason`` included, reaches them."""
+
+    KEYS = {
+        "planned", "needed_now", "needed_at_column", "needed_at_column_name", "planned_released_at",
+        "needed_now_reason",
+    }
+
+    def test_share_link_and_mcp_card_shapes_carry_no_planned_field(self):
+        from boards.serializers import PublicCardSerializer
+        from mcp_server.tools import _serialize_card
+
+        child = self.planned_child()
+        self.move(self.parent, self.pboard, self.proposal, self.plane)
+        self.assertEqual(self.read(child, self.sam)["needed_now_reason"], "parent")
+        self.assertEqual(self.KEYS & set(PublicCardSerializer().fields), set())
+        card = Card.objects.select_related("column", "swimlane").get(pk=child.pk)
+        self.assertEqual(self.KEYS & set(_serialize_card(card)), set())
+
+
 class ReleaseTests(PlannedFixture):
     def test_parent_reaching_the_column_releases_with_an_actorless_row_and_needed_now(self):
         child = self.planned_child(due=datetime.date(2026, 12, 4))
