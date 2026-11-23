@@ -636,7 +636,7 @@ The group `member_preview` (`groups/serializers.py` `GroupSerializer.get_member_
 `groups/counts.py` `prefetch_member_preview`) also reads direct membership rows
 outside the enum, for the home page avatar stack: at most five per group, the
 public user shape only, blanked for a navigation-only group and when the
-serializer has no request context.
+context carries neither `group_access` nor a request.
 
 ## Rule 10: A second transport is no broader than REST for the same role
 

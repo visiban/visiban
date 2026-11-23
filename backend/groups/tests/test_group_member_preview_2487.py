@@ -10,7 +10,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from groups.counts import MEMBER_PREVIEW_LIMIT
+from groups.counts import MEMBER_PREVIEW_LIMIT, prefetch_member_preview
 from groups.models import Group, GroupMembership
 from groups.serializers import GroupSerializer
 
@@ -50,6 +50,13 @@ class GroupMemberPreviewTests(TestCase):
         for u in big["member_preview"]:
             self.assertEqual(set(u), PUBLIC_USER_KEYS)
         self.assertEqual([u["username"] for u in rows["small"]["member_preview"]], ["owner"])
+
+    def test_prefetch_itself_is_bounded_per_group(self):
+        # The serializer also slices in Python, which would hide a missing
+        # rank filter; assert on the prefetched rows themselves.
+        groups = {g.name: g for g in prefetch_member_preview(Group.objects.all())}
+        self.assertEqual(len(groups["big"]._member_preview), MEMBER_PREVIEW_LIMIT)
+        self.assertEqual(len(groups["small"]._member_preview), 1)
 
     def test_list_query_count_does_not_grow_with_groups(self):
         def count():
