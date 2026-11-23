@@ -21,12 +21,13 @@ describe('the Overview busy retry (#2428)', () => {
     analyticsMock.mockRejectedValue(busy)
     const { unmount } = renderHook(() => useAnalyticsOverviewData(1, { days: 90, swimlaneId: null, labelId: null }, 0))
     await vi.advanceTimersByTimeAsync(1_000)
-    expect(vi.getTimerCount()).toBe(2)
+    // The requests go one after the other: only the overview's retry timer is pending.
+    expect(vi.getTimerCount()).toBe(1)
     unmount()
     expect(vi.getTimerCount()).toBe(0)
     await vi.advanceTimersByTimeAsync(10_000)
     expect(overviewMock).toHaveBeenCalledTimes(1)
-    expect(analyticsMock).toHaveBeenCalledTimes(1)
+    expect(analyticsMock).not.toHaveBeenCalled()
   })
 
   it('is dropped on a filter change: only the new filters are retried', async () => {

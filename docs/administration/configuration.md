@@ -417,7 +417,7 @@ off switch, and `0`, a negative number or a non-integer stops the server at
 startup with a configuration error.
 
 No account is exempt, site admins included. Each user may also have at most two
-Analytics requests running or waiting at once (the Analytics page opens two), and
+Analytics requests running or waiting at once (the Analytics page sends two, one after the other), and
 at most four requests wait for a slot per process. In
 [demo mode](demo-data.md) every visitor shares one login, so the per-user limit
 there is effectively the process-wide one.
@@ -452,11 +452,14 @@ each. A request waiting for a slot uses a database connection, so with
 connection pooling on keep `ANALYTICS_MAX_CONCURRENT` + 4 (the waiting
 requests) well under `DATABASE_POOL_MAX_SIZE`.
 
-At the default of 1, the Analytics page's two requests run one after the
-other, and a request that waits more than 8 seconds is refused and retried
-once by the web app after `Retry-After`. On boards whose Analytics takes
-longer than that, or when one person opens Analytics in several tabs at once,
-expect an occasional "busy" message, and raise `ANALYTICS_MAX_CONCURRENT`
+One open of the Analytics page sends its two requests one after the other
+(the overview first, then the heatmap), so the second waits for the first to
+finish and the page's two requests never compete for the same slot. A request
+that waits more than 8 seconds for a slot is refused and retried once by the web
+app after `Retry-After`. A "busy" message therefore means another request,
+yours in another tab or another user's, held the slot beyond that wait. On boards
+whose Analytics takes longer than that, or when several people or tabs open
+Analytics at once, expect a "busy" message, and raise `ANALYTICS_MAX_CONCURRENT`
 together with the pod's CPU and memory.
 
 ---
