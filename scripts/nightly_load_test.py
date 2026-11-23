@@ -241,7 +241,7 @@ _AGED_SCENARIOS = (
     "aged_board_summary", "aged_board_analytics", "aged_board_analytics_365",
     "aged_flow_cycle_time", "aged_flow_throughput", "aged_flow_cumulative_flow",
     "aged_flow_wip_age", "aged_flow_dwell", "aged_flow_blocked", "aged_flow_attention",
-    "aged_flow_swimlanes", "aged_flow_overview",
+    "aged_flow_swimlanes", "aged_flow_overview", "aged_flow_cumulative_flow_day",
 )
 _LINKED_SCENARIOS = ("linked_board_full", "linked_card_list")
 _FANOUT_SCENARIOS = ("analytics_overview", "aged_analytics_overview")
@@ -308,6 +308,12 @@ _OVERVIEW_LIST_LIMIT = 300
 _OVERVIEW_QUERY = f"days={_OVERVIEW_DAYS}&limit={_OVERVIEW_LIST_LIMIT}"
 
 
+def _aged_drill_down_day(today=None):
+    """A UTC day about 18 months back, mid-history on the 3-year aged fixture (#2444)."""
+    today = today or datetime.now(timezone.utc).date()
+    return (today - timedelta(days=540)).isoformat()
+
+
 def _aged_endpoints(base_url, board_id):
     """The scenarios measured on the aged board (#2430), name -> URL."""
     root = f"{base_url}/api/v1/boards/{board_id}"
@@ -320,8 +326,11 @@ def _aged_endpoints(base_url, board_id):
         "aged_board_analytics_365": f"{root}/analytics/?days=365",
         "aged_flow_cycle_time": f"{root}/metrics/cycle-time/",
         "aged_flow_throughput": f"{root}/metrics/throughput/",
-        # #2444: cumulative flow still reads the whole history for any range.
+        # #2444: each card's placement is read from its few deciding rows, not its whole history.
         "aged_flow_cumulative_flow": f"{root}/metrics/cumulative-flow/",
+        # The day drill-down, mid-history (#2444): every filtered card, finished work from any
+        # year included, each from at most four rows.
+        "aged_flow_cumulative_flow_day": f"{root}/metrics/cumulative-flow/?date={_aged_drill_down_day()}",
         "aged_flow_wip_age": f"{root}/metrics/wip-age/",
         "aged_flow_dwell": f"{root}/metrics/dwell/",
         "aged_flow_blocked": f"{root}/metrics/blocked/",

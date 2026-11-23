@@ -302,6 +302,17 @@
       "pending_memory_budget": "#2430",
       "note": "Aged board (#2430): the load-test board's shape plus archived generations, 90 days apart. Measured on the NUC run that re-derives this file (#2430); not gated until then."
     },
+    "aged_flow_cumulative_flow_day": {
+      "method": "GET",
+      "path": "/api/v1/boards/{aged_id}/metrics/cumulative-flow/?date=<today - 540 days>",
+      "measured_p95_ms": null,
+      "measured_p99_ms": null,
+      "budget_p95_ms": null,
+      "pending_budget": "#2430",
+      "budget_peak_rss_mb": null,
+      "pending_memory_budget": "#2430",
+      "note": "Aged board (#2430): the cumulative-flow day drill-down 540 days back, mid-history (#2444). Measured on the NUC run that re-derives this file (#2430); not gated until then."
+    },
     "aged_flow_wip_age": {
       "method": "GET",
       "path": "/api/v1/boards/{aged_id}/metrics/wip-age/",
