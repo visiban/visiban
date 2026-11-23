@@ -17,7 +17,7 @@ from django.utils.dateparse import parse_datetime
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
-from boards.models import BoardMembership, CardMovement, CardParentLink
+from boards.models import BoardMembership, Card, CardMovement, CardParentLink
 from boards.serializers import PublicBoardSerializer
 from boards.services import children_view
 from boards.services.children_view import CHILDREN_VIEW_PAGE_SIZE, children_view_for_viewer
@@ -35,6 +35,12 @@ ROW_KEYS = {
     "in_progress", "folded", "child_board_id", "children",
 }
 STATES = ("done", "doing", "todo", "blocked")
+
+
+def _move_ago(card, board, column, user, ago):
+    """A CardMovement stamped ``ago`` in the past (moved_at is auto-set on create)."""
+    m = CardMovement.objects.create(card=card, board=board, to_column=column, moved_by=user)
+    CardMovement.objects.filter(pk=m.pk).update(moved_at=timezone.now() - ago)
 
 
 class _ViewFixture(_RollupFixture):
@@ -120,13 +126,21 @@ class ChildrenViewReadTests(_ViewFixture, TestCase):
             self.assertEqual(row["rollup"], full[row["id"]]["children_rollup"])
 
     def test_rows_order_blocked_first_then_most_recent_move_folded_last(self):
-        # A second unblocked parent in lane 1 whose child moved most recently.
-        recent = _make_card(self.parent.column, self.lane_p, title="recent")
-        kid = _make_card(self.col_doing, self.lane_c, title="moving")
-        CardParentLink.objects.create(parent=recent, child=kid, created_by=self.owner)
-        CardMovement.objects.create(card=kid, board=self.cboard, to_column=self.col_doing, moved_by=self.owner)
+        # Unblocked parents, created oldest-first: A's child moved 1 day ago, B's
+        # 5 days ago, C's never. Order must be most recent move first with
+        # never-moved last among the unfolded, not creation or id order.
+        made = {}
+        for name, ago in (("A", timedelta(days=1)), ("B", timedelta(days=5)), ("C", None)):
+            made[name] = _make_card(self.parent.column, self.lane_p, title=f"parent {name}")
+            kid = _make_card(self.col_doing, self.lane_c, title=f"kid {name}")
+            CardParentLink.objects.create(parent=made[name], child=kid, created_by=self.owner)
+            if ago is not None:
+                _move_ago(kid, self.cboard, self.col_doing, self.owner, ago)
         ids = [r["id"] for r in self._view(self.viewer)["rows"]]
-        self.assertEqual(ids, [self.parent.pk, recent.pk, self.done_parent.pk, self.locked_parent.pk])
+        self.assertEqual(
+            ids,
+            [self.parent.pk, made["A"].pk, made["B"].pk, made["C"].pk, self.done_parent.pk, self.locked_parent.pk],
+        )
         rows = {r["id"]: r for r in self._view(self.viewer)["rows"]}
         self.assertTrue(rows[self.done_parent.pk]["folded"])
         self.assertFalse(rows[self.parent.pk]["folded"])
@@ -274,6 +288,25 @@ class ChildrenViewPagingTests(_ViewFixture, TestCase):
         # Every page carries every lane's rollup.
         self.assertEqual(second["lanes"], first["lanes"])
 
+    def test_paging_a_lane_with_distinct_move_times_keeps_most_recent_first(self):
+        # Real `moved` keys in the cursor: 22 of the 25 parents have a child
+        # moved at a distinct time, 3 never moved. Expected order is computed
+        # here, independent of the service: newest move first, never-moved last
+        # (newest id first among them).
+        moved_ago = {}
+        for i, pid in enumerate(self.many[:22]):
+            kid = CardParentLink.objects.get(parent_id=pid).child
+            # Scrambled relative to id so id order cannot satisfy the assertion.
+            moved_ago[pid] = (i * 7) % 22 + 1
+            _move_ago(kid, self.cboard, self.col_doing, self.owner, timedelta(hours=moved_ago[pid]))
+        never = sorted(self.many[22:], reverse=True)
+        expected = sorted(moved_ago, key=moved_ago.get) + never
+        first = self._view(self.viewer, f"?lane={self.lane3.pk}")
+        self.assertEqual(len(first["rows"]), CHILDREN_VIEW_PAGE_SIZE)
+        second = self._view(self.viewer, f"?lane={self.lane3.pk}&cursor={first['next_cursor']}")
+        self.assertIsNone(second["next_cursor"])
+        self.assertEqual([r["id"] for r in first["rows"] + second["rows"]], expected)
+
     def test_lane_filters_the_rows_not_the_rollups(self):
         body = self._view(self.viewer, f"?lane={self.lane2.pk}")
         self.assertEqual([r["id"] for r in body["rows"]], [self.locked_parent.pk])
@@ -317,6 +350,11 @@ class ChildrenViewPagingTests(_ViewFixture, TestCase):
         self.assertEqual(count(), before)
 
     def test_service_cost_and_statement_shape(self):
+        # Distinct assignees on every card so a missing select_related("assignee")
+        # on the parents or children query shows up as a per-row query.
+        people = [_make_user(f"cv_assignee_{i}") for i in range(8)]
+        for i, card in enumerate(Card.objects.filter(board__in=[self.pboard, self.cboard])):
+            Card.objects.filter(pk=card.pk).update(assignee=people[i % len(people)])
         with CaptureQueriesContext(connection) as ctx:
             children_view_for_viewer(self.pboard, self.viewer, include_done=True)
         sqls = [q["sql"] for q in ctx.captured_queries]
