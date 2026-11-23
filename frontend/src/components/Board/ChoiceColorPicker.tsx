@@ -130,7 +130,7 @@ export default function ChoiceColorPicker({ choice, colorKey, onChange, escapePr
             data-swatch={isCustomChoiceColor(current) ? "custom" : current}
           />
         ) : (
-          <span className="block w-5 h-5 rounded-full border border-dashed border-line-strong" data-swatch="automatic" />
+          <span className="block w-5 h-5 rounded-full border border-dashed border-line-boundary" data-swatch="automatic" />
         )}
       </button>
       {open && !disabled && (

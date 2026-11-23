@@ -181,7 +181,7 @@ function CustomColorControl({ colors, value, size, dim, onChange, applyLabel, bo
         aria-expanded={open}
         title="Custom color"
         className={`max-sm:min-h-11 max-sm:min-w-11 relative ${dim} rounded-full border-2 flex items-center justify-center [@media(pointer:coarse)]:before:absolute ${TRIGGER_HIT_AREA[size]} ${SWATCH_FOCUS} ${
-          custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED[size]}` : "border-dashed border-line-strong text-fg-tertiary hover:text-fg"
+          custom ? `${SWATCH_SELECTED} ${HIT_AREA_UNSCALED[size]}` : "border-dashed border-line-boundary text-fg-tertiary hover:text-fg"
         }`}
         style={custom ? { backgroundColor: custom } : undefined}
       >
