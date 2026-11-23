@@ -84,6 +84,27 @@ class GatedWaitTests(TestCase):
     def _flow(self):
         return fm.load_board_flow(self.board, now=self.now)
 
+    def test_gate_history_counts_against_the_held_budget(self):
+        # The gate rows are held until the cards are analyzed, like the movements (#2428).
+        from django.test import override_settings
+
+        from boards.services.analytics_admission import AnalyticsTooLarge, analytics_slot
+
+        self._crosses_reopens_and_recrosses()
+        movements = CardMovement.objects.filter(card__board=self.board).count()
+        gates = CardGateTransition.objects.filter(card__board=self.board).count()
+        # One request's ticket is shared by both reads.
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=movements + gates - 1), self.assertRaises(AnalyticsTooLarge):
+            with analytics_slot(self.user, board_id=self.board.pk, endpoint="test"):
+                self._flow()
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=movements + gates):
+            with analytics_slot(self.user, board_id=self.board.pk, endpoint="test") as ticket:
+                self._flow()
+        self.assertEqual(ticket.movements, movements + gates)
+        # With no slot each read gets its own budget, never an unlimited one (#1075).
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=gates - 1), self.assertRaises(AnalyticsTooLarge):
+            fm._attach_wait([], Card.objects.filter(board=self.board), {"x": 1}, self.now)
+
     def _range(self):
         return fm.rolling_range(30, now=self.now)
 

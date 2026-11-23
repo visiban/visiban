@@ -1077,6 +1077,8 @@ def _attach_wait(cards, selected, gate_last, now):
     lane-only move inside the stage, which changes the gate but starts no visit.
     """
     by_card: dict[int, list] = {}
+    # Held until the cards are analyzed, so counted as held rows (#2428).
+    counter = analytics_admission.row_counter()
     rows = (
         CardGateTransition.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "created_at", "id")
@@ -1086,6 +1088,7 @@ def _attach_wait(cards, selected, gate_last, now):
         )
     )
     for card_id, at, uid, fk, name, to_index, sub_uid, movement_id in rows.iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         by_card.setdefault(card_id, []).append(_Gate(at, _column_key(uid, fk, name), to_index, sub_uid, movement_id))
     for card in cards:
         transitions = by_card.get(card.id, ())
