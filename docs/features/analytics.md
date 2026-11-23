@@ -314,7 +314,15 @@ Under **Why is it stuck?**, **Why cards get blocked** ranks the reasons cards we
 
 - **Each reason:** the days it cost, the number of blocks, and a red bar sized against the longest reason. A footnote says which column most blocks started in. At most ten reasons show. The subtitle reads "Every blocked day had the same reason" when there is one reason, "One reason accounts for more than half of all blocked time" when the top reason is 50% or more of blocked days, and "One reason accounts for nearly half of all blocked time" from 40% up to 50%. Otherwise it names the period. Reasons that differ only in capitals or spacing count as one.
 
-A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
+A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. When nothing was blocked in the period the panel stays in place and says so, so the layout does not shift.
+
+### Terminology
+
+A few labels look alike but measure different things:
+
+- **7d Velocity and 30d Velocity** on the Summary view are cards finished in the last 7 and 30 days, a throughput count. The API fields `velocity_7d` and `velocity_30d` keep their names.
+- **Velocity** in the dwell heatmap is `deal_velocity_days`: days from a card's first movement to its latest movement. It is not a flow metric.
+- **`aging_cards`** in the MCP server compares a card's current dwell with the column's completed-dwell percentile. It is not the **WIP age** chart, which ages whole in-progress cards against cycle time.
 
 ### Empty states
 

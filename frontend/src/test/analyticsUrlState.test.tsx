@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useLocation, useSearchParams } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import AnalyticsView from '../components/Board/AnalyticsView'
 import {
@@ -158,13 +158,16 @@ describe('useAnalyticsFilters on the URL (#2318)', () => {
     const { result } = renderHook(() => {
       const [searchParams, setSearchParams] = useSearchParams()
       const urlParams = useAnalyticsUrlParams({ searchParams, setSearchParams })
-      return { ...useAnalyticsFilters(urlParams), search: searchParams.toString() }
+      return { ...useAnalyticsFilters(urlParams), search: searchParams.toString(), navType: useNavigationType() }
     }, { wrapper })
     expect(result.current.filters).toEqual({ days: 30, swimlaneId: null, labelId: null })
     act(() => result.current.setSwimlaneId(3))
     expect(result.current.search).toBe('view=analytics&a_days=30&a_swimlane=3')
+    // A replace reports REPLACE; a push would report PUSH.
+    expect(result.current.navType).toBe('REPLACE')
     act(() => result.current.clear())
     expect(result.current.search).toBe('view=analytics')
+    expect(result.current.navType).toBe('REPLACE')
   })
 
   it('accepts a functional update, like a state setter', () => {
@@ -215,6 +218,18 @@ describe('AnalyticsView on the URL (#2318)', () => {
     expect(vi.mocked(getFlowCycleTime).mock.calls[0][1]).toEqual({ days: 90, swimlaneId: null, labelId: null })
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: 'Break down by none' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('drops an id when the board has no swimlanes or labels at all', async () => {
+    const { swimlanes: _s, labels: _l, ...rest } = baseProps
+    const Empty = () => {
+      const [searchParams, setSearchParams] = useSearchParams()
+      return <AnalyticsView {...rest} swimlanes={[]} labels={[]} urlSource={{ searchParams, setSearchParams }} />
+    }
+    render(<MemoryRouter initialEntries={['/b?view=analytics&a_swimlane=9&a_label=77']}><Empty /></MemoryRouter>)
+    await screen.findByTestId('flow-wip-age')
+    await waitFor(() => expect(vi.mocked(getFlowCycleTime)).toHaveBeenCalled())
+    expect(vi.mocked(getFlowCycleTime).mock.calls[0][1]).toEqual({ days: 90, swimlaneId: null, labelId: null })
   })
 
   it('opening a lane from the Swimlanes view writes the lane and the Overview in one step', async () => {

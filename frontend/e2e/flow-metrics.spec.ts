@@ -220,6 +220,9 @@ test.describe('flow metrics dashboard', () => {
     await page.getByRole('button', { name: /^Date range/ }).click()
     await page.getByRole('menuitem', { name: 'Last 90 days' }).click()
     await expect(page).not.toHaveURL(/a_days/)
+    // Replace, not push: the filter changes added no history entries, so Back leaves Analytics.
+    await page.goBack()
+    await expect(page).not.toHaveURL(/view=analytics/)
   })
 
   test('groups the Overview under the four questions (#2457)', async ({ page }) => {

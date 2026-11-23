@@ -279,6 +279,14 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - **An indeterminate progress bar also falls back to a static one-third width** (`w-full motion-reduce:w-1/3`), never a full bar that reads as "done" — see § Import Board sample gallery (#1452).
 - Functional `animate-spin` loading spinners are exempt.
 
+## Analytics page structure and URL state (#2457, #2318)
+
+- **The Overview is four question sections, in this order:** "What is happening?" (bottleneck and headline tiles), "How fast does work move?" (Throughput, Cycle time), "Where is work stuck?" (How work flows, Cumulative flow, WIP age) and "Why is it stuck?" (Why cards get blocked, Needs attention). A new panel goes under the question it answers; do not add a fifth section for one panel.
+- **Headings are flat `h2`, on purpose:** the page title, each question heading and each panel heading are all `h2`. The shell owns the `h1` (#2473) and the sections are peers, so do not nest panels at `h3` to look hierarchical, and do not change the level without updating the e2e `level: 2` assertion in `flow-metrics.spec.ts`.
+- **An empty panel never renders `null`.** A panel with nothing to show (no blocks in the period, no flagged cards) keeps its frame and says so, so the grid row does not collapse and the reader can tell "none" from "failed to load".
+- **`a_*` URL state uses history replace, and defaults are never written.** Period, Swimlane, Label, Break down by and the Overview/Swimlanes choice live beside `?view=analytics` and are written with `{ replace: true }` (a filter change is not a page, so Back leaves Analytics). A parameter at its default (`a_days=90`, no lane, Overview) is deleted, not written. Leaving the tab clears every `a_*` parameter.
+- **An id the board does not have is dropped, not sent.** A swimlane or label id in the URL that is not in the board's lists (including when the list is empty) becomes "none" before any request, because the API 400s on an unknown `label_id`.
+
 ## Capped lists say so (#2254, #2339)
 
 When the server caps a list and sends `X-Total-Count` / `X-Truncated`, show `<p className="text-xs text-fg-muted" data-testid="invite-links-truncated">Older ... are not shown. N ... in total.</p>` above the whole list (before any collapsed past-rows toggle), in the list's own noun: Admin Invite Links says "links", the board `InviteLinkPanel` says "invites". N counts every row, pending included. Read the headers through a paged API variant (`getAdminInviteLinksPage`, `listBoardInviteLinksPage`) and leave the bare-array function's shape alone. The group invite list is not capped. The test id is shared, so scope a Playwright locator by tab.

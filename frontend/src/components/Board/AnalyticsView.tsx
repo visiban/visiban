@@ -86,12 +86,13 @@ export default function AnalyticsView({
   const url = useAnalyticsUrlParams(urlSource);
   const { params: urlParams, update: updateUrl } = url;
   const { filters: urlFilters, setFilters } = useAnalyticsFilters(url);
-  // An id the board does not have (a deleted lane, a link from another board) is dropped. An empty
-  // list is "not loaded or not given", so it cannot say an id is unknown.
+  // An id the board does not have (a deleted lane, a link from another board) is dropped, and an
+  // empty list has no ids, so it drops every id: the server 400s on a label_id the board lacks.
+  // BoardView mounts this only once the board (and so its lists) has loaded, so empty never means "loading".
   const filters = useMemo<FlowFilters>(() => ({
     ...urlFilters,
-    swimlaneId: swimlanes.length === 0 || swimlanes.some((s) => s.id === urlFilters.swimlaneId) ? urlFilters.swimlaneId : null,
-    labelId: labels.length === 0 || labels.some((l) => l.id === urlFilters.labelId) ? urlFilters.labelId : null,
+    swimlaneId: swimlanes.some((s) => s.id === urlFilters.swimlaneId) ? urlFilters.swimlaneId : null,
+    labelId: labels.some((l) => l.id === urlFilters.labelId) ? urlFilters.labelId : null,
   }), [urlFilters, swimlanes, labels]);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const view = parseAnalyticsTab(urlParams);

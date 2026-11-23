@@ -49,12 +49,11 @@ Overview, top to bottom:
 | 2 | View tabs: Overview, Swimlanes | full | #458 adds Swimlanes |
 | 3 | Filter bar | full | #2257 |
 | 4 | Group legend (only when a breakdown is on) | full | #458 |
-| 5 | Bottleneck panel and four headline tiles | 2 : 3 | #2257 |
-| 6 | How work flows, with Where the time goes | full | #2257 |
-| 7 | Cumulative flow and Throughput | 1 : 1 | #2257 |
-| 8 | Aging work in progress and Needs attention | 1 : 1 | #2257 |
-| 9 | Cycle time and Why cards get blocked | 1 : 1 | #2257 |
-| 10 | Footnote on days, time zone and current-value filters | full | #2257 |
+| 5 | **What is happening?** Bottleneck panel and four headline tiles | 2 : 3 | #2257 |
+| 6 | **How fast does work move?** Throughput and Cycle time | 1 : 1 | #2457 |
+| 7 | **Where is work stuck?** How work flows with Where the time goes (full), then Cumulative flow and WIP age | full, then 1 : 1 | #2457 |
+| 8 | **Why is it stuck?** Why cards get blocked and Needs attention | 1 : 1 | #2457 |
+| 9 | Footnote on days, time zone and current-value filters | full | #2257 |
 
 Chart rows are two equal columns from `lg` and one column below, and a chart frame never grows past 760px, as § Charts requires.
 
@@ -159,7 +158,7 @@ One list that replaces the stalled-cards table.
 - Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked, in the danger color.
 - The subtitle is computed from the data (#2282). With one reason: "Every blocked day had the same reason." Top share of `total.days` (unrounded) at least 50%: "One reason accounts for more than half of all blocked time." At least 40% and under 50%: "One reason accounts for nearly half of all blocked time." Otherwise, or when `total.days` is 0: "Block reasons over the last N days, longest first."
 - A footnote says where most blocks started.
-- Renders nothing when no block overlapped the period, as today.
+- When no block overlapped the period the panel still renders, empty and saying so, so the row keeps its shape.
 
 ## Column drawer
 
