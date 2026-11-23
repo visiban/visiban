@@ -3,6 +3,7 @@ import type { Board, Group } from '../types'
 import {
   boardSignals, filterBoards, filterCounts, greeting, isAtRisk, needsAttention, openedAgo, phoneSummary,
   recentTiles, sortBoards, summarize, summaryClauses,
+  SIDE_LIST_CAP, GROUP_AVATAR_LIMIT, capSideList, groupAvatarStack, sideListToggleLabel,
 } from '../components/Dashboard/homeModel'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -138,5 +139,31 @@ describe('recents', () => {
     const boards = [board(1), board(2), board(4), board(5)]
     const recents = [1, 3, 2, 4, 5].map((id) => ({ id, name: `B${id}` }))
     expect(recentTiles(recents, boards).map((t) => t.board.id)).toEqual([1, 2, 4])
+  })
+})
+
+describe('side list caps and the group avatar stack (#2487)', () => {
+  it('capSideList keeps the first SIDE_LIST_CAP rows until expanded', () => {
+    const rows = [1, 2, 3, 4, 5, 6, 7]
+    expect(capSideList(rows, false)).toEqual([1, 2, 3, 4, 5])
+    expect(capSideList(rows, true)).toEqual(rows)
+    expect(capSideList(rows, false, 2)).toEqual([1, 2])
+    expect(SIDE_LIST_CAP).toBe(5)
+  })
+
+  it('sideListToggleLabel names the total while capped', () => {
+    expect(sideListToggleLabel(7, false)).toBe('Show all 7')
+    expect(sideListToggleLabel(7, true)).toBe('Show fewer')
+  })
+
+  it('groupAvatarStack uses member_preview, capped, and never a negative +N', () => {
+    const owner = { id: 1, username: 'o', display_name: 'O', avatar_url: '' }
+    const m = (id: number) => ({ id, username: `u${id}`, display_name: '', avatar_url: '' })
+    expect(groupAvatarStack({ owner, member_count: 10, member_preview: [m(1), m(2), m(3), m(4), m(5)] })).toEqual({ users: [m(1), m(2), m(3)], more: 7 })
+    expect(groupAvatarStack({ owner, member_count: 1 })).toEqual({ users: [owner], more: 0 })
+    expect(groupAvatarStack({ owner, member_count: 2, member_preview: [] })).toEqual({ users: [owner], more: 1 })
+    // A navigation-only or stale count below the preview length is clamped at 0.
+    expect(groupAvatarStack({ owner, member_count: 0, member_preview: [m(1), m(2)] }).more).toBe(0)
+    expect(GROUP_AVATAR_LIMIT).toBe(3)
   })
 })

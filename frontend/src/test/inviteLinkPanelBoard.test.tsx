@@ -398,8 +398,11 @@ describe('InviteLinkPanel — group revoke fixes (#1421)', () => {
     render(<InviteLinkPanel scope={{ kind: 'group', id: 3 }} />)
     await user.click(await screen.findByRole('button', { name: /^Revoke invite link/ }))
     await user.click(screen.getByRole('button', { name: 'Revoke link' }))
-    expect(await screen.findByText('Failed to revoke invite. Please try again.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Revoke link' })).toBeEnabled()
+    // One panel-level live region announces it (#2504); the row shows it silently.
+    await waitFor(() => expect(screen.getByTestId('invite-revoke-announcement')).toHaveTextContent('Failed to revoke invite. Please try again.'))
+    expect(screen.getByTestId('invite-revoke-row-error')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByTestId('invite-revoke-row-error')).toHaveTextContent('Failed to revoke invite. Please try again.')
+    expect(screen.getByRole('button', { name: 'Revoke link' })).not.toHaveAttribute('aria-disabled')
   })
 })
 

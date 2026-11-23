@@ -1426,7 +1426,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         key={b.id}
         className={animateBoardIds.has(b.id) ? "animate-fade-in motion-reduce:animate-none" : undefined}
       >
-        <ListRow>
+        <ListRow interactive>
           <button
             type="button"
             onClick={() => navigate(`/boards/${b.id}`)}
@@ -1480,7 +1480,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             ) : (
               subgroupBoards.map((b) => (
                 <li key={b.id}>
-                  <ListRow>
+                  <ListRow interactive>
                     <button
                       type="button"
                       onClick={() => navigate(`/boards/${b.id}`)}
@@ -1860,11 +1860,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           {group.owner.id === user.id && (
             <div className="flex flex-col gap-1">
               <Button
-                variant="secondary"
+                variant="danger-outline"
                 buttonRef={transferTriggerRef}
                 aria-expanded={showTransfer}
                 aria-controls="group-transfer-panel"
-                className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
                 onClick={() => { if (showTransfer) { closeTransfer(); return; } setTransferError(null); setShowTransfer(true); }}
               >
                 Transfer ownership
@@ -1874,8 +1873,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           )}
           {userCanDeleteGroup && (
             <Button
-              variant="secondary"
-              className="text-danger border-danger/40 hover:bg-danger/20 hover:text-danger-on-tint"
+              variant="danger-outline"
               onClick={() => { setDeleteGroupInput(""); setConfirmDeleteGroup(true); }}
             >
               Delete group

@@ -7,7 +7,7 @@ import type { User } from "../types";
 import { providerLoginUrl } from "../utils/oauth";
 import ProviderButtons from "../components/Auth/ProviderButtons";
 import { enabledProviders, type AuthProviders } from "../components/Auth/providers";
-import { Button, CenteredHeader, CenteredLayout, OrDivider, StatusCard, buttonClasses } from "../components/Page";
+import { Button, CenteredHeader, CenteredLayout, OrDivider, RedirectCountdown, StatusCard, buttonClasses } from "../components/Page";
 
 interface Props {
   user: User | null;
@@ -64,7 +64,6 @@ export default function JoinPage({ user }: Props) {
   const [invalid, setInvalid] = useState(false);
   const [invalidReason, setInvalidReason] = useState<"expired" | "already_used">("expired");
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(5);
   // From the preview's advisory `can_register` (#1481). Only a literal false
   // switches to the sign-in-only view; undefined (older backend) keeps the
   // original layout.
@@ -131,14 +130,6 @@ export default function JoinPage({ user }: Props) {
     if (isBoardInvite && (invalid || joinError)) titleRef.current?.focus();
   }, [isBoardInvite, invalid, joinError]);
 
-  useEffect(() => {
-    if (!invalid) return;
-    // void: navigate() can return a Promise in React Router v7; fire-and-forget,
-    // there is nothing to roll back if the navigation itself rejects.
-    if (countdown <= 0) { void navigate("/"); return; }
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [invalid, countdown, navigate]);
 
   useEffect(() => {
     if (!user) {
@@ -275,7 +266,8 @@ export default function JoinPage({ user }: Props) {
           }
         >
           <p>{body}</p>
-          <p className="mt-2 text-xs text-fg-tertiary">Redirecting to {user ? "Home" : "sign in"} in {countdown}s…</p>
+          {/* void: navigate() can return a Promise in React Router v7; nothing to roll back. */}
+          <RedirectCountdown seconds={5} destination={user ? "Home" : "sign in"} onDone={() => { void navigate("/"); }} />
         </StatusCard>
       </CenteredLayout>
     );

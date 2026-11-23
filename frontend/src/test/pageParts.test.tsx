@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { createRef } from "react";
-import { render, screen, fireEvent, within, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, within, cleanup, act } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -14,7 +14,7 @@ import {
   StatusPill, StatusControl, FilterPill, ListWell, ListRow, SettingsCard, Switch, SettingSwitchRow,
   SettingTwoSwitchHeader, SettingTwoSwitchRow, SaveBar, InlineConfirm, EmptyState, Field, OrDivider,
   WorkspaceLayout, OverviewLayout, SettingsLayout, filterSettingsSections, CenteredLayout,
-  CenteredHeader, StatusCard, BrandTile,
+  CenteredHeader, StatusCard, BrandTile, RedirectCountdown,
 } from "../components/Page";
 
 function HistoryLen() {
@@ -24,7 +24,7 @@ function HistoryLen() {
 
 describe("buttonClasses", () => {
   it("gives every variant 36px (44px on phones), rounded and a focus ring", () => {
-    for (const v of ["primary", "secondary", "quiet", "danger", "warning", "icon"] as const) {
+    for (const v of ["primary", "secondary", "quiet", "danger", "danger-outline", "warning", "icon"] as const) {
       const c = buttonClasses(v);
       expect(c).toContain("h-9");
       expect(c).toContain("max-sm:h-11");
@@ -137,13 +137,19 @@ describe("FilterPill", () => {
 });
 
 describe("list well, settings card", () => {
-  it("ListWell is the canvas well that scrolls wide content; rows are 8px and highlight on hover", () => {
-    render(<ListWell as="ul" label="Boards"><ListRow as="li">Row</ListRow></ListWell>);
+  it("ListWell is the canvas well that scrolls wide content; rows are 8px and highlight on hover only when interactive (#2484)", () => {
+    render(<ListWell as="ul" label="Boards"><ListRow as="li" interactive>Open</ListRow><ListRow as="li">Static</ListRow></ListWell>);
     const well = screen.getByRole("list", { name: "Boards" });
     expect(well.className).toContain("bg-canvas");
     expect(well.className).toContain("overflow-x-auto");
-    expect(screen.getByRole("listitem").className).toContain("rounded-lg");
-    expect(screen.getByRole("listitem").className).toContain("hover:bg-surface");
+    const [open, stat] = screen.getAllByRole("listitem");
+    expect(open.className).toContain("rounded-lg");
+    expect(open.className).toContain("hover:bg-surface");
+    expect(open).toHaveAttribute("data-interactive", "true");
+    // A row that is not itself clickable must not look clickable.
+    expect(stat.className).toContain("rounded-lg");
+    expect(stat.className).not.toContain("hover:");
+    expect(stat).not.toHaveAttribute("data-interactive");
   });
 
   it("SettingsCard is a labeled panel at 10px radius and 18px padding; untitled has no name", () => {
@@ -465,4 +471,108 @@ describe("no hard-coded colors in the shared parts (#2475 AC4)", () => {
     fireEvent.click(within(screen.getByRole("navigation")).getByRole("button", { name: "Beta" }))
     expect(screen.getByText("alpha body")).toBeInTheDocument()
   })
+});
+
+describe("#2484 / #2504 shared-part hardening", () => {
+  it("danger-outline is a bordered destructive trigger with the danger focus ring", () => {
+    const c = buttonClasses("danger-outline");
+    expect(c).toContain("border-danger/40");
+    expect(c).toContain("text-danger");
+    expect(c).toContain("bg-surface");
+    expect(c).toContain("focus:ring-danger-emphasis");
+    expect(c).not.toContain("bg-danger-bg");
+    render(<Button variant="danger-outline">Delete group</Button>);
+    expect(screen.getByRole("button", { name: "Delete group" }).className).toContain("border-danger/40");
+  });
+
+  it("the icon Button requires an aria-label at the type level", () => {
+    // @ts-expect-error — an icon-only button without an accessible name must not compile (#2484).
+    const bad = <Button variant="icon">×</Button>;
+    expect(bad).toBeTruthy();
+    render(<Button variant="icon" aria-label="Close">×</Button>);
+    expect(screen.getByRole("button", { name: "Close" }).className).toContain("w-9");
+  });
+
+  it("Field error marks the input invalid and describes it with the message instead of the hint", () => {
+    render(<Field label="Email" autoComplete="email" id="e" hint="We never share it." error="Enter a valid email address." aria-describedby="extra" />);
+    const input = screen.getByLabelText("Email");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAttribute("aria-describedby", "e-error extra");
+    expect(input).toHaveAccessibleDescription(/Enter a valid email address\./);
+    expect(input.className).toContain("border-danger");
+    expect(screen.getByText("Enter a valid email address.")).toHaveClass("text-danger");
+    expect(screen.queryByText("We never share it.")).not.toBeInTheDocument();
+  });
+
+  it("Field with an empty error is valid and keeps its hint", () => {
+    render(<Field label="Email" autoComplete="email" id="e" hint="We never share it." error="" />);
+    const input = screen.getByLabelText("Email");
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveAttribute("aria-describedby", "e-hint");
+    expect(input.className).toContain("border-line-strong");
+  });
+
+  it("EmptyState can be an h4 under a card's h3", () => {
+    render(<EmptyState title="No invite links." headingLevel="h4" />);
+    expect(screen.getByRole("heading", { level: 4, name: "No invite links." })).toBeInTheDocument();
+  });
+
+  it("InlineConfirm keeps its buttons focusable while busy: aria-disabled, and clicks do nothing", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<InlineConfirm message="Revoke?" actionLabel="Revoke link" busyLabel="Revoking…" busy onConfirm={onConfirm} onCancel={onCancel} />);
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    const action = screen.getByRole("button", { name: "Revoking…" });
+    for (const b of [cancel, action]) {
+      expect(b).not.toBeDisabled();
+      expect(b).toHaveAttribute("aria-disabled", "true");
+    }
+    expect(cancel).toHaveFocus();
+    fireEvent.click(cancel);
+    fireEvent.click(action);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  describe("RedirectCountdown", () => {
+    it("announces once, counts down each second and calls onDone once at zero", () => {
+      vi.useFakeTimers();
+      try {
+        const onDone = vi.fn();
+        render(<RedirectCountdown seconds={3} destination="Home" onDone={onDone} />);
+        expect(screen.getByText("Redirecting to Home in 3s\u2026")).toBeInTheDocument();
+        expect(screen.getByRole("status")).toHaveTextContent("You will be taken to Home in 3 seconds.");
+        act(() => { vi.advanceTimersByTime(1000); });
+        expect(screen.getByText("Redirecting to Home in 2s\u2026")).toBeInTheDocument();
+        // The live region is not rewritten every tick.
+        expect(screen.getByRole("status")).toHaveTextContent("You will be taken to Home in 3 seconds.");
+        act(() => { vi.advanceTimersByTime(2000); });
+        expect(onDone).toHaveBeenCalledTimes(1);
+        act(() => { vi.advanceTimersByTime(3000); });
+        expect(onDone).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("pauses (never redirecting while paused), announces it, and resumes", () => {
+      vi.useFakeTimers();
+      try {
+        const onDone = vi.fn();
+        render(<RedirectCountdown seconds={2} onDone={onDone} />);
+        expect(screen.getByText("Redirecting in 2s\u2026")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Pause redirect" }));
+        expect(screen.getByText("Redirect paused.")).toBeInTheDocument();
+        expect(screen.getByRole("status")).toHaveTextContent("Redirect paused. You can stay on this page.");
+        act(() => { vi.advanceTimersByTime(10_000); });
+        expect(onDone).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole("button", { name: "Resume redirect" }));
+        expect(screen.getByRole("status")).toHaveTextContent("Redirect resumed: the next page in 2 seconds.");
+        act(() => { vi.advanceTimersByTime(2000); });
+        expect(onDone).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

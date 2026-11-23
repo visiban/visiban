@@ -29,6 +29,7 @@ import { isImeComposing } from "../utils/imeComposition";
 import {
   EMPTY_COPY, NO_DATA_TITLE, boardSignals, filterBoards, filterCounts, firstName, greeting, needsAttention, openedAgo,
   phoneSummary, recentTiles, sortBoards, summarize, summaryClauses, type BoardFilter,
+  SIDE_LIST_CAP, capSideList, groupAvatarStack, sideListToggleLabel,
 } from "../components/Dashboard/homeModel";
 
 interface Props {
@@ -37,6 +38,20 @@ interface Props {
   onUserUpdated: (user: User) => void;
   /** Tells the shell to reload its Starred list after a star toggle (#2473). */
   onStarToggled?: () => void;
+}
+
+/**
+ * "Show all N" / "Show fewer" under a capped side list (#2487). Rendered only when the list is
+ * longer than the cap. The toggle stays mounted in both states, so focus never drops.
+ */
+function SideListToggle({ total, expanded, onToggle, controls, headingId }: { total: number; expanded: boolean; onToggle: () => void; controls: string; headingId: string }) {
+  if (total <= SIDE_LIST_CAP) return null;
+  // The section heading is the description, so the two toggles are told apart ("Show all 7", Groups).
+  return (
+    <Button variant="quiet" className="mt-2 w-full" aria-expanded={expanded} aria-controls={controls} aria-describedby={headingId} onClick={onToggle}>
+      {sideListToggleLabel(total, expanded)}
+    </Button>
+  );
 }
 
 const FILTERS: { id: BoardFilter; label: string }[] = [
@@ -85,6 +100,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
   const [joinToken, setJoinToken] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<BoardFilter>("all");
+  // Side lists cap at SIDE_LIST_CAP rows until "Show all" (#2487).
+  const [showAllGroups, setShowAllGroups] = useState(false);
+  const [showAllAttention, setShowAllAttention] = useState(false);
   // Transient action failures (star, delete) never reuse the load-failure alert: they clear on the next action.
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -282,7 +300,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
     const canDelete = canDeleteBoard({ ownerId: b.owner.id, userId: user.id, hasAllContentAccess: user.can_access_all_content === true });
     const group = b.group_name ?? null;
     return (
-      <ListRow key={b.id} as="li">
+      <ListRow key={b.id} as="li" interactive>
         <div className="flex items-center gap-2 min-w-0">
           {/* The star is a row control on desktop; on phones it moves into the ⋯ menu. */}
           <button
@@ -378,8 +396,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
         ) : listedGroups.length === 0 ? (
           loadFailed ? <p className="mt-2 text-sm text-fg-secondary">Couldn't load groups.</p> : <p data-testid="groups-empty" className="mt-2 text-sm text-fg-secondary">No groups yet. Create one to collaborate with others.</p>
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {listedGroups.map((g) => (
+          <>
+          <ul id="home-groups-list" className="mt-3 flex flex-col gap-2">
+            {capSideList(listedGroups, showAllGroups).map((g) => {
+              const stack = groupAvatarStack(g);
+              return (
               <li key={g.id}>
                 <button
                   type="button"
@@ -391,17 +412,21 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                     <span>
                       {g.board_count} {g.board_count === 1 ? "board" : "boards"} · {g.member_count} {g.member_count === 1 ? "member" : "members"}
                     </span>
-                    <span className="flex items-center -space-x-1" aria-hidden="true">
-                      <Avatar user={g.owner} size="xs" className="ring-2 ring-canvas" />
-                      {g.member_count > 1 && (
-                        <span className="h-6 min-w-6 px-1 rounded-full bg-surface-hover text-xs leading-6 text-center text-fg-secondary ring-2 ring-canvas">+{g.member_count - 1}</span>
+                    {/* Decorative: the member count in the meta line carries the words. */}
+                    <span data-testid="group-avatar-stack" className="flex items-center -space-x-1" aria-hidden="true">
+                      {stack.users.map((u) => <Avatar key={u.id} user={u} size="xs" className="ring-2 ring-canvas" />)}
+                      {stack.more > 0 && (
+                        <span className="h-6 min-w-6 px-1 rounded-full bg-surface-hover text-xs leading-6 text-center text-fg-secondary ring-2 ring-canvas">+{stack.more}</span>
                       )}
                     </span>
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
+          <SideListToggle total={listedGroups.length} expanded={showAllGroups} onToggle={() => setShowAllGroups((v) => !v)} controls="home-groups-list" headingId="home-groups-heading" />
+          </>
         )}
       </section>
 
@@ -409,8 +434,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
         <section aria-labelledby="home-attention-heading" className="bg-surface border border-line rounded-[10px] p-[18px] ">
           <CardHeading as="h2" id="home-attention-heading">Needs attention</CardHeading>
           <p className="mt-1 text-xs text-fg-secondary">Boards and subgroups with stale or blocked cards, or overdue for review, worst first</p>
-          <ul className="mt-3 flex flex-col gap-1">
-            {attention.map((a) => (
+          <ul id="home-attention-list" className="mt-3 flex flex-col gap-1">
+            {capSideList(attention, showAllAttention).map((a) => (
               <li key={`${a.kind}-${a.id}`}>
                 <button
                   type="button"
@@ -427,6 +452,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
               </li>
             ))}
           </ul>
+          <SideListToggle total={attention.length} expanded={showAllAttention} onToggle={() => setShowAllAttention((v) => !v)} controls="home-attention-list" headingId="home-attention-heading" />
         </section>
       )}
     </>
@@ -540,7 +566,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated, onStarToggled
                     {EMPTY_COPY[filter]}
                   </p>
                 ) : (
-                  <ListWell as="ul" label="All boards">{visibleBoards.map((visibleBoard) => renderBoardRow(visibleBoard))}</ListWell>
+                  <ListWell as="ul">{visibleBoards.map((visibleBoard) => renderBoardRow(visibleBoard))}</ListWell>
                 )}
               </div>
             </section>
