@@ -1380,11 +1380,13 @@ def card_detail(*, card_id):
 #
 # Read-only questions an agent asks about how work moves, answered by the
 # #448 flow service (ADR #1532) and nothing else: these functions validate
-# arguments, call ``flow_metrics`` for the numbers (``load_board_flow`` +
-# ``rolling_range``), and trim the result. Unlike the REST analytics endpoints,
-# which now load only the cards that can change the range, these tools still
-# do a whole-history load (narrowed there under #2445). There is deliberately no aggregation over ``CardMovement``
-# here, so MCP and REST give identical numbers for identical inputs.
+# arguments, call ``flow_metrics`` for the numbers (``rolling_range`` plus the
+# same range-bounded loaders the REST ``metrics/*`` endpoints use:
+# ``load_range_flow`` and ``load_recent_dwell``), and trim the result. Like
+# REST, they load only the cards that can change the window's answer, so the
+# cost follows the board's recent activity, not its age (#2425, #2445). There is
+# deliberately no aggregation over ``CardMovement`` here, so MCP and REST give
+# identical numbers for identical inputs.
 # ---------------------------------------------------------------------------
 
 _FLOW_MAX_WINDOW_DAYS = 365  # REST's ``days`` bound (FlowMetricsQuerySerializer)
@@ -1450,7 +1452,10 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     # One ``now`` so the range and the flow agree, as in the REST views.
     now = timezone.now()
     flow_range = flow_metrics.rolling_range(window_days, now=now)
-    flow = flow_metrics.load_board_flow(board, swimlane_id=swimlane_id, now=now)
+    # Range-bounded like REST's metrics/* endpoints (#2445): every number here
+    # (cycle time, throughput, WIP, both blocked shapes) is the same as on a
+    # whole-history load (RangeNarrowingServiceTests, BoardFlowMetricsAgedTests).
+    flow = flow_metrics.load_range_flow(board, flow_range, now=now, swimlane_id=swimlane_id)
 
     cycle = flow_metrics.cycle_time(flow, flow_range)
     throughput = flow_metrics.throughput(flow, flow_range, "week")

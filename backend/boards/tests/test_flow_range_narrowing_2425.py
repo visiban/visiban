@@ -228,6 +228,9 @@ class RangeNarrowingServiceTests(AgedBoardMixin, FlowFixture):
                     fm.swimlane_comparison(narrowed, flow_range, lanes),
                     fm.swimlane_comparison(full, flow_range, lanes),
                 )
+                # MCP's board_flow_metrics serves both blocked shapes off a range load (#2445).
+                self.assertEqual(fm.blocked_time(narrowed, flow_range), fm.blocked_time(full, flow_range))
+                self.assertEqual(fm.blocked_summary(narrowed, flow_range), fm.blocked_summary(full, flow_range))
 
     def test_a_range_with_no_live_or_recent_card_keeps_the_gate_index(self):
         """Only old archived cards: the narrowed load selects none, and dwell still reports the gated stage."""
