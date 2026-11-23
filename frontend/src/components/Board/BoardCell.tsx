@@ -472,6 +472,7 @@ function SubColumnDrop({ id, label, name, first, dragging, namePill, children }:
       ref={setNodeRef}
       role="group"
       aria-label={label}
+      // The card detail and peek sheets anchor to this sub-column's edges on a split cell (#2540); renaming breaks placement.
       data-sub-column-drop={id}
       className={`relative flex min-w-0 min-h-10 flex-col gap-1.5 rounded-md ${first ? "pr-1" : "border-l border-dashed border-line-boundary pl-1"} ${
         dragging && isOver ? "bg-primary/20 outline-dashed outline-1 outline-info" : ""

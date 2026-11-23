@@ -290,6 +290,24 @@ describe('measureCardSheetGeometry sub-column anchor (#2540)', () => {
     expect(measureCardSheetGeometry(build(true)).column).toEqual({ left: 380, right: 520 })
   })
 
+  it('floors the anchor 6px from a card flush with the sub-column edges', () => {
+    const card = build(true)
+    card.getBoundingClientRect = rect(380, 520)
+    expect(measureCardSheetGeometry(card).column).toEqual({ left: 374, right: 526 })
+  })
+
+  it('floors only the flush side: right flush keeps a wider left edge', () => {
+    const card = build(true)
+    card.getBoundingClientRect = rect(400, 520)
+    expect(measureCardSheetGeometry(card).column).toEqual({ left: 380, right: 526 })
+  })
+
+  it('floors only the flush side: left flush keeps a wider right edge', () => {
+    const card = build(true)
+    card.getBoundingClientRect = rect(380, 500)
+    expect(measureCardSheetGeometry(card).column).toEqual({ left: 374, right: 520 })
+  })
+
   it('falls back to the cell edges without a sub-column', () => {
     expect(measureCardSheetGeometry(build(false)).column).toEqual({ left: 240, right: 900 })
   })
