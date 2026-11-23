@@ -2707,6 +2707,10 @@ oidc-smoke:
 
 .rules-helm: &rules-helm
   rules:
+    # Never in the Sonar nightly (#2471): `changes:` is always true on a
+    # schedule pipeline, so without this the default-branch rule below matched.
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: &helm-paths
         - helm/**/*
@@ -2725,6 +2729,10 @@ oidc-smoke:
 # `helm-paths` so the install/netpol drills are not widened.
 .rules-helm-template: &rules-helm-template
   rules:
+    # Never in the Sonar nightly (#2471): `changes:` is always true on a
+    # schedule pipeline, so without this the default-branch rule below matched.
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
         - helm/**/*
@@ -3067,6 +3075,10 @@ helm-install:
     - job: frontend-docker-build
       artifacts: true
   rules:
+    # Never in the Sonar nightly (#2471): `changes:` is always true on a
+    # schedule pipeline, so without this the default-branch rule below matched.
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
     #
@@ -3113,6 +3125,10 @@ helm-netpol:
   # See helm-install above.
   needs: *helm-drill-image-needs
   rules:
+    # Never in the Sonar nightly (#2471): `changes:` is always true on a
+    # schedule pipeline, so without this the default-branch rule below matched.
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
     # Excludes the Sonar nightly (#1369) — see helm-install's identical note
     # above; this is a separate 45min cluster drill with nothing to do with a
     # coverage-import scan.
@@ -3175,6 +3191,10 @@ compose-prod-drill:
     - job: frontend-docker-build-prod
       artifacts: true
   rules:
+    # Never in the Sonar nightly (#2471): `changes:` is always true on a
+    # schedule pipeline, so without this the default-branch rule below matched.
+    - if: '$SONAR_SCHEDULED == "true"'
+      when: never
     # Blocking on MRs and the default branch, advisory on the nightly
     # schedule — the same posture as helm-install/helm-netpol. The drill went
     # green end-to-end on two main push pipelines (2902462814 and 2902655693,
