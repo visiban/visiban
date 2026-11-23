@@ -425,6 +425,20 @@ class ManualNeededTests(PlannedFixture):
         self.assertEqual(self.post(self.maya, child, None).status_code, 200)
         self.assertEqual(self.read(child, self.maya)["needed_now_reason"], "cancelled")
 
+    def test_deleting_the_column_of_a_released_link_reads_cancelled_without_history(self):
+        # The FK SET_NULL turns "parent" into "cancelled"; clear_for_deleted_column
+        # records only unreleased rows, so the delete writes no history row.
+        child = self.planned_child(column=self.qualify)
+        self.move(self.parent, self.pboard, self.proposal, self.plane)
+        self.assertEqual(self.read(child, self.maya)["needed_now_reason"], "parent")
+        before = self.events(child)
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            r = client_for(self.owner).delete(f"/api/v1/boards/{self.pboard.pk}/columns/{self.qualify.pk}/")
+        self.assertEqual(r.status_code, 204, r.content)
+        body = self.read(child, self.maya)
+        self.assertEqual((body["needed_now"], body["needed_now_reason"]), (True, "cancelled"))
+        self.assertEqual(self.events(child), before)
+
     def test_hidden_parent_viewer_may_only_set_now(self):
         child = self.planned_child()
         r = self.post(self.sam, child, self.won.pk)

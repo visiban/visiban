@@ -3808,7 +3808,7 @@ _PLANNED_FIELD_SCHEMAS = {
         "Since 1.3 (#2371): why a `needed_now` child was released, and `null` when it is not "
         "needed now. `parent`: the parent reached or skipped past the Needed column. "
         "`cancelled`: the plan was called off (its Needed column was deleted, or Needed was "
-        "set to Now by hand). The cause only; it names no parent, column or person."
+        "set to Now by hand; deleting the Needed column of an already released link does the same, and writes no history row). The cause only; it names no parent, column or person."
     )},
 }
 
