@@ -87,7 +87,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const panelRef = useRef<HTMLDivElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
   const [dockedPref, setDockedPref] = useCardSheetDockedPref();
-  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}`, dockedPref, PEEK_WIDTH);
+  const sheet = useCardSheetPlacement(card.id, `${card.column}:${card.swimlane}:${card.gates_passed ?? 0}`, dockedPref, PEEK_WIDTH);
   const { placement } = sheet;
   const anchored = placement.mode === "anchored";
   const fullscreen = placement.mode === "fullscreen";
