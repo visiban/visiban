@@ -39,6 +39,7 @@ import threading
 from unittest import skipUnless
 from unittest.mock import patch
 
+import pytest
 from django.contrib import admin as django_admin
 from django.db import connection, connections, transaction
 from django.contrib.admin.models import DELETION, LogEntry
@@ -1243,6 +1244,7 @@ class SeedWipeUsesLockedDeleteTests(TestCase):
             _seed(wipe=True, force=True)
         spy.assert_called()
 
+    @pytest.mark.slow
     def test_seed_demo_data_demo_site_wipe(self):
         from django.test import override_settings
 
