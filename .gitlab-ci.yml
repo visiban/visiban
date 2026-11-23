@@ -1035,7 +1035,8 @@ backend-test-migrations:
     expire_in: 1 day
 
 # The slow tests (#2524): @pytest.mark.slow marks tests that cost >= ~10 s on
-# Postgres (the seed/sample command suites, ~7 runner-minutes per pipeline).
+# Postgres (the seed/sample command suites: 25 tests, 433 s = ~7.2 runner-minutes
+# per pipeline by backend/.test_durations).
 # backend-test deselects them; this single job runs them, so the MR path keeps
 # the cheap seed tests and pays for the expensive ones only where they can
 # change. It runs on:
@@ -1043,7 +1044,10 @@ backend-test-migrations:
 #     every slow test still runs on main and every night;
 #   * MRs touching the seed/sample commands, their data and fixture modules,
 #     models, migrations, pytest config, requirements or this file.
-# Every other schedule (weekly mutation, Sonar, CVE ...) skips it.
+# Every other schedule (weekly mutation, Sonar, CVE ...) skips it. On those,
+# backend-test and backend-test-coverage still run (`changes:` is always true on
+# a schedule) but without .coverage.slow; measured impact ~5 statements of
+# 31,449 (~0.016%) (#2489 caveat).
 # Instrumented like the shards: backend-test-coverage lists it with
 # `needs: optional: true`, so an MR pipeline that did not create this job still
 # combines the remaining data; a pipeline that did create it waits for it.
@@ -1061,6 +1065,10 @@ backend-test-slow:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
+        - backend/boards/tests/test_seed_demo_data.py
+        - backend/boards/tests/test_sample_boards.py
+        - backend/boards/tests/test_container_delete_vs_card_entry_lock.py
+        - backend/boards/tests/history_reconciliation.py
         - backend/boards/management/commands/seed_demo_data.py
         - backend/boards/management/commands/seed_template_boards.py
         - backend/boards/management/commands/_*.py
@@ -1083,7 +1091,7 @@ backend-test-slow:
   script:
     - cd backend
     # --nomigrations like the shards. No pytest-split: one job runs the whole
-    # marked set (~25 tests) so there is nothing to balance.
+    # marked set (25 tests) so there is nothing to balance.
     - coverage run --parallel --data-file=.coverage.slow -m pytest
         -m "slow and not migrations"
         --nomigrations

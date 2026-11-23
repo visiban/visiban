@@ -632,7 +632,6 @@ class SeedScaleTests(TestCase):
         self.assertIn("Acme Corp", names)
         self.assertIn("Acme Corp (2)", names)
 
-    @pytest.mark.slow
     def test_scale_n_exceeds_title_corpus_without_truncating(self):
         """At high scale the fixed title corpus is exhausted well before the
         target card count — cards must keep generating (with a cycled/suffixed
