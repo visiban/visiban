@@ -1102,6 +1102,7 @@ export function useBoard() {
     setBoard((b) => {
       if (!b) return b;
       const gone = b.cards.find((c) => c.id === cardId);
+      pendingCardLabels.current.delete(cardId);
       if (gone) touches?.removed.set(gone.uid, false);
       return { ...b, cards: b.cards.filter((c) => c.id !== cardId) };
     });
@@ -1126,7 +1127,10 @@ export function useBoard() {
       if (uid !== undefined) touches?.removed.set(uid, true);
       const gone = b.cards.filter((element) => match(element));
       if (gone.length === 0) return b;
-      for (const c of gone) touches?.removed.set(c.uid, true);
+      for (const c of gone) {
+        touches?.removed.set(c.uid, true);
+        pendingCardLabels.current.delete(c.id);
+      }
       return {
         ...b,
         cards: b.cards.filter((c) => !match(c)),
@@ -1275,25 +1279,26 @@ export function useBoard() {
   // label (#2130), an append would show it twice.
   // A card.updated echo can beat its label.created (#1933): updateCard stripped
   // the then-unknown label and parked it in pendingCardLabels, so it is put back
-  // on those cards here. The pending entries are read and cleared before the
-  // updater is queued, so a re-run updater gives the same result.
+  // on those cards here. The ref is read inside the updater, not when addLabel is
+  // called, because updateCard fills it from its own updater, which may not have
+  // run yet when both frames land in one React batch. Reading is idempotent (a
+  // re-run gives the same result and nothing is deleted here); an entry is
+  // dropped by the card's next frame, a card removal, removeLabel or a snapshot.
   const addLabel = useCallback((label: Label) => {
-    const restore = new Set<number>();
-    for (const [cardId, labels] of pendingCardLabels.current) {
-      if (!labels.some((l) => l.id === label.id)) continue;
-      restore.add(cardId);
-      const rest = labels.filter((l) => l.id !== label.id);
-      if (rest.length > 0) pendingCardLabels.current.set(cardId, rest);
-      else pendingCardLabels.current.delete(cardId);
-    }
-    writeBoard((b) => ({
-      ...b,
-      labels: upsertById(b.labels, label),
-      cards: restore.size === 0 ? b.cards : b.cards.map((c) =>
-        restore.has(c.id) && !c.labels.some((l) => l.id === label.id)
-          ? { ...c, labels: [...c.labels, label] }
-          : c),
-    }));
+    writeBoard((b) => {
+      const restore = new Set<number>();
+      for (const [cardId, labels] of pendingCardLabels.current) {
+        if (labels.some((l) => l.id === label.id)) restore.add(cardId);
+      }
+      return {
+        ...b,
+        labels: upsertById(b.labels, label),
+        cards: restore.size === 0 ? b.cards : b.cards.map((c) =>
+          restore.has(c.id) && !c.labels.some((l) => l.id === label.id)
+            ? { ...c, labels: [...c.labels, label] }
+            : c),
+      };
+    });
   }, [writeBoard]);
 
   const updateLabel = useCallback((label: Label) => {

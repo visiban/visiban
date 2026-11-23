@@ -1312,6 +1312,35 @@ describe('useBoard', () => {
       expect(result.current.board!.cards[0].labels).toEqual([])
     })
 
+    it('restores the label when both frames land in one React batch', async () => {
+      const { result } = await setup()
+      const echo = { ...result.current.board!.cards[0], labels: [neu], version: 2 }
+      act(() => { result.current.updateCard(echo); result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([neu])
+    })
+
+    it('does not restore onto a card that was removed or archived first', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.removeCard(card.id) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards).toEqual([])
+      // Re-added later with no labels, the stale entry must not leak onto it.
+      act(() => { result.current.addCard({ ...card, labels: [], version: 5 }) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
+    it('drops the pending label of an archived card', async () => {
+      const { result } = await setup()
+      const card = result.current.board!.cards[0]
+      act(() => { result.current.updateCard({ ...card, labels: [neu], version: 2 }) })
+      act(() => { result.current.archiveCard(card.id) })
+      act(() => { result.current.addCard({ ...card, labels: [], version: 6 }) })
+      act(() => { result.current.addLabel(neu) })
+      expect(result.current.board!.cards[0].labels).toEqual([])
+    })
+
     it('does not restore a label that was deleted before it was created here', async () => {
       const { result } = await setup()
       const card = result.current.board!.cards[0]

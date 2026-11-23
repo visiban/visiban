@@ -1011,7 +1011,7 @@ Requires board membership; a caller with no access gets `404 Not Found`, as for 
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
-`Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`. Since 1.2, a record created by a board import with history has `<moved_by>` followed by ` (imported, originally <name>)`, or ` (imported)` when the import file named nobody. Any `|`, `;` or line break in that source name is written as a space, so the record keeps its four parts.
+`Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`. Since 1.2, a record created by a board import with history has `<moved_by>` followed by ` (imported, originally <name>)`, or ` (imported)` when the import file named nobody. Any `|`, `;` or line break in that source name is written as a space, so the record keeps its four parts. Since 1.3, when a column has been deleted, `<from_column>` and `<to_column>` come from the movement's saved column-name snapshot instead of being empty.
 
 Since 1.2, one column is **appended** per [custom field](#custom-fields-since-12) on the board, in display order, headed `Custom: <field name>`. The fixed columns keep their positions, so index-based consumers are unaffected, and the prefix keeps a field named `Title` from colliding with a built-in header. A [multi-select](#multi-select-fields) value is written as its entries joined with `"; "`.
 

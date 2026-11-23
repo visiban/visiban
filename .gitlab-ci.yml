@@ -3240,7 +3240,7 @@ compose-prod-drill:
 compose-upgrade-drill:
   <<: *compose-drill-base
   rules:
-    # The Sonar nightly (#2471 tracks the old drills, which still run on it).
+    # The Sonar nightly (the older drills exclude it the same way, #2471).
     # `changes:` always evaluates true on schedules, so this must be explicit.
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
       when: never
@@ -3290,7 +3290,7 @@ compose-upgrade-drill:
 helm-upgrade-drill:
   <<: *helm-drill-base
   rules:
-    # The Sonar nightly (#2471 tracks the old drills, which still run on it).
+    # The Sonar nightly (the older drills exclude it the same way, #2471).
     # `changes:` always evaluates true on schedules, so this must be explicit.
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $SONAR_SCHEDULED == "true"'
       when: never
