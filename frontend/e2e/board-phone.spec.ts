@@ -1,6 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
-import { BOARD_FULL, BOARD_LIST_ITEM, BOARD_TEAM, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE, CHILD_BOARD_OPTIONS_TEAM } from './fixtures/board'
+import { BOARD_FULL, BOARD_TEAM, USER, SWIMLANE, CARD, COLUMN_TODO, COLUMN_DONE, CHILD_BOARD_OPTIONS_TEAM } from './fixtures/board'
 
 
 // Controls under 44px in their smaller dimension inside the given roots. Card faces are skipped:
@@ -988,14 +988,13 @@ test.describe('phone board settings modal (#2404)', () => {
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
 // lifted to 44px at 390px through it. Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
 // Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
-// block below (Delete column, Archive card, Add child, both Delete field dialogs, Move board, Trello import, Join a
+// block below (Delete column, Archive card, Add child, Admin Add user, Admin Transfer boards & deactivate, both Delete field dialogs, Move board, Trello import, Join a
 // group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
-// Not swept, tracked in #2407: GroupDetail "Delete board?" (~L2067) and "Delete group" (~L2105) and Admin "Add user"
-// (~L144) and "Transfer boards & deactivate" (~L567): their pages need group/admin server state, and the harness
-// redirected to the login page after a second auth/user/ call; CreateGroupModal's post-creation "created" phase
-// (CreateGroupModal.tsx ~L104); the "Delete this card?" branch of CardDetail.tsx (~L2845, one wrapper shared with
-// Archive, probably covered by CardDeleteConfirm but unverified: no e2e here opens it); PolicyConfirmModal and
-// LensConnectionModal (need column-policy / git-lens state); ProfileModal (dead code: imported only by its own test).
+// Not swept, tracked in #2407: GroupDetail "Delete board?" (~L2067) and "Delete group" (~L2105) (no e2e opens
+// /groups/:id; they need group server state); CreateGroupModal's post-creation "created" phase (CreateGroupModal.tsx
+// ~L104); the "Delete this card?" branch of CardDetail.tsx (~L2845, one wrapper shared with Archive, probably covered by
+// CardDeleteConfirm but unverified: no e2e here opens it); PolicyConfirmModal and LensConnectionModal (need
+// column-policy / git-lens state); ProfileModal (dead code: imported only by its own test).
 // BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
 // exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {
@@ -1067,7 +1066,25 @@ async function routeCardDetail(page: Page, boardId: number, card: unknown) {
   await page.route(`**/api/v1/boards/${boardId}/cards/${CARD.id}/timeline/**`, ok({ count: 0, next: null, previous: null, results: [] }))
   await page.route(new RegExp(`/api/v1/boards/${boardId}/cards/${CARD.id}/children/(\\?.*)?$`), ok({ count: 0, visible: true, offset: 0, limit: 50, results: [] }))
 }
+// Site admin → Users, the mocks admin-phone-row-actions.spec.ts uses: the page needs is_site_admin and an admin/** list.
+const ADMIN_OWNED = [{ id: 40, uid: 'boarduid00040', name: 'Ops' }, { id: 41, uid: 'boarduid00041', name: 'Web' }]
+const adminRow = (id: number, username: string, owned: typeof ADMIN_OWNED) => ({
+  id, username, email: `${username}@example.com`, display_name: username, first_name: username, last_name: '', avatar_url: '',
+  is_active: true, is_site_admin: id === 1, can_access_all_content: false, is_superuser: false, must_change_password: false,
+  has_completed_tour: true, date_joined: '2024-01-01T00:00:00Z', owned_boards: owned,
+})
+async function routeAdminUsers(page: Page) {
+  await page.route('**/api/v1/admin/**', (r) => r.fulfill({ json: { count: 0, offset: 0, page_size: 50, results: [] } }))
+  await page.route('**/api/v1/admin/users/**', (r) => r.fulfill({ json: { count: 2, offset: 0, page_size: 50, results: [adminRow(1, 'testuser', []), adminRow(5, 'bob', ADMIN_OWNED)] } }))
+}
 const REMAINING: Array<[string, string | RegExp, Extra, (page: Page) => Promise<void>]> = [
+  ['Admin Add user', 'Add user', { user: { is_site_admin: true }, start: '/admin?tab=users', setup: routeAdminUsers }, async (page) => {
+    await page.getByRole('button', { name: 'Add user', exact: true }).first().click()
+  }],
+  ['Admin Transfer boards & deactivate', 'Transfer boards & deactivate', { user: { is_site_admin: true }, start: '/admin?tab=users', setup: routeAdminUsers }, async (page) => {
+    await page.getByRole('button', { name: 'More actions for bob' }).click()
+    await page.getByRole('dialog', { name: 'bob' }).getByRole('button', { name: /Transfer boards and deactivate…/ }).click()
+  }],
   ['Force password change', '', { user: { must_change_password: true }, start: '/' }, async () => {}],
   ['Force username rename', '', { user: { must_change_username: true }, start: '/' }, async () => {}],
   ['Connect provider', '', { user: { pending_connect_provider: 'github', pending_connect_identity: 'someone' }, start: '/' }, async () => {}],
