@@ -20,14 +20,28 @@ interface Props {
 
 /**
  * Region 9, right (#2263): block reasons ranked by total time blocked, from
- * `metrics/blocked` so the page's filters apply. Renders nothing when no block
- * overlapped the period, so a board that never blocks sees no empty panel and
+ * `metrics/blocked` so the page's filters apply. When no block overlapped the
+ * period it shows an empty state that names the next action (#2457), and
  * Cycle time keeps its half width.
  */
 export default function BlockedSection({ blocked, days }: Props) {
   const data = blocked?.data;
   if (!data) return <PanelPlaceholder title="Why cards get blocked" failed={blocked?.error !== undefined} height="h-24" />;
-  if (data.total.blocks === 0 && data.reasons.length === 0) return null;
+  if (data.total.blocks === 0 && data.reasons.length === 0) {
+    // Not hidden (#2457): the empty panel says what to do next, so "why is it stuck" always has an answer slot.
+    return (
+      <section
+        aria-labelledby="analytics-blocked-heading"
+        className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 min-w-0"
+        data-testid="analytics-blocked"
+      >
+        <h2 id="analytics-blocked-heading" className="text-sm font-semibold text-fg">Why cards get blocked</h2>
+        <p className="text-sm text-fg-tertiary" data-testid="analytics-blocked-empty">
+          No block reasons recorded in this period. Mark a card as blocked and give a reason on the board, and the reasons rank here by time blocked.
+        </p>
+      </section>
+    );
+  }
 
   const reasons = [...data.reasons].sort((a, b) => b.days - a.days);
   const max = Math.max(...reasons.map((r) => r.days), 0);

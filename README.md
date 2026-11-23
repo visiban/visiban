@@ -10,11 +10,13 @@
 [![docs](https://img.shields.io/badge/docs-docs.visiban.com-blue)](https://docs.visiban.com/next/)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
-**Visiban is an open-source Kanban board where every row is an entity and every move is on the record.** Each swimlane is a customer, account, or project moving through a shared pipeline, so the whole board gives you an at-a-glance view of where everything stands. You get typed fields on the row, WIP limits, card aging and dwell-time analytics, and a permanent audit trail of every card movement. An API and MCP server let you connect your own tools.
+**See how work flows. Know what needs attention.**
 
-Every card move is recorded automatically. You always know where something is _and_ how it got there.
+Visiban is an entity-centric Kanban board with built-in flow intelligence. Each swimlane is a customer, account, or project moving through a shared pipeline, so the whole board shows where everything stands at a glance. Because every card move is recorded, Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work (Analytics is in beta), without a plugin or a spreadsheet.
 
-**In one line: kill the spreadsheet, see how work actually moves, interrogate it with your own AI — every move on the record.** Swimlane rows carry typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead. A first-class MCP server lets any AI agent you already run query and change the board through a scoped token you issue — Visiban ships the *interface*, not a model, so no data leaves your install. OIDC/OAuth SSO is in the Apache-2.0 core, not a paid tier.
+- **Every move is on the record.** Each move is written down automatically: who moved it, when, and from where. You always know where something is _and_ how it got there.
+- **Rows carry data.** Swimlane rows have typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead.
+- **Open source and self-hosted.** Apache 2.0, with OIDC/OAuth SSO in the core, not a paid tier. An API and an MCP server let you connect your own tools and AI agents through a scoped token you issue. Visiban ships the *interface*, not a model, so no data leaves your install.
 
 Comparing options? [Why Visiban](https://docs.visiban.com/next/getting-started/why-visiban/) is an honest look at what it does differently — and when one of the alternatives is the better pick.
 
@@ -67,7 +69,7 @@ All connected users see changes in **real time** over a WebSocket connection. Dr
 |---|---|
 | **Swimlane board** | Grid of columns × swimlane rows. Collapse, resize, and reorder with drag-and-drop. [→ Board guide](https://docs.visiban.com/next/features/board/) |
 | **Movement audit trail** | Every card move is timestamped and attributed. View per-card history or search the board-level History tab. [→ Card history](https://docs.visiban.com/next/features/card-history/) |
-| **Analytics** | Cycle time, throughput, cumulative flow and WIP aging charts, dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
+| **Analytics** | Cycle time, throughput, cumulative flow and WIP age charts, dwell-time heatmap per stage, stalled-card detection, 7/30-day throughput velocity, CSV export. [→ Analytics](https://docs.visiban.com/next/features/analytics/) |
 | **Real-time sync** | WebSocket-powered — card moves, edits, and structural changes appear instantly for all connected users. [→ Real-time](https://docs.visiban.com/next/features/realtime/) |
 | **Groups & RBAC** | Boards live inside nested groups (access is inherited through up to 6 levels; creating a subgroup or moving a group past that depth is refused). Four roles — admin, member, collaborator, viewer — plus a moderator entitlement, with automatic group inheritance. [→ Groups](https://docs.visiban.com/next/features/groups/) |
 | **Card detail** | Rich-text description, priority, assignee, labels, due date, weight, checklist, file attachments, and threaded comments with @mentions. [→ Board guide](https://docs.visiban.com/next/features/board/#cards) |

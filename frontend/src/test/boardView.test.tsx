@@ -813,6 +813,19 @@ describe('BoardView', () => {
     expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
   })
 
+  it('leaving Analytics clears every a_* parameter and keeps the new view (#2318)', async () => {
+    mockSearchParams = new URLSearchParams('view=analytics&a_days=30&a_tab=swimlanes')
+    render(<BoardView {...defaultProps()} />)
+    expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    mockSetSearchParams.mockClear()
+    await userEvent.setup().click(screen.getByText('Board'))
+    const write = mockSetSearchParams.mock.calls.at(-1)![0] as (p: URLSearchParams) => URLSearchParams
+    const next = write(new URLSearchParams('view=analytics&a_days=30&a_tab=swimlanes'))
+    expect([...next.keys()].filter((k) => k.startsWith('a_'))).toEqual([])
+    expect(next.get('view')).toBe('board')
+    expect(mockSetSearchParams.mock.calls.at(-1)![1]).toEqual({ replace: true })
+  })
+
   it('opens CardDetail from analytics view when onOpenCard is triggered', async () => {
     const stalledCard = {
       id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Stalled Card',

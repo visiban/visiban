@@ -1,10 +1,10 @@
-# Find bottlenecks and measure velocity
+# Find bottlenecks and measure flow
 
 <a id="analytics-summary-beta"></a>
 
 Switch the toolbar toggle (**Board**, **Summary**, **Analytics**) to see where cards stall and how fast work finishes. **Beta.**
 
-**Why it matters:** The two views turn your board's movement history into bottleneck and velocity data, for anyone checking pipeline health rather than moving cards.
+**Why it matters:** The two views turn your board's movement history into bottleneck and flow data, for anyone checking pipeline health rather than moving cards.
 
 !!! warning "Done columns must be marked before analytics data is accurate"
     The dwell-time heatmap excludes columns that are marked as done. If your "Done" or "Released" column is not marked, closed work continues to accumulate dwell cycles and distorts the heatmap.
@@ -75,14 +75,14 @@ Time-in-stage and flow data derived from `CardMovement` records, on one scrollin
 
 1. **Title row:** "Analytics", a **Beta** badge, the board name and the period shown.
 2. **Filter bar:** one **Date range**, **Swimlane** and **Label** selection for the whole page (see [Filters](#filters)), and **Export CSV** for admins.
-3. **Bottleneck** panel and four [headline tiles](#headline-tiles).
-4. **How work flows**, with **Where the time goes** under it; its Table view is the [dwell time heatmap](#dwell-time-heatmap) (see [How work flows](#how-work-flows)).
-5. **Cumulative flow** and **Throughput**, side by side.
-6. **WIP aging** and the [Needs attention](#needs-attention).
-7. **Cycle time** and [Why cards get blocked](#why-cards-get-blocked).
-8. A footnote on days, time zone and filters.
+3. Four sections, one per question:
+    - **What is happening?** The **Bottleneck** panel and four [headline tiles](#headline-tiles).
+    - **How fast does work move?** **Throughput** and **Cycle time**, side by side.
+    - **Where is work stuck?** **How work flows**, with **Where the time goes** under it (its Table view is the [dwell time heatmap](#dwell-time-heatmap); see [How work flows](#how-work-flows)), then **Cumulative flow** and **WIP age**, side by side.
+    - **Why is it stuck?** [Why cards get blocked](#why-cards-get-blocked) and the [Needs attention](#needs-attention) list, side by side.
+4. A footnote on days, time zone and filters.
 
-From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces sections 3 to 7 (see [Page states](#page-states)).
+From 1024px wide the paired panels sit side by side; below that every panel takes the full width, and the page never scrolls sideways. When the board has no flow history, or no card matches the filters, one message replaces the four sections (see [Page states](#page-states)).
 
 <span class="vb-version" title="Changed in 1.3">1.3+</span> Analytics is in beta: data may be incomplete in some configurations, so use the results as directional guidance.
 
@@ -90,11 +90,11 @@ From 1024px wide the paired panels sit side by side; below that every panel take
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Under the page title, two links switch between **Overview** and **Swimlanes**. The Date range and Label you picked carry over. The selected view is not kept in the URL, so a reload returns to Overview. The Swimlanes view ranks swimlanes by how long work takes:
+Under the page title, two links switch between **Overview** and **Swimlanes**. The Date range and Label you picked carry over. The selected view is kept in the URL (`a_tab=swimlanes`), so a reload or a copied link opens the same view. The Swimlanes view ranks swimlanes by how long work takes:
 
 - **Controls:** Date range, Label, **Group lanes by** (None, or a dropdown or checkbox swimlane custom field; admin-only fields are offered to admins only) and **Sort** (slowest first by default). There is no Swimlane filter, because every swimlane is shown.
 - **Finding panel:** names up to two swimlanes that are slower than the board, or says none is.
-- **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked; and cards in progress and finished.
+- **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked (**Blocked time**); and cards in progress and finished.
 - **Status:** "Slower than the board" or "Faster than the board" when the median is more than 20% away from the board median, otherwise "In line with the board". A swimlane needs 10 finished cards for a status; with 5 to 9 it shows its median and no status line. Color repeats the words and never replaces them.
 - **Small samples:** under 5 finished cards a swimlane shows no median, bar or trend; with 5 or 6 it shows no 85th percentile line.
 - **Cards that changed swimlane** (*changed in 1.3*, #2334): finished cards and their cycle times count under the swimlane each card entered the done column in, cards in progress under the swimlane they are in now, and blocked share splits a card's time between the swimlanes it was in. A card dragged straight into done in another swimlane is finished in the new swimlane and blocked in the one it left. The board median includes every finished card, also one that finished in a swimlane since deleted.
@@ -111,6 +111,22 @@ One filter bar drives every panel on the page, the heatmap, stalled and blocked 
 - **Date range:** the last 30, 90, 180 or 365 days. **90 by default**, because a weekly median needs five whole weeks and percentiles need enough finished cards.
 - **Swimlane** and **Label:** use each card's current swimlane and labels. The Swimlane filter selects the cards in that swimlane now, even when a breakdown or the Swimlanes view counts some of their work under another swimlane (see [Break down by](#break-down-by)).
 
+### Share a view by its URL
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Period, Swimlane, Label, **Break down by** and the Overview/Swimlanes choice are kept in the page's URL, beside `?view=analytics`. Reload the page, or send the address to a teammate, and they see the same view. Changing a filter replaces the current history entry, so Back still leaves the Analytics tab rather than stepping through every filter you tried.
+
+| Parameter | Values | Left out when |
+|---|---|---|
+| `a_days` | `30`, `90`, `180`, `365` | 90 (the default) |
+| `a_swimlane` | a swimlane id on this board | no swimlane filter |
+| `a_label` | a label id on this board | no label filter |
+| `a_by` | `swimlane`, `label` or `field_<id>` (a dropdown or checkbox card field) | **None** |
+| `a_tab` | `swimlanes` | **Overview** |
+
+For example, `?view=analytics&a_days=30&a_swimlane=12&a_by=label`. A link with only `?view=analytics` still opens the default view. A value the board does not offer (a deleted swimlane, a period that is not in the list, a field that cannot be a breakdown) is ignored and the default applies. Leaving the Analytics tab clears these parameters, and **Clear all filters** removes the filter ones.
+
 A filter change refreshes every panel once. The panels keep showing the previous numbers, dimmed, until the new ones arrive, and an open drawer closes.
 
 !!! note "Changed in 1.3 (#2261)"
@@ -124,7 +140,7 @@ A filter change refreshes every panel once. The panels keep showing the previous
 
 - A **legend** under the filter bar names each group with its color. Select a group to isolate it: its marks stay at full strength and the rest fade to 20%. Select it again to show every group. Changing the breakdown clears the isolation.
 - **Where the time goes** shows one bar per group, on one scale, so the longest bar is the slowest group.
-- **Throughput** bars stack by group. **WIP aging** marks and **Cycle time** dots take the group color; aging marks keep the ring (past the 85th percentile) and the square (blocked).
+- **Throughput** bars stack by group. **WIP age** marks and **Cycle time** dots take the group color; aging marks keep the ring (past the 85th percentile) and the square (blocked).
 - Each chart's summary says what the color means, and its table view has a group column, so color is never the only cue. **Cumulative flow** does not change.
 - Up to five groups get a color. With more, the five largest are shown and the rest collapse into a neutral **Other**.
 - **Labels:** a card with several labels is counted once in each, so the group numbers can add up to more than the board's.
@@ -186,7 +202,7 @@ Four charts built from the movement log, so you can see how long work takes and 
 | **Cycle time** | How long finished work took. "85th · 8.1d" means 85% of these cards took 8.1 days or less. | One point per finished card. 50th percentile dashed, 85th solid and heavier, 95th dotted. A hollow point was reopened after finishing, and keeps its first finish. |
 | **Throughput** | How many cards finish per week. | One point per whole week, its count printed on it, the median dashed. A hollow diamond beside each point is the number of cards started that week (a legend names both), and the table has a **Started** column. Started under-reports on imported boards. Only whole Monday-to-Sunday weeks inside the range are shown: the partial week at the start of the range and today's unfinished week at its end are both left out, so a partial week never reads as a slow one. A 30-day range covers 21 or 28 days and 90 days always 84. |
 | **Cumulative flow** | Whether work arrives faster than it finishes. A widening band is a queue. | One band per column, labeled at its right edge, finished work at the bottom, then the deleted-columns band when it holds cards, so the top of the Done band is the number of finished cards. The hatched orange band is the bottleneck: the column that is not done and grew the most across the range, leaving out the first column that is not done (where new work arrives), named in a small key under the chart. The Done band is gray. |
-| **WIP aging** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. Dots are gray up to the 50th percentile, orange past it, and red past the 85th percentile. A ringed card is past the 85th percentile, a square is blocked, so color is never the only cue. A key under the chart shows each gray, orange and red tier that has a dot on screen (under a breakdown the dots take group colors, so no tier key appears) and a "Blocked card" entry for the square. |
+| **WIP age** | Which unfinished cards are in trouble now. | One dot per in-progress card, over its column. The shaded zones are the cycle-time percentiles. Dots are gray up to the 50th percentile, orange past it, and red past the 85th percentile. A ringed card is past the 85th percentile, a square is blocked, so color is never the only cue. A key under the chart shows each gray, orange and red tier that has a dot on screen (under a breakdown the dots take group colors, so no tier key appears) and a "Blocked card" entry for the square. |
 
 **Too few cards.** A percentile line appears only with enough cards behind it: the 50th needs 5, the 85th needs 7 and the 95th needs 20. Until then the chart leaves that line out and says so, rather than presenting one card's time as a trend. The throughput median needs five whole weeks.
 
@@ -283,7 +299,7 @@ Analytics includes archived cards as part of the historical record.
 
 ### Needs attention
 
-Next to WIP aging, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card with no movement history, such as an imported one, counts days without movement from when it was created. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. A [manually blocked](blocked-cards.md) card names its block's reason, as in "blocked: waiting on security review", after any other reasons so a long one does not hide them; the line is cut to fit the row, and hovering it or opening the card shows it in full. A card blocked only by another card shows just "blocked". Five rows show at first; **All N cards** expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.
+Under **Why is it stuck?**, next to the block reasons, one list shows each card that is blocked now, has not moved for longer than the stalled threshold, or is older than the 85th percentile of cycle time. A card with no movement history, such as an imported one, counts days without movement from when it was created. A card appears once; cards in progress come first, by age, then the rest by days without movement. Each row shows the title, then its column, swimlane and reason, with its age in days on the right: red past the 85th percentile, orange otherwise. A [manually blocked](blocked-cards.md) card names its block's reason, as in "blocked: waiting on security review", after any other reasons so a long one does not hide them; the line is cut to fit the row, and hovering it or opening the card shows it in full. A card blocked only by another card shows just "blocked". Five rows show at first; **All N cards** expands the list in place, 25 per page. Select a row, with the mouse or the keyboard, to open the card.
 
 - **Default threshold:** the board's `staleness_threshold_days`.
 - **Override:** none. This list always uses the board's threshold. The `stalled_days` query parameter applies only to the analytics endpoint's own stalled list, not to this list or to the heatmap coloring.
@@ -294,11 +310,23 @@ Next to WIP aging, one list shows each card that is blocked now, has not moved f
 
 <span class="vb-version" title="Added in 1.3">1.3+</span>
 
-Next to Cycle time, **Why cards get blocked** ranks the reasons cards were [manually blocked](blocked-cards.md) during the selected period, longest first:
+Under **Why is it stuck?**, **Why cards get blocked** ranks the reasons cards were [manually blocked](blocked-cards.md) during the selected period, longest first:
 
 - **Each reason:** the days it cost, the number of blocks, and a red bar sized against the longest reason. A footnote says which column most blocks started in. At most ten reasons show. The subtitle reads "Every blocked day had the same reason" when there is one reason, "One reason accounts for more than half of all blocked time" when the top reason is 50% or more of blocked days, and "One reason accounts for nearly half of all blocked time" from 40% up to 50%. Otherwise it names the period. Reasons that differ only in capitals or spacing count as one.
 
-A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. The section is hidden when nothing was blocked in the period.
+A block counts for the part of it inside the period. A block that is still open counts up to now; on a card that is archived it stops at the archive, and if the card is restored it counts up to now again, archived period included. A deleted card's finished blocks still count, and their reasons still appear, as its movements do in the heatmap; a block that was still open when the card was deleted is left out, reason included. Times under a day show in hours. Blocks by another card (relations) are not timed. When nothing was blocked in the period the panel stays in place and says so, so the layout does not shift.
+
+### Terminology
+
+A few labels look alike but measure different things:
+
+- **7d Velocity and 30d Velocity** on the Summary view are cards finished in the last 7 and 30 days, a throughput count. The API fields `velocity_7d` and `velocity_30d` keep their names.
+- **Velocity** in the dwell heatmap is `deal_velocity_days`: days from a card's first movement to its latest movement. It is not a flow metric. Tracked in #2545.
+- **`aging_cards`** in the MCP server compares a card's current dwell with the column's completed-dwell percentile. It is not the **WIP age** chart, which ages whole in-progress cards against cycle time.
+
+### Empty states
+
+Every empty state names the next action, except **Needs attention** with nothing to list, which is good news and says so. When no block overlapped the period, **Why cards get blocked** stays on the page and says no blocked reasons were recorded, and that marking a card blocked with a reason on the board fills it. The other panels say how to get data into them (move cards between columns) or how to widen the view (a longer Date range, or **Clear all filters**).
 
 ### Empty period
 

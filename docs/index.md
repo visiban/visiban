@@ -3,17 +3,18 @@
 !!! note "Latest release"
     **1.2.0** is the current stable release. See the [release notes](https://gitlab.com/visiban/visiban/-/releases/v1.2.0) for what's new, and the [installation guide](getting-started/installation.md) to get started.
 
-Visiban is an open-source, self-hosted Kanban board where every row is an entity and every move is on the record.
+**See how work flows. Know what needs attention.**
+
+Visiban is an entity-centric Kanban board with built-in flow intelligence. Every card move is recorded, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0.
 
 **Why it matters:** The data that used to live in a spreadsheet beside the board lives on the board. The movement history lets you measure how work moves instead of guessing.
 
 **The big picture:**
 
-- **Rows are entities.** Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, card aging, and dwell-time analytics.
+- **Flow intelligence.** [Analytics](features/analytics.md) *(beta)* answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why.
+- **Rows are entities.** Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, and card aging.
 - **Every move is on the record.** Visiban keeps a permanent audit trail of every card movement.
-- **Bring your own AI.** An API and a first-class [MCP server](features/mcp-server.md) let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.
-
-**In one line:** kill the spreadsheet, see how work actually moves, and interrogate it with your own AI, with every move on the record.
+- **Open source, self-hosted, bring your own AI.** An API and a first-class [MCP server](features/mcp-server.md) let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.
 
 **Comparing options?** [Why Visiban](getting-started/why-visiban.md) covers what makes it different and, honestly, when to pick something else.
 
@@ -33,7 +34,7 @@ Visiban is an open-source, self-hosted Kanban board where every row is an entity
 **The record:**
 
 - **Movement history.** Every drag logs from/to column, from/to swimlane, who moved it, and when. A board-level History tab has search and filters.
-- **Analytics** *(beta)*. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP aging).
+- **Analytics** *(beta)*. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP age).
 
 **The team:**
 
@@ -63,7 +64,7 @@ Visiban is an open-source, self-hosted Kanban board where every row is an entity
 | [Installation](getting-started/installation.md) | Get up and running with Docker or locally |
 | [First boot](getting-started/first-boot.md) | Bootstrap your first site admin |
 | [Roles & Permissions](features/rbac/roles.md) | Understand who can do what |
-| [Analytics](features/analytics.md) | Summary, velocity, and bottleneck views |
+| [Analytics](features/analytics.md) | Summary, flow metrics, and bottleneck views |
 | [Notifications](features/notifications.md) | Assignment and staleness alerts |
 | [Real-time Updates](features/realtime.md) | WebSocket live sync |
 | [CI/CD Pipeline](architecture/overview.md#cicd-pipeline) | Build verification and testing in GitLab CI |

@@ -9,6 +9,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import { useJoinedToast } from "../Common/useJoinedToast";
 import AnalyticsView from "./AnalyticsView";
+import { clearAnalyticsParams } from "./flowMetrics/analyticsUrlState";
 import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -1718,6 +1719,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     setSearchParams(
       (prev) => {
         prev.set("view", v);
+        // The Analytics filters, breakdown and sub-view belong to that tab (#2318): leaving it resets them, as before.
+        if (v !== "analytics") clearAnalyticsParams(prev);
         return prev;
       },
       { replace: true }
@@ -3196,6 +3199,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
             boardId={board.id}
+            urlSource={{ searchParams, setSearchParams }}
             currentUserRole={board.current_user_role}
             onOpenCard={(cardId) => {
               const card = board.cards.find((c) => c.id === cardId);

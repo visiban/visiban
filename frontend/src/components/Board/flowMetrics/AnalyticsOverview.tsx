@@ -41,6 +41,12 @@ interface Props {
    * entries. Card fields carry no admin-only flag, so every role sees the same list.
    */
   customFields?: Pick<CustomFieldDefinition, "id" | "name" | "field_type" | "position">[];
+  /**
+   * The "Break down by" choice, when the page keeps it in the URL (#2318). Omitted, the Overview
+   * keeps its own, as before.
+   */
+  breakdown?: Breakdown;
+  onBreakdownChange?: (breakdown: Breakdown) => void;
   /** Reports the filters the numbers on screen were fetched for, so the page's title row names that period. */
   onFetchedFilters?: (filters: FlowFilters | null) => void;
 }
@@ -60,6 +66,23 @@ function ChartRow({ children }: { children: ReactNode }) {
 }
 
 /**
+ * One of the Overview's four questions (#2457): what is happening, how fast,
+ * where work is stuck, why it is stuck. A heading and a line of context over
+ * the panels that answer it; no panel is added or hidden by the grouping.
+ */
+function AnalyticsQuestion({ id, title, hint, children }: { id: string; title: string; hint: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={`analytics-q-${id}`} className="flex flex-col gap-3 min-w-0" data-testid={`analytics-q-${id}`}>
+      <div>
+        <h2 id={`analytics-q-${id}`} className="text-base font-semibold text-fg">{title}</h2>
+        <p className="text-xs text-fg-tertiary">{hint}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
  * The Analytics tab's Overview (#448, #2261): the filter bar, then one region
  * per slot of the build spec (`docs/development/analytics-redesign.md`).
  *
@@ -70,12 +93,16 @@ function ChartRow({ children }: { children: ReactNode }) {
  */
 export default function AnalyticsOverview({
   boardId, filters, onFiltersChange, swimlanes, labels, columns = [], currentUserRole = null,
-  onOpenCard, onGoToBoard, headingRef, onFetchedFilters, customFields = [],
+  onOpenCard, onGoToBoard, headingRef, onFetchedFilters, customFields = [], breakdown: breakdownProp, onBreakdownChange,
 }: Props) {
-  const [breakdown, setBreakdownState] = useState<Breakdown>(NO_BREAKDOWN);
+  const [ownBreakdown, setOwnBreakdown] = useState<Breakdown>(NO_BREAKDOWN);
+  const breakdown = breakdownProp ?? ownBreakdown;
   // Which group is isolated (its index in the response's groups); changing the breakdown clears it.
   const [isolated, setIsolated] = useState<number | null>(null);
-  const setBreakdown = (next: Breakdown) => { setIsolated(null); setBreakdownState(next); };
+  const setBreakdown = (next: Breakdown) => {
+    setIsolated(null);
+    if (onBreakdownChange) onBreakdownChange(next); else setOwnBreakdown(next);
+  };
   const fields = useMemo(() => breakdownFields(customFields), [customFields]);
   const bKey = breakdownKey(breakdown);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- bKey is the breakdown's identity; the object is rebuilt only when it changes
@@ -197,83 +224,91 @@ export default function AnalyticsOverview({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-w-0">
-            <RegionSlot busy={busy} className="lg:col-span-2">
-              <BottleneckPanel
+          <AnalyticsQuestion id="happening" title="What is happening?" hint="Where the bottleneck is, and the headline numbers.">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-w-0">
+              <RegionSlot busy={busy} className="lg:col-span-2">
+                <BottleneckPanel
+                  cumulative={cumulative}
+                  dwell={dwell}
+                  cycle={cycle}
+                  wipAge={wipAge}
+                  columns={columns}
+                  filtered={filtered}
+                  failed={settled && !cumulative}
+                  onOpenColumn={openColumn}
+                  onGoToBoard={onGoToBoard}
+                />
+              </RegionSlot>
+              <RegionSlot busy={busy} className="lg:col-span-3">
+                <HeadlineTiles
+                  cycle={cycle}
+                  throughput={throughput}
+                  wipAge={wipAge}
+                  blocked={results?.blocked.data}
+                  columns={columns}
+                  filtered={filtered}
+                  settled={settled}
+                />
+              </RegionSlot>
+            </div>
+          </AnalyticsQuestion>
+          <AnalyticsQuestion id="fast" title="How fast does work move?" hint="How long finished work took and how much finishes each week.">
+            <ChartRow>
+              <RegionSlot busy={busy}>
+                {throughput
+                  ? <ThroughputPanel {...panelView("throughput")} data={throughput} onSelect={selectThroughputSample} noun={noun} isolated={isolated} />
+                  : <PanelPlaceholder title="Throughput" failed={settled} />}
+              </RegionSlot>
+              <RegionSlot busy={busy}>
+                {cycle
+                  ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} />
+                  : <PanelPlaceholder title="Cycle time" failed={settled} />}
+              </RegionSlot>
+            </ChartRow>
+          </AnalyticsQuestion>
+          <AnalyticsQuestion id="stuck" title="Where is work stuck?" hint="Which columns queue, and which in-progress cards are getting old.">
+            <RegionSlot busy={busy}>
+              <FlowSection
+                analytics={results?.analytics}
                 cumulative={cumulative}
                 dwell={dwell}
-                cycle={cycle}
                 wipAge={wipAge}
-                columns={columns}
-                filtered={filtered}
-                failed={settled && !cumulative}
-                onOpenColumn={openColumn}
-                onGoToBoard={onGoToBoard}
-              />
-            </RegionSlot>
-            <RegionSlot busy={busy} className="lg:col-span-3">
-              <HeadlineTiles
-                cycle={cycle}
                 throughput={throughput}
-                wipAge={wipAge}
-                blocked={results?.blocked.data}
                 columns={columns}
+                mode={mode}
+                onModeChange={setMode}
+                {...panelView("flow")}
+                filters={shownFilters}
                 filtered={filtered}
                 settled={settled}
+                onOpenColumn={openColumn}
+                isolated={isolated}
+                breakdownNoun={noun}
               />
             </RegionSlot>
-          </div>
-          <RegionSlot busy={busy}>
-            <FlowSection
-              analytics={results?.analytics}
-              cumulative={cumulative}
-              dwell={dwell}
-              wipAge={wipAge}
-              throughput={throughput}
-              columns={columns}
-              mode={mode}
-              onModeChange={setMode}
-              {...panelView("flow")}
-              filters={shownFilters}
-              filtered={filtered}
-              settled={settled}
-              onOpenColumn={openColumn}
-              isolated={isolated}
-              breakdownNoun={noun}
-            />
-          </RegionSlot>
-          <ChartRow>
-            <RegionSlot busy={busy}>
-              {cumulative
-                ? <CumulativeFlowPanel {...panelView("cumulative")} data={cumulative} onSelectDay={selectDay} />
-                : <PanelPlaceholder title="Cumulative flow" failed={settled} loadingNote={!settled} />}
-            </RegionSlot>
-            <RegionSlot busy={busy}>
-              {throughput
-                ? <ThroughputPanel {...panelView("throughput")} data={throughput} onSelect={selectThroughputSample} noun={noun} isolated={isolated} />
-                : <PanelPlaceholder title="Throughput" failed={settled} />}
-            </RegionSlot>
-          </ChartRow>
-          <ChartRow>
-            <RegionSlot busy={busy}>
-              {wipAge
-                ? <WipAgePanel {...panelView("age")} data={wipAge} cards={cards} onSelect={selectAgeSample} noun={noun} isolated={isolated} />
-                : <PanelPlaceholder title="WIP aging" failed={settled} />}
-            </RegionSlot>
-            <RegionSlot busy={busy}>
-              <AttentionSection attention={results?.attention} swimlanes={swimlanes} columns={columns} onOpenCard={onOpenCard} />
-            </RegionSlot>
-          </ChartRow>
-          <ChartRow>
-            <RegionSlot busy={busy}>
-              {cycle
-                ? <CycleTimePanel {...panelView("cycle")} data={cycle} cards={cards} days={shownDays} onSelect={selectCycleSample} noun={noun} isolated={isolated} />
-                : <PanelPlaceholder title="Cycle time" failed={settled} />}
-            </RegionSlot>
-            <RegionSlot busy={busy}>
-              <BlockedSection blocked={results?.blocked} days={shownDays} />
-            </RegionSlot>
-          </ChartRow>
+            <ChartRow>
+              <RegionSlot busy={busy}>
+                {cumulative
+                  ? <CumulativeFlowPanel {...panelView("cumulative")} data={cumulative} onSelectDay={selectDay} />
+                  : <PanelPlaceholder title="Cumulative flow" failed={settled} loadingNote={!settled} />}
+              </RegionSlot>
+              <RegionSlot busy={busy}>
+                {wipAge
+                  ? <WipAgePanel {...panelView("age")} data={wipAge} cards={cards} onSelect={selectAgeSample} noun={noun} isolated={isolated} />
+                  : <PanelPlaceholder title="WIP age" failed={settled} />}
+              </RegionSlot>
+            </ChartRow>
+          </AnalyticsQuestion>
+          <AnalyticsQuestion id="why" title="Why is it stuck?" hint="Block reasons, and the cards that need attention now.">
+            <ChartRow>
+              <RegionSlot busy={busy}>
+                <BlockedSection blocked={results?.blocked} days={shownDays} />
+              </RegionSlot>
+              <RegionSlot busy={busy}>
+                <AttentionSection attention={results?.attention} swimlanes={swimlanes} columns={columns} onOpenCard={onOpenCard} />
+              </RegionSlot>
+            </ChartRow>
+          </AnalyticsQuestion>
         </>
       )}
       {drill && (
