@@ -50,7 +50,24 @@ if [ "${1:-}" = "--self-test" ]; then
   sh "$self" "$in_bytes" "$url" < "$t/in.md" > "$t/same.md"
   cmp -s "$t/in.md" "$t/same.md" || fail "a body at the cap must pass through unchanged"
 
-  # 2. Over the cap: under it, Security + summary whole, whole-entry prefix, notes.
+  # 2a. The size guarantee holds at every cap, not one: a note's blank-note-blank
+  # emit once overshot the reserve by a byte at caps a single test point missed.
+  # Short, varied entries and a step of 1, so some caps leave under 3 bytes of slack.
+  { for s in Added Changed Fixed; do
+      printf '### %s\n' "$s"
+      for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf -- '- %s %0*d\n' "$s" "$i" 0; done
+      printf '\n'
+    done; } > "$t/short.md"
+  short_bytes=$(wc -c < "$t/short.md" | tr -d ' ')
+  c=520
+  while [ "$c" -le "$short_bytes" ]; do
+    sh "$self" "$c" "$url" < "$t/short.md" > "$t/sz.md"
+    s=$(wc -c < "$t/sz.md" | tr -d ' ')
+    [ "$s" -le "$c" ] || fail "cap $c gave $s bytes"
+    c=$((c + 1))
+  done
+
+  # 2b. Over the cap: under it, Security + summary whole, whole-entry prefix, notes.
   cap=2400
   sh "$self" "$cap" "$url" < "$t/in.md" > "$t/cut.md"
   out_bytes=$(wc -c < "$t/cut.md" | tr -d ' ')
@@ -82,6 +99,14 @@ if [ "${1:-}" = "--self-test" ]; then
   grep -qx '  cont a' "$t/ml-out.md" || fail "multi-line entry lost its continuation"
   grep -q 'cont b' "$t/ml-out.md" && fail "a dropped entry left its continuation behind"
 
+  # 3b. A summary with its own "### Added" heading: its note stays in the summary's
+  # category, and the real Added section gets its own note.
+  { printf '### Added\n- s %s\n\n### Highlights\n- h\n\n### Added\n' "$big"
+    printf -- '- real %s\n' "$big" "$big"; } > "$t/dup.md"
+  sh "$self" 500 "$url" < "$t/dup.md" > "$t/dup-out.md"
+  awk '/^### Highlights$/{h=NR} /more Added entries/{n++; if(!first) first=NR}
+       END{exit !(n==2 && first<h)}' "$t/dup-out.md" || fail "a repeated category heading must get its own note"
+
   # 4. Kept-whole part over the cap: a pointer, under the cap.
   sh "$self" 500 "$url" < "$t/in.md" > "$t/ptr.md"
   [ "$(wc -c < "$t/ptr.md" | tr -d ' ')" -le 500 ] || fail "pointer output over the cap"
@@ -106,17 +131,18 @@ LC_ALL=C awk -v max="$max" -v url="$url" '
   {
     line[NR] = $0
     if ($0 ~ /^#+ /) {
-      sec = ""
-      if ($0 == "### Added") sec = "Added"
-      else if ($0 == "### Changed") sec = "Changed"
-      else if ($0 == "### Fixed") sec = "Fixed"
-      cur = 0; secof[NR] = ""; ent[NR] = 0
-      if (sec != "") nsec_seen[sec] = 1
-      insec = sec
-    } else if (insec != "" && $0 ~ /^- /) {
+      # Categories are keyed by heading OCCURRENCE, not by name: a roll-up summary
+      # with its own "### Added" heading is a separate category whose note lands in
+      # it, not at the real Added section.
+      insec = 0
+      if ($0 == "### Added" || $0 == "### Changed" || $0 == "### Fixed") {
+        insec = ++nsec; secname[nsec] = substr($0, 5)
+      }
+      cur = 0; ent[NR] = 0
+    } else if (insec && $0 ~ /^- /) {
       cur = ++nent; ent[NR] = cur; entsec[cur] = insec; entsize[cur] = 0
     } else {
-      ent[NR] = (insec != "") ? cur : 0
+      ent[NR] = insec ? cur : 0
     }
     secof[NR] = insec
     total += length($0) + 1
@@ -126,8 +152,9 @@ LC_ALL=C awk -v max="$max" -v url="$url" '
   END {
     if (total <= max) { for (i = 1; i <= NR; i++) print line[i]; exit }
     # Reserve room for one note per trimmable category (worst-case count width).
+    # +3: a note mid-file is emitted as blank line, note, blank line.
     reserve = 0
-    for (s in nsec_seen) reserve += length(note(s, nent)) + 2
+    for (s = 1; s <= nsec; s++) reserve += length(note(secname[s], nent)) + 3
     budget = max - fixed - reserve
     if (budget < 0) {
       print "The release notes are too long for a GitHub release body. Full notes: " url
@@ -140,17 +167,17 @@ LC_ALL=C awk -v max="$max" -v url="$url" '
     }
     for (i = 1; i <= NR; i++) {
       # Leaving a trimmable category (next heading): close it with its note.
-      if (line[i] ~ /^#+ / && prev != "" && dropped[prev]) {
+      if (line[i] ~ /^#+ / && prev && dropped[prev]) {
         if (lastblank == 0) print ""
-        print note(prev, dropped[prev]); print ""
+        print note(secname[prev], dropped[prev]); print ""
         dropped[prev] = 0
       }
       if (line[i] ~ /^#+ /) prev = secof[i]
       if (ent[i] == 0 || keep[ent[i]]) { print line[i]; lastblank = (line[i] == "") }
     }
-    if (prev != "" && dropped[prev]) {
+    if (prev && dropped[prev]) {
       if (lastblank == 0) print ""
-      print note(prev, dropped[prev])
+      print note(secname[prev], dropped[prev])
     }
   }
 '
