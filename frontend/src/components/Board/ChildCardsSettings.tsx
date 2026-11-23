@@ -209,12 +209,13 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
         ref={(el) => { switchRef.current = el; confirmTrigger("children-off")(el); }}
         role="switch"
         aria-checked={checked}
-        aria-disabled={blocked ? true : undefined}
+        // Also inert while the turn-off save runs: `activate` ignores it then (savingOffRef).
+        aria-disabled={blocked || savingOff ? true : undefined}
         aria-labelledby={labelId}
         aria-describedby={`${helpId} ${statusId}${blocked ? ` ${reasonsId}` : ""}`}
         onClick={activate}
         data-testid="children-switch"
-        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${blocked ? "cursor-not-allowed" : ""}`}
+        className={`flex w-full min-h-11 items-center justify-between gap-4 rounded text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${blocked || savingOff ? "cursor-not-allowed" : ""}`}
       >
         <span className="min-w-0 flex-1">
           <span id={labelId} className="block text-sm text-fg-secondary">Cards on this board can have children</span>
@@ -259,14 +260,14 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
           data-testid="children-off-confirm"
           className="rounded border border-line bg-surface-raised p-3"
         >
-          <p id={`${uid}-off-title`} className="text-sm font-medium text-fg">{offTitle}</p>
+          <p id={`${uid}-off-title`} className="text-sm font-medium text-fg break-words">{offTitle}</p>
           <p id={`${uid}-off-body`} className="text-xs text-fg-muted mt-0.5">{offBody}</p>
           <div className="mt-2 flex flex-row items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => { if (!savingOffRef.current) cancelOff(); }}
               aria-disabled={savingOff ? true : undefined}
-              className={buttonClasses("quiet", { className: "aria-disabled:opacity-40" })}
+              className={buttonClasses("quiet", { className: "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed" })}
             >
               Keep it on
             </button>
@@ -276,7 +277,7 @@ export default function ChildCardsSettings({ board, onUpdate, error = null, onSh
               onClick={confirmOff}
               aria-disabled={savingOff ? true : undefined}
               data-testid="children-off-confirm-button"
-              className={buttonClasses("primary", { className: "aria-disabled:opacity-60" })}
+              className={buttonClasses("primary", { className: "aria-disabled:opacity-40 aria-disabled:cursor-not-allowed" })}
             >
               {savingOff ? "Turning off…" : "Turn off"}
             </button>

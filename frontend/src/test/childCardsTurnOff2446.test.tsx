@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import ChildCardsSettings from "../components/Board/ChildCardsSettings";
 import { turnOffBody } from "../components/Board/childCardsTurnOff";
 import { getChildrenSettingBlockers } from "../api/boards";
@@ -86,6 +87,8 @@ describe("ChildCardsSettings turn-off confirm (#2446)", () => {
     await user.click(sw);
     await user.click(await screen.findByRole("button", { name: "Turn off" }));
     expect(screen.getByRole("button", { name: "Turning off…" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Keep it on" })).toHaveAttribute("aria-disabled", "true");
+    expect(sw).toHaveAttribute("aria-disabled", "true");
     await user.keyboard("{Escape}");
     expect(screen.getByTestId("children-off-confirm")).toBeInTheDocument();
     // A second click while running does not save twice; Keep it on is inert too.
@@ -94,6 +97,33 @@ describe("ChildCardsSettings turn-off confirm (#2446)", () => {
     expect(onUpdate).toHaveBeenCalledTimes(1);
     resolve(null);
     await waitFor(() => expect(screen.queryByTestId("children-off-confirm")).toBeNull());
+    expect(sw).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("a refused save closes the confirm, shows the section error and returns focus to the switch", async () => {
+    // BoardSettingsModal's onUpdate resolves after setting the section error (flipChildCards); it never rejects.
+    function Harness() {
+      const [error, setError] = useState<string | null>(null);
+      return (
+        <ChildCardsSettings
+          board={board}
+          error={error}
+          onUpdate={async () => { setError("Failed to change the Child cards setting. Please try again."); return null; }}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    const sw = await screen.findByRole("switch");
+    await waitFor(() => expect(getChildrenSettingBlockers).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    await user.click(sw);
+    await user.click(await screen.findByRole("button", { name: "Turn off" }));
+    await waitFor(() => expect(screen.queryByTestId("children-off-confirm")).toBeNull());
+    expect(screen.getByTestId("children-error")).toHaveTextContent("Failed to change the Child cards setting. Please try again.");
+    expect(sw).toHaveFocus();
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    expect(sw).not.toHaveAttribute("aria-disabled");
   });
 
   it("swallows a rejected save and still closes", async () => {
