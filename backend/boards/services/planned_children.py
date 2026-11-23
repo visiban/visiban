@@ -19,7 +19,7 @@ branch on every link read.
 """
 
 from django.db import transaction
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import Case, DateTimeField, F, IntegerField, OuterRef, Q, Subquery, When
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
@@ -141,7 +141,11 @@ def clear_for_deleted_column(column, *, actor):
     )
     by_board = {}
     for child_id, child_board_id in rows:
-        _record(child_id, CardActivity.EventType.NEEDED_CHANGED, actor, "column_deleted", "now")
+        # No actor (Rule 19): the column's deleter is a PARENT-board admin who
+        # may hold no role on the child board, and the child's history is read
+        # by the child board's members. Naming them would disclose who changed
+        # a board the reader may be unable to open.
+        _record(child_id, CardActivity.EventType.NEEDED_CHANGED, None, "column_deleted", "now")
         by_board.setdefault(child_board_id, []).append(child_id)
     for child_board_id in sorted(by_board):
         _broadcast.record_board_event(
@@ -160,9 +164,11 @@ def set_needed(card, *, user, child_role, value):
     """Change a child's Needed by hand (#2371). Returns the updated link.
 
     Authorization: MEMBER or higher on the child's board. Setting a column
-    also needs a role on the parent's board, because the choices are the
-    parent board's column names; a viewer who cannot open the parent may only
-    set "Now" (``None``). Setting a column re-plans the child, so it is only
+    also needs a WRITE role (MEMBER or higher, ``LINK_WRITE_ROLES``) on the
+    parent's board, the same predicate ``create_child`` applies to a column
+    chosen at creation, so the two paths agree; anyone else (a parent-board
+    viewer, or a reader who cannot open the parent) may only set "Now"
+    (``None``). Setting a column re-plans the child, so it is only
     allowed while the child is in its board's first column (planned work
     waits in To do). The stored due date is kept either way, now inactive or
     live. Every change writes a ``needed_changed`` row; a no-op writes none.
@@ -171,8 +177,23 @@ def set_needed(card, *, user, child_role, value):
         raise PermissionDenied()
     from .cards import lock_card_row
 
+    from .card_links import lock_card_and_link_peers
+
     with transaction.atomic():
-        locked = lock_card_row(card.pk)
+        # Lock order: the child AND its parent card, pk-ordered, in one
+        # statement, before the link row is read. That is the order every link
+        # write takes (``card_links._lock_endpoints``: both cards, pk order)
+        # and it never holds a card a move waits on while waiting on a link:
+        # a move (``services.cards._move_card_attempt``) locks its own card's
+        # cell and columns, then UPDATEs the link rows in ``release_on_move``,
+        # and this holds no link row until both cards are granted. Holding the
+        # parent is what makes the column check below current: without it a
+        # parent moving past the chosen column could commit its release query
+        # between this read of its position and this commit, leaving the child
+        # planned for a column the parent already passed, never released, its
+        # due date silently inactive (#2371 security review).
+        lock_card_and_link_peers(card.pk)
+        locked = lock_card_row(card.pk)  # already held; reads the column under it
         if locked is None:
             raise NotFound()
         link = (
@@ -184,7 +205,9 @@ def set_needed(card, *, user, child_role, value):
         if value is None:
             column = None
         else:
-            if get_board_roles(user, [link.parent.board])[link.parent.board_id] is None:
+            # ``.get``, not ``[...]``: a board missing from the result denies
+            # (#1075), it does not 500.
+            if get_board_roles(user, [link.parent.board]).get(link.parent.board_id) not in _write_roles():
                 # Same answer as a column that does not qualify: the caller
                 # learns nothing about the parent board's columns.
                 raise ValidationError({"needed_at_column": ["Choose a later column on the parent's board."]})
@@ -227,8 +250,18 @@ def annotate_links(qs):
         Column.objects.filter(board_id=OuterRef("child__board_id"))
         .order_by("position", "pk").values("pk")[:1]
     )
+    # Only a link with Needed set is read by planned_entries, so the two
+    # subqueries sit inside a CASE on it: PostgreSQL evaluates a THEN branch
+    # only for the rows whose WHEN holds, and an ordinary (Now) link row, the
+    # common case, pays for neither (#2371 perf review).
+    has_needed = Q(needed_at_column__isnull=False)
     return qs.select_related("needed_at_column").annotate(
-        _planned_last_moved=Subquery(last_move), _planned_first_col=Subquery(first_column),
+        _planned_last_moved=Case(
+            When(has_needed, then=Subquery(last_move)), default=None, output_field=DateTimeField(),
+        ),
+        _planned_first_col=Case(
+            When(has_needed, then=Subquery(first_column)), default=None, output_field=IntegerField(),
+        ),
         _planned_child_col=F("child__column_id"),
     )
 

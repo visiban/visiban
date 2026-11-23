@@ -10,9 +10,12 @@ leave a planned child out while every other To do card keeps its date.
 """
 import datetime
 import importlib
+import threading
+from unittest import skipUnless
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.db import connection, connections, transaction
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -23,6 +26,7 @@ from boards.models import (
 )
 from boards.serializers import CardSerializer
 from boards.services import planned_children
+from boards.tests.lock_wait import assert_blocked_on_lock
 
 Role = BoardMembership.Role
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -139,6 +143,14 @@ class AddChildNeededTests(PlannedFixture):
         self.assertFalse(Card.objects.filter(board=self.cboard).exists())
 
 
+class AddChildDenialTests(PlannedFixture):
+    def test_parent_viewer_cannot_create_a_planned_child(self):
+        vera = self.member("vera", parent=Role.VIEWER, child=Role.MEMBER)
+        r = self.add_child(vera, needed_at_column=self.proposal.pk)
+        self.assertEqual(r.status_code, 403, r.content)
+        self.assertFalse(Card.objects.filter(board=self.cboard).exists())
+
+
 class ViewerFieldTests(PlannedFixture):
     def test_visible_parent_gets_the_column_and_hidden_parent_only_the_state(self):
         child = self.planned_child()
@@ -197,6 +209,31 @@ class ReleaseTests(PlannedFixture):
         self.assertEqual(self.link(child).planned_released_at, released)
         self.assertEqual(len([e for e in self.events(child) if e[0] == EV.PLANNED_RELEASED]), 1)
 
+    def test_parent_mover_with_no_child_board_role_still_releases(self):
+        # Release is a system write caused by the link (Rule 19), not a write
+        # on the child board by the mover.
+        child = self.planned_child()
+        pat = self.member("pat", parent=Role.MEMBER)
+        self.assertEqual(self.move(self.parent, self.pboard, self.proposal, self.plane, user=pat).status_code, 200)
+        self.assertIsNotNone(self.link(child).planned_released_at)
+        self.assertEqual(self.events(child)[-1], (EV.PLANNED_RELEASED, "parent_reached", "", None))
+
+    def test_django_admin_column_change_releases_like_a_move(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from boards.admin import CardAdmin
+
+        child = self.planned_child()
+        request = RequestFactory().post("/admin/")
+        request.user = self.owner
+        parent = Card.objects.get(pk=self.parent.pk)
+        parent.column = self.won
+        with patch(PATCH_BROADCAST), self.captureOnCommitCallbacks(execute=True):
+            CardAdmin(Card, AdminSite()).save_model(request, parent, None, change=True)
+        self.assertIsNotNone(self.link(child).planned_released_at)
+        self.assertEqual(self.events(child)[-1][:2], (EV.PLANNED_RELEASED, "parent_reached"))
+
     def test_pulling_the_child_releases_it_once(self):
         child = self.planned_child()
         self.assertEqual(self.move(child, self.cboard, self.doing, self.clane).status_code, 200)
@@ -214,7 +251,9 @@ class ReleaseTests(PlannedFixture):
             r = client_for(self.owner).delete(f"/api/v1/boards/{self.pboard.pk}/columns/{self.proposal.pk}/")
         self.assertEqual(r.status_code, 204, r.content)
         self.assertIsNone(self.link(child).needed_at_column_id)
-        self.assertEqual(self.events(child)[-1], (EV.NEEDED_CHANGED, "column_deleted", "now", self.owner.pk))
+        # Actorless (Rule 19): the parent-board admin who deleted the column
+        # may hold no role on the child board, whose readers see this row.
+        self.assertEqual(self.events(child)[-1], (EV.NEEDED_CHANGED, "column_deleted", "now", None))
 
 
 class ManualNeededTests(PlannedFixture):
@@ -257,6 +296,48 @@ class ManualNeededTests(PlannedFixture):
         loose = Card.objects.create(board=self.cboard, column=self.todo, swimlane=self.clane, title="Loose")
         self.assertEqual(self.post(self.maya, loose, None).status_code, 400)
 
+    def test_parent_board_viewer_may_only_set_now(self):
+        # A column needs a WRITE role on the parent (the create_child rule),
+        # not just any role: a parent-board viewer gets the same 400.
+        pam = self.member("pam", parent=Role.VIEWER, child=Role.MEMBER)
+        child = self.planned_child()
+        r = self.post(pam, child, self.won.pk)
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertEqual(self.post(pam, child, None).status_code, 200)
+
+    def test_parent_board_missing_from_the_role_lookup_denies_instead_of_500(self):
+        child = self.planned_child()
+        with patch("boards.services.planned_children.get_board_roles", return_value={}):
+            r = self.post(self.maya, child, self.won.pk)
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertTrue(self.link(child).planned_released_at is None)
+        self.assertEqual(self.link(child).needed_at_column_id, self.proposal.pk)
+
+    def test_caller_with_no_child_board_access_gets_404(self):
+        child = self.planned_child()
+        stranger = self.member("stranger", parent=Role.MEMBER)
+        self.assertEqual(self.post(stranger, child, None).status_code, 404)
+        self.assertEqual(self.link(child).needed_at_column_id, self.proposal.pk)
+
+    def test_card_from_another_board_in_the_url_is_404(self):
+        child = self.planned_child()
+        # Maya is a member of both boards; the card is not on the URL's board.
+        with patch(PATCH_BROADCAST):
+            r = client_for(self.maya).post(
+                f"/api/v1/boards/{self.pboard.pk}/cards/{child.pk}/needed/", {"needed_at_column": None}, format="json",
+            )
+        self.assertEqual(r.status_code, 404, r.content)
+        self.assertEqual(self.link(child).needed_at_column_id, self.proposal.pk)
+
+    def test_column_from_an_unrelated_board_is_refused(self):
+        child = self.planned_child()
+        other_board = Board.objects.create(name="Other", owner=self.owner)
+        foreign = Column.objects.create(board=other_board, name="Elsewhere", position=9)
+        r = self.post(self.maya, child, foreign.pk)
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertNotIn("Elsewhere", r.content.decode())
+        self.assertEqual(self.link(child).needed_at_column_id, self.proposal.pk)
+
     def test_only_a_card_in_the_first_column_can_be_planned(self):
         r = self.add_child()
         child = Card.objects.get(pk=r.json()["id"])
@@ -295,3 +376,123 @@ class InactiveDateTests(PlannedFixture):
     def test_stale_exempt_helper_fails_closed_on_a_missing_entry(self):
         self.assertFalse(planned_children.planned_stale_exempt(None, 7))
         self.assertFalse(planned_children.planned_stale_exempt({"planned": False, "planned_released_at": None}, 7))
+
+
+WAIT = 10
+
+
+@skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
+class PlannedRaceTests(TransactionTestCase):
+    """Lock-order and consume-once races (#2371). Patches are taken once in
+    the main thread (a ``patch`` inside a worker leaks process-wide)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="pr_owner", password="pass")
+        self.maya = User.objects.create_user(username="pr_maya", password="pass")
+        self.pboard = Board.objects.create(name="Pipeline", owner=self.owner, cards_can_have_children=True)
+        self.lead = Column.objects.create(board=self.pboard, name="Lead", position=0)
+        self.proposal = Column.objects.create(board=self.pboard, name="Proposal", position=1)
+        self.won = Column.objects.create(board=self.pboard, name="Won", position=2)
+        plane = Swimlane.objects.create(board=self.pboard, name="Hooli", position=0)
+        self.cboard = Board.objects.create(name="Delivery", owner=self.owner)
+        self.todo = Column.objects.create(board=self.cboard, name="To do", position=0)
+        self.doing = Column.objects.create(board=self.cboard, name="Doing", position=1)
+        clane = Swimlane.objects.create(board=self.cboard, name="Team", position=0)
+        for board in (self.pboard, self.cboard):
+            BoardMembership.objects.create(board=board, user=self.maya, role=Role.MEMBER)
+        self.parent = Card.objects.create(board=self.pboard, column=self.lead, swimlane=plane, title="Parent")
+        self.child = Card.objects.create(board=self.cboard, column=self.todo, swimlane=clane, title="Child")
+
+    def link(self, **fields):
+        return CardParentLink.objects.create(parent=self.parent, child=self.child, created_by=self.maya, **fields)
+
+    def run_pair(self, holder_work, waiter_work, msg):
+        """``holder_work`` runs in a transaction that stays open until the
+        waiter is proven blocked on a row lock; returns the waiter's result."""
+        holding, release = threading.Event(), threading.Event()
+        errors, results = [], {}
+
+        def holder():
+            try:
+                with transaction.atomic():
+                    holder_work()
+                    holding.set()
+                    if not release.wait(WAIT):
+                        raise RuntimeError("never released")
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                errors.append(exc)
+            finally:
+                holding.set()
+                connections.close_all()
+
+        def waiter():
+            try:
+                if not holding.wait(WAIT):
+                    raise RuntimeError("holder never took its lock")
+                with transaction.atomic():
+                    results["value"] = waiter_work()
+            except BaseException as exc:  # noqa: BLE001 - surfaced after join
+                results["error"] = exc
+            finally:
+                connections.close_all()
+
+        t_holder = threading.Thread(target=holder, name="holder-2371")
+        t_waiter = threading.Thread(target=waiter, name="waiter-2371")
+        with patch(PATCH_BROADCAST):
+            t_holder.start()
+            t_waiter.start()
+            try:
+                assert_blocked_on_lock(self, t_waiter, msg)
+            finally:
+                release.set()
+                t_holder.join(WAIT * 3)
+                t_waiter.join(WAIT * 3)
+        self.assertFalse(t_holder.is_alive() or t_waiter.is_alive(), "a thread hung")
+        self.assertEqual(errors, [])
+        return results
+
+    def test_set_needed_waits_on_a_parent_move_and_judges_the_moved_parent(self):
+        """A parent moving past the chosen column while Needed is set: the
+        write queues on the parent's row and then refuses the column the
+        parent has passed, instead of planning a child no move will release."""
+        link = self.link()
+
+        def parent_move():
+            # The move's shape: the parent's row lock, the column change, then
+            # its release query (finds nothing planned yet), committed later.
+            Card.objects.select_for_update().get(pk=self.parent.pk)
+            Card.objects.filter(pk=self.parent.pk).update(column=self.won)
+            self.parent.column = self.won
+            planned_children.release_on_move(self.parent, board=self.pboard, to_column=self.won, actor=self.maya)
+
+        def plan():
+            return planned_children.set_needed(
+                self.child, user=self.maya, child_role=Role.MEMBER, value=self.proposal.pk,
+            )
+
+        results = self.run_pair(parent_move, plan, "set_needed should queue on the parent card's row")
+        self.assertIsInstance(results.get("error"), planned_children.ValidationError)
+        link.refresh_from_db()
+        self.assertIsNone(link.needed_at_column_id)
+        self.assertFalse(CardActivity.objects.filter(card=self.child, event_type=EV.NEEDED_CHANGED).exists())
+
+    def test_two_simultaneous_releases_write_one_history_row(self):
+        """A parent reaching the column and the child's own pull, at once:
+        the link is claimed once, so exactly one ``planned_released`` row."""
+        link = self.link(needed_at_column=self.proposal)
+
+        def parent_reaches():
+            planned_children.release_on_move(self.parent, board=self.pboard, to_column=self.proposal, actor=None)
+
+        def pull():
+            planned_children.release_on_move(self.child, board=self.cboard, to_column=self.doing, actor=self.maya)
+
+        results = self.run_pair(parent_reaches, pull, "the pull should queue on the link row the release holds")
+        self.assertNotIn("error", results)
+        link.refresh_from_db()
+        self.assertIsNotNone(link.planned_released_at)
+        rows = list(
+            CardActivity.objects.filter(card=self.child, event_type=EV.PLANNED_RELEASED)
+            .values_list("from_value", flat=True)
+        )
+        self.assertEqual(rows, ["parent_reached"])

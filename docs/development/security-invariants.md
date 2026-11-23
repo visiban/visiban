@@ -1017,15 +1017,28 @@ with no actor and no reference to the parent, its board, its column or the
 mover. It grants the mover no read or write on the child board, and the child
 board's readers learn only that the child is now needed (the accepted
 disclosure, as for `card.parent_changed`). Changing Needed by hand is an
-ordinary write: member on the child's board, plus a role on the parent's board
-to choose a column (the choices are its column names).
+ordinary write: member on the child's board, plus member or higher on the
+parent's board to choose a column (the choices are its column names; the same
+`LINK_WRITE_ROLES` predicate Add child applies), so a parent-board viewer, or a
+reader who cannot open the parent, may only set Now. It locks the child and the
+parent card, pk-ordered, before reading the link (the link-write lock order),
+so a parent moving past the chosen column is judged after its move commits.
+History rows that a parent-board action writes on the child (release, column
+deleted) carry no actor.
 
 | Surface | Entry point | Enforcement |
 |---|---|---|
 | REST and MCP move | `boards/services/cards.py` `_move_card_attempt` | calls `planned_children.release_on_move` after the move, inside its transaction |
 | Column delete | `boards/views/columns.py` `ColumnViewSet.perform_destroy` | `planned_children.clear_for_deleted_column` records "Needed: Now", then `SET_NULL` |
 | Manual Needed | `boards/views/cards.py` `CardViewSet.needed` | `planned_children.set_needed`: child-board role, parent-board role for a column |
+| Django admin card save | `boards/admin.py` `CardAdmin.save_model` | a same-board column change calls `planned_children.release_on_move`, as a move does (the only column write outside `_move_card_attempt`) |
+| Column delete | `boards/views/columns.py` `ColumnViewSet.perform_destroy` (history) | the `needed_changed` "column deleted" row has `actor=None`: the deleter is a parent-board admin |
+| Manual Needed (lock) | `planned_children.set_needed` | `card_links.lock_card_and_link_peers` (child and parent, pk order) before the link read |
 | Reads | `card_links.parents_for_viewer(planned=...)` | `needed_at_column(_name)` only with a role on the parent's board; absent viewer fails closed |
+| History / activity feed | `CardActivitySerializer` (`GET .../cards/{id}/activity/`) | `planned_released` and `needed_changed` rows carry only a cause code (`parent_reached`, `pulled`, `created`, `manual`, `column_deleted`) and `planned`/`now` or the due date; no parent, board, column or person, except the actor of a manual or create write made on the child board itself |
+| WebSocket | `card.parent_changed` (`announce_parent_changed`, `clear_for_deleted_column`, `set_needed`) and `card.moved` | ids only (`card_ids`), unchanged; clients re-read the planned fields over REST, where they are gated per viewer. No planned field is added to any frame |
+| Share link, export, MCP | `PublicCardSerializer`, `import_export.py` export, `mcp_server/tools.py` `_serialize_card` | take no planned context and omit all five planned fields (`planned`, `needed_now`, `needed_at_column`, `needed_at_column_name`, `planned_released_at`) |
+| Stale / Overdue parity on share link, MCP, export | — | **PENDING OWNER DECISION** (#2371): whether these surfaces exclude planned children from Stale and Overdue as REST does |
 
 ## How to add a rule
 
