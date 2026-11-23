@@ -619,3 +619,45 @@ DRF client, local, warm, 20 requests per arm, p50 / p95 in ms:
 The aged board keeps the #2425 win. Its `wip-age` was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over `2655a9f81` on the load-test board wasn't attributed. It's inside the 1.4x budget factor.
 
 The closing check is the manual `nightly-load-test` job on the NUC: its p95 for all eight flow scenarios (`cycle-time`, `throughput`, `cumulative-flow`, `wip-age`, `dwell`, `blocked`, `attention`, `swimlanes`) must come back under their budgets. The local DRF-client table above covers only four of the eight (`wip-age`, `attention`, `cycle-time`, `cumulative-flow`); `throughput`, `dwell`, `blocked` and `swimlanes` were not measured locally.
+
+## Cumulative flow's whole-history read — #2444
+
+After [#2425](https://gitlab.com/visiban/visiban/-/issues/2425), `metrics/cumulative-flow` still streamed every skipped card's whole movement history to find the band it rests in. The `?date=` drill-down still loaded the board's whole history through `load_board_flow`.
+
+Both now go through `flow_metrics._deciding_rows`, which reads per card only the rows `_replay_placements` can depend on:
+
+- the first row;
+- the last transition;
+- the last archive-type row;
+- for a drill-down day only, the last archive-type row after that day. That row decides whether an admin-set `archived_at` counts.
+
+The rows are chosen in one uncorrelated statement with two `ROW_NUMBER()` windows, and the replay is unchanged, so every response is byte-identical. `load_cumulative_day` serves the drill-down.
+
+### Measured (local, not the NUC)
+
+Setup:
+
+- The numbers are in-process service calls (load plus payload, the drill-down's card directory included) on local PostgreSQL. No HTTP request was timed.
+- The fixture is `seed_demo_data --force --scale 20 --aged-generations 12` followed by `VACUUM ANALYZE`. The aged board has 31,330 cards and 329,563 movements. The load-test board has 2,395 cards and 24,919 movements, and it stands in for the "80 days" row.
+- The drill-down day is 540 days back.
+- Each figure is the median of 7 runs, in ms.
+- "py-peak" is the `tracemalloc` peak, not RSS: `/proc` is not available on macOS.
+
+| Request | Board | main | #2444 | py-peak main → #2444 |
+|---|---|---|---|---|
+| `cumulative-flow` (90 days) | aged | 1,083 | 772 | 31.6 → 31.4 MiB |
+| `cumulative-flow` (90 days) | load-test | 130 | 128 | 11.7 → 11.7 MiB |
+| `cumulative-flow?date=` | aged | 1,488 | 653 | 150.0 → 43.3 MiB |
+| `cumulative-flow?date=` | load-test | 120 | 45 | 11.7 → 3.3 MiB |
+| `wip-age`, for reference | aged / load-test | — | 295 / 137 | — |
+
+`EXPLAIN (ANALYZE, BUFFERS)` on the deciding-rows statement:
+
+| | Rows read by the windows | Rows returned | Time |
+|---|---|---|---|
+| Range (skipped cards) | 278,861 | 46,750 | 398 ms |
+| Drill-down (all cards) | 329,563 | 44,212 | 500 ms |
+
+Both windows are fed by an incremental sort presorted on `card_id` from `card_movements_card_id`. That sort is an in-memory quicksort with a 31 kB peak per group and no spill. An index on `(card, moved_at, id)` would not remove it, because the second window partitions on the computed `kind`. No index was added.
+
+**The #2425 1.5x acceptance is not met.** On the aged board `cumulative-flow` is about 6x the load-test board's cost, and the drill-down about 14x (about 5x against main's load-test drill-down). The remaining cost is server-side: the windows still read every row of the selected cards (about 400-500 ms), although only three or four per card reach Python. Bounding that read needs a per-card `LIMIT 1` lookup, which means narrowing the #2502 correlated-subquery guard deliberately, and that was left for a decision. `aged_flow_cumulative_flow_day` is pending under #2430 with its siblings until a NUC run measures it.
