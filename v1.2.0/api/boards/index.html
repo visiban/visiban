@@ -6650,6 +6650,12 @@
 <td>none</td>
 <td>Only cards currently carrying this label. Combines with <code>swimlane_id</code> (both must match).</td>
 </tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer or <code>all</code></td>
+<td><code>all</code></td>
+<td><em>Added in 1.3 (#2429).</em> Caps the stalled cards of <strong>all swimlanes together</strong> at this many, keeping the board's longest-unmoved cards; each swimlane's list keeps its usual order and gains <code>stalled_cards_total</code> (its count before the cut), and the response gains <code>sampled</code>. Without it, or with <code>all</code>, the response is unchanged. Every other field is unaffected. See <a href="#flow-metric-limit">Capped lists</a>.</td>
+</tr>
 </tbody>
 </table>
 <p>A <code>swimlane_id</code> or <code>label_id</code> that is not on this board, including one that belongs to another board, returns the same <code>400</code> as one that does not exist. Without either parameter the response is unchanged.</p>
@@ -6910,9 +6916,56 @@
 <td>none</td>
 <td>A dropdown or checkbox custom field of this board. On cycle-time, throughput, wip-age, dwell and overview it names a card field, is required with <code>group_by=custom_field</code> and is refused with any other <code>group_by</code>. On <code>metrics/swimlanes</code> it names a swimlane field and is honored on its own, with no <code>group_by</code>. Ignored on the other endpoints.</td>
 </tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer or <code>all</code></td>
+<td><code>all</code></td>
+<td><em>Added in 1.3 (#2429).</em> Cap each per-card list at this many entries, <code>1</code> or more. On cycle-time, throughput, wip-age, attention and overview; ignored elsewhere, whatever its value. See <a href="#flow-metric-limit">Capped lists</a>.</td>
+</tr>
 </tbody>
 </table>
 <p>A bad value, or a swimlane or label that is not on this board, returns <code>400</code> with <code>{"detail": "...", "code": "invalid_query_param"}</code>. A <code>group_by_field_id</code> that does not exist, is on another board, or is not a dropdown or checkbox field of the right kind (card field, or swimlane field on <code>metrics/swimlanes</code>) gets one and the same <code>400</code> (<code>group_by_field_id: Not a dropdown or checkbox card field on this board.</code>, or <code>... swimlane field ...</code> on <code>metrics/swimlanes</code>), so the answer says nothing about the field. A board you cannot access returns <code>404</code>.</p>
+<p><a id="flow-metric-limit"></a>
+<strong>Capped lists</strong> (<code>limit</code>, <em>added in 1.3</em>, #2429). A per-card list grows with the board: on a board with 12,000 cards in flight, <code>wip-age</code> alone is several megabytes. <code>limit</code> is an optional cap on each per-card list, taken by <code>cycle-time</code>, <code>throughput</code>, <code>wip-age</code>, <code>attention</code>, <code>overview</code> and <a href="#get-apiv1boardsidanalytics"><code>analytics</code></a>. Its value is a positive integer, or <code>all</code> for no cap. <strong>Without <code>limit</code>, or with <code>limit=all</code>, every response is exactly what it was before this parameter existed</strong>, so an existing API or MCP client sees no change. An empty <code>limit=</code> counts as absent and returns the uncapped response too. Any other value returns <code>400</code> (<code>code: invalid_query_param</code>, <code>limit: Must be a positive integer or "all".</code>).</p>
+<p>Every number a response states (<code>sample_size</code>, <code>percentiles</code>, <code>cycle_time_percentiles</code>, <code>wip_count</code>, <code>count</code>, <code>total</code>, <code>median</code>, the grouping aggregates) is still computed from the whole set. Only the lists shrink:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>What <code>limit</code> cuts</th>
+<th>Added with <code>limit</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cycle-time</code></td>
+<td><code>samples</code>, downsampled: the <code>limit / 4</code> longest cycle times are always kept, the rest an even spread over the others in their usual order (by completion)</td>
+<td><code>samples_total</code>, <code>sampled</code></td>
+</tr>
+<tr>
+<td><code>wip-age</code></td>
+<td><code>samples</code>, downsampled the same way: the oldest are always kept</td>
+<td><code>samples_total</code>, <code>past_p85_count</code> (samples older than the cycle-time p85, strict <code>&gt;</code>), each column's <code>sample_count</code> and <code>past_p85_count</code>, <code>sampled</code></td>
+</tr>
+<tr>
+<td><code>throughput</code></td>
+<td>each period's <code>card_uids</code> (and <code>by_group[].card_uids</code>) to the first <code>limit</code>; <code>count</code> is never cut</td>
+<td><code>sampled</code></td>
+</tr>
+<tr>
+<td><code>attention</code></td>
+<td><code>items</code> to the first <code>limit</code>, in their usual order: cards in progress first, oldest first, then the rest by days without movement, so a card not in progress is cut before any card in progress</td>
+<td><code>items_total</code>, <code>sampled</code></td>
+</tr>
+<tr>
+<td><code>overview</code></td>
+<td>each section as its own endpoint does</td>
+<td>as above, per section</td>
+</tr>
+</tbody>
+</table>
+<p><code>sampled</code> is <code>true</code> when a list was actually cut, <code>false</code> when it fit. <code>cards</code> names exactly the cards the cut lists still name, <code>throughput</code>'s <code>by_group[].card_uids</code> included. Downsampling is deterministic: the same board and query give the same samples. The Analytics page sends <code>limit=300</code>. <code>dwell</code>, <code>cumulative-flow</code>, <code>swimlanes</code> and <code>blocked</code> have no per-card list to cap and ignore <code>limit</code> like any unknown parameter, whatever its value.</p>
+<p>Response sizes quoted for <code>limit</code> are raw JSON bytes. The shipped nginx and Helm frontend configurations gzip <code>application/json</code>, so a browser behind them receives much less; daphne itself and the development Vite proxy do not compress, so a development or direct-to-backend client receives the raw size.</p>
 <p><a id="flow-metric-breakdowns"></a>
 <strong>Breakdowns</strong> (<code>group_by</code>, #2265). The new parameters follow the 1.0+ compatibility rules, but may still change until 1.3 GA. Without <code>group_by</code> every response is exactly what it was before this parameter existed. With it, the response is the same plus:</p>
 <ul>
@@ -7162,7 +7215,7 @@
 <p>It differs from the <code>stalled_cards</code> list on the analytics endpoint in two ways: a movement dated in the future is ignored, and a card is judged by the column it is in now, so a card whose last movement went into a done column but that is no longer in one is still listed. A card with no movement is judged the same way in both, from its creation date.</p>
 <h4 id="get-apiv1boardsidmetricsoverview"><code>GET /api/v1/boards/{id}/metrics/overview/</code><a class="headerlink" href="#get-apiv1boardsidmetricsoverview" title="Permanent link">&para;</a></h4>
 <p><em>Added in 1.3 (#2426).</em> Every chart of the Analytics overview in one response, computed from <strong>one</strong> load of the board's history. Calling <code>cycle-time</code>, <code>throughput</code>, <code>cumulative-flow</code>, <code>wip-age</code>, <code>dwell</code>, <code>blocked</code> and <code>attention</code> separately loads and replays that history seven times, which on a board with years of archived work holds several copies of it in the server process at once; the Analytics page uses this endpoint instead. The single-metric endpoints are unchanged and still answer on their own.</p>
-<p><strong>Query parameters:</strong> the <a href="#flow-metrics">shared filters</a> (<code>days</code>, or <code>from_date</code>/<code>to_date</code>, plus <code>swimlane_id</code>, <code>label_id</code>), <code>group_by</code> and <code>group_by_field_id</code> as on the four breakdown endpoints, and <code>period</code> (<code>day</code> or <code>week</code>, default <code>week</code>) as on <code>throughput</code>. A bad value gets the same <code>400</code> (<code>code: invalid_query_param</code>) as on those endpoints. The cumulative-flow <code>date</code> drill-down is not taken here; use <code>metrics/cumulative-flow/?date=</code> for it.</p>
+<p><strong>Query parameters:</strong> the <a href="#flow-metrics">shared filters</a> (<code>days</code>, or <code>from_date</code>/<code>to_date</code>, plus <code>swimlane_id</code>, <code>label_id</code>), <code>group_by</code> and <code>group_by_field_id</code> as on the four breakdown endpoints, <code>period</code> (<code>day</code> or <code>week</code>, default <code>week</code>) as on <code>throughput</code>, and <code>limit</code> (see <a href="#flow-metric-limit">Capped lists</a>), which caps each section's lists as its own endpoint does. A bad value gets the same <code>400</code> (<code>code: invalid_query_param</code>) as on those endpoints. The cumulative-flow <code>date</code> drill-down is not taken here; use <code>metrics/cumulative-flow/?date=</code> for it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">"cycle_time"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"definition"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"sample_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"percentiles"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"p50"</span><span class="p">:</span><span class="w"> </span><span class="mf">4.2</span><span class="p">,</span><span class="w"> </span><span class="nt">"p85"</span><span class="p">:</span><span class="w"> </span><span class="mf">8.1</span><span class="p">,</span><span class="w"> </span><span class="nt">"p95"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"samples"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">},</span>
 <a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">"throughput"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"definition"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"period"</span><span class="p">:</span><span class="w"> </span><span class="s2">"week"</span><span class="p">,</span><span class="w"> </span><span class="nt">"total"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"samples"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span><span class="w"> </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">},</span>
