@@ -10437,7 +10437,7 @@ this.</p>
 </code></pre></div>
 <ul>
 <li><code>child_cards</code>: cards on this board that are children of cards on another board. Turning the setting <strong>on</strong> is refused while this is above 0.</li>
-<li><code>parent_cards</code>: cards on this board that have children. Turning the setting <strong>off</strong> is refused while this is above 0.</li>
+<li><code>parent_cards</code>: cards on this board that have children (archived children count). Since 1.3 (#2446) turning the setting <strong>off</strong> is not refused while this is above 0: these cards become leftover parents. Each keeps its children, its <code>children_rollup</code> and the right to get more children (Add child, Link existing), while no other card on the board can get children. A leftover parent stops being one when its last child link is removed. The web app asks first with a confirm that quotes this count. Before #2446 a <code>PATCH</code> turning the setting off answered <code>400</code> while this was above 0.</li>
 <li><code>default_of</code>: the boards whose <code>default_child_board</code> is this board. Turning the setting <strong>on</strong> is refused while it is not empty. A board you cannot open is <code>{"hidden": true}</code>, with no id or name; <code>can_change</code> is true when you administer that board.</li>
 </ul>
 <h3 id="default-child-board-options-since-13">Default child board options (since 1.3)<a class="headerlink" href="#default-child-board-options-since-13" title="Permanent link">&para;</a></h3>

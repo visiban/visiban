@@ -6938,7 +6938,7 @@ one. The rules:</p>
 <tbody>
 <tr>
 <td><code>link_not_allowed</code></td>
-<td>The parent's board is not a parent board, or this card's board is one</td>
+<td>That parent may not get children: its board is not a parent board and the card is not a leftover parent (a card that still has children on a board whose setting was turned off, since 1.3, #2446). Also returned when this card's board is a parent board, or the parent is on this card's own board. A card that was linked to that parent and then unlinked may be linked back (Undo)</td>
 </tr>
 <tr>
 <td><code>self_link</code></td>
@@ -6966,7 +6966,7 @@ one. The rules:</p>
 </tr>
 <tr>
 <td><code>child_is_parent</code> / <code>parent_is_child</code></td>
-<td>Would make a third tier</td>
+<td>Would make a third tier: this card has children of its own (for example a leftover parent, #2446), or the parent is itself a child</td>
 </tr>
 </tbody>
 </table>
@@ -7259,10 +7259,14 @@ an unknown board.</p>
 <a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a><span class="w">              </span><span class="nt">"parent_title"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">}]}</span>
 </code></pre></div>
 <p><code>disabled_reason</code> is <code>link_exists</code> (already this card's child),
-<code>already_has_parent</code> (another card's child), <code>parent_archived</code> (this card
-is archived, since 1.3, #2447; not for a card that was linked to this card and
-then unlinked, which may be linked back) or <code>children_limit</code> (this card has 100
-children), in that precedence, else <code>null</code>. <code>parent_title</code> names the other parent only
+<code>child_is_parent</code> (the candidate has children of its own, so it would become a
+third tier; since 1.3, #2446, when the candidate board's setting was turned off
+while its cards had children), <code>already_has_parent</code> (another card's child),
+<code>parent_archived</code> (this card is archived, since 1.3, #2447; not for a card that
+was linked to this card and then unlinked, which may be linked back) or
+<code>children_limit</code> (this card has 100 children), in that precedence, else <code>null</code>.
+The values are an open set: a client shows an unknown value as unavailable.
+The picker also answers for a leftover parent (#2446), the same as for a card on a parent board. <code>parent_title</code> names the other parent only
 when you can open its board. Link a row with <code>POST
 /api/v1/boards/{child_board_id}/cards/{child_id}/parent/ {"parent_id": id}</code> on
 the child's board, so the child board's role authorizes it.</p>
