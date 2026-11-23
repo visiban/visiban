@@ -89,7 +89,7 @@
   ],
   "packageRules": [
     {
-      "description": "Group minor and patch updates per ecosystem. Python: Renovate edits backend/requirements*.txt but does not regenerate the hash-pinned backend/requirements.lock, so backend-lock-check goes red until a reviewer runs scripts/lock-backend-requirements.sh on the branch; automating that is #2482",
+      "description": "Group minor and patch updates per ecosystem. Python lock regeneration is the separate pip_requirements rule below (#2482)",
       "matchManagers": [
         "pip_requirements"
       ],
@@ -98,6 +98,22 @@
         "patch"
       ],
       "groupName": "python dependencies (minor/patch)"
+    },
+    {
+      "description": "Renovate's pip manager edits backend/requirements*.txt only; the Dockerfiles install the hash-pinned backend/requirements.lock, and backend-lock-check fails when it is stale. Regenerate both locks on the branch (#2482). Separate from the grouping rule so majors, which are never grouped, get it too. The command must match RENOVATE_ALLOWED_COMMANDS on the renovate job in .gitlab-ci.yml; that job installs uv at the version pinned in scripts/uv-requirements.txt",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "sh scripts/lock-backend-requirements.sh"
+        ],
+        "fileFilters": [
+          "backend/requirements.lock",
+          "backend/requirements-build.lock"
+        ],
+        "executionMode": "branch"
+      }
     },
     {
       "matchManagers": [

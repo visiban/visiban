@@ -4214,6 +4214,7 @@ kaizen-yield-watch:
 # Without the token (forks, a fresh install, every MR pipeline) the job is
 # simply not created. Renovate never automerges:
 # policy lives in renovate.json. Setup: docs/maintainers/renovate.md.
+# pip bumps also regenerate backend/requirements.lock via postUpgradeTasks (#2482).
 # Keep the image tag in step with the renovate-config-validator pin in
 # renovate-config-check.
 renovate:
@@ -4233,7 +4234,19 @@ renovate:
     RENOVATE_ONBOARDING: "false"
     RENOVATE_REQUIRE_CONFIG: required
     RENOVATE_GIT_AUTHOR: "Renovate Bot <renovate-bot@visiban.invalid>"
+    # postUpgradeTasks run with the job's environment and token, so the allowlist
+    # is one anchored regex for exactly the lock script, never a wildcard (#2482).
+    # Must match the command in renovate.json.
+    RENOVATE_ALLOWED_COMMANDS: '["^sh scripts/lock-backend-requirements\\.sh$"]'
   script:
+    # The lock script needs uv at the version pinned in scripts/uv-requirements.txt
+    # (hash-checked, same as backend-lock-check). The image ships neither uv nor pip
+    # until containerbase's install-tool provides a Python; pip then installs uv into
+    # that Python's bin dir, which is not on PATH by default.
+    - install-tool python 3.12.12
+    - pip install --quiet --require-hashes -r scripts/uv-requirements.txt
+    - export PATH="$(python3 -c 'import sysconfig; print(sysconfig.get_path("scripts"))'):$PATH"
+    - uv --version
     - renovate --token "$RENOVATE_TOKEN"
 
 # ─── Security (MR only) ───────────────────────────────────────────────────────
