@@ -1,5 +1,6 @@
 import type { Card } from "../types";
 import { classifyCardUrgency } from "../utils/cardUrgency";
+import { activeDueDate, type CardPlannedFields } from "../utils/plannedFields";
 
 /**
  * A card's board status for the swimlane band and the collapsed-lane strip
@@ -29,9 +30,9 @@ export const STATUS_LABEL: Record<CardBoardStatus, string> = {
  * Status of one card. Stale is the server's verdict (`is_stale`), ignored for a
  * card in a done column (finished, not idle), the same rule the card face uses.
  */
-export function cardBoardStatus(card: Pick<Card, "due_date" | "is_stale" | "last_moved_at">, inDoneColumn: boolean): CardBoardStatus {
-  // Overdue skips a done-column card too (#2313), as the server's auto health does.
-  const kind = classifyCardUrgency({ due_date: card.due_date, closed: inDoneColumn, is_stale: false, last_moved_at: null })?.kind;
+export function cardBoardStatus(card: Pick<Card, "due_date" | "is_stale" | "last_moved_at"> & CardPlannedFields, inDoneColumn: boolean): CardBoardStatus {
+  // Overdue skips a done-column card too (#2313), as the server's auto health does, and a planned child (#2371).
+  const kind = classifyCardUrgency({ due_date: activeDueDate(card), closed: inDoneColumn, is_stale: false, last_moved_at: null })?.kind;
   if (kind === "overdue") return "overdue";
   if (card.is_stale && !inDoneColumn) return "stale";
   return "ok";

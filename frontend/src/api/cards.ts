@@ -350,5 +350,5 @@ export const unlinkCardChild = (boardId: number, cardId: number, childId: number
 /** Change a child's Needed (#2371): `null` is Now, a column id plans it for that parent column. */
 export const setNeeded = (boardId: number, cardId: number, neededAtColumn: number | null) =>
   client.post<{ needed_at_column: number | null; planned: boolean; planned_released_at: string | null }>(
-    `/boards/${boardId}/cards/${cardId}/needed/`, { needed_at_column: neededAtColumn },
+    `/api/v1/boards/${boardId}/cards/${cardId}/needed/`, { needed_at_column: neededAtColumn },
   ).then((r) => r.data);

@@ -102,8 +102,12 @@ export function activityLabel(
     // #2371 planned children. The rows carry only cause codes, so these
     // sentences never name the parent, its board or column, or who moved it
     // (the reader may be unable to open the parent's board).
-    case "planned_released":
-      return d.from_value === "pulled" ? "Needed now: started before the parent got there" : "Needed now";
+    // A parent release stores the child's due date (ISO, or blank) in to_value.
+    case "planned_released": {
+      if (d.from_value === "pulled") return "Needed now: started before the parent got there";
+      const due = /^\d{4}-\d{2}-\d{2}$/.test(d.to_value ?? "") ? formatDateStr(d.to_value, userDateFormat) : "";
+      return due ? `Needed now: the parent moved on · due date ${due} now counts` : "Needed now: the parent moved on";
+    }
     case "needed_changed":
       if (d.to_value === "now") return d.from_value === "column_deleted" ? "Needed: Now (its column was deleted)" : "Needed: Now";
       return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";

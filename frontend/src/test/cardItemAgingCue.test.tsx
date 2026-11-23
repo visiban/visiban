@@ -58,6 +58,18 @@ const solidBars = (svg: Element) => svg.querySelectorAll('rect[fill="currentColo
 const hollowBars = (svg: Element) => svg.querySelectorAll('rect[fill="none"][stroke="currentColor"]')
 
 describe('AgingCue on cards without a visible stale status line (#1843)', () => {
+  // #2371: a planned child waits for its parent; it is not idle, so no clock and no tint.
+  it('a planned child idle 45 days shows no cue and no tint', () => {
+    const { container } = renderAged(45.5, { planned: true, is_stale: false })
+    expect(cue(container)).toBeNull()
+    expect(container.querySelector('.bg-stale-severe\\/20, [class*="bg-stale"]')).toBeNull()
+  })
+
+  it('a released child ages from its release, not its last move', () => {
+    const { container } = renderAged(45.5, { planned: false, planned_released_at: daysAgo(1), is_stale: false })
+    expect(cue(container)).toBeNull()
+  })
+
   it.each([
     [15.5, 'stale', 1, 'text-warning-on-tint', 'Idle 15 days, past the stale threshold'],
     [30.5, 'stale2x', 2, 'text-danger-on-tint', 'Idle 30 days, at least 2 times the stale threshold'],

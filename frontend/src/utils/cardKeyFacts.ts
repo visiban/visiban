@@ -16,6 +16,7 @@ import { chipValueText, formatCustomFieldValue, isValidForType, thresholdLevel, 
 import type { ThresholdLevel } from "./customFieldValue";
 import type { ThresholdDirection } from "../types";
 import { formatDueDate } from "./date";
+import { activeDueDate } from "./plannedFields";
 
 /** What a fact jumps to. A `field:<id>` target is a pinned custom field's row. */
 export type KeyFactTarget = "move" | "assignee" | "due" | `field:${number}`;
@@ -103,7 +104,7 @@ export function buildKeyFacts({ card, board, userTimezone, userDateFormat, now =
     const info = formatDueDate(card.due_date, userTimezone, userDateFormat);
     // The one overdue rule (#2313): instance time zone, open cards only. The label
     // above stays in the user's zone (#871).
-    const overdue = isOverdue(card.due_date, !!column?.is_done || !!card.archived_at, now.getTime());
+    const overdue = isOverdue(activeDueDate(card), !!column?.is_done || !!card.archived_at, now.getTime());
     facts.push({
       key: "due",
       target: "due",

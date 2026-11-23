@@ -21,3 +21,12 @@ export function pickPlannedFields(card: CardPlannedFields): CardPlannedFields {
 export function plannedStateMovesWithCard(card: CardPlannedFields | undefined): boolean {
   return card?.planned === true || card?.needed_now === true;
 }
+
+/**
+ * The due date that counts for Overdue, Due soon and urgency (#2371): none while the card is a planned child, whose
+ * stored date is inactive until the parent reaches the column or someone pulls it. Every place that judges a card
+ * overdue or due soon reads this, not `due_date`, so the card face, filters, chips, lane squares and detail agree.
+ */
+export function activeDueDate(card: Pick<Card, "due_date"> & CardPlannedFields): string | null {
+  return card.planned === true ? null : card.due_date;
+}

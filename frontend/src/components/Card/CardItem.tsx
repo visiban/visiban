@@ -33,6 +33,7 @@ import { colorChipStyle } from "../../utils/colorContrast";
 import type { CardMenuAnchor } from "./CardContextMenu";
 import TrackChips, { GateProgress } from "./TrackChips";
 import { isDimensionField, type CardTrackState } from "../../utils/stages";
+import { activeDueDate } from "../../utils/plannedFields";
 
 
 
@@ -564,7 +565,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // midnight or due-soon boundary can never fall between two calls.
   const urgencyNow = Date.now();
   // A planned child's date is inactive (#2371): never overdue or due soon until it is released.
-  const activeDue = card.planned ? null : card.due_date;
+  const activeDue = activeDueDate(card);
   const isOverdueCard = classifyCardUrgency({ due_date: activeDue, closed: cardClosed, is_stale: false, last_moved_at: null }, urgencyNow)?.kind === "overdue";
   const priorityColor = colorForPriority(card.priority);
   const borderColor = isOverdueCard ? "rgb(var(--danger-emphasis))" : undefined;

@@ -84,9 +84,22 @@ export const AGING_STAGE_CLASSES: Record<AgingStage, { overlayClass: string | nu
  * creation time. This mirrors the server's `is_stale` fallback
  * (`_annotate_is_stale`), so an imported board's never-moved cards get the
  * same ramp, tooltip and stale status line as moved ones (#1841, #2272).
+ * A planned child has none while planned and, after its release, ages from
+ * the later of that and its release (#2371).
  */
-export function agingReference(card: { last_moved_at: string | null; created_at: string }): string | null {
-  return card.last_moved_at ?? card.created_at ?? null;
+export function agingReference(card: {
+  last_moved_at: string | null;
+  created_at: string;
+  planned?: boolean;
+  planned_released_at?: string | null;
+}): string | null {
+  // A planned child (#2371) is not idle, it is waiting for its parent: no reference, so no tint or clock.
+  if (card.planned === true) return null;
+  const base = card.last_moved_at ?? card.created_at ?? null;
+  // Once released, it ages from the later of its last move and its release, as the server's is_stale does.
+  const released = card.planned_released_at ?? null;
+  if (released && (!base || Date.parse(released) > Date.parse(base))) return released;
+  return base;
 }
 
 export interface AgingTint {

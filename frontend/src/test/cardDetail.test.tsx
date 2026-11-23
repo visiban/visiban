@@ -1015,6 +1015,19 @@ describe('CardDetail', () => {
     expect(screen.getByText('2099-06-15')).toBeInTheDocument()
   })
 
+  it('tints a passed due date as danger, but not on a planned child (#2371)', () => {
+    const tint = (card: Card) => {
+      const props = defaultProps()
+      props.card = card
+      const { unmount } = render(<CardDetail {...props} userDateFormat="YYYY-MM-DD" />)
+      const cls = screen.getByText('2020-01-02').parentElement?.className ?? ''
+      unmount()
+      return cls
+    }
+    expect(tint(makeCard({ due_date: '2020-01-02' }))).toContain('bg-danger/10')
+    expect(tint(makeCard({ due_date: '2020-01-02', planned: true }))).not.toContain('bg-danger/10')
+  })
+
   it('shows due date in DD/MM/YYYY format when userDateFormat is DD/MM/YYYY', () => {
     const props = defaultProps()
     props.card = makeCard({ due_date: '2099-06-15' })

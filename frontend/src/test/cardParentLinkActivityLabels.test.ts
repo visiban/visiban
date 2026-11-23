@@ -40,7 +40,8 @@ describe("activityLabel for board-deleted link rows", () => {
 // board, column or person, whatever value they are handed.
 describe("activityLabel for planned-child rows", () => {
   it.each([
-    ["planned_released", "parent_reached", "2026-12-04", "Needed now"],
+    ["planned_released", "parent_reached", "2026-12-04", "Needed now: the parent moved on · due date 12/04/2026 now counts"],
+    ["planned_released", "parent_reached", "", "Needed now: the parent moved on"],
     ["planned_released", "pulled", "", "Needed now: started before the parent got there"],
     ["needed_changed", "created", "planned", "Created planned for a later stage"],
     ["needed_changed", "manual", "planned", "Needed column changed"],
@@ -48,6 +49,11 @@ describe("activityLabel for planned-child rows", () => {
     ["needed_changed", "column_deleted", "now", "Needed: Now (its column was deleted)"],
   ])("%s %s → %s reads as %j", (eventType, from, to, label) => {
     expect(activityLabel(eventType, { from_value: from, to_value: to })).toBe(label);
+  });
+
+  it("formats the released due date in the reader's date format", () => {
+    expect(activityLabel("planned_released", { from_value: "parent_reached", to_value: "2026-12-04" }, "DD/MM/YYYY"))
+      .toBe("Needed now: the parent moved on · due date 04/12/2026 now counts");
   });
 
   it("never echoes a value it is handed", () => {
