@@ -3800,7 +3800,8 @@ _PLANNED_FIELD_SCHEMAS = {
     )},
     "planned_released_at": {"type": "string", "format": "date-time", "nullable": True, "description": (
         "Since 1.3 (#2371): when the child stopped being planned (the parent reached the "
-        "column, or the child was pulled). Stale is measured from it after release."
+        "column, the child was pulled, its column was deleted, or Needed was set to Now by "
+        "hand). Stale is measured from it after release."
     )},
 }
 
@@ -3835,7 +3836,13 @@ class CardPlannedField(serializers.Field):
 
 
 def _planned_field(key):
-    return extend_schema_field({"readOnly": True, **_PLANNED_FIELD_SCHEMAS[key]})(CardPlannedField)(key)
+    # One subclass per key: ``extend_schema_field`` stores its schema on the
+    # class it decorates, so decorating ``CardPlannedField`` itself five times
+    # left every field documented as the last one (a date-time string).
+    # They are optional in responses through
+    # ``schema_hooks._OMITTABLE_RESPONSE_PROPERTIES``, like ``parent``.
+    cls = type(f"CardPlannedField_{key}", (CardPlannedField,), {})
+    return extend_schema_field({"readOnly": True, **_PLANNED_FIELD_SCHEMAS[key]})(cls)(key)
 
 
 #: Serializer-context key holding ``card_links.rollups_for_viewer``'s result

@@ -3,8 +3,9 @@
 A child whose ``CardParentLink.needed_at_column`` is set is *planned* until
 the parent reaches (or skips past) that column on its own board, or someone
 pulls the child out of To do. While planned, the child's due date is stored
-but inactive: it is left out of Overdue, Due soon and Stale on every surface
-(REST, share link, export, MCP, notifications, health) through the one
+but inactive: it is left out of Overdue, Due soon and Stale wherever the
+server computes them (REST, card query, share-link Stale, notifications,
+health; export and MCP emit no such value) through the one
 predicate ``card_signals.planned_link_exists`` (``not_planned_q`` for dates,
 ``serializers._annotate_is_stale`` / ``_row_is_stale`` for Stale).
 
@@ -116,7 +117,7 @@ def record_created_planned(card, actor):
     _record(card.pk, CardActivity.EventType.NEEDED_CHANGED, actor, "created", "planned")
 
 
-def release_on_move(card, *, board, to_column, actor):
+def release_on_move(card, *, to_column, actor, may_be_parent=True, may_be_child=True):
     """Release planned links touched by ``card`` changing column. Inside the move's transaction.
 
     Two cases, both conditional UPDATEs on the link row (claimed once, so a
@@ -127,29 +128,46 @@ def release_on_move(card, *, board, to_column, actor):
       at or before ``to_column`` is released ("reaches or skips past"). A
       parent moving back releases nothing and re-plans nothing.
 
+    Which case applies is decided by the link rows, never by the board's
+    ``cards_can_have_children`` flag: since #2446 a flag-off board can hold
+    leftover parents that keep (and add) children, so the flag no longer says
+    which cards are parents (Rule 7's per-card two-tier note; reading it here
+    left a leftover parent's planned children planned forever). One query
+    finds both cases, and the per-row claim runs only for a row it found. A caller that already read
+    the card's links under its row lock (``move_card``'s pings) passes
+    ``may_be_parent`` / ``may_be_child`` False for a side it found empty, and
+    a card with neither pays no query at all. Both default to True: a caller
+    that does not know looks at both sides.
+
     Clients refresh the children through the ``card.parent_changed`` frame the
     parent move already sends (``announce_parent_changed``); the pulled child's
     own ``card.moved`` frame carries its new column.
     """
-    now = timezone.now()
-    # Two tiers (#2208): a card on a parent-tier board is never a child, and
-    # a card elsewhere is never a parent. So exactly one query per move.
-    if not board.cards_can_have_children:
-        pulled = (
-            CardParentLink.objects.filter(child_id=card.pk).filter(LINK_PLANNED_Q)
-            .update(planned_released_at=now)
+    sides = Q()
+    if may_be_child:
+        sides |= Q(child_id=card.pk)
+    if may_be_parent:
+        sides |= Q(
+            parent_id=card.pk,
+            needed_at_column__board_id=to_column.board_id,
+            needed_at_column__position__lte=to_column.position,
         )
-        if pulled:
-            _record(card.pk, CardActivity.EventType.PLANNED_RELEASED, actor, "pulled", _due_iso(card.due_date))
+    if not sides:
         return
+    now = timezone.now()
     rows = list(
-        CardParentLink.objects.filter(parent_id=card.pk).filter(LINK_PLANNED_Q)
-        .filter(needed_at_column__board_id=to_column.board_id, needed_at_column__position__lte=to_column.position)
+        CardParentLink.objects.filter(LINK_PLANNED_Q)
+        .filter(sides)
         .values_list("pk", "child_id", "child__due_date")
         .order_by("pk")
     )
     for link_pk, child_id, due_date in rows:
-        if CardParentLink.objects.filter(pk=link_pk).filter(LINK_PLANNED_Q).update(planned_released_at=now):
+        if not CardParentLink.objects.filter(pk=link_pk).filter(LINK_PLANNED_Q).update(planned_released_at=now):
+            continue
+        if child_id == card.pk:
+            # The child itself moved: its own board's member did it.
+            _record(child_id, CardActivity.EventType.PLANNED_RELEASED, actor, "pulled", _due_iso(due_date))
+        else:
             # No actor: the person who moved the parent may hold no role on
             # the child board, and naming them would disclose the move to a
             # reader who cannot open the parent (#2371 hidden-parent history).
@@ -161,15 +179,28 @@ def clear_for_deleted_column(column, *, actor):
 
     Called by the column delete under its cascade locks, before the delete;
     the FK's ``SET_NULL`` then clears the field. A released child is already
-    an ordinary card and gets no row. Pings each child board so open clients
-    re-read the children (ids only).
+    an ordinary card and gets no row and keeps its release time. Pings each
+    child board so open clients re-read the children (ids only).
+
+    The child's Stale clock restarts now (owner decision, #2371): the link is
+    released here (``planned_released_at``), as a parent reaching the column
+    would release it. Without it the clock fell back to the child's last
+    move, so a child planned for weeks turned Stale the moment its column
+    went. The rows are locked first (this is the column delete's lock order:
+    the column, then the link rows its ``SET_NULL`` updates), so a parent
+    move releasing the same link either commits first and the row is skipped
+    here, or waits and then finds it released: one history row either way.
     """
     rows = list(
-        CardParentLink.objects.filter(needed_at_column=column, planned_released_at__isnull=True)
-        .values_list("child_id", "child__board_id")
+        CardParentLink.objects.select_for_update(of=("self",))
+        .filter(needed_at_column=column, planned_released_at__isnull=True)
+        .values_list("pk", "child_id", "child__board_id")
+        .order_by("pk")
     )
+    if rows:
+        CardParentLink.objects.filter(pk__in=[r[0] for r in rows]).update(planned_released_at=timezone.now())
     by_board = {}
-    for child_id, child_board_id in rows:
+    for _link_pk, child_id, child_board_id in rows:
         # No actor (Rule 19): the column's deleter is a PARENT-board admin who
         # may hold no role on the child board, and the child's history is read
         # by the child board's members. Naming them would disclose who changed
@@ -260,10 +291,15 @@ def set_needed(card, *, user, child_role, value):
         if link.needed_at_column_id == (column.pk if column else None) and was_planned == now_planned:
             return link
         link.needed_at_column = column
-        # Re-planning clears the release; "Now" keeps it, so a released child
-        # keeps its restarted Stale clock and Needed-now state.
+        # Re-planning clears the release. "Now" on a still-planned child
+        # releases it now, so its Stale clock restarts here (owner decision,
+        # #2371) instead of falling back to its creation move and reading
+        # Stale at once; "Now" on an already released child keeps its
+        # original release time, Stale clock and Needed-now state.
         if column is not None:
             link.planned_released_at = None
+        elif link.planned_released_at is None:
+            link.planned_released_at = timezone.now()
         link.save(update_fields=["needed_at_column", "planned_released_at"])
         _record(
             card.pk, CardActivity.EventType.NEEDED_CHANGED, user, "manual",

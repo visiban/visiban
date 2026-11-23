@@ -515,7 +515,7 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
                     if stored.column_id != obj.column_id:
                         from .services.planned_children import release_on_move
 
-                        release_on_move(obj, board=obj.board, to_column=obj.column, actor=request.user)
+                        release_on_move(obj, to_column=obj.column, actor=request.user)
                 # Block history follows the card for the same reason (#1149):
                 # CardBlock.board is what Analytics sums by and what a board
                 # delete cascades through. Its column snapshot is left as it

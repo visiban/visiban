@@ -1338,7 +1338,7 @@ On the reads that carry `parent` (`/full/`, the card list, retrieve and
 | `needed_now` | bool | Released by the parent reaching (or skipping past) the column, and still in its board's first column with no move since. |
 | `needed_at_column` | int or null | The parent board's column; `null` for Now and whenever you cannot open the parent's board. |
 | `needed_at_column_name` | string or null | That column's name, under the same rule. |
-| `planned_released_at` | datetime or null | When the child stopped being planned. Stale restarts from it. |
+| `planned_released_at` | datetime or null | When the child stopped being planned: the parent reached its column, it was pulled, its column was deleted, or Needed was set to Now by hand. Stale restarts from it. An already released child keeps its first value. |
 
 Like `parent`, they are absent from write responses, `card.*` event payloads,
 webhooks, MCP, exports and share links. A release by the parent sends no new

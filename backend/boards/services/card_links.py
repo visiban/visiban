@@ -1766,6 +1766,9 @@ def announce_parent_changed(card_id, board, *, actor_id):
     at most one event per child board (all of a parent's children share one
     board, so in practice one event of at most ``CHILDREN_PER_PARENT_LIMIT`` ids).
     ``board`` is kept for the callers' signature.
+
+    Returns the child ids it pinged, so a move can skip the planned-children
+    release query for a card with no children (#2371).
     """
     by_board = {}
     for child_id, child_board_id in CardParentLink.objects.filter(parent_id=card_id).values_list(
@@ -1777,6 +1780,7 @@ def announce_parent_changed(card_id, board, *, actor_id):
             child_board_id, _broadcast.EVT_CARD_PARENT_CHANGED,
             {"card_ids": sorted(by_board[child_board_id])}, actor_id=actor_id,
         )
+    return [child_id for ids in by_board.values() for child_id in ids]
 
 
 # ─── Parent-side rollup and child-side pings (#2210, #2416) ──────────────────
@@ -1959,10 +1963,14 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
     :func:`_announce_siblings`'s ``card.parent_changed {card_ids, siblings}``.
     That covers a sibling moving into or out of a done column: ``move_card``
     calls this on every column change. Still one query.
+
+    Returns the ids in ``card_ids`` that have a parent, or ``None`` when it
+    did not read the links (no ids, or a parent-tier board), so a move can
+    skip the planned-children release query for a card with no parent (#2371).
     """
     ids = list(card_ids)
     if not ids or (board is not None and board.cards_can_have_children):
-        return
+        return None
     idset = set(ids)
     rows = list(
         CardParentLink.objects.filter(
@@ -1979,6 +1987,7 @@ def announce_children_changed(card_ids, *, board=None, actor_id):
         [(p, pb, c, cb) for pb, p, c, cb, archived_at in rows if archived_at is None],
         actor_id=actor_id, changed=idset,
     )
+    return {c for _pb, _p, c, _cb, _a in rows if c in idset}
 
 
 #: Above this many linked children on one child board, a parent container
