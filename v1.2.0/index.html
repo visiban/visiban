@@ -4379,15 +4379,16 @@
 <p class="admonition-title">Latest release</p>
 <p><strong>1.2.0</strong> is the current stable release. See the <a href="https://gitlab.com/visiban/visiban/-/releases/v1.2.0">release notes</a> for what's new, and the <a href="getting-started/installation/">installation guide</a> to get started.</p>
 </div>
-<p>Visiban is an open-source, self-hosted Kanban board where every row is an entity and every move is on the record.</p>
+<p><strong>See how work flows. Know what needs attention.</strong></p>
+<p>Visiban is an entity-centric Kanban board with built-in flow intelligence. Every card move is recorded, and Visiban turns that history into cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0.</p>
 <p><strong>Why it matters:</strong> The data that used to live in a spreadsheet beside the board lives on the board. The movement history lets you measure how work moves instead of guessing.</p>
 <p><strong>The big picture:</strong></p>
 <ul>
-<li><strong>Rows are entities.</strong> Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, card aging, and dwell-time analytics.</li>
+<li><strong>Flow intelligence.</strong> <a href="features/analytics/">Analytics</a> <em>(beta)</em> answers four questions from your movement history: what is happening, how fast work moves, where it is stuck, and why.</li>
+<li><strong>Rows are entities.</strong> Each swimlane is a customer, account, or project, with typed fields of its own, WIP limits, and card aging.</li>
 <li><strong>Every move is on the record.</strong> Visiban keeps a permanent audit trail of every card movement.</li>
-<li><strong>Bring your own AI.</strong> An API and a first-class <a href="features/mcp-server/">MCP server</a> let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.</li>
+<li><strong>Open source, self-hosted, bring your own AI.</strong> An API and a first-class <a href="features/mcp-server/">MCP server</a> let you connect your own tools. Any AI agent you already run can query and update the board through a token you issue. Visiban ships the interface, not a model, so nothing leaves your install.</li>
 </ul>
-<p><strong>In one line:</strong> kill the spreadsheet, see how work actually moves, and interrogate it with your own AI, with every move on the record.</p>
 <p><strong>Comparing options?</strong> <a href="getting-started/why-visiban/">Why Visiban</a> covers what makes it different and, honestly, when to pick something else.</p>
 <p><a id="highlights"></a></p>
 <h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">&para;</a></h2>
@@ -4403,7 +4404,7 @@
 <p><strong>The record:</strong></p>
 <ul>
 <li><strong>Movement history.</strong> Every drag logs from/to column, from/to swimlane, who moved it, and when. A board-level History tab has search and filters.</li>
-<li><strong>Analytics</strong> <em>(beta)</em>. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP aging).</li>
+<li><strong>Analytics</strong> <em>(beta)</em>. A summary view (card counts, velocity, average cycle time) and an analytics view (per-lane dwell-time heatmap, stalled cards, and flow charts for cycle time, throughput, cumulative flow and WIP age).</li>
 </ul>
 <p><strong>The team:</strong></p>
 <ul>
@@ -4448,7 +4449,7 @@
 </tr>
 <tr>
 <td><a href="features/analytics/">Analytics</a></td>
-<td>Summary, velocity, and bottleneck views</td>
+<td>Summary, flow metrics, and bottleneck views</td>
 </tr>
 <tr>
 <td><a href="features/notifications/">Notifications</a></td>

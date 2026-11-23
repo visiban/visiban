@@ -4717,36 +4717,30 @@
 </tr>
 <tr>
 <td>5</td>
-<td>Bottleneck panel and four headline tiles</td>
+<td><strong>What is happening?</strong> Bottleneck panel and four headline tiles</td>
 <td>2 : 3</td>
 <td>#2257</td>
 </tr>
 <tr>
 <td>6</td>
-<td>How work flows, with Where the time goes</td>
-<td>full</td>
-<td>#2257</td>
+<td><strong>How fast does work move?</strong> Throughput and Cycle time</td>
+<td>1 : 1</td>
+<td>#2457</td>
 </tr>
 <tr>
 <td>7</td>
-<td>Cumulative flow and Throughput</td>
-<td>1 : 1</td>
-<td>#2257</td>
+<td><strong>Where is work stuck?</strong> How work flows with Where the time goes (full), then Cumulative flow and WIP age</td>
+<td>full, then 1 : 1</td>
+<td>#2457</td>
 </tr>
 <tr>
 <td>8</td>
-<td>Aging work in progress and Needs attention</td>
+<td><strong>Why is it stuck?</strong> Why cards get blocked and Needs attention</td>
 <td>1 : 1</td>
-<td>#2257</td>
+<td>#2457</td>
 </tr>
 <tr>
 <td>9</td>
-<td>Cycle time and Why cards get blocked</td>
-<td>1 : 1</td>
-<td>#2257</td>
-</tr>
-<tr>
-<td>10</td>
 <td>Footnote on days, time zone and current-value filters</td>
 <td>full</td>
 <td>#2257</td>
@@ -4890,7 +4884,7 @@
 <td>Adds a "started" marker per week next to the finished bar. Median dashed, labeled in the right margin.</td>
 </tr>
 <tr>
-<td>Aging work in progress</td>
+<td>WIP age</td>
 <td>Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. A legend lists the neutral, past-50th and past-85th tiers in the shapes the chart draws, each only while a mark of that tier is on screen, and none under a breakdown, where marks take group colors (#2284).</td>
 </tr>
 <tr>
@@ -4916,7 +4910,7 @@
 <li>Each row: reason, days blocked and number of blocks, and a bar proportional to days blocked, in the danger color.</li>
 <li>The subtitle is computed from the data (#2282). With one reason: "Every blocked day had the same reason." Top share of <code>total.days</code> (unrounded) at least 50%: "One reason accounts for more than half of all blocked time." At least 40% and under 50%: "One reason accounts for nearly half of all blocked time." Otherwise, or when <code>total.days</code> is 0: "Block reasons over the last N days, longest first."</li>
 <li>A footnote says where most blocks started.</li>
-<li>Renders nothing when no block overlapped the period, as today.</li>
+<li>When no block overlapped the period the panel still renders, empty and saying so, so the row keeps its shape.</li>
 </ul>
 <h2 id="column-drawer">Column drawer<a class="headerlink" href="#column-drawer" title="Permanent link">&para;</a></h2>
 <p>Opens from a column box or from the bottleneck panel's primary button. Reuse <code>FlowDrillDrawer</code>.</p>
@@ -4971,7 +4965,7 @@
 <td>Eight small bars of the rolling median, and a word: slower, steady or faster, with the first and last values</td>
 </tr>
 <tr>
-<td>Time blocked</td>
+<td>Blocked time</td>
 <td>A bar and "N% of elapsed time"</td>
 </tr>
 <tr>

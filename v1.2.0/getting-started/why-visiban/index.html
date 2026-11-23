@@ -647,10 +647,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-movement-history-is-data-not-an-activity-log" class="md-nav__link">
+  <a href="#2-flow-intelligence-is-built-on-the-movement-history" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Movement history is data, not an activity log
+        2. Flow intelligence is built on the movement history
       
     </span>
   </a>
@@ -4464,10 +4464,11 @@
 <p><strong>Reflects 1.2</strong></p>
 </blockquote>
 <p><a id="the-one-sentence-answer"></a></p>
-<p>Visiban is an open-source, self-hosted Kanban board. Every row is an entity, such as a customer, project, or team. Every card movement is permanently recorded. Any AI agent you already run can query and update the board through your own API token.</p>
+<p><strong>See how work flows. Know what needs attention.</strong></p>
+<p>Visiban is an entity-centric Kanban board with built-in flow intelligence. Every row is an entity, such as a customer, project, or team. Every card movement is permanently recorded, and that history becomes cycle time, throughput, aging work in progress, bottlenecks, and blocked work. It is open source, self-hosted, and Apache 2.0. Any AI agent you already run can query and update the board through your own API token.</p>
 <p><strong>Why it matters:</strong> Picking the wrong tool is expensive for a team. So this page names the four things that set it apart, and says plainly where other tools are better.</p>
-<p><strong>In short:</strong> Kill the spreadsheet, see how work actually moves, and query it with your own AI. Every move is on the record.</p>
-<p><strong>For your manager:</strong> <em>"It's the board, but each row is one client, it keeps a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."</em></p>
+<p><strong>In short:</strong> See how work actually moves, on a board whose rows are your customers or projects, where every move is on the record. Analytics is in beta.</p>
+<p><strong>For your manager:</strong> <em>"It's the board, but each row is one client, it shows where work is slow or stuck from a full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."</em></p>
 <div class="admonition note">
 <p class="admonition-title">Competitive claims are dated</p>
 <p>Each claim about another product carries the date it was checked. Projects change their licensing and feature gating without notice. If a claim is more than a few months old, verify it before you rely on it. We'd rather you catch us out of date than trust a stale page.</p>
@@ -4481,9 +4482,10 @@
 <p><strong>Why it matters:</strong> That last part is why teams stop keeping a spreadsheet beside the board. The spreadsheet exists because most boards hold <em>cards</em> but not <em>the thing the cards are about</em>. A renewal date, an account tier, a contract value, or a region belongs to the row, not to any one card.</p>
 <p><strong>Go deeper:</strong> <a href="../../features/custom-fields/">Custom Fields</a></p>
 <p><a id="2-movement-history-is-not-an-activity-log"></a></p>
-<h3 id="2-movement-history-is-data-not-an-activity-log">2. Movement history is data, not an activity log<a class="headerlink" href="#2-movement-history-is-data-not-an-activity-log" title="Permanent link">&para;</a></h3>
-<p><strong>How it works:</strong> Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. They are the raw material for cycle-time and bottleneck analysis, not a feed for people to read.</p>
+<h3 id="2-flow-intelligence-is-built-on-the-movement-history">2. Flow intelligence is built on the movement history<a class="headerlink" href="#2-flow-intelligence-is-built-on-the-movement-history" title="Permanent link">&para;</a></h3>
+<p><strong>How it works:</strong> Visiban records every card movement as structured data: from column, to column, from swimlane, to swimlane, actor, and timestamp. It keeps the records permanently. <a href="../../features/analytics/">Analytics</a> <em>(beta)</em> turns them into cycle time, throughput, WIP age, bottlenecks, and blocked time, grouped around four questions: what is happening, how fast work moves, where it is stuck, and why.</p>
 <p><strong>Why it matters:</strong> In an incident retrospective you can ask <em>"how long did this actually sit in Review, and how does that compare to the last thirty cards?"</em> You get an answer, not a scroll-back.</p>
+<p><strong>Yes, but:</strong> Analytics is a beta feature, and its numbers are best read as directional guidance. Visiban describes how work has flowed. It does not forecast delivery dates or recommend actions.</p>
 <p><strong>Go deeper:</strong> <a href="../../features/card-history/">Card History</a> and <a href="../../features/analytics/">Analytics</a></p>
 <h3 id="3-bring-your-own-agent-nothing-leaves-your-install">3. Bring your own agent: nothing leaves your install<a class="headerlink" href="#3-bring-your-own-agent-nothing-leaves-your-install" title="Permanent link">&para;</a></h3>
 <p><strong>How it works:</strong> Visiban ships a first-class <a href="../../features/mcp-server/">MCP server</a>. Any MCP-capable assistant you already run can list boards, query cards, and make changes. It authenticates with a <a href="../../features/personal-access-tokens/">scoped personal access token</a> that you issue and can revoke.</p>
