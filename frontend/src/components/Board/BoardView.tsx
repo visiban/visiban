@@ -882,16 +882,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The same payload also carries no `children_rollup` (it is per reader), so
   // a restored or newly created parent card would show no footer until a
   // reload or a ping; read it too, on a parent-tier board only (#2210).
-  // A leftover parent on a flag-off board (#2446) is read too: it keeps its rollup.
+  // On a flag-off board a new card has no children, so card.created skips the
+  // read there; an unarchive always reads instead (onCardUnarchived).
   const refetchRollupIfParentTier = useCallback((cardId: number) => {
     const b = boardRef.current;
     if (b?.cards_can_have_children === true || b?.cards.find((c) => c.id === cardId)?.children_rollup !== undefined) refetchChildrenRollup(cardId);
   }, [refetchChildrenRollup]);
+  // Always reads the rollup, on any board: a restored leftover parent on a
+  // flag-off board (#2446) is not on the board yet (archiving evicted it) and
+  // its frame carries no rollup, so gating on a held rollup would drop its
+  // Children tab, footer and Add child until a reload. A plain card there gets
+  // no rollup back, so the read changes nothing for it.
   const onCardUnarchived = useCallback((card: Card) => {
     unarchiveCard(card);
     refetchCardParents([card.id]);
-    refetchRollupIfParentTier(card.id);
-  }, [unarchiveCard, refetchCardParents, refetchRollupIfParentTier]);
+    refetchChildrenRollup(card.id);
+  }, [unarchiveCard, refetchCardParents, refetchChildrenRollup]);
   useEffect(() => {
     const onRefetch = (e: Event) => {
       const ids = (e as CustomEvent<{ cardIds?: number[] }>).detail?.cardIds;
