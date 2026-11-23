@@ -242,7 +242,7 @@ export function WipAgePanel({
         groups.length > 0 ? null : agingColorNote(hasOrange, hasRed),
       ])}
       testId="flow-wip-age"
-      table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress." />}
+      table={<ChartTable label="Age per in-progress card" columns={columns} rows={data.samples} rowKey={(s) => s.card_uid} emptyText="No cards are in progress. Move a card into an in-progress column to see its age." />}
     >
       {(labelledBy) => <WipAgeChart data={data} cards={cards} labelledBy={labelledBy} onSelect={onSelect} isolated={isolated} />}
     </ChartPanel>

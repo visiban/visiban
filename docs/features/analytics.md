@@ -94,7 +94,7 @@ Under the page title, two links switch between **Overview** and **Swimlanes**. T
 
 - **Controls:** Date range, Label, **Group lanes by** (None, or a dropdown or checkbox swimlane custom field; admin-only fields are offered to admins only) and **Sort** (slowest first by default). There is no Swimlane filter, because every swimlane is shown.
 - **Finding panel:** names up to two swimlanes that are slower than the board, or says none is.
-- **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked; and cards in progress and finished.
+- **One row per swimlane:** the name (select it to open the Overview filtered to that swimlane) with a status line; a cycle-time bar for the median, a thin line to the 85th percentile and a tick at the board median, all on one scale; eight small bars and a word for the trend inside the period; the share of elapsed time blocked (**Blocked time**); and cards in progress and finished.
 - **Status:** "Slower than the board" or "Faster than the board" when the median is more than 20% away from the board median, otherwise "In line with the board". A swimlane needs 10 finished cards for a status; with 5 to 9 it shows its median and no status line. Color repeats the words and never replaces them.
 - **Small samples:** under 5 finished cards a swimlane shows no median, bar or trend; with 5 or 6 it shows no 85th percentile line.
 - **Cards that changed swimlane** (*changed in 1.3*, #2334): finished cards and their cycle times count under the swimlane each card entered the done column in, cards in progress under the swimlane they are in now, and blocked share splits a card's time between the swimlanes it was in. A card dragged straight into done in another swimlane is finished in the new swimlane and blocked in the one it left. The board median includes every finished card, also one that finished in a swimlane since deleted.
@@ -321,12 +321,12 @@ A block counts for the part of it inside the period. A block that is still open 
 A few labels look alike but measure different things:
 
 - **7d Velocity and 30d Velocity** on the Summary view are cards finished in the last 7 and 30 days, a throughput count. The API fields `velocity_7d` and `velocity_30d` keep their names.
-- **Velocity** in the dwell heatmap is `deal_velocity_days`: days from a card's first movement to its latest movement. It is not a flow metric.
+- **Velocity** in the dwell heatmap is `deal_velocity_days`: days from a card's first movement to its latest movement. It is not a flow metric. Tracked in #2545.
 - **`aging_cards`** in the MCP server compares a card's current dwell with the column's completed-dwell percentile. It is not the **WIP age** chart, which ages whole in-progress cards against cycle time.
 
 ### Empty states
 
-Every empty state names the next action. When no block overlapped the period, **Why cards get blocked** stays on the page and says no blocked reasons were recorded, and that marking a card blocked with a reason on the board fills it. The other panels say how to get data into them (move cards between columns) or how to widen the view (a longer Date range, or **Clear all filters**).
+Every empty state names the next action, except **Needs attention** with nothing to list, which is good news and says so. When no block overlapped the period, **Why cards get blocked** stays on the page and says no blocked reasons were recorded, and that marking a card blocked with a reason on the board fills it. The other panels say how to get data into them (move cards between columns) or how to widen the view (a longer Date range, or **Clear all filters**).
 
 ### Empty period
 

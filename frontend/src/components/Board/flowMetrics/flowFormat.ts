@@ -42,7 +42,7 @@ export function excludedNote(excluded: number): string | null {
 }
 
 export function cycleTimeSummary({ sample_size: n, percentiles }: FlowCycleTime): string {
-  if (n === 0) return "No card with a measurable cycle time finished in this range.";
+  if (n === 0) return "No card with a measurable cycle time finished in this range. Try a longer date range.";
   if (percentiles.p85 !== null) return `85% of ${n} cards finished within ${formatDays(percentiles.p85)}.`;
   if (percentiles.p50 !== null) return `Half of ${n} cards finished within ${formatDays(percentiles.p50)}.`;
   return `${plural(n, "card")} finished in this range.`;
@@ -50,8 +50,8 @@ export function cycleTimeSummary({ sample_size: n, percentiles }: FlowCycleTime)
 
 export function throughputSummary({ total, median, samples, period }: FlowThroughput): string {
   const unit = period === "week" ? "week" : "day";
-  if (samples.length === 0) return `No whole ${unit} in this range yet.`;
-  if (total === 0) return `No cards finished in the whole ${unit}s of this range.`;
+  if (samples.length === 0) return `No whole ${unit} in this range yet. Try a longer date range.`;
+  if (total === 0) return `No cards finished in the whole ${unit}s of this range. Try a longer date range.`;
   const latest = samples[samples.length - 1].count;
   const last = `${plural(latest, "card")} finished in the last whole ${unit}`;
   return median !== null ? `${last}, against a median of ${median}.` : `${last}.`;
@@ -69,7 +69,7 @@ export function wipAgeSummary({ sample_size: n, samples, columns, cycle_time_per
   if (n === 0) {
     // Live WIP (#2287) counts unstarted cards too, so no ages does not mean no work in progress.
     const live = columns.reduce((sum, c) => sum + (c.wip_count ?? 0), 0);
-    return live > 0 ? "No card in progress has an age yet." : "No cards are in progress.";
+    return live > 0 ? "No card in progress has an age yet." : "No cards are in progress. Move a card into an in-progress column to see its age.";
   }
   if (zones.p85 === null) return `${plural(n, "card")} in progress.`;
   const past = cardsPastP85({ samples, cycle_time_percentiles: zones });

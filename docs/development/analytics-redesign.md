@@ -136,7 +136,7 @@ All four charts keep the `ChartPanel` behavior they have today: summary sentence
 |---|---|
 | Cumulative flow | Layout position, and the bottleneck band is hatched in the warning color, with a one-item legend (a swatch drawn from `HATCH_SVG`) shown only while that band is drawn (#2284). Bands keep 1px separators and direct labels at the right edge; Done is neutral. |
 | Throughput | Adds a "started" marker per week next to the finished bar. Median dashed, labeled in the right margin. |
-| Aging work in progress | Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. A legend lists the neutral, past-50th and past-85th tiers in the shapes the chart draws, each only while a mark of that tier is on screen, and none under a breakdown, where marks take group colors (#2284). |
+| WIP age | Layout position, and marks past the 50th percentile use the warning color and past the 85th the danger color. 50th percentile dashed, 85th solid and heavier, both labeled in the right margin. Ringed past the 85th, square when blocked. A legend lists the neutral, past-50th and past-85th tiers in the shapes the chart draws, each only while a mark of that tier is on screen, and none under a breakdown, where marks take group colors (#2284). |
 | Cycle time | Layout position only. Same reference-line vocabulary. |
 
 Color follows [Chart colors](#chart-colors). Shape and position still carry every meaning that color carries.
@@ -200,7 +200,7 @@ A breakdown colors marks by group, using the five categorical chart colors.
 | Name | Swimlane name, linking to the Overview filtered to it, and a status line: slower than, in line with, or faster than the board |
 | Cycle time | A bar for the median, a thin line reaching the 85th percentile, and a tick at the board median; then the two numbers in words |
 | Trend in period | Eight small bars of the rolling median, and a word: slower, steady or faster, with the first and last values |
-| Time blocked | A bar and "N% of elapsed time" |
+| Blocked time | A bar and "N% of elapsed time" |
 | Counts | Cards in progress and cards finished |
 
 - **Status** compares the swimlane's median with the board median: "Slower than the board" when more than 20% above, "Faster than the board" when more than 20% below, otherwise "In line with the board". A swimlane needs at least 10 finished cards to get a slower or faster status; with 5 to 9 it shows its median and no status line. Both numbers are constants, not settings.

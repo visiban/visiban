@@ -611,7 +611,7 @@ describe('the panels', () => {
     mockAll({ age: empty.age })
     await renderLoaded()
     await userEvent.click(within(screen.getByTestId('flow-wip-age')).getByRole('button', { name: 'table' }))
-    expect(within(screen.getByTestId('flow-wip-age')).getByText('No cards are in progress.', { selector: 'p.py-6' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('flow-wip-age')).getByText('No cards are in progress. Move a card into an in-progress column to see its age.', { selector: 'p.py-6' })).toBeInTheDocument()
   })
 })
 
@@ -780,7 +780,7 @@ describe('the drill-down drawer', () => {
 
 describe('flow summaries', () => {
   it('cycle time says what the percentiles allow', () => {
-    expect(cycleTimeSummary(empty.cycle)).toBe('No card with a measurable cycle time finished in this range.')
+    expect(cycleTimeSummary(empty.cycle)).toBe('No card with a measurable cycle time finished in this range. Try a longer date range.')
     expect(cycleTimeSummary({ ...cycle, sample_size: 5, percentiles: { p50: 2, p85: null, p95: null } }))
       .toBe('Half of 5 cards finished within 2.0d.')
     expect(cycleTimeSummary({ ...cycle, sample_size: 1, percentiles: { p50: null, p85: null, p95: null } }))
@@ -788,8 +788,8 @@ describe('flow summaries', () => {
   })
 
   it('throughput handles no periods, no completions, and a null median', () => {
-    expect(throughputSummary({ ...throughput, samples: [] })).toBe('No whole week in this range yet.')
-    expect(throughputSummary({ ...throughput, total: 0 })).toBe('No cards finished in the whole weeks of this range.')
+    expect(throughputSummary({ ...throughput, samples: [] })).toBe('No whole week in this range yet. Try a longer date range.')
+    expect(throughputSummary({ ...throughput, total: 0 })).toBe('No cards finished in the whole weeks of this range. Try a longer date range.')
     expect(throughputSummary({ ...throughput, median: null, samples: [{ start: 'x', count: 1, card_uids: [], started: 0 }] }))
       .toBe('1 card finished in the last whole week.')
     expect(throughputSummary(throughput)).toBe('0 cards finished in the last whole week, against a median of 1.')
@@ -802,7 +802,7 @@ describe('flow summaries', () => {
   })
 
   it('aging counts cards past P85 and copes with no zones', () => {
-    expect(wipAgeSummary({ ...empty.age, columns: empty.age.columns.map((c) => ({ ...c, wip_count: 0 })) })).toBe('No cards are in progress.')
+    expect(wipAgeSummary({ ...empty.age, columns: empty.age.columns.map((c) => ({ ...c, wip_count: 0 })) })).toBe('No cards are in progress. Move a card into an in-progress column to see its age.')
     // Live WIP counts unstarted cards, so no ages must not claim nothing is in progress (#2293).
     expect(wipAgeSummary({ ...empty.age, columns: [{ column_uid: 'c', column_name: 'C', wip_count: 9 }] })).toBe('No card in progress has an age yet.')
     expect(wipAgeSummary(age)).toBe('1 of 1 card in progress is past the 85th percentile.')

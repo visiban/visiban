@@ -101,7 +101,7 @@ function LaneRow({ row, scale, boardMedian, onOpen }: {
         <TrendBars row={row} />
         <span className={`text-xs font-medium ${trendClass}`}>{trendText(row)}</span>
       </Cell>
-      <Cell label="Time blocked">
+      <Cell label="Blocked time">
         <div className="h-2 rounded bg-surface-hover mt-0.5" aria-hidden="true">
           <div className="h-2 rounded" style={{ width: pct(row.blocked_share ?? 0, 1), background: CHART_COLORS.danger }} />
         </div>

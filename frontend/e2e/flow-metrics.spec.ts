@@ -397,7 +397,7 @@ test.describe('analytics swimlanes view (#2267)', () => {
     await openSwimlanes(page)
     const first = page.getByTestId('swimlane-row').first()
     await expect(first.getByRole('button')).toBeVisible()
-    for (const text of ['Cycle time', 'Trend in period', 'Time blocked', 'in progress']) {
+    for (const text of ['Cycle time', 'Trend in period', 'Blocked time', 'in progress']) {
       await expect(first.getByText(text).first()).toBeVisible()
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
