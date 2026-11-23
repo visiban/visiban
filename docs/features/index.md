@@ -11,6 +11,7 @@ Start with [Board & Cards](board.md); every other feature builds on the grid.
 | If you want to... | Read |
 |---|---|
 | Work a board day to day | [Board & Cards](board.md) |
+| Choose between a checklist, child cards, sub-columns, tracks and entry criteria | [Breaking work down: which tool?](breaking-work-down.md) |
 | See who moved what, and when | [Card History](card-history.md) |
 | Spot bottlenecks and velocity | [Analytics](analytics.md) |
 | Organize boards and invite a team | [Groups](groups.md) |

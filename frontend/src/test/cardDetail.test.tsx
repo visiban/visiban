@@ -880,6 +880,8 @@ describe('CardDetail', () => {
     render(<CardDetail {...props} />)
     // "Add item" input must not be present for viewers
     expect(screen.queryByPlaceholderText('Add item (Enter)…')).not.toBeInTheDocument()
+    // ...and neither is its hint, which has nothing to describe (#2542).
+    expect(screen.queryByTestId('checklist-hint')).not.toBeInTheDocument()
   })
 
   it('hides delete/archive buttons for member who does not own the card', () => {
@@ -1516,6 +1518,29 @@ describe('CardDetail', () => {
       fireEvent.click(header)
       expect(header).toHaveAttribute('aria-expanded', 'true')
       expect(screen.getByText('No checklist items yet.')).toBeInTheDocument()
+    })
+
+    // #2542: a static hint at the point of choice between a checklist item and a child card.
+    it('describes the add input with a hint that does not mention children when the card cannot have them', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      render(<CardDetail {...memberProps()} currentUser={fakeUser} />)
+      const input = screen.getByRole('textbox', { name: 'Add checklist item' })
+      const hint = screen.getByTestId('checklist-hint')
+      expect(hint).toHaveTextContent(/^Steps for this card only\.$/)
+      expect(hint).toHaveClass('text-xs', 'text-fg-muted')
+      expect(input).toHaveAttribute('aria-describedby', hint.id)
+      expect(input).toHaveAccessibleDescription('Steps for this card only.')
+      // Static text: no link or button inside it, so it adds no tab stop.
+      expect(hint.querySelector('a, button, [tabindex]')).toBeNull()
+    })
+
+    it('points to the Children tab when the card can have children', async () => {
+      ;(getChecklist as ReturnType<typeof vi.fn>).mockResolvedValue([])
+      const props = memberProps()
+      props.board = { ...props.board, cards_can_have_children: true }
+      render(<CardDetail {...props} currentUser={fakeUser} />)
+      const input = screen.getByRole('textbox', { name: 'Add checklist item' })
+      expect(input).toHaveAccessibleDescription('Steps for this card only. For work with its own workflow on another board, use the Children tab.')
     })
 
     it('shows the failure copy when the assign is refused', async () => {
@@ -4401,5 +4426,29 @@ describe('CardDetail extension sections (#2212)', () => {
     expect(weight.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const relations = await screen.findByRole('button', { name: /^Relations/ })
     expect(region.compareDocumentPosition(relations) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('CardDetail track hint (#2542)', () => {
+  const defs = [{ id: 5, uid: 'fielduid0005', name: 'Technical', field_type: 'dropdown', choices: ['Yes'], position: 0, show_on_card: false }] as unknown as BoardFull['custom_field_definitions']
+  const withTracks = (tracks: unknown[]) => {
+    const base = makeBoard({ custom_field_definitions: defs })
+    return { ...base, columns: [{ ...base.columns[0], tracks }] } as unknown as BoardFull
+  }
+
+  it('shows a visible static line in Custom fields when the card has tracks, with nothing focusable in it', async () => {
+    const tracks = [{ id: 1, field_id: 5, field_uid: 'fielduid0005', name: 'Technical', position: 0 }]
+    render(<CardDetail {...defaultProps()} board={withTracks(tracks)} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Custom fields/ }))
+    const hint = screen.getByTestId('card-track-hint')
+    expect(hint).toHaveTextContent('Tracks show as chips on the card.')
+    expect(hint.querySelector('a, button, input, select, textarea, [tabindex]')).toBeNull()
+  })
+
+  it('omits the line when the column has no tracks', async () => {
+    render(<CardDetail {...defaultProps()} board={withTracks([])} />)
+    await userEvent.click(screen.getByRole('button', { name: /^Custom fields/ }))
+    expect(screen.getByText('Technical')).toBeInTheDocument()
+    expect(screen.queryByTestId('card-track-hint')).not.toBeInTheDocument()
   })
 })

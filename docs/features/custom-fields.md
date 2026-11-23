@@ -122,7 +122,7 @@ A collapsible **Custom fields** section (below Labels, above Weight) lists every
 - **Dropdown:** select from the field's choices
 - **Checkbox:** toggle
 - **URL:** web address input; saves when you leave the field or press Enter (see [URL fields](#url-fields))
-- **Multi-select:** a checklist of choices; saves when you close it (see [Multi-select fields](#multi-select-fields))
+- **Multi-select:** a multi-select list of choices; saves when you close it (see [Multi-select fields](#multi-select-fields))
 
 Each field autosaves on change, like other card detail fields. The section opens automatically if any field already has a value on the card; otherwise it starts collapsed. If the board has no custom fields, the section doesn't appear.
 
@@ -176,7 +176,7 @@ A URL field holds one web address (a runbook, a design file, a CRM record) as a 
 
 A multi-select field holds **several** of a fixed list of choices at once (the platforms a change touches, the teams involved, the regions affected), where a dropdown holds exactly one.
 
-- **Picking values:** click the field to open a checklist. Type to narrow it, then check or uncheck as many choices as you like; the footer shows how many are selected. Nothing saves while the list is open: closing it saves the whole selection once. Click **Done**, press Escape or Tab, or click outside to close.
+- **Picking values:** click the field to open a multi-select list. Type to narrow it, then check or uncheck as many choices as you like; the footer shows how many are selected. Nothing saves while the list is open: closing it saves the whole selection once. Click **Done**, press Escape or Tab, or click outside to close.
 - **Keyboard:** ↑ and ↓ move through the list, Enter (or Space, while the search box is empty) checks or unchecks the highlighted choice, and typing filters. With a search typed, the first Escape clears the search and the second closes the list.
 - **Order:** selected values are always stored and shown in the order of the field's choices, whatever order you picked them in.
 - **Clearing:** uncheck everything and close the list; the field becomes unset.
@@ -191,7 +191,7 @@ Renaming or removing a choice on a dropdown or multi-select field **never change
 - it still appears in exports;
 - it matches nothing in the filter bar's choice list, which offers only current choices.
 
-In a multi-select's checklist these leftover values are listed under **No longer a choice**, checked. Keep them while you change other picks, or uncheck them to drop them. Once dropped, a value that is no longer a choice can't be picked again.
+In a multi-select list these leftover values are listed under **No longer a choice**, checked. Keep them while you change other picks, or uncheck them to drop them. Once dropped, a value that is no longer a choice can't be picked again.
 
 ### Choice colors
 
@@ -234,7 +234,7 @@ The filter bar shows one control per **pinned** custom field by default, matchin
 | Dropdown | Multi-select of choices |
 | Checkbox | Multi-select of Yes / No; a card that was never checked counts as **No** |
 | URL | Substring match on the full address |
-| Multi-select | Checklist of choices; matches a card holding **any** of the checked choices |
+| Multi-select | Multi-select list of choices; matches a card holding **any** of the checked choices |
 
 ### Number filter operators
 

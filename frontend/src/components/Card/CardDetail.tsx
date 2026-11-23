@@ -545,6 +545,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const newLabelTriggerRef = useRef<HTMLButtonElement>(null);
   const focusNewLabelTriggerRef = useRef(false);
   const moveErrorId = useId();
+  const checklistHintId = useId();
   // Shown in the panel header (always-mounted status line) when a refresh
   // replaced the card out from under a failed move, because the popover that
   // showed the failure closes with it (#1773).
@@ -1354,6 +1355,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     );
 
   const column = board.columns.find((c) => c.id === localCard.column);
+  const cardHasTracks = (column?.tracks?.length ?? 0) > 0;
   const swimlane = board.swimlanes.find((s) => s.id === localCard.swimlane);
 
   const role = board.current_user_role;
@@ -2186,6 +2188,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </button>
                     {customFieldsOpen && (
                       <div className="flex flex-col gap-4">
+                        {cardHasTracks && (
+                          // #2542: static line, no control; tracks are set here and shown as chips on the card.
+                          <p data-testid="card-track-hint" className="-mb-2 text-xs text-fg-muted">Tracks show as chips on the card.</p>
+                        )}
                         {[...board.custom_field_definitions]
                           .sort((a, b) => a.position - b.position)
                           .map((definition) => {
@@ -2408,6 +2414,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {canComment && (
                   <div className="flex gap-2">
                     <input
+                      aria-label="Add checklist item"
+                      aria-describedby={checklistHintId}
                       value={newItemText}
                       onChange={(e) => setNewItemText(e.target.value)}
                       // void: handleAddChecklistItem now catches its own rejection and surfaces it via checklistError.
@@ -2422,6 +2430,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       Bulk
                     </button>
                   </div>
+                )}
+                {canComment && (
+                  // #2542: static hint at the point of choice; it names the Children tab only where this card can have children.
+                  <p id={checklistHintId} className="mt-1 text-xs text-fg-muted" data-testid="checklist-hint">
+                    {canHaveChildren
+                      ? "Steps for this card only. For work with its own workflow on another board, use the Children tab."
+                      : "Steps for this card only."}
+                  </p>
                 )}
                 {canComment && !showBulkAdd && (
                   <p role="status" aria-live="polite" aria-atomic="true" className="text-xs h-4 mt-1">

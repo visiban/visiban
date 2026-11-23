@@ -32,6 +32,13 @@ describe('CardItem memo and stage props (#2278)', () => {
     expect(screen.queryByText('Technical: open')).not.toBeInTheDocument()
   })
 
+  it('keeps track states and the where-to-set cue in the card name (#2542)', () => {
+    render(<CardItem card={makeCard()} trackStates={done} />)
+    // The card is role=button; a child aria-label would replace the chips' text in its computed name.
+    expect(screen.getByRole('button', { name: /Technical: done/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /set in the card's Custom fields/ })).toBeInTheDocument()
+  })
+
   it('repaints the progress bar when gateProgress changes', () => {
     const card = makeCard()
     const names = ['Doing', 'Ready']

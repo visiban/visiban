@@ -48,6 +48,25 @@ beforeEach(() => {
 })
 
 describe('StageSettingsPanel (#2278)', () => {
+  it('defines "stage" once and describes each section with a hint that it applies to every card (#2543, #2542)', () => {
+    renderPanel()
+    expect(screen.getByTestId('stage-definition')).toHaveTextContent('A stage is a column. This tab holds its sub-columns and tracks.')
+    // Hints sit on the point of choice, not on the regions (region descriptions are rarely announced).
+    expect(screen.getByRole('region', { name: 'Sub-columns, in order' })).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByRole('region', { name: 'Tracks, any order' })).not.toHaveAttribute('aria-describedby')
+    expect(screen.getByRole('button', { name: 'Add sub-column' })).toHaveAccessibleDescription(/^Steps every card in this column goes through, in order\./)
+    const tracksHint = "Checks every card in this column needs, in any order. Each shows as a chip on the card. For one card's to-dos, use its checklist."
+    expect(screen.getByLabelText('New track name')).toHaveAccessibleDescription(tracksHint)
+  })
+
+  it('keeps the tracks hint on the new-track input alongside the name-taken error (#2542)', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    const input = screen.getByLabelText('New track name')
+    await user.type(input, 'Technical')
+    expect(input).toHaveAccessibleDescription(/^Checks every card in this column needs.*A track or field with this name already exists/)
+  })
+
   it('seeds sub-columns, tracks and this stage\'s lane exceptions', () => {
     renderPanel()
     expect(screen.getByLabelText('Sub-column 1 name')).toHaveValue('Doing')
@@ -78,7 +97,7 @@ describe('StageSettingsPanel (#2278)', () => {
     fireEvent.change(screen.getByLabelText('Sub-column 3 name'), { target: { value: 'Review' } })
     fireEvent.click(add)
     expect(add).toHaveAttribute('aria-disabled', 'true')
-    expect(add).toHaveAccessibleDescription('A stage has at most four sub-columns.')
+    expect(add).toHaveAccessibleDescription(expect.stringMatching(/A stage has at most four sub-columns\.$/))
     fireEvent.click(add)
     expect(screen.queryByLabelText('Sub-column 5 name')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Remove sub-column 4' }))
@@ -395,7 +414,10 @@ describe('TrackChips and GateProgress', () => {
     const items = screen.getAllByRole('listitem')
     expect(items.map((li) => li.getAttribute('data-track-state'))).toEqual(['done', 'open', 'not_applicable'])
     expect(screen.getByText('Technical: done')).toHaveClass('sr-only')
-    expect(items[2]).toHaveAttribute('title', 'Legal: not applicable for this swimlane')
+    expect(items[2]).toHaveAttribute('title', "Legal: not applicable for this swimlane. Set in the card's Custom fields.")
+    // #2542: chips are not controls; an sr-only line says where a track's value is set, once per card.
+    expect(screen.getByText("Tracks, set in the card's Custom fields.")).toHaveClass('sr-only')
+    expect(items.every((li) => !li.hasAttribute('tabindex') && !li.querySelector('a, button, input'))).toBe(true)
     expect(items.every((li) => li.querySelector('svg'))).toBe(true)
   })
 

@@ -2066,7 +2066,7 @@ Update a column. Requires board admin. *(1.3+, #2009)* A caller below admin gets
 | `v` | integer | Required. Always `1`. |
 | `entry` | array of strings | Entry criteria, in display order. Up to 8, each non-blank and at most 200 characters after trimming. Default `[]`. |
 | `done` | array of strings | Definition of done, same rules. Default `[]`. |
-| `mode` | string | `"advisory"` (default) or `"confirm"`. `"confirm"` asks the web app to show the mover a checklist of the entry criteria after a drag-and-drop move into the column. The server never checks it. |
+| `mode` | string | `"advisory"` (default) or `"confirm"`. `"confirm"` asks the web app to list the entry criteria for the mover to confirm after a drag-and-drop move into the column. The server never checks it. |
 
 A criterion containing a control character (including NUL or a line break) is refused too. Any other key, a wrong `v`, or a value breaking these rules returns `400` with a `policy` error. Criteria are stored trimmed, and a policy whose two lists are both empty is stored as `null`. Send `"policy": null` to remove it. Leaving `policy` out of a `PUT` keeps the current value.
 

@@ -491,6 +491,7 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
             {stage(strip.next?.name, "next")}
           </div>
           {tracks.length > 0 && (
+            <>
             <ul className="mt-2 space-y-1.5" aria-label="Tracks">
               {tracks.map((t) => (
                 <li key={t.id} className="flex justify-between rounded-md border border-line px-3 py-1.5 text-sm">
@@ -502,6 +503,9 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
                 </li>
               ))}
             </ul>
+            {/* #2542: static, visible where-to-set line for keyboard users; chips and rows are not controls. */}
+            <p data-testid="peek-track-hint" className="mt-1.5 text-xs text-fg-muted">Set in the card's Custom fields.</p>
+            </>
           )}
         </section>
 
