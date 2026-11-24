@@ -56,14 +56,18 @@ def prefetch_member_preview(qs):
     ``joined_at`` then ``id`` so the owner (the first member) normally leads
     and the order is stable.
 
-    Cost (#2557): ``group_member_joined_idx`` on ``(group_id, joined_at, id)``
-    hands the window its rows already in order, so nothing is sorted. The
-    window still steps over every direct membership of a listed group (a
-    partitioned ``WindowAgg`` does not skip the rest of a partition), but only
-    through that narrow index. The users are NOT joined into that statement:
-    a ``select_related("user")`` join sits under the window and was paid once
-    per membership, about 3 buffers per member, most of the cost on a large
-    group. They load afterwards, for the kept rows only.
+    Cost (#2557), measured on PostgreSQL 17 with 5,000 members per group: on
+    a LIST of several groups the planner reads ``group_member_joined_idx`` on
+    ``(group_id, joined_at, id)``, which hands the window its rows already in
+    order, and the window walks every direct membership of each listed group
+    (a final Sort over the few kept rows remains). On a single-group RETRIEVE
+    it may instead read the ``group_id`` index and sort that group's rows;
+    PostgreSQL 15+ then stops the window early through a ``Run Condition``,
+    but only after the input is read and sorted. Either way the cost still
+    grows with the size of the listed groups, only more slowly. The users
+    are NOT joined into that statement: a ``select_related("user")`` join
+    sits under the window and was paid once per membership. They load
+    afterwards, for the kept rows only.
     ``GroupSerializer.get_member_preview`` reads the result from
     ``_member_preview``.
     """

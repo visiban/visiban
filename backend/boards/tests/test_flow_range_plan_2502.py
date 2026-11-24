@@ -153,6 +153,16 @@ class RecentDwellPlanShapeTests(FlowFixture):
         self.assertEqual({card.id for card in flow.cards}, self._old_rule_ids())
         self.assertNotIn(self.old.pk, {card.id for card in flow.cards})
 
+    def test_dwell_with_also_matching_keeps_the_old_rules_cards_plus_the_extra_ones(self):
+        # The union path: the extra Q is OR-ed onto the movement rule. The old
+        # card matches neither the archive nor the movement term, so only
+        # also_matching can bring it in; every other card must be unchanged.
+        extra = Q(pk=self.old.pk)
+        flow, _ = self.dwell_queries(also_matching=extra)
+        expected = self._old_rule_ids() | {self.old.pk}
+        self.assertEqual({card.id for card in flow.cards}, expected)
+        self.assertIn(self.late_row.pk, {card.id for card in flow.cards})
+
     def test_dwell_ignores_another_boards_recent_movement(self):
         other = Board.objects.create(name="Other", owner=self.user)
         other_done = Column.objects.create(board=other, name="Done", position=0, is_done=True)
