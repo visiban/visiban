@@ -6613,6 +6613,11 @@ nightly-load-test:
   extends: .pip-cache
   stage: test
   needs: []
+  # Only the exit run (LOAD_TEST_EXIT_RUN=true, #2595) needs this: its seed took about 41 minutes on
+  # the first run, and its worst case (every measured request near the 90 s read timeout, plus up to
+  # five 300 s waits for the analytics slot) runs past the project's 60-minute default, which would
+  # kill the job before the script wrote its results. The scheduled nightly does not need it.
+  timeout: 3h
   # Latency budgets are absolute ms measured on a NUC runner (see
   # backend/nightly-load-test-baseline.json), so the job must run on the same
   # hardware class. Untagged, it landed on gitlab-runner-dell-01-visiban on

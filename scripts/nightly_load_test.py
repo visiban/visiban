@@ -209,6 +209,17 @@ class _ServerMemory:
         with open(f"{self.proc_root}/{self.pid}/clear_refs", "w", encoding="utf-8") as fh:
             fh.write("5")
 
+    def cpu_seconds(self):
+        """User + system CPU seconds the server process (all its threads) has used (#2595)."""
+        with open(f"{self.proc_root}/{self.pid}/stat", encoding="utf-8") as fh:
+            return _parse_proc_stat_cpu_seconds(fh.read(), os.sysconf("SC_CLK_TCK"))
+
+
+def _parse_proc_stat_cpu_seconds(text, ticks_per_second):
+    """utime + stime from a /proc/<pid>/stat line, in seconds (fields 14 and 15, after the ``(comm)``)."""
+    fields = text[text.rindex(")") + 2:].split()
+    return (int(fields[11]) + int(fields[12])) / ticks_per_second
+
 
 def _evaluate_memory_budget(name, peak_mb, budgets):
     """Return (budget_mb, within_budget, violation_msg) for one scenario's peak RSS.
@@ -962,6 +973,26 @@ def _self_test():
     _want_order = ["fx", "idle", "cf", "idle", "dd", "idle", "ov", "idle", "a365", "idle", "conc"]
     if _order_ops.calls != _want_order:
         failures.append(f"exit run: measurements ran as {_order_ops.calls}, not each after an idle wait {_want_order}")
+    # #2595: the artifact is checkpointed after the fixture reads and after each measurement, each
+    # time with that measurement's figure already in it, so a run stopped partway keeps it.
+    _snaps = []
+    _collect_exit_measurements(_StubOps(), n_opens, cap1, n_opens,
+                               checkpoint=lambda part: _snaps.append(json.loads(json.dumps(part))))
+    _snap_keys = [("fixture" in sn, "cumulative_flow_p95_ms" in sn, "drill_down_peak_rss_mb" in sn,
+                   "overview_peak_rss_mb" in sn, "analytics_365_ms" in sn, "over_cap" in sn) for sn in _snaps]
+    _want_snaps = [tuple(j <= i for j in range(6)) for i in range(6)]
+    if _snap_keys != _want_snaps:
+        failures.append(f"exit run: checkpoints after each measurement held {_snap_keys}, expected {_want_snaps}")
+    _part = _exit_output(_snaps[1] if len(_snaps) > 1 else {}, [], n_opens, 2, cap1, n_opens, complete=False)
+    if _part.get("complete") is not False or _part.get("passed") is not False \
+            or _part.get("measured_so_far", {}).get("cumulative_flow_p95_ms") != 1000.0:
+        failures.append(f"exit run: a partial artifact is not marked incomplete and failed with its figures so far: {_part}")
+    with tempfile.TemporaryDirectory() as _tmp:
+        _art = os.path.join(_tmp, "exit.json")
+        _write_json_atomic(_art, _part)
+        with open(_art, encoding="utf-8") as fh:
+            if json.load(fh).get("complete") is not False or os.listdir(_tmp) != ["exit.json"]:
+                failures.append("exit run: the artifact write did not leave exactly the written JSON")
     for key, want in (("cumulative_flow_p95_ms", 1000.0), ("drill_down_peak_rss_mb", 111.0),
                       ("overview_peak_rss_mb", 222.0), ("analytics_365_ms", 2000.0),
                       ("analytics_365_rss_growth_mb", 77.0), ("overview_payload_bytes", 9000),
@@ -1072,11 +1103,18 @@ def _self_test():
     if not _failure(ExitServerNotIdle("x"))[1].startswith("not run"):
         failures.append("exit run: a measurement skipped for a busy server does not say it was not run")
 
-    # _wait_for_analytics_slot (#2595), on a fake clock: no real sleeps.
-    def _slot(answers, budget=10, poll=2):
-        now, slept, seq = [0.0], [], list(answers)
+    # _wait_for_analytics_slot (#2595), on a fake clock: no real sleeps. The fake probe is bounded,
+    # so a wait that never ends (its budget check removed) turns the self-test red instead of hanging.
+    class _ProbeRunaway(Exception):
+        pass
+
+    def _slot(answers, budget=10, poll=2, cap=1, quiet=None):
+        now, slept, seq, calls = [0.0], [], list(answers), [0]
 
         def probe():
+            calls[0] += 1
+            if calls[0] > 1000:
+                raise _ProbeRunaway(f"probed {calls[0] - 1} times without returning or raising")
             kind = seq.pop(0) if seq else "busy"
             if kind == "timeout":
                 raise requests.exceptions.ReadTimeout("probe")
@@ -1087,8 +1125,9 @@ def _self_test():
             now[0] += sec
 
         try:
-            return _wait_for_analytics_slot(probe, budget, poll, clock=lambda: now[0], sleep=sleep), slept
-        except ExitServerNotIdle as exc:
+            return _wait_for_analytics_slot(probe, budget, poll, clock=lambda: now[0], sleep=sleep,
+                                            cap=cap, quiet=quiet), slept
+        except (ExitServerNotIdle, _ProbeRunaway) as exc:
             return exc, slept
 
     if _slot(["ok"]) != (0.0, []):
@@ -1102,6 +1141,31 @@ def _self_test():
         failures.append(f"exit run idle wait: a slot busy past the budget did not fail after it: {_never}")
     if not isinstance(_slot(["unexpected"])[0], ExitServerNotIdle) or _slot(["unexpected"])[1]:
         failures.append("exit run idle wait: an unexpected probe answer did not fail at once")
+    # An unexpected answer names what the probe got (status, code, URL, bounded detail), so a 404 or a
+    # 500 from the probe board is diagnosable from the record alone.
+    _probe_url = "https://x/api/v1/boards/7/metrics/wip-age/"
+    _unexp = _slot([("unexpected", _probe_detail(404, "not_found", "Not Found", _probe_url, "No Board matches."))])[0]
+    if not all(s in str(_unexp) for s in ("404", "not_found", _probe_url, "No Board matches.")):
+        failures.append(f"exit run idle wait: an unexpected probe answer does not name its status, code and URL: {_unexp}")
+    if _probe_detail(500, None, "Internal Server Error", _probe_url) != f"500 Internal Server Error from {_probe_url}":
+        failures.append("exit run idle wait: a probe 500 with no JSON code is not described by its status and reason")
+    if len(_probe_detail(400, "bad", "Bad Request", _probe_url, "x" * 5000)) > 300:
+        failures.append("exit run idle wait: a probe's error detail is not bounded")
+    # Above cap 1 an admitted probe proves only one free slot: the CPU check must also hold, and with
+    # none wired the wait refuses (#1075).
+    _quiet_seq = [False, False, True]
+    _cap2 = _slot(["ok", "ok", "ok"], cap=2, quiet=lambda: _quiet_seq.pop(0))
+    if _cap2 != (4.0, [2, 2]):
+        failures.append(f"exit run idle wait: at cap 2 an admitted probe on a busy CPU counted as idle: {_cap2}")
+    _cap2_never = _slot(["ok"] * 20, cap=2, quiet=lambda: False)
+    if not isinstance(_cap2_never[0], ExitServerNotIdle) or "cap 2" not in str(_cap2_never[0]):
+        failures.append(f"exit run idle wait: at cap 2 a CPU never quiet did not fail after the budget: {_cap2_never}")
+    if not isinstance(_slot(["ok"], cap=2)[0], ExitServerNotIdle):
+        failures.append("exit run idle wait: at cap 2 with no CPU check wired, an admitted probe passed")
+    if _slot(["ok"], cap=1, quiet=lambda: False) != (0.0, []):
+        failures.append("exit run idle wait: at cap 1 the admitted probe alone does not prove the slot free")
+    if _parse_proc_stat_cpu_seconds("1234 (python3 (x) y) S 1 2 3 4 5 6 7 8 9 10 250 150 0 0", 100) != 4.0:
+        failures.append("exit run: /proc/<pid>/stat utime + stime not read as CPU seconds")
     if EXIT_IDLE_PROBE_TIMEOUT[1] <= 8:
         failures.append("exit run: the idle probe's read timeout does not outlast the server's 8 s REST wait")
     if EXIT_READ_TIMEOUT_SECONDS <= 30:
@@ -1403,11 +1467,13 @@ EXIT_MIN_ACTIVE_CARDS = 11_000
 TOO_LARGE_CODE = "analytics_too_large"
 _EXIT_UNREAD_URL = "/api/v1/notifications/unread-count/"
 _EXIT_CURRENT_USER_URL = "/api/v1/auth/user/"
-# The read timeout of every measured exit-run request (#2595). 90 s is the production proxy's read
-# timeout, the longest a request the server is allowed to run can take before a user loses it
-# (analytics_admission.STREAMED_ROWS_MULTIPLE is sized to stay inside it). The first run's 30 s cut
-# analytics/?days=365 off while the server was still allowed to finish it. A request slower than this
-# is recorded as a timeout, never as a latency.
+# The read timeout of every measured exit-run request (#2595). 90 s is the longest proxy read timeout
+# Visiban ships: the Compose stack's bundled nginx sets proxy_read_timeout 90s for /api/
+# (nginx/app.conf.template), while the Helm chart's frontend nginx sets none for /api/, so nginx's own
+# 60 s default applies there (docs/administration/configuration.md). Measuring up to the longest of
+# them means a request a 60 s proxy would cut off is still measured, and shows up over its bar, rather
+# than being lost. The first run's 30 s cut analytics/?days=365 off while the server was still running
+# it. A request slower than this is recorded as a timeout, never as a latency.
 EXIT_READ_TIMEOUT_SECONDS = 90
 EXIT_CONNECT_TIMEOUT_SECONDS = 10
 EXIT_REQUEST_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_READ_TIMEOUT_SECONDS)
@@ -1417,8 +1483,25 @@ EXIT_REQUEST_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_READ_TIMEOUT_SECONDS)
 # each measurement the script therefore probes the slot with a cheap analytics request on the small
 # linked board (_EXIT_IDLE_PROBE_PATH) and waits until one is admitted, for at most
 # EXIT_IDLE_WAIT_SECONDS; past that the measurement is not run and is recorded as an error that says so.
+# 300 s is kept although it is up to 5 x 300 s of the job's time: the server does not stop a request
+# the client gave up on after 90 s, so a shorter wait would turn a request that is slow but still
+# finishing into a "not run" measurement. The job's explicit timeout (.gitlab-ci.yml, nightly-load-test) is
+# sized for the worst case with this wait, and the artifact is written after every measurement.
 EXIT_IDLE_WAIT_SECONDS = 300
 EXIT_IDLE_POLL_SECONDS = 2
+# At ANALYTICS_MAX_CONCURRENT > 1 an admitted probe proves only that ONE slot is free: a request the
+# client gave up on can still hold another slot and share the CPU. Several probes at once prove no
+# more, because a probe that finds the slots full waits up to 8 s on the server and is admitted as
+# soon as a sibling probe (milliseconds) releases its slot. So above cap 1 the wait also requires the
+# server process to be quiet: under EXIT_IDLE_CPU_QUIET_FRACTION of one CPU over
+# EXIT_IDLE_CPU_WINDOW_SECONDS, read from /proc/<pid>/stat. A request still running but blocked in the
+# database uses no server CPU and is not seen, so above cap 1 this proves the server is not
+# computing, not that every slot is free. At cap 1 the admitted probe alone proves the slot is free.
+EXIT_IDLE_CPU_WINDOW_SECONDS = 2
+EXIT_IDLE_CPU_QUIET_FRACTION = 0.1
+# A probe's error detail is cut to this many characters, and taken only from a JSON body's "detail"
+# (never an HTML page, which under DEBUG could carry a traceback), so the record stays short.
+EXIT_PROBE_DETAIL_CHARS = 200
 # A busy probe waits up to analytics_admission.REST_WAIT_SECONDS (8) on the server before its 503, so
 # the probe's own read timeout must be longer than that; a probe that times out counts as busy.
 EXIT_IDLE_PROBE_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, 30)
@@ -1573,27 +1656,48 @@ def _failure(exc):
     return STATUS_ERROR, f"{type(exc).__name__}: {exc}"
 
 
+def _probe_detail(status, code, reason, url, body_detail=None):
+    """What an analytics-slot probe got, for a failure message: status, code or reason, URL, and a
+    bounded snippet of a JSON ``detail`` (#2595). No headers and no non-JSON body, so no secrets."""
+    text = f"{status} {code or reason} from {url}"
+    if isinstance(body_detail, str) and body_detail:
+        text += f": {body_detail[:EXIT_PROBE_DETAIL_CHARS]}"
+    return text
+
+
 def _wait_for_analytics_slot(probe, budget_s=EXIT_IDLE_WAIT_SECONDS, poll_s=EXIT_IDLE_POLL_SECONDS,
-                             clock=time.monotonic, sleep=time.sleep):
+                             clock=time.monotonic, sleep=time.sleep, cap=1, quiet=None):
     """Block until the server admits an analytics request; return the seconds waited (#2595).
 
-    ``probe()`` sends one cheap analytics request and returns its classification
-    (``_classify_analytics_response``). ``ok`` or ``too_large`` means it was admitted, so the
-    slot was free (a too_large ran inside the slot). ``busy``, or a probe timeout, means a
-    request is still running: wait ``poll_s`` and probe again, for at most ``budget_s``, then raise
-    ``ExitServerNotIdle``. Any other answer leaves the slot's state unknown and raises at once.
+    ``probe()`` sends one cheap analytics request and returns ``(kind, detail)``: its
+    classification (``_classify_analytics_response``) and ``_probe_detail``'s description (a bare
+    kind is accepted too). ``ok`` or ``too_large`` means it was admitted, so a slot was free (a
+    too_large ran inside the slot). ``busy``, or a probe timeout, means a request is still running:
+    wait ``poll_s`` and probe again, for at most ``budget_s``, then raise ``ExitServerNotIdle``. Any
+    other answer leaves the slot's state unknown and raises at once, naming what the probe got.
     The budget is the idle wait's own, never the measured requests' read timeout.
+
+    At ``cap`` > 1 an admitted probe proves only that one slot is free, so ``quiet()`` (the server
+    process used almost no CPU over a short window) must also hold, or the wait goes on; with no
+    ``quiet`` wired it raises rather than pass (#1075). See EXIT_IDLE_CPU_WINDOW_SECONDS.
     """
+    if cap > 1 and quiet is None:
+        raise ExitServerNotIdle(f"at ANALYTICS_MAX_CONCURRENT={cap} an admitted probe shows only that one slot is free, "
+                                "and no CPU check is wired to show the server is otherwise idle")
     start = clock()
     while True:
         try:
-            kind = probe()
+            answer = probe()
         except requests.exceptions.Timeout:
-            kind = "probe timeout"
+            answer = "probe timeout"
+        kind, detail = answer if isinstance(answer, tuple) else (answer, None)
         if kind in ("ok", "too_large"):
-            return clock() - start
-        if kind not in ("busy", "probe timeout"):
-            raise ExitServerNotIdle(f"the analytics-slot probe answered {kind!r}, so whether the slot is free is unknown")
+            if cap <= 1 or quiet():
+                return clock() - start
+            kind = f"admitted, but the server used CPU over {EXIT_IDLE_CPU_WINDOW_SECONDS}s at cap {cap}"
+        elif kind not in ("busy", "probe timeout"):
+            raise ExitServerNotIdle(f"the analytics-slot probe answered {kind!r} ({detail or 'no detail'}), "
+                                    "so whether the slot is free is unknown")
         if clock() - start >= budget_s:
             raise ExitServerNotIdle(f"the server's analytics slot was still busy after {budget_s}s (last probe: "
                                     f"{kind}); an earlier request is still running")
@@ -1653,7 +1757,7 @@ def _evaluate_exit_run(m):
     return records
 
 
-def _collect_exit_measurements(ops, concurrency, cap, users):
+def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
     """Run every exit-run measurement through *ops*, never letting one abort the rest.
 
     *ops* has: fixture() -> {active_cards, archived_cards, ...}, cumulative_flow() -> [ms],
@@ -1669,6 +1773,10 @@ def _collect_exit_measurements(ops, concurrency, cap, users):
     (so outside its RSS window), because an earlier request that timed out on the client may
     still hold the server's analytics slot. If the slot never comes free the measurement is not
     run, and its checks say so, rather than measuring a refusal or a shared CPU.
+
+    ``checkpoint(m)``, when given, is called after the fixture reads and after each measurement,
+    so ``run_exit`` can write the artifact as it goes and a run stopped partway keeps what it
+    measured (#2595).
     """
     m = {"failures": {}, "idle_waits_s": {}}
 
@@ -1682,24 +1790,34 @@ def _collect_exit_measurements(ops, concurrency, cap, users):
                 m["failures"][c] = _failure(exc)
             return None
 
+    def saved():
+        # After each measurement's figures are stored in m, not before.
+        if checkpoint is not None:
+            checkpoint(m)
+
     # The fixture reads are not analytics requests and run first, so they need no idle wait.
     fx = attempt(("fixture_is_stress_fixture",), ops.fixture, idle=False)
     if fx:
         m["fixture"] = dict(fx)
+    saved()
     cf = attempt(("cumulative_flow_p95_ms",), ops.cumulative_flow)
     if cf:
         m["cumulative_flow_p95_ms"] = _percentile(cf, 95)
+    saved()
     dd = attempt(("drill_down_peak_rss_mb",), ops.drill_down)
     if dd is not None:
         m["drill_down_peak_rss_mb"] = dd
+    saved()
     ov = attempt(("overview_peak_rss_mb", "overview_payload_bytes"), ops.overview_open)
     payload = 0
     if ov:
         m["overview_peak_rss_mb"], payload = ov
         m["overview_payload_bytes"] = payload
+    saved()
     a365 = attempt(("analytics_365_ms", "analytics_365_rss_growth_mb"), ops.analytics_365)
     if a365:
         m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
+    saved()
     conc = attempt(("unread_count_p95_ms_under_load", "concurrent_peak_rss_mb", "over_cap_refused_cleanly"),
                    ops.concurrent)
     if conc:
@@ -1714,6 +1832,7 @@ def _collect_exit_measurements(ops, concurrency, cap, users):
             m["unread_count_p95_ms"] = _percentile(unread, 95)
         m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive(), users)
         m["responses"] = {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")}
+    saved()
     return m
 
 
@@ -1806,11 +1925,34 @@ def _burst_users(base_url, burst_headers):
     return len(ids - {None})
 
 
-def _exit_output(m, records, concurrency, rounds, cap, users):
-    """The artifact body. Always built, whatever failed: a check that could not run is a failed record."""
+def _exit_output(m, records, concurrency, rounds, cap, users, complete=True):
+    """The artifact body. Always built, whatever failed: a check that could not run is a failed record.
+
+    ``complete=False`` is the partial body written after each measurement (#2595): no checks
+    yet, ``passed`` false, and the figures and failures measured so far, so a run stopped partway
+    (a crash, or the job's timeout) still says how far it got.
+    """
+    if not complete:
+        return {
+            "measured_at": datetime.now(timezone.utc).isoformat(),
+            "mode": "exit-run",
+            "complete": False,
+            "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
+            "fixture": m.get("fixture"),
+            "concurrent_opens": concurrency, "rounds": rounds, "burst_users": users,
+            "analytics_max_concurrent": cap,
+            "read_timeout_seconds": EXIT_READ_TIMEOUT_SECONDS,
+            "idle_wait_budget_seconds": EXIT_IDLE_WAIT_SECONDS,
+            "idle_waits_s": dict(m.get("idle_waits_s", {})),
+            "measured_so_far": {k: v for k, v in m.items() if k not in ("failures", "idle_waits_s", "fixture")},
+            "failures_so_far": {k: list(v) for k, v in m.get("failures", {}).items()},
+            "checks": [],
+            "passed": False,
+        }
     return {
         "measured_at": datetime.now(timezone.utc).isoformat(),
         "mode": "exit-run",
+        "complete": True,
         "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
         "fixture": m.get("fixture"),
         "concurrent_opens": concurrency, "rounds": rounds, "burst_users": users,
@@ -1894,6 +2036,15 @@ class _ExitOps:
         return self._alive()
 
 
+def _write_json_atomic(path, obj):
+    """Write *obj* as JSON to *path* via a temporary file and a rename, so a kill mid-write never
+    leaves a truncated artifact (#2595)."""
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, indent=2)
+    os.replace(tmp, path)
+
+
 def _read_token(path):
     with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
         return fh.read().strip()
@@ -1951,14 +2102,24 @@ def run_exit(args):
 
     def probe():
         r = session.get(probe_url, timeout=EXIT_IDLE_PROBE_TIMEOUT)
-        try:
-            code = r.json().get("code") if r.status_code != 200 else None
-        except (ValueError, AttributeError):
-            code = None
-        return _classify_analytics_response(r.status_code, code, r.headers.get("Retry-After"))
+        code = body_detail = None
+        if r.status_code != 200:
+            try:
+                body = r.json()
+                code, body_detail = body.get("code"), body.get("detail")
+            except (ValueError, AttributeError):
+                pass
+        return (_classify_analytics_response(r.status_code, code, r.headers.get("Retry-After")),
+                _probe_detail(r.status_code, code, r.reason, r.url, body_detail))
+
+    def quiet():
+        # Above cap 1 only (see EXIT_IDLE_CPU_WINDOW_SECONDS): the server process's CPU over a short window.
+        before = mem.cpu_seconds()
+        time.sleep(EXIT_IDLE_CPU_WINDOW_SECONDS)
+        return mem.cpu_seconds() - before < EXIT_IDLE_CPU_QUIET_FRACTION * EXIT_IDLE_CPU_WINDOW_SECONDS
 
     def wait_idle():
-        waited = _wait_for_analytics_slot(probe)
+        waited = _wait_for_analytics_slot(probe, cap=args.exit_max_concurrent, quiet=quiet)
         if waited >= EXIT_IDLE_POLL_SECONDS:
             print(f"  waited {waited:.0f}s for the analytics slot to come free", flush=True)
         return waited
@@ -1971,7 +2132,14 @@ def run_exit(args):
         declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations},
         wait_idle=wait_idle, log=lambda msg: print(msg, flush=True),
     )
-    m = _collect_exit_measurements(ops, concurrency, args.exit_max_concurrent, users)
+    out_path = resolve_within(cli_roots(), args.exit_output)
+
+    def checkpoint(partial):
+        # #2595: written after every measurement, so a run stopped partway keeps what it measured.
+        _write_json_atomic(out_path, _exit_output(partial, [], concurrency, args.exit_rounds,
+                                                  args.exit_max_concurrent, users, complete=False))
+
+    m = _collect_exit_measurements(ops, concurrency, args.exit_max_concurrent, users, checkpoint=checkpoint)
     if users_error:
         m["failures"]["over_cap_refused_cleanly"] = users_error
     records = _evaluate_exit_run(m)
@@ -1980,9 +2148,7 @@ def run_exit(args):
         print(f"  {'PASS' if r['passed'] else 'FAIL'}  [{r.get('status')}] {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
               + (f" - {r['detail']}" if r.get("detail") else ""))
     output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent, users)
-    out_path = resolve_within(cli_roots(), args.exit_output)
-    with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(output, fh, indent=2)
+    _write_json_atomic(out_path, output)
     print(f"Wrote exit-run results to {out_path}")
     if not output["passed"]:
         print("\nFAIL - exit-run bar(s) not met: " + ", ".join(r["check"] for r in records if not r["passed"]), file=sys.stderr)
