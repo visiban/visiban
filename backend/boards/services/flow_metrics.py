@@ -1230,7 +1230,8 @@ def load_recent_dwell(
     instead of reading every
     board's movements in the range from ``card_movements_moved_at``, 90,043
     -> 13,726 buffers at 30 days and 26,011 -> 8,740 at 90. On the aged board
-    the planner keeps its plan (64,752 and 17,542 buffers, unchanged): with
+    the planner keeps its plan (64,752 buffers at 30 days, unchanged; 17,542
+    -> 17,546 at 90, the same plan): with
     10,150 such cards to probe (9,640 archived), the instance-wide ``moved_at`` range scan
     is still the cheaper read at 30 days. That residual is a planner choice,
     not a wider bound.
