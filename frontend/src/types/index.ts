@@ -2964,3 +2964,6 @@ export interface DefaultChildBoardOptions {
   /** How many boards qualify in all (#2449, since 1.3); absent from older servers. */
   boards_total?: number;
 }
+
+/** The analytics limits' refusal codes (#2428): 503 `analytics_busy`, 422 `analytics_too_large`. */
+export type AnalyticsErrorCode = "analytics_busy" | "analytics_too_large";

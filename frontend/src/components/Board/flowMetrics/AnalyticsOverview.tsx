@@ -21,6 +21,7 @@ import { exportCsv, loadViewMode, saveViewMode } from "./heatmap";
 import type { ViewMode } from "./heatmap";
 import HeadlineTiles from "./HeadlineTiles";
 import { useAnalyticsOverviewData } from "./useAnalyticsOverviewData";
+import { analyticsErrorMessage, analyticsErrorRetryable } from "../../../api/analyticsErrors";
 import { useFlowDrill } from "./useFlowDrill";
 
 interface Props {
@@ -111,7 +112,7 @@ export default function AnalyticsOverview({
   // Here, not in the panels, so a panel's Chart | Table choice outlives a refetch.
   const [views, setViews] = useState<Record<string, ChartPanelView>>({});
   const [mode, setModeState] = useState<ViewMode>(() => loadViewMode(boardId));
-  const { results, fetchedFilters, loading, failed } = useAnalyticsOverviewData(boardId, filters, attempt, grouping);
+  const { results, fetchedFilters, loading, failed, failedKind } = useAnalyticsOverviewData(boardId, filters, attempt, grouping);
 
   useEffect(() => { onFetchedFilters?.(fetchedFilters); }, [fetchedFilters, onFetchedFilters]);
 
@@ -200,18 +201,21 @@ export default function AnalyticsOverview({
       </p>
       {failed && (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm text-danger-on-tint" role="alert">Some panels failed to load.</p>
-          <button
-            type="button"
-            onClick={() => {
-              // The button unmounts once the panels load, which would drop focus to <body>.
-              headingRef?.current?.focus();
-              setAttempt((n) => n + 1);
-            }}
-            className="px-3 py-1.5 text-sm rounded border border-line-strong bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-          >
-            Retry
-          </button>
+          <p className="text-sm text-danger-on-tint" role="alert">{analyticsErrorMessage(failedKind) ?? "Some panels failed to load."}</p>
+          {/* Too much history is not retried: the same request would be refused again (#2428). */}
+          {analyticsErrorRetryable(failedKind) && (
+            <button
+              type="button"
+              onClick={() => {
+                // The button unmounts once the panels load, which would drop focus to <body>.
+                headingRef?.current?.focus();
+                setAttempt((n) => n + 1);
+              }}
+              className="px-3 py-1.5 text-sm rounded border border-line-strong bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
       {empty ? (

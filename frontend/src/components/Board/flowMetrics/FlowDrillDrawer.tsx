@@ -33,6 +33,8 @@ export type DrillSelection =
       /** Cards the response counted but did not list (#2429: a capped period). */
       more?: number;
       failed?: boolean;
+      /** Why it failed, when the server said (#2428); the generic line otherwise. */
+      failedMessage?: string;
       onRetry?: () => void;
     }
   | {
@@ -312,23 +314,27 @@ function ColumnBody({
 }
 
 function CardList({
-  selection, cards, onSelectCard,
+  selection, cards, onSelectCard, onBeforeRetry,
 }: {
   selection: Extract<DrillSelection, { kind: "cards" }>;
   cards: Map<string, FlowCard>;
   onSelectCard: (uid: string) => void;
+  /** Runs before Retry reloads: Retry unmounts, so focus moves to the dialog, which survives (#2428). */
+  onBeforeRetry: () => void;
 }) {
   if (selection.failed) {
     return (
       <p className="text-sm text-danger" role="alert">
-        Failed to load these cards.{" "}
-        <button
-          type="button"
-          onClick={selection.onRetry}
-          className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          Retry
-        </button>
+        {selection.failedMessage ?? "Failed to load these cards."}{" "}
+        {selection.onRetry && (
+          <button
+            type="button"
+            onClick={() => { onBeforeRetry(); selection.onRetry?.(); }}
+            className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Retry
+          </button>
+        )}
       </p>
     );
   }
@@ -440,6 +446,7 @@ export default function FlowDrillDrawer({ boardId, selection, cards, onChange, o
               selection={selection}
               cards={cards}
               onSelectCard={(uid) => onChange({ kind: "card", uid, facts: [], back: selection })}
+              onBeforeRetry={() => panelRef.current?.focus()}
             />
           )}
         </div>

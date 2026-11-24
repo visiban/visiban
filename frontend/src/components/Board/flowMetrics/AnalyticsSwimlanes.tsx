@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getFlowSwimlanes } from "../../../api/flowMetrics";
+import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
 import type { FlowFilters } from "../../../api/flowMetrics";
 import type { FlowSwimlaneComparison, FlowSwimlaneRow } from "../../../types";
 import { CHART_COLORS, CHART_HUE } from "../../../utils/chartScale";
@@ -126,24 +127,34 @@ export default function AnalyticsSwimlanes({
   const [fetched, setFetched] = useState<FlowFilters | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // Why the last load failed (#2428): busy and too much history have their own copy.
+  const [failedKind, setFailedKind] = useState<ReturnType<typeof analyticsErrorKind>>("other");
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState<SwimlaneSort>("slowest");
   const [groupId, setGroupId] = useState<number | null>(null);
   const { days, labelId } = filters;
+  // Both Retry buttons unmount when the reload starts. The root stays mounted through
+  // loading, refusal and loaded, so Retry focuses it and focus never drops to <body> (#2428).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const retry = () => { rootRef.current?.focus(); setAttempt((n) => n + 1); };
 
   useEffect(() => {
     let current = true;
+    // Cancels a pending busy retry when this load is superseded or the table unmounts (#2428).
+    const controller = new AbortController();
     setLoading(true);
     setFailed(false);
-    getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined)
+    withAnalyticsBusyRetry(() => getFlowSwimlanes(boardId, { days, labelId }, groupId ?? undefined), cancelableWait, controller.signal)
       .then((result) => {
         if (!current) return;
         setData(result);
         setFetched({ days, labelId, swimlaneId: null });
         setLoading(false);
       })
-      .catch(() => { if (current) { setFailed(true); setLoading(false); } });
-    return () => { current = false; };
+      .catch((error: unknown) => {
+        if (current) { setFailedKind(analyticsErrorKind(error)); setFailed(true); setLoading(false); }
+      });
+    return () => { current = false; controller.abort(); };
   }, [boardId, days, labelId, groupId, attempt]);
 
   useEffect(() => { onFetchedFilters?.(fetched); }, [fetched, onFetchedFilters]);
@@ -166,7 +177,7 @@ export default function AnalyticsSwimlanes({
   const groupName = swimlaneFields.find((f) => f.id === groupId)?.name;
 
   return (
-    <div className="flex flex-col gap-4 min-w-0" data-testid="analytics-swimlanes">
+    <div ref={rootRef} tabIndex={-1} className="flex flex-col gap-4 min-w-0 focus:outline-none" data-testid="analytics-swimlanes">
       <div className="flex flex-wrap items-center gap-2 min-w-0">
         <AnalyticsFilterBar filters={filters} onFiltersChange={onFiltersChange} swimlanes={[]} labels={labels} showSwimlane={false} />
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -195,10 +206,10 @@ export default function AnalyticsSwimlanes({
       <div role="status" className="sr-only">{loading && data ? "Updating" : ""}</div>
       {failed && !data ? (
         <div role="alert" className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
-          <p className="text-sm text-fg-secondary">Could not load swimlanes.</p>
-          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          <p className="text-sm text-fg-secondary">{analyticsErrorMessage(failedKind) ?? "Could not load swimlanes."}</p>
+          {analyticsErrorRetryable(failedKind) && <button type="button" onClick={retry} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Retry
-          </button>
+          </button>}
         </div>
       ) : !data || !finding ? (
         <div className="bg-surface border border-line rounded-lg p-4 h-64 animate-pulse motion-reduce:animate-none" data-testid="panel-skeleton" aria-busy="true">
@@ -208,10 +219,10 @@ export default function AnalyticsSwimlanes({
         <div className={`flex flex-col gap-4 min-w-0 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
           {failed && (
             <div role="alert" className="text-sm text-fg-secondary flex flex-wrap items-center gap-3">
-              Could not refresh swimlanes. The numbers below are from the last load.
-              <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              {analyticsErrorMessage(failedKind) ?? "Could not refresh swimlanes."} The numbers below are from the last load.
+              {analyticsErrorRetryable(failedKind) && <button type="button" onClick={retry} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Retry
-              </button>
+              </button>}
             </div>
           )}
           <section

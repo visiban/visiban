@@ -607,6 +607,31 @@ if ATTACHMENT_MAX_PER_CARD < 0 or ATTACHMENT_MAX_BYTES_PER_CARD < 0:
         "ATTACHMENT_MAX_PER_CARD and ATTACHMENT_MAX_BYTES_PER_CARD must be 0 (no limit) or a positive number."
     )
 
+# Analytics limits (#2428): every flow/analytics request is admitted through
+# boards.services.analytics_admission. ANALYTICS_MAX_CONCURRENT is how many
+# run at once in one server process; ANALYTICS_MAX_MOVEMENTS is how many
+# movement rows one request may hold in memory before it is refused with
+# `analytics_too_large` (rows a pass folds and drops card by card count
+# against a fixed multiple of it, analytics_admission.STREAMED_ROWS_MULTIPLE). Size a pod as: baseline memory + ANALYTICS_MAX_CONCURRENT
+# x one request's peak at ANALYTICS_MAX_MOVEMENTS < the pod's memory limit
+# (docs/administration/configuration.md). Unlike the ATTACHMENT_MAX_* quotas,
+# 0 is not "no limit": there is no off switch, and 0, a negative number or a
+# non-integer stops startup. Blank keeps the default.
+from visiban.analytics_limits import (  # noqa: E402
+    DEFAULT_ANALYTICS_MAX_CONCURRENT as _DEFAULT_ANALYTICS_MAX_CONCURRENT,
+    DEFAULT_ANALYTICS_MAX_MOVEMENTS as _DEFAULT_ANALYTICS_MAX_MOVEMENTS,
+    parse_positive_int as _parse_positive_int,
+)
+
+ANALYTICS_MAX_CONCURRENT = _parse_positive_int(
+    os.environ.get("ANALYTICS_MAX_CONCURRENT"), name="ANALYTICS_MAX_CONCURRENT",
+    default=_DEFAULT_ANALYTICS_MAX_CONCURRENT,
+)
+ANALYTICS_MAX_MOVEMENTS = _parse_positive_int(
+    os.environ.get("ANALYTICS_MAX_MOVEMENTS"), name="ANALYTICS_MAX_MOVEMENTS",
+    default=_DEFAULT_ANALYTICS_MAX_MOVEMENTS,
+)
+
 # Per-card caps on comments and checklist items (#2376), the follow-up to the
 # attachment quotas above: without them one member (or a leaked token) could
 # grow a single card's comments or checklist without bound, and with it the

@@ -253,6 +253,7 @@ The latencies above are from a laptop on a full core. The default `cpu: 500m` li
 
 - The Helm chart's default limits are **not** raised yet. Raising a default changes behavior for existing installs, so that decision waits on #2425 (still open) and a re-measure (#2430). #2426 and #2427 have shipped and should shrink most of these numbers.
 - These are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
+- They were also measured before the [Analytics limits](#analytics-limits) existed. Since 1.3 a request that would hold more than `ANALYTICS_MAX_MOVEMENTS` movement rows is refused with `analytics_too_large`, and each process computes at most `ANALYTICS_MAX_CONCURRENT` Analytics requests at once. If you raise `limits.memory` for a large board, raise `ANALYTICS_MAX_MOVEMENTS` with it, or that board's Analytics stays refused.
 - `daphne` has no `--max-requests`. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example `kubectl -n <namespace> rollout restart deployment -l app.kubernetes.io/instance=<release>,app.kubernetes.io/component=backend`; in-flight requests can be cut and WebSocket clients reconnect). Tuning `MALLOC_ARENA_MAX` or `PYTHONMALLOC` is untested for Visiban, so measure before and after if you try it.
 
 **Go deeper:** [Helm chart README](https://gitlab.com/visiban/visiban/-/blob/main/helm/visiban/README.md#backend-sizing), [Kubernetes install](../getting-started/kubernetes.md).
@@ -393,6 +394,89 @@ the instance by uploading in a loop.
   which is what the rate limit bounds: at the defaults one account can add at
   most about 1.2 GB an hour. Size the media volume, or lower the rate, with
   that in mind. Turning uploads off entirely is in **Site admin → General**.
+
+---
+
+## Analytics limits
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Every Analytics request (the Summary tab, the dwell time heatmap, each `metrics/*`
+chart and the MCP flow tools) replays the board's card history in the server
+process. Two settings bound that work. Both are per server process, so with
+several pods or worker processes the instance-wide figure is that many times
+larger. These codes and settings follow the 1.0+ compatibility rules.
+
+| Variable | Description | Default |
+|---|---|---|
+| `ANALYTICS_MAX_CONCURRENT` | Analytics requests one server process computes at once. A request that finds every slot taken waits up to 8 seconds for one (REST) or is refused at once (MCP) with `503` `analytics_busy` and `Retry-After: 10`. Helm: `backend.settings.analyticsMaxConcurrent`. | `1` |
+| `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range, and its day drill-down) has a fixed ceiling of four times this instead. A request that needs more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `150000` |
+
+Both must be a whole number of at least 1; blank keeps the default. Unlike the
+attachment and comment quotas, `0` does **not** mean "no limit": there is no
+off switch, and `0`, a negative number or a non-integer stops the server at
+startup with a configuration error.
+
+No account is exempt, site admins included. Each user may also have at most two
+Analytics requests running or waiting at once (the Analytics page sends two, one after the other), and
+at most four requests wait for a slot per process. In
+[demo mode](demo-data.md) every visitor shares one login, so the per-user limit
+there is effectively the process-wide one.
+
+### Sizing analytics for your pod
+
+One Analytics request's memory grows with the movement rows it holds, so the
+size limit is what bounds it. Rows a pass reads one card at a time and drops
+cost CPU time, not memory; they are bounded by the fixed ceiling of four times
+`ANALYTICS_MAX_MOVEMENTS`, so even a runaway pass ends. Rows are counted as
+they are read: a request over a limit is refused once it has read up to that
+limit, and holds its slot until then. Size a pod so that:
+
+```
+baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) < the pod's memory limit
+```
+
+The defaults are a starting point for the chart's default `512Mi` memory and
+`500m` CPU limits, to be tuned for each deployment. As a rough estimate (an
+illustration, not a measured figure for your data), a request holding close to
+the default 150000 rows needs on the order of 150-190 MB above the server's
+idle baseline of about 115 MB, more for a longer range and less for a single chart;
+at that size `ANALYTICS_MAX_CONCURRENT=1` leaves headroom for the rest of the
+process's work under `512Mi`. Measure your
+own peak (the `analytics.replay` log line reports each request's `movements`
+held and `streamed`) before raising either setting.
+
+The baseline in the formula is not only idle memory: `daphne` keeps its
+high-water mark after a burst of Analytics requests, so a process that has
+already served one heavy request starts the next one higher (see
+[Backend memory and CPU sizing](#backend-memory-and-cpu-sizing) for the
+measured peaks, the suggested memory tiers and the restart options). Leave
+headroom above that, not just above idle.
+
+Raise `ANALYTICS_MAX_MOVEMENTS` (and the pod's memory limit with it, using the
+tiers in [Backend memory and CPU sizing](#backend-memory-and-cpu-sizing)) when a
+board's Analytics page says the board has more history than the server is set up to analyze.
+
+The slot count bounds how much analytics work and memory a process takes on at
+once. It does not guarantee how fast the rest of the server answers while a
+request is running: analytics shares the process's CPU with everything else, so
+other requests can still slow down during a long replay.
+
+Raise `ANALYTICS_MAX_CONCURRENT` only with more CPU and memory per pod: analytics is
+CPU-bound, so two requests at once in one process take about twice as long
+each. A request waiting for a slot uses a database connection, so with
+connection pooling on keep `ANALYTICS_MAX_CONCURRENT` + 4 (the waiting
+requests) well under `DATABASE_POOL_MAX_SIZE`.
+
+One open of the Analytics page sends its two requests one after the other
+(the overview first, then the heatmap), so the second waits for the first to
+finish and the page's two requests never compete for the same slot. A request
+that waits more than 8 seconds for a slot is refused and retried once by the web
+app after `Retry-After`. A "busy" message therefore means another request,
+yours in another tab or another user's, held the slot beyond that wait. On boards
+whose Analytics takes longer than that, or when several people or tabs open
+Analytics at once, expect a "busy" message, and raise `ANALYTICS_MAX_CONCURRENT`
+together with the pod's CPU and memory.
 
 ---
 

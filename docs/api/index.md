@@ -252,6 +252,42 @@ keeps retrying until the cache answers; it does not fall back to the sign-in pag
 which signed the web app user out until they signed in again (#2143). The browser pages under
 `/accounts/` and `/admin/` answer the same JSON `503`.
 
+### Analytics refusals (`analytics_busy`, `analytics_too_large`)
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+The Analytics endpoints (`summary`, `analytics` and every `metrics/*`, see
+[Boards](boards.md#flow-metrics)) are admitted through an operator-configurable
+concurrency limit and size limit ([Analytics limits](../administration/configuration.md#analytics-limits)).
+These codes and settings follow the 1.0+ compatibility rules.
+
+When no slot comes free within a few seconds (or the server already has its
+limit of waiting requests, or you already have two Analytics requests running
+or waiting, in which case the refusal is immediate):
+
+```json
+{ "code": "analytics_busy", "detail": "Analytics is busy on this server right now. Try again in a moment." }
+```
+
+with `503 Service Unavailable` and `Retry-After: 10`. Retry after that many
+seconds. When the request needs more of the board's movement history than one request may hold:
+
+```json
+{ "code": "analytics_too_large", "detail": "This board has more history than this server is set up to analyze in one request. Ask your administrator to raise the server's analytics limit." }
+```
+
+with `422 Unprocessable Entity`. Retrying the same request does not help; an
+administrator raises `ANALYTICS_MAX_MOVEMENTS`. A shorter `days` range helps only
+where the request's held history follows the range (most `metrics/*` charts); it
+does not help the `date` drill-down, which reads every card of the board whatever
+the range (only the few rows that decide where each card rests that day, counted
+against the same fixed ceiling as the settled pass). The rows are
+counted as they are read, so this refusal can take as long as reading up to the
+limit. Both bodies are always exactly
+these: they never include counts, limits or queue positions. Match on `code`,
+not on the status alone. A board you cannot access is still `404`, and a bad
+parameter still `400`, whatever the limits.
+
 ### Actor fields ("who did it")
 
 > **Settled in 1.2** (#1663)

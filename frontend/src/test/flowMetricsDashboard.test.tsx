@@ -214,6 +214,33 @@ describe('FlowMetricsDashboard states', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Updating')
   })
 
+  it('explains a refusal over the size limit and hides Retry (#2428)', async () => {
+    mockAll()
+    cycleMock.mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    render(<FlowMetricsDashboard {...props} />)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This board has more history than this server is set up to analyze. Try a shorter period, or ask your administrator.',
+    )
+    expect(screen.queryByText('Some panels failed to load.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
+  it('explains a busy server that stayed busy, and keeps Retry (#2428)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      mockAll()
+      const busy = { response: { status: 503, headers: { 'retry-after': '1' }, data: { code: 'analytics_busy', detail: 'x' } } }
+      cycleMock.mockRejectedValueOnce(busy).mockRejectedValueOnce(busy)
+      render(<FlowMetricsDashboard {...props} />)
+      await vi.advanceTimersByTimeAsync(1_500)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Analytics is busy right now. Try again in a moment.')
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+      expect(cycleMock).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows the error state, and Retry refetches', async () => {
     mockAll()
     cycleMock.mockRejectedValueOnce(new Error('no'))
@@ -726,6 +753,17 @@ describe('the drill-down drawer', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('keeps keyboard focus in the drawer when the day list Retry unmounts itself (#2428)', async () => {
+    dayMock.mockRejectedValueOnce(new Error('no'))
+    dayMock.mockResolvedValueOnce({ definition: 'd', date: '2026-06-01', columns: [], cards: [] })
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    const dialog = await screen.findByRole('dialog', { name: /^Cards on/ })
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Retry' }))
+    expect(await within(dialog).findByText('No cards.')).toBeInTheDocument()
+    expect(document.activeElement).toBe(dialog)
+  })
+
   it('reports a failed day list and retries it', async () => {
     dayMock.mockRejectedValueOnce(new Error('no'))
     dayMock.mockResolvedValueOnce({ definition: 'd', date: '2026-06-01', columns: [], cards: [] })
@@ -735,6 +773,15 @@ describe('the drill-down drawer', () => {
     expect(await dialog.findByRole('alert')).toHaveTextContent('Failed to load these cards.')
     await userEvent.click(dialog.getByRole('button', { name: 'Retry' }))
     expect(await dialog.findByText('No cards.')).toBeInTheDocument()
+  })
+
+  it('explains a day list over the size limit without a Retry (#2428)', async () => {
+    dayMock.mockRejectedValueOnce({ response: { status: 422, data: { code: 'analytics_too_large', detail: 'x' } } })
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    const dialog = within(await screen.findByRole('dialog', { name: /^Cards on/ }))
+    expect(await dialog.findByRole('alert')).toHaveTextContent("so these cards can't be listed here. Ask your administrator.")
+    expect(dialog.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
   it('reports failed transitions and retries them', async () => {

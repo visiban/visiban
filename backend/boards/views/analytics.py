@@ -27,6 +27,7 @@ from ..serializers import CardMovementSerializer
 from .. import hooks
 from ..permissions import GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, analytics_extensions_for_role, get_board_roles
 from ..services import flow_grouping, flow_metrics
+from ..services.analytics_admission import analytics_slot
 from visiban.exceptions import INVALID_QUERY_PARAM, CodedValidationError
 from visiban.request_shape import MAX_DB_INT, OFFSET_QUERY_PARAMETER, parse_offset, query_text
 from ._helpers import get_board_for_user
@@ -238,6 +239,43 @@ _ANALYTICS_400 = OpenApiResponse(
     ),
     response=_BAD_QUERY_PARAM_SERIALIZER,
 )
+
+_ADMISSION_ERROR_SERIALIZER = inline_serializer(
+    name="AnalyticsAdmissionError",
+    fields={
+        "code": serializers.CharField(help_text="`analytics_busy` (503) or `analytics_too_large` (422)."),
+        "detail": serializers.CharField(),
+    },
+)
+
+# Every action that replays board history is admitted through analytics_slot
+# (#2428); these are its two refusals. The bodies are constant.
+_ADMISSION_RESPONSES = {
+    422: OpenApiResponse(
+        description=(
+            "The board has more movement history than one request may read on this server "
+            "(`ANALYTICS_MAX_MOVEMENTS`; `code: analytics_too_large`). Not retried."
+        ),
+        response=_ADMISSION_ERROR_SERIALIZER,
+    ),
+    503: OpenApiResponse(
+        description=(
+            "No analytics slot came free in time (`ANALYTICS_MAX_CONCURRENT`; `code: analytics_busy`). "
+            "Retry after the `Retry-After` seconds."
+        ),
+        response=_ADMISSION_ERROR_SERIALIZER,
+    ),
+}
+
+
+def _analytics_slot(request, board, endpoint):
+    """The REST side of the analytics gate (#2428): waits a bounded time for a slot.
+
+    Taken after ``get_board_for_user`` and parameter validation, so a refusal
+    is never an answer about a board the caller cannot see.
+    """
+    return analytics_slot(request.user, board_id=board.pk, endpoint=endpoint, wait=True)
+
 
 _MOVEMENTS_400 = OpenApiResponse(
     description=(
@@ -1350,7 +1388,7 @@ def _attention_payload(board, flow, flow_range, limit=None):
 class BoardAnalyticsMixin:
     """Mixin providing summary and analytics @action methods for BoardViewSet."""
 
-    @extend_schema(responses={200: _BOARD_SUMMARY_RESPONSE})
+    @extend_schema(responses={200: _BOARD_SUMMARY_RESPONSE, **_ADMISSION_RESPONSES})
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
         """Per-swimlane card counts, stage distribution, velocity, and cycle-time metrics.
@@ -1366,99 +1404,100 @@ class BoardAnalyticsMixin:
         # ``slim=True`` skips favorites/labels/memberships prefetches that this
         # aggregate endpoint never reads (#928).
         board, role = get_board_for_user(pk, request.user, slim=True)
-        now = timezone.now()
+        with _analytics_slot(request, board, "summary"):
+            now = timezone.now()
 
-        columns = list(board.columns.order_by("position"))
-        swimlanes = list(board.swimlanes.order_by("position"))
-        done_column_ids = {col.id for col in columns if col.is_done}
+            columns = list(board.columns.order_by("position"))
+            swimlanes = list(board.swimlanes.order_by("position"))
+            done_column_ids = {col.id for col in columns if col.is_done}
 
-        # Query 1: card count per (swimlane, column) in one shot.
-        raw_counts = (
-            board.cards.filter(archived_at__isnull=True)
-            .values("swimlane_id", "column_id")
-            .annotate(cnt=Count("id"))
-        )
-        counts: dict[int, dict[int, int]] = {}
-        for row in raw_counts:
-            counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
+            # Query 1: card count per (swimlane, column) in one shot.
+            raw_counts = (
+                board.cards.filter(archived_at__isnull=True)
+                .values("swimlane_id", "column_id")
+                .annotate(cnt=Count("id"))
+            )
+            counts: dict[int, dict[int, int]] = {}
+            for row in raw_counts:
+                counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
 
-        # Queries 2-3: velocity, done_30d and avg_cycle_days, by first completion,
-        # from the flow service (ADR #1532, #448). A card that bounces between
-        # done columns counts once and stays counted after it is archived.
-        rollup = flow_metrics.swimlane_completion_rollup(
-            flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
-        )
+            # Queries 2-3: velocity, done_30d and avg_cycle_days, by first completion,
+            # from the flow service (ADR #1532, #448). A card that bounces between
+            # done columns counts once and stays counted after it is archived.
+            rollup = flow_metrics.swimlane_completion_rollup(
+                flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
+            )
 
-        # Blocked active cards per swimlane (#1149), manual or
-        # relation, the same union as CardSerializer.is_blocked. "Active" as
-        # in active_cards: not archived and not in a done column, so
-        # blocked_cards never exceeds active_cards.
-        relation_blocked = Exists(CardRelation.objects.filter(
-            to_card=OuterRef("pk"),
-            relation_type=CardRelation.Type.BLOCKS,
-            from_card__archived_at__isnull=True,
-            # Same-board only; see _active_blockers_prefetch (#2229).
-            from_card__board_id=F("to_card__board_id"),
-        ))
-        blocked_by_swimlane = dict(
-            board.cards.filter(archived_at__isnull=True)
-            .exclude(column_id__in=done_column_ids)
-            .filter(Q(blocked_at__isnull=False) | Q(relation_blocked))
-            .values("swimlane_id")
-            .annotate(cnt=Count("id"))
-            .values_list("swimlane_id", "cnt")
-        )
+            # Blocked active cards per swimlane (#1149), manual or
+            # relation, the same union as CardSerializer.is_blocked. "Active" as
+            # in active_cards: not archived and not in a done column, so
+            # blocked_cards never exceeds active_cards.
+            relation_blocked = Exists(CardRelation.objects.filter(
+                to_card=OuterRef("pk"),
+                relation_type=CardRelation.Type.BLOCKS,
+                from_card__archived_at__isnull=True,
+                # Same-board only; see _active_blockers_prefetch (#2229).
+                from_card__board_id=F("to_card__board_id"),
+            ))
+            blocked_by_swimlane = dict(
+                board.cards.filter(archived_at__isnull=True)
+                .exclude(column_id__in=done_column_ids)
+                .filter(Q(blocked_at__isnull=False) | Q(relation_blocked))
+                .values("swimlane_id")
+                .annotate(cnt=Count("id"))
+                .values_list("swimlane_id", "cnt")
+            )
 
-        result = []
-        for swimlane in swimlanes:
-            col_counts = counts.get(swimlane.id, {})
-            completions = rollup.get(swimlane.id, {})
-            done_card_count = sum(col_counts.get(cid, 0) for cid in done_column_ids)
-            active_cards = sum(col_counts.values()) - done_card_count
-            result.append({
-                "id": swimlane.id,
-                "name": swimlane.name,
-                "color": swimlane.color,
-                "total_cards": sum(col_counts.values()),
-                "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
-                "velocity_7d": completions.get("velocity_7d", 0),
-                "velocity_30d": completions.get("velocity_30d", 0),
-                "active_cards": active_cards,
-                "done_30d": completions.get("velocity_30d", 0),
-                "avg_cycle_days": completions.get("avg_cycle_days"),
-                "blocked_cards": blocked_by_swimlane.get(swimlane.id, 0),
-            })
+            result = []
+            for swimlane in swimlanes:
+                col_counts = counts.get(swimlane.id, {})
+                completions = rollup.get(swimlane.id, {})
+                done_card_count = sum(col_counts.get(cid, 0) for cid in done_column_ids)
+                active_cards = sum(col_counts.values()) - done_card_count
+                result.append({
+                    "id": swimlane.id,
+                    "name": swimlane.name,
+                    "color": swimlane.color,
+                    "total_cards": sum(col_counts.values()),
+                    "stage_distribution": {col.name: col_counts.get(col.id, 0) for col in columns},
+                    "velocity_7d": completions.get("velocity_7d", 0),
+                    "velocity_30d": completions.get("velocity_30d", 0),
+                    "active_cards": active_cards,
+                    "done_30d": completions.get("velocity_30d", 0),
+                    "avg_cycle_days": completions.get("avg_cycle_days"),
+                    "blocked_cards": blocked_by_swimlane.get(swimlane.id, 0),
+                })
 
-        extension_panels = []
-        # Filtered on the caller's role BEFORE any panel runs (#1826): a panel
-        # whose min_role is above it is never called, so it cannot leak data to
-        # a viewer by forgetting its own role check. The role is the one
-        # get_board_for_user authorized this request with.
-        for _fn in analytics_extensions_for_role(role):
-            try:
-                _panel = _fn(board, request)
-                # Validate here, not in the renderer: a NaN/inf or non-serializable
-                # value makes DRF's JSONRenderer raise after the view returns, which
-                # would 500 the whole summary and lose the swimlane data. The panel
-                # is rendered with DRF's own JSONRenderer (same encoder, strict NaN
-                # handling and UTF-8 encoding, so a lone surrogate fails here too)
-                # and the result parsed back, so it matches what the renderer would
-                # emit and a one-shot iterable is not exhausted by validation.
-                if not isinstance(_panel, dict):
-                    raise TypeError("panel must be a dict")
-                extension_panels.append(
-                    json.loads(JSONRenderer().render(_panel))
-                )
-            except Exception as exc:
-                # Log the callable's name and the exception type only: never the
-                # panel contents or exception text, which may carry sensitive data.
-                _logger.warning(
-                    "ANALYTICS_EXTENSIONS callable %s.%s dropped (%s)",
-                    getattr(_fn, "__module__", "?"),
-                    getattr(_fn, "__qualname__", type(_fn).__name__),
-                    type(exc).__name__,
-                )
-        return Response({"swimlanes": result, "extension_panels": extension_panels})
+            extension_panels = []
+            # Filtered on the caller's role BEFORE any panel runs (#1826): a panel
+            # whose min_role is above it is never called, so it cannot leak data to
+            # a viewer by forgetting its own role check. The role is the one
+            # get_board_for_user authorized this request with.
+            for _fn in analytics_extensions_for_role(role):
+                try:
+                    _panel = _fn(board, request)
+                    # Validate here, not in the renderer: a NaN/inf or non-serializable
+                    # value makes DRF's JSONRenderer raise after the view returns, which
+                    # would 500 the whole summary and lose the swimlane data. The panel
+                    # is rendered with DRF's own JSONRenderer (same encoder, strict NaN
+                    # handling and UTF-8 encoding, so a lone surrogate fails here too)
+                    # and the result parsed back, so it matches what the renderer would
+                    # emit and a one-shot iterable is not exhausted by validation.
+                    if not isinstance(_panel, dict):
+                        raise TypeError("panel must be a dict")
+                    extension_panels.append(
+                        json.loads(JSONRenderer().render(_panel))
+                    )
+                except Exception as exc:
+                    # Log the callable's name and the exception type only: never the
+                    # panel contents or exception text, which may carry sensitive data.
+                    _logger.warning(
+                        "ANALYTICS_EXTENSIONS callable %s.%s dropped (%s)",
+                        getattr(_fn, "__module__", "?"),
+                        getattr(_fn, "__qualname__", type(_fn).__name__),
+                        type(exc).__name__,
+                    )
+            return Response({"swimlanes": result, "extension_panels": extension_panels})
 
     @extend_schema(
         parameters=[
@@ -1487,7 +1526,7 @@ class BoardAnalyticsMixin:
             ),
             _LIMIT_PARAMETER,
         ],
-        responses={200: _BOARD_ANALYTICS_RESPONSE, 400: _ANALYTICS_400},
+        responses={200: _BOARD_ANALYTICS_RESPONSE, 400: _ANALYTICS_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"])
     def analytics(self, request, pk=None):
@@ -1550,263 +1589,265 @@ class BoardAnalyticsMixin:
         # The period window controls which dwell-time data feeds the heatmap.
         period_cutoff = now - datetime.timedelta(days=days)
 
-        columns = list(board.columns.order_by("position"))
-        # Load swimlanes into a list here so the loop at the bottom of this method
-        # iterates a Python list rather than issuing a fresh queryset.  Calling
-        # board.swimlanes.order_by() inside the for-statement bypasses Django's
-        # prefetch cache because order_by() always creates a new queryset.
-        swimlanes = list(board.swimlanes.order_by("position"))
-        if swimlane_filter is not None:
-            swimlanes = [sw for sw in swimlanes if sw.id == swimlane_filter]
-        # Partition columns into active (dwell tracked) and done (terminal — clock stops
-        # on entry). Columns match by identity, never by name (ADR #1532): a column
-        # deleted and recreated under the same name is a different column, so it does
-        # not inherit the old column's visits or done flag.
-        done_col_ids = {c.id for c in columns if c.is_done}
-        active_columns = [c for c in columns if not c.is_done]
-        col_id_to_name = {c.id: c.name for c in columns}
-        # Current and completed dwell come from the flow service (#448), so the
-        # heatmap's Current and In period modes agree with the flow charts.
-        flow_range = flow_metrics.rolling_range(days, now=now)
-        # The heatmap's own frozen figures (avg_days_per_column, velocity,
-        # stalled cards) read the same cards' movements, so they are derived
-        # from the flow service's one history load, card by card as it is
-        # analyzed, instead of a second read of the window (#2451). The heatmap
-        # reads live cards and cards archived in the period. The dwell load
-        # already holds every live card outside a done column and every card
-        # archived in the period; ``extra`` adds the live done cards with a
-        # movement in the 2x buffer. A live done card with none adds nothing
-        # to the heatmap (no buffered stay, no velocity, never stalled, not
-        # long-dwelling), so it is left out rather than loaded whole (perf-check
-        # on !2451). A live done card is no dwell sample, and ``load_recent_dwell``
-        # resets the gate index when only such cards were loaded, so the flow
-        # answers, the wait keys included, do not move either. The term is an
-        # uncorrelated, board-bounded IN, not a correlated EXISTS inside the OR
-        # (#2502).
-        buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
-        heatmap_cards: list[_HeatmapCard] = []
+        with _analytics_slot(request, board, "analytics"):
+            columns = list(board.columns.order_by("position"))
+            # Load swimlanes into a list here so the loop at the bottom of this method
+            # iterates a Python list rather than issuing a fresh queryset.  Calling
+            # board.swimlanes.order_by() inside the for-statement bypasses Django's
+            # prefetch cache because order_by() always creates a new queryset.
+            swimlanes = list(board.swimlanes.order_by("position"))
+            if swimlane_filter is not None:
+                swimlanes = [sw for sw in swimlanes if sw.id == swimlane_filter]
+            # Partition columns into active (dwell tracked) and done (terminal — clock stops
+            # on entry). Columns match by identity, never by name (ADR #1532): a column
+            # deleted and recreated under the same name is a different column, so it does
+            # not inherit the old column's visits or done flag.
+            done_col_ids = {c.id for c in columns if c.is_done}
+            active_columns = [c for c in columns if not c.is_done]
+            col_id_to_name = {c.id: c.name for c in columns}
+            # Current and completed dwell come from the flow service (#448), so the
+            # heatmap's Current and In period modes agree with the flow charts.
+            flow_range = flow_metrics.rolling_range(days, now=now)
+            # The heatmap's own frozen figures (avg_days_per_column, velocity,
+            # stalled cards) read the same cards' movements, so they are derived
+            # from the flow service's one history load, card by card as it is
+            # analyzed, instead of a second read of the window (#2451). The heatmap
+            # reads live cards and cards archived in the period. The dwell load
+            # already holds every live card outside a done column and every card
+            # archived in the period; ``extra`` adds the live done cards with a
+            # movement in the 2x buffer. A live done card with none adds nothing
+            # to the heatmap (no buffered stay, no velocity, never stalled, not
+            # long-dwelling), so it is left out rather than loaded whole (perf-check
+            # on !2451). A live done card is no dwell sample, and ``load_recent_dwell``
+            # resets the gate index when only such cards were loaded, so the flow
+            # answers, the wait keys included, do not move either. The term is an
+            # uncorrelated, board-bounded IN, not a correlated EXISTS inside the OR
+            # (#2502).
+            buffer_cutoff = period_cutoff - datetime.timedelta(days=days)
+            heatmap_cards: list[_HeatmapCard] = []
 
-        def heatmap_card(card, rows):
-            # The heatmap reads live cards and cards archived within the
-            # period; cards archived earlier would inflate past-column counts
-            # without adding value to the selected view. The flow load also
-            # holds archived cards with a movement in the range, which the
-            # heatmap never read.
-            if card.archived_at is not None and card.archived_at < period_cutoff:
-                return
-            heatmap_cards.append(_heatmap_card(
-                card, rows, now=now, days=days, period_cutoff=period_cutoff, buffer_cutoff=buffer_cutoff,
-                stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
-            ))
+            def heatmap_card(card, rows):
+                # The heatmap reads live cards and cards archived within the
+                # period; cards archived earlier would inflate past-column counts
+                # without adding value to the selected view. The flow load also
+                # holds archived cards with a movement in the range, which the
+                # heatmap never read.
+                if card.archived_at is not None and card.archived_at < period_cutoff:
+                    return
+                heatmap_cards.append(_heatmap_card(
+                    card, rows, now=now, days=days, period_cutoff=period_cutoff, buffer_cutoff=buffer_cutoff,
+                    stall_cutoff=stall_cutoff, col_id_to_name=col_id_to_name, done_col_ids=done_col_ids,
+                ))
 
-        extra = Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
-            card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
-        ).values("card_id"))
-        flow = flow_metrics.load_recent_dwell(
-            board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
-            also_matching=extra, on_card_rows=heatmap_card,
-        )
-        current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
-        completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
-        current_wait = flow_metrics.current_wait_by_swimlane(flow)
-        completed_wait = flow_metrics.completed_wait_by_swimlane(flow, flow_range)
-        gated_columns = [col for col in active_columns if col.uid in flow.gate_last]
-        blocked = flow_metrics.blocked_time(flow, flow_range)
-        # Everything read from the flow service is now in the dicts above.
-        del flow
-
-        swimlane_results = []
-        all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
-
-        # The order the heatmap always read its cards in (swimlane, then card
-        # position; id breaks the ties the database used to break arbitrarily),
-        # so the dwell lists, and the stalled list, fill in the same order.
-        heatmap_cards.sort(key=lambda c: (c.swimlane_id, c.position, c.id))
-        cards_by_swimlane: dict[int, list] = {}
-        for _c in heatmap_cards:
-            cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
-
-        # swimlane id -> unrounded (avg, age, throughput) means, for the outlier flags.
-        raw_means: dict[int, tuple] = {}
-        for swimlane in swimlanes:
-            cards = cards_by_swimlane.get(swimlane.id, [])
-            # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
-            col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
-            # Measured visits from the flow service, by column uid.
-            throughput_dwells = completed_dwell.get(swimlane.id, {})
-            age_dwells = current_dwell.get(swimlane.id, {})
-            stalled_cards = []
-            deal_velocity_days = []
-
-            for card in cards:
-                for col_name, dwell in card.dwells:
-                    col_dwells[col_name].append(dwell)
-                    all_col_dwells[col_name].append(dwell)
-                if card.velocity is not None:
-                    deal_velocity_days.append(card.velocity)
-                if card.stalled is not None:
-                    stalled_cards.append(card.stalled)
-
-            def _mean(vals: list[float]) -> float | None:
-                return sum(vals) / len(vals) if vals else None
-
-            def _rounded(means: dict) -> dict:
-                return {k: (round(v, 1) if v is not None else None) for k, v in means.items()}
-
-            # Outliers compare the unrounded means: a rounded 6.96 reads 7.0 and
-            # would flag against a 7-day threshold it never reached (#2297).
-            raw_avg = {col.name: _mean(col_dwells[col.name]) for col in active_columns}
-            raw_throughput = {col.name: _mean(throughput_dwells.get(col.uid, [])) for col in active_columns}
-            raw_age = {col.name: _mean(age_dwells.get(col.uid, [])) for col in active_columns}
-            avg_days = _rounded(raw_avg)
-            throughput_avg = _rounded(raw_throughput)
-            throughput_count = {col.name: len(throughput_dwells.get(col.uid, [])) for col in active_columns}
-            age_avg = _rounded(raw_age)
-            raw_means[swimlane.id] = (raw_avg, raw_age, raw_throughput)
-
-            swimlane_results.append({
-                "id": swimlane.id,
-                "name": swimlane.name,
-                # Deprecated field — kept for backward compatibility; use throughput_avg_days_per_column.
-                "avg_days_per_column": avg_days,
-                "is_outlier": {},  # populated below
-                # Age mode: current dwell, not age, whatever the field name says (ADR #1532).
-                "age_avg_days_per_column": age_avg,
-                "age_is_outlier": {},  # populated below
-                # In period mode (UI name; the field keeps its throughput_ name): completed dwell, visits that closed in the period.
-                "throughput_avg_days_per_column": throughput_avg,
-                "throughput_card_count_per_column": throughput_count,
-                "throughput_is_outlier": {},  # populated below
-                "age_is_warning": {},  # populated below (#2306)
-                "throughput_is_warning": {},  # populated below (#2306)
-                "age_heat_level": {},  # populated below (#2331)
-                "throughput_heat_level": {},  # populated below (#2331)
-                # Additive (#2360): the wait part of the two dwell means above,
-                # keyed only by gated stages so a plain stage reads unchanged.
-                "throughput_wait_avg_days_per_column": _rounded({
-                    col.name: _mean(completed_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
-                }),
-                "age_wait_avg_days_per_column": _rounded({
-                    col.name: _mean(current_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
-                }),
-                "deal_velocity_days": (
-                    round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
-                    if deal_velocity_days else None
-                ),
-                "stalled_cards": stalled_cards,
-            })
-
-        board_medians = {
-            col.name: (
-                round(statistics.median(all_col_dwells[col.name]), 1)
-                if all_col_dwells[col.name] else None
+            extra = Q(archived_at__isnull=True) & Q(pk__in=CardMovement.objects.filter(
+                card__board=board, card__archived_at__isnull=True, moved_at__gte=buffer_cutoff,
+            ).values("card_id"))
+            flow = flow_metrics.load_recent_dwell(
+                board, flow_range, columns=columns, swimlane_id=swimlane_filter, label_id=label_filter,
+                also_matching=extra, on_card_rows=heatmap_card,
             )
-            for col in active_columns
-        }
-        # is_outlier / age_is_outlier / throughput_is_outlier all use board.staleness_threshold_days
-        # (not effective_stalled_days) so heatmap cell coloring is anchored to the board's
-        # configured threshold regardless of any stalled_days query-param override.
-        threshold = board.staleness_threshold_days
-        def _flags(means: dict) -> dict:
-            return {col.name: means[col.name] is not None and means[col.name] >= threshold for col in active_columns}
+            current_dwell = flow_metrics.current_dwell_by_swimlane(flow)
+            completed_dwell = flow_metrics.completed_dwell_by_swimlane(flow, flow_range)
+            current_wait = flow_metrics.current_wait_by_swimlane(flow)
+            completed_wait = flow_metrics.completed_wait_by_swimlane(flow, flow_range)
+            gated_columns = [col for col in active_columns if col.uid in flow.gate_last]
+            blocked = flow_metrics.blocked_time(flow, flow_range)
+            # Everything read from the flow service is now in the dicts above.
+            del flow
 
-        # The warning band is the card aging tint's rule, not a second one: the
-        # single source of truth is ``warningFraction``/``agingStage`` in
-        # frontend/src/utils/agingTint.ts (#1841), mirrored here exactly —
-        # ``stale_warning_pct`` is the share of the threshold used before the
-        # warning starts, 0 turns the band off, 100 leaves it empty, and the ratio
-        # divides by max(1, threshold) as the heatmap does. It is served because
-        # the client only sees the rounded mean, and a rounded 3.46 reads 3.5 and
-        # would turn yellow against a 3.5-day boundary it never reached (#2306).
-        pct = board.stale_warning_pct
-        warn_fraction = min(100, pct) / 100 if pct > 0 else None
+            swimlane_results = []
+            all_col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
 
-        def _warnings(means: dict) -> dict:
-            # ratio < 1 (not "not an outlier"): at threshold 0 every cell is an outlier
-            # (mean >= 0) yet a 0.3-day cell is still under the 1-day floor the ratio uses.
-            return {
+            # The order the heatmap always read its cards in (swimlane, then card
+            # position; id breaks the ties the database used to break arbitrarily),
+            # so the dwell lists, and the stalled list, fill in the same order.
+            heatmap_cards.sort(key=lambda c: (c.swimlane_id, c.position, c.id))
+            cards_by_swimlane: dict[int, list] = {}
+            for _c in heatmap_cards:
+                cards_by_swimlane.setdefault(_c.swimlane_id, []).append(_c)
+
+            # swimlane id -> unrounded (avg, age, throughput) means, for the outlier flags.
+            raw_means: dict[int, tuple] = {}
+            for swimlane in swimlanes:
+                cards = cards_by_swimlane.get(swimlane.id, [])
+                # col_dwells: period-filtered, clamped entry — feeds avg_days_per_column (deprecated).
+                col_dwells: dict[str, list[float]] = {c.name: [] for c in active_columns}
+                # Measured visits from the flow service, by column uid.
+                throughput_dwells = completed_dwell.get(swimlane.id, {})
+                age_dwells = current_dwell.get(swimlane.id, {})
+                stalled_cards = []
+                deal_velocity_days = []
+
+                for card in cards:
+                    for col_name, dwell in card.dwells:
+                        col_dwells[col_name].append(dwell)
+                        all_col_dwells[col_name].append(dwell)
+                    if card.velocity is not None:
+                        deal_velocity_days.append(card.velocity)
+                    if card.stalled is not None:
+                        stalled_cards.append(card.stalled)
+
+                def _mean(vals: list[float]) -> float | None:
+                    return sum(vals) / len(vals) if vals else None
+
+                def _rounded(means: dict) -> dict:
+                    return {k: (round(v, 1) if v is not None else None) for k, v in means.items()}
+
+                # Outliers compare the unrounded means: a rounded 6.96 reads 7.0 and
+                # would flag against a 7-day threshold it never reached (#2297).
+                raw_avg = {col.name: _mean(col_dwells[col.name]) for col in active_columns}
+                raw_throughput = {col.name: _mean(throughput_dwells.get(col.uid, [])) for col in active_columns}
+                raw_age = {col.name: _mean(age_dwells.get(col.uid, [])) for col in active_columns}
+                avg_days = _rounded(raw_avg)
+                throughput_avg = _rounded(raw_throughput)
+                throughput_count = {col.name: len(throughput_dwells.get(col.uid, [])) for col in active_columns}
+                age_avg = _rounded(raw_age)
+                raw_means[swimlane.id] = (raw_avg, raw_age, raw_throughput)
+
+                swimlane_results.append({
+                    "id": swimlane.id,
+                    "name": swimlane.name,
+                    # Deprecated field — kept for backward compatibility; use throughput_avg_days_per_column.
+                    "avg_days_per_column": avg_days,
+                    "is_outlier": {},  # populated below
+                    # Age mode: current dwell, not age, whatever the field name says (ADR #1532).
+                    "age_avg_days_per_column": age_avg,
+                    "age_is_outlier": {},  # populated below
+                    # In period mode (UI name; the field keeps its throughput_ name): completed dwell, visits that closed in the period.
+                    "throughput_avg_days_per_column": throughput_avg,
+                    "throughput_card_count_per_column": throughput_count,
+                    "throughput_is_outlier": {},  # populated below
+                    "age_is_warning": {},  # populated below (#2306)
+                    "throughput_is_warning": {},  # populated below (#2306)
+                    "age_heat_level": {},  # populated below (#2331)
+                    "throughput_heat_level": {},  # populated below (#2331)
+                    # Additive (#2360): the wait part of the two dwell means above,
+                    # keyed only by gated stages so a plain stage reads unchanged.
+                    "throughput_wait_avg_days_per_column": _rounded({
+                        col.name: _mean(completed_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
+                    }),
+                    "age_wait_avg_days_per_column": _rounded({
+                        col.name: _mean(current_wait.get(swimlane.id, {}).get(col.uid, [])) for col in gated_columns
+                    }),
+                    "deal_velocity_days": (
+                        round(sum(deal_velocity_days) / len(deal_velocity_days), 1)
+                        if deal_velocity_days else None
+                    ),
+                    "stalled_cards": stalled_cards,
+                })
+
+            board_medians = {
                 col.name: (
-                    warn_fraction is not None
-                    and means[col.name] is not None
-                    and warn_fraction <= means[col.name] / max(1, threshold) < 1
+                    round(statistics.median(all_col_dwells[col.name]), 1)
+                    if all_col_dwells[col.name] else None
                 )
                 for col in active_columns
             }
+            # is_outlier / age_is_outlier / throughput_is_outlier all use board.staleness_threshold_days
+            # (not effective_stalled_days) so heatmap cell coloring is anchored to the board's
+            # configured threshold regardless of any stalled_days query-param override.
+            threshold = board.staleness_threshold_days
+            def _flags(means: dict) -> dict:
+                return {col.name: means[col.name] is not None and means[col.name] >= threshold for col in active_columns}
 
-        def _heat_levels(means: dict) -> dict:
-            # The whole tier from the unrounded mean, with the 1-day floor on every
-            # tier (#2331). ``is_outlier`` keeps its documented ``mean >= threshold``
-            # rule, which at threshold 0 is true for every cell; the heatmap needs the
-            # floored comparison the warning band already uses, so it is served here
-            # rather than rebuilt in the browser from a rounded value.
-            levels = {}
-            for col in active_columns:
-                mean = means[col.name]
-                if mean is None:
-                    levels[col.name] = None
-                    continue
-                ratio = mean / max(1, threshold)
-                if ratio >= 1:
-                    levels[col.name] = "high"
-                elif warn_fraction is not None and ratio >= warn_fraction:
-                    levels[col.name] = "warning"
-                else:
-                    levels[col.name] = "ok"
-            return levels
+            # The warning band is the card aging tint's rule, not a second one: the
+            # single source of truth is ``warningFraction``/``agingStage`` in
+            # frontend/src/utils/agingTint.ts (#1841), mirrored here exactly —
+            # ``stale_warning_pct`` is the share of the threshold used before the
+            # warning starts, 0 turns the band off, 100 leaves it empty, and the ratio
+            # divides by max(1, threshold) as the heatmap does. It is served because
+            # the client only sees the rounded mean, and a rounded 3.46 reads 3.5 and
+            # would turn yellow against a 3.5-day boundary it never reached (#2306).
+            pct = board.stale_warning_pct
+            warn_fraction = min(100, pct) / 100 if pct > 0 else None
 
-        limit = filters.get("limit")
-        sampled = False
-        if limit is not None:
-            # One cut across the board, not per swimlane (#2429): a 1,000-lane
-            # board with a few stalled cards each is thousands of cards, and the
-            # heatmap reads only each lane's count. The cut keeps the board's
-            # longest-unmoved cards, each lane's list in its usual order.
-            ranked = sorted(
-                ((-card["days_since_move_exact"], card["id"]) for sw in swimlane_results for card in sw["stalled_cards"]),
-            )
-            keep = {card_id for _, card_id in ranked[:limit]}
-            sampled = len(ranked) > limit
+            def _warnings(means: dict) -> dict:
+                # ratio < 1 (not "not an outlier"): at threshold 0 every cell is an outlier
+                # (mean >= 0) yet a 0.3-day cell is still under the 1-day floor the ratio uses.
+                return {
+                    col.name: (
+                        warn_fraction is not None
+                        and means[col.name] is not None
+                        and warn_fraction <= means[col.name] / max(1, threshold) < 1
+                    )
+                    for col in active_columns
+                }
+
+            def _heat_levels(means: dict) -> dict:
+                # The whole tier from the unrounded mean, with the 1-day floor on every
+                # tier (#2331). ``is_outlier`` keeps its documented ``mean >= threshold``
+                # rule, which at threshold 0 is true for every cell; the heatmap needs the
+                # floored comparison the warning band already uses, so it is served here
+                # rather than rebuilt in the browser from a rounded value.
+                levels = {}
+                for col in active_columns:
+                    mean = means[col.name]
+                    if mean is None:
+                        levels[col.name] = None
+                        continue
+                    ratio = mean / max(1, threshold)
+                    if ratio >= 1:
+                        levels[col.name] = "high"
+                    elif warn_fraction is not None and ratio >= warn_fraction:
+                        levels[col.name] = "warning"
+                    else:
+                        levels[col.name] = "ok"
+                return levels
+
+            limit = filters.get("limit")
+            sampled = False
+            if limit is not None:
+                # One cut across the board, not per swimlane (#2429): a 1,000-lane
+                # board with a few stalled cards each is thousands of cards, and the
+                # heatmap reads only each lane's count. The cut keeps the board's
+                # longest-unmoved cards, each lane's list in its usual order.
+                ranked = sorted(
+                    ((-card["days_since_move_exact"], card["id"]) for sw in swimlane_results for card in sw["stalled_cards"]),
+                )
+                keep = {card_id for _, card_id in ranked[:limit]}
+                sampled = len(ranked) > limit
+                for sw in swimlane_results:
+                    sw["stalled_cards_total"] = len(sw["stalled_cards"])
+                    sw["stalled_cards"] = [card for card in sw["stalled_cards"] if card["id"] in keep]
             for sw in swimlane_results:
-                sw["stalled_cards_total"] = len(sw["stalled_cards"])
-                sw["stalled_cards"] = [card for card in sw["stalled_cards"] if card["id"] in keep]
-        for sw in swimlane_results:
-            raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
-            sw["is_outlier"] = _flags(raw_avg)
-            sw["age_is_outlier"] = _flags(raw_age)
-            sw["throughput_is_outlier"] = _flags(raw_throughput)
-            sw["age_is_warning"] = _warnings(raw_age)
-            sw["throughput_is_warning"] = _warnings(raw_throughput)
-            sw["age_heat_level"] = _heat_levels(raw_age)
-            sw["throughput_heat_level"] = _heat_levels(raw_throughput)
+                raw_avg, raw_age, raw_throughput = raw_means[sw["id"]]
+                sw["is_outlier"] = _flags(raw_avg)
+                sw["age_is_outlier"] = _flags(raw_age)
+                sw["throughput_is_outlier"] = _flags(raw_throughput)
+                sw["age_is_warning"] = _warnings(raw_age)
+                sw["throughput_is_warning"] = _warnings(raw_throughput)
+                sw["age_heat_level"] = _heat_levels(raw_age)
+                sw["throughput_heat_level"] = _heat_levels(raw_throughput)
 
-        return Response({
-            "days": days,
-            "columns": [c.name for c in columns],
-            "done_columns": [c.name for c in columns if c.is_done],
-            "board_medians": board_medians,  # kept for backward compat
-            "swimlanes": swimlane_results,
-            "stalled_threshold_days": effective_stalled_days,
-            "staleness_threshold_days": board.staleness_threshold_days,
-            "stale_warning_pct": board.stale_warning_pct,
-            # Additive (#1149): blocked time per column and top reasons.
-            "blocked": blocked,
-            **({"sampled": sampled} if limit is not None else {}),
-        })
+            return Response({
+                "days": days,
+                "columns": [c.name for c in columns],
+                "done_columns": [c.name for c in columns if c.is_done],
+                "board_medians": board_medians,  # kept for backward compat
+                "swimlanes": swimlane_results,
+                "stalled_threshold_days": effective_stalled_days,
+                "staleness_threshold_days": board.staleness_threshold_days,
+                "stale_warning_pct": board.stale_warning_pct,
+                # Additive (#1149): blocked time per column and top reasons.
+                "blocked": blocked,
+                **({"sampled": sampled} if limit is not None else {}),
+            })
 
     @extend_schema(
         summary="Cycle time per completed card, with percentiles",
         parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS, _LIMIT_PARAMETER],
-        responses={200: _CYCLE_TIME_RESPONSE, 400: _FLOW_400},
+        responses={200: _CYCLE_TIME_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/cycle-time")
     def metrics_cycle_time(self, request, pk=None):
         """Cycle time of the cards whose first completion falls in the range."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
+        with _analytics_slot(request, board, "metrics_cycle_time"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            return Response(_cycle_time_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
     @extend_schema(
         summary="Per-swimlane cycle time, trend, blocked share and status against the board",
@@ -1827,20 +1868,21 @@ class BoardAnalyticsMixin:
                 ),
             ),
         ],
-        responses={200: _SWIMLANE_COMPARISON_RESPONSE, 400: _FLOW_400},
+        responses={200: _SWIMLANE_COMPARISON_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/swimlanes")
     def metrics_swimlanes(self, request, pk=None):
         """One row per swimlane for the Swimlanes tab, with the board median (#2266)."""
         board, role = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(SwimlaneComparisonQuerySerializer, request, board, role=role)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        lanes = list(board.swimlanes.order_by("position", "id"))
-        return Response(flow_metrics.swimlane_comparison(
-            flow, flow_range, lanes, params.get("group_by_field_id"),
-        ))
+        with _analytics_slot(request, board, "metrics_swimlanes"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            lanes = list(board.swimlanes.order_by("position", "id"))
+            return Response(flow_metrics.swimlane_comparison(
+                flow, flow_range, lanes, params.get("group_by_field_id"),
+            ))
 
     @extend_schema(
         summary="Cards completed per whole ISO week or UTC day",
@@ -1854,19 +1896,20 @@ class BoardAnalyticsMixin:
             ),
             _LIMIT_PARAMETER,
         ],
-        responses={200: _THROUGHPUT_RESPONSE, 400: _FLOW_400},
+        responses={200: _THROUGHPUT_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/throughput")
     def metrics_throughput(self, request, pk=None):
         """Completed cards per whole period, with the median of the period counts."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(ThroughputQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_throughput_payload(
-            flow, flow_range, params["period"], _grouping(board, params, flow), params.get("limit"),
-        ))
+        with _analytics_slot(request, board, "metrics_throughput"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            return Response(_throughput_payload(
+                flow, flow_range, params["period"], _grouping(board, params, flow), params.get("limit"),
+            ))
 
     @extend_schema(
         summary="Cards per column at the end of each UTC day, or the cards behind one day",
@@ -1884,7 +1927,7 @@ class BoardAnalyticsMixin:
             component_name="FlowCumulativeFlowResponse",
             serializers=[_CUMULATIVE_FLOW_RESPONSE, _CUMULATIVE_FLOW_DAY_RESPONSE],
             resource_type_field_name=None,
-        ), 400: _FLOW_400},
+        ), 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/cumulative-flow")
     def metrics_cumulative_flow(self, request, pk=None):
@@ -1896,87 +1939,92 @@ class BoardAnalyticsMixin:
         if day is not None and day >= now.date():
             # Today is still running, so it is never a bucket (ADR "Whole days").
             raise CodedValidationError(INVALID_QUERY_PARAM, "date must be a whole UTC day before today.")
-        if day is None:
-            flow_range = _flow_range(params, now)
-            flow = flow_metrics.load_cumulative_flow(
-                board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+        with _analytics_slot(request, board, "metrics_cumulative_flow"):
+            if day is None:
+                flow_range = _flow_range(params, now)
+                flow = flow_metrics.load_cumulative_flow(
+                    board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+                )
+                return Response(flow_metrics.cumulative_flow(flow, flow_range))
+            # One day's card list names every card resting in each band that day,
+            # finished work from any year included, so every filtered card is
+            # loaded, but only the few rows that decide where it rests at the end
+            # of that day, not its whole history (#2444).
+            flow = flow_metrics.load_cumulative_day(
+                board, day, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
             )
-            return Response(flow_metrics.cumulative_flow(flow, flow_range))
-        # One day's card list names every card resting in each band that day,
-        # finished work from any year included, so every filtered card is
-        # loaded, but only the few rows that decide where it rests at the end
-        # of that day, not its whole history (#2444).
-        flow = flow_metrics.load_cumulative_day(
-            board, day, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
-        )
-        payload = flow_metrics.cumulative_flow_cards(flow, day)
-        payload["cards"] = flow_metrics.card_directory(
-            flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
-        )
-        return Response(payload)
+            payload = flow_metrics.cumulative_flow_cards(flow, day)
+            payload["cards"] = flow_metrics.card_directory(
+                flow, (uid for column in payload["columns"] for uid in column["card_uids"]),
+            )
+            return Response(payload)
 
     @extend_schema(
         summary="Age of the cards in progress, with the cycle-time percentiles for the aging zones",
         parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS, _LIMIT_PARAMETER],
-        responses={200: _WIP_AGE_RESPONSE, 400: _FLOW_400},
+        responses={200: _WIP_AGE_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/wip-age")
     def metrics_wip_age(self, request, pk=None):
         """WIP age. A snapshot: the range moves only ``cycle_time_percentiles``."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(CappedGroupedFlowMetricsQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
+        with _analytics_slot(request, board, "metrics_wip_age"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            return Response(_wip_age_payload(flow, flow_range, _grouping(board, params, flow), params.get("limit")))
 
     @extend_schema(
         summary="Completed dwell time per column, with percentiles",
         parameters=[*_FLOW_FILTER_PARAMETERS, *_FLOW_GROUP_PARAMETERS],
-        responses={200: _DWELL_RESPONSE, 400: _FLOW_400},
+        responses={200: _DWELL_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/dwell")
     def metrics_dwell(self, request, pk=None):
         """Per-column percentiles of the visits that closed in the range (#2260)."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(GroupedFlowMetricsQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_dwell_payload(flow, flow_range, _grouping(board, params, flow)))
+        with _analytics_slot(request, board, "metrics_dwell"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            return Response(_dwell_payload(flow, flow_range, _grouping(board, params, flow)))
 
     @extend_schema(
         summary="Blocked time per column and reason, and the cards blocked now",
         parameters=_FLOW_FILTER_PARAMETERS,
-        responses={200: _BLOCKED_RESPONSE, 400: _FLOW_400},
+        responses={200: _BLOCKED_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/blocked")
     def metrics_blocked(self, request, pk=None):
         """Blocked time inside the range, under the same filters as the other metrics (#2260)."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(FlowMetricsQuerySerializer, request, board)
-        now = timezone.now()
-        # Only live not-done cards: the block rows are their own query, and
-        # blocked_now counts only those cards (see load_live_wip).
-        flow = flow_metrics.load_live_wip(
-            board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
-        )
-        return Response(flow_metrics.blocked_summary(flow, _flow_range(params, now)))
+        with _analytics_slot(request, board, "metrics_blocked"):
+            now = timezone.now()
+            # Only live not-done cards: the block rows are their own query, and
+            # blocked_now counts only those cards (see load_live_wip).
+            flow = flow_metrics.load_live_wip(
+                board, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"), now=now,
+            )
+            return Response(flow_metrics.blocked_summary(flow, _flow_range(params, now)))
 
     @extend_schema(
         summary="Cards that need attention: blocked, past the cycle-time p85, or stalled",
         parameters=[*_FLOW_FILTER_PARAMETERS, _LIMIT_PARAMETER],
-        responses={200: _ATTENTION_RESPONSE, 400: _FLOW_400},
+        responses={200: _ATTENTION_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/attention")
     def metrics_attention(self, request, pk=None):
         """A snapshot: the range moves only the cycle-time p85 (#2260)."""
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(AttentionQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = _load_range_flow(board, params, now, flow_range)
-        return Response(_attention_payload(board, flow, flow_range, params.get("limit")))
+        with _analytics_slot(request, board, "metrics_attention"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = _load_range_flow(board, params, now, flow_range)
+            return Response(_attention_payload(board, flow, flow_range, params.get("limit")))
 
     @extend_schema(
         summary="Every Analytics overview chart from one history load",
@@ -1996,7 +2044,7 @@ class BoardAnalyticsMixin:
             ),
             _LIMIT_PARAMETER,
         ],
-        responses={200: _OVERVIEW_RESPONSE, 400: _FLOW_400},
+        responses={200: _OVERVIEW_RESPONSE, 400: _FLOW_400, **_ADMISSION_RESPONSES},
     )
     @action(detail=True, methods=["get"], url_path="metrics/overview")
     def metrics_overview(self, request, pk=None):
@@ -2015,22 +2063,23 @@ class BoardAnalyticsMixin:
         """
         board, _ = get_board_for_user(pk, request.user, slim=True)
         params = _flow_query(FlowOverviewQuerySerializer, request, board)
-        now = timezone.now()
-        flow_range = _flow_range(params, now)
-        flow = flow_metrics.load_cumulative_flow(
-            board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
-        )
-        grouping = _grouping(board, params, flow)
-        limit = params.get("limit")
-        return Response({
-            "cycle_time": _cycle_time_payload(flow, flow_range, grouping, limit),
-            "throughput": _throughput_payload(flow, flow_range, params["period"], grouping, limit),
-            "cumulative_flow": flow_metrics.cumulative_flow(flow, flow_range),
-            "wip_age": _wip_age_payload(flow, flow_range, grouping, limit),
-            "dwell": _dwell_payload(flow, flow_range, grouping),
-            "blocked": flow_metrics.blocked_summary(flow, flow_range),
-            "attention": _attention_payload(board, flow, flow_range, limit),
-        })
+        with _analytics_slot(request, board, "metrics_overview"):
+            now = timezone.now()
+            flow_range = _flow_range(params, now)
+            flow = flow_metrics.load_cumulative_flow(
+                board, flow_range, now=now, swimlane_id=params.get("swimlane_id"), label_id=params.get("label_id"),
+            )
+            grouping = _grouping(board, params, flow)
+            limit = params.get("limit")
+            return Response({
+                "cycle_time": _cycle_time_payload(flow, flow_range, grouping, limit),
+                "throughput": _throughput_payload(flow, flow_range, params["period"], grouping, limit),
+                "cumulative_flow": flow_metrics.cumulative_flow(flow, flow_range),
+                "wip_age": _wip_age_payload(flow, flow_range, grouping, limit),
+                "dwell": _dwell_payload(flow, flow_range, grouping),
+                "blocked": flow_metrics.blocked_summary(flow, flow_range),
+                "attention": _attention_payload(board, flow, flow_range, limit),
+            })
 
     @extend_schema(
         summary="List board-level movement history with filtering and offset pagination",

@@ -29,6 +29,7 @@ from django.db.models import Case, CharField, Exists, F, OuterRef, Q, Value, Whe
 from django.db.models.functions import Concat, RowNumber
 from django.utils import timezone
 
+from . import analytics_admission
 from ..models import (
     Card, CardBlock, CardGateTransition, CardMovement, CardRelation, Column, SubColumn,
     SwimlaneCustomFieldValue,
@@ -896,12 +897,14 @@ def _movement_from_row(row, interned, column_ids):
     )
 
 
-def _movement_rows(selected, *, column_ids=False):
+def _movement_rows(selected, *, column_ids=False, held=True):
     """``(card_id, _Movement)`` for every movement of ``selected``, by card then ``(moved_at, id)``.
 
     Streamed in chunks, so a caller that folds each card's rows as they arrive
     holds one card's history at a time. ``column_ids`` also reads the raw
     ``to_column_id`` (a local column, no join) into ``_Movement.to_column_id``.
+    ``held=False`` is for such a folding caller: its rows count against the
+    wider streamed ceiling, not the held-rows budget (#2428).
     """
     fields = (*_MOVEMENT_FIELDS, "to_column_id") if column_ids else _MOVEMENT_FIELDS
     movements = (
@@ -912,7 +915,13 @@ def _movement_rows(selected, *, column_ids=False):
     # One int object per column id rather than one per row: the ids repeat on
     # every row, and on a year of history that is ~600k ints (#2451).
     interned: dict = {}
+    # The size limit (#2428): rows are counted as they stream, on the
+    # request's ticket when one is active (every load of one request shares
+    # it), else on a per-load counter at ANALYTICS_MAX_MOVEMENTS. Refused at
+    # the first row past the limit, before more are held.
+    counter = analytics_admission.row_counter()
     for row in movements.iterator(chunk_size=2000):
+        counter.count_rows(1, held=held)
         yield _movement_from_row(row, interned, column_ids)
 
 
@@ -995,8 +1004,14 @@ def _deciding_rows(cards, *, now, as_of=None):
         .values_list(*_MOVEMENT_FIELDS)
     )
     interned: dict = {}
+    # The size limit (#2428): each caller places a card on its few rows and
+    # drops them (the cumulative-flow settled pass, the day drill-down), so
+    # they count as streamed rows. A card with any history has at least one
+    # deciding row, so this also bounds how many cards the pass reads.
+    counter = analytics_admission.row_counter()
     current_id, history = None, []
     for row in movements.iterator(chunk_size=2000):
+        counter.count_rows(1, held=False)
         card_id, movement = _movement_from_row(row, interned, False)
         if card_id != current_id:
             if current_id is not None:
@@ -1068,6 +1083,8 @@ def _attach_wait(cards, selected, gate_last, now):
     lane-only move inside the stage, which changes the gate but starts no visit.
     """
     by_card: dict[int, list] = {}
+    # Held until the cards are analyzed, so counted as held rows (#2428).
+    counter = analytics_admission.row_counter()
     rows = (
         CardGateTransition.objects.filter(card__in=selected.order_by().values("id"))
         .order_by("card_id", "created_at", "id")
@@ -1077,6 +1094,7 @@ def _attach_wait(cards, selected, gate_last, now):
         )
     )
     for card_id, at, uid, fk, name, to_index, sub_uid, movement_id in rows.iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         by_card.setdefault(card_id, []).append(_Gate(at, _column_key(uid, fk, name), to_index, sub_uid, movement_id))
     for card in cards:
         transitions = by_card.get(card.id, ())
@@ -1733,9 +1751,12 @@ def _block_spans(flow, flow_range):
     )
     if flow.swimlane_id is not None or flow.label_id is not None:
         rows = rows.filter(card__in=_base_cards(flow.board, flow.swimlane_id, flow.label_id).order_by().values("id"))
+    # Counted as held rows against the request's size limit, like every card-history read (#2428).
+    counter = analytics_admission.row_counter()
     for row in rows.order_by("-blocked_at", "-id").values(
         "card_id", "column_id", "reason", "blocked_at", "unblocked_at", "card__archived_at",
-    ):
+    ).iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         end = min(row["unblocked_at"] or row["card__archived_at"] or flow.now, range_end)
         begin = max(row["blocked_at"], start)
         if end <= begin:
@@ -1878,7 +1899,10 @@ def _blocked_seconds_in_progress(flow, in_progress):
         .filter(Q(unblocked_at__isnull=True) | Q(unblocked_at__gte=oldest))
         .values_list("card_id", "blocked_at", "unblocked_at")
     )
-    for card_id, blocked_at, unblocked_at in rows:
+    # Counted as held rows against the request's size limit (#2428).
+    counter = analytics_admission.row_counter()
+    for card_id, blocked_at, unblocked_at in rows.iterator(chunk_size=2000):
+        counter.count_rows(1, held=True)
         begin = max(blocked_at, starts[card_id])
         end = min(unblocked_at or flow.now, flow.now)
         if end > begin:

@@ -60,6 +60,7 @@ from boards.serializers import (
 )
 from boards.services import cards as card_services
 from boards.services import flow_metrics
+from boards.services.analytics_admission import AnalyticsBusy, AnalyticsTooLarge, analytics_slot
 from groups.health import build_health_map, resolve_health_origin, valid_health_status
 from boards.services.errors import (
     BoardNotFound, CardNotFound, CardServiceError,
@@ -1449,50 +1450,56 @@ def board_flow_metrics(*, board_id, window_days=90, swimlane_id=None):
     except (CardServiceError, ValidationFailed) as exc:
         return _error_payload(exc)
 
-    # One ``now`` so the range and the flow agree, as in the REST views.
-    now = timezone.now()
-    flow_range = flow_metrics.rolling_range(window_days, now=now)
-    # Range-bounded like REST's metrics/* endpoints (#2445): every number here
-    # (cycle time, throughput, WIP, both blocked shapes) is the same as on a
-    # whole-history load (RangeNarrowingServiceTests, BoardFlowMetricsAgedTests).
-    flow = flow_metrics.load_range_flow(board, flow_range, now=now, swimlane_id=swimlane_id)
+    # The analytics gate (#2428): never waits on MCP, and the slot is taken
+    # and released in this (sync) thread, the one that runs the replay.
+    try:
+        with analytics_slot(user, board_id=board.pk, endpoint="mcp_board_flow_metrics", wait=False):
+            # One ``now`` so the range and the flow agree, as in the REST views.
+            now = timezone.now()
+            flow_range = flow_metrics.rolling_range(window_days, now=now)
+            # Range-bounded like REST's metrics/* endpoints (#2445): every number here
+            # (cycle time, throughput, WIP, both blocked shapes) is the same as on a
+            # whole-history load (RangeNarrowingServiceTests, BoardFlowMetricsAgedTests).
+            flow = flow_metrics.load_range_flow(board, flow_range, now=now, swimlane_id=swimlane_id)
 
-    cycle = flow_metrics.cycle_time(flow, flow_range)
-    throughput = flow_metrics.throughput(flow, flow_range, "week")
-    wip = flow_metrics.wip(flow)
-    column_ids = {c.uid: c.id for c in flow.columns}
-    return {
-        "window_days": window_days,
-        "swimlane_id": swimlane_id,
-        "window": {"start": flow_range.start.isoformat(), "end": flow_range.end.isoformat()},
-        "cycle_time": {
-            "definition": cycle["definition"],
-            "sample_size": cycle["sample_size"],
-            "excluded_incomplete_history": cycle["excluded_incomplete_history"],
-            "percentiles": cycle["percentiles"],
-        },
-        "throughput": {
-            "definition": throughput["definition"],
-            "period": throughput["period"],
-            "total": throughput["total"],
-            "median": throughput["median"],
-            "weeks": [{"start": w["start"], "count": w["count"]} for w in throughput["samples"]],
-        },
-        "wip": {
-            "definition": wip["definition"],
-            "columns": [
-                {
-                    "column_id": column_ids[c["column_uid"]],
-                    "column_uid": c["column_uid"],
-                    "column_name": c["column_name"],
-                    "count": c["count"],
-                }
-                for c in wip["columns"]
-            ],
-        },
-        "blocked": flow_metrics.blocked_time(flow, flow_range),
-        "blocked_summary": flow_metrics.blocked_summary(flow, flow_range),
-    }
+            cycle = flow_metrics.cycle_time(flow, flow_range)
+            throughput = flow_metrics.throughput(flow, flow_range, "week")
+            wip = flow_metrics.wip(flow)
+            column_ids = {c.uid: c.id for c in flow.columns}
+            return {
+                "window_days": window_days,
+                "swimlane_id": swimlane_id,
+                "window": {"start": flow_range.start.isoformat(), "end": flow_range.end.isoformat()},
+                "cycle_time": {
+                    "definition": cycle["definition"],
+                    "sample_size": cycle["sample_size"],
+                    "excluded_incomplete_history": cycle["excluded_incomplete_history"],
+                    "percentiles": cycle["percentiles"],
+                },
+                "throughput": {
+                    "definition": throughput["definition"],
+                    "period": throughput["period"],
+                    "total": throughput["total"],
+                    "median": throughput["median"],
+                    "weeks": [{"start": w["start"], "count": w["count"]} for w in throughput["samples"]],
+                },
+                "wip": {
+                    "definition": wip["definition"],
+                    "columns": [
+                        {
+                            "column_id": column_ids[c["column_uid"]],
+                            "column_uid": c["column_uid"],
+                            "column_name": c["column_name"],
+                            "count": c["count"],
+                        }
+                        for c in wip["columns"]
+                    ],
+                },
+                "blocked": flow_metrics.blocked_time(flow, flow_range),
+                "blocked_summary": flow_metrics.blocked_summary(flow, flow_range),
+            }
+    except (AnalyticsBusy, AnalyticsTooLarge) as exc:
+        return _error_payload(exc)
 
 
 def aging_cards(*, board_id, percentile=85):
@@ -1514,82 +1521,88 @@ def aging_cards(*, board_id, percentile=85):
     except (CardServiceError, ValidationFailed) as exc:
         return _error_payload(exc)
 
-    now = timezone.now()
-    history_range = flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now)
-    # The REST heatmap's loader (analytics.py): only the cards that have an open
-    # visit or a visit closing in the history range, not the whole board's past.
-    flow = flow_metrics.load_recent_dwell(
-        board, history_range, columns=list(Column.objects.filter(board=board).order_by("position")),
-    )
-    history = flow_metrics.completed_dwell(flow, history_range)
-    by_column: dict[str, list] = {}
-    for sample in history["samples"]:
-        if sample["column_uid"] is not None:
-            by_column.setdefault(sample["column_uid"], []).append(sample["value_days"])
-    columns = {c.uid: c for c in flow.columns if not c.is_done}
-    thresholds = {
-        uid: flow_metrics.percentile(sorted(by_column.get(uid, [])), percentile) for uid in columns
-    }
-
-    cards_by_uid = {card.uid: card for card in flow.cards}
-    flagged = []
-    for sample in flow_metrics.current_dwell(flow)["samples"]:
-        threshold = thresholds.get(sample["column_uid"])
-        card = cards_by_uid[sample["card_uid"]]
-        # No archived guard: archiving closes a card's visit, so current_dwell never emits it.
-        if threshold is None or sample["value_days"] <= threshold:
-            continue
-        ratio = sample["value_days"] / threshold if threshold > 0 else float("inf")
-        flagged.append((ratio, card, sample, threshold))
-    flagged.sort(key=lambda row: (-row[0], row[1].id))
-    page = flagged[:_AGING_MAX_ROWS]
-
-    # Enrichment only for the rows returned: two queries, however many cards.
-    assignee_ids = {card.assignee_id for _, card, _, _ in page if card.assignee_id is not None}
-    assignees = (
-        {u.id: _serialize_user(u) for u in User.objects.filter(pk__in=assignee_ids)}
-        if assignee_ids else {}
-    )
-    swimlane_ids = {card.swimlane_id for _, card, _, _ in page}
-    swimlanes = (
-        dict(Swimlane.objects.filter(board=board, pk__in=swimlane_ids).values_list("id", "name"))
-        if swimlane_ids else {}
-    )
-    return {
-        "percentile": percentile,
-        "history_days": _AGING_HISTORY_DAYS,
-        "columns": [
-            {
-                "column_id": col.id,
-                "column_uid": uid,
-                "column_name": col.name,
-                "sample_size": len(by_column.get(uid, [])),
-                "threshold_days": thresholds[uid],
+    # The analytics gate (#2428): never waits on MCP, and the slot is taken
+    # and released in this (sync) thread, the one that runs the replay.
+    try:
+        with analytics_slot(user, board_id=board.pk, endpoint="mcp_aging_cards", wait=False):
+            now = timezone.now()
+            history_range = flow_metrics.rolling_range(_AGING_HISTORY_DAYS, now=now)
+            # The REST heatmap's loader (analytics.py): only the cards that have an open
+            # visit or a visit closing in the history range, not the whole board's past.
+            flow = flow_metrics.load_recent_dwell(
+                board, history_range, columns=list(Column.objects.filter(board=board).order_by("position")),
+            )
+            history = flow_metrics.completed_dwell(flow, history_range)
+            by_column: dict[str, list] = {}
+            for sample in history["samples"]:
+                if sample["column_uid"] is not None:
+                    by_column.setdefault(sample["column_uid"], []).append(sample["value_days"])
+            columns = {c.uid: c for c in flow.columns if not c.is_done}
+            thresholds = {
+                uid: flow_metrics.percentile(sorted(by_column.get(uid, [])), percentile) for uid in columns
             }
-            for uid, col in columns.items()
-        ],
-        "total": len(flagged),
-        "truncated": len(flagged) > len(page),
-        "limit": _AGING_MAX_ROWS,
-        "cards": [
-            {
-                "id": card.id,
-                "uid": card.uid,
-                "title": card.title,
-                "column": {
-                    "id": columns[sample["column_uid"]].id,
-                    "uid": sample["column_uid"],
-                    "name": columns[sample["column_uid"]].name,
-                },
-                "swimlane": (
-                    {"id": card.swimlane_id, "name": swimlanes[card.swimlane_id]}
-                    if card.swimlane_id in swimlanes else None
-                ),
-                "assignee": assignees.get(card.assignee_id),
-                "value_days": sample["value_days"],
-                "threshold_days": threshold,
-                "blocked": sample["is_blocked"],
+
+            cards_by_uid = {card.uid: card for card in flow.cards}
+            flagged = []
+            for sample in flow_metrics.current_dwell(flow)["samples"]:
+                threshold = thresholds.get(sample["column_uid"])
+                card = cards_by_uid[sample["card_uid"]]
+                # No archived guard: archiving closes a card's visit, so current_dwell never emits it.
+                if threshold is None or sample["value_days"] <= threshold:
+                    continue
+                ratio = sample["value_days"] / threshold if threshold > 0 else float("inf")
+                flagged.append((ratio, card, sample, threshold))
+            flagged.sort(key=lambda row: (-row[0], row[1].id))
+            page = flagged[:_AGING_MAX_ROWS]
+
+            # Enrichment only for the rows returned: two queries, however many cards.
+            assignee_ids = {card.assignee_id for _, card, _, _ in page if card.assignee_id is not None}
+            assignees = (
+                {u.id: _serialize_user(u) for u in User.objects.filter(pk__in=assignee_ids)}
+                if assignee_ids else {}
+            )
+            swimlane_ids = {card.swimlane_id for _, card, _, _ in page}
+            swimlanes = (
+                dict(Swimlane.objects.filter(board=board, pk__in=swimlane_ids).values_list("id", "name"))
+                if swimlane_ids else {}
+            )
+            return {
+                "percentile": percentile,
+                "history_days": _AGING_HISTORY_DAYS,
+                "columns": [
+                    {
+                        "column_id": col.id,
+                        "column_uid": uid,
+                        "column_name": col.name,
+                        "sample_size": len(by_column.get(uid, [])),
+                        "threshold_days": thresholds[uid],
+                    }
+                    for uid, col in columns.items()
+                ],
+                "total": len(flagged),
+                "truncated": len(flagged) > len(page),
+                "limit": _AGING_MAX_ROWS,
+                "cards": [
+                    {
+                        "id": card.id,
+                        "uid": card.uid,
+                        "title": card.title,
+                        "column": {
+                            "id": columns[sample["column_uid"]].id,
+                            "uid": sample["column_uid"],
+                            "name": columns[sample["column_uid"]].name,
+                        },
+                        "swimlane": (
+                            {"id": card.swimlane_id, "name": swimlanes[card.swimlane_id]}
+                            if card.swimlane_id in swimlanes else None
+                        ),
+                        "assignee": assignees.get(card.assignee_id),
+                        "value_days": sample["value_days"],
+                        "threshold_days": threshold,
+                        "blocked": sample["is_blocked"],
+                    }
+                    for _, card, sample, threshold in page
+                ],
             }
-            for _, card, sample, threshold in page
-        ],
-    }
+    except (AnalyticsBusy, AnalyticsTooLarge) as exc:
+        return _error_payload(exc)
