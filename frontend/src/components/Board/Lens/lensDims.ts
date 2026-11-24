@@ -78,7 +78,7 @@ export const MAX_LENS_COL_WIDTH = 640;
  */
 export const LENS_CLOSED_LIMITS = ["0", "20", "50", "100", "all"] as const;
 export type LensClosedLimit = (typeof LENS_CLOSED_LIMITS)[number];
-/** The server default — the URL omits the param for it. */
+/** The web app's default. The URL omits it, but LensView always sends it (the API default is `all`). */
 export const DEFAULT_LENS_CLOSED_LIMIT: LensClosedLimit = "50";
 
 /**

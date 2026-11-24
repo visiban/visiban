@@ -47,7 +47,7 @@ export const getLensBoard = (
     labels?: string;
     /** Single username — neither provider supports multi-assignee in one call. */
     assignee?: string;
-    /** "0" | "20" | "50" | "100" | "all" (#1581); omit for the server default (50). */
+    /** "0" | "20" | "50" | "100" | "all" (#1581); omit for the API default (`all`, the pre-#1581 read). The web app always sends it. */
     closed_limit?: string;
     // 1 = force a re-fetch past the per-repo cache (the Refresh button).
     refresh?: number;
