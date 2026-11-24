@@ -219,6 +219,54 @@ def assert_denied_write_noop(testcase, *, target=None, extra_models=None):
 
 
 # ---------------------------------------------------------------------------
+# Successful-write assertions (#1404)
+# ---------------------------------------------------------------------------
+#
+# The mirror image of ``assert_denied_write_noop``: a success-path test that
+# stops at ``status_code == 201`` is satisfied by a handler that returns
+# ``Response(serializer.data, status=201)`` without persisting correctly. These
+# helpers make the stronger assertion (response == persisted row, plus the
+# audit/feed side effects) cheap enough to write on every important write.
+
+
+def assert_response_matches_row(testcase, data, instance, fields):
+    """Assert each of *fields* in the response *data* equals the persisted row.
+
+    The row is re-read from the database (never the in-memory *instance*), so a
+    handler that echoes input without saving cannot pass. For a foreign key,
+    pass the serializer key (``"column"``): when the row has ``<field>_id`` the
+    pk is compared, which is what the API serializes for a plain FK.
+    """
+    fresh = type(instance).objects.get(pk=instance.pk)
+    for field in fields:
+        fk_attr = f"{field}_id"
+        expected = getattr(fresh, fk_attr) if hasattr(fresh, fk_attr) else getattr(fresh, field)
+        testcase.assertEqual(
+            data[field], expected,
+            f"response {field!r} does not match the persisted {type(instance).__name__}",
+        )
+
+
+def board_event_names(board, since_id=0):
+    """Return the persisted ``BoardEvent.event`` names for *board*, oldest first.
+
+    ``since_id`` lets a test ignore setup-time events: pass ``last_board_event_id()``
+    read before the request under test.
+    """
+    return list(
+        BoardEvent.objects.filter(board_id=board.pk, id__gt=since_id)
+        .order_by("id")
+        .values_list("event", flat=True)
+    )
+
+
+def last_board_event_id():
+    """Highest ``BoardEvent`` id right now (0 when none) -- a ``since_id`` mark."""
+    last = BoardEvent.objects.order_by("-id").first()
+    return last.id if last else 0
+
+
+# ---------------------------------------------------------------------------
 # pytest fixture wrappers (injectable into pytest-style tests)
 # ---------------------------------------------------------------------------
 
