@@ -499,7 +499,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         from .models import get_accessible_group_ids
         qs = self._annotated_groups().filter(id__in=get_accessible_group_ids(self.request.user))
         if self.action in ("list", "retrieve"):
-            # member_preview (#2487): one bounded query for the whole list. Only
+            # member_preview (#2487): two bounded queries for the whole list. Only
             # the read actions render it; a write that only resolves the group
             # (get_object) would pay for a query it never reads.
             qs = prefetch_member_preview(qs)

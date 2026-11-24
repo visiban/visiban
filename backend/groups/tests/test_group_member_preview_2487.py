@@ -1,7 +1,7 @@
 """``GroupSerializer.member_preview``: the home page's group avatar stack (#2487).
 
-Additive, read-only, bounded to ``MEMBER_PREVIEW_LIMIT`` members per group, one
-prefetch query for a whole list (no N+1), withheld on a navigation-only group,
+Additive, read-only, bounded to ``MEMBER_PREVIEW_LIMIT`` members per group, two
+prefetch queries for a whole list (no N+1, #2557), withheld on a navigation-only group,
 and only the public user shape (no email).
 """
 from django.db import connection
@@ -133,3 +133,43 @@ class GroupMemberPreviewTests(TestCase):
         data = GroupSerializer(self.big, context={"group_access": full_group_access}).data
         self.assertEqual(len(data["member_preview"]), MEMBER_PREVIEW_LIMIT)
         self.assertEqual(data["member_preview"][0]["username"], "owner")
+
+
+class MemberPreviewQueryShapeTests(TestCase):
+    """#2557: the ranking statement reads memberships alone, in index order.
+
+    A ``select_related("user")`` join under the window was paid once per
+    membership of each listed group, however many the preview keeps. The
+    users now load in a second statement for the kept rows only.
+    """
+
+    def setUp(self):
+        owner = User.objects.create_user(username="owner", password="x")
+        self.groups = []
+        for g in range(3):
+            group = Group.objects.create(name=f"g{g}", owner=owner)
+            GroupMembership.objects.create(group=group, user=owner, role="admin")
+            for i in range(MEMBER_PREVIEW_LIMIT + 2):
+                u = User.objects.create_user(username=f"g{g}m{i}", password="x")
+                GroupMembership.objects.create(group=group, user=u)
+            self.groups.append(group)
+
+    def test_two_queries_after_the_groups_and_no_user_join_under_the_window(self):
+        with CaptureQueriesContext(connection) as ctx:
+            groups = list(prefetch_member_preview(Group.objects.filter(pk__in=[g.pk for g in self.groups])))
+        sql = [q["sql"] for q in ctx.captured_queries]
+        # groups, ranked memberships, their users: flat in the number of groups.
+        self.assertEqual(len(sql), 3, sql)
+        ranked = [s for s in sql if "ROW_NUMBER" in s.upper()]
+        self.assertEqual(len(ranked), 1, sql)
+        self.assertNotIn('"users"', ranked[0])
+        self.assertEqual(len([s for s in sql if 'FROM "users"' in s]), 1, sql)
+        for g in groups:
+            self.assertEqual(len(g._member_preview), MEMBER_PREVIEW_LIMIT)
+            # The users are already loaded: reading them costs nothing more.
+            with self.assertNumQueries(0):
+                [m.user.username for m in g._member_preview]
+
+    def test_index_covers_the_window_order(self):
+        index = {i.name: i for i in GroupMembership._meta.indexes}["group_member_joined_idx"]
+        self.assertEqual(index.fields, ["group", "joined_at", "id"])
