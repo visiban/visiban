@@ -1,3 +1,4 @@
+from datetime import timedelta, timezone as dt_timezone
 from urllib.parse import urlsplit
 
 from dj_rest_auth.registration.serializers import RegisterSerializer
@@ -1215,6 +1216,60 @@ class PersonalAccessTokenCreateSerializer(serializers.Serializer):
         # Preserve the declared vocabulary order and drop duplicates so the
         # stored value is canonical and comparable.
         return [scope for scope in PAT_SCOPES if scope in set(value)]
+
+
+def pat_expiry_policy_error(expires_at, max_lifetime_days, *, now):
+    """The site token-lifetime policy's refusal for a new token, or ``None`` (#1572).
+
+    ``max_lifetime_days`` is ``SiteSetting.pat_max_lifetime_days``. ``None``
+    means no site maximum, so nothing is refused: that is the default, and it
+    keeps today's behavior, including a token with no expiry. When it is set,
+    a token with no expiry is refused (a policy that requires expiry and then
+    mints a never-expiring token is no policy), and so is one past the limit.
+
+    Compared by UTC date, not instant: the token form sends a date only, which
+    parses to midnight UTC, and a time-of-day comparison would refuse the last
+    allowed date for anyone creating a token after midnight UTC. So "within N
+    days" means on or before the UTC date N days from now. The view's exact
+    ``PAT_HARD_MAX_LIFETIME_DAYS`` check runs first and is unchanged.
+
+    Called by ``PersonalAccessTokenListCreateView.post``, the only creation
+    path that takes user input. The ``provision_fuzz_token`` management command
+    (operator shell, CI-only token) is deliberately not subject to it.
+    """
+    if max_lifetime_days is None:
+        return None
+    if expires_at is None:
+        return (
+            f"This site requires access tokens to expire within {max_lifetime_days} days. "
+            "Choose an expiry date."
+        )
+    latest = (now + timedelta(days=max_lifetime_days)).astimezone(dt_timezone.utc).date()
+    if expires_at.astimezone(dt_timezone.utc).date() > latest:
+        return f"Token expiry cannot be more than {max_lifetime_days} days from now on this site."
+    return None
+
+
+class PersonalAccessTokenPolicySerializer(serializers.Serializer):
+    """GET /api/v1/auth/tokens/policy/: the limits the token form shows (#1572).
+
+    Read-only. Served to any signed-in user rather than on the anonymous
+    ``/auth/site-config/``, so the instance's token policy is not published to
+    callers who cannot create a token.
+    """
+
+    max_lifetime_days = serializers.IntegerField(
+        allow_null=True,
+        help_text="Site maximum lifetime of a new token in days; null means no site maximum.",
+    )
+    default_lifetime_days = serializers.IntegerField(
+        allow_null=True,
+        help_text="Expiry the token form pre-fills, in days from today; null means none.",
+    )
+    hard_max_lifetime_days = serializers.IntegerField(
+        help_text="Built-in ceiling on any token expiry, in days, whatever the site policy says.",
+    )
+    max_tokens = serializers.IntegerField(help_text="Maximum number of tokens per account.")
 
 
 class ConnectedAccountSerializer(serializers.Serializer):

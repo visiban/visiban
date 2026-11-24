@@ -121,6 +121,9 @@ class Command(BaseCommand):
                     source=AdminActionLog.Source.CLI,
                     metadata={"target_id": locked.pk, "target_username": locked.username},
                 )
+            # Not subject to the site token-lifetime policy (#1572): that
+            # governs tokens people create through the API and the token form.
+            # This is an operator-shell command that mints the CI fuzz token.
             _, raw_token = locked.personal_access_tokens.model.generate(
                 user=locked,
                 name="backend-schema-fuzz (CI)",

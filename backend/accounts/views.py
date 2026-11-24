@@ -45,6 +45,7 @@ from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 from .permissions import TokenHasScope
 from .models import (
     PAT_DEFAULT_SCOPES,
+    PAT_HARD_MAX_LIFETIME_DAYS,
     PAT_MAX_PER_USER,
     PersonalAccessToken,
     SiteSetting,
@@ -68,7 +69,9 @@ from .serializers import (
     CurrentUserSerializer,
     PersonalAccessTokenCreateResponseSerializer,
     PersonalAccessTokenCreateSerializer,
+    PersonalAccessTokenPolicySerializer,
     PersonalAccessTokenSerializer,
+    pat_expiry_policy_error,
     PublicUserSerializer,
     UserSerializer,
 )
@@ -1225,7 +1228,7 @@ class PersonalAccessTokenListCreateView(APIView):
             if timezone.is_naive(expires_at):
                 # The API documents expires_at as UTC; a value with no offset is UTC.
                 expires_at = expires_at.replace(tzinfo=dt_timezone.utc)
-            max_expiry = timezone.now() + timedelta(days=365)
+            max_expiry = timezone.now() + timedelta(days=PAT_HARD_MAX_LIFETIME_DAYS)
             if expires_at > max_expiry:
                 return Response(
                     {"detail": "Token expiry cannot be more than 1 year from now."},
@@ -1233,6 +1236,16 @@ class PersonalAccessTokenListCreateView(APIView):
                 )
             if expires_at <= timezone.now():
                 return Response({"detail": "Token expiry must be in the future."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # The admin's lifetime policy (#1572), after the parse and the built-in
+        # checks above so their messages are unchanged. Read outside the user
+        # row lock: a create racing an admin's policy edit is decided by
+        # whichever value it read, which is fine for a creation-time policy.
+        policy_error = pat_expiry_policy_error(
+            expires_at, SiteSetting.get().pat_max_lifetime_days, now=timezone.now(),
+        )
+        if policy_error:
+            return Response({"detail": policy_error}, status=status.HTTP_400_BAD_REQUEST)
 
         scope_serializer = PersonalAccessTokenCreateSerializer(data=request.data)
         if not scope_serializer.is_valid():
@@ -1275,6 +1288,26 @@ class PersonalAccessTokenListCreateView(APIView):
         # It is not persisted and cannot be retrieved again.
         data["token"] = raw_token
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+class PersonalAccessTokenPolicyView(APIView):
+    """GET /api/v1/auth/tokens/policy/: the token lifetime policy for the token form (#1572).
+
+    Same gates as the token list: anyone who may list and create tokens may
+    read the limits that creation enforces.
+    """
+
+    permission_classes = PersonalAccessTokenListCreateView.permission_classes
+
+    @extend_schema(responses=PersonalAccessTokenPolicySerializer)
+    def get(self, request):
+        setting = SiteSetting.get()
+        return Response(PersonalAccessTokenPolicySerializer({
+            "max_lifetime_days": setting.pat_max_lifetime_days,
+            "default_lifetime_days": setting.pat_default_lifetime_days,
+            "hard_max_lifetime_days": PAT_HARD_MAX_LIFETIME_DAYS,
+            "max_tokens": PAT_MAX_PER_USER,
+        }).data)
 
 
 class PersonalAccessTokenDeleteView(APIView):

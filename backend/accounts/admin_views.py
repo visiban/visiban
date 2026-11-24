@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model, password_validation
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMessage
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers as drf_serializers
@@ -53,6 +53,7 @@ from .models import (
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
     MAX_PENDING_EMAILED_INVITE_LINKS,
+    PAT_HARD_MAX_LIFETIME_DAYS,
     SiteEmailSetting,
     SiteSetting,
     get_registration_mode,
@@ -119,6 +120,46 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         max_length=MAINTENANCE_MESSAGE_MAX_LENGTH,
         trim_whitespace=True,
     )
+    # Personal access token lifetime policy (#1572). null means unset (no site
+    # maximum / no pre-filled expiry), which is the default and today's
+    # behavior. An absent key leaves the stored value alone; null clears it.
+    pat_max_lifetime_days = drf_serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=PAT_HARD_MAX_LIFETIME_DAYS,
+    )
+    pat_default_lifetime_days = drf_serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=PAT_HARD_MAX_LIFETIME_DAYS,
+    )
+
+    def __init__(self, *args, **kwargs):
+        # The stored row, so validate() judges the state a partial PATCH would
+        # PRODUCE (same reason as SiteEmailSettingSerializer below): checking
+        # only the submitted fields would let "lower the max" and "raise the
+        # default" each pass alone and leave default > max. The ``current``
+        # kwarg is required for a write: without it validate() would compare
+        # against nothing and pass, so the view always supplies it.
+        self.current = kwargs.pop("current", None)
+        super().__init__(*args, **kwargs)
+
+    def validate(self, attrs):
+        if self.current is None and self.instance is None:
+            # Fail closed: a write serializer built without the stored row
+            # cannot judge the merged state (#1075).
+            raise drf_serializers.ValidationError("Site settings could not be validated.")
+        current = self.current if self.current is not None else self.instance
+
+        def merged(field):
+            return attrs[field] if field in attrs else getattr(current, field)
+
+        max_days = merged("pat_max_lifetime_days")
+        default_days = merged("pat_default_lifetime_days")
+        if max_days is not None and default_days is not None and default_days > max_days:
+            raise drf_serializers.ValidationError({
+                "pat_default_lifetime_days": (
+                    f"The default expiry ({default_days} days) cannot be longer than the "
+                    f"maximum lifetime ({max_days} days)."
+                ),
+            })
+        return attrs
 
 
 class SiteEmailSettingSerializer(drf_serializers.Serializer):
@@ -819,14 +860,15 @@ class AdminSettingsView(APIView):
     def patch(self, request):
         # Validation runs BEFORE the lock below, so a malformed request returns
         # 400 without ever holding a row lock on the singleton.
-        serializer = SiteSettingSerializer(data=request.data, partial=True)
+        # Materialize the singleton first: it is both what the lock below needs
+        # on a first-boot instance where the row is absent, and the stored
+        # state the serializer validates the merged PATCH against (#1572).
+        stored = SiteSetting.get()
+        serializer = SiteSettingSerializer(data=request.data, partial=True, current=stored)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated = serializer.validated_data
-        # Materialize the singleton before locking it — select_for_update has
-        # nothing to lock on a first-boot instance where the row is absent.
-        SiteSetting.get()
 
         # Everything from the read through the audit write happens under one
         # locked transaction (#1126).
@@ -866,10 +908,25 @@ class AdminSettingsView(APIView):
                 setting.uploads_enabled = validated["uploads_enabled"]
                 update_fields.append("uploads_enabled")
 
-            for field in ("maintenance_mode", "maintenance_message"):
+            for field in (
+                "maintenance_mode",
+                "maintenance_message",
+                "pat_max_lifetime_days",
+                "pat_default_lifetime_days",
+            ):
                 if field in validated:
                     setattr(setting, field, validated[field])
                     update_fields.append(field)
+
+            # The serializer judged default <= max against the row read before
+            # the lock; a concurrent PATCH may have changed the other half since.
+            # Re-judged on the locked row so two PATCHes that each passed alone
+            # cannot store a default the maximum refuses. Nothing is saved yet.
+            recheck = SiteSettingSerializer(current=setting)
+            try:
+                recheck.validate({})
+            except drf_serializers.ValidationError as exc:
+                return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
             if update_fields:
                 setting.save(update_fields=update_fields)
@@ -955,9 +1012,37 @@ class AdminActionLogView(APIView):
         )
 
 
+# ``status`` values for GET /api/admin/users/ (#2501), each a filter on the
+# search-filtered queryset. ``admins`` reads ``is_site_admin`` (what the admin
+# page's "Admin" badge shows) whatever ``is_active`` says, so a deactivated
+# admin is in both ``deactivated`` and ``admins`` and the counts do not sum.
+ADMIN_USER_STATUS_FILTERS = {
+    "all": Q(),
+    "active": Q(is_active=True),
+    "deactivated": Q(is_active=False),
+    "admins": Q(is_site_admin=True),
+}
+
+
+def admin_user_status_counts(qs) -> dict:
+    """Per-status totals of *qs* in ONE aggregate query (#2501).
+
+    Facet counts: *qs* is the search-filtered queryset with no ``status``
+    applied, so each number is the ``count`` the matching pill would return
+    for the same search. ``order_by()`` drops the list's ORDER BY, which an
+    aggregate does not need.
+    """
+    return qs.order_by().aggregate(
+        **{
+            name: Count("id", filter=condition) if condition else Count("id")
+            for name, condition in ADMIN_USER_STATUS_FILTERS.items()
+        }
+    )
+
+
 class AdminUsersView(APIView):
     """
-    GET  /api/admin/users/  — paginated list, optional ?search=
+    GET  /api/admin/users/  — paginated list, optional ?search= and ?status=
     POST /api/admin/users/  — create a new user
     """
     permission_classes = _ADMIN_PERMISSIONS
@@ -969,6 +1054,14 @@ class AdminUsersView(APIView):
             OpenApiParameter(
                 "search", str, required=False,
                 description="Filter by username, display name, or email (partial, case-insensitive).",
+            ),
+            OpenApiParameter(
+                "status", str, enum=list(ADMIN_USER_STATUS_FILTERS), required=False,
+                description=(
+                    "*(1.3+)* Only `active` accounts, `deactivated` ones, or site `admins` "
+                    "(active or not). Default `all`. Applied before paging, so `count` "
+                    "reflects it."
+                ),
             ),
             OpenApiParameter(
                 "offset", int, required=False,
@@ -990,11 +1083,19 @@ class AdminUsersView(APIView):
                     "offset": drf_serializers.IntegerField(),
                     "page_size": drf_serializers.IntegerField(),
                     "results": AdminUserSerializer(many=True),
+                    "counts": inline_serializer(
+                        name="AdminUserStatusCounts",
+                        fields={
+                            name: drf_serializers.IntegerField()
+                            for name in ADMIN_USER_STATUS_FILTERS
+                        },
+                    ),
                 },
             ),
             400: OpenApiResponse(
                 description=(
-                    '`search` contains a NUL (0x00) character (`{"detail": ..., '
+                    '`search` contains a NUL (0x00) character, or `status` is not one of '
+                    '`all`, `active`, `deactivated`, `admins` (`{"detail": ..., '
                     '"code": "invalid_query_param"}`).'
                 ),
                 response=INVALID_QUERY_PARAM_SCHEMA,
@@ -1010,6 +1111,20 @@ class AdminUsersView(APIView):
                 | Q(email__icontains=search)
                 | Q(username__icontains=search)
             )
+        # Validated against the closed set rather than ignored when unknown: a
+        # typo silently answering "all" would read as "this filter matched
+        # everyone" (same reasoning as AdminActionLogView's ``action``).
+        status_filter = query_text(request, "status").strip() or "all"
+        if status_filter not in ADMIN_USER_STATUS_FILTERS:
+            raise CodedValidationError(
+                INVALID_QUERY_PARAM,
+                f"'{status_filter}' is not a valid status. Valid values are: "
+                f"{', '.join(ADMIN_USER_STATUS_FILTERS)}.",
+            )
+        # Counted before the status filter: the pills show every status's total
+        # for the current search, whichever one is selected.
+        counts = admin_user_status_counts(qs)
+        qs = qs.filter(ADMIN_USER_STATUS_FILTERS[status_filter])
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(qs, request)
 
@@ -1027,7 +1142,9 @@ class AdminUsersView(APIView):
             )
 
         serializer = AdminUserSerializer(page, many=True, context={"_owned_boards_map": owned_map})
-        return paginator.get_paginated_response(serializer.data)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data["counts"] = counts
+        return response
 
     @extend_schema(request=AdminCreateUserSerializer, responses={201: AdminUserSerializer})
     @transaction.atomic

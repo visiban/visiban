@@ -30,6 +30,7 @@ import {
   Button,
   EmptyState,
   Field,
+  FilterPill,
   InlineConfirm,
   ListRow,
   ListWell,
@@ -43,7 +44,7 @@ import {
   type StatusTone,
 } from "../components/Page";
 import type { AdminInviteLinkPage } from "../api/auth";
-import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
+import type { AdminInviteLink, AdminUser, AdminUserStatus, AdminUserStatusCounts, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
 import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
@@ -881,6 +882,14 @@ function GeneralSection() {
         />
       </SettingsCard>
 
+      {settings && (
+        <TokenPolicyCard
+          settings={settings}
+          busy={saving}
+          onSave={(patch, rollback, onRollback) => void saveSetting(patch, rollback, "Failed to save settings.", onRollback)}
+        />
+      )}
+
       <SettingsCard title="Maintenance">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
@@ -938,6 +947,101 @@ function GeneralSection() {
   );
 }
 
+/** Upper bound of both token policy fields: the backend's built-in token lifetime ceiling. */
+const TOKEN_POLICY_DAYS_MAX = 365;
+type TokenPolicyField = "pat_max_lifetime_days" | "pat_default_lifetime_days";
+
+/** A days field: blank is null (unset), a whole number 1-365 is itself, anything else is undefined (invalid). */
+function parsePolicyDays(raw: string): number | null | undefined {
+  const text = raw.trim();
+  if (text === "") return null;
+  if (!/^\d+$/.test(text)) return undefined;
+  const days = Number(text);
+  return days >= 1 && days <= TOKEN_POLICY_DAYS_MAX ? days : undefined;
+}
+
+const daysText = (days: number | null | undefined) => (days === null || days === undefined ? "" : String(days));
+
+/**
+ * Site token lifetime policy (#1572): maximum lifetime and default expiry, in days. Each field is a
+ * local buffer saved on blur, like the maintenance notice. The default-not-above-maximum rule is
+ * checked here for an inline message; the server checks it again and stays the authority.
+ */
+function TokenPolicyCard({ settings, busy, onSave }: {
+  settings: SiteSettings;
+  busy: boolean;
+  onSave: (patch: Partial<SiteSettings>, rollback: (s: SiteSettings) => SiteSettings, onRollback: () => void) => void;
+}) {
+  // Older servers (and some test fixtures) omit the fields; treat that as unset.
+  const stored = {
+    pat_max_lifetime_days: settings.pat_max_lifetime_days ?? null,
+    pat_default_lifetime_days: settings.pat_default_lifetime_days ?? null,
+  };
+  const [text, setText] = useState<Record<TokenPolicyField, string>>({ pat_max_lifetime_days: "", pat_default_lifetime_days: "" });
+  const [errors, setErrors] = useState<Partial<Record<TokenPolicyField, string>>>({});
+  // Re-seed a field's buffer when its server value changes, during render (#1319), one field at a
+  // time so saving one field never discards an edit in progress in the other.
+  const [seeded, setSeeded] = useState<Record<TokenPolicyField, number | null | "unseeded">>({ pat_max_lifetime_days: "unseeded", pat_default_lifetime_days: "unseeded" });
+  for (const field of ["pat_max_lifetime_days", "pat_default_lifetime_days"] as const) {
+    if (seeded[field] !== stored[field]) {
+      setSeeded((s) => ({ ...s, [field]: stored[field] }));
+      setText((t) => ({ ...t, [field]: daysText(stored[field]) }));
+    }
+  }
+
+  const commit = (field: TokenPolicyField) => {
+    const parsed = parsePolicyDays(text[field]);
+    if (parsed === undefined) {
+      setErrors((e) => ({ ...e, [field]: `Enter a whole number of days from 1 to ${TOKEN_POLICY_DAYS_MAX}, or leave it blank.` }));
+      return;
+    }
+    const next = { ...stored, [field]: parsed };
+    if (next.pat_max_lifetime_days !== null && next.pat_default_lifetime_days !== null && next.pat_default_lifetime_days > next.pat_max_lifetime_days) {
+      setErrors((e) => ({ ...e, [field]: `The default expiry can't be longer than the maximum lifetime (${next.pat_max_lifetime_days} days).` }));
+      return;
+    }
+    setErrors({});
+    if (parsed === stored[field]) {
+      setText((t) => ({ ...t, [field]: daysText(parsed) }));
+      return;
+    }
+    const prev = stored[field];
+    onSave({ [field]: parsed }, (s) => ({ ...s, [field]: prev }), () => setText((t) => ({ ...t, [field]: daysText(prev) })));
+  };
+
+  const field = (name: TokenPolicyField, label: string, hint: string) => (
+    <Field
+      label={label}
+      hint={hint}
+      error={errors[name]}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      placeholder="None"
+      value={text[name]}
+      onChange={(e) => {
+        setText((t) => ({ ...t, [name]: e.target.value }));
+        // A corrected value must not keep showing the stale error; blur validates again.
+        setErrors((er) => ({ ...er, [name]: undefined }));
+      }}
+      onBlur={() => commit(name)}
+      aria-busy={busy}
+    />
+  );
+
+  return (
+    <SettingsCard title="Personal access tokens">
+      <p className="text-sm text-fg-secondary mb-3">
+        Applies to new tokens only. Existing tokens keep the expiry they were created with.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field("pat_max_lifetime_days", "Maximum lifetime (days)", "Every new token must expire within this many days. Blank: no maximum, and tokens may never expire.")}
+        {field("pat_default_lifetime_days", "Default expiry (days)", "Pre-filled in the token form, in days from today. Blank: nothing pre-filled.")}
+      </div>
+    </SettingsCard>
+  );
+}
+
 /** The maintenance switch, named by the row's label (the shared Switch has no label of its own). */
 function MaintenanceSwitch({ checked, onChange, busy }: { checked: boolean; onChange: (next: boolean) => void; busy: boolean }) {
   return (
@@ -955,6 +1059,34 @@ function MaintenanceSwitch({ checked, onChange, busy }: { checked: boolean; onCh
 // Users section
 // ---------------------------------------------------------------------------
 
+/** The Users filter pills (#2501), filtered on the server before paging; `empty` is the list's no-match line. */
+const USER_STATUS_FILTERS: { id: AdminUserStatus; label: string; empty: string }[] = [
+  { id: "all", label: "All", empty: "No users found." },
+  { id: "active", label: "Active", empty: "No active users." },
+  { id: "deactivated", label: "Deactivated", empty: "No deactivated users." },
+  { id: "admins", label: "Admins", empty: "No admins." },
+];
+
+/** Which status buckets `u` is in (`admins` overlaps the other two). */
+function userStatuses(u: Pick<AdminUser, "is_active" | "is_site_admin">): AdminUserStatus[] {
+  return ["all", u.is_active ? "active" : "deactivated", ...(u.is_site_admin ? ["admins" as const] : [])];
+}
+
+/**
+ * Move one account's contribution to the pill counts from `before` to `after` (either may be absent:
+ * an added or a removed row), so a row action keeps the counts true without refetching the page.
+ */
+function adjustStatusCounts(
+  counts: AdminUserStatusCounts,
+  before: Pick<AdminUser, "is_active" | "is_site_admin"> | null,
+  after: Pick<AdminUser, "is_active" | "is_site_admin"> | null,
+): AdminUserStatusCounts {
+  const next = { ...counts };
+  for (const s of before ? userStatuses(before) : []) next[s] -= 1;
+  for (const s of after ? userStatuses(after) : []) next[s] += 1;
+  return next;
+}
+
 /** One open inline confirm, shown under the row it concerns. */
 interface ConfirmState {
   userId: number;
@@ -968,7 +1100,7 @@ interface ConfirmState {
 
 function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   currentUser: User;
-  onTotal: (n: number) => void;
+  onTotal: (n: number | ((prev: number) => number)) => void;
   onOpenEmailSettings: () => void;
 }) {
   const isPhone = useIsPhoneViewport();
@@ -978,6 +1110,11 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [searched, setSearched] = useState("");
+  // The status pill (#2501). Filtered server-side before paging, so `total` is the filter's total.
+  const [statusFilter, setStatusFilter] = useState<AdminUserStatus>("all");
+  const [shownStatus, setShownStatus] = useState<AdminUserStatus>("all");
+  // Every pill's total for the current search; null until a response carries them.
+  const [counts, setCounts] = useState<AdminUserStatusCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1014,24 +1151,49 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     return false;
   }, 40);
 
+  // Only the latest request may land: a slower response for an earlier filter, search or page would
+  // otherwise show its rows under the pill now selected (and replaceUser would judge them against it).
+  const fetchSeqRef = useRef(0);
+  // The query on screen now. A row action or a create refetches after an await, by which time the
+  // page or pill may have changed; its request is the newest, so it must ask for this query, not the
+  // one its closure saw. `search` (the box), not `searched`: every pending fetch uses the box's text.
+  const queryRef = useRef({ search, offset, statusFilter });
+  queryRef.current = { search, offset, statusFilter };
+
   const fetchUsers = useCallback(
-    async (searchVal: string, offsetVal: number) => {
+    async (searchVal: string, offsetVal: number, statusVal: AdminUserStatus) => {
+      const seq = ++fetchSeqRef.current;
+      let steppedBack = false;
       setLoading(true);
       setError(null);
       try {
-        const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal });
+        const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal, status: statusVal });
+        if (seq !== fetchSeqRef.current) return;
+        // A page emptied under us (its last row left the filter) steps back to the last page that has
+        // rows; the offset effect fetches it, so loading stays on rather than flashing the empty state.
+        // When the offset is already that page the effect would not run, so fetch it here instead.
+        const lastPageOffset = Math.max(0, (Math.ceil(data.count / data.page_size) - 1) * data.page_size);
+        if (data.results.length === 0 && lastPageOffset < offsetVal) {
+          steppedBack = true;
+          if (lastPageOffset === queryRef.current.offset) void fetchUsers(searchVal, lastPageOffset, statusVal);
+          else setOffset(lastPageOffset);
+          return;
+        }
         setUsers(data.results);
         setTotal(data.count);
         setSearched(searchVal);
-        // The nav count is the site's total users, not a search's matches.
-        if (!searchVal) onTotal(data.count);
+        setShownStatus(statusVal);
+        setCounts(data.counts ?? null);
+        // The nav count is the site's total users, not a search's or a filter's matches.
+        const siteTotal = data.counts ? data.counts.all : statusVal === "all" ? data.count : null;
+        if (!searchVal && siteTotal !== null) onTotal(siteTotal);
         // Use the server-returned page_size so pagination controls stay in sync
         // even if the server-side default changes.
         setPageSize(data.page_size);
       } catch {
-        setError("Failed to load users.");
+        if (seq === fetchSeqRef.current) setError("Failed to load users.");
       } finally {
-        setLoading(false);
+        if (seq === fetchSeqRef.current && !steppedBack) setLoading(false);
       }
     },
     [onTotal]
@@ -1039,19 +1201,49 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
 
   useEffect(() => {
     // void: fetchUsers handles its own errors via setError and never rethrows.
-    void fetchUsers(search, offset);
+    void fetchUsers(search, offset, statusFilter);
     // search is read from the latest closure intentionally: typing updates
     // `search` without refetching here — handleSearchChange below debounces
     // and fetches directly, so this effect only needs to react to offset
-    // (pagination) changes.
-  }, [offset]); // eslint-disable-line react-hooks/exhaustive-deps -- search intentionally excluded, see comment above
+    // (pagination) and status pill changes.
+  }, [offset, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps -- search intentionally excluded, see comment above
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearch(val);
     setOffset(0);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchUsers(val, 0), 400);
+    debounceRef.current = setTimeout(() => fetchUsers(val, 0, statusFilter), 400);
+  };
+
+  // A pill keeps the search and starts again at page 1. The effect above fetches once for both
+  // changes; a pending search debounce is dropped because that fetch already uses the typed text.
+  const handleStatusChange = (next: AdminUserStatus) => {
+    if (next === statusFilter) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setStatusFilter(next);
+    setOffset(0);
+  };
+
+  /** Swap in a row the server returned, moving its pill counts if a status changed. */
+  const replaceUser = (updated: AdminUser) => {
+    const before = users.find((u) => u.id === updated.id) ?? null;
+    // Under a status filter, a row that no longer matches it leaves the list. Dropping it locally
+    // would shift the server's pages by one (a user skipped by Next, or an emptied last page under
+    // a stale "Showing x of N"), so the page is fetched again and the server sets list, total and
+    // counts. Its kebab unmounts, so focus moves to the visible filter control, a control that
+    // outlives the row: the select on a phone, where the pills are hidden (frontend/CLAUDE.md, #2211).
+    const q = queryRef.current;
+    if (before && !userStatuses(updated).includes(q.statusFilter)) {
+      void fetchUsers(q.search, q.offset, q.statusFilter);
+      setTimeout(() => {
+        const group = '[role="group"][aria-label="Filter users"]';
+        document.querySelector<HTMLElement>(isPhone ? `${group} select` : `${group} [aria-pressed="true"]`)?.focus();
+      }, 0);
+      return;
+    }
+    if (before) setCounts((c) => (c ? adjustStatusCounts(c, before, updated) : c));
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
   const closeConfirm = () => {
@@ -1068,7 +1260,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     setActionError(null);
     try {
       const updated = await patchAdminUser(userId, patch);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      replaceUser(updated);
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
       setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1121,7 +1313,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         setActionError(null);
         try {
           const updated = await deactivateAdminUser(user.id);
-          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+          replaceUser(updated);
         } catch (err: unknown) {
           const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
           setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1166,7 +1358,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         setActionError(null);
         try {
           const updated = await clearAdminUserLockout(user.id);
-          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+          replaceUser(updated);
         } catch (err: unknown) {
           const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
           setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1191,7 +1383,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     setRestartingTourIds((prev) => new Set(prev).add(user.id));
     try {
       const updated = await patchAdminUser(user.id, { has_completed_tour: false });
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+      replaceUser(updated);
       setActionMessage(
         `Tour will restart for ${nameOf(user)} on their next visit to a board.`
       );
@@ -1400,20 +1592,41 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         />
       </div>
 
+      {/* Pills on desktop, a native select with counts below sm (frontend/CLAUDE.md, one DOM). */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter users">
+        <div className="flex flex-wrap gap-2 max-sm:hidden">
+          {USER_STATUS_FILTERS.map((f) => (
+            <FilterPill key={f.id} label={f.label} count={counts?.[f.id]} selected={statusFilter === f.id} onClick={() => handleStatusChange(f.id)} />
+          ))}
+        </div>
+        <select
+          aria-label="User status"
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value as AdminUserStatus)}
+          className="sm:hidden h-11 w-full rounded border border-line-strong bg-surface px-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          {USER_STATUS_FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>{counts ? `${f.label} (${counts[f.id]})` : f.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div role="status" aria-live="polite">
         {actionError && <p className="text-sm text-danger">{actionError}</p>}
         {actionMessage && <p className="text-sm text-success">{actionMessage}</p>}
+        {/* A filter or search changes the list, so the new total is announced (frontend/CLAUDE.md). */}
+        <p className="sr-only">{loading || error ? "" : `${total} ${total === 1 ? "user" : "users"}`}</p>
       </div>
 
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <LoadError message={error} onRetry={() => void fetchUsers(search, offset)} />
+        <LoadError message={error} onRetry={() => void fetchUsers(search, offset, statusFilter)} />
       ) : (
         <>
           {users.length === 0 ? (
             <EmptyState
-              title={searched ? `No users match "${searched}".` : "No users found."}
+              title={searched ? `No users match "${searched}".` : USER_STATUS_FILTERS.find((f) => f.id === shownStatus)?.empty ?? "No users found."}
               description={searched ? "Check the spelling, or clear the filter." : undefined}
               headingLevel="h3"
             />
@@ -1573,11 +1786,15 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
 
       {showAddModal && (
         <AddUserModal
-          onCreated={(newUser) => {
-            setUsers((prev) => [newUser, ...prev]);
-            setTotal((t) => t + 1);
-            onTotal(total + 1);
+          onCreated={() => {
             setShowAddModal(false);
+            // The server sorts by username, pages by 50 and decides whether the new account matches the
+            // search and pill, so the current page is fetched again rather than the row prepended (which
+            // would be out of order, make a 51-row page and repeat a row on Next). The site gained one
+            // account whatever the search; with no search the refetch then sets the nav from the server.
+            onTotal((n) => n + 1);
+            const q = queryRef.current;
+            void fetchUsers(q.search, q.offset, q.statusFilter);
           }}
           onClose={() => setShowAddModal(false)}
         />
@@ -1609,7 +1826,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
           user={offboardingUser}
           restoreFocusTo={isPhone ? () => sheetTriggerRef.current : undefined}
           onDeactivated={(updated) => {
-            setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+            replaceUser(updated);
             setOffboardingUser(null);
           }}
           onClose={() => setOffboardingUser(null)}
@@ -1629,7 +1846,11 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   // Nav counts: Users = total, Invite links = active links, Board invites = pending. Each starts
   // unknown and is filled by one load here, then kept current by the section that owns it.
   const [counts, setCounts] = useState<{ users?: number; links?: number; boardInvites?: number }>({});
-  const setUsersCount = useCallback((n: number) => setCounts((c) => (c.users === n ? c : { ...c, users: n })), []);
+  // An updater moves a known total (a create under a search); with no total yet the section's load sets it.
+  const setUsersCount = useCallback((n: number | ((prev: number) => number)) => setCounts((c) => {
+    const next = typeof n === "function" ? (c.users === undefined ? undefined : n(c.users)) : n;
+    return c.users === next ? c : { ...c, users: next };
+  }), []);
   const setBoardInvitesCount = useCallback((n: number) => setCounts((c) => ({ ...c, boardInvites: n })), []);
   const setLinksCount = useCallback((n: number) => setCounts((c) => (c.links === n ? c : { ...c, links: n })), []);
 

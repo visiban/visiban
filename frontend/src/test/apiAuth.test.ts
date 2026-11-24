@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, getAdminInviteLinksPage, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, resetSiteConfigShare, listTokens, createToken, revokeToken, getAdminInviteLinks, getAdminInviteLinksPage, createAdminInviteLink, revokeAdminInviteLink, getAdminBoardInviteLinks, revokeAdminBoardInviteLink, deactivateAdminUser, clearAdminUserLockout, getAdminUsers, verifyEmail, cancelPendingEmailChange, resendPendingEmailConfirmation, listConnectedAccounts, disconnectAccount, dismissPendingConnect, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -271,6 +271,17 @@ describe('admin invite link API', () => {
     const result = await clearAdminUserLockout(5)
     expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/users/5/clear-lockout/', {})
     expect(result).toEqual(user)
+  })
+
+  it('getAdminUsers sends a status filter but leaves out "all", the server default (#2501)', async () => {
+    const page = { count: 0, offset: 0, page_size: 50, results: [], counts: { all: 0, active: 0, deactivated: 0, admins: 0 } }
+    mockGet.mockResolvedValue({ data: page })
+    expect(await getAdminUsers({ search: 'jo', offset: 50, status: 'deactivated' })).toEqual(page)
+    expect(mockGet).toHaveBeenLastCalledWith('/api/v1/admin/users/', { params: { search: 'jo', offset: 50, status: 'deactivated' } })
+    await getAdminUsers({ offset: 0, status: 'all' })
+    expect(mockGet).toHaveBeenLastCalledWith('/api/v1/admin/users/', { params: { offset: 0 } })
+    await getAdminUsers()
+    expect(mockGet).toHaveBeenLastCalledWith('/api/v1/admin/users/', { params: {} })
   })
 })
 

@@ -217,6 +217,17 @@ export interface PersonalAccessToken {
   scopes: PersonalAccessTokenScope[] | null;
 }
 
+/** GET /api/v1/auth/tokens/policy/ (1.3+, #1572): the limits token creation enforces. */
+export interface PersonalAccessTokenPolicy {
+  /** Site maximum lifetime in days; null = no site maximum, so an expiry is optional. */
+  max_lifetime_days: number | null;
+  /** Expiry the form pre-fills, in days from today; null = none. */
+  default_lifetime_days: number | null;
+  /** Built-in ceiling on any expiry (365). */
+  hard_max_lifetime_days: number;
+  max_tokens: number;
+}
+
 /** Returned only on token creation — includes the one-time raw value. */
 export interface CreatedPersonalAccessToken extends PersonalAccessToken {
   token: string;
@@ -1864,6 +1875,10 @@ export interface SiteSettings {
   maintenance_mode: boolean;
   /** Operator-supplied plain-text notice; blank means "use the built-in default". */
   maintenance_message: string;
+  /** 1.3+ (#1572). Maximum lifetime of a new personal access token in days; null = no site maximum. */
+  pat_max_lifetime_days: number | null;
+  /** 1.3+ (#1572). Expiry the token form pre-fills, in days from today; null = none. Never above the max. */
+  pat_default_lifetime_days: number | null;
 }
 
 /** Which source configures outbound mail. Never a field-level merge of the two. */
@@ -1967,6 +1982,25 @@ export interface AdminUser {
   date_joined: string;
   owned_boards: OwnedBoardSummary[];
   has_completed_tour?: boolean;
+}
+
+/** `status` filter on GET /api/v1/admin/users/ (#2501). `admins` includes deactivated admins. */
+export type AdminUserStatus = "all" | "active" | "deactivated" | "admins";
+
+/**
+ * Per-status totals for the current search, whichever status was requested
+ * (#2501). `admins` overlaps the others, so the four do not sum to `all`.
+ */
+export type AdminUserStatusCounts = Record<AdminUserStatus, number>;
+
+/** GET /api/v1/admin/users/ response (`AdminUserList` in the OpenAPI schema). */
+export interface AdminUserList {
+  count: number;
+  offset: number;
+  page_size: number;
+  results: AdminUser[];
+  /** 1.3+ (#2501). */
+  counts: AdminUserStatusCounts;
 }
 
 export interface AdminInviteLink {

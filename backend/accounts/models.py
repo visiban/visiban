@@ -6,7 +6,8 @@ from asgiref.sync import sync_to_async
 from django.contrib.auth.hashers import acheck_password, check_password
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
-from django.core.validators import MaxLengthValidator
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxLengthValidator, MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower, Upper
@@ -16,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 PAT_PREFIX = "vbn_"
 PAT_MAX_PER_USER = 10
+# The built-in ceiling on a new token's expiry, which applies whatever the site
+# policy says. The site maximum (SiteSetting.pat_max_lifetime_days, #1572) can
+# only tighten it, so it is also the upper bound of both policy settings.
+PAT_HARD_MAX_LIFETIME_DAYS = 365
 
 # ---------------------------------------------------------------------------
 # Personal Access Token scopes (#1110)
@@ -248,9 +253,49 @@ class SiteSetting(models.Model):
         validators=[MaxLengthValidator(MAINTENANCE_MESSAGE_MAX_LENGTH)],
         help_text="Plain-text notice shown to users while maintenance mode is active. Blank uses the built-in default.",
     )
+    # Personal access token lifetime policy (#1572). Both nullable, and null is
+    # today's behavior: no site maximum (a token may omit expires_at and never
+    # expire; the built-in PAT_HARD_MAX_LIFETIME_DAYS cap still applies to an
+    # expiry that is given) and no default. They govern token CREATION only:
+    # existing tokens keep the expiry they were issued with. The validators
+    # repeat the serializer's bounds for the Django admin path, as
+    # maintenance_message does; clean() adds the default <= max rule there.
+    pat_max_lifetime_days = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(PAT_HARD_MAX_LIFETIME_DAYS)],
+        help_text=(
+            "Maximum lifetime of a new personal access token, in days (1-365). When set, every "
+            "new token must have an expiry within this many days. Blank means no site maximum. "
+            "Existing tokens are not affected."
+        ),
+    )
+    pat_default_lifetime_days = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(PAT_HARD_MAX_LIFETIME_DAYS)],
+        help_text=(
+            "Expiry pre-filled when someone creates a personal access token, in days from today "
+            "(1-365, at most the maximum). Blank means no expiry is pre-filled."
+        ),
+    )
 
     class Meta:
         db_table = "site_settings"
+
+    def clean(self):
+        super().clean()
+        # A default the maximum would refuse would pre-fill a value the create
+        # request then fails on. Checked here for the Django admin form; the
+        # admin API serializer checks the same rule against the merged state.
+        if (
+            self.pat_max_lifetime_days is not None
+            and self.pat_default_lifetime_days is not None
+            and self.pat_default_lifetime_days > self.pat_max_lifetime_days
+        ):
+            raise ValidationError({
+                "pat_default_lifetime_days": "The default expiry cannot be longer than the maximum lifetime.",
+            })
 
     def save(self, *args, **kwargs):
         # Enforce singleton: the row always has pk=1.
@@ -897,6 +942,8 @@ AUDITED_SITE_SETTING_FIELDS = (
     "maintenance_message",
     "registration_mode",
     "uploads_enabled",
+    "pat_max_lifetime_days",
+    "pat_default_lifetime_days",
 )
 
 
@@ -998,6 +1045,10 @@ class AdminActionLog(models.Model):
         REGISTRATION_MODE_CHANGED = "registration_mode.changed", "Registration mode changed"
         UPLOADS_ENABLED = "uploads_enabled.enabled", "File uploads enabled"
         UPLOADS_DISABLED = "uploads_enabled.disabled", "File uploads disabled"
+        # Personal access token lifetime policy (#1572). Metadata is
+        # {"from": days|null, "to": days|null}; null means unset.
+        PAT_MAX_LIFETIME_CHANGED = "pat_max_lifetime.changed", "Token maximum lifetime changed"
+        PAT_DEFAULT_LIFETIME_CHANGED = "pat_default_lifetime.changed", "Token default expiry changed"
         # Outbound email configuration (#306). Host, port and the TLS flags are
         # not secrets and carry from/to so a retrospective can read the actual
         # transition. The username and password deliberately do NOT: SMTP
@@ -1211,6 +1262,19 @@ def record_site_setting_changes(*, before: dict, after, actor, source) -> list:
         pending.append((
             Action.UPLOADS_ENABLED if after.uploads_enabled else Action.UPLOADS_DISABLED,
             {},
+        ))
+
+    # Small integers or null: safe to persist verbatim.
+    if before["pat_max_lifetime_days"] != after.pat_max_lifetime_days:
+        pending.append((
+            Action.PAT_MAX_LIFETIME_CHANGED,
+            {"from": before["pat_max_lifetime_days"], "to": after.pat_max_lifetime_days},
+        ))
+
+    if before["pat_default_lifetime_days"] != after.pat_default_lifetime_days:
+        pending.append((
+            Action.PAT_DEFAULT_LIFETIME_CHANGED,
+            {"from": before["pat_default_lifetime_days"], "to": after.pat_default_lifetime_days},
         ))
 
     return [

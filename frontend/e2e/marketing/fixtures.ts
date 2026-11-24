@@ -662,6 +662,8 @@ export const SITE_SETTINGS: SiteSettings = {
   uploads_enabled: true,
   maintenance_mode: false,
   maintenance_message: '',
+  pat_max_lifetime_days: null,
+  pat_default_lifetime_days: null,
 }
 
 export const ADMIN_INVITE_LINKS: AdminInviteLink[] = [

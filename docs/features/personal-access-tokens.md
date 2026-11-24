@@ -98,6 +98,13 @@ The expiry date is optional:
 - **Leave blank** — the token never expires, and stays valid until revoked manually or your password changes.
 - **Set a date** — the maximum expiry is **one year from today**. Past that date the token is rejected with `401 Unauthorized`.
 
+*(1.3+)* A site admin can set a [token lifetime policy](../administration/admin-panel.md#personal-access-tokens):
+
+- **Maximum lifetime:** the expiry date is required, and the form will not offer a date later than the maximum. The label then reads **Expires** rather than **Expires (optional)**, and the hint names the limit.
+- **Default expiry:** the form starts with that date filled in. You can change it.
+
+The policy applies to new tokens only. Tokens you already have keep their expiry.
+
 Expired tokens stay visible in the Access tokens list and can be revoked there.
 
 ---

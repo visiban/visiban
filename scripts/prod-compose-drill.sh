@@ -453,9 +453,14 @@ log "stack recovered after 'docker compose restart backend'"
 #   site-config -> SPA and a deep-link fallback -> login with the bootstrapped
 #   admin password -> forced password change -> re-login -> board create ->
 #   WebSocket upgrade on /ws/boards/<id>/.
-# Session auth + CSRF (the SPA's own mode): Origin/Referer are sent because
-# Django's CSRF check requires them on HTTPS and CSRF_TRUSTED_ORIGINS is
-# BASE_URL. Passwords go to curl on stdin (--data @-), never argv, so they are
+# Session auth + CSRF (the SPA's own mode): every step-8 HTTP request goes
+# through http_status, which sends Origin and Referer, because Django's CSRF
+# check requires a matching Referer on HTTPS and CSRF_TRUSTED_ORIGINS is
+# BASE_URL. (The WebSocket handshake sends Origin only: the Channels origin
+# gate reads Origin, and there is no CSRF check on it.)
+# Under TLS_MODE=selfsigned (CI's second leg, #2561) every request also goes
+# through ${CURL[@]}, which adds -k for the self-signed certificate; PROBE_HOST
+# is DOMAIN, so the certificate's name already matches and no --resolve is needed. Passwords go to curl on stdin (--data @-), never argv, so they are
 # not readable from the process list.
 JAR="$(mktemp)"
 
