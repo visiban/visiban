@@ -1191,14 +1191,23 @@ def load_recent_dwell(
     index (``load_board_flow``'s ``any_card``), which the heatmap turns into a
     ``wait`` key per gated stage. So when no loaded card is in the set above,
     ``gate_last`` is reset to ``{}``, the answer a load of that set gives.
+
+    The movement term is an uncorrelated, board-bounded ``IN`` for the reason
+    ``can_affect_range`` gives (#2502, #2506): a correlated ``EXISTS`` inside
+    this ``OR`` stayed a per-row SubPlan, and the history read that embeds
+    the card filter then walked the whole ``card_movements_card_id`` index
+    and every board's cards (``cards_pkey``) instead of starting from this
+    board's cards. It names the same cards: the load is already bounded to
+    ``board``, and this board's movements in the range are exactly the ones
+    the ``EXISTS`` matched.
     """
     moved = CardMovement.objects.filter(
-        card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
-    )
+        card__board=board, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    ).values("card_id")
     relevant = (
         (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
         | Q(archived_at__gte=flow_range.start)
-        | Exists(moved)
+        | Q(pk__in=moved)
     )
     if also_matching is None:
         return load_board_flow(
