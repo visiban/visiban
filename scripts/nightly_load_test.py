@@ -779,7 +779,9 @@ def _self_test():
         failures.append(str(exc))
 
     # Exit run (#2588): the absolute-bar logic fires on a known-bad and a known-good input.
-    good = {"cumulative_flow_p95_ms": 2999, "drill_down_peak_rss_mb": 400, "overview_peak_rss_mb": 400,
+    stress = {"active_cards": EXIT_MIN_ACTIVE_CARDS, "archived_cards": EXIT_MIN_ACTIVE_CARDS * EXIT_MIN_AGED_GENERATIONS}
+    good = {"fixture": dict(stress),
+            "cumulative_flow_p95_ms": 2999, "drill_down_peak_rss_mb": 400, "overview_peak_rss_mb": 400,
             "analytics_365_rss_growth_mb": 149, "analytics_365_ms": 2999, "overview_payload_bytes": 1000,
             "unread_count_p95_ms": 99, "unread_samples": EXIT_MIN_UNREAD_SAMPLES, "concurrent_peak_rss_mb": 400,
             "over_cap": (True, "ok")}
@@ -788,28 +790,85 @@ def _self_test():
     for key, bad in (("cumulative_flow_p95_ms", 3000), ("drill_down_peak_rss_mb", CONTAINER_MEMORY_LIMIT_MB),
                      ("overview_peak_rss_mb", 513), ("analytics_365_rss_growth_mb", 150), ("analytics_365_ms", 3000),
                      ("overview_payload_bytes", EXIT_OVERVIEW_PAYLOAD_BYTES), ("unread_count_p95_ms", 100),
-                     ("concurrent_peak_rss_mb", 600), ("unread_count_p95_ms", None)):
+                     ("concurrent_peak_rss_mb", 600), ("unread_count_p95_ms", None), ("fixture", None)):
         if all(r["passed"] for r in _evaluate_exit_run({**good, key: bad})):
             failures.append(f"exit run: {key}={bad} did not fail its bar")
     if all(r["passed"] for r in _evaluate_exit_run({**good, "over_cap": (False, "x")})):
         failures.append("exit run: a failed over-cap check did not fail the run")
     if CONTAINER_MEMORY_LIMIT_MB != 512:
         failures.append("exit run: the container memory limit constant is not 512 MB")
+
+    # The fixture guard: the default nightly fixture (scale 20, 4 generations) and anything below the
+    # stress fixture fails; the stress fixture's floor passes.
+    for label, fx, want in (
+        ("at both floors", stress, True),
+        ("the scheduled nightly's fixture", {"active_cards": 2400, "archived_cards": 2400 * 4}, False),
+        ("one card short", {"active_cards": EXIT_MIN_ACTIVE_CARDS - 1,
+                            "archived_cards": (EXIT_MIN_ACTIVE_CARDS - 1) * EXIT_MIN_AGED_GENERATIONS}, False),
+        ("one generation short", {"active_cards": EXIT_MIN_ACTIVE_CARDS,
+                                  "archived_cards": EXIT_MIN_ACTIVE_CARDS * EXIT_MIN_AGED_GENERATIONS - 1}, False),
+        ("no active cards", {"active_cards": 0, "archived_cards": 0}, False),
+        ("unreadable count", {"active_cards": EXIT_MIN_ACTIVE_CARDS, "archived_cards": None}, False),
+    ):
+        fx = dict(fx)
+        if _evaluate_exit_fixture(fx)["passed"] != want:
+            failures.append(f"exit run fixture check ({label}): expected passed={want}")
+        if want and fx.get("observed_generations") != EXIT_MIN_AGED_GENERATIONS:
+            failures.append(f"exit run fixture check ({label}): observed_generations = {fx.get('observed_generations')}")
+        bad_run = {**good, "fixture": fx}
+        if not want and all(r["passed"] for r in _evaluate_exit_run(bad_run)):
+            failures.append(f"exit run: a run on a fixture {label} still said every bar was met")
+
+    # The mirrored admission limits still match the server's.
+    try:
+        with open(_ADMISSION_SOURCE, encoding="utf-8") as fh:
+            admission_src = fh.read()
+        for const, mine in (("PER_USER_MAX_IN_FLIGHT", EXIT_SERVER_PER_USER_MAX_IN_FLIGHT),
+                            ("MAX_WAITERS", EXIT_SERVER_MAX_WAITERS)):
+            found = re.search(rf"^{const} = (\d+)\b", admission_src, re.MULTILINE)
+            if not found or int(found.group(1)) != mine:
+                failures.append(f"exit run: analytics_admission.{const} is "
+                                f"{found.group(1) if found else 'missing'}, the script mirrors {mine}")
+    except OSError as exc:
+        failures.append(f"exit run: could not read {_ADMISSION_SOURCE}: {exc}")
+    if EXIT_DEFAULT_CONCURRENT_OPENS <= 1 + EXIT_SERVER_MAX_WAITERS:
+        failures.append("exit run: the default burst does not exceed the shipped cap (1) plus the waiting room")
+
     for args_, want in (((200, None, None), "ok"), ((503, ANALYTICS_BUSY_CODE, "10"), "busy"),
                         ((503, ANALYTICS_BUSY_CODE, None), "unexpected"), ((503, None, "10"), "unexpected"),
                         ((422, TOO_LARGE_CODE, None), "too_large"), ((422, "other", None), "unexpected"),
                         ((500, None, None), "unexpected")):
         if _classify_analytics_response(*args_) != want:
             failures.append(f"exit run: _classify_analytics_response{args_} != {want}")
-    mixed = [("ok", 1.0), ("busy", 0.1), ("too_large", 0.1)]
+
+    # The over-cap check. N = 8 opens, cap 1 + 4 waiters = 5 admissible: what the global cap
+    # produces, one open per user, is at most 5 admitted per round and the rest refused.
+    n_opens, cap1, room = 8, 1, 1 + EXIT_SERVER_MAX_WAITERS
+
+    def burst(rounds=2, ok=room, refused="busy"):
+        return [(("ok", 1.0, r) if i < ok else (refused, 0.1, r)) for r in range(rounds) for i in range(n_opens)]
+
     for label, got, want in (
-        ("clean refusals", _evaluate_over_cap(mixed, 3, 1, True)[0], True),
-        ("stall", _evaluate_over_cap(mixed + [("stall", None)], 3, 1, True)[0], False),
-        ("unexpected status", _evaluate_over_cap(mixed + [("unexpected", 0.1)], 3, 1, True)[0], False),
-        ("server gone", _evaluate_over_cap(mixed, 3, 1, False)[0], False),
-        ("cap not exceeded", _evaluate_over_cap(mixed, 1, 1, True)[0], False),
-        ("nothing refused", _evaluate_over_cap([("ok", 1.0)] * 3, 3, 1, True)[0], False),
-        ("slow request", _evaluate_over_cap(mixed + [("ok", EXIT_STALL_SECONDS + 1)], 3, 1, True)[0], False),
+        ("global cap refusing, one user per open", _evaluate_over_cap(burst(), n_opens, cap1, True, n_opens)[0], True),
+        ("refused as too_large", _evaluate_over_cap(burst(refused="too_large"), n_opens, cap1, True, n_opens)[0], True),
+        ("stall", _evaluate_over_cap(burst() + [("stall", None, 0)], n_opens, cap1, True, n_opens)[0], False),
+        ("unexpected status", _evaluate_over_cap(burst() + [("unexpected", 0.1, 0)], n_opens, cap1, True, n_opens)[0], False),
+        ("server gone", _evaluate_over_cap(burst(), n_opens, cap1, False, n_opens)[0], False),
+        ("slow request", _evaluate_over_cap(burst() + [("ok", EXIT_STALL_SECONDS + 1, 5)], n_opens, cap1, True, n_opens)[0], False),
+        # Every open admitted: the cap was never exercised.
+        ("nothing refused", _evaluate_over_cap(burst(ok=n_opens), n_opens, cap1, True, n_opens)[0], False),
+        # More admitted in a round than the cap plus the waiting room can hold: the cap was ignored,
+        # even though some opens were refused.
+        ("cap ignored", _evaluate_over_cap(burst(ok=room + 1), n_opens, cap1, True, n_opens)[0], False),
+        # The pre-fix run: every open as ONE user. The per-user limit refuses opens 3..N whatever the
+        # global cap is, so these refusals are not accepted as proof of ANALYTICS_MAX_CONCURRENT.
+        ("one user (per-user limit refusing)", _evaluate_over_cap(burst(ok=2), n_opens, cap1, True, 1)[0], False),
+        ("fewer users than opens", _evaluate_over_cap(burst(), n_opens, cap1, True, n_opens - 1)[0], False),
+        # A burst every open of which can be admitted (cap + waiters) forces no refusal: one it did
+        # refuse (a waiter timing out) is left to timing, so it proves nothing about the cap.
+        ("burst within cap + waiters",
+         _evaluate_over_cap([("ok", 1.0, 0)] * (room - 1) + [("busy", 8.0, 0)], room, cap1, True, room)[0], False),
+        ("burst within cap", _evaluate_over_cap(burst(), 1, cap1, True, 1)[0], False),
     ):
         if got != want:
             failures.append(f"exit run over-cap check ({label}): got {got}, expected {want}")
@@ -826,6 +885,8 @@ def _self_test():
             super().__init__("422")
             self.response = _Resp()
 
+    wired_burst = burst()
+
     class _StubOps:
         raises = ()
 
@@ -833,6 +894,9 @@ def _self_test():
             if name in self.raises:
                 raise _TooLarge()
             return value
+
+        def fixture(self):
+            return self._go("fx", dict(stress))
 
         def cumulative_flow(self):
             return self._go("cf", [1000.0] * 10)
@@ -847,12 +911,12 @@ def _self_test():
             return self._go("a365", ([2000.0] * 3, 77.0))
 
         def concurrent(self):
-            return self._go("conc", ([("ok", 1.0), ("busy", 0.1), ("busy", 0.1)], [10.0] * 30, [], 9000, 333.0))
+            return self._go("conc", (wired_burst, [10.0] * 30, [], 9000, 333.0))
 
         def alive(self):
             return True
 
-    wired = _collect_exit_measurements(_StubOps(), 3, 1)
+    wired = _collect_exit_measurements(_StubOps(), n_opens, cap1, n_opens)
     for key, want in (("cumulative_flow_p95_ms", 1000.0), ("drill_down_peak_rss_mb", 111.0),
                       ("overview_peak_rss_mb", 222.0), ("analytics_365_ms", 2000.0),
                       ("analytics_365_rss_growth_mb", 77.0), ("overview_payload_bytes", 9000),
@@ -862,22 +926,33 @@ def _self_test():
     wired_records = _evaluate_exit_run(wired)
     if not all(r["passed"] for r in wired_records):
         failures.append("exit run wiring: stub measurements inside every bar did not all pass")
-    if not _exit_output(wired, wired_records, 3, 3, 1)["passed"]:
+    wired_out = _exit_output(wired, wired_records, n_opens, 2, cap1, n_opens)
+    if not wired_out["passed"]:
         failures.append("exit run: a clean run's artifact did not say passed")
+    if (wired_out.get("fixture") or {}).get("observed_generations") != EXIT_MIN_AGED_GENERATIONS \
+            or wired_out.get("burst_users") != n_opens:
+        failures.append("exit run: the artifact does not record the fixture and the burst's user count")
+    # The same burst run as one user: the wiring passes the user count through and the run fails.
+    if _evaluate_exit_run(_collect_exit_measurements(_StubOps(), n_opens, cap1, 1))[-1]["passed"]:
+        failures.append("exit run wiring: a burst run as one user passed the over-cap check")
     # One measurement refused (analytics_too_large): recorded as that check's failure, the rest still run.
     broken = _StubOps()
     broken.raises = ("a365",)
-    partial = _collect_exit_measurements(broken, 3, 1)
+    partial = _collect_exit_measurements(broken, n_opens, cap1, n_opens)
     partial_records = {r["check"]: r for r in _evaluate_exit_run(partial)}
     if partial_records["analytics_365_ms"]["passed"] or TOO_LARGE_CODE not in partial_records["analytics_365_ms"].get("detail", ""):
         failures.append("exit run: a refused analytics/?days=365 was not recorded as that check's failure with its reason")
     if not partial_records["cumulative_flow_p95_ms"]["passed"] or not partial_records["over_cap_refused_cleanly"]["passed"]:
         failures.append("exit run: one failed measurement stopped the other checks")
-    if _exit_output(partial, list(partial_records.values()), 3, 3, 1)["passed"]:
+    if _exit_output(partial, list(partial_records.values()), n_opens, 2, cap1, n_opens)["passed"]:
         failures.append("exit run: an artifact with a failed check said passed")
     broken.raises = ("conc",)
-    if _evaluate_exit_run(_collect_exit_measurements(broken, 3, 1))[-1]["passed"]:
+    if _evaluate_exit_run(_collect_exit_measurements(broken, n_opens, cap1, n_opens))[-1]["passed"]:
         failures.append("exit run: a failed concurrent scenario still passed the over-cap check")
+    broken.raises = ("fx",)
+    fx_failed = {r["check"]: r for r in _evaluate_exit_run(_collect_exit_measurements(broken, n_opens, cap1, n_opens))}
+    if fx_failed["fixture_is_stress_fixture"]["passed"] or not fx_failed["cumulative_flow_p95_ms"]["passed"]:
+        failures.append("exit run: an unreadable fixture did not fail its check alone")
     # Minimum sample guard on unread-count.
     few = {**good, "unread_samples": EXIT_MIN_UNREAD_SAMPLES - 1}
     few_unread = [r for r in _evaluate_exit_run(few) if r["check"] == "unread_count_p95_ms_under_load"][0]
@@ -886,6 +961,73 @@ def _self_test():
     enough = {**good, "unread_samples": EXIT_MIN_UNREAD_SAMPLES}
     if not all(r["passed"] for r in _evaluate_exit_run(enough)):
         failures.append("exit run: the minimum number of unread-count samples did not pass")
+
+    # _ExitOps, the real ops: which endpoint each measurement requests, and which element of
+    # peak_of's (result, peak RSS, RSS growth) it returns. Recording stubs, no network.
+    requested = []
+
+    class _RecResp:
+        def __init__(self, url):
+            self.url, self.content = url, b"x" * 4321
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            if self.url.endswith("/cards/archived/"):
+                return {"count": 120, "results": []}
+            return {"cards": [{}] * 10}
+
+    class _RecSession:
+        def get(self, url, timeout=None):
+            requested.append(url)
+            return _RecResp(url)
+
+    def _rec_time(_session, url, iterations, warmup):
+        requested.append(url)
+        return [float(iterations)]
+
+    hwm_mb, growth_mb = 444.0, 7.0
+
+    def _rec_peak(fn):
+        return fn(), hwm_mb, growth_mb
+
+    rec_ops = _ExitOps(_RecSession(), "https://x", 9, _rec_peak,
+                       concurrent=lambda: (wired_burst, [1.0], [], 55),
+                       alive=lambda: True, iterations=3, warmup=1,
+                       declared={"declared_scale": 100}, time_requests=_rec_time)
+    root9 = "https://x/api/v1/boards/9"
+
+    def _one_call(label, fn, check_url):
+        del requested[:]
+        result = fn()
+        if len(requested) != 1 or not check_url(requested[0]):
+            failures.append(f"exit run ops: {label} requested {requested}")
+        return result
+
+    _one_call("cumulative_flow", rec_ops.cumulative_flow,
+              lambda u: u == f"{root9}/metrics/cumulative-flow/")
+    dd = _one_call("drill_down", rec_ops.drill_down,
+                   lambda u: u.startswith(f"{root9}/metrics/cumulative-flow/?date=")
+                   and re.search(r"date=\d{4}-\d{2}-\d{2}$", u))
+    if dd != hwm_mb:
+        failures.append(f"exit run ops: drill_down returned {dd}, not the peak RSS (high-water mark)")
+    ov = _one_call("overview_open", rec_ops.overview_open,
+                   lambda u: u.startswith(f"{root9}/metrics/overview/?"))
+    if ov != (hwm_mb, 4321):
+        failures.append(f"exit run ops: overview_open returned {ov}, not (peak RSS, payload bytes)")
+    a365 = _one_call("analytics_365", rec_ops.analytics_365,
+                     lambda u: u == f"{root9}/analytics/?days=365")
+    if a365 != ([3.0], growth_mb):
+        failures.append(f"exit run ops: analytics_365 returned {a365}, not (samples, RSS growth)")
+    conc = rec_ops.concurrent()
+    if conc[4] != hwm_mb or conc[3] != 55:
+        failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
+    del requested[:]
+    fx = rec_ops.fixture()
+    if sorted(requested) != sorted([f"{root9}/cards/archived/", f"{root9}/full/"]) \
+            or (fx["active_cards"], fx["archived_cards"], fx.get("declared_scale")) != (10, 120, 100):
+        failures.append(f"exit run ops: fixture() read {requested} -> {fx}")
 
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
@@ -1080,8 +1222,28 @@ EXIT_OVERVIEW_PAYLOAD_BYTES = 1024 * 1024   # one overview response body
 EXIT_UNREAD_COUNT_P95_MS = 100              # notifications/unread-count/ under concurrent opens (#2428)
 EXIT_STALL_SECONDS = 60                     # an over-cap request slower than this is a stall
 EXIT_MIN_UNREAD_SAMPLES = 20                # fewer unread-count samples than this say nothing about p95
+# The server's two other admission limits (backend/boards/services/analytics_admission.py), mirrored
+# because this script imports no Django; --self-test reads that file and fails if either drifts.
+# Each user may have PER_USER_MAX_IN_FLIGHT analytics requests running or waiting, and it is checked
+# BEFORE the global cap, so a burst from one user is refused by the per-user limit whatever
+# ANALYTICS_MAX_CONCURRENT is. The burst therefore runs one open per distinct user, and must be wider
+# than the cap plus the waiting room, or every open can legitimately be admitted and nothing is refused.
+EXIT_SERVER_PER_USER_MAX_IN_FLIGHT = 2      # analytics_admission.PER_USER_MAX_IN_FLIGHT
+EXIT_SERVER_MAX_WAITERS = 4                 # analytics_admission.MAX_WAITERS
+EXIT_DEFAULT_CONCURRENT_OPENS = 8           # > ANALYTICS_MAX_CONCURRENT (1) + EXIT_SERVER_MAX_WAITERS (4)
+_ADMISSION_SOURCE = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                                 "backend", "boards", "services", "analytics_admission.py")
+# The fixture the bars are about: #2588 names the 3-year board (LOAD_TEST_AGED_GENERATIONS=12) and
+# #2451's 12k-card fixture (LOAD_TEST_SCALE=100). The generation count is read off the board as
+# archived // active (each generation copies every active card once). The card floor is NOT 12,000:
+# seed_demo_data gives each of scale x 10 swimlanes random.randint(11, 13) cards, so scale 100 is
+# 11,000-13,000 active cards, about 12,000 on average, and a 12,000 floor could fail the very
+# fixture #2451 names. 11,000 is what scale 100 guarantees; the scheduled nightly's ~2,400 fails it.
+EXIT_MIN_AGED_GENERATIONS = 12
+EXIT_MIN_ACTIVE_CARDS = 11_000
 TOO_LARGE_CODE = "analytics_too_large"
 _EXIT_UNREAD_URL = "/api/v1/notifications/unread-count/"
+_EXIT_CURRENT_USER_URL = "/api/v1/auth/user/"
 
 
 def _bar(name, value, limit, unit, lower_is_better=True):
@@ -1107,26 +1269,67 @@ def _classify_analytics_response(status, code, retry_after):
     return "unexpected"
 
 
-def _evaluate_over_cap(outcomes, concurrency, cap, server_alive):
+def _evaluate_over_cap(outcomes, concurrency, cap, server_alive, users):
     """The over-cap bar: returns (passed, detail).
 
-    ``outcomes`` is a list of (classification, elapsed_s) or ("stall", None) per request.
-    It passes only when more requests ran than the cap admits, every one was ok, busy or
-    too_large (no stall, no unexpected status), at least one was refused (else the cap was
-    never exercised) and the server still answers (no OOM).
+    ``outcomes`` is a list of (classification, elapsed_s, round) per request, elapsed_s None for
+    a stall. ``users`` is how many distinct users the burst's opens ran as.
+
+    The bar is about the GLOBAL cap, ANALYTICS_MAX_CONCURRENT, so it accepts a refusal as proof
+    only when nothing else could have refused: each open is a different user (so the per-user
+    limit, checked first on the server, never trips), and the burst is wider than the cap plus
+    the waiting room (so a refusal is forced, not left to timing). It then passes only when every
+    request was ok, busy or too_large (no stall, no unexpected status), at least one was refused,
+    no round admitted more opens than the cap plus the waiting room can hold (else the cap was not
+    applied), and the server still answers (no OOM).
     """
-    kinds = [k for k, _ in outcomes]
-    if concurrency <= cap:
-        return False, f"{concurrency} concurrent opens do not exceed ANALYTICS_MAX_CONCURRENT={cap}: nothing was over the cap"
-    if "stall" in kinds or any(e is not None and e > EXIT_STALL_SECONDS for _, e in outcomes):
+    kinds = [o[0] for o in outcomes]
+    room = cap + EXIT_SERVER_MAX_WAITERS
+    if concurrency <= room:
+        return False, (f"{concurrency} concurrent opens do not exceed ANALYTICS_MAX_CONCURRENT={cap} plus "
+                       f"{EXIT_SERVER_MAX_WAITERS} waiters: every open can be admitted, so no refusal is forced")
+    if users < concurrency:
+        return False, (f"the {concurrency} opens ran as {users} distinct user(s): with more than one open per "
+                       f"user the per-user limit ({EXIT_SERVER_PER_USER_MAX_IN_FLIGHT}) can do the refusing, so a "
+                       "refusal does not prove the global cap")
+    if "stall" in kinds or any(o[1] is not None and o[1] > EXIT_STALL_SECONDS for o in outcomes):
         return False, "a request stalled"
     if "unexpected" in kinds:
         return False, f"{kinds.count('unexpected')} request(s) had an unexpected status"
     if not (kinds.count("busy") + kinds.count("too_large")):
         return False, "no request was refused, so the cap was never exercised"
+    admitted = {}
+    for kind, _, rnd in outcomes:
+        admitted[rnd] = admitted.get(rnd, 0) + (kind == "ok")
+    most = max(admitted.values(), default=0)
+    if most > room:
+        return False, (f"one round admitted {most} opens, more than ANALYTICS_MAX_CONCURRENT={cap} plus "
+                       f"{EXIT_SERVER_MAX_WAITERS} waiters can hold: the cap was not applied")
     if not server_alive:
         return False, "the server stopped answering after the burst (OOM?)"
-    return True, f"{kinds.count('ok')} ok, {kinds.count('busy')} busy, {kinds.count('too_large')} too_large"
+    return True, (f"{kinds.count('ok')} ok, {kinds.count('busy')} busy, {kinds.count('too_large')} too_large "
+                  f"over {users} distinct users; at most {most} admitted in one round (bound {room})")
+
+
+def _evaluate_exit_fixture(fixture):
+    """The fixture record: passes only on the 3-year, 12k-card stress board (pure; self-tested).
+
+    ``fixture`` has ``active_cards`` and ``archived_cards`` as read off the aged board (plus the
+    declared seed values, recorded only). Sets ``observed_generations`` on it.
+    """
+    active, archived = fixture.get("active_cards"), fixture.get("archived_cards")
+    ok_counts = isinstance(active, int) and isinstance(archived, int) and active > 0
+    gens = archived // active if ok_counts else None
+    fixture["observed_generations"] = gens
+    passed = ok_counts and active >= EXIT_MIN_ACTIVE_CARDS and gens >= EXIT_MIN_AGED_GENERATIONS
+    detail = (f"{active} active and {archived} archived cards ({gens} generations); declared scale "
+              f"{fixture.get('declared_scale')}, aged generations {fixture.get('declared_aged_generations')}")
+    if not passed:
+        detail += (". Not the stress fixture: seed with LOAD_TEST_SCALE=100 and LOAD_TEST_AGED_GENERATIONS=12, "
+                   "or no bar below says anything about it")
+    return {"check": "fixture_is_stress_fixture", "value": active,
+            "bar": f">= {EXIT_MIN_ACTIVE_CARDS} active cards and >= {EXIT_MIN_AGED_GENERATIONS} generations",
+            "unit": "cards", "passed": bool(passed), "detail": detail}
 
 
 def _failure_reason(exc):
@@ -1156,7 +1359,12 @@ def _evaluate_exit_run(m):
         unread_detail = (f"only {m.get('unread_samples', 0)} unread-count samples, fewer than "
                          f"{EXIT_MIN_UNREAD_SAMPLES}: p95 not trustworthy")
         unread = None
+    fixture = m.get("fixture")
     records = [
+        _evaluate_exit_fixture(fixture) if fixture else
+        {"check": "fixture_is_stress_fixture", "value": None, "unit": "cards", "passed": False,
+         "bar": f">= {EXIT_MIN_ACTIVE_CARDS} active cards and >= {EXIT_MIN_AGED_GENERATIONS} generations",
+         "detail": "the fixture was not read"},
         _bar("cumulative_flow_p95_ms", m.get("cumulative_flow_p95_ms"), EXIT_CUMULATIVE_FLOW_P95_MS, "ms"),
         _bar("drill_down_peak_rss_mb", m.get("drill_down_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
         _bar("overview_peak_rss_mb", m.get("overview_peak_rss_mb"), EXIT_OVERVIEW_PEAK_RSS_MB, "MB"),
@@ -1177,14 +1385,16 @@ def _evaluate_exit_run(m):
     return records
 
 
-def _collect_exit_measurements(ops, concurrency, cap):
+def _collect_exit_measurements(ops, concurrency, cap, users):
     """Run every exit-run measurement through *ops*, never letting one abort the rest.
 
-    *ops* has: cumulative_flow() -> [ms], drill_down() -> peak_mb, overview_open() -> (peak_mb,
-    payload_bytes), analytics_365() -> ([ms], growth_mb), concurrent() -> (outcomes, unread_ms,
-    unread_errors, largest_payload, peak_mb), alive() -> bool. A measurement that raises (a
-    refused request, ``analytics_too_large``, a timeout) is recorded under ``m["failures"]`` for
-    the checks it feeds. Kept apart from ``run_exit`` so --self-test can feed it stubs.
+    *ops* has: fixture() -> {active_cards, archived_cards, ...}, cumulative_flow() -> [ms],
+    drill_down() -> peak_mb, overview_open() -> (peak_mb, payload_bytes), analytics_365() ->
+    ([ms], growth_mb), concurrent() -> (outcomes, unread_ms, unread_errors, largest_payload,
+    peak_mb), alive() -> bool. A measurement that raises (a refused request,
+    ``analytics_too_large``, a timeout) is recorded under ``m["failures"]`` for the checks it
+    feeds. Kept apart from ``run_exit`` so --self-test can feed it stubs; ``_ExitOps`` is the real
+    *ops*. ``users`` is how many distinct users the burst ran as.
     """
     m = {"failures": {}}
 
@@ -1196,6 +1406,9 @@ def _collect_exit_measurements(ops, concurrency, cap):
                 m["failures"][c] = _failure_reason(exc)
             return None
 
+    fx = attempt(("fixture_is_stress_fixture",), ops.fixture)
+    if fx:
+        m["fixture"] = dict(fx)
     cf = attempt(("cumulative_flow_p95_ms",), ops.cumulative_flow)
     if cf:
         m["cumulative_flow_p95_ms"] = _percentile(cf, 95)
@@ -1222,7 +1435,7 @@ def _collect_exit_measurements(ops, concurrency, cap):
                 f"unread-count failed during the concurrent opens: {unread_errors[0]}")
         elif unread:
             m["unread_count_p95_ms"] = _percentile(unread, 95)
-        m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive())
+        m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive(), users)
         m["responses"] = {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")}
     return m
 
@@ -1231,7 +1444,8 @@ def _unread_poller(base_url, headers, stop, samples, errors):
     """Time notifications/unread-count/ (as demo2, who has notifications) about every 250 ms until *stop* is set.
 
     Slower than the 50 ms first tried: under DEBUG=False the `user` throttle is 5000/hour, not
-    9999, and a 429 would abort the run with no results written."""
+    9999. A non-200 (a 429 included) is appended to *errors*, which fails the unread-count check
+    with that reason; the other checks still run and the artifact is still written."""
     with requests.Session() as sess:
         sess.headers.update(headers)
         while not stop.is_set():
@@ -1248,18 +1462,21 @@ def _unread_poller(base_url, headers, stop, samples, errors):
             stop.wait(0.25)
 
 
-def _concurrent_overview(base_url, headers, poll_headers, board_id, concurrency, rounds):
-    """Open the overview *concurrency* times at once, *rounds* times, timing unread-count meanwhile.
+def _concurrent_overview(base_url, burst_headers, poll_headers, board_id, rounds):
+    """Open the overview once per entry of *burst_headers*, all at once, *rounds* times, timing unread-count meanwhile.
 
-    A 503 ``analytics_busy`` or 422 ``analytics_too_large`` is an EXPECTED response here (the
-    cap refusing the extra opens), recorded, never an error. Returns (outcomes, unread_samples,
-    unread_errors, payload_bytes_of_largest_ok).
+    Each open runs with its own headers, one distinct user each, so the server's per-user limit
+    never refuses and any refusal is the global cap's (see ``_evaluate_over_cap``). A 503
+    ``analytics_busy`` or 422 ``analytics_too_large`` is an EXPECTED response here (admission
+    refusing the opens beyond ANALYTICS_MAX_CONCURRENT and its waiting room), recorded, never an
+    error. Returns (outcomes, unread_samples, unread_errors, payload_bytes_of_largest_ok); each
+    outcome is (classification, elapsed_s or None for a stall, round).
     """
     url = _overview_urls(base_url, board_id)[0]  # metrics/overview/
     outcomes, lock = [], threading.Lock()
     largest = [0]
 
-    def open_overview():
+    def open_overview(headers, rnd):
         start = time.perf_counter()
         try:
             with requests.Session() as sess:
@@ -1271,19 +1488,19 @@ def _concurrent_overview(base_url, headers, poll_headers, board_id, concurrency,
                 code = None
             kind = _classify_analytics_response(r.status_code, code, r.headers.get("Retry-After"))
             with lock:
-                outcomes.append((kind, time.perf_counter() - start))
+                outcomes.append((kind, time.perf_counter() - start, rnd))
                 if kind == "ok":
                     largest[0] = max(largest[0], len(r.content))
         except requests.exceptions.RequestException:
             with lock:
-                outcomes.append(("stall", None))
+                outcomes.append(("stall", None, rnd))
 
     samples, errors, stop = [], [], threading.Event()
     poller = threading.Thread(target=_unread_poller, args=(base_url, poll_headers, stop, samples, errors))
     poller.start()
     try:
-        for _ in range(rounds):
-            threads = [threading.Thread(target=open_overview) for _ in range(concurrency)]
+        for rnd in range(rounds):
+            threads = [threading.Thread(target=open_overview, args=(h, rnd)) for h in burst_headers]
             for t in threads:
                 t.start()
             for t in threads:
@@ -1301,13 +1518,25 @@ def _server_alive(base_url):
         return False
 
 
-def _exit_output(m, records, concurrency, rounds, cap):
+def _burst_users(base_url, burst_headers):
+    """How many distinct users the burst's tokens belong to, read from auth/user/ (raises on a failure)."""
+    ids = set()
+    for headers in burst_headers:
+        r = requests.get(base_url + _EXIT_CURRENT_USER_URL, headers=headers, timeout=30)
+        r.raise_for_status()
+        body = r.json()
+        ids.add(body.get("pk", body.get("id", body.get("username"))))
+    return len(ids - {None})
+
+
+def _exit_output(m, records, concurrency, rounds, cap, users):
     """The artifact body. Always built, whatever failed: a check that could not run is a failed record."""
     return {
         "measured_at": datetime.now(timezone.utc).isoformat(),
         "mode": "exit-run",
         "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
-        "concurrent_opens": concurrency, "rounds": rounds,
+        "fixture": m.get("fixture"),
+        "concurrent_opens": concurrency, "rounds": rounds, "burst_users": users,
         "analytics_max_concurrent": cap,
         "responses": m.get("responses", {}),
         "checks": records,
@@ -1315,29 +1544,102 @@ def _exit_output(m, records, concurrency, rounds, cap):
     }
 
 
+class _ExitOps:
+    """The exit run's real measurements: the *ops* ``_collect_exit_measurements`` runs.
+
+    Everything that touches the server is injected (the session, the timing function, the RSS
+    sampler ``peak_of``, the concurrent burst and the liveness probe), so --self-test runs it
+    against recording stubs and proves which endpoint each measurement requests and which
+    element of ``peak_of``'s (result, peak RSS MB, RSS growth MB) each one returns.
+    """
+
+    def __init__(self, session, base_url, board_id, peak_of, concurrent, alive, iterations, warmup,
+                 declared=None, time_requests=_time_requests):
+        self.session, self.peak_of, self._concurrent, self._alive = session, peak_of, concurrent, alive
+        self.iterations, self.warmup, self.time_requests = iterations, warmup, time_requests
+        self.declared = dict(declared or {})
+        self.root = f"{base_url}/api/v1/boards/{board_id}"
+        self.endpoints = _aged_endpoints(base_url, board_id)
+
+    def fixture(self):
+        # The same reads the budget run's aged-board guard uses: the archived page's count, and
+        # the active cards /full/ returns.
+        archived = self.session.get(f"{self.root}/cards/archived/", timeout=60)
+        archived.raise_for_status()
+        full = self.session.get(f"{self.root}/full/", timeout=120)
+        full.raise_for_status()
+        return {**self.declared, "active_cards": len(full.json().get("cards", [])),
+                "archived_cards": _count_of(archived.json())}
+
+    def cumulative_flow(self):
+        return self.time_requests(self.session, self.endpoints["aged_flow_cumulative_flow"],
+                                  self.iterations, self.warmup)
+
+    def drill_down(self):
+        # Peak RSS (the high-water mark) during the ?date= drill-down.
+        return self.peak_of(lambda: self.time_requests(
+            self.session, self.endpoints["aged_flow_cumulative_flow_day"], self.iterations, 0))[1]
+
+    def overview_open(self):
+        one, peak, _ = self.peak_of(lambda: self.session.get(self.endpoints["aged_flow_overview"], timeout=120))
+        one.raise_for_status()
+        return peak, len(one.content)
+
+    def analytics_365(self):
+        # RSS GROWTH, not the peak: #2451's bar is how much one request adds.
+        t365, _, growth = self.peak_of(lambda: self.time_requests(
+            self.session, self.endpoints["aged_board_analytics_365"], self.iterations, 0))
+        return t365, growth
+
+    def concurrent(self):
+        (outcomes, unread, errors, big), peak, _ = self.peak_of(self._concurrent)
+        return outcomes, unread, errors, big, peak
+
+    def alive(self):
+        return self._alive()
+
+
+def _read_token(path):
+    with open(resolve_within(cli_roots(), path), encoding="utf-8") as fh:
+        return fh.read().strip()
+
+
 def run_exit(args):
     """The exit run: absolute bars on the aged board. Returns the process exit code."""
     if not args.analytics_token_file:
-        raise RuntimeError("--exit-run needs --analytics-token-file (the aged board's only member).")
+        raise RuntimeError("--exit-run needs --analytics-token-file (loadtest_analytics, the aged board's owner).")
     if not args.server_pid_file:
         raise RuntimeError("--exit-run needs --server-pid-file: its RSS bars are measured on the server process.")
-    with open(resolve_within(cli_roots(), args.analytics_token_file), encoding="utf-8") as fh:
-        session = requests.Session()
-        session.headers["Authorization"] = f"Token {fh.read().strip()}"
     if not args.token_file:
         raise RuntimeError("--exit-run needs --token-file (demo2, who has the seeded notifications): "
                            "unread-count is timed as that user, as loadtest_analytics has none.")
-    with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as fh:
-        poll_headers = {"Authorization": f"Token {fh.read().strip()}"}
+    if not args.exit_burst_token_dir:
+        raise RuntimeError("--exit-run needs --exit-burst-token-dir: one token file per distinct member of "
+                           "the aged board, one per concurrent overview open.")
+    session = requests.Session()
+    session.headers["Authorization"] = f"Token {_read_token(args.analytics_token_file)}"
+    poll_headers = {"Authorization": f"Token {_read_token(args.token_file)}"}
+    burst_dir = resolve_within(cli_roots(), args.exit_burst_token_dir)
+    burst_tokens = [_read_token(os.path.join(burst_dir, name)) for name in sorted(os.listdir(burst_dir))]
+    concurrency = args.exit_concurrent_opens
+    if not burst_tokens:
+        raise RuntimeError(f"--exit-burst-token-dir {args.exit_burst_token_dir} holds no token files.")
+    # Fewer tokens than opens: reuse them, so the run still happens and the over-cap check fails
+    # on the user count, recorded, rather than the run stopping here.
+    burst_headers = [{"Authorization": f"Token {burst_tokens[i % len(burst_tokens)]}"} for i in range(concurrency)]
     base_url = args.base_url.rstrip("/")
     _wait_for_url(f"{base_url}/api/health/liveness/", timeout=args.startup_timeout)
     mem = _ServerMemory.from_pid_file(args.server_pid_file)
     if not mem.enabled:
         raise RuntimeError("--exit-run cannot read the server's RSS (needs Linux /proc, same host).")
     board = _find_board(session, base_url, args.aged_board_name)
-    endpoints = _aged_endpoints(base_url, board["id"])
-    headers = dict(session.headers)
-    print(f"Exit run on board {board['id']} ({args.aged_board_name}); container limit {CONTAINER_MEMORY_LIMIT_MB} MB.")
+    users_error = None
+    try:
+        users = _burst_users(base_url, burst_headers)
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        users, users_error = 0, f"could not confirm the burst tokens' users from auth/user/: {_failure_reason(exc)}"
+    print(f"Exit run on board {board['id']} ({args.aged_board_name}); container limit {CONTAINER_MEMORY_LIMIT_MB} MB; "
+          f"burst of {concurrency} opens as {users} distinct users.")
 
     def peak_of(fn):
         """Run fn(); return (its result, peak RSS MB during it, RSS growth MB)."""
@@ -1347,41 +1649,22 @@ def run_exit(args):
         hwm = mem.read()["hwm_mb"]
         return result, hwm, hwm - before
 
-    concurrency = args.exit_concurrent_opens
-
-    class _Ops:
-        def cumulative_flow(self):
-            return _time_requests(session, endpoints["aged_flow_cumulative_flow"], args.aged_iterations, args.aged_warmup)
-
-        def drill_down(self):
-            return peak_of(lambda: _time_requests(
-                session, endpoints["aged_flow_cumulative_flow_day"], args.aged_iterations, 0))[1]
-
-        def overview_open(self):
-            one, peak, _ = peak_of(lambda: session.get(endpoints["aged_flow_overview"], timeout=120))
-            one.raise_for_status()
-            return peak, len(one.content)
-
-        def analytics_365(self):
-            t365, _, growth = peak_of(lambda: _time_requests(
-                session, endpoints["aged_board_analytics_365"], args.aged_iterations, 0))
-            return t365, growth
-
-        def concurrent(self):
-            (outcomes, unread, errors, big), peak, _ = peak_of(lambda: _concurrent_overview(
-                base_url, headers, poll_headers, board["id"], concurrency, args.exit_rounds))
-            return outcomes, unread, errors, big, peak
-
-        def alive(self):
-            return _server_alive(base_url)
-
-    m = _collect_exit_measurements(_Ops(), concurrency, args.exit_max_concurrent)
+    ops = _ExitOps(
+        session, base_url, board["id"], peak_of,
+        concurrent=lambda: _concurrent_overview(base_url, burst_headers, poll_headers, board["id"], args.exit_rounds),
+        alive=lambda: _server_alive(base_url),
+        iterations=args.aged_iterations, warmup=args.aged_warmup,
+        declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations},
+    )
+    m = _collect_exit_measurements(ops, concurrency, args.exit_max_concurrent, users)
+    if users_error:
+        m["failures"]["over_cap_refused_cleanly"] = users_error
     records = _evaluate_exit_run(m)
     print("\nEXIT RUN RESULTS (absolute bars, #2588)")
     for r in records:
         print(f"  {'PASS' if r['passed'] else 'FAIL'}  {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
               + (f" - {r['detail']}" if r.get("detail") else ""))
-    output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent)
+    output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent, users)
     out_path = resolve_within(cli_roots(), args.exit_output)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(output, fh, indent=2)
@@ -1730,8 +2013,17 @@ def main():
              "not the baseline budgets. Needs --analytics-token-file and --server-pid-file.",
     )
     parser.add_argument("--exit-output", default="nightly-load-test-exit-run.json")
-    parser.add_argument("--exit-concurrent-opens", type=int, default=4,
-                        help="Overview opens fired together for the concurrent scenario (default: 4).")
+    parser.add_argument("--exit-concurrent-opens", type=int, default=EXIT_DEFAULT_CONCURRENT_OPENS,
+                        help="Overview opens fired together for the concurrent scenario, one per distinct user "
+                             f"(default: {EXIT_DEFAULT_CONCURRENT_OPENS}); must exceed the cap plus "
+                             f"{EXIT_SERVER_MAX_WAITERS} waiters.")
+    parser.add_argument("--exit-burst-token-dir", default=None,
+                        help="Directory of token files, one per distinct member of the aged board; the "
+                             "concurrent opens run one per token, so the per-user limit never refuses.")
+    parser.add_argument("--fixture-scale", type=int, default=None,
+                        help="The seed's --scale, recorded in the exit-run artifact (the check reads the board).")
+    parser.add_argument("--fixture-aged-generations", type=int, default=None,
+                        help="The seed's --aged-generations, recorded in the exit-run artifact.")
     parser.add_argument("--exit-rounds", type=int, default=3,
                         help="How many times that burst is repeated (default: 3).")
     parser.add_argument("--exit-max-concurrent", type=int, default=1,
@@ -1746,7 +2038,8 @@ def main():
         "--self-test",
         action="store_true",
         help="Prove the percentile/budget-comparison detection logic still fires on a "
-             "known-bad and known-good input, then exit. Touches no network or database; reads only the committed baseline.",
+             "known-bad and known-good input, then exit. Touches no network or database; reads only the committed "
+             "baseline and the two admission limits in backend/boards/services/analytics_admission.py.",
     )
     args = parser.parse_args()
 
