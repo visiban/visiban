@@ -1879,6 +1879,7 @@ backend-schema-validate:
           2>/dev/null && break
         sleep 1
       done
+      fi
     - cd ..
   # The unsharded run. No job uses this script as is (all three override it);
   # it documents the order the overrides keep: seed, then the fuzz.
@@ -6720,11 +6721,16 @@ nightly-load-test:
     # does, because the RSS bars are meaningless under runserver + DEBUG=True (DEBUG keeps a query
     # log in memory). The scheduled nightly takes the runserver branch, unchanged. `daphne` is the
     # plain command with DEBUG and ANALYTICS_MAX_CONCURRENT set as per-command variables (no
-    # `sh -c`, no subshell), so $! is the daphne process whose VmHWM the script reads. The shipped
+    # `sh -c`, no subshell), so $! is the daphne process whose VmHWM the script reads. With
+    # DEBUG=False settings.py refuses a localhost CORS_ALLOWED_ORIGINS (its default), so a
+    # non-localhost placeholder is passed; the load test sends no Origin header. Settings were
+    # loaded under this exact env with DEBUG=False; nothing else raised (a DEFAULT_FROM_EMAIL
+    # warning only). The shipped
     # ANALYTICS_MAX_CONCURRENT (1) applies, not the nightly's 2: the over-cap bar needs the real cap.
     - |
       if [ "${LOAD_TEST_EXIT_RUN}" = "true" ] || [ "${LOAD_TEST_SERVER}" = "daphne" ]; then
         DEBUG=False ANALYTICS_MAX_CONCURRENT="${LOAD_TEST_EXIT_MAX_CONCURRENT}" \
+          CORS_ALLOWED_ORIGINS="https://loadtest.invalid" \
           daphne -b 0.0.0.0 -p 8000 visiban.asgi:application > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
       else
         python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
@@ -6735,9 +6741,18 @@ nightly-load-test:
     - |
       for i in $(seq 1 30); do
         python3 -c "import requests; requests.get('http://localhost:8000/api/health/liveness/', timeout=2)" \
-          2>/dev/null && break
+          2>/dev/null && UP=1 && break
         sleep 1
       done
+      # Daphne mode only: a server that never came up (a settings error under DEBUG=False
+      # exits at once) fails the job here, with its log, instead of surfacing as a
+      # connection error minutes later. Runserver mode is unchanged.
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ] || [ "${LOAD_TEST_SERVER}" = "daphne" ]; then
+        if [ -z "${UP}" ]; then
+          echo "FAIL: the daphne server did not answer liveness within 30s. Server log:"
+          tail -n 200 "${CI_PROJECT_DIR}/nightly-load-test-server.log"
+          exit 1
+        fi
     - cd ..
   script:
     # Self-test immediately before the real invocation, same image (#1093) —
@@ -6752,6 +6767,7 @@ nightly-load-test:
         python3 scripts/nightly_load_test.py --exit-run \
           --base-url http://localhost:8000 \
           --analytics-token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" \
+          --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}" \
           --server-pid-file "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}" \
           --exit-concurrent-opens "${LOAD_TEST_EXIT_CONCURRENT_OPENS}" \
           --exit-rounds "${LOAD_TEST_EXIT_ROUNDS}" \

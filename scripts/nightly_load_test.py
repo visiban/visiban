@@ -781,7 +781,8 @@ def _self_test():
     # Exit run (#2588): the absolute-bar logic fires on a known-bad and a known-good input.
     good = {"cumulative_flow_p95_ms": 2999, "drill_down_peak_rss_mb": 400, "overview_peak_rss_mb": 400,
             "analytics_365_rss_growth_mb": 149, "analytics_365_ms": 2999, "overview_payload_bytes": 1000,
-            "unread_count_p95_ms": 99, "concurrent_peak_rss_mb": 400, "over_cap": (True, "ok")}
+            "unread_count_p95_ms": 99, "unread_samples": EXIT_MIN_UNREAD_SAMPLES, "concurrent_peak_rss_mb": 400,
+            "over_cap": (True, "ok")}
     if not all(r["passed"] for r in _evaluate_exit_run(good)):
         failures.append("exit run: an all-inside-the-bars input did not pass")
     for key, bad in (("cumulative_flow_p95_ms", 3000), ("drill_down_peak_rss_mb", CONTAINER_MEMORY_LIMIT_MB),
@@ -812,6 +813,79 @@ def _self_test():
     ):
         if got != want:
             failures.append(f"exit run over-cap check ({label}): got {got}, expected {want}")
+
+    # Exit run wiring (#2588): stubs stand in for the server, so no network is touched.
+    class _Resp:
+        status_code, reason, url = 422, "Unprocessable", "https://x/analytics/?days=365"
+
+        def json(self):
+            return {"code": TOO_LARGE_CODE}
+
+    class _TooLarge(requests.exceptions.HTTPError):
+        def __init__(self):
+            super().__init__("422")
+            self.response = _Resp()
+
+    class _StubOps:
+        raises = ()
+
+        def _go(self, name, value):
+            if name in self.raises:
+                raise _TooLarge()
+            return value
+
+        def cumulative_flow(self):
+            return self._go("cf", [1000.0] * 10)
+
+        def drill_down(self):
+            return self._go("dd", 111.0)
+
+        def overview_open(self):
+            return self._go("ov", (222.0, 5000))
+
+        def analytics_365(self):
+            return self._go("a365", ([2000.0] * 3, 77.0))
+
+        def concurrent(self):
+            return self._go("conc", ([("ok", 1.0), ("busy", 0.1), ("busy", 0.1)], [10.0] * 30, [], 9000, 333.0))
+
+        def alive(self):
+            return True
+
+    wired = _collect_exit_measurements(_StubOps(), 3, 1)
+    for key, want in (("cumulative_flow_p95_ms", 1000.0), ("drill_down_peak_rss_mb", 111.0),
+                      ("overview_peak_rss_mb", 222.0), ("analytics_365_ms", 2000.0),
+                      ("analytics_365_rss_growth_mb", 77.0), ("overview_payload_bytes", 9000),
+                      ("unread_count_p95_ms", 10.0), ("concurrent_peak_rss_mb", 333.0)):
+        if wired.get(key) != want:
+            failures.append(f"exit run wiring: {key} = {wired.get(key)}, expected {want}")
+    wired_records = _evaluate_exit_run(wired)
+    if not all(r["passed"] for r in wired_records):
+        failures.append("exit run wiring: stub measurements inside every bar did not all pass")
+    if not _exit_output(wired, wired_records, 3, 3, 1)["passed"]:
+        failures.append("exit run: a clean run's artifact did not say passed")
+    # One measurement refused (analytics_too_large): recorded as that check's failure, the rest still run.
+    broken = _StubOps()
+    broken.raises = ("a365",)
+    partial = _collect_exit_measurements(broken, 3, 1)
+    partial_records = {r["check"]: r for r in _evaluate_exit_run(partial)}
+    if partial_records["analytics_365_ms"]["passed"] or TOO_LARGE_CODE not in partial_records["analytics_365_ms"].get("detail", ""):
+        failures.append("exit run: a refused analytics/?days=365 was not recorded as that check's failure with its reason")
+    if not partial_records["cumulative_flow_p95_ms"]["passed"] or not partial_records["over_cap_refused_cleanly"]["passed"]:
+        failures.append("exit run: one failed measurement stopped the other checks")
+    if _exit_output(partial, list(partial_records.values()), 3, 3, 1)["passed"]:
+        failures.append("exit run: an artifact with a failed check said passed")
+    broken.raises = ("conc",)
+    if _evaluate_exit_run(_collect_exit_measurements(broken, 3, 1))[-1]["passed"]:
+        failures.append("exit run: a failed concurrent scenario still passed the over-cap check")
+    # Minimum sample guard on unread-count.
+    few = {**good, "unread_samples": EXIT_MIN_UNREAD_SAMPLES - 1}
+    few_unread = [r for r in _evaluate_exit_run(few) if r["check"] == "unread_count_p95_ms_under_load"][0]
+    if few_unread["passed"]:
+        failures.append("exit run: too few unread-count samples did not fail the bar")
+    enough = {**good, "unread_samples": EXIT_MIN_UNREAD_SAMPLES}
+    if not all(r["passed"] for r in _evaluate_exit_run(enough)):
+        failures.append("exit run: the minimum number of unread-count samples did not pass")
 
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
@@ -1005,6 +1079,7 @@ EXIT_ANALYTICS_365_MS = 3000                # analytics/?days=365 latency (#2451
 EXIT_OVERVIEW_PAYLOAD_BYTES = 1024 * 1024   # one overview response body
 EXIT_UNREAD_COUNT_P95_MS = 100              # notifications/unread-count/ under concurrent opens (#2428)
 EXIT_STALL_SECONDS = 60                     # an over-cap request slower than this is a stall
+EXIT_MIN_UNREAD_SAMPLES = 20                # fewer unread-count samples than this say nothing about p95
 TOO_LARGE_CODE = "analytics_too_large"
 _EXIT_UNREAD_URL = "/api/v1/notifications/unread-count/"
 
@@ -1054,9 +1129,33 @@ def _evaluate_over_cap(outcomes, concurrency, cap, server_alive):
     return True, f"{kinds.count('ok')} ok, {kinds.count('busy')} busy, {kinds.count('too_large')} too_large"
 
 
+def _failure_reason(exc):
+    """A one-line reason a measurement could not run; names a documented refusal as itself."""
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        try:
+            code = resp.json().get("code")
+        except (ValueError, AttributeError):
+            code = None
+        return f"{resp.status_code} {code or resp.reason} from {resp.url} (the request was refused, not measured)"
+    return f"{type(exc).__name__}: {exc}"
+
+
 def _evaluate_exit_run(m):
-    """Turn the measured figures *m* into the list of absolute-bar records (pure; self-tested)."""
-    over_ok, over_detail = m["over_cap"]
+    """Turn the measured figures *m* into the list of absolute-bar records (pure; self-tested).
+
+    ``m["failures"]`` maps a check name to the reason its measurement could not run (a refused
+    or failed request). Such a check is recorded as failed with that reason; the others are still
+    evaluated, so one failure never hides the rest.
+    """
+    failures = m.get("failures", {})
+    over_ok, over_detail = m.get("over_cap", (False, "not measured"))
+    unread = m.get("unread_count_p95_ms")
+    unread_detail = None
+    if unread is not None and m.get("unread_samples", 0) < EXIT_MIN_UNREAD_SAMPLES:
+        unread_detail = (f"only {m.get('unread_samples', 0)} unread-count samples, fewer than "
+                         f"{EXIT_MIN_UNREAD_SAMPLES}: p95 not trustworthy")
+        unread = None
     records = [
         _bar("cumulative_flow_p95_ms", m.get("cumulative_flow_p95_ms"), EXIT_CUMULATIVE_FLOW_P95_MS, "ms"),
         _bar("drill_down_peak_rss_mb", m.get("drill_down_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
@@ -1064,16 +1163,72 @@ def _evaluate_exit_run(m):
         _bar("analytics_365_rss_growth_mb", m.get("analytics_365_rss_growth_mb"), EXIT_ANALYTICS_365_GROWTH_MB, "MB"),
         _bar("analytics_365_ms", m.get("analytics_365_ms"), EXIT_ANALYTICS_365_MS, "ms"),
         _bar("overview_payload_bytes", m.get("overview_payload_bytes"), EXIT_OVERVIEW_PAYLOAD_BYTES, "bytes"),
-        _bar("unread_count_p95_ms_under_load", m.get("unread_count_p95_ms"), EXIT_UNREAD_COUNT_P95_MS, "ms"),
+        _bar("unread_count_p95_ms_under_load", unread, EXIT_UNREAD_COUNT_P95_MS, "ms"),
         _bar("concurrent_peak_rss_mb", m.get("concurrent_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
     ]
     over = {"check": "over_cap_refused_cleanly", "value": None, "bar": "503 analytics_busy / 422 analytics_too_large, no stall, no OOM",
             "unit": "", "passed": bool(over_ok), "detail": over_detail}
-    return records + [over]
+    records.append(over)
+    for r in records:
+        if r["check"] in failures:
+            r["passed"], r["detail"] = False, failures[r["check"]]
+        elif not r["passed"] and r["check"] == "unread_count_p95_ms_under_load" and unread_detail:
+            r["detail"] = unread_detail
+    return records
+
+
+def _collect_exit_measurements(ops, concurrency, cap):
+    """Run every exit-run measurement through *ops*, never letting one abort the rest.
+
+    *ops* has: cumulative_flow() -> [ms], drill_down() -> peak_mb, overview_open() -> (peak_mb,
+    payload_bytes), analytics_365() -> ([ms], growth_mb), concurrent() -> (outcomes, unread_ms,
+    unread_errors, largest_payload, peak_mb), alive() -> bool. A measurement that raises (a
+    refused request, ``analytics_too_large``, a timeout) is recorded under ``m["failures"]`` for
+    the checks it feeds. Kept apart from ``run_exit`` so --self-test can feed it stubs.
+    """
+    m = {"failures": {}}
+
+    def attempt(checks, fn):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 -- recorded as the checks' failure reason
+            for c in checks:
+                m["failures"][c] = _failure_reason(exc)
+            return None
+
+    cf = attempt(("cumulative_flow_p95_ms",), ops.cumulative_flow)
+    if cf:
+        m["cumulative_flow_p95_ms"] = _percentile(cf, 95)
+    dd = attempt(("drill_down_peak_rss_mb",), ops.drill_down)
+    if dd is not None:
+        m["drill_down_peak_rss_mb"] = dd
+    ov = attempt(("overview_peak_rss_mb", "overview_payload_bytes"), ops.overview_open)
+    payload = 0
+    if ov:
+        m["overview_peak_rss_mb"], payload = ov
+        m["overview_payload_bytes"] = payload
+    a365 = attempt(("analytics_365_ms", "analytics_365_rss_growth_mb"), ops.analytics_365)
+    if a365:
+        m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
+    conc = attempt(("unread_count_p95_ms_under_load", "concurrent_peak_rss_mb", "over_cap_refused_cleanly"),
+                   ops.concurrent)
+    if conc:
+        outcomes, unread, unread_errors, big, peak = conc
+        m["concurrent_peak_rss_mb"] = peak
+        m["overview_payload_bytes"] = max(payload, big)
+        m["unread_samples"] = len(unread)
+        if unread_errors:
+            m["failures"]["unread_count_p95_ms_under_load"] = (
+                f"unread-count failed during the concurrent opens: {unread_errors[0]}")
+        elif unread:
+            m["unread_count_p95_ms"] = _percentile(unread, 95)
+        m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive())
+        m["responses"] = {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")}
+    return m
 
 
 def _unread_poller(base_url, headers, stop, samples, errors):
-    """Time notifications/unread-count/ about every 250 ms until *stop* is set.
+    """Time notifications/unread-count/ (as demo2, who has notifications) about every 250 ms until *stop* is set.
 
     Slower than the 50 ms first tried: under DEBUG=False the `user` throttle is 5000/hour, not
     9999, and a 429 would abort the run with no results written."""
@@ -1093,7 +1248,7 @@ def _unread_poller(base_url, headers, stop, samples, errors):
             stop.wait(0.25)
 
 
-def _concurrent_overview(base_url, headers, board_id, concurrency, rounds):
+def _concurrent_overview(base_url, headers, poll_headers, board_id, concurrency, rounds):
     """Open the overview *concurrency* times at once, *rounds* times, timing unread-count meanwhile.
 
     A 503 ``analytics_busy`` or 422 ``analytics_too_large`` is an EXPECTED response here (the
@@ -1124,7 +1279,7 @@ def _concurrent_overview(base_url, headers, board_id, concurrency, rounds):
                 outcomes.append(("stall", None))
 
     samples, errors, stop = [], [], threading.Event()
-    poller = threading.Thread(target=_unread_poller, args=(base_url, headers, stop, samples, errors))
+    poller = threading.Thread(target=_unread_poller, args=(base_url, poll_headers, stop, samples, errors))
     poller.start()
     try:
         for _ in range(rounds):
@@ -1146,6 +1301,20 @@ def _server_alive(base_url):
         return False
 
 
+def _exit_output(m, records, concurrency, rounds, cap):
+    """The artifact body. Always built, whatever failed: a check that could not run is a failed record."""
+    return {
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "mode": "exit-run",
+        "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
+        "concurrent_opens": concurrency, "rounds": rounds,
+        "analytics_max_concurrent": cap,
+        "responses": m.get("responses", {}),
+        "checks": records,
+        "passed": all(r["passed"] for r in records),
+    }
+
+
 def run_exit(args):
     """The exit run: absolute bars on the aged board. Returns the process exit code."""
     if not args.analytics_token_file:
@@ -1155,6 +1324,11 @@ def run_exit(args):
     with open(resolve_within(cli_roots(), args.analytics_token_file), encoding="utf-8") as fh:
         session = requests.Session()
         session.headers["Authorization"] = f"Token {fh.read().strip()}"
+    if not args.token_file:
+        raise RuntimeError("--exit-run needs --token-file (demo2, who has the seeded notifications): "
+                           "unread-count is timed as that user, as loadtest_analytics has none.")
+    with open(resolve_within(cli_roots(), args.token_file), encoding="utf-8") as fh:
+        poll_headers = {"Authorization": f"Token {fh.read().strip()}"}
     base_url = args.base_url.rstrip("/")
     _wait_for_url(f"{base_url}/api/health/liveness/", timeout=args.startup_timeout)
     mem = _ServerMemory.from_pid_file(args.server_pid_file)
@@ -1173,43 +1347,41 @@ def run_exit(args):
         hwm = mem.read()["hwm_mb"]
         return result, hwm, hwm - before
 
-    m = {}
-    cf = _time_requests(session, endpoints["aged_flow_cumulative_flow"], args.aged_iterations, args.aged_warmup)
-    m["cumulative_flow_p95_ms"] = _percentile(cf, 95)
-    _, m["drill_down_peak_rss_mb"], _ = peak_of(lambda: _time_requests(
-        session, endpoints["aged_flow_cumulative_flow_day"], args.aged_iterations, 0))
-    one, m["overview_peak_rss_mb"], _ = peak_of(lambda: session.get(endpoints["aged_flow_overview"], timeout=120))
-    one.raise_for_status()
-    payload = len(one.content)
-    t365, _, growth = peak_of(lambda: _time_requests(session, endpoints["aged_board_analytics_365"], args.aged_iterations, 0))
-    m["analytics_365_ms"] = _percentile(t365, 95)
-    m["analytics_365_rss_growth_mb"] = growth
-
     concurrency = args.exit_concurrent_opens
-    (outcomes, unread, unread_errors, big), peak, _ = peak_of(
-        lambda: _concurrent_overview(base_url, headers, board["id"], concurrency, args.exit_rounds))
-    if unread_errors:
-        raise RuntimeError(f"unread-count failed during the concurrent opens: {unread_errors[0]}")
-    m["overview_payload_bytes"] = max(payload, big)
-    m["unread_count_p95_ms"] = _percentile(unread, 95) if unread else None
-    m["concurrent_peak_rss_mb"] = peak
-    m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, args.exit_max_concurrent, _server_alive(base_url))
 
+    class _Ops:
+        def cumulative_flow(self):
+            return _time_requests(session, endpoints["aged_flow_cumulative_flow"], args.aged_iterations, args.aged_warmup)
+
+        def drill_down(self):
+            return peak_of(lambda: _time_requests(
+                session, endpoints["aged_flow_cumulative_flow_day"], args.aged_iterations, 0))[1]
+
+        def overview_open(self):
+            one, peak, _ = peak_of(lambda: session.get(endpoints["aged_flow_overview"], timeout=120))
+            one.raise_for_status()
+            return peak, len(one.content)
+
+        def analytics_365(self):
+            t365, _, growth = peak_of(lambda: _time_requests(
+                session, endpoints["aged_board_analytics_365"], args.aged_iterations, 0))
+            return t365, growth
+
+        def concurrent(self):
+            (outcomes, unread, errors, big), peak, _ = peak_of(lambda: _concurrent_overview(
+                base_url, headers, poll_headers, board["id"], concurrency, args.exit_rounds))
+            return outcomes, unread, errors, big, peak
+
+        def alive(self):
+            return _server_alive(base_url)
+
+    m = _collect_exit_measurements(_Ops(), concurrency, args.exit_max_concurrent)
     records = _evaluate_exit_run(m)
     print("\nEXIT RUN RESULTS (absolute bars, #2588)")
     for r in records:
         print(f"  {'PASS' if r['passed'] else 'FAIL'}  {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
               + (f" - {r['detail']}" if r.get("detail") else ""))
-    output = {
-        "measured_at": datetime.now(timezone.utc).isoformat(),
-        "mode": "exit-run",
-        "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
-        "concurrent_opens": concurrency, "rounds": args.exit_rounds,
-        "analytics_max_concurrent": args.exit_max_concurrent,
-        "responses": {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")},
-        "checks": records,
-        "passed": all(r["passed"] for r in records),
-    }
+    output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent)
     out_path = resolve_within(cli_roots(), args.exit_output)
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(output, fh, indent=2)
