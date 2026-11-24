@@ -2351,7 +2351,7 @@ describe('CardDetail', () => {
       const { container } = render(<CardDetail {...defaultProps()} card={card} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
       const trigger = screen.getByRole('button', { name: /Move card to different column or swimlane/ })
       await userEvent.setup().click(trigger)
-      expect(screen.queryByTestId('planned-move-warning')).toBeNull()
+      expect(screen.getByTestId('planned-move-warning')).toBeEmptyDOMElement()
       const popover = container.querySelector('[data-move-popover]')!
       const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
       await userEvent.setup().click(colTrigger)

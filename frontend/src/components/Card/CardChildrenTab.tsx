@@ -660,6 +660,7 @@ function ChildMovePopover({ child, boardName, columns, board, error, userTimezon
           );
         })}
       </div>
+      {/* The read sends the child board's columns in board order (position, then id), so the first is To do. */}
       <PlannedMoveWarning text={plannedMoveWarningText(child, choice === child.column_id ? null : target, columns[0]?.id, todayInTimezone(userTimezone))} />
       <p role="alert" className={error ? "text-xs text-danger" : "sr-only"}>{error ?? ""}</p>
       <div className="flex justify-end gap-3">

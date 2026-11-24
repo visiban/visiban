@@ -54,7 +54,7 @@ for (const width of [390, 880]) {
       await expect(face).not.toContainText('Overdue')
       await tab.getByRole('button', { name: 'Move Proposal readout with Hooli CFO' }).click()
       const dialog = page.getByRole('dialog', { name: 'Move Proposal readout with Hooli CFO' })
-      await expect(dialog.getByRole('status')).toHaveCount(0)
+      await expect(dialog.getByRole('status')).toHaveText('')
       await dialog.getByRole('radio', { name: 'Doing' }).check()
       const warning = dialog.getByRole('status')
       await expect(warning).toHaveText('Its date, Dec 4, has passed. It will be overdue once moved.')

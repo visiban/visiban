@@ -29,8 +29,11 @@ export function firstColumnId(columns: { id: number; position: number }[]): numb
   return first?.id;
 }
 
-/** The warning line itself: `role="status"`, warning text, no glyph (#2371: the clock means Stale or idle only). */
+/**
+ * The warning line itself: `role="status"`, warning text, no glyph (#2371: the clock means Stale or idle only).
+ * Always mounted (`sr-only` and empty when there is nothing to say), so the live region exists before its text
+ * arrives and screen readers announce it when the target changes, like the popovers' error line (ux-review).
+ */
 export default function PlannedMoveWarning({ text }: { text: string | null }) {
-  if (!text) return null;
-  return <p role="status" className="text-xs text-warning" data-testid="planned-move-warning">{text}</p>;
+  return <p role="status" className={text ? "text-xs text-warning" : "sr-only"} data-testid="planned-move-warning">{text ?? ""}</p>;
 }
