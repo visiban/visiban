@@ -398,6 +398,22 @@ sys.exit(0 if ok else 1)
 PYEOF
 )"
 
+# Non-zero path: rescue_fixture.json has a rescued MR, a `rescue: none` MR and a silent one.
+python3 "$SCRIPT" --input "$REPO_ROOT/scripts/tests/fixtures/kaizen/rescue_fixture.json" --json > "$TMP/rescue.json"
+check "rescue counts: 2 of 3 MRs report, 1 rescued, fable resolved 1, opus-again failed 1, others 0" \
+  "$(python3 - "$TMP/rescue.json" <<'PYEOF' && echo 0 || echo 1
+import json, sys
+r = json.load(open(sys.argv[1]))["rescue"]
+b = r["by_choice"]
+ok = (r["mrs"] == 3 and r["reported"] == 2 and r["rescued_mrs"] == 1 and r["rescues"] == 2
+      and b["fable"]["resolved"] == 1 and b["opus-again"]["failed"] == 1
+      and b["dropped"]["total"] == 0 and b["escalation-pending"]["total"] == 0)
+sys.exit(0 if ok else 1)
+PYEOF
+)"
+check "rescue text report names the section and the fable row" \
+  "$(python3 "$SCRIPT" --input "$REPO_ROOT/scripts/tests/fixtures/kaizen/rescue_fixture.json" | grep -q 'fable  *1  (resolved 1' && echo 0 || echo 1)"
+
 echo ""
 if [[ "$fail" -eq 0 ]]; then
   echo "kaizen_gate_ledger.test.sh: all $pass checks passed"

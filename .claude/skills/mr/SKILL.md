@@ -246,7 +246,7 @@ is the contract; this is what the description carries.
 - **`rescue:`** is written by `/wave` only, in `## Gates`: `rescue: none` when no Fable-rescue
   trigger fired for the MR's issue(s), else one `rescue: #N - trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>;
   outcome <resolved|failed|n/a>` line per issue (`.claude/skills/wave/SKILL.md` § Rescue escalation).
-  `/kaizen` counts them by choice, zeros included. A plain `/mr` with no `/wave` behind it writes none;
+  `/kaizen` counts them by choice, zeros included. `/wave` sends it with the go-ahead, with the cost lines. A plain `/mr` with no `/wave` behind it writes none;
   a missing line is silent, not zero.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
   would read as a whole one (except the documented `N+` form above).

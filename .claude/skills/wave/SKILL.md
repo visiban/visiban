@@ -235,7 +235,8 @@ established.
 
 **Reporting.** Show the model as `fable` in every status table and the Step 7 report, with the
 trigger and the user's answer. A gate a Fable agent ran is recorded `(model: fable)` in its `## Gates`
-line, like any model. Step 7 carries one `rescue:` line per issue a trigger fired on.
+line, like any model. The `rescue:` line per issue a trigger fired on is sent with the go-ahead and
+persisted in the MR's `## Gates` (Step 5); Step 7 only reports it.
 
 "This issue is important" is not escalation criteria. Neither is "it touches
 security" — a one-line permission-class fix with a named root cause is Sonnet
@@ -523,6 +524,11 @@ Every agent finishes by, in order:
      the layer that turned it off. **`budget-exceeded: <N> (<role> <k>, ...)` is sent either way
      (`0` when no agent hit a budget):** it counts agents, not cost, so it does not depend on
      the setting.
+   **The `rescue:` line is sent too, every time (#2304):** `rescue: none` when no *Rescue
+   escalation* trigger fired for the MR's issue(s) this wave, else one `rescue: #N — trigger <1|2>;
+   choice <fable | opus-again | dropped | escalation-pending>; outcome <resolved | failed | n/a>` line
+   per issue. Both triggers fire before the go-ahead, so it is known by then. It is not cost, so
+   `cost-ledger: off` does not suppress it.
    - **Record agent ids as you go.** Note the `agentId:` the Agent tool result prints for every
      agent you spawn or resume for this branch (the implementer, each `completeness-check` pass, each fresh fix agent).
    - **Measure with one command**, in the worktree and in your own session (it reads
@@ -603,7 +609,7 @@ Every agent finishes by, in order:
    that did not trigger the re-check records `completeness-check/fix-diff — n/a`;
    one that triggered it and the user declined records `skipped`. A gate or pass that
    stopped at its budget is recorded `(<model>; budget-stopped)`, never as a plain count. The
-   `budget-exceeded:` line and the cost lines the
+   `rescue:` line, the `budget-exceeded:` line and the cost lines the
    go-ahead message carried (or its one `cost-ledger: off` line) go last in `## Gates`,
    pasted unchanged; check the draft with `python3 scripts/cost_ledger_lines.py --file
    <body.md>` (the body file under the checkout, the temp dir or the git dir). If Step 5.5
@@ -678,7 +684,7 @@ state plainly:
 - One `rescue:` line per issue a *Rescue escalation* trigger fired on, and `rescue: none` when
   none did (report the zero too): `rescue: #N — trigger <1 implementer strike two | 2 round-2
   BLOCKER>; choice <fable | opus-again | dropped | escalation-pending>; outcome <resolved | failed |
-  n/a>`. **Also write the same line into the `## Gates` section of the issue's MR**, last, beside
+  n/a>`. The go-ahead message already carried that line into the issue's MR `## Gates` (Step 5), beside
   `budget-exceeded:` (`rescue: none` on every MR of a wave with no rescue). `/kaizen` reads it via
   `scripts/kaizen_gate_ledger.py`, and `scripts/cost_ledger_lines.py --file <body.md>` rejects a
   malformed or contradictory one (#2304). An issue dropped with no MR leaves its line in this report
