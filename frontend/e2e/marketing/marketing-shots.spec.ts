@@ -135,7 +135,7 @@ async function mockApi(page: Page): Promise<void> {
     if (p === '/api/v1/groups/') {
       return json(route, page_(q.get('starred') === 'true' ? GROUPS.filter((g) => g.is_starred) : GROUPS))
     }
-    const group = /^\/api\/v1\/groups\/(\d+)\/(\w[\w-]*)?\/?$/.exec(p)
+    const group = /^\/api\/v1\/groups\/(\d+)\/(\w[\w-]*)?(?:\/paged)?\/?$/.exec(p)
     if (group) {
       const g = GROUPS.find((x) => x.id === Number(group[1]))
       if (!g) return json(route, { detail: 'Not found.' }, 404)

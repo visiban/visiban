@@ -1570,7 +1570,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             ) : sgFirstError ? (
               <li className="flex items-center gap-2 px-3 py-2 text-sm text-danger" role="alert">
                 Failed to load subgroup boards.
-                <button type="button" onClick={() => { setSgFirstError(false); setSgRetryTick((n) => n + 1); }} className={SG_TEXT_BUTTON}>Retry</button>
+                <button type="button" onClick={() => {
+                  // Retry unmounts when the reload starts: hand focus to the section first (#2568 rule).
+                  document.getElementById("group-boards-section")?.focus({ preventScroll: true });
+                  setSgFirstError(false);
+                  setSgRetryTick((n) => n + 1);
+                }} className={SG_TEXT_BUTTON}>Retry</button>
               </li>
             ) : subgroupBoards.length === 0 && sgOffset >= sgCount ? (
               <li className="text-fg-secondary text-sm px-3 py-2">No boards in subgroups.</li>
@@ -1609,21 +1614,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   : `Showing ${subgroupBoards.length} subgroup boards`}
               </p>
               {sgOffset < sgCount && (
-                sgMoreError ? (
-                  <>
-                    <p role="alert" className="text-sm text-danger">Couldn&apos;t load more boards.</p>
-                    <button type="button" onClick={() => void loadMoreSubgroupBoards()} className={SG_TEXT_BUTTON}>Retry</button>
-                  </>
-                ) : (
+                // One button for Load more, Loading and Retry, so focus never leaves it (it stays mounted).
+                <>
+                  {sgMoreError && <p role="alert" className="text-sm text-danger">Couldn&apos;t load more boards.</p>}
                   <button
                     type="button"
                     aria-disabled={sgLoadingMore || undefined}
                     onClick={() => void loadMoreSubgroupBoards()}
                     className={`${SG_TEXT_BUTTON} max-sm:px-4`}
                   >
-                    {sgLoadingMore ? "Loading…" : "Load more"}
+                    {sgLoadingMore ? "Loading…" : sgMoreError ? "Retry" : "Load more"}
                   </button>
-                )
+                </>
               )}
             </li>
           )}
