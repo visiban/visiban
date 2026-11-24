@@ -447,18 +447,20 @@ def _deleted_card_history_export(board, exported_uids=frozenset()):
 
 
 # Cards per chunk of the board export (#1962). Each chunk is one card query
-# plus one query per prefetch; a board up to this size exports in the same
-# queries as before chunking (see _iter_export_cards).
+# plus one query per prefetch; a board of fewer than this many cards exports in
+# the same queries as before chunking (see _iter_export_cards). A full first
+# page, exactly this many cards, takes the id-list path and adds one query.
 _EXPORT_CHUNK_SIZE = 500
 
 
 def _iter_export_cards(queryset):
     """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
 
-    The first chunk is a plain ``LIMIT`` page. A board of up to
-    ``_EXPORT_CHUNK_SIZE`` cards is wholly in it, so it exports in one card
-    query, a single read, as before chunking. A larger board then reads the
-    whole ordered list of card ids once (integers only, one sort) and emits
+    The first chunk is a plain ``LIMIT`` page. A board of fewer than
+    ``_EXPORT_CHUNK_SIZE`` cards is wholly in a not-full page, so it exports in one card
+    query, a single read, as before chunking. A first page that is full
+    (``_EXPORT_CHUNK_SIZE`` cards) cannot show the board has no more, so the
+    board then reads the whole ordered list of card ids once (integers only, one sort) and emits
     the cards in that list's order, a window of ``_EXPORT_CHUNK_SIZE`` ids at
     a time: first-page cards come from the page already read, the rest are
     fetched by primary key, so the database sorts the board twice in all

@@ -28,7 +28,7 @@ While the card exists, its history shows under its current title. Once it is del
 
 **Who can see it:** every board member, through the board's **History** view; users with [`can_access_all_content`](../features/permissions.md), who can open every board; and Django admin users with permission to view card movements (read-only).
 
-A deleted card's activity records are not in the **History** view. Since 1.3 they leave the board only in its [JSON export](../api/boards.md#get-apiv1boardsidexport) (`deleted_card_history`, #1796), so they are readable by every member at or above the board's `export_min_role` (owners and site admins always), and by Django admin users with permission to view card activities (read-only). The export does not yet carry a deleted card's block and gate transition records (#2413).
+A deleted card's activity records are not in the **History** view. Since 1.3 they leave the board only in its [JSON export](../api/boards.md#get-apiv1boardsidexport) (`deleted_card_history`, #1796), so they are readable by every member at or above the board's `export_min_role` (owners and site admins always), and by Django admin users with permission to view card activities (read-only). Since 1.3 (#2413) the JSON export also carries a deleted card's block and gate transition records.
 
 **How long it lasts:** until the board is deleted, or until a superuser purges it with the command below. Nothing expires it on a schedule.
 
