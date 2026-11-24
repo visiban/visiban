@@ -1,8 +1,10 @@
-# Tokens and Rotation
+# Find every project credential and when it expires
 
-Every credential this project depends on operationally: scope, owner, storage location, and
-expiry. **Why it matters:** an expired credential fails silently until it breaks a release.
-**Names and metadata only** — never paste an actual token, key, or secret value here;
+This is the inventory of every credential the project depends on: scope, owner, storage location, and expiry.
+
+**Why it matters:** an expired credential fails silently until it breaks a release.
+
+**Watch out:** **Names and metadata only** — never paste an actual token, key, or secret value here;
 describe where it lives instead.
 
 ## Inventory

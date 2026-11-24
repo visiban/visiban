@@ -1,7 +1,10 @@
-# Maintainer Runbooks
+# Run the Visiban project: CI, credentials, and releases
 
-Operational reference for whoever runs the Visiban project itself — CI infrastructure,
-credentials, and known failure patterns. This is **not** end-user or self-hosted-instance
+These runbooks are for whoever runs the project itself: CI infrastructure, credentials, and known failure patterns.
+
+**Why it matters:** facts that only live in a maintainer's personal notes are invisible to everyone else, and nothing forces them to stay current.
+
+**Yes, but:** This is **not** end-user or self-hosted-instance
 documentation; see [Administration](../administration/index.md) for that audience.
 
 These pages exist because operational facts that only live in a maintainer's personal notes

@@ -1,11 +1,12 @@
-# CI Runners
+# Know which runner your CI job lands on
 
-Inventory and behavior of the GitLab Runners that execute Visiban's pipelines, and the traps
-that follow from how they're configured.
+Most jobs run on any untagged runner, so a job that needs one runner's resources can land on the wrong one.
 
 **Why it matters:** most jobs in `.gitlab-ci.yml` carry no `tags:`, so a job that needs a specific
 runner's resources can silently land on the wrong one and fail with a confusing error instead
 of "no runner available."
+
+**The big picture:** This page is the runner inventory, which jobs need which runner, and the traps that follow from how the runners are configured.
 
 ## Inventory
 

@@ -1,7 +1,10 @@
-# SonarCloud Runbook
+# Fix a yellow nightly SonarCloud scan
 
-Operational reference for the nightly SonarCloud scan: the token, the pipeline schedule, and
-what to do when something breaks. For what Sonar checks and the quality policy, see
+The nightly `sonar:scan` runs on a token and a pipeline schedule; this runbook covers both and what to do when it breaks.
+
+**Why it matters:** the token's owner and expiry are not recorded anywhere yet, so the first sign of an expired token is a yellow job.
+
+**Go deeper:** For what Sonar checks and the quality policy, see
 [SonarCloud](../development/sonarcloud.md).
 
 SonarCloud organization `visiban`, project key `visiban_visiban`

@@ -1,6 +1,10 @@
-# Deferred Security Follow-ups (`security::deferred`)
+# Stop a release while a deferred security issue is open
 
-A security finding noticed during review (by `security-review`, `rbac-check`,
+Every open `security::deferred` issue blocks `/pre-release full` and a GA `/release` unless it carries a valid, unexpired accepted-risk note.
+
+**Why it matters:** without a signal, a deferred security follow-up can sit open while a release ships.
+
+**The big picture:** A security finding noticed during review (by `security-review`, `rbac-check`,
 `completeness-check`, or a human) is sometimes deferred as a follow-up issue instead of
 fixed on the branch. Without a signal, that issue can sit open while a release ships.
 

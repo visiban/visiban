@@ -1,7 +1,10 @@
-# Hosted Demo (try.visiban.com)
+# Deploy try.visiban.com, and verify what CI cannot
 
-How the public demo is deployed, and what an operator must verify by hand — the preconditions
-no CI job can check. The chart side (values, guards, seed and reset, egress policy,
+An operator must check the hosted demo's preconditions by hand, because no CI job can see them.
+
+**Why it matters:** CI proves the chart on kind, not the real node or Cloudflare, so an unchecked precondition fails only in production.
+
+**The big picture:** This page covers how the public demo is deployed. The chart side (values, guards, seed and reset, egress policy,
 `helm test`) is documented for everyone in
 [Public demo mode](../administration/demo-data.md#public-demo-mode-helm); what follows is
 the one real deployment.

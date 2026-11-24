@@ -1,7 +1,10 @@
-# Security Scanners (CI)
+# Know which CI scanner blocks your merge
 
-Which CI security scanner can fail a pipeline, what it covers, and how to accept a finding
-without turning the scanner off. Where each job runs is in the table; it is not uniform.
+Nine CI security jobs can fail a pipeline, and each runs on a different trigger. Accept a finding with an expiring suppression, never by turning the scanner off.
+
+**Why it matters:** A scanner you think blocks but does not gives false safety, and one you disable to get green hides a real leak. The table below says which is which.
+
+**The big picture:** Where each job runs is in the table; it is not uniform.
 
 | Job | Source | Blocks? | Runs | Scope |
 |---|---|---|---|---|
@@ -15,9 +18,9 @@ without turning the scanner off. Where each job runs is in the table; it is not 
 | `clients-typescript-sast` | eslint-plugin-security (same rule set) | Yes, `error` rules | MR + `main` when `clients/typescript/**` changed | `clients/typescript/src` |
 | `trivy-scan` | Trivy (pinned by digest) | Yes, HIGH/CRITICAL vulnerability, misconfiguration and secret findings (#1072) | MR when its inputs change (Dockerfiles, lockfiles, Helm, the scan's own files) + the Nightly schedule (`CVE_SCAN=true`); **not** every `main` push (#1267) | Repo filesystem (lockfiles, Dockerfile IaC, secrets); not built images |
 
-`dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
+**Yes, but:** `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
 
-The secret scanners that gate are `gitleaks-scan`, `gitleaks-commits`, `gitleaks-history`, and
+**Watch out:** GitLab's analyzers exit 0 on findings. The secret scanners that gate are `gitleaks-scan`, `gitleaks-commits`, `gitleaks-history`, and
 `secret-detection-gate`. GitLab's analyzers exit 0 even when they find something, so
 `allow_failure: false` on the component's `secret_detection` job only turns an analyzer crash
 into a red job; it does not stop a leak. `secret-detection-gate` (`scripts/secret-detection-gate.py`,
