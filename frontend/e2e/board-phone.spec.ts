@@ -986,7 +986,8 @@ test.describe('phone board settings modal (#2404)', () => {
 })
 
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
-// lifted to 44px at 390px through it. Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
+// lifted to 44px at 390px through it. All 30 <ModalWrapper sites are covered (Board settings in its own #2404 block
+// above, every tab). Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
 // Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
 // block below (Delete column, Archive card, Add child, Admin Add user, Admin Transfer boards & deactivate, both Delete field dialogs, Move board, Trello import, Join a
 // group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).

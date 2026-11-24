@@ -198,7 +198,7 @@ Match the semantic role whenever it exists — tests that assert on role + acces
 3. `page.getByLabel('Email address')` — form controls without a visible label
 4. `page.getByPlaceholder('Search…')` — no label, has a placeholder
 5. `page.getByText('Download started')` — status copy with no interactive role
-6. `page.locator('#card-detail-title')` — last resort, when no accessible name exists
+6. `page.locator('#card-detail-title')` — last resort; the card title input has the accessible name "Card title" (`getByRole('textbox', { name: 'Card title' })`), and the card detail dialog is located with `page.getByTestId('card-detail-dialog')`
 
 Avoid class-based selectors (`page.locator('.btn-primary')`) — they break on every Tailwind refactor.
 
