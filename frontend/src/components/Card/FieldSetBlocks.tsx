@@ -247,6 +247,7 @@ export default function FieldSetBlocks(props: Props) {
       return () => container.removeEventListener("focusout", onOut);
     }
     apply();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a sets change regroups; definitions are only read for the moved field's name
   }, [props.sets]);
 
   const blocks = useMemo(() => buildCardBlocks(definitions, sets, swimlaneId, values), [definitions, sets, swimlaneId, values]);

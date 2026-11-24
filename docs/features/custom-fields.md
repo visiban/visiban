@@ -347,14 +347,18 @@ Board admins create, rename, reorder and delete sets; other roles see the list r
 set has a **name**, an optional **description** (up to 120 characters, shown under the name on
 the card), a **default size** (Collapsed, Summary or All fields), **Shows on** (every card, or
 only cards in chosen swimlanes), and its **fields**. A field is in at most one set; adding a
-field that is in another set moves it (pick it under **+ Add field**, then click **Add**). A board
+field that is in another set moves it. Pick fields in the **+ Add field** menu (listed as **Not in
+a set** or **In another set**) and click **Done**; choose swimlanes in the **Swimlanes** menu. Drag
+the handle to reorder sets, or the fields inside a set (on a phone, use the arrow buttons). Set order
+saves at once; field order saves with **Save field set**, and is the board's field order, so the
+**Card fields** tab shows the same fields in their new order. A board
 can have up to **10** sets. Leaving the section or closing Board settings with unsaved changes asks
 before discarding them. The **Card fields** tab shows each field's set. Admins can also open this
 section from a card with **Manage field sets**.
 
 **Deleting a set** moves its fields to **Other fields**. No field and no value is deleted.
 
-**Copy from another board** copies a set from any board you can read. Each of its fields
+**Copy from another board** opens **Copy a field set**, which copies a set from any board you can read. Each of its fields
 either reuses this board's field of the same name and type (when that field is in no set) or is
 created, named "{name} (copied)" if the name is taken. The copy has no link to the source:
 later changes on either board do not carry over. Values are never copied.

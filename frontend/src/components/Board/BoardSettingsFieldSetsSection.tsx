@@ -7,16 +7,25 @@
  * The delete confirm copy is built by `deleteSetPrompt` so entry requirements
  * (#1923, MR B) can append the requirements a delete widens.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { BoardFull, CustomFieldDefinition, CustomFieldSet, FieldSetSize } from "../../types";
 import {
-  copyFieldSet, createFieldSet, deleteFieldSet, listBoards, listCustomFieldDefinitions, listFieldSets,
-  reorderFieldSets, updateFieldSet, type FieldSetWrite,
+  createFieldSet, deleteFieldSet, listCustomFieldDefinitions, listFieldSets,
+  reorderCustomFields, reorderFieldSets, updateFieldSet, type FieldSetWrite,
 } from "../../api/boards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { Button, EmptyState, InlineConfirm, buttonClasses } from "../Page";
-import { CUSTOM_FIELD_TYPE_LABEL } from "../../utils/customFieldValue";
-import { FIELD_SET_CONFIRM_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt } from "../../utils/fieldSetSettings";
+import { useDragSensors } from "../../hooks/useDragSensors";
+import { useSortableFieldDrag } from "../../hooks/useSortableFieldDrag";
+import {
+  FIELD_SET_CONFIRM_ESCAPE_PRIORITY, FIELD_SET_MENU_ESCAPE_PRIORITY, SET_CAP, apiErrorMessage, deleteSetPrompt, fieldOrderWith, sortByPosition,
+} from "../../utils/fieldSetSettings";
+import CheckboxDropdown from "../Common/CheckboxDropdown";
+import CopyFieldSetDialog from "./CopyFieldSetDialog";
+import FieldSetFieldList from "./FieldSetFieldList";
+import SortableRow from "./SortableRow";
 
 /** Asks before leaving with unsaved edits: returns true when it took over `proceed`. */
 export type FieldSetCloseGuard = (proceed: () => void) => boolean;
@@ -40,9 +49,9 @@ interface Props {
 
 interface Draft { name: string; description: string; default_size: FieldSetSize; scope: "all" | "swimlanes"; swimlanes: number[]; field_ids: number[] }
 
-function draftOf(set: CustomFieldSet | null): Draft {
+function draftOf(set: CustomFieldSet | null, definitions: CustomFieldDefinition[] = []): Draft {
   return set
-    ? { name: set.name, description: set.description ?? "", default_size: set.default_size, scope: set.scope, swimlanes: [...set.swimlanes], field_ids: [...set.field_ids] }
+    ? { name: set.name, description: set.description ?? "", default_size: set.default_size, scope: set.scope, swimlanes: [...set.swimlanes], field_ids: sortByPosition(set.field_ids, definitions) }
     : { name: "", description: "", default_size: "summary", scope: "all", swimlanes: [], field_ids: [] };
 }
 
@@ -58,10 +67,9 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
-  const [pick, setPick] = useState("");
 
   const openSet = openId === "new" ? null : sets.find((s) => s.id === openId) ?? null;
-  const dirty = openId !== null && JSON.stringify(draft) !== JSON.stringify(draftOf(openSet));
+  const dirty = openId !== null && JSON.stringify(draft) !== JSON.stringify(draftOf(openSet, definitions));
   const atCap = sets.length >= SET_CAP;
   const grouped = new Set(sets.flatMap((s) => s.field_ids));
   const setOfField = (id: number) => sets.find((s) => s.field_ids.includes(id));
@@ -85,9 +93,8 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
     setPendingLeave(null);
     setConfirmDelete(false);
     setError(null);
-    setPick("");
     setOpenId(id);
-    setDraft(draftOf(id === "new" || id === null ? null : sets.find((s) => s.id === id) ?? null));
+    setDraft(draftOf(id === "new" || id === null ? null : sets.find((s) => s.id === id) ?? null, definitions));
   };
   const requestOpen = (id: number | "new" | null) => {
     if (dirty) { setPendingLeave(() => () => doOpen(id)); return; }
@@ -133,9 +140,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
   };
 
   useEscapeStack(() => {
+    // The copy dialog is on top of everything else here.
+    if (copyOpen) { closeCopy(); return true; }
     if (confirmDelete) { cancelDelete(); return true; }
     if (pendingLeave) { cancelLeave(); return true; }
-    if (copyOpen) { closeCopy(); return true; }
     return false;
   }, FIELD_SET_CONFIRM_ESCAPE_PRIORITY);
 
@@ -151,7 +159,19 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
       // A new set's row replaces the "new" row, taking the focused editor with it.
       if (!openSet) focusNext.current = () => rowRefs.current.get(saved.id);
       setOpenId(saved.id);
-      setDraft(draftOf(saved));
+      // Order within a set is the board's field order: permute only this set's slots.
+      const order = fieldOrderWith(definitions, draft.field_ids);
+      if (order) {
+        try {
+          onFieldsUpdated(await reorderCustomFields(board.id, order));
+        } catch (e) {
+          // The set is saved; the draft keeps its order so Save can retry it.
+          setDraft({ ...draftOf(saved, definitions), field_ids: draft.field_ids });
+          setError({ where: "editor", text: apiErrorMessage(e, "The field set was saved, but its field order was not.") });
+          return;
+        }
+      }
+      setDraft({ ...draftOf(saved, definitions), field_ids: draft.field_ids });
       setStatus("Field set saved.");
     } catch (e) {
       setError({ where: "editor", text: apiErrorMessage(e, "Could not save the field set.") });
@@ -180,22 +200,27 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
     }
   };
 
-  const move = async (index: number, delta: number) => {
-    const order = sets.map((s) => s.id);
-    const target = index + delta;
-    if (target < 0 || target >= order.length) return;
-    [order[index], order[target]] = [order[target], order[index]];
+  const reorder = async (from: number, to: number) => {
+    if (to < 0 || to >= sets.length || from === to) return;
+    const next = arrayMove(sets, from, to);
     setError(null);
+    // Shown at once so a dropped row does not snap back; restored on refusal.
+    onFieldSetsUpdated(next.map((s, position) => ({ ...s, position })));
     try {
-      onFieldSetsUpdated(await reorderFieldSets(board.id, order));
+      onFieldSetsUpdated(await reorderFieldSets(board.id, next.map((s) => s.id)));
       setStatus("Field sets reordered.");
     } catch (e) {
+      onFieldSetsUpdated(sets);
       setError({ where: "section", text: apiErrorMessage(e, "Could not reorder the field sets.") });
     }
   };
+  const dragSensors = useDragSensors({ keyboard: true, sortable: true });
+  const setDrag = useSortableFieldDrag(sets, "set");
+  const onSetDragEnd = ({ active, over }: DragEndEvent) => {
+    if (over) void reorder(sets.findIndex((s) => s.id === active.id), sets.findIndex((s) => s.id === over.id));
+  };
 
   const nameMissing = !draft.name.trim();
-  const addable = definitions.filter((d) => !draft.field_ids.includes(d.id));
   const elsewhere = (id: number) => {
     const owner = setOfField(id);
     return owner && owner.id !== openSet?.id ? owner : undefined;
@@ -208,7 +233,7 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
         {isAdmin && (
           <div className="flex items-center gap-2 flex-wrap">
             <button ref={copyButtonRef} type="button" className={BTN_SECONDARY} aria-disabled={atCap}
-              aria-expanded={copyOpen} aria-controls={copyOpen ? "field-set-copy-panel" : undefined}
+              aria-haspopup="dialog"
               aria-describedby={atCap ? "field-set-cap-reason" : undefined}
               onClick={() => { if (!atCap) setCopyOpen(true); }}>Copy from another board</button>
             <button ref={newButtonRef} type="button" className={BTN_PRIMARY} aria-disabled={atCap}
@@ -224,7 +249,7 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
       {!isAdmin && <p className="text-xs text-fg-muted">Only board admins can add or edit field sets.</p>}
       {error?.where === "section" && <p role="alert" className="text-xs text-danger">{error.text}</p>}
       {copyOpen && isAdmin && (
-        <CopyFieldSetPanel board={board} onClose={closeCopy} onCopied={async (created) => {
+        <CopyFieldSetDialog board={board} onClose={closeCopy} onCopied={async (created) => {
           onFieldSetsUpdated((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
           // The copy exists now: a failed re-read must not read as a failed copy,
           // or the retry makes a duplicate.
@@ -256,6 +281,9 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
           description="A field set groups related card fields into one collapsible block."
           action={isAdmin ? <button type="button" className={BTN_SECONDARY} onClick={() => doOpen("new")}>Create a field set</button> : undefined} />
       )}
+      <DndContext sensors={dragSensors} collisionDetection={closestCenter} accessibility={setDrag.accessibility}
+        onDragStart={setDrag.onDragStart} onDragCancel={setDrag.onDragCancel} onDragEnd={setDrag.wrapDragEnd(onSetDragEnd)}>
+      <SortableContext items={sets.map((s) => s.id)} strategy={verticalListSortingStrategy}>
       <ul className="flex flex-col gap-2">
         {[...sets, ...(openId === "new" ? [null] : [])].map((set, index) => {
           const id = set?.id ?? "new";
@@ -270,9 +298,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
             </>
           );
           const title = set ? `${set.name} · ${meta}` : undefined;
-          return (
-            <li key={id} className="rounded border border-line">
+          const body = (handle: ReactNode) => (
+            <>
               <div className="flex items-center gap-2 px-3 min-h-11">
+                {handle}
                 {isAdmin ? (
                   <button ref={(el) => { rowRefs.current.set(id, el); }} type="button" aria-expanded={open} title={title}
                     onClick={() => requestOpen(open ? null : id)}
@@ -287,8 +316,8 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                 )}
                 {isAdmin && set && (
                   <>
-                    <button type="button" className={`${BTN_QUIET} max-sm:min-w-11`} aria-label={`Move ${set.name} earlier`} aria-disabled={index === 0} onClick={() => void move(index, -1)}>↑</button>
-                    <button type="button" className={`${BTN_QUIET} max-sm:min-w-11`} aria-label={`Move ${set.name} later`} aria-disabled={index === sets.length - 1} onClick={() => void move(index, 1)}>↓</button>
+                    <button type="button" className={`${BTN_QUIET} sm:hidden max-sm:min-w-11`} aria-label={`Move ${set.name} earlier`} aria-disabled={index === 0} onClick={() => void reorder(index, index - 1)}>↑</button>
+                    <button type="button" className={`${BTN_QUIET} sm:hidden max-sm:min-w-11`} aria-label={`Move ${set.name} later`} aria-disabled={index === sets.length - 1} onClick={() => void reorder(index, index + 1)}>↓</button>
                   </>
                 )}
               </div>
@@ -320,50 +349,24 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                     </label>
                     {board.swimlanes.length === 0 && <p className="text-xs text-fg-muted">This board has no swimlanes.</p>}
                     {draft.scope === "swimlanes" && (
-                      <div className="flex flex-col gap-1 pl-6">
-                        {board.swimlanes.map((sw) => (
-                          <label key={sw.id} className="flex items-center gap-1.5 text-sm max-sm:min-h-11">
-                            <input type="checkbox" checked={draft.swimlanes.includes(sw.id)} onChange={(e) => setDraft({
-                              ...draft, swimlanes: e.target.checked ? [...draft.swimlanes, sw.id] : draft.swimlanes.filter((x) => x !== sw.id),
-                            })} />{sw.name}
-                          </label>
-                        ))}
+                      <div className="pl-6">
+                        <CheckboxDropdown
+                          label="Swimlanes"
+                          options={board.swimlanes.map((sw) => ({ value: sw.id, label: sw.name }))}
+                          selected={draft.swimlanes}
+                          onChange={(swimlanes) => setDraft({ ...draft, swimlanes })}
+                          escapePriority={FIELD_SET_MENU_ESCAPE_PRIORITY}
+                        />
                       </div>
                     )}
                   </fieldset>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-xs text-fg-muted">Fields</p>
-                    <ul className="flex flex-col gap-1">
-                      {definitions.filter((d) => draft.field_ids.includes(d.id)).sort((a, b) => a.position - b.position).map((d) => (
-                        <li key={d.id} className="flex items-center gap-2 text-sm">
-                          <span className="flex-1 truncate" title={d.name}>{d.name} <span className="text-xs text-fg-muted">{CUSTOM_FIELD_TYPE_LABEL[d.field_type]}</span></span>
-                          <button type="button" className={BTN_QUIET} aria-label={`Remove ${d.name} from ${draft.name || "this set"}`}
-                            onClick={() => setDraft({ ...draft, field_ids: draft.field_ids.filter((x) => x !== d.id) })}>Remove</button>
-                        </li>
-                      ))}
-                    </ul>
-                    {/* Choosing never commits (WCAG 3.2.2): arrowing a closed select would add fields one by one. */}
-                    <div className="flex items-end gap-2">
-                      <label className="flex-1 min-w-0 flex flex-col gap-1 text-xs text-fg-muted">+ Add field
-                        <select className={INPUT} value={pick} onChange={(e) => setPick(e.target.value)}>
-                          <option value="">Choose a field…</option>
-                          <optgroup label="Not in a set">
-                            {addable.filter((d) => !elsewhere(d.id)).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                          </optgroup>
-                          <optgroup label="In another set">
-                            {addable.filter((d) => elsewhere(d.id)).map((d) => (
-                              <option key={d.id} value={d.id}>{d.name} (moves it out of {elsewhere(d.id)?.name})</option>
-                            ))}
-                          </optgroup>
-                        </select>
-                      </label>
-                      <button type="button" className={BTN_SECONDARY} aria-disabled={!pick} onClick={() => {
-                        if (!pick) return;
-                        setDraft({ ...draft, field_ids: [...draft.field_ids, Number(pick)] });
-                        setPick("");
-                      }}>Add</button>
-                    </div>
-                  </div>
+                  <FieldSetFieldList
+                    definitions={definitions}
+                    fieldIds={draft.field_ids}
+                    setName={draft.name}
+                    otherSetOf={(fieldId) => elsewhere(fieldId)?.name}
+                    onChange={(field_ids) => setDraft({ ...draft, field_ids })}
+                  />
                   {confirmDelete && openSet ? (
                     <InlineConfirm message={deleteSetPrompt(openSet)} actionLabel="Delete set" busy={busy}
                       onCancel={cancelDelete} onConfirm={() => void remove()} />
@@ -381,107 +384,16 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                   {error?.where === "editor" && <p role="alert" className="text-xs text-danger">{error.text}</p>}
                 </div>
               )}
-            </li>
+            </>
           );
+          return set && isAdmin
+            ? <SortableRow key={id} id={set.id} name={set.name} className="rounded border border-line bg-surface">{body}</SortableRow>
+            : <li key={id} className="rounded border border-line">{body(null)}</li>;
         })}
       </ul>
+      </SortableContext>
+      </DndContext>
       <div role="status" aria-live="polite" className="sr-only">{status}</div>
-    </div>
-  );
-}
-
-/** Copy a field set: pick a board, then one of its sets, preview per field, name, copy. */
-export function CopyFieldSetPanel({ board, onClose, onCopied }: { board: BoardFull; onClose: () => void; onCopied: (s: CustomFieldSet) => void | Promise<void> }) {
-  const [boards, setBoards] = useState<{ id: number; name: string }[]>([]);
-  const [sourceBoard, setSourceBoard] = useState<number | null>(null);
-  const [sourceSets, setSourceSets] = useState<CustomFieldSet[]>([]);
-  const [sourceDefs, setSourceDefs] = useState<CustomFieldDefinition[]>([]);
-  const [sourceSet, setSourceSet] = useState<number | null>(null);
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const boardSelectRef = useRef<HTMLSelectElement>(null);
-  const request = useRef(0);
-  useEffect(() => { boardSelectRef.current?.focus(); }, []);
-  const chooseBoard = (id: number | null) => {
-    // Clear at once and drop late answers, so board and set can never mismatch.
-    const mine = ++request.current;
-    setSourceBoard(id);
-    setSourceSets([]);
-    setSourceDefs([]);
-    setSourceSet(null);
-    setName("");
-    setError(null);
-    setLoading(id !== null);
-    if (id === null) return;
-    Promise.all([listFieldSets(id), listCustomFieldDefinitions(id)])
-      .then(([s, d]) => { if (mine !== request.current) return; setSourceSets(s); setSourceDefs(d); setLoading(false); })
-      .catch(() => { if (mine !== request.current) return; setError("Could not load that board's field sets."); setLoading(false); });
-  };
-  useEffect(() => { listBoards().then((bs) => setBoards(bs.filter((b) => b.id !== board.id).map((b) => ({ id: b.id, name: b.name })))).catch(() => setError("Could not load your boards.")); }, [board.id]);
-  const chosen = sourceSets.find((s) => s.id === sourceSet) ?? null;
-  const preview = chosen ? sourceDefs.filter((d) => chosen.field_ids.includes(d.id)).map((d) => {
-    const local = board.custom_field_definitions.find((l) => l.name === d.name);
-    const grouped = local && (board.custom_field_sets ?? []).some((s) => s.field_ids.includes(local.id));
-    if (local && local.field_type === d.field_type && !grouped) return { d, text: "Uses existing field" };
-    if (local) return { d, text: `Creates ${d.name} (copied)` };
-    return { d, text: "Creates new field" };
-  }) : [];
-  const adds = preview.filter((p) => p.text !== "Uses existing field").length;
-  const room = 30 - board.custom_field_definitions.length;
-  const copy = async () => {
-    if (!chosen || sourceBoard === null || adds > room || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await onCopied(await copyFieldSet(board.id, { source_board: sourceBoard, source_set: chosen.id, name: name.trim() || undefined }));
-    } catch (e) {
-      setError(apiErrorMessage(e, "Could not copy the field set."));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div id="field-set-copy-panel" role="group" aria-label="Copy a field set" className="flex flex-col gap-2 rounded border border-line p-3">
-      <p className="text-sm font-semibold text-fg">Copy a field set</p>
-      <label className="flex flex-col gap-1 text-xs text-fg-muted">Board
-        <select ref={boardSelectRef} className={INPUT} value={sourceBoard ?? ""} onChange={(e) => chooseBoard(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">Choose a board…</option>
-          {boards.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-      </label>
-      {sourceBoard !== null && (
-        <label className="flex flex-col gap-1 text-xs text-fg-muted">Field set
-          <select className={INPUT} value={sourceSet ?? ""} onChange={(e) => {
-            const id = e.target.value ? Number(e.target.value) : null;
-            setError(null);
-            setSourceSet(id);
-            const s = sourceSets.find((x) => x.id === id);
-            const taken = new Set((board.custom_field_sets ?? []).map((x) => x.name));
-            setName(s ? (taken.has(s.name) ? `${s.name} (copy)` : s.name) : "");
-          }}>
-            <option value="">{loading ? "Loading…" : sourceSets.length ? "Choose a set…" : "That board has no field sets"}</option>
-            {sourceSets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-      )}
-      {chosen && (
-        <>
-          <ul className="flex flex-col gap-0.5 text-sm" aria-label="Preview">
-            {preview.map(({ d, text }) => <li key={d.id}>{d.name} <span className="text-xs text-fg-muted">— {text}</span></li>)}
-          </ul>
-          <label className="flex flex-col gap-1 text-xs text-fg-muted">Name
-            <input className={INPUT} maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          {adds > room && <p className="text-xs text-danger">Copying adds {adds} fields; this board has room for {Math.max(room, 0)}. Delete fields or choose a smaller set.</p>}
-        </>
-      )}
-      <div role="status" className="text-xs text-danger">{error}</div>
-      <div className="flex justify-end gap-2">
-        <Button variant="quiet" onClick={onClose}>Cancel</Button>
-        <button type="button" className={BTN_PRIMARY} aria-disabled={!chosen || adds > room || busy} aria-busy={busy || undefined} onClick={() => void copy()}>Copy field set</button>
-      </div>
     </div>
   );
 }

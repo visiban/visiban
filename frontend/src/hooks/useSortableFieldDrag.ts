@@ -16,13 +16,13 @@ export const FIELD_DRAG_ESCAPE_PRIORITY = 40.7;
  * only while a drag is in progress. Field ids are stable, so unlike the choice
  * rows no focus-follow is needed.
  */
-export function useSortableFieldDrag(fields: { id: UniqueIdentifier; name: string }[]) {
+export function useSortableFieldDrag(fields: { id: UniqueIdentifier; name: string }[], noun: "field" | "set" = "field") {
   const dragging = useRef(false);
   useEscapeStack(() => (dragging.current ? undefined : false), FIELD_DRAG_ESCAPE_PRIORITY);
 
   const nameAt = (id: UniqueIdentifier, start = false) => {
     const f = fields.find((x) => x.id === id);
-    return `${start ? "Field" : "field"} ${f?.name ?? ""}`.trim();
+    return `${start ? noun[0].toUpperCase() + noun.slice(1) : noun} ${f?.name ?? ""}`.trim();
   };
   const position = (id: UniqueIdentifier) => `position ${fields.findIndex((x) => x.id === id) + 1} of ${fields.length}`;
 
@@ -37,7 +37,7 @@ export function useSortableFieldDrag(fields: { id: UniqueIdentifier; name: strin
     accessibility: {
       announcements,
       screenReaderInstructions: {
-        draggable: "To reorder a field, press Space or Enter to pick it up, the arrow keys to move it, Space or Enter to drop it, or Escape to cancel.",
+        draggable: `To reorder a ${noun}, press Space or Enter to pick it up, the arrow keys to move it, Space or Enter to drop it, or Escape to cancel.`,
       },
     },
     onDragStart: () => { dragging.current = true; },

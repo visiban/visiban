@@ -16,12 +16,15 @@ vi.mock("../components/Card/CustomFieldEditRow", () => ({
 }));
 vi.mock("../api/boards", () => ({
   createFieldSet: vi.fn(), updateFieldSet: vi.fn(), deleteFieldSet: vi.fn(), listFieldSets: vi.fn(),
-  reorderFieldSets: vi.fn(), copyFieldSet: vi.fn(), listBoards: vi.fn(), listCustomFieldDefinitions: vi.fn(),
+  reorderFieldSets: vi.fn(), reorderCustomFields: vi.fn(), copyFieldSet: vi.fn(), listBoards: vi.fn(), listCustomFieldDefinitions: vi.fn(),
 }));
 import * as api from "../api/boards";
 import FieldSetBlocks, { MAXIMIZE_ESCAPE_PRIORITY } from "../components/Card/FieldSetBlocks";
-import BoardSettingsFieldSetsSection, { CopyFieldSetPanel } from "../components/Board/BoardSettingsFieldSetsSection";
-import { deleteSetPrompt, apiErrorMessage, FIELD_SET_CONFIRM_ESCAPE_PRIORITY } from "../utils/fieldSetSettings";
+import BoardSettingsFieldSetsSection from "../components/Board/BoardSettingsFieldSetsSection";
+import CopyFieldSetDialog from "../components/Board/CopyFieldSetDialog";
+import {
+  deleteSetPrompt, apiErrorMessage, FIELD_SET_CONFIRM_ESCAPE_PRIORITY, fieldOrderWith, insertByPosition, sortByPosition,
+} from "../utils/fieldSetSettings";
 
 const def = (id: number, name: string, field_type: CustomFieldDefinition["field_type"] = "text", extra: Partial<CustomFieldDefinition> = {}): CustomFieldDefinition => ({
   id, uid: `u${id}`, name, field_type, choices: [], position: id, show_on_card: false, is_required: false, help_text: "",
@@ -193,8 +196,10 @@ describe("BoardSettingsFieldSetsSection", () => {
     render(<BoardSettingsFieldSetsSection board={board} isAdmin onFieldSetsUpdated={onSets} onFieldsUpdated={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "New field set" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: " New " } });
-    fireEvent.change(screen.getByLabelText("+ Add field"), { target: { value: "5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Add field" }));
+    fireEvent.mouseDown(screen.getByRole("option", { name: "Notes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("button", { name: "Remove Notes from New" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save field set" }));
     await waitFor(() => expect(api.createFieldSet).toHaveBeenCalledWith(1, expect.objectContaining({ name: "New", field_ids: [5], description: null })));
     await waitFor(() => expect(onSets).toHaveBeenCalledWith([fset(3, "New", [5])]));
@@ -270,7 +275,7 @@ describe("BoardSettingsFieldSetsSection", () => {
     vi.mocked(api.listCustomFieldDefinitions).mockResolvedValue([def(31, "Notes"), def(32, "Metrics"), def(33, "Brand new")]);
     vi.mocked(api.copyFieldSet).mockResolvedValue(fset(21, "MEDDIC (copy)", [5]));
     const onCopied = vi.fn();
-    render(<CopyFieldSetPanel board={board} onClose={vi.fn()} onCopied={onCopied} />);
+    render(<CopyFieldSetDialog board={board} onClose={vi.fn()} onCopied={onCopied} />);
     await act(async () => {});
     fireEvent.change(screen.getByLabelText("Board"), { target: { value: "9" } });
     await act(async () => {});
@@ -457,8 +462,10 @@ describe("Field sets settings focus, guard and errors (#2570)", () => {
     vi.mocked(api.copyFieldSet).mockReturnValue(new Promise(() => {}));
     mount();
     const trigger = screen.getByRole("button", { name: "Copy from another board" });
+    trigger.focus();
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
     fireEvent.click(trigger);
-    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("dialog", { name: "Copy a field set" })).toHaveAttribute("aria-modal", "true");
     const select = screen.getByLabelText("Board");
     expect(select).toHaveFocus();
     await screen.findByRole("option", { name: "Slow" });
@@ -474,7 +481,7 @@ describe("Field sets settings focus, guard and errors (#2570)", () => {
     fireEvent.click(copy);
     expect(api.copyFieldSet).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("group", { name: "Copy a field set" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Copy a field set" })).toBeNull();
     expect(trigger).toHaveFocus();
   });
 });
@@ -500,5 +507,68 @@ describe("read-only field row in a set block (#2570)", () => {
     render(<Row definition={def(3, "Signed", "checkbox")} value="true" disabled onSave={vi.fn()} fieldSetCell />);
     expect(screen.getByText("Signed")).toBeInTheDocument();
     expect(screen.getByText("Yes")).toBeInTheDocument();
+  });
+});
+
+describe("field set editor controls (#2570, ux-design section 4)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const mount = (over: Partial<Parameters<typeof BoardSettingsFieldSetsSection>[0]> = {}) =>
+    render(<BoardSettingsFieldSetsSection board={board} isAdmin onFieldSetsUpdated={vi.fn()} onFieldsUpdated={vi.fn()} {...over} />);
+  const open = () => fireEvent.click(screen.getByRole("button", { name: /^MEDDIC/ }));
+
+  it("orders, inserts and permutes only the set's own slots", () => {
+    expect(sortByPosition([5, 1], defs)).toEqual([1, 5]);
+    expect(insertByPosition([1, 5], 3, defs)).toEqual([1, 3, 5]);
+    expect(insertByPosition([1], 3, defs)).toEqual([1, 3]);
+    expect(fieldOrderWith(defs, [1, 3])).toBeNull();
+    expect(fieldOrderWith(defs, [3, 1])).toEqual([3, 2, 1, 4, 5]);
+  });
+
+  it("groups Add field, says a pick moves it, and Escape closes only the menu", () => {
+    mount();
+    open();
+    fireEvent.click(screen.getByRole("button", { name: "+ Add field" }));
+    expect(within(screen.getByRole("group", { name: "Not in a set" })).getByRole("option", { name: "Notes" })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: "In another set" })).getByRole("option", { name: /Tags/ })).toHaveTextContent("Moves it out of Money");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.getByRole("button", { name: "+ Add field" })).toHaveFocus();
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  });
+
+  it("picks swimlanes in a dropdown", async () => {
+    mount();
+    open();
+    fireEvent.click(screen.getByLabelText("Only cards in these swimlanes"));
+    fireEvent.click(screen.getByRole("button", { name: "Swimlanes" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enterprise" }));
+    expect(screen.getByRole("button", { name: "Swimlanes: All" })).toBeInTheDocument();
+  });
+
+  it("has a drag handle per set and field, and saves a new field order", async () => {
+    const onFields = vi.fn();
+    vi.mocked(api.updateFieldSet).mockResolvedValue(fset(1, "MEDDIC", [1, 2]));
+    vi.mocked(api.listFieldSets).mockResolvedValue(board.custom_field_sets!);
+    vi.mocked(api.reorderCustomFields).mockRejectedValueOnce(new Error("x")).mockResolvedValue(defs);
+    mount({ onFieldsUpdated: onFields });
+    expect(screen.getByRole("button", { name: "Drag to reorder MEDDIC" })).toBeInTheDocument();
+    open();
+    expect(screen.getByRole("button", { name: "Drag to reorder Champion" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Move Champion earlier" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save field set" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("its field order was not");
+    fireEvent.click(screen.getByRole("button", { name: "Save field set" }));
+    await waitFor(() => expect(onFields).toHaveBeenCalledWith(defs));
+    expect(api.reorderCustomFields).toHaveBeenLastCalledWith(1, [2, 1, 3, 4, 5]);
+  });
+
+  it("restores the old set order when the server refuses", async () => {
+    const onSets = vi.fn();
+    vi.mocked(api.reorderFieldSets).mockRejectedValue(new Error("x"));
+    mount({ onFieldSetsUpdated: onSets });
+    fireEvent.click(screen.getByRole("button", { name: "Move Money earlier" }));
+    await screen.findByRole("alert");
+    expect((onSets.mock.calls[0][0] as CustomFieldSet[]).map((s) => s.id)).toEqual([2, 1]);
+    expect((onSets.mock.calls[1][0] as CustomFieldSet[]).map((s) => s.id)).toEqual([1, 2]);
   });
 });
