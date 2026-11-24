@@ -2,7 +2,7 @@
   {
     "iid": 1,
     "title": "rescued",
-    "description": "## Gates\n- gate: perf-check — 0 findings\nrescue: #10 — trigger 1 implementer strike two; choice fable; outcome resolved\nrescue: #11 - trigger 2 round-2 BLOCKER; choice opus-again; outcome failed\n"
+    "description": "## Gates\n- gate: perf-check — 0 findings\nrescue: #10 — trigger 1; choice fable; outcome resolved\nrescue: #11 - trigger 2; choice opus-again; outcome failed\n"
   },
   {
     "iid": 2,

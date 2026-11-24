@@ -101,14 +101,16 @@ COSTISH_RE = re.compile(r"^\s*(?:[-*]\s*)?(cost|turns|tokens|subagent-tokens|orc
 LEDGER_OFF_RE = re.compile(r"^\s*(?:[-*]\s*)?cost-ledger:\s*off\s*$", re.I)
 LEDGER_LINE_RE = re.compile(r"^\s*(?:[-*]\s*)?cost-ledger:", re.I)
 # The /wave Fable-rescue line (#2304, blueprint#403): `rescue: none` when no rescue trigger fired, else one
-# `rescue: #N - trigger <1|2>; choice <...>; outcome <...>` line per issue a trigger fired on. It is not a cost
-# line, but it lives in `## Gates` beside them, and /kaizen reads it from here.
+# `rescue: #N — trigger <1|2>; choice <...>; outcome <...>` line, up to two per issue a trigger fired on (the
+# question is asked again after a failed Opus-again run). The trigger is the literal `1` or `2` with no
+# descriptive words, and the separator is an em dash or one hyphen. It is not a cost line, but it lives in
+# `## Gates` beside them, and /kaizen reads it from here.
 RESCUE_CHOICES = ("fable", "opus-again", "dropped", "escalation-pending")
 RESCUE_LINE_RE = re.compile(r"^\s*(?:[-*]\s*)?rescue:", re.I)
 RESCUE_NONE_RE = re.compile(r"^\s*(?:[-*]\s*)?rescue:\s*none\s*$", re.I)
 RESCUE_RE = re.compile(
-    r"^\s*(?:[-*]\s*)?rescue:\s*#(?P<issue>[0-9]{1,9})\s*(?:[\u2014\u2013]|-{1,2})\s*"
-    r"trigger\s+(?P<trigger>[12])(?:\s+[A-Za-z0-9 -]{1,40})?\s*;\s*"
+    r"^\s*(?:[-*]\s*)?rescue:\s*#(?P<issue>[0-9]{1,9})\s*[\u2014-]\s*"
+    r"trigger\s+(?P<trigger>[12])\s*;\s*"
     r"choice\s+(?P<choice>" + "|".join(RESCUE_CHOICES) + r")\s*;\s*"
     r"outcome\s+(?P<outcome>resolved|failed|n/a)\s*$", re.I)
 # Keys that carry a cost figure, as opposed to `budget-exceeded:` (a count of agents).
@@ -239,6 +241,13 @@ def rescue_records(body):
     return found, rows
 
 
+def rescue_malformed(body):
+    """How many `rescue:` lines in `## Gates` are neither `rescue: none` nor a well-formed record. check_body
+    rejects them; /kaizen counts them (they are not counted as rescues) and warns."""
+    return sum(1 for line in ledger_lines(body)
+               if RESCUE_LINE_RE.match(line) and not RESCUE_NONE_RE.match(line) and not RESCUE_RE.match(line))
+
+
 def check_body(body):
     """Problems with the cost lines of one MR description, as fixed strings (never the line text)."""
     problems = []
@@ -282,12 +291,16 @@ def check_body(body):
                 rescue_rows += 1
             else:
                 problems.append("`## Gates` line %d: malformed `rescue:` line; write `rescue: none` or "
-                                "`rescue: #N - trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>; "
+                                "`rescue: #N \u2014 trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>; "
                                 "outcome <resolved|failed|n/a>`" % n)
     if rescue_none > 1:
         problems.append("more than one `rescue: none` line in the `## Gates` section (one per MR)")
     if rescue_none and rescue_rows:
         problems.append("`rescue: none` together with a `rescue: #N` line (contradictory)")
+    per_issue = collections.Counter(r["issue"] for r in rescue_records(body)[1])
+    if per_issue and max(per_issue.values()) > 2:
+        problems.append("three or more `rescue:` lines name the same issue (at most two per issue: trigger 1, "
+                        "then trigger 2 after a failed Opus-again run)")
     markers = count(LEDGER_OFF_RE)
     if markers > 1:
         problems.append("more than one `cost-ledger: off` line in the `## Gates` section (one per MR)")
@@ -338,9 +351,14 @@ def self_test():
          wrap("- gate: security-review — 1 findings (sonnet; medium; budget-stopped)",
               "budget-exceeded: 1 (gate 1)")),
         ("rescue: none (#2304)", wrap("rescue: none")),
-        ("one rescue line, em dash", wrap("rescue: #2304 \u2014 trigger 1 implementer strike two; choice fable; outcome resolved")),
-        ("two rescue lines with a hyphen and a bullet",
-         wrap("- rescue: #1 - trigger 2; choice opus-again; outcome failed", "rescue: #2 -- trigger 2 round-2 BLOCKER; choice dropped; outcome n/a")),
+        ("one rescue line, em dash", wrap("rescue: #2304 \u2014 trigger 1; choice fable; outcome resolved")),
+        ("two rescue lines for different issues, a hyphen and a bullet",
+         wrap("- rescue: #1 - trigger 2; choice opus-again; outcome failed", "rescue: #2 - trigger 2; choice dropped; outcome n/a")),
+        ("two rescue lines for one issue (trigger 1 then trigger 2)",
+         wrap("rescue: #5 \u2014 trigger 1; choice opus-again; outcome failed",
+              "rescue: #5 \u2014 trigger 2; choice fable; outcome resolved")),
+        ("a malformed rescue line inside a code fence is not read", wrap("```", "rescue: yes", "```")),
+        ("a malformed rescue line outside `## Gates` is not read", wrap() + "\n## Other\nrescue: yes\n"),
         ("rescue beside cost lines", wrap("subagent-tokens: 5", "rescue: none", "budget-exceeded: 0")),
         ("cost ledger off, marker alone", wrap("cost-ledger: off")),
         ("cost ledger off, bulleted marker", wrap("- cost-ledger: off")),
@@ -393,6 +411,16 @@ def self_test():
         ("rescue: none contradicted by a rescue line", wrap("rescue: none", "rescue: #1 - trigger 1; choice fable; outcome failed")),
         ("doubled rescue: none", wrap("rescue: none", "rescue: none")),
         ("bare rescue prose", wrap("rescue: used fable once")),
+        ("rescue with descriptive words after the trigger",
+         wrap("rescue: #1 \u2014 trigger 1 implementer strike two; choice fable; outcome resolved")),
+        ("rescue with an en dash", wrap("rescue: #1 \u2013 trigger 1; choice fable; outcome resolved")),
+        ("rescue with a double hyphen", wrap("rescue: #1 -- trigger 1; choice fable; outcome resolved")),
+        ("rescue with an oversized issue number",
+         wrap("rescue: #" + "9" * 30 + " \u2014 trigger 1; choice fable; outcome failed")),
+        ("the same issue rescued three times",
+         wrap("rescue: #5 \u2014 trigger 1; choice fable; outcome failed",
+              "rescue: #5 \u2014 trigger 2; choice opus-again; outcome failed",
+              "rescue: #5 \u2014 trigger 2; choice fable; outcome resolved")),
         ("doubled cost-ledger marker", wrap("cost-ledger: off", "cost-ledger: off")),
     ]
     fails, ran = [], [0]
@@ -445,6 +473,19 @@ def self_test():
     check("budget readers: huge or non-ASCII counts are None, never a crash",
           budget_exceeded(wrap("budget-exceeded: " + "9" * 5000)) is None
           and budget_exceeded(wrap("budget-exceeded: \u0663\u0663")) is None)
+    # The rescue reader: a fenced or out-of-section line is not a ledger line, so it is not counted either.
+    check("rescue_records: a fenced line is not counted", rescue_records(wrap("```", "rescue: none", "```")) == (False, []))
+    check("rescue_records: a line outside `## Gates` is not counted",
+          rescue_records("## Gates\n- gate: x \u2014 0 findings\n\n## Notes\nrescue: none\n") == (False, []))
+    check("rescue_records: an oversized issue number is not counted",
+          rescue_records(wrap("rescue: #" + "9" * 30 + " \u2014 trigger 1; choice fable; outcome failed")) == (False, []))
+    check("rescue_malformed: counts only malformed lines in `## Gates`",
+          rescue_malformed(wrap("rescue: yes", "rescue: none", "rescue: #1 \u2014 trigger 1; choice fable; outcome failed",
+                                "rescue: #1 \u2014 trigger 3; choice fable; outcome failed", "```", "rescue: no", "```")) == 2
+          and rescue_malformed(wrap("rescue: none")) == 0)
+    check("rescue_records: two lines for one issue are both read",
+          len(rescue_records(wrap("rescue: #5 \u2014 trigger 1; choice opus-again; outcome failed",
+                                  "rescue: #5 \u2014 trigger 2; choice fable; outcome resolved"))[1]) == 2)
     # The CLI.
     import io
     import tempfile

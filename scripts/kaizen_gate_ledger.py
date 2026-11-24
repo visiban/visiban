@@ -483,10 +483,13 @@ def analyze_rescue(mrs):
 
     `reported` is the MRs carrying a well-formed `rescue:` line (`rescue: none` counts: a zero is a
     reading, and an MR with no line is silent, not zero). `by_choice` always carries every choice,
-    zero included, each split by outcome, so a window with no rescues still prints the zeros."""
+    zero included, each split by outcome, so a window with no rescues still prints the zeros.
+    `malformed` counts the `rescue:` lines in `## Gates` that parse as neither form (macrodream/blueprint#403):
+    they are not counted as rescues, and the text report says so."""
     by_choice = {c: {"total": 0, "resolved": 0, "failed": 0, "n/a": 0} for c in cost_lines.RESCUE_CHOICES}
-    reported = rescued_mrs = 0
+    reported = rescued_mrs = malformed = 0
     for mr in mrs:
+        malformed += cost_lines.rescue_malformed(mr.get("description") or "")
         found, rows = cost_lines.rescue_records(mr.get("description") or "")
         if not found:
             continue
@@ -498,7 +501,17 @@ def analyze_rescue(mrs):
             c["total"] += 1
             c[r["outcome"]] += 1
     return {"mrs": len(mrs), "reported": reported, "rescued_mrs": rescued_mrs,
-            "rescues": sum(c["total"] for c in by_choice.values()), "by_choice": by_choice}
+            "rescues": sum(c["total"] for c in by_choice.values()), "malformed": malformed,
+            "by_choice": by_choice}
+
+
+# The honest limits of what an MR ledger can hold (macrodream/blueprint#403, tracked in macrodream/blueprint#416):
+# a rescue that never reaches an MR is never written to one.
+RESCUE_UNRECORDABLE_NOTE = (
+    "note: `choice dropped` and `choice escalation-pending` are not recordable from MR ledgers (rescues that "
+    "never reach an MR: tracked in macrodream/blueprint#416), and `outcome failed` is undercounted (only a "
+    "failed Opus-again attempt that a later rescue resolved is recorded; a rescue whose last attempt failed "
+    "never reaches an MR ledger); those counts above are a storage artifact, not a measurement")
 
 
 def render_rescue(rescue) -> list:
@@ -508,6 +521,10 @@ def render_rescue(rescue) -> list:
                  f"({rescue['rescues']} rescues). An MR with no line is silent, not zero.")
     for choice, c in rescue["by_choice"].items():
         lines.append(f"  {choice:<20} {c['total']:>3}  (resolved {c['resolved']}, failed {c['failed']}, n/a {c['n/a']})")
+    lines.append(RESCUE_UNRECORDABLE_NOTE)
+    if rescue.get("malformed"):
+        lines.append(f"warning: {rescue['malformed']} malformed `rescue:` line(s) in `## Gates` are not counted above "
+                     "(`scripts/cost_ledger_lines.py --file <body.md>` names the problem)")
     return lines
 
 
@@ -860,9 +877,16 @@ def _rescue_check(em) -> bool:
         d("- gate: perf-check - n/a (x)"),
         d("rescue: #4 - trigger 1; choice gemini; outcome resolved"),
         {"description": "rescue: #5 - trigger 1; choice fable; outcome resolved"},
+        d("```", "rescue: #6 - trigger 1; choice fable; outcome resolved", "```"),
+        d("rescue: #7 - trigger 1 implementer strike two; choice fable; outcome resolved"),
+        d(f"rescue: #{'9' * 30} {em} trigger 1; choice fable; outcome failed"),
     ])
     empty = analyze_rescue([d("rescue: none")])
-    return (r["mrs"] == 6 and r["reported"] == 3 and r["rescued_mrs"] == 2 and r["rescues"] == 3
+    rendered = "\n".join(render_rescue(empty))
+    warned = "\n".join(render_rescue(r))
+    return (r["mrs"] == 9 and r["reported"] == 3 and r["rescued_mrs"] == 2 and r["rescues"] == 3
+            and r["malformed"] == 3 and empty["malformed"] == 0 and "warning:" not in rendered
+            and "3 malformed `rescue:` line(s)" in warned and "storage artifact, not a measurement" in rendered
             and r["by_choice"]["fable"] == {"total": 1, "resolved": 1, "failed": 0, "n/a": 0}
             and r["by_choice"]["opus-again"]["failed"] == 1 and r["by_choice"]["dropped"]["total"] == 1
             and r["by_choice"]["escalation-pending"]["total"] == 0

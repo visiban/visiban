@@ -413,6 +413,30 @@ PYEOF
 )"
 check "rescue text report names the section and the fable row" \
   "$(python3 "$SCRIPT" --input "$REPO_ROOT/scripts/tests/fixtures/kaizen/rescue_fixture.json" | grep -q 'fable  *1  (resolved 1' && echo 0 || echo 1)"
+check "rescue text report carries the unrecordable-counts note (macrodream/blueprint#403)" \
+  "$(python3 "$SCRIPT" --input "$REPO_ROOT/scripts/tests/fixtures/kaizen/rescue_fixture.json" | grep -q 'not recordable from MR ledgers.*storage artifact, not a measurement' && echo 0 || echo 1)"
+check "rescue JSON: no malformed line, so malformed is 0 and no warning is printed" \
+  "$(python3 -c "import json,sys; sys.exit(0 if json.load(open('$TMP/rescue.json'))['rescue']['malformed']==0 else 1)" \
+     && ! python3 "$SCRIPT" --input "$REPO_ROOT/scripts/tests/fixtures/kaizen/rescue_fixture.json" | grep -q 'malformed .rescue:' && echo 0 || echo 1)"
+
+# Malformed `rescue:` lines are not counted as rescues; the count is exposed and the text report warns.
+cat > "$TMP/rescue_malformed.json" <<'JSONEOF'
+[
+  {"iid": 1, "title": "ok", "description": "## Gates\n- gate: perf-check \u2014 0 findings\nrescue: #10 \u2014 trigger 1; choice fable; outcome resolved\n"},
+  {"iid": 2, "title": "descriptive words", "description": "## Gates\n- gate: perf-check \u2014 0 findings\nrescue: #11 \u2014 trigger 1 implementer strike two; choice fable; outcome resolved\n"},
+  {"iid": 3, "title": "prose", "description": "## Gates\n- gate: perf-check \u2014 0 findings\nrescue: used fable once\n"}
+]
+JSONEOF
+python3 "$SCRIPT" --input "$TMP/rescue_malformed.json" --json > "$TMP/rescue_malformed_out.json"
+check "rescue malformed: counted in the JSON, not counted as rescues" \
+  "$(python3 - "$TMP/rescue_malformed_out.json" <<'PYEOF' && echo 0 || echo 1
+import json, sys
+r = json.load(open(sys.argv[1]))["rescue"]
+sys.exit(0 if r["malformed"] == 2 and r["rescues"] == 1 and r["reported"] == 1 and r["by_choice"]["fable"]["total"] == 1 else 1)
+PYEOF
+)"
+check "rescue malformed: the text report warns they are not counted" \
+  "$(python3 "$SCRIPT" --input "$TMP/rescue_malformed.json" | grep -q 'warning: 2 malformed .rescue:. line(s).*not counted' && echo 0 || echo 1)"
 
 echo ""
 if [[ "$fail" -eq 0 ]]; then

@@ -157,6 +157,15 @@ slot" section asks for: compare `fable` outcomes against `opus-again` outcomes. 
 of `mrs` first**: an MR with no line is silent, not zero, and issues dropped with no MR never appear
 here. Small counts are not a verdict; say "n too small" rather than ranking the choices.
 
+**Two of the counts are not measurements** (macrodream/blueprint#416). `choice dropped` and
+`choice escalation-pending` are not recordable from MR ledgers (a rescue that never reaches an MR is
+never written to one), and `outcome failed` is undercounted (only a failed Opus-again attempt that a
+later rescue resolved is recorded; a rescue whose last attempt failed never reaches an MR ledger). The
+text report prints that note under the counts; a 0 there is a storage artifact, so do not quote it as
+a real outcome. Quote the rest of the block, zeros included. A `rescue:` line that parses as neither
+form is not counted: the report warns with the count (the JSON `rescue.malformed`), and the fix is in
+that MR's description (`scripts/cost_ledger_lines.py --file <body.md>` names the problem).
+
 ## Step 3 — apply the thresholds (already computed per gate)
 
 The script's `verdict` field per gate is one of:

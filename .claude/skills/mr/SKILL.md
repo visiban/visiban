@@ -244,9 +244,11 @@ is the contract; this is what the description carries.
   example `- gate: regression-check — 1 findings (sonnet; budget-stopped)`; never record
   a stopped gate's `0 findings` as clean.
 - **`rescue:`** is written by `/wave` only, in `## Gates`: `rescue: none` when no Fable-rescue
-  trigger fired for the MR's issue(s), else one `rescue: #N - trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>;
-  outcome <resolved|failed|n/a>` line per issue (`.claude/skills/wave/SKILL.md` § Rescue escalation).
-  `/kaizen` counts them by choice, zeros included. `/wave` sends it with the go-ahead, with the cost lines. A plain `/mr` with no `/wave` behind it writes none;
+  trigger fired for the MR's issue(s), else up to two lines per issue (trigger 1, then trigger 2 after a failed
+  Opus-again run): `rescue: #N — trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>;
+  outcome <resolved|failed|n/a>` (`.claude/skills/wave/SKILL.md` § Rescue escalation), never both forms.
+  `/kaizen` counts them by choice, zeros included. `/wave` sends it with the go-ahead, with the cost lines;
+  it is not a cost line, so `cost-ledger: off` does not omit it. A plain `/mr` with no `/wave` behind it writes none;
   a missing line is silent, not zero.
 - **Omit a line when its script exited non-zero** and say why in `## Notes`. A partial figure
   would read as a whole one (except the documented `N+` form above).
