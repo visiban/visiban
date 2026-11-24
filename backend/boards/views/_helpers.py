@@ -36,6 +36,7 @@ from visiban.request_shape import id_in_db_range
 
 from ..models import (
     Board, BoardFavorite, BoardMembership, Card, Column, CustomFieldDefinition, StageTrack,
+    Swimlane,
 )
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
@@ -495,8 +496,13 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
             ),
             "swimlane_custom_field_definitions",
             # #2570: BoardFullSerializer.custom_field_sets and its two lists.
-            "custom_field_sets__fields",
-            "custom_field_sets__swimlanes",
+            # Only ids are read (C7); field_set_id keeps the reverse join
+            # from issuing a deferred load per row.
+            Prefetch(
+                "custom_field_sets__fields",
+                queryset=CustomFieldDefinition.objects.only("id", "position", "field_set_id"),
+            ),
+            Prefetch("custom_field_sets__swimlanes", queryset=Swimlane.objects.only("id")),
             # ``columns`` (#1351) follows the same rule: BoardFullSerializer
             # declares ColumnSerializer(many=True) with no filter/order_by,
             # and Column.Meta.ordering (["position"]) applies either way. Same

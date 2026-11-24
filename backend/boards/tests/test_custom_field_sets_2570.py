@@ -2,12 +2,16 @@
 
 import io
 import json
+from unittest import mock
 
 from rest_framework import serializers as drf_serializers, status
+from rest_framework.test import APIClient
 
 from boards.models import (
     Board, BoardMembership, CustomFieldDefinition, CustomFieldSet, CustomFieldValue,
+    Swimlane,
 )
+from boards.views import field_sets as views_field_sets
 from boards.serializers import BoardFullSerializer, CustomFieldSetSerializer, PublicBoardSerializer
 from boards.tests.conftest import _make_board, _make_membership, _make_swimlane, _make_user
 from boards.tests.test_custom_fields import CustomFieldTestBase, T, _definition
@@ -93,8 +97,62 @@ class FieldSetCrudTests(FieldSetTestBase):
         self.assertTrue(CustomFieldValue.objects.filter(field_definition=self.f1).exists())
         self.assertIn("field_set.deleted", self._events())
         payload = self.broadcast.call_args_list[-1].args[2]
-        self.assertEqual(payload["field_ids"], [self.f1.id])
-        self.assertEqual(payload["field_set_id"], fs["id"])
+        self.assertEqual(payload, {"field_set_uid": fs["uid"]})
+
+    def test_out_of_range_and_non_integer_ids_are_400(self):
+        fs = self._create().data
+        for body in (
+            {"name": "a", "field_ids": [10**30]},
+            {"name": "b", "scope": "swimlanes", "swimlanes": [10**30]},
+        ):
+            self.assertEqual(self._create(**body).status_code, 400, body)
+        for url, raw in (
+            ("reorder/", '{"order": [1e400]}'),
+            ("reorder/", '{"order": [true]}'),
+            ("reorder/", f'{{"order": [{fs["id"]}.9]}}'),
+            ("copy/", '{"source_board": 1e400, "source_set": 1}'),
+            ("copy/", f'{{"source_board": {self.board.id}, "source_set": 1e400}}'),
+        ):
+            r = self.client.post(f"{self._sets_url()}{url}", raw, content_type="application/json")
+            self.assertEqual(r.status_code, 400, raw)
+
+    def test_name_or_lane_changed_after_validation_is_a_400(self):
+        # The race window: validation passed, then another write landed before the lock.
+        real = views_field_sets.lock_board_row_or_404
+
+        def racing(board):
+            real(board)
+            CustomFieldSet.objects.get_or_create(board=board, name="Raced")
+
+        with mock.patch.object(views_field_sets, "lock_board_row_or_404", racing):
+            r = self._create(name="Raced")
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertIn("name", r.data)
+        lane = _make_swimlane(self.board, "Doomed", 5)
+
+        def lane_goes(board):
+            real(board)
+            Swimlane.objects.filter(pk=lane.pk).delete()
+
+        with mock.patch.object(views_field_sets, "lock_board_row_or_404", lane_goes):
+            r = self._create(name="Lanes", scope="swimlanes", swimlanes=[lane.id])
+        self.assertEqual(r.status_code, 400, r.data)
+        self.assertIn("swimlanes", r.data)
+
+    def test_rename_validated_under_a_stale_scope_keeps_lanes(self):
+        fs = CustomFieldSet.objects.create(board=self.board, name="A")
+        ser = CustomFieldSetSerializer(fs, data={"name": "B"}, partial=True, context={"board": self.board})
+        self.assertTrue(ser.is_valid(), ser.errors)
+        self.assertNotIn("swimlanes", ser.validated_data)
+
+    def test_lane_scoped_set_that_lost_every_lane_can_be_renamed(self):
+        fs = self._create(scope="swimlanes", swimlanes=[self.lane.id]).data
+        self.lane.delete()
+        url = f"{self._sets_url()}{fs['id']}/"
+        r = self.client.patch(url, {"name": "Renamed"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        r = self.client.patch(url, {"scope": "swimlanes"}, format="json")
+        self.assertEqual(r.status_code, 400)
 
     def test_field_from_another_board_is_refused(self):
         other = _make_board(self.admin, name="Other")
@@ -161,9 +219,42 @@ class FieldSetRbacTests(FieldSetTestBase):
             c = self._as(user)
             self.assertEqual(c.post(self._sets_url(), {"name": ""}, format="json").status_code, 403)
             self.assertEqual(c.patch(url, {"name": "x"}, format="json").status_code, 403)
+            self.assertEqual(c.put(url, {"name": "x"}, format="json").status_code, 403)
+            self.assertEqual(c.get(url).status_code, 200)
             self.assertEqual(c.delete(url).status_code, 403)
             self.assertEqual(c.post(f"{self._sets_url()}reorder/", {"order": []}, format="json").status_code, 403)
             self.assertEqual(c.post(f"{self._sets_url()}copy/", {}, format="json").status_code, 403)
+
+    def _every_verb(self, client, url):
+        return [
+            client.get(self._sets_url()), client.get(url),
+            client.post(self._sets_url(), {"name": "x"}, format="json"),
+            client.put(url, {"name": "x"}, format="json"),
+            client.patch(url, {"name": "x"}, format="json"), client.delete(url),
+            client.post(f"{self._sets_url()}reorder/", {"order": []}, format="json"),
+            client.post(f"{self._sets_url()}copy/", {}, format="json"),
+        ]
+
+    def test_outsider_and_anonymous_are_refused_on_every_verb(self):
+        url = f"{self._sets_url()}{self._create().data['id']}/"
+        outsider = _make_user("cfs_outsider2")
+        self.assertEqual({r.status_code for r in self._every_verb(self._as(outsider), url)}, {404})
+        codes = {r.status_code for r in self._every_verb(APIClient(), url)}
+        self.assertTrue(codes <= {401, 403}, codes)
+
+    def test_site_admin_without_membership_may_write(self):
+        site_admin = _make_user("cfs_site_admin")
+        site_admin.is_staff = True
+        site_admin.is_superuser = True
+        site_admin.save()
+        r = self._create(client=self._as(site_admin), name="By site admin")
+        self.assertEqual(r.status_code, 201, r.data)
+
+    def test_cross_board_set_delete_is_404(self):
+        other = _make_board(self.admin, name="Elsewhere")
+        foreign = CustomFieldSet.objects.create(board=other, name="Foreign")
+        self.assertEqual(self.client.delete(f"{self._sets_url()}{foreign.id}/").status_code, 404)
+        self.assertTrue(CustomFieldSet.objects.filter(pk=foreign.pk).exists())
 
     def test_outsider_gets_404_and_cross_board_set_is_404(self):
         outsider = _make_user("cfs_outsider")
@@ -221,6 +312,21 @@ class FieldSetExportImportTests(FieldSetTestBase):
         self.assertEqual([s.name for s in sets[0].swimlanes.all()], ["Enterprise"])
         self.assertEqual(sets[0].description, "Qualify")
 
+    def test_import_refuses_unhashable_values_with_a_400(self):
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
+        data = json.loads(r.content)
+        for bad in (
+            [{"name": "A", "default_size": []}],
+            [{"name": "A", "scope": {}}],
+            [{"name": "A", "fields": [[1]]}],
+            [{"name": "A", "swimlanes": [{}]}],
+        ):
+            data["field_sets"] = bad
+            f = io.BytesIO(json.dumps(data).encode())
+            f.name = "board.json"
+            r = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
+            self.assertEqual(r.status_code, 400, bad)
+
     def test_import_refuses_unknown_field_and_double_membership(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/?format=json")
         data = json.loads(r.content)
@@ -264,6 +370,8 @@ class FieldSetCopyTests(FieldSetTestBase):
         decision = CustomFieldDefinition.objects.get(board=self.board, name="Decision")
         self.assertEqual((decision.field_type, decision.help_text), (T.DATE, "When"))
         self.assertEqual(self._events().count("custom_field.created"), 2)
+        created = [c.args[2] for c in self.broadcast.call_args_list if c.args[1] == "custom_field.created"]
+        self.assertEqual([p["has_values"] for p in created], [False, False])
         self.assertIn("field_set.created", self._events())
         # A second copy collides on the set name and on the now-grouped field.
         r = self._copy()

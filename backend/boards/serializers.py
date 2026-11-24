@@ -20,6 +20,7 @@ from visiban import field_enforcement
 from visiban.colors import ColorValidationMixin
 from visiban.invite_email import InviteEmailField
 from visiban.parsers import first_lone_surrogate
+from visiban.request_shape import MAX_DB_INT
 from visiban.query_fallbacks import note_fallback
 from visiban.exceptions import CodedValidationError
 from visiban.utils import MAX_ALLOWED_PRIORITIES_LENGTH, check_allowed_priorities_length
@@ -2105,7 +2106,7 @@ class CustomFieldSetSerializer(serializers.ModelSerializer):
 
     field_ids = _IdListField(
         reader=lambda obj: [f.id for f in sorted(obj.fields.all(), key=lambda f: (f.position, f.id))],
-        child=serializers.IntegerField(), required=False,
+        child=serializers.IntegerField(min_value=1, max_value=MAX_DB_INT), required=False,
         max_length=CustomFieldDefinition.MAX_PER_BOARD,
         help_text=(
             "Custom field ids on this board that belong to the set, in board field "
@@ -2115,7 +2116,7 @@ class CustomFieldSetSerializer(serializers.ModelSerializer):
     )
     swimlanes = _IdListField(
         reader=lambda obj: sorted(s.id for s in obj.swimlanes.all()),
-        child=serializers.IntegerField(), required=False, max_length=200,
+        child=serializers.IntegerField(min_value=1, max_value=MAX_DB_INT), required=False, max_length=200,
         help_text="Swimlane ids the set applies to when scope is 'swimlanes'; empty when scope is 'all'.",
     )
     description = serializers.CharField(
@@ -2149,38 +2150,51 @@ class CustomFieldSetSerializer(serializers.ModelSerializer):
             # Absent-input guard (#1075): never validate ids without a board.
             raise serializers.ValidationError({"detail": "A board is required to validate a field set."})
         instance = self.instance
-        name = attrs.get("name", instance.name if instance else None)
+        if "field_ids" in attrs:
+            attrs["field_ids"] = list(dict.fromkeys(attrs["field_ids"]))
+        if "swimlanes" in attrs:
+            attrs["swimlanes"] = sorted(set(attrs["swimlanes"]))
+        self.check_references(board, attrs)
+        # Lanes are only touched when the request submits scope or swimlanes.
+        # Forcing them otherwise would let a queued rename, validated before
+        # another admin's scope change, clear that admin's lanes; and a set
+        # whose last lane was deleted could never be renamed.
+        if instance is None or "scope" in attrs or "swimlanes" in attrs:
+            scope = attrs.get("scope", instance.scope if instance else CustomFieldSet.Scope.ALL)
+            if scope == CustomFieldSet.Scope.ALL:
+                attrs["swimlanes"] = []
+            else:
+                lanes = attrs.get("swimlanes")
+                if lanes is None:
+                    lanes = list(instance.swimlanes.values_list("pk", flat=True)) if instance else []
+                if not lanes:
+                    raise serializers.ValidationError(
+                        {"swimlanes": "Choose at least one swimlane, or show the set on every card."}
+                    )
+        assert_field_set_cap(board, instance=instance)
+        return attrs
+
+    def check_references(self, board, attrs):
+        """Check the name is free and every submitted id belongs to ``board``.
+
+        Runs at validation and again by the viewset under the board lock: a
+        concurrent create, rename or lane delete between the two would
+        otherwise surface as an IntegrityError (a 500).
+        """
+        instance = self.instance
+        name = attrs.get("name")
         if name is not None:
             clash = CustomFieldSet.objects.filter(board=board, name=name)
             if instance is not None:
                 clash = clash.exclude(pk=instance.pk)
             if clash.exists():
                 raise serializers.ValidationError({"name": "A field set with this name already exists on this board."})
-        if "field_ids" in attrs:
-            ids = list(dict.fromkeys(attrs["field_ids"]))
-            found = set(
-                CustomFieldDefinition.objects.filter(board=board, pk__in=ids).values_list("pk", flat=True)
-            )
-            if len(found) != len(ids):
-                raise serializers.ValidationError({"field_ids": "Every entry must be a custom field on this board."})
-            attrs["field_ids"] = ids
-        scope = attrs.get("scope", instance.scope if instance else CustomFieldSet.Scope.ALL)
-        if "swimlanes" in attrs:
-            lane_ids = sorted(set(attrs["swimlanes"]))
-            found = set(Swimlane.objects.filter(board=board, pk__in=lane_ids).values_list("pk", flat=True))
-            if len(found) != len(lane_ids):
-                raise serializers.ValidationError({"swimlanes": "Every entry must be a swimlane on this board."})
-            attrs["swimlanes"] = lane_ids
-        if scope == CustomFieldSet.Scope.ALL:
-            attrs["swimlanes"] = []
-        else:
-            lanes = attrs.get("swimlanes")
-            if lanes is None:
-                lanes = list(instance.swimlanes.values_list("pk", flat=True)) if instance else []
-            if not lanes:
-                raise serializers.ValidationError({"swimlanes": "Choose at least one swimlane, or show the set on every card."})
-        assert_field_set_cap(board, instance=instance)
-        return attrs
+        ids = attrs.get("field_ids")
+        if ids and CustomFieldDefinition.objects.filter(board=board, pk__in=ids).count() != len(ids):
+            raise serializers.ValidationError({"field_ids": "Every entry must be a custom field on this board."})
+        lane_ids = attrs.get("swimlanes")
+        if lane_ids and Swimlane.objects.filter(board=board, pk__in=lane_ids).count() != len(lane_ids):
+            raise serializers.ValidationError({"swimlanes": "Every entry must be a swimlane on this board."})
 
     def _apply_membership(self, field_set, field_ids):
         """Replace the set's membership; return the ids of other sets that lost fields."""

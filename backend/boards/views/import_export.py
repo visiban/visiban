@@ -666,22 +666,22 @@ def _validate_import_field_sets(raw, field_names, swimlane_names):
             return None, f"{where}: 'description' must be a string of at most {CustomFieldSet.MAX_DESCRIPTION_LENGTH} characters."
         size = fs.get("default_size", CustomFieldSet.Size.SUMMARY)
         scope = fs.get("scope", CustomFieldSet.Scope.ALL)
-        if size not in sizes:
+        if not isinstance(size, str) or size not in sizes:
             return None, f"{where}: unknown 'default_size' {_bounded_repr(size)}."
-        if scope not in scopes:
+        if not isinstance(scope, str) or scope not in scopes:
             return None, f"{where}: unknown 'scope' {_bounded_repr(scope)}."
         fields = fs.get("fields") or []
         lanes = fs.get("swimlanes") or []
         if not isinstance(fields, list) or not isinstance(lanes, list):
             return None, f"{where}: 'fields' and 'swimlanes' must be lists."
         for fname in fields:
-            if fname not in field_names:
+            if not isinstance(fname, str) or fname not in field_names:
                 return None, f"{where}: 'fields' references a field not in 'custom_fields': {_bounded_repr(fname)}"
             if fname in members:
                 return None, f"{where}: field {_bounded_repr(fname)} is already in another set."
             members.add(fname)
         for lname in lanes:
-            if lname not in swimlane_names:
+            if not isinstance(lname, str) or lname not in swimlane_names:
                 return None, f"{where}: 'swimlanes' references an undefined swimlane: {_bounded_repr(lname)}"
         if scope == CustomFieldSet.Scope.SWIMLANES and not lanes:
             # A lane-scoped set with no lanes would hide on every card; fall

@@ -28,12 +28,13 @@ from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
 )
-from visiban.request_shape import id_in_db_range, require_json_object
+from visiban.request_shape import coerce_int_id, require_json_object
 
 from .. import broadcast as _broadcast
 from ..models import BoardMembership, CustomFieldDefinition, CustomFieldSet
 from ..permissions import SITE_ADMIN
 from ..serializers import (
+    HAS_VALUES_ANNOTATION,
     CustomFieldDefinitionSerializer,
     CustomFieldSetSerializer,
     assert_field_set_cap,
@@ -106,7 +107,7 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
 
     def _board_and_role(self):
         if self._cached_board_role is None:
-            self._cached_board_role = get_board_for_user(self.kwargs["board_pk"], self.request.user)
+            self._cached_board_role = get_board_for_user(self.kwargs["board_pk"], self.request.user, slim=True)
         return self._cached_board_role
 
     def _board(self):
@@ -151,6 +152,7 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             lock_board_row_or_404(board)
             assert_field_set_cap(board)
+            serializer.check_references(board, serializer.validated_data)
             _max = board.custom_field_sets.aggregate(m=Max("position"))["m"]
             field_set = serializer.save(board=board, position=0 if _max is None else _max + 1)
             _broadcast.record_board_event(
@@ -170,6 +172,7 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
             # delete answers 404 instead of resurrecting the set.
             lock_board_and_row_or_404(board, CustomFieldSet, serializer.instance.pk)
             serializer.instance.refresh_from_db()
+            serializer.check_references(board, serializer.validated_data)
             field_set = serializer.save()
             _broadcast.record_board_event(
                 board.id, _broadcast.EVT_FIELD_SET_UPDATED, self._payload(field_set),
@@ -185,13 +188,12 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
         board = self._require_admin()
         with transaction.atomic():
             lock_board_and_row_or_404(board, CustomFieldSet, instance.pk)
-            field_ids = list(instance.fields.values_list("pk", flat=True))
-            set_uid, set_id = instance.uid, instance.pk
+            set_uid = instance.uid
             # SET_NULL ungroups the fields; their values are untouched.
             instance.delete()
             _broadcast.record_board_event(
                 board.id, _broadcast.EVT_FIELD_SET_DELETED,
-                {"field_set_uid": set_uid, "field_set_id": set_id, "field_ids": field_ids},
+                {"field_set_uid": set_uid},
                 actor_id=self.request.user.id,
             )
 
@@ -210,12 +212,7 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
         order = require_json_object(request).get("order", [])
         if not isinstance(order, list) or len(order) > CustomFieldSet.SET_CAP:
             raise drf_serializers.ValidationError({"order": "Expected a list of field set ids."})
-        try:
-            order_ints = [int(i) for i in order]
-        except (TypeError, ValueError):
-            raise drf_serializers.ValidationError({"order": "Every entry must be a field set id."}) from None
-        if not all(id_in_db_range(i) for i in order_ints):
-            raise drf_serializers.ValidationError({"order": "Every entry must be a field set id."})
+        order_ints = [coerce_int_id(i, field="order") for i in order]
         with transaction.atomic():
             lock_board_row_or_404(board)
             rows = {r.pk: r for r in CustomFieldSet.objects.filter(board=board, pk__in=order_ints)}
@@ -256,18 +253,11 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
     def copy(self, request, board_pk=None):
         board = self._require_admin()
         body = require_json_object(request)
-        try:
-            source_board_id = int(body.get("source_board"))
-            source_set_id = int(body.get("source_set"))
-        except (TypeError, ValueError):
-            raise drf_serializers.ValidationError(
-                {"detail": "source_board and source_set must be ids."}
-            ) from None
-        if not (id_in_db_range(source_board_id) and id_in_db_range(source_set_id)):
-            raise drf_serializers.ValidationError({"detail": "source_board and source_set must be ids."})
+        source_board_id = coerce_int_id(body.get("source_board"), field="source_board")
+        source_set_id = coerce_int_id(body.get("source_set"), field="source_set")
         # Object-level check: 404 for a board the caller cannot read, the same
         # answer as a board that does not exist.
-        source_board, _role = get_board_for_user(source_board_id, request.user)
+        source_board, _role = get_board_for_user(source_board_id, request.user, slim=True)
         source_set = (
             CustomFieldSet.objects.filter(board=source_board, pk=source_set_id)
             .prefetch_related("fields").first()
@@ -319,6 +309,8 @@ class CustomFieldSetViewSet(viewsets.ModelViewSet):
                 next_pos += 1
                 created.append(definition)
             for definition in created:
+                # A definition created just now has no values; saves one EXISTS each.
+                setattr(definition, HAS_VALUES_ANNOTATION, False)
                 _broadcast.record_board_event(
                     board.id, _broadcast.EVT_CUSTOM_FIELD_CREATED,
                     CustomFieldDefinitionSerializer(definition).data, actor_id=request.user.id,
