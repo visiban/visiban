@@ -6,16 +6,15 @@ a live card once a same-cell reorder has left a gap.
 ``move_card``'s source-cell compaction had since given it to a live card.
 """
 import threading
-
-from django.db import connections
 from unittest import skipUnless
 
-from django.db import connection
+from django.db import connection, connections, transaction
 from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
-from boards.models import Card, CardMovement
+from boards.models import Card, CardMovement, Column
 from boards.tests.conftest import _make_board, _make_column, _make_swimlane, _make_user
+from boards.tests.lock_wait import assert_blocked_on_lock
 
 
 class _Base:
@@ -128,46 +127,42 @@ class UnarchiveOntoTakenSlotTests(_Base, TestCase):
 
 @skipUnless(connection.vendor == "postgresql", "row locks need PostgreSQL")
 class ConcurrentUnarchiveCreateTests(_Base, TransactionTestCase):
-    """Two writers into one cell never end on one slot (column row lock)."""
+    """Unarchive waits on the cell's column row lock before it picks a slot (#2563)."""
 
-    def test_concurrent_unarchive_and_create_do_not_collide(self):
+    def test_unarchive_waits_on_column_lock_then_picks_free_slot(self):
+        """The slot is read only after the column lock is won, not before.
+
+        The lock holder takes slot 1 (B's old slot) for a live card while the
+        unarchive waits, then commits. If the unarchive had read the slot
+        before waiting it would still see slot 1 free and collide; a worker
+        that waits only on a later lock (the column-limit check) fails here.
+        """
         self._setup()
-        a = self._create("A")
+        self._create("A")
         b = self._create("B")
-        self._create("C")
         self.client.post(f"{self.base}/cards/{b}/archive/")
-        self._move(a, self.other, 0)
-        errors = []
+        c = self._create("C")  # lands at slot 2, after archived B at slot 1
+        results = {}
 
         def unarchive():
             try:
-                c = APIClient()
-                c.force_authenticate(self.user)
-                c.post(f"{self.base}/cards/{b}/unarchive/")
-            except Exception as exc:  # pragma: no cover
-                errors.append(exc)
+                api = APIClient()
+                api.force_authenticate(self.user)
+                results["r"] = api.post(f"{self.base}/cards/{b}/unarchive/")
             finally:
                 connections.close_all()
 
-        def create():
-            try:
-                c = APIClient()
-                c.force_authenticate(self.user)
-                c.post(
-                    f"{self.base}/cards/",
-                    {"title": "Z", "column": self.col.id, "swimlane": self.lane.id},
-                    format="json",
-                )
-            except Exception as exc:  # pragma: no cover
-                errors.append(exc)
-            finally:
-                connections.close_all()
-
-        threads = [threading.Thread(target=unarchive), threading.Thread(target=create)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        self.assertEqual(errors, [])
+        worker = threading.Thread(target=unarchive)
+        with transaction.atomic():
+            Column.objects.select_for_update().get(pk=self.col.pk)
+            worker.start()
+            assert_blocked_on_lock(
+                self, worker, "unarchive did not wait on the column row lock"
+            )
+            Card.objects.filter(pk=c).update(position=1)
+        worker.join(10)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(results["r"].status_code, 200, results["r"].content[:300])
         positions = self._live_positions(self.col)
         self.assertEqual(len(positions), len(set(positions)), positions)
+        self.assertEqual(Card.objects.get(pk=b).position, 2)

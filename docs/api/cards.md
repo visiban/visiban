@@ -364,7 +364,7 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
-Unarchive a card. Takes no request body (`force` is a query parameter, below). Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently (including a no-op restore of a card that vanished before the response was built, #1585); nothing is saved.
+Unarchive a card. Takes no request body (`force` is a query parameter, below). Clears `archived_at`; the card re-enters its original column and swimlane. It keeps its original position when no live card has taken that slot since; otherwise it goes to the end of the cell. **Minimum role: Member.** Returns `404 Not Found` if the card was deleted concurrently (including a no-op restore of a card that vanished before the response was built, #1585); nothing is saved.
 
 > **Ownership gate:** same rule as [PATCH](#patch-apiv1boardsboard_idcardsid): members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
