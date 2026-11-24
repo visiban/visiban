@@ -612,6 +612,24 @@ job timeout. These diagnostics exist so the next stall names its cause instead o
   stuck backend, `pg_blocking_pids`, each blocker's state and query, and the ungranted and blocking
   `pg_locks` rows. A blocker in `idle in transaction` is a connection a test leaked. It is
   diagnostic only and never fails the job.
+- **`[pg-activity-watch] plan` lines** (#2536): the first real report (main pipeline 3105471449,
+  `backend-test 4/8`, 2026-11-23) ruled a lock **out**. The stuck backend was
+  `state=active wait=None/None`, `blocked by pids: none`, and the same zero-row `card_parent_links`
+  statement in `parents_for_viewer` started again three more times (`query_start` 21:02, 21:10,
+  21:16, 21:22), so each run took minutes on CPU. For a stall like that (active, no wait event, no
+  blocker) the watcher now also prints an `EXPLAIN` (plan only, never `ANALYZE`) of the stuck
+  statement, run on the same database from a read-only connection with a 5 s connect timeout and a 20 s statement timeout (the connection is to the
+  test database and always closed, and the timeouts bound its life to about 25 s. That is a
+  reduced risk, not an eliminated one: a teardown inside that window can still meet the open
+  session, and an open session makes the shard's `DROP DATABASE` fail with "being accessed by
+  other users").
+  Alongside it come how long planning took, the JIT thresholds to compare with the plan's top-line
+  cost, and `reltuples`/`relpages`/current pages/live/dead tuples and last (auto)analyze for each
+  table in the statement. Read it like this: `EXPLAIN failed after 20.0s: QueryCanceled` means the
+  **planner** is the stall. A fast EXPLAIN whose cost is over `jit_above_cost` points at JIT. A fast,
+  cheap plan that still hangs points at the executor or the stats rows. `SyntaxError` means the
+  statement text was cut short. CI sets `track_activity_query_size=16384` on the `backend-test`
+  and `backend-test-pg-matrix` services for this.
 - **`lock timeout` failure** (#2536): five jobs set `PGOPTIONS=-c lock_timeout=180s`:
   `backend-test` and `backend-test-pg-matrix` (which have the watcher), `backend-test-migrations` and `backend-test-slow`
   (via the shared `*backend-test-variables` anchor) and `backend-test-pg-matrix-nightly` (via

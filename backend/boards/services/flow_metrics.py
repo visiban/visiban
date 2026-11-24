@@ -1191,14 +1191,35 @@ def load_recent_dwell(
     index (``load_board_flow``'s ``any_card``), which the heatmap turns into a
     ``wait`` key per gated stage. So when no loaded card is in the set above,
     ``gate_last`` is reset to ``{}``, the answer a load of that set gives.
+
+    The movement term is an uncorrelated, board-bounded ``IN`` instead of a
+    correlated ``EXISTS`` inside this ``OR`` (#2502, #2506, a partial
+    improvement). It names the same cards: the load is already bounded to
+    ``board``, and this board's movements in the range are exactly the ones
+    the ``EXISTS`` matched. Measured on the nightly fixture (PostgreSQL 17,
+    the before/after ``EXPLAIN (ANALYZE, BUFFERS)`` plans are in the MR
+    description for #2506): the two statements that read movements go
+    from 71,153 to 64,033 buffers on board 1 and from 74,530 to 72,473 on
+    the aged board 201, and the cards load and history read are faster in ms.
+
+    What it does NOT fix: the bound is only ``card__board=board``. It is not
+    narrowed to the cards the earlier terms skip (the part of
+    ``can_affect_range``'s form that was not carried over), so the
+    ``card_movements_moved_at`` index scan still reads every board's
+    movements in the range (15,632 rows over 2 loops, about 30,892 of the
+    history read's 32,759 buffers on board 1). The history read still drives
+    from a ``card_movements_card_id`` merge (on board 201 it reads 50,271
+    rows to return 25,351), and the aged board's card filter does a
+    ``Seq Scan on cards`` that removes 14,152 rows. The instance-wide
+    movement read is left for the issue to keep open.
     """
     moved = CardMovement.objects.filter(
-        card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
-    )
+        card__board=board, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    ).values("card_id")
     relevant = (
         (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
         | Q(archived_at__gte=flow_range.start)
-        | Exists(moved)
+        | Q(pk__in=moved)
     )
     if also_matching is None:
         return load_board_flow(

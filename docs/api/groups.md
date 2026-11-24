@@ -87,7 +87,7 @@ Get group details.
 | `parent_name` | string\|null | Parent group display name (convenience field), or `null` |
 | `owner` | object | `{ "id", "username", "display_name", "avatar_url" }` |
 | `member_count` | integer | Total number of direct members (does not include inherited) |
-| `member_preview` | array | *(1.3+)* Up to the first five direct members by join date, each `{ "id", "username", "display_name", "avatar_url" }` (no email). Read-only. Use `member_count` for the total. Fetched in one bounded query for the whole list (#2487). |
+| `member_preview` | array | *(1.3+)* Up to the first five direct members by join date, each `{ "id", "username", "display_name", "avatar_url" }` (no email). Read-only. Use `member_count` for the total. Fetched in two bounded queries for the whole list, however many groups it holds (#2487, #2557). |
 | `board_count` | integer | Number of boards directly in this group |
 | `subgroup_count` | integer | Number of direct subgroups |
 | `is_starred` | boolean | Whether the requesting user has starred this group |

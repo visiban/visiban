@@ -50,19 +50,31 @@ def annotate_group_counts(qs):
 def prefetch_member_preview(qs):
     """Prefetch the first ``MEMBER_PREVIEW_LIMIT`` direct members of each group (#2487).
 
-    One query for the whole list, bounded per group: a ``ROW_NUMBER()`` window
-    partitioned by group returns at most ``MEMBER_PREVIEW_LIMIT`` rows each. The
-    database still ranks every membership of each listed group (no index covers
-    ``joined_at``; the index is tracked in #2557), so a very large group is a latency cost the query count does
-    not show; only five rows per group reach Python. Ordered by
-    ``joined_at`` then ``id`` so the owner (the first member) normally leads and
-    the order is stable. ``GroupSerializer.get_member_preview`` reads the result
-    from ``_member_preview``.
+    Two queries for the whole list, however many groups it holds: the ranked
+    memberships, then their users. A ``ROW_NUMBER()`` window partitioned by
+    group keeps at most ``MEMBER_PREVIEW_LIMIT`` rows each, ordered by
+    ``joined_at`` then ``id`` so the owner (the first member) normally leads
+    and the order is stable.
+
+    Cost (#2557), measured on PostgreSQL 17 with 5,000 members per group: on
+    a LIST of several groups the planner reads ``group_member_joined_idx`` on
+    ``(group_id, joined_at, id)``, which hands the window its rows already in
+    order, and the window walks every direct membership of each listed group
+    (a final Sort over the few kept rows remains). On a single-group RETRIEVE
+    it may instead read the ``group_id`` index and sort that group's rows;
+    PostgreSQL 15+ then stops the window early through a ``Run Condition``,
+    but only after the input is read and sorted. Either way the cost still
+    grows with the size of the listed groups, only more slowly. The users
+    are NOT joined into that statement: a ``select_related("user")`` join
+    sits under the window and was paid once per membership. They load
+    afterwards, for the kept rows only.
+    ``GroupSerializer.get_member_preview`` reads the result from
+    ``_member_preview``.
     """
     from .models import GroupMembership
 
     ranked = (
-        GroupMembership.objects.select_related("user")
+        GroupMembership.objects.prefetch_related("user")
         .annotate(
             _preview_rank=Window(
                 RowNumber(),

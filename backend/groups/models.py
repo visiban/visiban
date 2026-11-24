@@ -535,6 +535,12 @@ class GroupMembership(models.Model):
     class Meta:
         db_table = "group_memberships"
         unique_together = ["group", "user"]
+        indexes = [
+            # member_preview (#2557): the per-group ROW_NUMBER() over
+            # (joined_at, id) reads each group's rows in index order instead of
+            # sorting every direct membership of the group.
+            models.Index(fields=["group", "joined_at", "id"], name="group_member_joined_idx"),
+        ]
 
 
 class GroupInviteLink(models.Model):

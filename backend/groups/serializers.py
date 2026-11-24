@@ -718,8 +718,8 @@ class GroupSerializer(HealthStatusFieldsMixin, serializers.ModelSerializer):
     def get_member_preview(self, obj):
         """The first ``MEMBER_PREVIEW_LIMIT`` direct members (#2487).
 
-        Reads ``_member_preview`` from ``prefetch_member_preview`` (one bounded
-        query for a whole list). A navigation-only group returns ``[]`` without
+        Reads ``_member_preview`` from ``prefetch_member_preview`` (two bounded
+        queries for a whole list, #2557). A navigation-only group returns ``[]`` without
         reading anything: ``to_representation`` would blank it anyway, and the
         fallback must not query members of a group the viewer cannot see.
         Single-object responses (create, update, broadcasts) take the bounded

@@ -1,9 +1,13 @@
 """#2536: the CI Postgres activity watcher's pure threshold and report logic."""
 
 import importlib.util
+import time
 from pathlib import Path
+from unittest import skipUnless
+from urllib.parse import quote
 
-from django.test import SimpleTestCase
+from django.db import connection
+from django.test import SimpleTestCase, TransactionTestCase
 
 _PATH = Path(__file__).resolve().parents[3] / "scripts" / "pg-activity-watch.py"
 _spec = importlib.util.spec_from_file_location("pg_activity_watch", _PATH)
@@ -76,3 +80,114 @@ class FormatReportTests(SimpleTestCase):
     def test_maintenance_dsn_swaps_database_keeps_credentials(self):
         out = watch.maintenance_dsn("postgres://u:p@postgres:5432/ci_db")
         self.assertEqual(out, "postgres://u:p@postgres:5432/postgres")
+
+
+class PlanOnCpuStallTests(SimpleTestCase):
+    """The first CI report was active with no wait event and no blockers: not a
+    lock. For that case the watcher EXPLAINs the stuck statement (#2536)."""
+
+    def test_cpu_stall_wants_a_plan(self):
+        self.assertTrue(watch.wants_plan(_row(query_age=120)))
+
+    def test_lock_wait_does_not_want_a_plan(self):
+        self.assertFalse(watch.wants_plan(_row(wait_event_type="Lock", wait_event="relation", blockers=[7])))
+
+    def test_blocked_without_wait_event_does_not_want_a_plan(self):
+        self.assertFalse(watch.wants_plan(_row(blockers=[7])))
+
+    def test_idle_backend_does_not_want_a_plan(self):
+        self.assertFalse(watch.wants_plan(_row(state="idle in transaction")))
+
+    def test_only_a_single_select_is_explainable(self):
+        self.assertEqual(watch.explainable('  SELECT "a"."id" FROM "a" ;'), 'SELECT "a"."id" FROM "a"')
+        self.assertIsNone(watch.explainable('UPDATE "a" SET "x" = 1'))
+        self.assertIsNone(watch.explainable("SELECT 1; DROP TABLE a"))
+        self.assertIsNone(watch.explainable(None))
+        self.assertIsNone(watch.explainable("WITH x AS (DELETE FROM a RETURNING 1) SELECT * FROM x"))
+
+    def test_table_names_reads_from_and_join_targets(self):
+        sql = (
+            'SELECT 1 FROM "card_parent_links" INNER JOIN "cards" ON (1=1) '
+            'LEFT OUTER JOIN "groups" ON (1=1) LEFT OUTER JOIN "groups" T9 ON (1=1) '
+            'WHERE EXISTS (SELECT 1 FROM "card_movements" U0)'
+        )
+        self.assertEqual(watch.table_names(sql), ["card_movements", "card_parent_links", "cards", "groups"])
+
+    def test_plan_section_names_time_cost_jit_and_stats(self):
+        text = watch.format_plan(
+            ["Nested Loop  (cost=0.00..900000.00 rows=1 width=8)"], 0.25,
+            {"jit": "on", "above": "100000", "optimize": "500000", "inline": "500000"},
+            [{"relname": "cards", "reltuples": 10, "relpages": 1, "curpages": 400, "n_live_tup": 10,
+              "n_dead_tup": 9000, "last_autoanalyze": None, "last_analyze": None, "last_autovacuum": None}],
+        )
+        self.assertIn("EXPLAIN (plan only) took 0.250s", text)
+        self.assertIn("plan| Nested Loop  (cost=0.00..900000.00", text)
+        self.assertIn("jit=on above_cost=100000", text)
+        self.assertIn("stats: cards reltuples=10 relpages=1 curpages=400 live=10 dead=9000", text)
+        for line in text.splitlines():
+            self.assertTrue(line.startswith(watch.PREFIX), line)
+
+    def test_failed_explain_reports_elapsed_time_and_error_class_only(self):
+        text = watch.format_plan([], 60.0, None, [], error="QueryCanceled")
+        self.assertEqual(text, f"{watch.PREFIX} plan: EXPLAIN failed after 60.0s: QueryCanceled")
+
+    def test_database_dsn_swaps_only_the_database(self):
+        self.assertEqual(
+            watch.database_dsn("postgres://u:p@h:5432/visiban", "test_visiban"), "postgres://u:p@h:5432/test_visiban",
+        )
+
+    def test_plan_report_skips_a_write_without_connecting(self):
+        self.assertIn("skipped", watch.plan_report("postgres://u:p@nowhere.invalid/x", _row(query="DELETE FROM a")))
+
+
+def _test_db_url():
+    """DATABASE_URL-shaped URL for the live test database (never printed)."""
+    d = connection.settings_dict
+    auth = f"{quote(d['USER'], safe='')}:{quote(d['PASSWORD'], safe='')}@"
+    return f"postgres://{auth}{d['HOST'] or 'localhost'}:{d['PORT'] or 5432}/{d['NAME']}"
+
+
+@skipUnless(connection.vendor == "postgresql", "plan_report connects to a real PostgreSQL database")
+class PlanReportAgainstPostgresTests(TransactionTestCase):
+    """The connect-and-EXPLAIN branch of ``plan_report``, on the real test database."""
+
+    def _plan(self, query):
+        return watch.plan_report(_test_db_url(), _row(datname=connection.settings_dict["NAME"], query=query))
+
+    def _other_sessions(self):
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            )
+            return cur.fetchone()[0]
+
+    def test_fast_select_returns_the_plan_and_planning_time(self):
+        text = self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" = 1')
+        self.assertIn("plan: EXPLAIN (plan only) took", text)
+        self.assertIn("plan| ", text)
+        self.assertIn("cards", text)
+        self.assertIn("stats: cards reltuples=", text)
+
+    def test_truncated_statement_is_reported_failed_not_raised(self):
+        text = self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" IN (1, 2')
+        self.assertIn("EXPLAIN failed after", text)
+        self.assertIn("SyntaxError", text)
+
+    def test_pg_sleep_is_planned_not_executed(self):
+        started = time.monotonic()
+        text = self._plan('SELECT pg_sleep(30)')
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertIn("plan: EXPLAIN (plan only) took", text)
+
+    def test_connection_is_closed_after_success_and_after_failure(self):
+        before = self._other_sessions()
+        self._plan('SELECT "cards"."id" FROM "cards"')
+        self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" IN (1, 2')
+        # conn.close() only sends Terminate; the backend row can linger briefly in
+        # pg_stat_activity, so poll instead of asserting once (flaky on slow runners).
+        deadline = time.monotonic() + 2.0
+        after = self._other_sessions()
+        while after != before and time.monotonic() < deadline:
+            time.sleep(0.05)
+            after = self._other_sessions()
+        self.assertEqual(after, before)
