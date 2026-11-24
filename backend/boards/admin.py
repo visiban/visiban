@@ -21,6 +21,7 @@ from .serializers import (
 )
 from .permissions import SITE_ADMIN
 from .admin_mixins import ContainerChangedAdminMixin
+from .services import setting_changes
 from visiban.colors import ColorAdminFormMixin
 from visiban.admin_row_version import RowVersionAdminMixin, RowVersionField, RowVersionFormMixin
 from .services.cards import (
@@ -1023,6 +1024,10 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
+        if change:
+            setting_changes.record_swimlane_enforcement_change(
+                swimlane=obj, actor=request.user, old_value=obj._old_limit_enforcement,
+            )
         # A parent's lane name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change. The old name was read under the lane
@@ -1072,12 +1077,13 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
         # The lane's board before this write (see _after_save), read under the
         # lane lock. On the instance, not the admin: one ModelAdmin serves
         # every request.
-        # The name too, for the rename ping in save_model (#2500), from the
-        # same locked read.
-        obj._health_old_board_id, obj._rename_old_name = (
-            Swimlane.objects.filter(pk=obj.pk).values_list("board_id", "name").first()
+        # The name too, for the rename ping in save_model (#2500), and the
+        # limit enforcement, for its audit row (#2584), from the same read.
+        obj._health_old_board_id, obj._rename_old_name, obj._old_limit_enforcement = (
+            Swimlane.objects.filter(pk=obj.pk)
+            .values_list("board_id", "name", "limit_enforcement").first()
             if change else None
-        ) or (None, None)
+        ) or (None, None, None)
         if obj._health_old_board_id is not None and obj._health_old_board_id not in locked:
             Board.objects.select_for_update(no_key=True).filter(pk=obj._health_old_board_id).first()
 
@@ -1347,7 +1353,17 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             # board (#2208), as on the REST PATCH.
             if not obj.cards_can_have_children and obj.default_child_board_id is not None:
                 obj.default_child_board = None
+        # #1923: the audited enforcement settings as they stand under the board
+        # lock, so this write path records them as the REST PATCH does.
+        old_settings = (
+            setting_changes.snapshot_board_settings(Board.objects.get(pk=obj.pk))
+            if change else None
+        )
         super().save_model(request, obj, form, change)
+        if old_settings is not None:
+            setting_changes.record_board_setting_changes(
+                board=obj, actor=request.user, before=old_settings,
+            )
         # A parent board's name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change, published on commit.

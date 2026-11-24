@@ -3155,6 +3155,17 @@ def clear_share_links_of_deleted_enabler(sender, instance, **kwargs):
             record_share_link_updated(board)
 
 
+@receiver(pre_delete, sender=settings.AUTH_USER_MODEL, dispatch_uid="boards_clear_deleted_assignee_provenance")
+def clear_assigned_by_of_deleted_assignee(sender, instance, **kwargs):
+    """Clear ``assigned_by`` on a deleted user's cards (#1923).
+
+    ``Card.assignee`` is SET_NULL, which would leave the provenance of an
+    assignment that no longer exists; a later write that set an assignee
+    without stamping it would then inherit it. Archived cards included.
+    """
+    Card._base_manager.filter(assignee=instance).update(assigned_by=None)
+
+
 @receiver(pre_delete, sender=settings.AUTH_USER_MODEL, dispatch_uid="boards_revoke_deleted_creator_links")
 def revoke_board_invite_links_of_deleted_creator(sender, instance, **kwargs):
     """Revoke a user's pending board invite links before the user row goes (#1578).

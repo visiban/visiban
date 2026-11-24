@@ -313,6 +313,16 @@ and `card.updated`, which clients could not apply.*
     A client that applies `card.updated` by replacing the card with that id
     needs no special handling for either case.
 
+### `override` on card placement events (since 1.3)
+
+`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `override` object (#1923), present only when the placement overrode a Block WIP or weight limit. Every other payload is unchanged.
+
+```json
+{ "kinds": ["wip"], "actor_basis": "assignee", "actor": { "id": 1, "username": "ada" }, "reason": "Customer deadline" }
+```
+
+`actor_basis` is `admin`, `site_admin` or `assignee`. `reason` is `""` when an admin gave none. It is visible to every subscriber, viewers included, and appears in the [change feed](events.md) and in webhook deliveries.
+
 ### Sibling positions on `card.moved` (since 1.3)
 
 A move renumbers other cards. Leaving a cell closes the gap the card left
@@ -797,8 +807,3 @@ async function connect(boardId, apiToken) {
   );
 }
 ```
-
-
-## `override` on card placement events (since 1.3, #1923)
-
-`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `override` object, present only when the placement overrode a soft WIP or weight limit: `{"kinds": ["wip"], "actor_basis": "admin" | "site_admin" | "assignee", "actor": {"id": 1, "username": "..."}, "reason": "..."}`. Like `gate_transitions`, every other payload is unchanged.

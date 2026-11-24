@@ -22,7 +22,7 @@ from django.test import RequestFactory, TestCase, TransactionTestCase
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.admin import CardAdmin
+from boards.admin import BoardAdmin, CardAdmin, SwimlaneAdmin
 from boards.management.commands.purge_card_history import redact_card_event_payload
 from boards.models import (
     Board, BoardMembership, BoardSettingChange, Card, CardActivity, CardOverride, Column,
@@ -425,6 +425,113 @@ class BoardSettingChangeTests(_Fixture, TestCase):
         row = BoardSettingChange.objects.get()
         self.assertEqual(row.setting, f"swimlane:{self.lane.uid}:limit_enforcement")
         self.assertEqual(row.new_value, "hard")
+
+
+class AdminSettingAuditTests(_Fixture, TestCase):
+    """Django admin is a write path for the audited settings too (#1923)."""
+
+    def setUp(self):
+        self._setup_board()
+        self.staff = User.objects.create_superuser(username="ao_staff", password="pass", email="s@x.test")
+        self.request = RequestFactory().post("/")
+        self.request.user = self.staff
+
+    def test_board_admin_records_changed_settings_only(self):
+        admin = BoardAdmin(Board, AdminSite())
+        board = Board.objects.get(pk=self.board.pk)
+        board.allow_assignee_override = False
+        board.enforce_wip_hard = True
+        admin.save_model(self.request, board, form=None, change=True)
+        rows = {r.setting: (r.old_value, r.new_value, r.actor_id) for r in BoardSettingChange.objects.all()}
+        self.assertEqual(rows, {
+            "allow_assignee_override": ("true", "false", self.staff.pk),
+            "enforce_wip_hard": ("false", "true", self.staff.pk),
+        })
+        admin.save_model(self.request, board, form=None, change=True)
+        self.assertEqual(BoardSettingChange.objects.count(), 2)
+
+    def test_swimlane_admin_records_limit_enforcement(self):
+        admin = SwimlaneAdmin(Swimlane, AdminSite())
+        lane = Swimlane.objects.get(pk=self.lane.pk)
+        old = lane.limit_enforcement
+        lane.limit_enforcement = "hard"
+        admin.save_model(self.request, lane, form=None, change=True)
+        row = BoardSettingChange.objects.get()
+        self.assertEqual(row.setting, f"swimlane:{lane.uid}:limit_enforcement")
+        self.assertEqual((row.new_value, row.actor_id), ("hard", self.staff.pk))
+        self.assertNotEqual(old, "hard")
+
+
+class AssigneeOverrideEndToEndTests(_Fixture, TestCase):
+    def setUp(self):
+        self._setup_board()
+        self._bc = patch(PATCH_BROADCAST)
+        self._bc.start()
+
+    def tearDown(self):
+        self._bc.stop()
+
+    def test_deleting_the_assignee_clears_assigned_by(self):
+        from django.utils import timezone
+        archived = Card.objects.create(
+            board=self.board, column=self.src, swimlane=self.lane, title="Old", position=5,
+            created_by=self.admin, assignee=self.member, assigned_by=self.admin,
+            archived_at=timezone.now(),
+        )
+        kept = Card.objects.create(
+            board=self.board, column=self.src, swimlane=self.lane, title="Kept", position=6,
+            created_by=self.admin, assignee=self.other, assigned_by=self.admin,
+        )
+        self.member.delete()
+        for card in (self.card, archived):
+            row = Card._base_manager.get(pk=card.pk)
+            self.assertEqual((row.assignee_id, row.assigned_by_id), (None, None))
+        self.assertEqual(Card.objects.get(pk=kept.pk).assigned_by_id, self.admin.pk)
+
+    def test_assignee_can_restore_past_the_limit(self):
+        from django.utils import timezone
+        Card.objects.filter(pk=self.card.pk).update(
+            column=self.dst, position=1, archived_at=timezone.now(), created_by=self.member,
+        )
+        resp = self._client(self.member).post(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/unarchive/?force=true",
+            {"override_reason": "back on"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        row = CardOverride.objects.get()
+        self.assertEqual((row.trigger, row.actor_basis), ("restore", "assignee"))
+
+    def _assert_self_assigned_refusal(self, card):
+        resp = self._move(self.member, reason="mine", card=card)
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.assertEqual(resp.json()["reason"], "self_assigned")
+        self.assertFalse(CardOverride.objects.exists())
+
+    def test_self_assign_on_create_then_force_is_refused(self):
+        resp = self._client(self.member).post(
+            f"/api/v1/boards/{self.board.pk}/cards/",
+            {"title": "N", "column": self.src.pk, "swimlane": self.lane.pk, "assignee_id": self.member.pk},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self._assert_self_assigned_refusal(Card.objects.get(pk=resp.json()["id"]))
+
+    def test_self_assign_by_patch_then_force_is_refused(self):
+        Card.objects.filter(pk=self.card.pk).update(assignee=None, assigned_by=None, created_by=self.member)
+        resp = self._client(self.member).patch(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+            {"assignee_id": self.member.pk}, format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self._assert_self_assigned_refusal(self.card)
+
+    def test_non_admin_swimlane_patch_writes_no_audit_row(self):
+        resp = self._client(self.member).patch(
+            f"/api/v1/boards/{self.board.pk}/swimlanes/{self.lane.pk}/",
+            {"limit_enforcement": "hard"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.assertFalse(BoardSettingChange.objects.exists())
 
 
 @skipUnless(connection.vendor == "postgresql", "row locks are only observable on PostgreSQL")
