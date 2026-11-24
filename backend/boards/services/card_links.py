@@ -1262,6 +1262,8 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
             # Since 1.3 (#2209): what the Children tab's scoped board draws.
             "position": c.position,
             "assignee": BoardUserSerializer(c.assignee).data if c.assignee_id else None,
+            # Since 1.3 (#1923): lets the Move picker offer the assignee override.
+            "assigned_by": c.assigned_by_id,
             "blocked": c.blocked_at is not None or len(c.active_blockers) > 0,
             "blocked_at": c.blocked_at.isoformat() if c.blocked_at else None,
             # Since 1.3 (#2209 full card anatomy): what the child board's own
@@ -1296,6 +1298,7 @@ def children_for_viewer(parent, user, *, offset=0, limit=50):
         # ?force=true; a hard limit blocks every role.
         "enforce_wip_limits": child_board.enforce_wip_limits,
         "enforce_wip_hard": child_board.enforce_wip_hard,
+        "allow_assignee_override": child_board.allow_assignee_override,
         "columns": [
             {
                 "id": col.pk, "name": col.name, "color": col.color,

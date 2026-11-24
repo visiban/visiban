@@ -15,6 +15,7 @@ import { useSharedMinuteClock } from "../../hooks/useSharedMinuteClock";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { isImeComposing } from "../../utils/imeComposition";
 import Avatar from "../Common/Avatar";
+import OverrideReasonForm from "../Board/OverrideReasonForm";
 import AddChildDialog from "./AddChildDialog";
 import ChildCardPicker from "./ChildCardPicker";
 import { CHILDREN_BOARD_ESCAPE_PRIORITY, CHILD_MOVE_ESCAPE_PRIORITY, WIDE_MIN_PX, WRITE_ROLES, describeChildrenChange, moveTargetState, type ChildrenState } from "./cardChildren";
@@ -46,6 +47,8 @@ interface Props {
   cardColumnName?: string;
   /** The parent board's columns after the parent's (#2371), for Add child's "Needed". */
   laterColumns?: { id: number; name: string }[];
+  /** The viewer, for the assignee override (#1923). Absent means no override. */
+  currentUserId?: number | null;
   state: ChildrenState;
   /** Escape from the board returns focus to the tab list. */
   onExitToTabs: () => void;
@@ -78,7 +81,7 @@ const ARCHIVED_PARENT_REASON = "This card is archived. Restore it before adding 
  * `CardMovement` history and broadcasts apply unchanged. The parent board's role never authorizes a write on
  * the child board: Move needs member on the child board, Add child and Link existing member on both.
  */
-export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns }: Props) {
+export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTitle, cardColumnName, state, onExitToTabs, lastMovedAt = null, focusChildId = null, userTimezone = "", userDateFormat = "MM/DD/YYYY", cardArchived = false, laterColumns, currentUserId = null }: Props) {
   const { notify, dismiss } = useToast();
   // Minute ticker (#2210 footer uses the same one) so "Work moved Xd ago" never goes stale
   // while the tab stays open.
@@ -226,12 +229,13 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
     });
   };
 
-  const move = async (child: CardChildRow, col: CardChildrenColumn) => {
+  const move = async (child: CardChildRow, col: CardChildrenColumn, reason?: string) => {
     if (!childBoard) return;
     setMoveError(null);
     beginWrite();
     try {
-      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count }, moveTargetState(col, childBoard).force);
+      const target = moveTargetState(col, childBoard, { userId: currentUserId, child });
+      await moveCard(childBoard.id, child.id, { column_id: col.id, swimlane_id: child.swimlane_id, position: col.card_count, ...(reason ? { override_reason: reason } : {}) }, target.force);
       const doneAfter = counts.done
         + (col.is_done ? 1 : 0)
         - (columns.find((c) => c.id === child.column_id)?.is_done ? 1 : 0);
@@ -555,7 +559,8 @@ export default function CardChildrenTab({ canHaveChildren, board, cardId, cardTi
           board={childBoard}
           error={moveError}
           userTimezone={userTimezone}
-          onMove={(col) => void move(moving, col)}
+          currentUserId={currentUserId}
+          onMove={(col, reason) => move(moving, col, reason)}
           onClose={() => { const id = moving.id; setMoving(null); setMoveError(null); focusCard(id); }}
         />
       )}
@@ -606,11 +611,12 @@ interface MoveProps {
   child: CardChildRow;
   boardName: string;
   columns: CardChildrenColumn[];
-  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean };
+  board: { role: string; enforce_wip_limits?: boolean; enforce_wip_hard?: boolean; allow_assignee_override?: boolean };
+  currentUserId: number | null;
   error: string | null;
   /** #2550: the viewer's time zone, for the planned-date warning's "today". */
   userTimezone?: string;
-  onMove: (col: CardChildrenColumn) => void;
+  onMove: (col: CardChildrenColumn, reason?: string) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -619,7 +625,7 @@ interface MoveProps {
  * child board's counts, at-limit columns disabled with their reason. The server re-checks the limit; its
  * refusal is shown as the tab's error line.
  */
-function ChildMovePopover({ child, boardName, columns, board, error, userTimezone = "", onMove, onClose }: MoveProps) {
+function ChildMovePopover({ child, boardName, columns, board, currentUserId, error, userTimezone = "", onMove, onClose }: MoveProps) {
   const [choice, setChoice] = useState<number>(child.column_id);
   const firstRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -629,6 +635,25 @@ function ChildMovePopover({ child, boardName, columns, board, error, userTimezon
   useEscapeStack(() => { onClose(); return true; }, CHILD_MOVE_ESCAPE_PRIORITY);
   useEffect(() => { firstRef.current?.focus(); }, []);
   const target = columns.find((c) => c.id === choice);
+  const stateOf = (c: CardChildrenColumn) => c.id === child.column_id
+    ? { disabled: false, reason: "", force: false, needsReason: false }
+    : moveTargetState(c, board, { userId: currentUserId, child });
+  const needsReason = target !== undefined && stateOf(target).needsReason === true;
+  // The assignee's reason box (#1923): closed again on every target change.
+  const [reasonOpen, setReasonOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const overrideRef = useRef<HTMLButtonElement>(null);
+  const closeReason = () => {
+    setReasonOpen(false);
+    queueMicrotask(() => overrideRef.current?.focus());
+  };
+  const submitReason = async (reason: string) => {
+    if (!target) return;
+    setBusy(true);
+    // A failed move keeps the box, and the typed reason, open.
+    await onMove(target, reason);
+    setBusy(false);
+  };
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center max-sm:items-end">
     <div className="absolute inset-0 bg-backdrop/40" aria-hidden="true" onClick={onClose} />
@@ -640,7 +665,7 @@ function ChildMovePopover({ child, boardName, columns, board, error, userTimezon
       <div role="radiogroup" aria-label={`Column on ${boardName}`} className="flex flex-col gap-1">
         {columns.map((c) => {
           const current = c.id === child.column_id;
-          const st = current ? { disabled: false, reason: "", force: false } : moveTargetState(c, board);
+          const st = stateOf(c);
           const full = st.disabled;
           const label = current ? `${c.name} · current` : hasLimit(c) ? `${c.name} ${c.card_count} of ${c.wip_limit}` : c.name;
           return (
@@ -652,7 +677,7 @@ function ChildMovePopover({ child, boardName, columns, board, error, userTimezon
                 name={`move-${child.id}`}
                 checked={choice === c.id}
                 disabled={full}
-                onChange={() => setChoice(c.id)}
+                onChange={() => { setChoice(c.id); setReasonOpen(false); }}
               />
               <span className="flex-1">{label}</span>
               {st.reason && <span className={`text-xs ${full ? "" : "text-fg-muted"}`}>{st.reason}</span>}
@@ -663,17 +688,22 @@ function ChildMovePopover({ child, boardName, columns, board, error, userTimezon
       {/* The read sends the child board's columns in board order (position, then id), so the first is To do. */}
       <PlannedMoveWarning text={plannedMoveWarningText(child, choice === child.column_id ? null : target, columns[0]?.id, todayInTimezone(userTimezone))} />
       <p role="alert" className={error ? "text-xs text-danger" : "sr-only"}>{error ?? ""}</p>
-      <div className="flex justify-end gap-3">
-        <button type="button" onClick={onClose} className="min-h-11 px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
-        <button
-          type="button"
-          disabled={!target || choice === child.column_id}
-          onClick={() => target && onMove(target)}
-          className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40`}
-        >
-          Move
-        </button>
-      </div>
+      {needsReason && reasonOpen ? (
+        <OverrideReasonForm busy={busy} onSubmit={(reason) => void submitReason(reason)} onCancel={closeReason} escapePriority={CHILD_MOVE_ESCAPE_PRIORITY + 0.5} />
+      ) : (
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="min-h-11 px-3 py-1.5 text-sm text-fg-secondary rounded hover:bg-surface-hover hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button
+            ref={overrideRef}
+            type="button"
+            disabled={!target || choice === child.column_id}
+            onClick={() => { if (!target) return; if (needsReason) setReasonOpen(true); else void onMove(target); }}
+            className={`${tgt} px-3 py-1.5 text-sm font-medium rounded bg-button-primary hover:bg-button-primary-hover text-on-primary focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40`}
+          >
+            {needsReason ? "Move anyway (assignee override)" : "Move"}
+          </button>
+        </div>
+      )}
     </div>
     </div>
   );

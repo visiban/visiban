@@ -1177,7 +1177,9 @@ not just this parent's children. A parent with no children has no `board`.
 *Also since 1.3 (#2209):* each row carries the child board's card face,
 `priority`, `due_date` (or `null`) and `labels` (`[{id, name, color}]`), and
 `board` carries that board's WIP mode, `enforce_wip_limits` and
-`enforce_wip_hard`, so a client can disable exactly the moves the move
+`enforce_wip_hard` (and, since 1.3 (#1923), `allow_assignee_override`, with
+each row's `assigned_by`, the user id that assigned it or `null`), so a client
+can disable exactly the moves the move
 endpoint would refuse you. Neither is sent when `visible` is `false`.
 
 *Since 1.3 (#2553):* each row also carries `planned` (boolean): `true` while

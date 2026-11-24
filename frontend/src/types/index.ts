@@ -1035,6 +1035,8 @@ export interface CardChildRow {
   archived: boolean;
   position: number;
   assignee: BoardUser | null;
+  /** Since 1.3 (#1923): who assigned the card; decides the assignee override. */
+  assigned_by?: number | null;
   blocked: boolean;
   blocked_at: string | null;
   /** Since 1.3 (#2209): the child board's own card face (priority, due date, labels). */
@@ -1069,6 +1071,8 @@ export interface CardChildrenRead {
     /** Since 1.3 (#2209): the child board's WIP mode, which the Move picker honors. */
     enforce_wip_limits: boolean;
     enforce_wip_hard: boolean;
+    /** Since 1.3 (#1923): the child board's assignee-override switch. */
+    allow_assignee_override?: boolean;
     columns: CardChildrenColumn[];
   };
 }
