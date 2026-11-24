@@ -484,4 +484,15 @@ describe('CardDetail field set branch (#2570)', () => {
       expect.objectContaining({ custom_field_values: [{ field_definition: 55, value: 'big' }] }),
     ]))
   })
+
+  it('keeps focus inside the field when a viewer jumps to a field in a set', async () => {
+    Element.prototype.scrollIntoView = vi.fn() as unknown as typeof Element.prototype.scrollIntoView
+    render(<CardDetail {...baseProps()} card={makeCard({ custom_field_values: [{ field_definition: 55, value: '$40k' }] })}
+      board={makeBoard({ custom_field_definitions: [dealField, other], custom_field_sets: [fieldSet], current_user_role: 'viewer' })} />)
+    await userEvent.click(within(screen.getByRole('list', { name: 'Key facts' })).getByRole('button', { name: /Go to Deal value/ }))
+    await waitFor(() => {
+      const section = document.querySelector<HTMLElement>('[data-fact-section="field:55"]')
+      expect(section?.contains(document.activeElement)).toBe(true)
+    })
+  })
 })

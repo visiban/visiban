@@ -181,7 +181,7 @@ function FieldGrid({ block, values, props, gridClass, cellClass }: {
         <div
           key={definition.id}
           data-fact-section={`field:${definition.id}`}
-         
+          tabIndex={-1}
           className={`focus:outline-none ${WIDE_TYPES.has(definition.field_type) ? "sm:col-span-2" : ""} ${cellClass ?? ""}`}
         >
           <CustomFieldEditRow
