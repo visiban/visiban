@@ -247,6 +247,13 @@ In-pod callers (probes, helm tests) send an explicit Host instead; see the
 - name: GIT_LENS_ENABLED
   value: "true"
 {{- end }}
+{{- /* GIT_LENS_MAX_PAGES (#1580). Rendered only when set; null (the default) and
+  a key missing under --reuse-values render nothing, so the backend's own
+  default of 3 applies. The schema bounds it to 1..10. */}}
+{{- if not (kindIs "invalid" $ctx.Values.backend.settings.gitLensMaxPages) }}
+- name: GIT_LENS_MAX_PAGES
+  value: {{ $ctx.Values.backend.settings.gitLensMaxPages | int | toString | quote }}
+{{- end }}
 {{- /* Outbound webhooks (#863). Rendered only when set, like the flags above. */}}
 {{- if $ctx.Values.backend.settings.webhooksEnabled }}
 - name: WEBHOOKS_ENABLED
