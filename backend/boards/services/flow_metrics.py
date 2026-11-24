@@ -1210,29 +1210,37 @@ def load_recent_dwell(
     ``wait`` key per gated stage. So when no loaded card is in the set above,
     ``gate_last`` is reset to ``{}``, the answer a load of that set gives.
 
-    The movement term is an uncorrelated, board-bounded ``IN`` instead of a
-    correlated ``EXISTS`` inside this ``OR`` (#2502, #2506, a partial
-    improvement). It names the same cards: the load is already bounded to
-    ``board``, and this board's movements in the range are exactly the ones
-    the ``EXISTS`` matched. Measured on the nightly fixture (PostgreSQL 17,
-    the before/after ``EXPLAIN (ANALYZE, BUFFERS)`` plans are in the MR
-    description for #2506): the two statements that read movements go
-    from 71,153 to 64,033 buffers on board 1 and from 74,530 to 72,473 on
-    the aged board 201, and the cards load and history read are faster in ms.
+    The movement term is an uncorrelated ``IN`` instead of a correlated
+    ``EXISTS`` inside this ``OR`` (#2502, #2506), and it names only the cards
+    the two other terms skip (#2567), as ``can_affect_range`` does: this
+    board's cards archived before the range, or live in a done column. That
+    is the exact complement of the other terms (``archived_at`` is compared
+    only where it is set, and ``column`` and ``is_done`` are NOT NULL), so the
+    kept set is the same. The done columns come from ``columns``, which
+    ``load_board_flow`` already requires to be the board's columns and which
+    ``note`` below reads for the same rule; naming them as ids keeps a join to
+    ``columns`` out of the subquery, which on the aged board flipped the
+    90-day plan to one index probe per archived card (17.5k -> 131.7k
+    buffers when measured).
 
-    What it does NOT fix: the bound is only ``card__board=board``. It is not
-    narrowed to the cards the earlier terms skip (the part of
-    ``can_affect_range``'s form that was not carried over), so the
-    ``card_movements_moved_at`` index scan still reads every board's
-    movements in the range (15,632 rows over 2 loops, about 30,892 of the
-    history read's 32,759 buffers on board 1). The history read still drives
-    from a ``card_movements_card_id`` merge (on board 201 it reads 50,271
-    rows to return 25,351), and the aged board's card filter does a
-    ``Seq Scan on cards`` that removes 14,152 rows. The instance-wide
-    movement read is left for the issue to keep open.
+    Measured on the nightly fixture (PostgreSQL 17.11, ``EXPLAIN (ANALYZE,
+    BUFFERS)``, every statement that reads movements; figures in
+    ``docs/development/nightly-load-test.md``): on the load-test board the
+    subquery drives from its 479 such cards (476 live done, 3 archived)
+    instead of reading every
+    board's movements in the range from ``card_movements_moved_at``, 90,043
+    -> 13,726 buffers at 30 days and 26,011 -> 8,740 at 90. On the aged board
+    the planner keeps its plan (64,752 and 17,542 buffers, unchanged): with
+    10,150 such cards to probe (9,640 archived), the instance-wide ``moved_at`` range scan
+    is still the cheaper read at 30 days. That residual is a planner choice,
+    not a wider bound.
     """
+    done_ids = {c.id for c in columns if c.is_done}
+    skipped = Q(card__archived_at__lt=flow_range.start)
+    if done_ids:
+        skipped |= Q(card__archived_at__isnull=True, card__column_id__in=done_ids)
     moved = CardMovement.objects.filter(
-        card__board=board, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+        skipped, card__board=board, moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
     ).values("card_id")
     relevant = (
         (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
@@ -1245,7 +1253,6 @@ def load_recent_dwell(
             columns=columns, cards_matching=relevant, on_card_rows=on_card_rows,
         )
 
-    done_ids = {c.id for c in columns if c.is_done}
     in_dwell_set = False
 
     def note(card, rows):
