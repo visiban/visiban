@@ -42,6 +42,15 @@ export const getGroupBoards = (id: number) =>
 export const getGroupDescendantBoards = (id: number) =>
   client.get<Board[]>(`/api/v1/groups/${id}/descendant-boards/`).then((r) => r.data);
 
+/** One page of the subtree's boards (#1779, endpoint from #1317): `{count, offset, page_size, results}`; `count` includes the group's own direct boards. */
+export const getGroupDescendantBoardsPaged = (id: number, offset = 0, pageSize = 50) =>
+  client
+    .get<{ count: number; offset: number; page_size: number; results: Board[] }>(
+      `/api/v1/groups/${id}/descendant-boards/paged/`,
+      { params: { offset, page_size: pageSize } },
+    )
+    .then((r) => r.data);
+
 export const createGroupBoard = (id: number, data: { name: string; description?: string; template?: string; swimlane_name?: string }) =>
   client.post<Board>(`/api/v1/groups/${id}/boards/`, data).then((r) => r.data);
 

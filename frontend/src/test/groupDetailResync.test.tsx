@@ -59,7 +59,7 @@ vi.mock('../api/groups', () => ({
   getGroupMembers: vi.fn(),
   getSubgroups: vi.fn(),
   getGroupBoards: vi.fn(),
-  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
+  getGroupDescendantBoardsPaged: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
@@ -100,7 +100,7 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupLabel, updateGroup, removeGroupMember, updateGroupMemberRole, transferGroupOwnership } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoardsPaged, createGroupLabel, updateGroup, removeGroupMember, updateGroupMemberRole, transferGroupOwnership } from '../api/groups'
 
 const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
 const mockRemoveGroupMember = removeGroupMember as ReturnType<typeof vi.fn>
@@ -111,7 +111,7 @@ const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
-const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
+const mockGetGroupDescendantBoards = getGroupDescendantBoardsPaged as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -150,6 +150,11 @@ function deferred<T>(mock: ReturnType<typeof vi.fn>) {
   }
 }
 
+function deferredPage(mock: ReturnType<typeof vi.fn>) {
+  const d = deferred<unknown>(mock)
+  return { answer: (v: Board[]) => d.answer(page(v)), fail: d.fail }
+}
+
 const sub = (id: number, name: string): Group => ({ ...fakeGroup, id, name, parent: 1 })
 const member = (id: number, name: string) => ({
   id, user: { ...fakeUser, id, username: name, display_name: name }, role: 'member', joined_at: '',
@@ -174,6 +179,8 @@ function openSettings(section = 'Members') {
 function reconnect() { act(() => { capturedOnReconnected?.() }) }
 function frame(evt: BoardEvent) { act(() => { capturedOnEvent?.(evt) }) }
 
+const page = (results: unknown[]) => ({ count: results.length, offset: 0, page_size: 50, results })
+
 describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -183,7 +190,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([member(1, 'jdoe')])
     mockGetSubgroups.mockResolvedValue([sub(10, 'Platform'), sub(11, 'Mobile')])
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockGetGroupBoards.mockReset()
     mockGetGroupBoards.mockResolvedValue([alpha])
   })
@@ -212,7 +219,7 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
     await loadGroup()
     fireEvent.click(screen.getByRole('switch'))
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
-    mockGetGroupDescendantBoards.mockResolvedValue([board(30, 'Deep Board', { group: 10 })])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([board(30, 'Deep Board', { group: 10 })]))
     reconnect()
     expect(await screen.findByText('Deep Board')).toBeTruthy()
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2)
@@ -333,11 +340,11 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
   })
 
   it('keeps a subgroup-board delete applied during the descendant re-read', async () => {
-    mockGetGroupDescendantBoards.mockResolvedValue([board(30, 'Deep A', { group: 10 }), board(31, 'Deep B', { group: 10 })])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([board(30, 'Deep A', { group: 10 }), board(31, 'Deep B', { group: 10 })]))
     await loadGroup()
     fireEvent.click(screen.getByRole('switch'))
     await screen.findByText('Deep A')
-    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const reread = deferredPage(mockGetGroupDescendantBoards)
     reconnect()
     frame({ event: 'board.deleted', data: { board_uid: 'uid-30' } } as BoardEvent)
     expect(screen.queryByText('Deep A')).toBeNull()
@@ -421,10 +428,10 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
 
   it('lets a descendant-boards re-read supersede the toggle load it races', async () => {
     await loadGroup()
-    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const toggleLoad = deferredPage(mockGetGroupDescendantBoards)
     fireEvent.click(screen.getByRole('switch'))
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
-    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const reread = deferredPage(mockGetGroupDescendantBoards)
     reconnect()
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
     await reread.answer([board(31, 'Newer', { group: 10 })])
@@ -601,10 +608,10 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
 
   it('keeps the toggle load answer when a re-read that superseded it then fails', async () => {
     await loadGroup()
-    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const toggleLoad = deferredPage(mockGetGroupDescendantBoards)
     fireEvent.click(screen.getByRole('switch'))
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
-    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const reread = deferredPage(mockGetGroupDescendantBoards)
     reconnect()
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
     await toggleLoad.answer([board(30, 'Deep Board', { group: 10 })])
@@ -614,10 +621,10 @@ describe('GroupDetail resync of group, subgroups and members (#2136)', () => {
 
   it('keeps the toggle load answer when the superseding re-read failed before it answered', async () => {
     await loadGroup()
-    const toggleLoad = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const toggleLoad = deferredPage(mockGetGroupDescendantBoards)
     fireEvent.click(screen.getByRole('switch'))
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1))
-    const reread = deferred<Board[]>(mockGetGroupDescendantBoards)
+    const reread = deferredPage(mockGetGroupDescendantBoards)
     reconnect()
     await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
     await reread.fail(new Error('down'))

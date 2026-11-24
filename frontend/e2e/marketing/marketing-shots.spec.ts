@@ -148,8 +148,10 @@ async function mockApi(page: Page): Promise<void> {
           return json(route, GROUPS.filter((x) => x.parent === g.id))
         case 'boards':
           return json(route, BOARDS.filter((b) => b.group === g.id))
-        case 'descendant-boards':
-          return json(route, BOARDS.filter((b) => b.group !== null))
+        case 'descendant-boards': {
+          const rows = BOARDS.filter((b) => b.group !== null)
+          return json(route, { count: rows.length, offset: 0, page_size: 50, results: rows })
+        }
         case 'labels':
           return json(route, g.shared_labels)
         default:

@@ -12,7 +12,7 @@ import ConnectionStatus from "../components/Common/ConnectionStatus";
 import Avatar from "../components/Common/Avatar";
 import { Toggle } from "../components/Common/Toggle";
 import {
-  getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
+  getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoardsPaged,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
   transferGroupOwnership, createGroupLabel, deleteGroupLabel, updateGroupBoardDefaults,
   starGroup, unstarGroup, updateGroup, setGroupHealthStatus, getGroupHealthHistory,
@@ -153,6 +153,11 @@ function isAccessLoss(err: unknown): boolean {
   return status === 404 || status === 403;
 }
 
+const SG_PAGE_SIZE = 50;
+// A realtime re-read refreshes at most this many loaded pages; beyond it the list is rebuilt from them and Load more continues.
+const SG_REFETCH_PAGES = 4;
+const SG_TEXT_BUTTON = "max-sm:min-h-11 flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
+
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -215,6 +220,19 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
   const [subgroupBoards, setSubgroupBoards] = useState<Board[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
+  // Paging of the subgroup boards (#1779). `sgOffset` counts server rows consumed (the endpoint's
+  // `count` includes the direct boards this page hides), `sgCount` is the server total.
+  const [sgOffset, setSgOffset] = useState(0);
+  const [sgCount, setSgCount] = useState(0);
+  const [sgLoadingMore, setSgLoadingMore] = useState(false);
+  const [sgMoreError, setSgMoreError] = useState(false);
+  const [sgFirstError, setSgFirstError] = useState(false);
+  const [sgAnnouncement, setSgAnnouncement] = useState("");
+  const [sgRetryTick, setSgRetryTick] = useState(0);
+  const sgOffsetRef = useRef(0);
+  const sgBusyRef = useRef(false);
+  const sgFocusIdRef = useRef<number | null>(null);
+  const sgCountLineRef = useRef<HTMLParagraphElement>(null);
 
   // Set of board ids flagged for fade-in animation after a live insertion.
   // Cleared 200ms after mount so re-renders don't replay the animation.
@@ -566,8 +584,30 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const refetchMembers = useCallback(() => readMembers(() => getGroupMembers(groupId), { onError: handleGroupReadError }), [readMembers, groupId, handleGroupReadError]);
   // The descendant endpoint also returns the direct boards; drop those, as the
   // toggle's own load does.
+  // Re-reads the pages already loaded (at most SG_REFETCH_PAGES, one after another, never in
+  // parallel), so a health change shows on every loaded
+  // row without collapsing the list back to one page. Never moves focus.
   const refetchSubgroupBoards = useCallback(() => readSubgroupBoards(
-    () => getGroupDescendantBoards(groupId).then((bs) => bs.filter((b) => !directBoardIdsRef.current.has(b.id))),
+    async () => {
+      const target = sgOffsetRef.current;
+      const byId = new Map<number, Board>();
+      let offset = 0;
+      let count = 0;
+      let fetched = 0;
+      // At least the first page, then as many more as were loaded (and still exist), up to the cap.
+      while (fetched === 0 || (offset < target && offset < count && fetched < SG_REFETCH_PAGES)) {
+        fetched += 1;
+        const page = await getGroupDescendantBoardsPaged(groupId, offset, SG_PAGE_SIZE);
+        count = page.count;
+        page.results.forEach((b) => { if (!directBoardIdsRef.current.has(b.id)) byId.set(b.id, b); });
+        offset += page.results.length;
+        if (page.results.length === 0) break;
+      }
+      sgOffsetRef.current = offset;
+      setSgOffset(offset);
+      setSgCount(count);
+      return [...byId.values()];
+    },
     { onError: handleGroupReadError, onSettled: () => setLoadingSubgroupBoards(false) },
   ), [readSubgroupBoards, groupId, handleGroupReadError]);
   // Refetch every list on this page whose rows carry an inherited health
@@ -750,6 +790,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   }, [boards]);
 
   useEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
+  const subgroupBoardsRef = useRef<Board[]>([]);
+  useEffect(() => { subgroupBoardsRef.current = subgroupBoards; }, [subgroupBoards]);
   useEffect(() => { directBoardIdsRef.current = new Set(boards.map((b) => b.id)); }, [boards]);
 
   useEffect(() => {
@@ -765,19 +807,68 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     let stale = false;
     // Exclude boards already shown in the direct boards list; the descendant
     // endpoint returns boards from the root group too.
-    getGroupDescendantBoards(groupId)
-      .then((bs) => {
+    sgOffsetRef.current = 0;
+    setSgOffset(0);
+    setSgCount(0);
+    setSgMoreError(false);
+    setSgFirstError(false);
+    getGroupDescendantBoardsPaged(groupId, 0, SG_PAGE_SIZE)
+      .then((page) => {
         if (stale) return;
         const directIds = new Set(boards.map((b) => b.id));
-        applyLoadSubgroupBoards(bs.filter((b) => !directIds.has(b.id)));
+        sgOffsetRef.current = page.results.length;
+        setSgOffset(page.results.length);
+        setSgCount(page.count);
+        applyLoadSubgroupBoards(page.results.filter((b) => !directIds.has(b.id)));
       })
-      .catch(() => { if (!stale) applyLoadSubgroupBoards([]); })
+      // A failed load is never an empty state: show the error and a Retry instead.
+      .catch(() => { if (!stale) { applyLoadSubgroupBoards([]); setSgFirstError(true); } })
       .finally(() => { if (!stale) setLoadingSubgroupBoards(false); });
     return () => { stale = true; };
   // boards is intentionally not listed here — we only want to re-fetch when the
   // toggle turns on or the group changes, not on every boards state update.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- boards intentionally excluded, see comment above
-  }, [showSubgroupBoards, groupId, resetSubgroupBoards, applyLoadSubgroupBoards]);
+  }, [showSubgroupBoards, groupId, sgRetryTick, resetSubgroupBoards, applyLoadSubgroupBoards]);
+
+  const loadMoreSubgroupBoards = async () => {
+    if (sgBusyRef.current) return;
+    sgBusyRef.current = true;
+    setSgLoadingMore(true);
+    setSgMoreError(false);
+    const startGroup = groupId;
+    try {
+      const page = await getGroupDescendantBoardsPaged(groupId, sgOffsetRef.current, SG_PAGE_SIZE);
+      if (startGroup !== groupIdRef.current) return;
+      const have = new Set(subgroupBoardsRef.current.map((b) => b.id));
+      const fresh = page.results.filter((b) => !directBoardIdsRef.current.has(b.id) && !have.has(b.id));
+      sgFocusIdRef.current = fresh.length > 0 ? fresh[0].id : null;
+      sgOffsetRef.current += page.results.length;
+      setSgOffset(sgOffsetRef.current);
+      setSgCount(page.count);
+      // Idempotent append (by id), so the re-read replay rule holds.
+      writeSubgroupBoards((prev) => {
+        const ids = new Set(prev.map((b) => b.id));
+        return [...prev, ...fresh.filter((b) => !ids.has(b.id))];
+      });
+      setSgAnnouncement(`Loaded ${fresh.length} more subgroup boards.`);
+      if (fresh.length === 0 && sgOffsetRef.current >= page.count) {
+        requestAnimationFrame(() => sgCountLineRef.current?.focus());
+      }
+    } catch {
+      setSgMoreError(true);
+    } finally {
+      sgBusyRef.current = false;
+      setSgLoadingMore(false);
+    }
+  };
+
+  // After Load more adds rows, focus the first new one so focus survives the button unmounting on the last page.
+  useEffect(() => {
+    const id = sgFocusIdRef.current;
+    if (id === null) return;
+    sgFocusIdRef.current = null;
+    document.querySelector<HTMLElement>(`[data-subgroup-board-id="${id}"]`)?.focus();
+  }, [subgroupBoards]);
 
   const handleStarToggle = async () => {
     if (starLoading) return;
@@ -1465,6 +1556,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           </label>
         )}
       </div>
+      <p role="status" aria-live="polite" className="sr-only">{sgAnnouncement}</p>
       <p role="status" aria-live="assertive" aria-atomic="true" className="text-danger text-xs min-h-4 mb-1" data-testid="group-board-error">{boardActionError}</p>
       {boards.length === 0 && !showSubgroupBoards ? (
         <p className="rounded-[10px] border border-line bg-canvas px-4 py-8 text-center text-fg-secondary text-sm">No boards yet.</p>
@@ -1475,7 +1567,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           {showSubgroupBoards && (
             loadingSubgroupBoards ? (
               <li><Spinner /></li>
-            ) : subgroupBoards.length === 0 ? (
+            ) : sgFirstError ? (
+              <li className="flex items-center gap-2 px-3 py-2 text-sm text-danger" role="alert">
+                Failed to load subgroup boards.
+                <button type="button" onClick={() => { setSgFirstError(false); setSgRetryTick((n) => n + 1); }} className={SG_TEXT_BUTTON}>Retry</button>
+              </li>
+            ) : subgroupBoards.length === 0 && sgOffset >= sgCount ? (
               <li className="text-fg-secondary text-sm px-3 py-2">No boards in subgroups.</li>
             ) : (
               subgroupBoards.map((b) => (
@@ -1483,6 +1580,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <ListRow interactive>
                     <button
                       type="button"
+                      data-subgroup-board-id={b.id}
                       onClick={() => navigate(`/boards/${b.id}`)}
                       className="flex-1 min-w-0 text-left rounded px-1 py-1 max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
@@ -1502,6 +1600,32 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 </li>
               ))
             )
+          )}
+          {showSubgroupBoards && !loadingSubgroupBoards && !sgFirstError && (subgroupBoards.length > 0 || sgOffset < sgCount) && (
+            <li className="flex flex-col items-center gap-2 px-3 py-3 border-t border-line">
+              <p ref={sgCountLineRef} tabIndex={-1} className="text-xs text-fg-tertiary focus:outline-none">
+                {sgOffset < sgCount
+                  ? `Showing ${subgroupBoards.length} of ${Math.max(subgroupBoards.length, sgCount - boards.length)} subgroup boards`
+                  : `Showing ${subgroupBoards.length} subgroup boards`}
+              </p>
+              {sgOffset < sgCount && (
+                sgMoreError ? (
+                  <>
+                    <p role="alert" className="text-sm text-danger">Couldn&apos;t load more boards.</p>
+                    <button type="button" onClick={() => void loadMoreSubgroupBoards()} className={SG_TEXT_BUTTON}>Retry</button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    aria-disabled={sgLoadingMore || undefined}
+                    onClick={() => void loadMoreSubgroupBoards()}
+                    className={`${SG_TEXT_BUTTON} max-sm:px-4`}
+                  >
+                    {sgLoadingMore ? "Loading…" : "Load more"}
+                  </button>
+                )
+              )}
+            </li>
           )}
         </ListWell>
       )}

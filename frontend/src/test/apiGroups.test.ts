@@ -13,7 +13,7 @@ import client from '../api/client'
 import {
   listGroups, createGroup, getGroup, updateGroup, deleteGroup,
   getGroupMembers, removeGroupMember, updateGroupMemberRole,
-  getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupBoard,
+  getSubgroups, getGroupBoards, getGroupDescendantBoards, getGroupDescendantBoardsPaged, createGroupBoard,
   listInviteLinks, createInviteLink, revokeInviteLink,
   resolveJoinToken, joinGroup,
   starGroup, unstarGroup, listStarredGroups,
@@ -99,6 +99,14 @@ describe('groups API', () => {
     const result = await getGroupBoards(1)
     expect(mockClient.get).toHaveBeenCalledWith('/api/v1/groups/1/boards/')
     expect(result).toEqual([])
+  })
+
+  it('getGroupDescendantBoardsPaged sends offset and page_size and returns the envelope', async () => {
+    const env = { count: 3, offset: 50, page_size: 50, results: [{ id: 1 }] }
+    mockClient.get.mockResolvedValue({ data: env })
+    const result = await getGroupDescendantBoardsPaged(7, 50)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/groups/7/descendant-boards/paged/', { params: { offset: 50, page_size: 50 } })
+    expect(result).toEqual(env)
   })
 
   it('getGroupDescendantBoards fetches descendant boards', async () => {

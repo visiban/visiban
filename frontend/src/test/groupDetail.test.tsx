@@ -72,7 +72,7 @@ vi.mock('../api/groups', () => ({
   getGroupMembers: vi.fn(),
   getSubgroups: vi.fn(),
   getGroupBoards: vi.fn(),
-  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
+  getGroupDescendantBoardsPaged: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
@@ -117,7 +117,7 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, setGroupHealthStatus, getGroupHealthHistory, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoardsPaged, updateGroup, setGroupHealthStatus, getGroupHealthHistory, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks, createGroupBoard, deleteGroup, removeGroupMember, updateGroupMemberRole, deleteGroupLabel } from '../api/groups'
 import { importBoard } from '../api/boards'
 import { getSiteConfig } from '../api/auth'
 import { announced } from './confirmAnnouncer'
@@ -126,7 +126,7 @@ const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
-const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
+const mockGetGroupDescendantBoards = getGroupDescendantBoardsPaged as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
 const mockSetGroupHealthStatus = setGroupHealthStatus as ReturnType<typeof vi.fn>
 const mockGetGroupHealthHistory = getGroupHealthHistory as ReturnType<typeof vi.fn>
@@ -182,6 +182,8 @@ async function openGroupSettings(section = 'Members') {
   if (section !== 'Members') fireEvent.click(await screen.findByRole('button', { name: section }))
 }
 
+const page = (results: unknown[]) => ({ count: results.length, offset: 0, page_size: 50, results })
+
 describe('GroupDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -189,7 +191,7 @@ describe('GroupDetail', () => {
     capturedOnReconnected = null
     // Re-apply default resolved values cleared by clearAllMocks (implementation is preserved
     // but clearAllMocks wipes the mockResolvedValue queue for one-shot overrides).
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockStarGroup.mockResolvedValue({})
     mockUnstarGroup.mockResolvedValue({})
   })
@@ -1455,8 +1457,8 @@ describe('GroupDetail', () => {
     expect(screen.queryByTestId('joined-notice')).not.toBeInTheDocument()
   })
 
-  it('toggling showSubgroupBoards calls getGroupDescendantBoards with the group ID', async () => {
-    // The component issues a single getGroupDescendantBoards(groupId) request when the
+  it('toggling showSubgroupBoards calls getGroupDescendantBoardsPaged with the group ID', async () => {
+    // The component issues a single getGroupDescendantBoardsPaged(groupId) request when the
     // toggle is turned on — avoiding the previous N+1 pattern of one getGroupBoards call
     // per direct subgroup. This test verifies that N+1 fix is exercised.
     const subgroup = {
@@ -1472,7 +1474,7 @@ describe('GroupDetail', () => {
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([subgroup])
     mockGetGroupBoards.mockResolvedValue([]) // group's own boards (no duplicates to exclude)
-    mockGetGroupDescendantBoards.mockResolvedValue([subgroupBoard])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([subgroupBoard]))
 
     renderGroupDetail()
 
@@ -1487,8 +1489,71 @@ describe('GroupDetail', () => {
     expect(await screen.findByText('Subgroup Sprint')).toBeInTheDocument()
 
     // A single call with the root group ID — not one per subgroup
-    expect(mockGetGroupDescendantBoards).toHaveBeenCalledWith(1)
+    expect(mockGetGroupDescendantBoards).toHaveBeenCalledWith(1, 0, 50)
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1)
+  })
+
+  describe('subgroup boards paging (#1779)', () => {
+    const sgBoard = (id: number, name: string) => ({
+      id, uid: `u${id}`, name, description: '', owner: fakeUser,
+      group: 5, group_name: 'Frontend', member_count: 1, created_at: '', updated_at: '',
+    })
+    const env = (offset: number, count: number, results: unknown[]) => ({ count, offset, page_size: 50, results })
+
+    async function openToggle() {
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([{
+        id: 5, name: 'Frontend', owner: fakeUser, parent: 1, parent_name: 'Engineering',
+        member_count: 1, board_count: 1, subgroup_count: 0, created_at: '',
+      }])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+      fireEvent.click(await screen.findByRole('switch'))
+    }
+
+    it('shows a count and Load more, appends the next page and focuses its first row', async () => {
+      mockGetGroupDescendantBoards
+        .mockResolvedValueOnce(env(0, 3, [sgBoard(10, 'Alpha'), sgBoard(11, 'Beta')]))
+        .mockResolvedValueOnce(env(2, 3, [sgBoard(12, 'Gamma'), sgBoard(11, 'Beta')]))
+      await openToggle()
+      expect(await screen.findByText('Alpha')).toBeInTheDocument()
+      expect(screen.getByText('Showing 2 of 3 subgroup boards')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText('Gamma')).toBeInTheDocument()
+      expect(mockGetGroupDescendantBoards).toHaveBeenLastCalledWith(1, 2, 50)
+      // The duplicate (id 11) is listed once, the button is gone and focus moved to the first new row.
+      expect(screen.getAllByText('Beta')).toHaveLength(1)
+      expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
+      expect(screen.getByText('Showing 3 subgroup boards')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText('Gamma').closest('button')).toHaveFocus())
+    })
+
+    it('keeps loaded rows when a later page fails and retries the same offset', async () => {
+      mockGetGroupDescendantBoards
+        .mockResolvedValueOnce(env(0, 2, [sgBoard(10, 'Alpha')]))
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce(env(1, 2, [sgBoard(11, 'Beta')]))
+      await openToggle()
+      await screen.findByText('Alpha')
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText("Couldn't load more boards.")).toBeInTheDocument()
+      expect(screen.getByText('Alpha')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(await screen.findByText('Beta')).toBeInTheDocument()
+      expect(mockGetGroupDescendantBoards).toHaveBeenLastCalledWith(1, 1, 50)
+    })
+
+    it('shows an error with Retry, never the empty state, when the first page fails', async () => {
+      mockGetGroupDescendantBoards
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce(env(0, 1, [sgBoard(10, 'Alpha')]))
+      await openToggle()
+      expect(await screen.findByText(/Failed to load subgroup boards/)).toBeInTheDocument()
+      expect(screen.queryByText('No boards in subgroups.')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+      expect(await screen.findByText('Alpha')).toBeInTheDocument()
+    })
   })
 
   // ---------------------------------------------------------------------------
@@ -2288,7 +2353,7 @@ describe('GroupDetail', () => {
       mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
       mockGetSubgroups.mockResolvedValue([subgroup])
       mockGetGroupBoards.mockResolvedValue([])
-      mockGetGroupDescendantBoards.mockResolvedValue([])
+      mockGetGroupDescendantBoards.mockResolvedValue(page([]))
       renderGroupDetail()
       await screen.findByText('Sub Team')
       await user.click(screen.getByRole('switch'))
@@ -2350,7 +2415,7 @@ describe('GroupDetail — navigation (#1374)', () => {
     vi.clearAllMocks()
     capturedOnEvent = null
     capturedOnReconnected = null
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockStarGroup.mockResolvedValue({})
     mockUnstarGroup.mockResolvedValue({})
   })
@@ -2655,7 +2720,7 @@ describe('GroupDetail — health status (#1133)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     capturedOnEvent = null
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([sub])
     mockGetGroupBoards.mockResolvedValue([board])
