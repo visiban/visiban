@@ -778,6 +778,41 @@ def _self_test():
     except AssertionError as exc:
         failures.append(str(exc))
 
+    # Exit run (#2588): the absolute-bar logic fires on a known-bad and a known-good input.
+    good = {"cumulative_flow_p95_ms": 2999, "drill_down_peak_rss_mb": 400, "overview_peak_rss_mb": 400,
+            "analytics_365_rss_growth_mb": 149, "analytics_365_ms": 2999, "overview_payload_bytes": 1000,
+            "unread_count_p95_ms": 99, "concurrent_peak_rss_mb": 400, "over_cap": (True, "ok")}
+    if not all(r["passed"] for r in _evaluate_exit_run(good)):
+        failures.append("exit run: an all-inside-the-bars input did not pass")
+    for key, bad in (("cumulative_flow_p95_ms", 3000), ("drill_down_peak_rss_mb", CONTAINER_MEMORY_LIMIT_MB),
+                     ("overview_peak_rss_mb", 513), ("analytics_365_rss_growth_mb", 150), ("analytics_365_ms", 3000),
+                     ("overview_payload_bytes", EXIT_OVERVIEW_PAYLOAD_BYTES), ("unread_count_p95_ms", 100),
+                     ("concurrent_peak_rss_mb", 600), ("unread_count_p95_ms", None)):
+        if all(r["passed"] for r in _evaluate_exit_run({**good, key: bad})):
+            failures.append(f"exit run: {key}={bad} did not fail its bar")
+    if all(r["passed"] for r in _evaluate_exit_run({**good, "over_cap": (False, "x")})):
+        failures.append("exit run: a failed over-cap check did not fail the run")
+    if CONTAINER_MEMORY_LIMIT_MB != 512:
+        failures.append("exit run: the container memory limit constant is not 512 MB")
+    for args_, want in (((200, None, None), "ok"), ((503, ANALYTICS_BUSY_CODE, "10"), "busy"),
+                        ((503, ANALYTICS_BUSY_CODE, None), "unexpected"), ((503, None, "10"), "unexpected"),
+                        ((422, TOO_LARGE_CODE, None), "too_large"), ((422, "other", None), "unexpected"),
+                        ((500, None, None), "unexpected")):
+        if _classify_analytics_response(*args_) != want:
+            failures.append(f"exit run: _classify_analytics_response{args_} != {want}")
+    mixed = [("ok", 1.0), ("busy", 0.1), ("too_large", 0.1)]
+    for label, got, want in (
+        ("clean refusals", _evaluate_over_cap(mixed, 3, 1, True)[0], True),
+        ("stall", _evaluate_over_cap(mixed + [("stall", None)], 3, 1, True)[0], False),
+        ("unexpected status", _evaluate_over_cap(mixed + [("unexpected", 0.1)], 3, 1, True)[0], False),
+        ("server gone", _evaluate_over_cap(mixed, 3, 1, False)[0], False),
+        ("cap not exceeded", _evaluate_over_cap(mixed, 1, 1, True)[0], False),
+        ("nothing refused", _evaluate_over_cap([("ok", 1.0)] * 3, 3, 1, True)[0], False),
+        ("slow request", _evaluate_over_cap(mixed + [("ok", EXIT_STALL_SECONDS + 1)], 3, 1, True)[0], False),
+    ):
+        if got != want:
+            failures.append(f"exit run over-cap check ({label}): got {got}, expected {want}")
+
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
         for f in failures:
@@ -951,6 +986,236 @@ def _time_requests(session, url, iterations, warmup):
         r.raise_for_status()
         samples_ms.append(elapsed_ms)
     return samples_ms
+
+
+# ─── Exit run (#2588) ─────────────────────────────────────────────────────────
+# A one-off, manual stress run for the Analytics beta exit. It checks ABSOLUTE bars, not the
+# ratio-to-baseline budgets above (decision on #2559: no stored placements; the 1.5x ratio is
+# replaced by absolute bars). The bars live here, never in the baseline JSON, and use no
+# pending_budget. Run it against daphne with DEBUG=False (see the "Exit run" section of
+# docs/development/nightly-load-test.md): DEBUG=True keeps a query log in memory and inflates RSS.
+
+# The container memory limit the exit run measures against (MB): the memory limit of the
+# production backend container. One named constant, so the bar is changed in one place.
+CONTAINER_MEMORY_LIMIT_MB = 512
+EXIT_CUMULATIVE_FLOW_P95_MS = 3000          # metrics/cumulative-flow on the aged board (#2425, #2444)
+EXIT_OVERVIEW_PEAK_RSS_MB = CONTAINER_MEMORY_LIMIT_MB   # one metrics/overview/ open (#2426)
+EXIT_ANALYTICS_365_GROWTH_MB = 150          # analytics/?days=365 RSS growth (#2451)
+EXIT_ANALYTICS_365_MS = 3000                # analytics/?days=365 latency (#2451)
+EXIT_OVERVIEW_PAYLOAD_BYTES = 1024 * 1024   # one overview response body
+EXIT_UNREAD_COUNT_P95_MS = 100              # notifications/unread-count/ under concurrent opens (#2428)
+EXIT_STALL_SECONDS = 60                     # an over-cap request slower than this is a stall
+TOO_LARGE_CODE = "analytics_too_large"
+_EXIT_UNREAD_URL = "/api/v1/notifications/unread-count/"
+
+
+def _bar(name, value, limit, unit, lower_is_better=True):
+    """One pass/fail record against an absolute bar. ``value`` None (not measured) fails."""
+    passed = value is not None and (value < limit if lower_is_better else value >= limit)
+    return {"check": name, "value": None if value is None else round(value, 1), "bar": limit,
+            "unit": unit, "passed": bool(passed)}
+
+
+def _classify_analytics_response(status, code, retry_after):
+    """Name an analytics response: ok, busy, too_large or unexpected.
+
+    ``busy`` is the documented 503 ``analytics_busy`` with its ``Retry-After`` (#2428);
+    ``too_large`` is the documented 422 ``analytics_too_large``. A 503 without the code or the
+    header, or any other status, is ``unexpected``.
+    """
+    if status == 200:
+        return "ok"
+    if status == 503 and code == ANALYTICS_BUSY_CODE and retry_after:
+        return "busy"
+    if status == 422 and code == TOO_LARGE_CODE:
+        return "too_large"
+    return "unexpected"
+
+
+def _evaluate_over_cap(outcomes, concurrency, cap, server_alive):
+    """The over-cap bar: returns (passed, detail).
+
+    ``outcomes`` is a list of (classification, elapsed_s) or ("stall", None) per request.
+    It passes only when more requests ran than the cap admits, every one was ok, busy or
+    too_large (no stall, no unexpected status), at least one was refused (else the cap was
+    never exercised) and the server still answers (no OOM).
+    """
+    kinds = [k for k, _ in outcomes]
+    if concurrency <= cap:
+        return False, f"{concurrency} concurrent opens do not exceed ANALYTICS_MAX_CONCURRENT={cap}: nothing was over the cap"
+    if "stall" in kinds or any(e is not None and e > EXIT_STALL_SECONDS for _, e in outcomes):
+        return False, "a request stalled"
+    if "unexpected" in kinds:
+        return False, f"{kinds.count('unexpected')} request(s) had an unexpected status"
+    if not (kinds.count("busy") + kinds.count("too_large")):
+        return False, "no request was refused, so the cap was never exercised"
+    if not server_alive:
+        return False, "the server stopped answering after the burst (OOM?)"
+    return True, f"{kinds.count('ok')} ok, {kinds.count('busy')} busy, {kinds.count('too_large')} too_large"
+
+
+def _evaluate_exit_run(m):
+    """Turn the measured figures *m* into the list of absolute-bar records (pure; self-tested)."""
+    over_ok, over_detail = m["over_cap"]
+    records = [
+        _bar("cumulative_flow_p95_ms", m.get("cumulative_flow_p95_ms"), EXIT_CUMULATIVE_FLOW_P95_MS, "ms"),
+        _bar("drill_down_peak_rss_mb", m.get("drill_down_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
+        _bar("overview_peak_rss_mb", m.get("overview_peak_rss_mb"), EXIT_OVERVIEW_PEAK_RSS_MB, "MB"),
+        _bar("analytics_365_rss_growth_mb", m.get("analytics_365_rss_growth_mb"), EXIT_ANALYTICS_365_GROWTH_MB, "MB"),
+        _bar("analytics_365_ms", m.get("analytics_365_ms"), EXIT_ANALYTICS_365_MS, "ms"),
+        _bar("overview_payload_bytes", m.get("overview_payload_bytes"), EXIT_OVERVIEW_PAYLOAD_BYTES, "bytes"),
+        _bar("unread_count_p95_ms_under_load", m.get("unread_count_p95_ms"), EXIT_UNREAD_COUNT_P95_MS, "ms"),
+        _bar("concurrent_peak_rss_mb", m.get("concurrent_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
+    ]
+    over = {"check": "over_cap_refused_cleanly", "value": None, "bar": "503 analytics_busy / 422 analytics_too_large, no stall, no OOM",
+            "unit": "", "passed": bool(over_ok), "detail": over_detail}
+    return records + [over]
+
+
+def _unread_poller(base_url, headers, stop, samples, errors):
+    """Time notifications/unread-count/ about every 50 ms until *stop* is set."""
+    with requests.Session() as sess:
+        sess.headers.update(headers)
+        while not stop.is_set():
+            start = time.perf_counter()
+            try:
+                r = sess.get(base_url + _EXIT_UNREAD_URL, timeout=30)
+                elapsed = (time.perf_counter() - start) * 1000
+                if r.status_code == 200:
+                    samples.append(elapsed)
+                else:
+                    errors.append(f"unread-count returned {r.status_code}")
+            except requests.exceptions.RequestException as exc:
+                errors.append(f"unread-count: {exc}")
+            stop.wait(0.05)
+
+
+def _concurrent_overview(base_url, headers, board_id, concurrency, rounds):
+    """Open the overview *concurrency* times at once, *rounds* times, timing unread-count meanwhile.
+
+    A 503 ``analytics_busy`` or 422 ``analytics_too_large`` is an EXPECTED response here (the
+    cap refusing the extra opens), recorded, never an error. Returns (outcomes, unread_samples,
+    unread_errors, payload_bytes_of_largest_ok).
+    """
+    url = _overview_urls(base_url, board_id)[0]  # metrics/overview/
+    outcomes, lock = [], threading.Lock()
+    largest = [0]
+
+    def open_overview():
+        start = time.perf_counter()
+        try:
+            with requests.Session() as sess:
+                sess.headers.update(headers)
+                r = sess.get(url, timeout=EXIT_STALL_SECONDS)
+            try:
+                code = r.json().get("code") if r.status_code != 200 else None
+            except (ValueError, AttributeError):
+                code = None
+            kind = _classify_analytics_response(r.status_code, code, r.headers.get("Retry-After"))
+            with lock:
+                outcomes.append((kind, time.perf_counter() - start))
+                if kind == "ok":
+                    largest[0] = max(largest[0], len(r.content))
+        except requests.exceptions.RequestException:
+            with lock:
+                outcomes.append(("stall", None))
+
+    samples, errors, stop = [], [], threading.Event()
+    poller = threading.Thread(target=_unread_poller, args=(base_url, headers, stop, samples, errors))
+    poller.start()
+    try:
+        for _ in range(rounds):
+            threads = [threading.Thread(target=open_overview) for _ in range(concurrency)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+    finally:
+        stop.set()
+        poller.join()
+    return outcomes, samples, errors, largest[0]
+
+
+def _server_alive(base_url):
+    try:
+        return requests.get(f"{base_url}/api/health/liveness/", timeout=10).status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
+def run_exit(args):
+    """The exit run: absolute bars on the aged board. Returns the process exit code."""
+    if not args.analytics_token_file:
+        raise RuntimeError("--exit-run needs --analytics-token-file (the aged board's only member).")
+    if not args.server_pid_file:
+        raise RuntimeError("--exit-run needs --server-pid-file: its RSS bars are measured on the server process.")
+    with open(resolve_within(cli_roots(), args.analytics_token_file), encoding="utf-8") as fh:
+        session = requests.Session()
+        session.headers["Authorization"] = f"Token {fh.read().strip()}"
+    base_url = args.base_url.rstrip("/")
+    _wait_for_url(f"{base_url}/api/health/liveness/", timeout=args.startup_timeout)
+    mem = _ServerMemory.from_pid_file(args.server_pid_file)
+    if not mem.enabled:
+        raise RuntimeError("--exit-run cannot read the server's RSS (needs Linux /proc, same host).")
+    board = _find_board(session, base_url, args.aged_board_name)
+    endpoints = _aged_endpoints(base_url, board["id"])
+    headers = dict(session.headers)
+    print(f"Exit run on board {board['id']} ({args.aged_board_name}); container limit {CONTAINER_MEMORY_LIMIT_MB} MB.")
+
+    def peak_of(fn):
+        """Run fn(); return (its result, peak RSS MB during it, RSS growth MB)."""
+        mem.reset_peak()
+        before = mem.read()["rss_mb"]
+        result = fn()
+        hwm = mem.read()["hwm_mb"]
+        return result, hwm, hwm - before
+
+    m = {}
+    cf = _time_requests(session, endpoints["aged_flow_cumulative_flow"], args.aged_iterations, args.aged_warmup)
+    m["cumulative_flow_p95_ms"] = _percentile(cf, 95)
+    _, m["drill_down_peak_rss_mb"], _ = peak_of(lambda: _time_requests(
+        session, endpoints["aged_flow_cumulative_flow_day"], args.aged_iterations, 0))
+    one, m["overview_peak_rss_mb"], _ = peak_of(lambda: session.get(endpoints["aged_flow_overview"], timeout=120))
+    one.raise_for_status()
+    payload = len(one.content)
+    t365, _, growth = peak_of(lambda: _time_requests(session, endpoints["aged_board_analytics_365"], args.aged_iterations, 0))
+    m["analytics_365_ms"] = _percentile(t365, 95)
+    m["analytics_365_rss_growth_mb"] = growth
+
+    concurrency = args.exit_concurrent_opens
+    (outcomes, unread, unread_errors, big), peak, _ = peak_of(
+        lambda: _concurrent_overview(base_url, headers, board["id"], concurrency, args.exit_rounds))
+    if unread_errors:
+        raise RuntimeError(f"unread-count failed during the concurrent opens: {unread_errors[0]}")
+    m["overview_payload_bytes"] = max(payload, big)
+    m["unread_count_p95_ms"] = _percentile(unread, 95) if unread else None
+    m["concurrent_peak_rss_mb"] = peak
+    m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, args.exit_max_concurrent, _server_alive(base_url))
+
+    records = _evaluate_exit_run(m)
+    print("\nEXIT RUN RESULTS (absolute bars, #2588)")
+    for r in records:
+        print(f"  {'PASS' if r['passed'] else 'FAIL'}  {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
+              + (f" - {r['detail']}" if r.get("detail") else ""))
+    output = {
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "mode": "exit-run",
+        "container_memory_limit_mb": CONTAINER_MEMORY_LIMIT_MB,
+        "concurrent_opens": concurrency, "rounds": args.exit_rounds,
+        "analytics_max_concurrent": args.exit_max_concurrent,
+        "responses": {k: [o[0] for o in outcomes].count(k) for k in ("ok", "busy", "too_large", "unexpected", "stall")},
+        "checks": records,
+        "passed": all(r["passed"] for r in records),
+    }
+    out_path = resolve_within(cli_roots(), args.exit_output)
+    with open(out_path, "w", encoding="utf-8") as fh:
+        json.dump(output, fh, indent=2)
+    print(f"Wrote exit-run results to {out_path}")
+    if not output["passed"]:
+        print("\nFAIL - exit-run bar(s) not met: " + ", ".join(r["check"] for r in records if not r["passed"]), file=sys.stderr)
+        return 1
+    print("\nAll exit-run bars met.")
+    return 0
 
 
 def run(args):
@@ -1285,6 +1550,18 @@ def main():
     parser.add_argument("--warmup", type=int, default=5, help="Untimed requests per endpoint before measuring (default: 5).")
     parser.add_argument("--startup-timeout", type=int, default=60)
     parser.add_argument(
+        "--exit-run", action="store_true",
+        help="The Analytics beta-exit stress run (#2588): absolute pass/fail bars on the aged board, "
+             "not the baseline budgets. Needs --analytics-token-file and --server-pid-file.",
+    )
+    parser.add_argument("--exit-output", default="nightly-load-test-exit-run.json")
+    parser.add_argument("--exit-concurrent-opens", type=int, default=4,
+                        help="Overview opens fired together for the concurrent scenario (default: 4).")
+    parser.add_argument("--exit-rounds", type=int, default=3,
+                        help="How many times that burst is repeated (default: 3).")
+    parser.add_argument("--exit-max-concurrent", type=int, default=1,
+                        help="The server's ANALYTICS_MAX_CONCURRENT (default 1, the shipped value); the burst must exceed it.")
+    parser.add_argument(
         "--measure-only",
         action="store_true",
         help="Print/record p50/p95/p99 without loading or evaluating a budget file. "
@@ -1301,12 +1578,12 @@ def main():
     if args.self_test:
         sys.exit(_self_test())
 
-    if not args.token_file:
-        print("FAIL: --token-file is required (unless --self-test).", file=sys.stderr)
+    if not args.token_file and not args.exit_run:
+        print("FAIL: --token-file is required (unless --self-test or --exit-run).", file=sys.stderr)
         sys.exit(1)
 
     try:
-        sys.exit(run(args))
+        sys.exit(run_exit(args) if args.exit_run else run(args))
     except (RuntimeError, requests.exceptions.RequestException, OSError, PathEscapeError) as exc:
         print(f"\nFAIL: {exc}", file=sys.stderr)
         sys.exit(1)

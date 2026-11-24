@@ -105,6 +105,45 @@ It isn't a silent default. The self-test fails a scenario whose budget is null w
 - The first scenario to use this was `card_search_multi_board` ([#1810](https://gitlab.com/visiban/visiban/-/issues/1810) added the scenario), which got its budget in [#1808](https://gitlab.com/visiban/visiban/-/issues/1808).
 - The `suppressions-check` CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending ([#1812](https://gitlab.com/visiban/visiban/-/issues/1812); see [Suppression markers](suppressions.md#what-ci-enforces)).
 
+## Exit run: absolute bars for the Analytics beta exit — #2588
+
+The Analytics beta exit needs a one-off stress run that checks **absolute bars**, not ratios to a baseline (decision on [#2559](https://gitlab.com/visiban/visiban/-/issues/2559): no stored placements; the 1.5x ratio is replaced by absolute bars). The scheduled nightly cannot do that: it serves with `runserver` and `DEBUG=True`, which keeps a query log in memory and inflates RSS, and no budget run times `unread-count` while overviews open. The exit run is a manual mode of the same job; **the scheduled nightly is unchanged** (runserver, `DEBUG=True`, the committed budgets), and the exit-run bars are never added to `backend/nightly-load-test-baseline.json` and use no `pending_budget`.
+
+Start it from CI/CD → Run pipeline (or the job's manual button) with these variables:
+
+| Variable | Value for the exit run | Meaning |
+|---|---|---|
+| `LOAD_TEST_EXIT_RUN` | `true` | Serves with `daphne -b 0.0.0.0 -p 8000 visiban.asgi:application` and `DEBUG=False`, as production does, then runs `scripts/nightly_load_test.py --exit-run` instead of the budget run and the email-login plan check. Default `false`. |
+| `LOAD_TEST_SERVER` | `daphne` | Same server, but the normal budget run follows (a way to look at RSS under daphne without the bars). Default `runserver`. |
+| `LOAD_TEST_AGED_GENERATIONS` | `12` | 3 years of history, about 31k cards on the aged board. Set by whoever starts the run; the job's default (`4`) is not changed. |
+| `LOAD_TEST_SCALE` | `100` | About 12k active cards ([#2451](https://gitlab.com/visiban/visiban/-/issues/2451)'s fixture). Set by whoever starts the run; the default stays `20`. |
+| `LOAD_TEST_EXIT_MAX_CONCURRENT` | `1` (default) | The server's `ANALYTICS_MAX_CONCURRENT` during the exit run: the shipped default, not the nightly's `2`, because the over-cap bar needs the real cap ([#2428](https://gitlab.com/visiban/visiban/-/issues/2428)). |
+| `LOAD_TEST_EXIT_CONCURRENT_OPENS` | `4` (default) | N: how many `metrics/overview/` opens are fired together on the aged board. Must exceed the cap, or the over-cap check fails. |
+| `LOAD_TEST_EXIT_ROUNDS` | `3` (default) | How many times that burst is repeated. |
+
+The server is started as a plain `daphne` command with `DEBUG` and `ANALYTICS_MAX_CONCURRENT` as per-command variables (no `sh -c`, no subshell), so `$!` written to `--server-pid-file` is the daphne process itself and the VmHWM the script reads is the server's, not a wrapper's. Reading RSS needs Linux `/proc` on the same host, as for the budget run.
+
+### The bars
+
+`--exit-run` records pass/fail for each check, prints them, writes `nightly-load-test-exit-run.json` (a job artifact), and exits 1 if any fails. The container memory limit is the named constant `CONTAINER_MEMORY_LIMIT_MB` (512) in the script; change it there.
+
+| Check | Bar | Source |
+|---|---|---|
+| `metrics/cumulative-flow/` p95 on the aged board | under 3 s | [#2425](https://gitlab.com/visiban/visiban/-/issues/2425), [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) |
+| `metrics/cumulative-flow/?date=` drill-down, peak RSS | under 512 MB (the container limit) | [#2444](https://gitlab.com/visiban/visiban/-/issues/2444) |
+| One `metrics/overview/` open, peak RSS | under 512 MB | [#2426](https://gitlab.com/visiban/visiban/-/issues/2426) |
+| `analytics/?days=365`, RSS growth and time | under 150 MB and under 3 s | [#2451](https://gitlab.com/visiban/visiban/-/issues/2451) |
+| Overview payload | under 1 MB | |
+| `notifications/unread-count/` p95 while N overview opens run | under 100 ms | [#2428](https://gitlab.com/visiban/visiban/-/issues/2428) |
+| Peak RSS during those concurrent opens | under 512 MB | [#2428](https://gitlab.com/visiban/visiban/-/issues/2428) |
+| Over-cap requests | each is 200, `503 analytics_busy` with `Retry-After`, or `422 analytics_too_large`; none stalls (60 s); the server still answers afterward (no OOM); at least one was refused | [#2428](https://gitlab.com/visiban/visiban/-/issues/2428) |
+
+In the concurrent scenario a `503 analytics_busy` or `422 analytics_too_large` is an **expected** response (the cap refusing the extra opens), counted in the artifact's `responses`, never an error; any other status is `unexpected` and fails the over-cap check. The `unread-count` p95 and RSS are reported either way. A value that could not be measured fails its bar.
+
+The script's `--self-test` (run first by the job) covers the pass/fail logic: each bar failing at its boundary, a missing value, the response classification and each over-cap failure mode. It does not start a server; the run itself was not exercised outside CI when this section was written.
+
+Out of scope here: re-deriving the budgets ([#2430](https://gitlab.com/visiban/visiban/-/issues/2430)) and any change to flow-metric semantics (ADR [#1532](https://gitlab.com/visiban/visiban/-/issues/1532)).
+
 ## Email login: a plan check, not a latency scenario
 
 > **Added in 1.3** (#1298).

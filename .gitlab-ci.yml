@@ -6668,6 +6668,19 @@ nightly-load-test:
     # (#2428), so it measures neither. What it measures is each endpoint's
     # latency, and the cost of two overlapping reads, with no admission queue.
     ANALYTICS_MAX_CONCURRENT: "2"
+    # Exit run (#2588), manual pipelines only; the scheduled nightly leaves all of these at their
+    # defaults and is unchanged. Set LOAD_TEST_EXIT_RUN=true (with LOAD_TEST_AGED_GENERATIONS=12
+    # and LOAD_TEST_SCALE=100 for the 3-year, 12k-card stress fixture) to serve with daphne
+    # and DEBUG=False and run the absolute-bar checks instead of the budget run. See "Exit run"
+    # in docs/development/nightly-load-test.md.
+    LOAD_TEST_EXIT_RUN: "false"
+    # "daphne" serves with daphne and DEBUG=False but still runs the budget run.
+    LOAD_TEST_SERVER: "runserver"
+    # ANALYTICS_MAX_CONCURRENT the exit-run server starts with (the shipped default is 1).
+    LOAD_TEST_EXIT_MAX_CONCURRENT: "1"
+    # Overview opens fired together, and how many times; must exceed the cap above.
+    LOAD_TEST_EXIT_CONCURRENT_OPENS: "4"
+    LOAD_TEST_EXIT_ROUNDS: "3"
   before_script:
     - !reference [.pip-floor, script]
     - !reference [.uv-install, script]
@@ -6702,8 +6715,21 @@ nightly-load-test:
     # backend-schema-fuzz (#1607). after_script tails it on failure.
     # --noreload: the autoreloader would make $! the reloader parent, whose RSS is not
     # the server's. The PID file is how the script reads the server's peak RSS (#2430).
-    - python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
-    - echo $! > "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}"
+    #
+    # Exit run (#2588): LOAD_TEST_EXIT_RUN=true serves with daphne and DEBUG=False, as production
+    # does, because the RSS bars are meaningless under runserver + DEBUG=True (DEBUG keeps a query
+    # log in memory). The scheduled nightly takes the runserver branch, unchanged. `daphne` is the
+    # plain command with DEBUG and ANALYTICS_MAX_CONCURRENT set as per-command variables (no
+    # `sh -c`, no subshell), so $! is the daphne process whose VmHWM the script reads. The shipped
+    # ANALYTICS_MAX_CONCURRENT (1) applies, not the nightly's 2: the over-cap bar needs the real cap.
+    - |
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ] || [ "${LOAD_TEST_SERVER}" = "daphne" ]; then
+        DEBUG=False ANALYTICS_MAX_CONCURRENT="${LOAD_TEST_EXIT_MAX_CONCURRENT}" \
+          daphne -b 0.0.0.0 -p 8000 visiban.asgi:application > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+      else
+        python manage.py runserver --noreload 0.0.0.0:8000 > "${CI_PROJECT_DIR}/nightly-load-test-server.log" 2>&1 &
+      fi
+      echo $! > "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}"
     # Poll liveness instead of a fixed sleep, same pattern as oidc-smoke /
     # backend-schema-fuzz.
     - |
@@ -6719,6 +6745,20 @@ nightly-load-test:
     # before trusting this run's verdict.
     - python3 scripts/nightly_load_test.py --self-test
     - python3 scripts/check_email_login_plan.py --self-test
+    # Exit run (#2588): absolute bars on the aged board, then stop; the budget run and the
+    # email-login plan check below are the scheduled nightly's.
+    - |
+      if [ "${LOAD_TEST_EXIT_RUN}" = "true" ]; then
+        python3 scripts/nightly_load_test.py --exit-run \
+          --base-url http://localhost:8000 \
+          --analytics-token-file "${VISIBAN_LOAD_TEST_ANALYTICS_TOKEN_FILE}" \
+          --server-pid-file "${VISIBAN_LOAD_TEST_SERVER_PID_FILE}" \
+          --exit-concurrent-opens "${LOAD_TEST_EXIT_CONCURRENT_OPENS}" \
+          --exit-rounds "${LOAD_TEST_EXIT_ROUNDS}" \
+          --exit-max-concurrent "${LOAD_TEST_EXIT_MAX_CONCURRENT}" \
+          --exit-output nightly-load-test-exit-run.json
+        exit $?
+      fi
     - |
       set +e
       python3 scripts/nightly_load_test.py \
@@ -6760,6 +6800,7 @@ nightly-load-test:
     expire_in: 90 days
     paths:
       - nightly-load-test-results.json
+      - nightly-load-test-exit-run.json
       - nightly-load-test-server.log
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $LOAD_TEST_SCHEDULE == "true"'
