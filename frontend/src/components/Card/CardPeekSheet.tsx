@@ -11,6 +11,8 @@ import type { BoardFull, Card, CardMovement } from "../../types";
 import { formatDateStr, formatRelativeTime } from "../../utils/date";
 import { isOverdue } from "../../utils/cardUrgency";
 import { failureReason, isLimitFailure } from "../../utils/moveFailure";
+import { canOverride, overrideEligibility, overrideHint, overrideLabel } from "../../utils/forceOverride";
+import OverrideReasonForm from "../Board/OverrideReasonForm";
 import { isHardLimit, limitCounts, limitRefusal, type LimitRefusal } from "../Board/moveBlockedMessages";
 import type { MoveOutcome } from "../../hooks/useBoard";
 import {
@@ -54,7 +56,9 @@ interface Props {
    * sheet offers it itself, as CardDetail's Move popover does (#1772). Omitted:
    * no override is shown.
    */
-  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
+  onForceMoveCard?: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number, reason?: string) => Promise<MoveOutcome>;
+  /** Decides who is offered the assignee override (#1923). */
+  currentUserId?: number | null;
   /**
    * The card's place in its cell (#2277). Given, the sheet offers Move earlier /
    * Move later: the phone has no drag, and on the grid a reorder is one. Each
@@ -85,7 +89,7 @@ export const PEEK_WIDTH = 400;
  * detail sheet placement): focus goes to Open card on open (#2358), and on close returns to
  * the opener, else the card's face, else the board region.
  */
-export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, userDateFormat = "MM/DD/YYYY", userTimezone: _userTimezone = "" }: Props) {
+export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCard, onMoveCard, onForceMoveCard, cellOrder, movesPaused = false, currentUserId = null, userDateFormat = "MM/DD/YYYY", userTimezone: _userTimezone = "" }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const openRef = useRef<HTMLButtonElement>(null);
   const [dockedPref, setDockedPref] = useCardSheetDockedPref();
@@ -299,16 +303,27 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
     }
     return `Card could not be moved: ${failureReason(err)}.`;
   };
-  const isBoardAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
+  const eligibility = overrideEligibility({
+    role: board.current_user_role,
+    userId: currentUserId,
+    allowAssigneeOverride: board.allow_assignee_override,
+    card,
+  });
   // Only a soft limit can be forced, never wip_hard_blocked.
-  const canForceMove = isBoardAdmin && onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
+  const softRefusal = onForceMoveCard !== undefined && moveRefusal !== null && !isHardLimit(moveRefusal.code);
+  const canForceMove = softRefusal && canOverride(eligibility);
+  const forceHint = softRefusal ? overrideHint(eligibility) : null;
+  // The assignee override's inline reason box.
+  const [reasonOpen, setReasonOpen] = useState(false);
 
-  const forceMove = async () => {
+  const forceMove = async (reason?: string) => {
     if (!onForceMoveCard || forcingRef.current || movesPaused) return;
     forcingRef.current = true;
     setMoving(true);
     try {
-      const result = await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, ...gateArg);
+      const result = reason === undefined
+        ? await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, ...gateArg)
+        : await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, gateArg[0], reason);
       if (result.ok === false) {
         setMoveError(moveFailureMessage(result.error));
         setMoveRefusal(limitRefusal(result.error));
@@ -636,13 +651,22 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
                 {moveRefusal && <p className="mt-0.5 text-xs text-fg-tertiary">{limitCounts(moveRefusal)}</p>}
               </div>
             )}
-            {canForceMove && (
+            {forceHint && <p className="text-xs text-fg-tertiary">{forceHint}</p>}
+            {canForceMove && !reasonOpen && (
               <button
                 type="button"
-                onClick={forceMove}
+                onClick={() => (eligibility.kind === "assignee" ? setReasonOpen(true) : void forceMove())}
                 aria-disabled={moving}
                 className="text-xs text-warning hover:text-warning underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
-              >{moving ? "Moving anyway…" : "Move anyway (admin override)"}</button>
+              >{moving ? "Moving anyway…" : overrideLabel(eligibility)}</button>
+            )}
+            {canForceMove && reasonOpen && (
+              <OverrideReasonForm
+                busy={moving}
+                escapePriority={36.5}
+                onSubmit={(reason) => void forceMove(reason)}
+                onCancel={() => setReasonOpen(false)}
+              />
             )}
             <div className="flex gap-2">
               <button type="button" disabled={moving} onClick={submitMove} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>

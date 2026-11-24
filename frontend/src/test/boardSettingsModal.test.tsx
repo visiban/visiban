@@ -465,6 +465,40 @@ describe('BoardSettingsModal — Members tab', () => {
     expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
   })
 
+  it('the assignee-override switch confirms when turned on, not off, and Escape cancels (#1923)', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn()
+    const onClose = vi.fn()
+    const name = "Let a card's assignee move it anyway"
+    const { rerender } = render(<BoardSettingsModal currentUserId={null} board={fakeBoard} isAdmin={true} onClose={onClose} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+
+    await user.click(screen.getByRole('switch', { name }))
+    expect(announced()).toBe(screen.getByText(/^Let assignees move their cards anyway\?/).textContent)
+    expect(onUpdate).not.toHaveBeenCalled()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('switch', { name }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onUpdate).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('switch', { name }))
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    expect(onUpdate).toHaveBeenLastCalledWith({ allow_assignee_override: true })
+
+    rerender(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, allow_assignee_override: true }} isAdmin={true} onClose={onClose} initialTab="rules" onUpdateBoardSettings={onUpdate} />)
+    await user.click(screen.getByRole('switch', { name }))
+    expect(onUpdate).toHaveBeenLastCalledWith({ allow_assignee_override: false })
+    expect(screen.queryByRole('button', { name: 'Confirm' })).toBeNull()
+  })
+
+  it('non-admins read the assignee-override setting as text (#1923)', () => {
+    render(<BoardSettingsModal currentUserId={null} board={{ ...fakeBoard, allow_assignee_override: true }} isAdmin={false} onClose={vi.fn()} initialTab="rules" />)
+    expect(screen.getByText('Assignee override: on')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: "Let a card's assignee move it anyway" })).toBeNull()
+  })
+
   it('shows empty state "No members yet." when members=[]', () => {
     const emptyBoard: BoardFull = { ...fakeBoard, members: [] }
     render(<BoardSettingsModal currentUserId={null} board={emptyBoard} isAdmin={true} onClose={vi.fn()} />)

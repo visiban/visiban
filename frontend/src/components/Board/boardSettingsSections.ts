@@ -60,6 +60,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { section: "display", label: "Swimlanes", keywords: "hide show lane visibility", target: "Swimlanes" },
   { section: "rules", label: "Enforce WIP limits", keywords: "wip work in progress limit block", target: "Enforce WIP limits" },
   { section: "rules", label: "Hard mode (no admin override)", keywords: "wip strict override", target: "Hard mode (no admin override)" },
+  { section: "rules", label: "Let a card's assignee move it anyway", keywords: "assignee override wip weight limit bypass", target: "Let a card's assignee move it anyway" },
   { section: "rules", label: "Enforce weight limits", keywords: "weight limit points", target: "Enforce weight limits" },
   { section: "rules", label: "Show at-limit WIP indicator", keywords: "wip indicator at limit", target: "Show at-limit WIP indicator" },
   { section: "rules", label: "Limit enforcement", keywords: "wip weight limits enforce block", target: "Limit enforcement" },

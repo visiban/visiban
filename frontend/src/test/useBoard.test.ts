@@ -1786,6 +1786,24 @@ describe('useBoard', () => {
     expect(result.current.board!.cards[0].column).toBe(11)
   })
 
+  it('forceMoveCard and forceMoveCardTo send override_reason when given one (#1923)', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValueOnce({
+      response: { status: 409, data: { code: 'wip_limit_exceeded', column_name: 'In Progress', current_count: 3, wip_limit: 3 } },
+    })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+    expect(result.current.pendingMoveCardId).toBe(100)
+
+    mockMoveCard.mockResolvedValue({ card: { ...board.cards[0], column: 11, position: 0 } })
+    await act(async () => { await result.current.forceMoveCard('Hotfix') })
+    expect(mockMoveCard).toHaveBeenLastCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0, override_reason: 'Hotfix' }, true)
+    await act(async () => { await result.current.forceMoveCardTo(100, 11, 20, 0, undefined, 'Again') })
+    expect(mockMoveCard).toHaveBeenLastCalledWith(1, 100, { column_id: 11, swimlane_id: 20, position: 0, override_reason: 'Again' }, true)
+  })
+
   it('forceMoveCard rolls back and surfaces a generic move_failed when the retry fails with an unknown code', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValue(board)

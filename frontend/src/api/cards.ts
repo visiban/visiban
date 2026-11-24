@@ -1,5 +1,5 @@
 import client from "./client";
-import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead } from "../types";
+import type { CardChildrenRollup, Card, CardActivity, CardAttachment, CardBlock, CardGateTransition, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef, CardParent, ParentBoardOption, ParentCandidate, ChildBoardOptions, ChildCandidate, CardChildrenRead, CardOverrideInfo } from "../types";
 import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 export interface CardPatch {
@@ -50,7 +50,9 @@ export const moveCard = (boardId: number, cardId: number, data: {
   version?: number;
   /** Gated stages (#1102): omitted keeps the sub-column within a column and starts at 0 in a new one. */
   gates_passed?: number;
-}, force?: boolean) => client.post<{ card: Card; movement?: CardMovement; gate_transitions?: CardGateTransition[] }>(
+  /** Required by the server on the assignee override (#1923). */
+  override_reason?: string;
+}, force?: boolean) => client.post<{ card: Card; movement?: CardMovement; gate_transitions?: CardGateTransition[]; override?: CardOverrideInfo }>(
   `/api/v1/boards/${boardId}/cards/${cardId}/move/${force ? "?force=true" : ""}`, data
 ).then((r) => r.data);
 

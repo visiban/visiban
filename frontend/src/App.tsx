@@ -22,6 +22,7 @@ import { MenuIcon, PencilIcon } from "./components/Layout/shellIcons";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import BoardView from "./components/Board/BoardView";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
+import { overrideEligibility } from "./utils/forceOverride";
 import { BoardSkeleton, BoardLoadError } from "./components/Board/BoardStates";
 import ImportSkippedToast from "./components/Board/ImportSkippedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
@@ -328,7 +329,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeBoardId } = useParams<{ id: string }>();
-  const { board, loading, error, unavailable, forceMoveCard, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload, updateSwimlane } = useBoardContext();
+  const { board, loading, error, unavailable, forceMoveCard, pendingMoveCardId, moveError, clearMoveError, updateBoardSettings, mergeBoardState, reload, updateSwimlane } = useBoardContext();
 
   // Skipped-counts notice after a selective import (#119), handed over in the
   // navigation state by the import modal's caller. Captured once on mount and
@@ -527,7 +528,12 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         {moveError && (
           <MoveBlockedToast
             error={moveError}
-            isAdmin={isAdmin}
+            eligibility={overrideEligibility({
+              role: board?.current_user_role,
+              userId: user.id,
+              allowAssigneeOverride: board?.allow_assignee_override,
+              card: board?.cards.find((c) => c.id === pendingMoveCardId),
+            })}
             onForce={forceMoveCard}
             onDismiss={clearMoveError}
           />

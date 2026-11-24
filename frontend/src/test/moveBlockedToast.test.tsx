@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import { ToastProvider } from '../contexts/ToastContext'
 import userEvent from '@testing-library/user-event'
 import MoveBlockedToast from '../components/Board/MoveBlockedToast'
+import { ADMIN_OVERRIDE, NO_OVERRIDE } from '../utils/forceOverride'
 import type { ReactNode } from 'react'
 
 // The toast renders in the shared region (#2060), so tests mount the provider
@@ -34,7 +35,7 @@ const weightError: MoveBlockedError = {
 
 describe('MoveBlockedToast', () => {
   it('has an explicit width so it does not shrink-wrap at narrow viewports (#1439)', () => {
-    renderToast(<MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
     // The shared region carries the width now (#2060).
     const region = screen.getByRole('region', { name: 'Notifications' })
     expect(region.className).toContain('w-max')
@@ -44,7 +45,7 @@ describe('MoveBlockedToast', () => {
 
   it('words the version-conflict body for both drag and detail-panel moves (#1773)', () => {
     renderToast(
-      <MoveBlockedToast error={{ code: 'version_conflict', detail: 'x', current_version: 2 }} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={{ code: 'version_conflict', detail: 'x', current_version: 2 }} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/This card was modified by another user\. The board has been refreshed\./)).toBeInTheDocument()
     expect(toast().queryByText(/dragging/)).not.toBeInTheDocument()
@@ -52,7 +53,7 @@ describe('MoveBlockedToast', () => {
 
   it('renders WIP limit title and body', () => {
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/WIP limit reached/)).toBeInTheDocument()
     expect(toast().getByText(/"In Progress" is at its limit of 3 cards/)).toBeInTheDocument()
@@ -60,7 +61,7 @@ describe('MoveBlockedToast', () => {
 
   it('renders weight limit title and body', () => {
     renderToast(
-      <MoveBlockedToast error={weightError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={weightError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/Weight limit reached/)).toBeInTheDocument()
     expect(toast().getByText(/"Review" has 8 weight/)).toBeInTheDocument()
@@ -68,14 +69,14 @@ describe('MoveBlockedToast', () => {
 
   it('shows admin override button when isAdmin=true', () => {
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/Move anyway/)).toBeInTheDocument()
   })
 
   it('hides admin override button when isAdmin=false', () => {
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().queryByText(/Move anyway/)).not.toBeInTheDocument()
   })
@@ -83,7 +84,7 @@ describe('MoveBlockedToast', () => {
   it('calls onForce when admin override is clicked', async () => {
     const onForce = vi.fn()
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={true} onForce={onForce} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={ADMIN_OVERRIDE} onForce={onForce} onDismiss={vi.fn()} />
     )
     await userEvent.click(toast().getByText(/Move anyway/))
     expect(onForce).toHaveBeenCalledOnce()
@@ -92,7 +93,7 @@ describe('MoveBlockedToast', () => {
   it('calls onDismiss when dismiss button is clicked', async () => {
     const onDismiss = vi.fn()
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={onDismiss} />
+      <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={onDismiss} />
     )
     await userEvent.click(toast().getByRole('button', { name: 'Dismiss notification' }))
     expect(onDismiss).toHaveBeenCalledOnce()
@@ -101,7 +102,7 @@ describe('MoveBlockedToast', () => {
   it('uses singular "card" when wip_limit is 1', () => {
     const singleLimit: MoveBlockedError = { ...wipError, wip_limit: 1, current_count: 1 }
     renderToast(
-      <MoveBlockedToast error={singleLimit} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={singleLimit} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/limit of 1 card \(/)).toBeInTheDocument()
   })
@@ -109,7 +110,7 @@ describe('MoveBlockedToast', () => {
   it('shows proposed weight in weight limit body', () => {
     // current_weight=8 + card_weight=5 = proposed 13, limit 10
     renderToast(
-      <MoveBlockedToast error={weightError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={weightError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/would reach 13 of 10/)).toBeInTheDocument()
   })
@@ -118,7 +119,7 @@ describe('MoveBlockedToast', () => {
     vi.useFakeTimers()
     try {
       renderToast(
-        <MoveBlockedToast error={wipError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+        <MoveBlockedToast error={wipError} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
       )
       act(() => { vi.advanceTimersByTime(0) })
       const alert = screen.getByRole('alert')
@@ -139,7 +140,7 @@ describe('MoveBlockedToast', () => {
       modal.setAttribute('aria-modal', 'true')
       document.body.appendChild(modal)
       renderToast(
-        <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+        <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
       )
       act(() => { vi.advanceTimersByTime(0) })
       expect(screen.getByTestId('toast-announcer-assertive')).toHaveTextContent('WIP limit reached.')
@@ -156,7 +157,7 @@ describe('MoveBlockedToast', () => {
       sheet.setAttribute('data-move-popover', '')
       document.body.appendChild(sheet)
       renderToast(
-        <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+        <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
       )
       act(() => { vi.advanceTimersByTime(0) })
       expect(screen.getByTestId('move-blocked-toast')).toBeInTheDocument()
@@ -171,7 +172,7 @@ describe('MoveBlockedToast', () => {
     let resolve: () => void = () => {}
     const onForce = vi.fn(() => new Promise<void>((r) => { resolve = r }))
     renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={true} onForce={onForce} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={ADMIN_OVERRIDE} onForce={onForce} onDismiss={vi.fn()} />
     )
     await userEvent.click(toast().getByRole('button', { name: 'Move anyway (admin override)' }))
     expect(toast().getByRole('button', { name: 'Moving anyway…' })).toHaveAttribute('aria-disabled', 'true')
@@ -181,7 +182,7 @@ describe('MoveBlockedToast', () => {
 
   it('leaves the region when the board clears the error', () => {
     const { rerender } = renderToast(
-      <MoveBlockedToast error={wipError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={wipError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(screen.getByTestId('move-blocked-toast')).toBeInTheDocument()
     rerender(null)
@@ -201,7 +202,7 @@ const hardBlockError: MoveBlockedError = {
 describe('MoveBlockedToast — hard-block variant', () => {
   it('renders ⛔ icon (not ⚠) for hard-blocked moves', () => {
     const { container } = renderToast(
-      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={hardBlockError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(container.textContent).toContain('⛔')
     expect(container.textContent).not.toContain('⚠')
@@ -209,21 +210,21 @@ describe('MoveBlockedToast — hard-block variant', () => {
 
   it('renders hard-block title "Column at capacity — no exceptions"', () => {
     renderToast(
-      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={hardBlockError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/Column at capacity — no exceptions/)).toBeInTheDocument()
   })
 
   it('does NOT show admin override link for hard-blocked moves, even when isAdmin=true', () => {
     renderToast(
-      <MoveBlockedToast error={hardBlockError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={hardBlockError} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().queryByText(/Move anyway/)).not.toBeInTheDocument()
   })
 
   it('shows resolution copy for hard-blocked moves', () => {
     renderToast(
-      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={hardBlockError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/To unblock, move a card out of/)).toBeInTheDocument()
     expect(toast().getByText(/ask an admin to raise the WIP limit/)).toBeInTheDocument()
@@ -231,7 +232,7 @@ describe('MoveBlockedToast — hard-block variant', () => {
 
   it('toast stays amber (border-warning) for hard-blocked moves', () => {
     const { container } = renderToast(
-      <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={hardBlockError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(container.querySelector('[data-testid="move-blocked-toast"] .border-warning')).not.toBeNull()
   })
@@ -247,14 +248,14 @@ const permissionDeniedError: MoveBlockedError = {
 describe('MoveBlockedToast — permission_denied variant', () => {
   it('renders title "Cannot move this card"', () => {
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().getByText(/Cannot move this card/)).toBeInTheDocument()
   })
 
   it('renders the detail string from the error as the body', () => {
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(
       toast().getByText(/Moderator or Admin access — ask a board admin/)
@@ -263,7 +264,7 @@ describe('MoveBlockedToast — permission_denied variant', () => {
 
   it('does NOT show a "Move anyway" button — permission_denied is a hard block', () => {
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().queryByText(/Move anyway/)).not.toBeInTheDocument()
   })
@@ -271,7 +272,7 @@ describe('MoveBlockedToast — permission_denied variant', () => {
   it('does NOT show "Move anyway" even when isAdmin=true', () => {
     // The gate is a role/ownership check, not a WIP limit the admin can bypass.
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(toast().queryByText(/Move anyway/)).not.toBeInTheDocument()
   })
@@ -279,7 +280,7 @@ describe('MoveBlockedToast — permission_denied variant', () => {
   it('calls onDismiss when the dismiss button is clicked', async () => {
     const onDismiss = vi.fn()
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={onDismiss} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={onDismiss} />
     )
     await userEvent.click(toast().getByRole('button', { name: 'Dismiss notification' }))
     expect(onDismiss).toHaveBeenCalledOnce()
@@ -287,14 +288,14 @@ describe('MoveBlockedToast — permission_denied variant', () => {
 
   it('is a persistent blocked toast', () => {
     renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(screen.getByTestId('move-blocked-toast')).toHaveAttribute('data-variant', 'blocked')
   })
 
   it('renders ⛔ icon (treated as hard block, same as wip_hard_blocked)', () => {
     const { container } = renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(container.textContent).toContain('⛔')
     expect(container.textContent).not.toContain('⚠')
@@ -302,7 +303,7 @@ describe('MoveBlockedToast — permission_denied variant', () => {
 
   it('toast retains amber border (permission_denied uses same styling as other blocks)', () => {
     const { container } = renderToast(
-      <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
+      <MoveBlockedToast error={permissionDeniedError} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     expect(container.querySelector('[data-testid="move-blocked-toast"] .border-warning')).not.toBeNull()
   })
@@ -318,7 +319,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -336,7 +337,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -349,7 +350,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     const { rerender } = renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -359,7 +360,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     rerender(
       <MoveBlockedToast
         error={{ code: 'permission_denied', detail: 'You lack permission.' }}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -374,7 +375,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin
+        eligibility={ADMIN_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -387,7 +388,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     const { container } = renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={vi.fn()}
       />
@@ -401,7 +402,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
     renderToast(
       <MoveBlockedToast
         error={maintenanceError}
-        isAdmin={false}
+        eligibility={NO_OVERRIDE}
         onForce={vi.fn()}
         onDismiss={onDismiss}
       />
@@ -411,7 +412,7 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
 
   it('renders the generic move_failed variant with no override (#1761)', () => {
     const error: MoveBlockedError = { code: 'move_failed', detail: 'A network error occurred.' }
-    renderToast(<MoveBlockedToast error={error} isAdmin={true} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={error} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
     expect(toast().getByText('Move failed')).toBeInTheDocument()
     expect(toast().getByText(/A network error occurred\./)).toBeInTheDocument()
     expect(toast().queryByText(/Move anyway/)).not.toBeInTheDocument()
@@ -479,7 +480,7 @@ describe('MoveBlockedToast — swimlane limits (#1150)', () => {
 
   it('names the row in a soft block and offers the admin override', async () => {
     const onForce = vi.fn()
-    renderToast(<MoveBlockedToast error={laneSoft} isAdmin onForce={onForce} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={laneSoft} eligibility={ADMIN_OVERRIDE} onForce={onForce} onDismiss={vi.fn()} />)
     expect(toast().getByText(/WIP limit reached/)).toBeInTheDocument()
     expect(toast().getByText(/Swimlane "Payouts" is at its limit of 5 cards \(5 active\)\./)).toBeInTheDocument()
     expect(toast().getByText('⚠')).toBeInTheDocument()
@@ -488,7 +489,7 @@ describe('MoveBlockedToast — swimlane limits (#1150)', () => {
   })
 
   it('treats a hard row block like a hard column block: ⛔, no override, a row hint', () => {
-    renderToast(<MoveBlockedToast error={laneHard} isAdmin onForce={vi.fn()} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={laneHard} eligibility={ADMIN_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
     expect(toast().getByText('⛔')).toBeInTheDocument()
     expect(toast().getByText(/Swimlane at capacity — no exceptions/)).toBeInTheDocument()
     expect(toast().queryByRole('button', { name: /Move anyway/ })).not.toBeInTheDocument()
@@ -496,7 +497,7 @@ describe('MoveBlockedToast — swimlane limits (#1150)', () => {
   })
 
   it('words the row weight block', () => {
-    renderToast(<MoveBlockedToast error={laneWeight} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={laneWeight} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
     expect(toast().getByText(/Weight limit reached/)).toBeInTheDocument()
     expect(toast().getByText(/Swimlane "Payouts" has 8 weight — adding this card \(\+3\) would reach 11 of 10\./)).toBeInTheDocument()
   })
@@ -505,14 +506,14 @@ describe('MoveBlockedToast — swimlane limits (#1150)', () => {
     renderToast(
       <MoveBlockedToast
         error={{ ...laneHard, also: ['Column "Ready" is at its WIP limit (3/3), admins can override.'] }}
-        isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()}
+        eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()}
       />,
     )
     expect(toast().getByText('Also: Column "Ready" is at its WIP limit (3/3), admins can override.')).toBeInTheDocument()
   })
 
   it('shows no second line when only one limit tripped', () => {
-    renderToast(<MoveBlockedToast error={laneSoft} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />)
+    renderToast(<MoveBlockedToast error={laneSoft} eligibility={NO_OVERRIDE} onForce={vi.fn()} onDismiss={vi.fn()} />)
     expect(toast().queryByText(/^Also:/)).not.toBeInTheDocument()
   })
 })

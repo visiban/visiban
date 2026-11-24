@@ -56,6 +56,7 @@ import { formatExportFormatLabel, formatExportRowCount } from "../../utils/expor
 // Chip tooltip and accessible description for a member whose all-content access
 // overrides their board role (#1301).
 // Shared by the visible prompt and its announcement so they cannot drift apart.
+const ASSIGNEE_OVERRIDE_PROMPT = "Let assignees move their cards anyway? A card's assignee can move it past Block limits with a reason, unless they assigned it to themselves.";
 const HARD_WIP_PROMPT = "Enable hard mode? No one, including admins, will be able to bypass WIP limits.";
 const FULL_ACCESS_DESCRIPTION = "Full access to all boards. This account's board role doesn't apply.";
 
@@ -420,6 +421,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [pendingHardWip, setPendingHardWip] = useState(false);
   const hardWipTriggerRef = useConfirmFocusReturn(pendingHardWip ? "hard-wip" : null);
   useConfirmAnnouncement(pendingHardWip ? HARD_WIP_PROMPT : null);
+  // #1923: turning the assignee override on widens who can bypass limits, so it
+  // confirms inline; turning it off does not.
+  const [pendingAssigneeOverride, setPendingAssigneeOverride] = useState(false);
+  const assigneeOverrideTriggerRef = useConfirmFocusReturn(pendingAssigneeOverride ? "assignee-override" : null);
+  useConfirmAnnouncement(pendingAssigneeOverride ? ASSIGNEE_OVERRIDE_PROMPT : null);
 
   // #974 — remembers the last personal density the user picked, for this
   // modal session only (NOT a separate persisted value from
@@ -876,6 +882,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     if (saving === target.user.id) return true;
     setPendingRemove(null);
   }, 57);
+
+  // Escape 40.9 (frontend/CLAUDE.md): cancels only the assignee-override confirm.
+  useEscapeStack(() => {
+    if (!pendingAssigneeOverride || tab !== "rules") return false;
+    setPendingAssigneeOverride(false);
+  }, 40.9);
 
   // Escape 58 (frontend/CLAUDE.md): clears the Add member search (query and suggestion list) above
   // ModalWrapper's 40, and returns false with nothing to clear so Escape still closes the modal (#2036).
@@ -1814,6 +1826,51 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       aria-label="Enforce weight limits"
                     />
                   </div>
+                  {/* #1923: who besides an admin may override a Block limit. */}
+                  <div className="py-2 border-b border-line/60">
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 pr-4">
+                        <span className="text-sm text-fg">Let a card&apos;s assignee move it anyway</span>
+                        <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-surface-hover text-fg-secondary">Board-wide</span>
+                        <p className="text-xs text-fg-muted mt-0.5">
+                          Covers Block limits on WIP and weight. Not for cards they assigned to themselves.
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={board.allow_assignee_override === true}
+                        onChange={(v) => {
+                          if (v) {
+                            setPendingAssigneeOverride(true);
+                          } else {
+                            setPendingAssigneeOverride(false);
+                            void onUpdateBoardSettings({ allow_assignee_override: false });
+                          }
+                        }}
+                        aria-label="Let a card's assignee move it anyway"
+                        buttonRef={assigneeOverrideTriggerRef("assignee-override")}
+                      />
+                    </div>
+                    {pendingAssigneeOverride && (
+                      <div className="mt-1.5 flex items-center gap-2 text-xs">
+                        <span className="text-fg-tertiary">{ASSIGNEE_OVERRIDE_PROMPT}</span>
+                        <button
+                          onClick={() => {
+                            void onUpdateBoardSettings({ allow_assignee_override: true });
+                            setPendingAssigneeOverride(false);
+                          }}
+                          className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setPendingAssigneeOverride(false)}
+                          className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-1 transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between py-2 border-b border-line/60">
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Show at-limit WIP indicator</span>
@@ -1864,6 +1921,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           : "informational only"}
                     </p>
                     <p className="text-sm text-fg-secondary">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
+                    <p className="text-sm text-fg-secondary">Assignee override: {board.allow_assignee_override ? "on" : "off"}</p>
                     <p className="text-sm text-fg-secondary">At-limit WIP indicator: {board.show_wip_at_limit ? "shown" : "hidden"}</p>
                     <p className="text-sm text-fg-secondary">Swimlane rollup: {rollupField ? rollupField.name : "none"}</p>
                   </div>

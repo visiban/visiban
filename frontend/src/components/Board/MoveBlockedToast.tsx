@@ -1,13 +1,18 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MoveBlockedError } from "../../hooks/useBoard";
 import { useToast } from "../../contexts/useToast";
 import type { ToastInput } from "../../utils/toastQueue";
+import { canOverride, overrideHint, overrideLabel, type OverrideEligibility } from "../../utils/forceOverride";
+import ModalWrapper from "../shared/ModalWrapper";
+import OverrideReasonForm from "./OverrideReasonForm";
 import { hardLimitContainer, isHardLimit, toastBody, toastTitle } from "./moveBlockedMessages";
 
 interface Props {
   error: MoveBlockedError;
-  isAdmin: boolean;
-  onForce: () => void | Promise<unknown>;
+  /** Who may force this refusal (utils/forceOverride). */
+  eligibility: OverrideEligibility;
+  /** `reason` is set on the assignee basis, which the server requires it for. */
+  onForce: (reason?: string) => void | Promise<unknown>;
   onDismiss: () => void;
 }
 
@@ -19,7 +24,7 @@ export const MOVE_TOAST_KEY = "move";
  * toast for the content, § Toasts for placement and timing). Persists until
  * dismissed or replaced, announced assertively.
  */
-function moveBlockedToast(error: MoveBlockedError, isAdmin: boolean, onForce: () => void | Promise<unknown>): ToastInput {
+function moveBlockedToast(error: MoveBlockedError, eligibility: OverrideEligibility, onForce: () => void | Promise<unknown>): ToastInput {
   const hardBlocked = isHardLimit(error.code) || error.code === "permission_denied";
   // maintenance_mode has no override for anyone — a site admin never sees this
   // toast at all, since their own writes succeed — but it keeps the ⚠ glyph
@@ -39,7 +44,9 @@ function moveBlockedToast(error: MoveBlockedError, isAdmin: boolean, onForce: ()
   const hint = !versionConflict && noOverride && hardContainer !== null
     ? `To unblock, move a card out of ${hardContainer}, or ask an admin to raise the WIP limit.`
     : null;
-  const canOverride = !versionConflict && !noOverride && isAdmin;
+  const overridable = !versionConflict && !noOverride;
+  const actionLabel = overridable && canOverride(eligibility) ? overrideLabel(eligibility) : null;
+  const overrideNote = overridable ? overrideHint(eligibility) : null;
   const title = toastTitle(error);
   const body = toastBody(error);
   return {
@@ -48,21 +55,23 @@ function moveBlockedToast(error: MoveBlockedError, isAdmin: boolean, onForce: ()
     hardGlyph: hardBlocked,
     title,
     message: body,
-    details: (alsoLine || hint) ? (
+    details: (alsoLine || hint || overrideNote) ? (
       <>
         {alsoLine && <p className="mt-1 text-xs text-fg-tertiary">{alsoLine}</p>}
         {hint && <p className="mt-1.5 text-xs text-fg-tertiary">{hint}</p>}
+        {overrideNote && <p className="mt-1.5 text-xs text-fg-tertiary">{overrideNote}</p>}
       </>
     ) : undefined,
-    action: canOverride
-      ? { label: "Move anyway (admin override)", pendingLabel: "Moving anyway…", onAction: onForce }
+    action: actionLabel
+      ? { label: actionLabel, pendingLabel: "Moving anyway…", onAction: onForce }
       : undefined,
     // Everything the old role="alert" toast read out, as one sentence group.
     announceText: [
       `${title}. ${body}`,
       alsoLine,
       hint,
-      canOverride ? "Move anyway (admin override) available." : null,
+      overrideNote,
+      actionLabel ? `${actionLabel} available.` : null,
     ].filter(Boolean).join(" "),
     testId: "move-blocked-toast",
   };
@@ -80,26 +89,46 @@ function reportedByMovePopover(): boolean {
 }
 
 /**
- * Bridges the board's `moveError` into the shared toast region. Renders
- * nothing; mount it while there is an error, and it raises, replaces and
- * finally removes the `move` toast.
+ * Bridges the board's `moveError` into the shared toast region. Renders only
+ * the assignee's reason dialog (a toast cannot hold a form); mount it while
+ * there is an error, and it raises, replaces and finally removes the `move`
+ * toast.
  */
-export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
+export default function MoveBlockedToast({ error, eligibility, onForce, onDismiss }: Props) {
   const { notify, dismiss } = useToast();
   const forceRef = useRef(onForce);
   forceRef.current = onForce;
   const dismissRef = useRef(onDismiss);
   dismissRef.current = onDismiss;
+  // The refusal the reason dialog was opened for, so a newer refusal closes it.
+  const [reasonFor, setReasonFor] = useState<MoveBlockedError | null>(null);
+  // Eligibility is a fresh object on every host render; key the toast on its content.
+  const kind = eligibility.kind;
+  const assigneeName = eligibility.kind === "other_member" ? eligibility.assigneeName : "";
 
   useEffect(() => {
+    const e = (kind === "other_member" ? { kind, assigneeName } : { kind }) as OverrideEligibility;
     notify({
-      ...moveBlockedToast(error, isAdmin, () => forceRef.current()),
+      ...moveBlockedToast(error, e, () => (kind === "assignee" ? setReasonFor(error) : forceRef.current())),
       announce: !reportedByMovePopover(),
       onDismiss: () => dismissRef.current(),
     });
-  }, [error, isAdmin, notify]);
+  }, [error, kind, assigneeName, notify]);
 
   useEffect(() => () => dismiss(MOVE_TOAST_KEY), [dismiss]);
 
-  return null;
+  const column = "column_name" in error ? error.column_name : null;
+  return (
+    <ModalWrapper
+      open={reasonFor === error && kind === "assignee"}
+      onClose={() => setReasonFor(null)}
+      title={column ? `Move to ${column} anyway?` : "Move anyway?"}
+      maxWidth="max-w-md"
+    >
+      <OverrideReasonForm
+        onCancel={() => setReasonFor(null)}
+        onSubmit={(reason) => { setReasonFor(null); void forceRef.current(reason); }}
+      />
+    </ModalWrapper>
+  );
 }

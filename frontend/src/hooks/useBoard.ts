@@ -1065,7 +1065,7 @@ export function useBoard() {
   // target): the panel's backdrop and focus trap make the toast unreachable
   // while the panel is open, so the popover offers the override itself (#1772).
   // Like moveCard it never rejects; failures are reported in the result.
-  const runForcedMove = useCallback(async (move: PendingMove): Promise<MoveOutcome> => {
+  const runForcedMove = useCallback(async (move: PendingMove, reason?: string): Promise<MoveOutcome> => {
     if (!boardRef.current) return { ok: false, error: new Error("board not loaded") };
     const { cardId, columnId, swimlaneId, position, gatesPassed } = move;
     clearMoveError();
@@ -1088,6 +1088,7 @@ export function useBoard() {
       const { card } = await apiMoveCard(boardId, cardId, {
         column_id: columnId, swimlane_id: swimlaneId, position,
         ...(gatesPassed !== undefined ? { gates_passed: gatesPassed } : {}),
+        ...(reason ? { override_reason: reason } : {}),
       }, true);
       // A socket frame for a later change (a remote edit, or another move) can
       // arrive before this response; keep that newer copy (#1969).
@@ -1131,14 +1132,14 @@ export function useBoard() {
 
   // Retry the last blocked move (the toast's "Move anyway"). Takes no
   // arguments: App passes it straight to the toast's onClick.
-  const forceMoveCard = useCallback(async () => {
-    if (pendingMoveRef.current) await runForcedMove(pendingMoveRef.current);
+  const forceMoveCard = useCallback(async (reason?: string) => {
+    if (pendingMoveRef.current) await runForcedMove(pendingMoveRef.current, reason);
   }, [runForcedMove]);
 
   // Force a move to an explicit target, independent of pendingMove (#1772).
   const forceMoveCardTo = useCallback(
-    (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number): Promise<MoveOutcome> =>
-      runForcedMove({ cardId, columnId, swimlaneId, position, gatesPassed }),
+    (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number, reason?: string): Promise<MoveOutcome> =>
+      runForcedMove({ cardId, columnId, swimlaneId, position, gatesPassed }, reason),
     [runForcedMove],
   );
 
@@ -1694,5 +1695,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

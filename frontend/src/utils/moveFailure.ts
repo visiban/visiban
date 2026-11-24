@@ -26,6 +26,11 @@ export function failureReason(err: unknown, forbidden = "you do not have permiss
   if (typeof data?.code === "string" && SWIMLANE_LIMIT_CODES.has(data.code)) return "a swimlane limit was reached";
   if (typeof data?.code === "string" && LIMIT_CODES.has(data.code)) return "a column limit was reached";
   if (data?.code === "maintenance_mode") return "maintenance mode is active";
+  // #1923: the assignee override's own refusals.
+  if (data?.code === "force_not_permitted" && (data as { reason?: unknown }).reason === "self_assigned") {
+    return "you assigned this card to yourself, so a board admin needs to move it anyway";
+  }
+  if (data?.code === "override_reason_required") return "a reason is required to move it anyway";
   // Number-neutral wording: the same clause follows "1 of 1 card" and "2 of 5 cards".
   if (err.response.status === 403) return forbidden;
   if (err.response.status === 404) return "not found";

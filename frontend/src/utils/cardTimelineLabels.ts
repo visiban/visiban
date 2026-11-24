@@ -111,6 +111,13 @@ export function activityLabel(
     case "needed_changed":
       if (d.to_value === "now") return d.from_value === "column_deleted" ? "Needed: Now (its column was deleted)" : "Needed: Now";
       return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";
+    // #1923: from_value is the actor basis, to_value the kinds, item_text the reason.
+    case "override_used": {
+      const kinds = (d.to_value ?? "").split(",").map((k) => (k === "wip" ? "WIP" : k)).filter(Boolean).join(" and ");
+      const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
+      const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} limit overridden (${basis})`;
+      return d.item_text ? `${head}. Reason: ${d.item_text}` : head;
+    }
     case "archived":
       return "Card archived";
     case "reactivated":
