@@ -3307,6 +3307,12 @@ compose-prod-drill:
         - scripts/prod-compose-drill.sh
         - scripts/drill-image.sh
         - .gitlab-ci.yml
+        # What step 8 (#1364) exercises: login/CSRF/origin handling and the WS gate.
+        - backend/accounts/**/*
+        - backend/visiban/settings.py
+        - backend/visiban/asgi.py
+        - backend/boards/consumers.py
+        - frontend/index.html
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes: *compose-prod-paths
   script:

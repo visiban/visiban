@@ -3,7 +3,8 @@
  *
  * routeAuth()  — mocks the authenticated-user endpoints so tests can skip
  *               the login flow and navigate directly to protected pages.
- * routeBoard() — mocks all board-detail endpoints for a given board fixture.
+ * routeBoard() — mocks all board-detail endpoints for a given board fixture, including
+ *               the empty card-extensions read (#2533).
  * END_OF_LINE  — the key that moves an editor's caret to the end of its line
  *               on the host platform (see its comment before using bare 'End').
  *
@@ -54,6 +55,13 @@ export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> 
   // The saved-filters endpoint returns a bare array (not paginated).
   await page.route(`**/api/v1/boards/${board.id}/saved-filters/`, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
+  )
+  // Opening a card reads its extension sections (#2212). Unmocked, the read leaves the page: in CI
+  // nothing listens (refused, harmless), but locally the dev stack on :8000 answers 401 and the app
+  // signs the test out (#2530, #2533). Stubbed here once. Playwright runs the most recently registered
+  // matching route first, so a spec that wants sections registers its own after routeBoard().
+  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/extensions\/(\?.*)?$/, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sections: [] }) }),
   )
   // WebSocket stub — sends a connected event immediately so the board does not
   // render in "disconnected" state during tests.
