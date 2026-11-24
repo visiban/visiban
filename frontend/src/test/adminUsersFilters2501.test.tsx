@@ -82,6 +82,36 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
+/** A deactivation that changes `db` only once the returned gate is resolved. */
+function deferDeactivate() {
+  const gate = deferred<void>()
+  api.deactivateAdminUser.mockImplementationOnce(async (id: number) => {
+    await gate.promise
+    db = db.map((u) => (u.id === id ? { ...u, is_active: false } : u))
+    return db.find((u) => u.id === id)
+  })
+  return gate
+}
+
+/** Account creation on the fake server: the account joins `db` in username order, as the server sorts. */
+function serveCreate(username: string) {
+  api.createAdminUser.mockImplementation(async () => {
+    const created = row({ id: 9, username, email: `${username}@example.com`, display_name: username[0].toUpperCase() + username.slice(1) })
+    db = [...db, created].sort((a, b) => a.username.localeCompare(b.username))
+    return created
+  })
+}
+
+async function addUser(username: string) {
+  fireEvent.click(screen.getByText('Add user'))
+  fireEvent.change(screen.getByLabelText(/username/i), { target: { value: username } })
+  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: `${username}@example.com` } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
+  fireEvent.click(screen.getByText('Create user'))
+  await waitFor(() => expect(api.createAdminUser).toHaveBeenCalled())
+  await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+}
+
 /** 51 active accounts: page 1 holds 50 of them, page 2 holds "User 50" alone. */
 const manyActive = () => Array.from({ length: 51 }, (_, i) => row({ id: 100 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}` }))
 
@@ -232,22 +262,44 @@ describe('Users filter pills (#2501)', () => {
     await waitFor(() => expect(pill('Active')).toHaveFocus())
   })
 
-  it('creating a user under a search does not report the search total as the nav count', async () => {
-    api.createAdminUser.mockResolvedValue(row({ id: 9, username: 'alan', display_name: 'Alan' }))
+  it('creating a user under a search adds one to the site total in the nav, not the search total', async () => {
+    serveCreate('alan')
     await renderUsers()
     const nav = () => screen.getByRole('button', { name: /^Users\b/ })
     await waitFor(() => expect(nav()).toHaveTextContent('3'))
     fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'al' } })
     await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
-    fireEvent.click(screen.getByText('Add user'))
-    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alan' } })
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alan@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
-    fireEvent.click(screen.getByText('Create user'))
-    await waitFor(() => expect(api.createAdminUser).toHaveBeenCalled())
-    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
-    expect(nav()).toHaveTextContent('3')
+    await addUser('alan')
+    // The search's refetch now holds 2 (alan, alice); the site holds 4.
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument())
+    expect(nav()).toHaveTextContent('4')
     expect(nav()).not.toHaveTextContent('2')
+  })
+
+  // The server sorts by username and pages by 50: a created row is fetched into its place, never prepended.
+  it('creating a user refetches the current page, so the new row sorts into place', async () => {
+    serveCreate('bob')
+    await renderUsers()
+    await addUser('bob')
+    await waitFor(() => expect(screen.getByText(/Showing 1.4 of 4/)).toBeInTheDocument())
+    const names = within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem').map((li) => li.textContent ?? '')
+    expect(names.map((t) => ['Ada Root', 'Alice', 'Bob', 'Carol'].find((n) => t.includes(n)))).toEqual(['Ada Root', 'Alice', 'Bob', 'Carol'])
+    expect(lastCall()).toMatchObject({ status: 'all', offset: 0 })
+    expect(pill('All')).toHaveTextContent('4')
+    expect(pill('Active')).toHaveTextContent('3')
+    expect(screen.getByRole('button', { name: /^Users\b/ })).toHaveTextContent('4')
+  })
+
+  it('a created user that sorts onto another page leaves a full page 1 of 50', async () => {
+    db = manyActive()
+    serve({ pageSize: 50 })
+    serveCreate('zed')
+    await renderUsers()
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
+    await addUser('zed')
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 52/)).toBeInTheDocument())
+    expect(within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem')).toHaveLength(50)
+    expect(screen.queryByText('Zed')).not.toBeInTheDocument()
   })
   // A row leaving the selected filter shifts the server's pages, so the page is fetched again.
   it('the last row of page 2 leaving the filter steps back to page 1 with a true "Showing" line', async () => {
@@ -303,6 +355,47 @@ describe('Users filter pills (#2501)', () => {
     expect(screen.getByText('Carol')).toBeInTheDocument()
     expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument()
     expect(pill('Deactivated')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  // A row action resolves after the page or pill may have changed; its refetch is the newest request,
+  // so it must ask for the query now on screen, not the one from when the action started.
+  it('a deactivation that lands after Previous refetches page 1 and clears "Loading…"', async () => {
+    db = manyActive()
+    serve({ pageSize: 50 })
+    await renderUsers()
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(screen.getByText(/Showing 51.51 of 51/)).toBeInTheDocument())
+    const gate = deferDeactivate()
+    await deactivate('User 50')
+    await waitFor(() => expect(api.deactivateAdminUser).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }))
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
+    await act(async () => { gate.resolve(); await gate.promise })
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 50/)).toBeInTheDocument())
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument()
+    expect(screen.getByText('User 0')).toBeInTheDocument()
+    expect(lastCall()).toMatchObject({ status: 'active', offset: 0 })
+  })
+
+  it('a deactivation that lands after another pill is chosen refetches that pill, not the old one', async () => {
+    db = [...ROWS, row({ id: 4, username: 'dave', email: 'dave@example.com', display_name: 'Dave' })]
+    await renderUsers()
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.3 of 3/)).toBeInTheDocument())
+    const gate = deferDeactivate()
+    await deactivate('Alice')
+    await waitFor(() => expect(api.deactivateAdminUser).toHaveBeenCalled())
+    fireEvent.click(pill('Admins'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
+    await act(async () => { gate.resolve(); await gate.promise })
+    await waitFor(() => expect(lastCall()).toMatchObject({ status: 'admins' }))
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(pill('Admins')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(screen.getByRole('list', { name: 'Users' })).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByText('Ada Root')).toBeInTheDocument()
+    expect(screen.queryByText('Dave')).not.toBeInTheDocument()
   })
 
   it('on a phone, a row leaving the filter moves focus to the status select', async () => {
