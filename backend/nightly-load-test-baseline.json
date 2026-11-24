@@ -63,7 +63,7 @@
       "measured_p95_ms": 34.9,
       "measured_p99_ms": 36.2,
       "budget_p95_ms": 50,
-      "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045. NOTE (#2365, #2405): the timeline also returns gate entries. The fixture now seeds a gated stage with gate rows (about a third of its cards, some linked to a move, some not) and the script reads a card that passed a gate, but this budget and measured p95 predate that: they measured no gate work. Re-derive them, and card_timeline_counts, from the next NUC run."
+      "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045. NOTE (#2365, #2405): the timeline also returns gate entries. The fixture now seeds a gated stage with gate rows (about two thirds of its active cards, some linked to a move, some not) and the script reads a card that passed a gate, but this budget and measured p95 predate that: they measured no gate work. Re-derive them, and card_timeline_counts, from the next NUC run."
     },
     "card_timeline_counts": {
       "method": "GET",

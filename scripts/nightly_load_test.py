@@ -287,7 +287,7 @@ _ANALYTICS_USER_SCENARIOS = (
 
 
 def _check_analytics_measured(analytics_session, budgets):
-    """The 16 loadtest_analytics scenarios must be measured once any has a committed budget."""
+    """The 17 loadtest_analytics scenarios must be measured once any has a committed budget."""
     if analytics_session is not None:
         return
     for key in ("budget_p95_ms", "budget_peak_rss_mb"):
@@ -362,13 +362,15 @@ def _children_view_endpoints(base_url, board_id):
 
 
 def _gated_sample_card(cards):
-    """The card the timeline scenarios read: roughly mid-set among cards that passed a gate.
+    """The card the timeline scenarios read: roughly mid-set among cards that passed 2+ gates.
 
-    #2405: the timeline merges in gate transitions only for a card that has them, so a card
-    picked without regard to that would time the no-gate path under a name that says otherwise.
-    Raises when the fixture has none, rather than falling back to a card that measures nothing.
+    #2405: the gate query runs for every card, gated or not, but it returns only gate rows with
+    no linked movement. A card that passed exactly one gate has only the row linked to its move
+    into the stage, so its timeline has no gate entries; every card with ``gates_passed >= 2``
+    has an unlinked second-gate row. Picking any gated card would time the no-gate path under
+    a name that says otherwise. Raises when the fixture has none, rather than falling back to a card that measures nothing.
     """
-    gated = [c for c in cards if (c.get("gates_passed") or 0) > 0]
+    gated = [c for c in cards if (c.get("gates_passed") or 0) >= 2]
     if not gated:
         raise RuntimeError(
             "No card on the load-test board has passed a gate, so card_timeline would not "
@@ -671,10 +673,11 @@ def _self_test():
         failures.append("_children_view_endpoints must name the children-view first page")
     if set(_children_view_endpoints("http://x", 9)) != set(_CHILDREN_VIEW_SCENARIOS):
         failures.append("_children_view_endpoints and _CHILDREN_VIEW_SCENARIOS disagree")
-    _cards = [{"id": i, "gates_passed": 0} for i in range(4)] + [{"id": 10 + i, "gates_passed": 1} for i in range(5)]
+    _cards = [{"id": i, "gates_passed": 0} for i in range(4)] + [{"id": 10 + i, "gates_passed": 2} for i in range(5)]
+    _cards += [{"id": 20 + i, "gates_passed": 1} for i in range(9)]
     if _gated_sample_card(_cards)["id"] != 12:
-        failures.append("_gated_sample_card must pick the middle of the cards that passed a gate")
-    if "gate" not in (_raises(_gated_sample_card, [{"id": 1, "gates_passed": 0}, {"id": 2}]) or ""):
+        failures.append("_gated_sample_card must pick the middle of the cards that passed 2+ gates, never a 1-gate card")
+    if "gate" not in (_raises(_gated_sample_card, [{"id": 1, "gates_passed": 1}, {"id": 2}]) or ""):
         failures.append("_gated_sample_card must refuse a fixture with no gated card")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
