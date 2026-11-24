@@ -409,7 +409,7 @@ larger. These codes and settings follow the 1.0+ compatibility rules.
 | Variable | Description | Default |
 |---|---|---|
 | `ANALYTICS_MAX_CONCURRENT` | Analytics requests one server process computes at once. A request that finds every slot taken waits up to 8 seconds for one (REST) or is refused at once (MCP) with `503` `analytics_busy` and `Retry-After: 10`. Helm: `backend.settings.analyticsMaxConcurrent`. | `1` |
-| `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range) has a fixed ceiling of four times this instead. A request that needs more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `150000` |
+| `ANALYTICS_MAX_MOVEMENTS` | Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range, and its day drill-down) has a fixed ceiling of four times this instead. A request that needs more is refused with `422` `analytics_too_large`; it is never answered from part of the history. Helm: `backend.settings.analyticsMaxMovements`. | `150000` |
 
 Both must be a whole number of at least 1; blank keeps the default. Unlike the
 attachment and comment quotas, `0` does **not** mean "no limit": there is no
