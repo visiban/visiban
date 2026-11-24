@@ -53,6 +53,7 @@ from .models import (
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
     MAX_PENDING_EMAILED_INVITE_LINKS,
+    PAT_HARD_MAX_LIFETIME_DAYS,
     SiteEmailSetting,
     SiteSetting,
     get_registration_mode,
@@ -119,6 +120,46 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         max_length=MAINTENANCE_MESSAGE_MAX_LENGTH,
         trim_whitespace=True,
     )
+    # Personal access token lifetime policy (#1572). null means unset (no site
+    # maximum / no pre-filled expiry), which is the default and today's
+    # behavior. An absent key leaves the stored value alone; null clears it.
+    pat_max_lifetime_days = drf_serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=PAT_HARD_MAX_LIFETIME_DAYS,
+    )
+    pat_default_lifetime_days = drf_serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=PAT_HARD_MAX_LIFETIME_DAYS,
+    )
+
+    def __init__(self, *args, **kwargs):
+        # The stored row, so validate() judges the state a partial PATCH would
+        # PRODUCE (same reason as SiteEmailSettingSerializer below): checking
+        # only the submitted fields would let "lower the max" and "raise the
+        # default" each pass alone and leave default > max. The ``current``
+        # kwarg is required for a write: without it validate() would compare
+        # against nothing and pass, so the view always supplies it.
+        self.current = kwargs.pop("current", None)
+        super().__init__(*args, **kwargs)
+
+    def validate(self, attrs):
+        if self.current is None and self.instance is None:
+            # Fail closed: a write serializer built without the stored row
+            # cannot judge the merged state (#1075).
+            raise drf_serializers.ValidationError("Site settings could not be validated.")
+        current = self.current if self.current is not None else self.instance
+
+        def merged(field):
+            return attrs[field] if field in attrs else getattr(current, field)
+
+        max_days = merged("pat_max_lifetime_days")
+        default_days = merged("pat_default_lifetime_days")
+        if max_days is not None and default_days is not None and default_days > max_days:
+            raise drf_serializers.ValidationError({
+                "pat_default_lifetime_days": (
+                    f"The default expiry ({default_days} days) cannot be longer than the "
+                    f"maximum lifetime ({max_days} days)."
+                ),
+            })
+        return attrs
 
 
 class SiteEmailSettingSerializer(drf_serializers.Serializer):
@@ -819,14 +860,15 @@ class AdminSettingsView(APIView):
     def patch(self, request):
         # Validation runs BEFORE the lock below, so a malformed request returns
         # 400 without ever holding a row lock on the singleton.
-        serializer = SiteSettingSerializer(data=request.data, partial=True)
+        # Materialize the singleton first: it is both what the lock below needs
+        # on a first-boot instance where the row is absent, and the stored
+        # state the serializer validates the merged PATCH against (#1572).
+        stored = SiteSetting.get()
+        serializer = SiteSettingSerializer(data=request.data, partial=True, current=stored)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated = serializer.validated_data
-        # Materialize the singleton before locking it — select_for_update has
-        # nothing to lock on a first-boot instance where the row is absent.
-        SiteSetting.get()
 
         # Everything from the read through the audit write happens under one
         # locked transaction (#1126).
@@ -866,10 +908,25 @@ class AdminSettingsView(APIView):
                 setting.uploads_enabled = validated["uploads_enabled"]
                 update_fields.append("uploads_enabled")
 
-            for field in ("maintenance_mode", "maintenance_message"):
+            for field in (
+                "maintenance_mode",
+                "maintenance_message",
+                "pat_max_lifetime_days",
+                "pat_default_lifetime_days",
+            ):
                 if field in validated:
                     setattr(setting, field, validated[field])
                     update_fields.append(field)
+
+            # The serializer judged default <= max against the row read before
+            # the lock; a concurrent PATCH may have changed the other half since.
+            # Re-judged on the locked row so two PATCHes that each passed alone
+            # cannot store a default the maximum refuses. Nothing is saved yet.
+            recheck = SiteSettingSerializer(current=setting)
+            try:
+                recheck.validate({})
+            except drf_serializers.ValidationError as exc:
+                return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
 
             if update_fields:
                 setting.save(update_fields=update_fields)

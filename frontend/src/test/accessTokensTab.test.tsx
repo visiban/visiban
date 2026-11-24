@@ -9,6 +9,7 @@ vi.mock('../api/auth', () => ({
   listTokens: vi.fn(),
   createToken: vi.fn(),
   revokeToken: vi.fn(),
+  getTokenPolicy: vi.fn(),
 }))
 
 vi.mock('../api/boards', () => ({ getBoards: vi.fn(() => Promise.resolve([])) }))
@@ -17,7 +18,10 @@ vi.mock('../context/ThemeContext', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
-import { listTokens, createToken, revokeToken } from '../api/auth'
+import { listTokens, createToken, revokeToken, getTokenPolicy } from '../api/auth'
+const mockGetTokenPolicy = getTokenPolicy as ReturnType<typeof vi.fn>
+const NO_POLICY = { max_lifetime_days: null, default_lifetime_days: null, hard_max_lifetime_days: 365, max_tokens: 10 }
+const utcDateIn = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
 const mockListTokens = listTokens as ReturnType<typeof vi.fn>
 const mockCreateToken = createToken as ReturnType<typeof vi.fn>
 const mockRevokeToken = revokeToken as ReturnType<typeof vi.fn>
@@ -89,6 +93,7 @@ describe('AccessTokensTab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockListTokens.mockResolvedValue([])
+    mockGetTokenPolicy.mockResolvedValue(NO_POLICY)
   })
 
   it('renders the tab navigation item', () => {
@@ -451,5 +456,72 @@ describe('access token leave guard and phone layout (#2477)', () => {
     expect(within(row).getAllByRole('cell')).toHaveLength(5)
     expect(within(row).getByTestId(`token-scopes-${token1.id}`)).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: `Revoke ${token1.name}` })).toBeInTheDocument()
+  })
+})
+
+describe('AccessTokensTab — site token lifetime policy (#1572)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListTokens.mockResolvedValue([])
+  })
+
+  async function openForm() {
+    renderPage()
+    await switchToAccessTokensTab()
+    return screen.findByTestId('token-expiry-input')
+  }
+
+  it('without a policy the expiry stays optional, blank, and capped at a year', async () => {
+    mockGetTokenPolicy.mockResolvedValue(NO_POLICY)
+    const input = await openForm()
+    await waitFor(() => expect(mockGetTokenPolicy).toHaveBeenCalled())
+    expect(screen.getByLabelText('Expires (optional)')).toBe(input)
+    expect(input).not.toBeRequired()
+    expect(input).toHaveValue('')
+    expect(input).toHaveAttribute('max', utcDateIn(365))
+  })
+
+  it('a maximum makes the expiry required, limits the picker, and says why', async () => {
+    mockGetTokenPolicy.mockResolvedValue({ ...NO_POLICY, max_lifetime_days: 30 })
+    const input = await openForm()
+    await waitFor(() => expect(input).toBeRequired())
+    expect(screen.getByLabelText('Expires')).toBe(input)
+    expect(input).toHaveAttribute('max', utcDateIn(30))
+    expect(screen.getByText('This site requires tokens to expire within 30 days.')).toBeInTheDocument()
+  })
+
+  it('a required expiry left blank does not submit', async () => {
+    mockGetTokenPolicy.mockResolvedValue({ ...NO_POLICY, max_lifetime_days: 30 })
+    const input = await openForm()
+    await waitFor(() => expect(input).toBeRequired())
+    fireEvent.change(screen.getByTestId('token-name-input'), { target: { value: 'ci' } })
+    fireEvent.submit(input.closest('form')!)
+    expect(mockCreateToken).not.toHaveBeenCalled()
+  })
+
+  it('pre-fills the default expiry and sends it, then pre-fills it again', async () => {
+    mockGetTokenPolicy.mockResolvedValue({ ...NO_POLICY, max_lifetime_days: 90, default_lifetime_days: 30 })
+    mockCreateToken.mockResolvedValue({ ...token1, id: 9, token: 'vbn_' + 'a'.repeat(40) })
+    const input = await openForm()
+    await waitFor(() => expect(input).toHaveValue(utcDateIn(30)))
+    fireEvent.change(screen.getByTestId('token-name-input'), { target: { value: 'ci' } })
+    fireEvent.submit(input.closest('form')!)
+    await waitFor(() => expect(mockCreateToken).toHaveBeenCalledWith('ci', utcDateIn(30), ['read', 'write']))
+    await waitFor(() => expect(screen.getByTestId('token-expiry-input')).toHaveValue(utcDateIn(30)))
+  })
+
+  it('a default with no maximum pre-fills but stays optional', async () => {
+    mockGetTokenPolicy.mockResolvedValue({ ...NO_POLICY, default_lifetime_days: 7 })
+    const input = await openForm()
+    await waitFor(() => expect(input).toHaveValue(utcDateIn(7)))
+    expect(input).not.toBeRequired()
+  })
+
+  it('a policy that fails to load leaves the form as it was', async () => {
+    mockGetTokenPolicy.mockRejectedValue(new Error('network'))
+    const input = await openForm()
+    await waitFor(() => expect(mockGetTokenPolicy).toHaveBeenCalled())
+    expect(input).not.toBeRequired()
+    expect(input).toHaveAttribute('max', utcDateIn(365))
   })
 })

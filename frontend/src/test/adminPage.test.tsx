@@ -127,6 +127,8 @@ const fakeSettings: SiteSettings = {
   uploads_enabled: true,
   maintenance_mode: false,
   maintenance_message: '',
+  pat_max_lifetime_days: null,
+  pat_default_lifetime_days: null,
 }
 
 const fakeEmailSettings: SiteEmailSettings = {

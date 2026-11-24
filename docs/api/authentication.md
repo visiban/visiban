@@ -234,7 +234,7 @@ Since 1.2, a body that is not a JSON object, a non-string `name`, and an `expire
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `name` | string | Yes | A label for the token (1–64 characters). |
-| `expires_at` | datetime | No | ISO 8601 expiry. Must be in the future and at most 1 year from now. Omit for a non-expiring token. |
+| `expires_at` | datetime | No (required when the site sets a maximum lifetime, 1.3+) | ISO 8601 expiry. Must be in the future and at most 1 year from now. Omit for a non-expiring token. *(1.3+)* When a site admin sets a maximum token lifetime of N days ([`pat_max_lifetime_days`](admin.md#get-apiv1adminsettings)), it is required and must fall on or before the UTC date N days from now; a date-only value such as `2026-12-31` is midnight UTC. Read the limits from [`GET /api/v1/auth/tokens/policy/`](#get-apiv1authtokenspolicy). |
 | `scopes` | string[] | No | Scopes to grant. Must be a non-empty subset of `read`, `write`, `admin`, `mcp:read`, `mcp:write`. Defaults to `["read", "write"]` when omitted. Added in 1.2. |
 
 ```json
@@ -269,6 +269,7 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 | `400 Bad Request` | `name` missing, empty, or longer than 64 characters |
 | `400 Bad Request` | `expires_at` is in the past |
 | `400 Bad Request` | `expires_at` is more than 1 year from now |
+| `400 Bad Request` | *(1.3+)* The site sets a maximum lifetime of N days and `expires_at` is missing, `null` or `""` (`{"detail": "This site requires access tokens to expire within N days. Choose an expiry date."}`), or falls after the UTC date N days from now (`{"detail": "Token expiry cannot be more than N days from now on this site."}`). Existing tokens are not affected. |
 | `400 Bad Request` | User already has 10 active tokens |
 | `400 Bad Request` | `scopes` contains an unrecognized value, or is an empty list |
 | `401 Unauthorized` | Request is not authenticated, or the credential it was authenticated with is no longer valid (for example it was changed or revoked while the request was in flight); a retry with the current credential succeeds |
@@ -319,6 +320,30 @@ The ticket is bound to the credential that minted it (since 1.2, #1483). If that
 | `429 Too Many Requests` | Per-user rate limit exceeded (60/minute in production) — back off rather than retrying immediately |
 
 ---
+
+### `GET /api/v1/auth/tokens/policy/`
+
+> **Added in 1.3** (#1572)
+
+The token lifetime policy that [`POST /api/v1/auth/tokens/`](#post-apiv1authtokens) enforces, so a client can show it before creating a token. Any signed-in user, with the same gates as `GET /api/v1/auth/tokens/` (a scoped token needs no particular scope). Anonymous requests get `401`. It follows the 1.0 compatibility rules: fields may be added, never removed.
+
+```json
+{
+  "max_lifetime_days": 90,
+  "default_lifetime_days": 30,
+  "hard_max_lifetime_days": 365,
+  "max_tokens": 10
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `max_lifetime_days` | integer\|null | Site maximum lifetime of a new token, in days. `null` (the default) means no site maximum: `expires_at` may be omitted. |
+| `default_lifetime_days` | integer\|null | Expiry the token form pre-fills, in days from today. `null` means none. The API never applies it: it is a form default only. |
+| `hard_max_lifetime_days` | integer | Built-in ceiling on any expiry, whatever the site policy says (`365`). |
+| `max_tokens` | integer | Maximum number of tokens per account (`10`). |
+
+Site admins set the policy with [`PATCH /api/v1/admin/settings/`](admin.md#patch-apiv1adminsettings).
 
 ### `DELETE /api/v1/auth/tokens/{id}/`
 

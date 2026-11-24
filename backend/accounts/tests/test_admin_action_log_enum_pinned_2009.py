@@ -24,6 +24,8 @@ PINNED_ACTIONS = {
     "registration_mode.changed",
     "uploads_enabled.enabled",
     "uploads_enabled.disabled",
+    "pat_max_lifetime.changed",
+    "pat_default_lifetime.changed",
     "email_settings.source_changed",
     "email_settings.server_changed",
     "email_settings.from_email_changed",

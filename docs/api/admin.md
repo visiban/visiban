@@ -36,7 +36,9 @@ Return the current instance-wide settings.
   "registration_mode": "open",
   "uploads_enabled": true,
   "maintenance_mode": false,
-  "maintenance_message": ""
+  "maintenance_message": "",
+  "pat_max_lifetime_days": null,
+  "pat_default_lifetime_days": null
 }
 ```
 
@@ -46,6 +48,8 @@ Return the current instance-wide settings.
 | `uploads_enabled` | boolean | When `false`, attachment uploads are blocked for all users |
 | `maintenance_mode` | boolean | When `true`, non-admin write requests are rejected with `503`. Defaults to `false`. Added in 1.2. |
 | `maintenance_message` | string | Plain-text notice shown while maintenance mode is active. Max 1000 characters. Blank means "use the built-in default". Added in 1.2. |
+| `pat_max_lifetime_days` | integer\|null | *(1.3+, #1572)* Maximum lifetime of a new personal access token, in days (1-365). When set, [token creation](authentication.md#post-apiv1authtokens) requires an `expires_at` on or before the UTC date this many days from now. `null` (the default) means no site maximum. Existing tokens are not affected. |
+| `pat_default_lifetime_days` | integer\|null | *(1.3+, #1572)* Expiry the token form pre-fills, in days from today (1-365). Must not be greater than `pat_max_lifetime_days` when both are set. `null` (the default) pre-fills nothing. The API does not apply it to a create that omits `expires_at`. |
 
 ### `PATCH /api/v1/admin/settings/`
 Update site settings. All fields are optional.
@@ -57,8 +61,14 @@ Update site settings. All fields are optional.
 
 Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.
 
-Every change to `registration_mode`, `uploads_enabled`, `maintenance_mode` and
-`maintenance_message` is recorded in the [action log](#action-log). Submitting a field with
+A `PATCH` that sends `null` for `pat_max_lifetime_days` or `pat_default_lifetime_days` clears it; leaving
+the key out keeps the stored value. The default-not-above-maximum rule is checked against the state the
+`PATCH` would produce, so lowering the maximum below the stored default returns `400` with
+`{"pat_default_lifetime_days": ["The default expiry (60 days) cannot be longer than the maximum lifetime (30 days)."]}`.
+Out-of-range values (below 1, above 365) return `400` keyed by the field.
+
+Every change to `registration_mode`, `uploads_enabled`, `maintenance_mode`,
+`maintenance_message`, `pat_max_lifetime_days` and `pat_default_lifetime_days` is recorded in the [action log](#action-log). Submitting a field with
 the value it already holds is not a change and records nothing.
 
 ---
@@ -129,6 +139,8 @@ and an audit log an admin can edit is not evidence of anything.
 | `registration_mode.changed` | `{"from": "open", "to": "closed"}` |
 | `uploads_enabled.enabled` | `{}` |
 | `uploads_enabled.disabled` | `{}` |
+| `pat_max_lifetime.changed` | `{"from": null, "to": 90}` *(1.3+; days, `null` means unset)* |
+| `pat_default_lifetime.changed` | `{"from": 30, "to": null}` *(1.3+; days, `null` means unset)* |
 | `email_settings.source_changed` | `{"from": "env", "to": "database"}` |
 | `email_settings.server_changed` | `{"from": "old.example.org:587 (starttls)", "to": "smtp.example.org:465 (ssl)"}` |
 | `email_settings.from_email_changed` | `{"from": "...", "to": "..."}` |

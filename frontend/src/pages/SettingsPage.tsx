@@ -4,9 +4,9 @@ import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useConfirmFocusReturn } from "../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../hooks/useConfirmAnnouncement";
 import type { Location } from "react-router-dom";
-import { getCurrentUser, updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
+import { getCurrentUser, updateCurrentUser, changePassword, listTokens, createToken, revokeToken, getTokenPolicy, resetTour, cancelPendingEmailChange, resendPendingEmailConfirmation, getAuthProviders, listConnectedAccounts, disconnectAccount } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
-import type { User, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount, ProviderId } from "../types";
+import type { User, PersonalAccessToken, PersonalAccessTokenPolicy, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount, ProviderId } from "../types";
 import { ProviderIcon, providerLabel } from "../components/Common/ProviderIcons";
 import { startProviderConnect } from "../utils/oauth";
 import { useTheme } from "../context/ThemeContext";
@@ -767,6 +767,17 @@ const PAT_SCOPE_OPTIONS: { scope: PersonalAccessTokenScope; label: string; hint:
   { scope: "mcp:write", label: "mcp:write", hint: "Let an MCP client call write tools (also needs mcp:read)" },
 ];
 const PAT_DEFAULT_SCOPES: PersonalAccessTokenScope[] = ["read", "write"];
+/** The backend's built-in expiry ceiling, used until the policy loads (or if it cannot). */
+const PAT_HARD_MAX_DAYS = 365;
+
+/**
+ * The UTC calendar date `days` from now, as the date input's YYYY-MM-DD. UTC, not local, because the
+ * server reads a date-only expiry as midnight UTC and checks the site maximum by UTC date (#1572):
+ * a local date would let a user east of UTC pick a last day the server refuses.
+ */
+function utcDateInDays(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
 
 function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?: UserDatePrefs | null; isSiteAdmin?: boolean; onUnsavedChange?: (unsaved: boolean) => void }) {
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
@@ -791,6 +802,30 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
   useConfirmAnnouncement(confirmingToken ? `Revoke ${confirmingToken.name}? Anything using this token will lose access.` : null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The site token lifetime policy (#1572). Null until loaded; if it never loads the form keeps its
+  // pre-1.3 behavior and the server still enforces the policy on create.
+  const [policy, setPolicy] = useState<PersonalAccessTokenPolicy | null>(null);
+  const maxDays = policy?.max_lifetime_days ?? null;
+  const defaultDays = policy?.default_lifetime_days ?? null;
+  const expiryRequired = maxDays !== null;
+  const latestExpiry = utcDateInDays(maxDays ?? policy?.hard_max_lifetime_days ?? PAT_HARD_MAX_DAYS);
+  const defaultExpiry = defaultDays !== null ? utcDateInDays(Math.min(defaultDays, maxDays ?? defaultDays)) : "";
+
+  useEffect(() => {
+    let live = true;
+    getTokenPolicy()
+      .then((p) => {
+        if (!live) return;
+        setPolicy(p);
+        // Pre-fill once, and only an untouched field.
+        const days = p.default_lifetime_days;
+        if (days !== null && days !== undefined) {
+          setExpiresAt((current) => current || utcDateInDays(Math.min(days, p.max_lifetime_days ?? days)));
+        }
+      })
+      .catch(() => { /* the server enforces the policy regardless; the form just shows no limits */ });
+    return () => { live = false; };
+  }, []);
 
   // Escape cancels an open inline revoke confirm before the page-level
   // Escape-to-navigate handler (priority 0) can leave the page (#1238).
@@ -822,7 +857,7 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (creating || atLimit || !name.trim() || scopes.length === 0) return;
+    if (creating || atLimit || !name.trim() || scopes.length === 0 || (expiryRequired && !expiresAt)) return;
     setCreating(true);
     setCreateError(null);
     try {
@@ -830,7 +865,7 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
       setNewToken(created);
       setCopied(false);
       setName("");
-      setExpiresAt("");
+      setExpiresAt(defaultExpiry);
       setScopes(PAT_DEFAULT_SCOPES);
       await fetchTokens();
     } catch (err: unknown) {
@@ -922,12 +957,15 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
               data-testid="token-name-input"
             />
             <Field
-              label="Expires (optional)"
+              label={expiryRequired ? "Expires" : "Expires (optional)"}
               autoComplete="off"
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              title="Optional expiry date (max 1 year)"
+              max={latestExpiry}
+              required={expiryRequired}
+              hint={expiryRequired ? `This site requires tokens to expire within ${maxDays} days.` : undefined}
+              title={expiryRequired ? `Required. On or before ${latestExpiry}.` : "Optional expiry date (max 1 year)"}
               data-testid="token-expiry-input"
             />
           </div>

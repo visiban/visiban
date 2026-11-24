@@ -38,6 +38,7 @@ const mockDisconnectAccount = vi.fn()
 const mockStartProviderConnect = vi.fn()
 
 vi.mock('../api/auth', () => ({
+  getTokenPolicy: () => Promise.resolve({ max_lifetime_days: null, default_lifetime_days: null, hard_max_lifetime_days: 365, max_tokens: 10 }),
   updateCurrentUser: (...args: unknown[]) => mockUpdateCurrentUser(...args),
   changePassword: (...args: unknown[]) => mockChangePassword(...args),
   resetTour: (...args: unknown[]) => mockResetTour(...args),

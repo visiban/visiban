@@ -3,7 +3,7 @@ from .views import (
     AuthProvidersView, ChangePasswordView, ChooseUsernameView,
     ConnectedAccountDetailView, ConnectedAccountsView, CurrentUserView,
     PendingConnectView, PendingEmailResendView, PendingEmailView,
-    PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
+    PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView, PersonalAccessTokenPolicyView,
     SiteConfigView, UserSearchView, WSTicketView,
 )
 from .admin_views import (
@@ -34,6 +34,7 @@ urlpatterns = [
         ConnectedAccountDetailView.as_view(),
     ),
     path("auth/tokens/", PersonalAccessTokenListCreateView.as_view()),
+    path("auth/tokens/policy/", PersonalAccessTokenPolicyView.as_view()),
     path("auth/tokens/<int:pk>/", PersonalAccessTokenDeleteView.as_view()),
     path("auth/ws-ticket/", WSTicketView.as_view()),
     path("users/", UserSearchView.as_view()),

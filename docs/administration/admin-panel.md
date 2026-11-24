@@ -57,6 +57,26 @@ Put the whole instance into **read-only mode** during an upgrade or migration. I
 
 **How it works:** site admins are exempt and keep full read/write access (signed in through the browser or using a personal access token), but still see the notice. The setting lives in the database, so it survives a restart, and it takes effect immediately for every worker.
 
+### Personal access tokens
+
+<span class="vb-version" title="Added in 1.3">1.3+</span>
+
+Set how long the [personal access tokens](../features/personal-access-tokens.md) people create may live. Both fields are blank by default, which keeps the behavior of earlier releases. Each field saves when you leave it.
+
+| Field | Effect |
+|---|---|
+| **Maximum lifetime** (days, 1-365) | When set, every new token must have an expiry date no more than this many days from today. A token with no expiry, or a later one, is refused. Leave blank for no site maximum: people may then create tokens that never expire, and any expiry they set is still capped at one year. |
+| **Default expiry** (days, 1-365) | The expiry date the token form pre-fills, this many days from today. People can still change it. It cannot be longer than the maximum lifetime. Leave blank to pre-fill nothing. |
+
+**Yes, but:**
+
+- The policy applies to token **creation** only. Tokens that already exist keep the expiry they were created with, including tokens that never expire, and stay valid until they expire or are revoked. To end older long-lived tokens, ask their owners to revoke them; a password change also revokes all of an account's tokens.
+- It covers tokens created in the app and through `POST /api/v1/auth/tokens/`. The `provision_fuzz_token` management command, which an operator runs from a shell for CI, is not subject to it.
+- The default is a form pre-fill only: an API request that leaves out `expires_at` is not given the default. With a maximum set, such a request is refused.
+- Turning on a maximum changes what API clients must send: a script that creates tokens without `expires_at` starts getting `400 Bad Request`.
+
+Changes to either field are recorded in [Change history](#change-history) (`pat_max_lifetime.changed`, `pat_default_lifetime.changed`).
+
 **Go deeper:** [Maintenance Mode](maintenance-mode.md) is the full runbook: what everyone else sees, the exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a known limitation on tabs left open in the background.
 
 ### Change history

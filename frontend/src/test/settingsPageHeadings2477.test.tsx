@@ -17,6 +17,7 @@ vi.mock('../api/auth', () => ({
   updateCurrentUser: vi.fn(),
   changePassword: vi.fn(),
   listTokens: vi.fn().mockResolvedValue([]),
+  getTokenPolicy: vi.fn().mockResolvedValue({ max_lifetime_days: null, default_lifetime_days: null, hard_max_lifetime_days: 365, max_tokens: 10 }),
   createToken: vi.fn(),
   revokeToken: vi.fn(),
   resetTour: vi.fn(),

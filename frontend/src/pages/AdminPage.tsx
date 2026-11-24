@@ -882,6 +882,14 @@ function GeneralSection() {
         />
       </SettingsCard>
 
+      {settings && (
+        <TokenPolicyCard
+          settings={settings}
+          busy={saving}
+          onSave={(patch, rollback, onRollback) => void saveSetting(patch, rollback, "Failed to save settings.", onRollback)}
+        />
+      )}
+
       <SettingsCard title="Maintenance">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
@@ -936,6 +944,97 @@ function GeneralSection() {
       </SettingsCard>
 
     </>
+  );
+}
+
+/** Upper bound of both token policy fields: the backend's built-in token lifetime ceiling. */
+const TOKEN_POLICY_DAYS_MAX = 365;
+type TokenPolicyField = "pat_max_lifetime_days" | "pat_default_lifetime_days";
+
+/** A days field: blank is null (unset), a whole number 1-365 is itself, anything else is undefined (invalid). */
+function parsePolicyDays(raw: string): number | null | undefined {
+  const text = raw.trim();
+  if (text === "") return null;
+  if (!/^\d+$/.test(text)) return undefined;
+  const days = Number(text);
+  return days >= 1 && days <= TOKEN_POLICY_DAYS_MAX ? days : undefined;
+}
+
+const daysText = (days: number | null | undefined) => (days === null || days === undefined ? "" : String(days));
+
+/**
+ * Site token lifetime policy (#1572): maximum lifetime and default expiry, in days. Each field is a
+ * local buffer saved on blur, like the maintenance notice. The default-not-above-maximum rule is
+ * checked here for an inline message; the server checks it again and stays the authority.
+ */
+function TokenPolicyCard({ settings, busy, onSave }: {
+  settings: SiteSettings;
+  busy: boolean;
+  onSave: (patch: Partial<SiteSettings>, rollback: (s: SiteSettings) => SiteSettings, onRollback: () => void) => void;
+}) {
+  // Older servers (and some test fixtures) omit the fields; treat that as unset.
+  const stored = {
+    pat_max_lifetime_days: settings.pat_max_lifetime_days ?? null,
+    pat_default_lifetime_days: settings.pat_default_lifetime_days ?? null,
+  };
+  const [text, setText] = useState<Record<TokenPolicyField, string>>({ pat_max_lifetime_days: "", pat_default_lifetime_days: "" });
+  const [errors, setErrors] = useState<Partial<Record<TokenPolicyField, string>>>({});
+  // Re-seed a field's buffer when its server value changes, during render (#1319), one field at a
+  // time so saving one field never discards an edit in progress in the other.
+  const [seeded, setSeeded] = useState<Record<TokenPolicyField, number | null | "unseeded">>({ pat_max_lifetime_days: "unseeded", pat_default_lifetime_days: "unseeded" });
+  for (const field of ["pat_max_lifetime_days", "pat_default_lifetime_days"] as const) {
+    if (seeded[field] !== stored[field]) {
+      setSeeded((s) => ({ ...s, [field]: stored[field] }));
+      setText((t) => ({ ...t, [field]: daysText(stored[field]) }));
+    }
+  }
+
+  const commit = (field: TokenPolicyField) => {
+    const parsed = parsePolicyDays(text[field]);
+    if (parsed === undefined) {
+      setErrors((e) => ({ ...e, [field]: `Enter a whole number of days from 1 to ${TOKEN_POLICY_DAYS_MAX}, or leave it blank.` }));
+      return;
+    }
+    const next = { ...stored, [field]: parsed };
+    if (next.pat_max_lifetime_days !== null && next.pat_default_lifetime_days !== null && next.pat_default_lifetime_days > next.pat_max_lifetime_days) {
+      setErrors((e) => ({ ...e, [field]: `The default expiry can't be longer than the maximum lifetime (${next.pat_max_lifetime_days} days).` }));
+      return;
+    }
+    setErrors({});
+    if (parsed === stored[field]) {
+      setText((t) => ({ ...t, [field]: daysText(parsed) }));
+      return;
+    }
+    const prev = stored[field];
+    onSave({ [field]: parsed }, (s) => ({ ...s, [field]: prev }), () => setText((t) => ({ ...t, [field]: daysText(prev) })));
+  };
+
+  const field = (name: TokenPolicyField, label: string, hint: string) => (
+    <Field
+      label={label}
+      hint={hint}
+      error={errors[name]}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      placeholder="None"
+      value={text[name]}
+      onChange={(e) => setText((t) => ({ ...t, [name]: e.target.value }))}
+      onBlur={() => commit(name)}
+      aria-busy={busy}
+    />
+  );
+
+  return (
+    <SettingsCard title="Personal access tokens">
+      <p className="text-sm text-fg-secondary mb-3">
+        Applies to new tokens only. Existing tokens keep the expiry they were created with.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {field("pat_max_lifetime_days", "Maximum lifetime (days)", "Every new token must expire within this many days. Blank: no maximum, and tokens may never expire.")}
+        {field("pat_default_lifetime_days", "Default expiry (days)", "Pre-filled in the token form, in days from today. Blank: nothing pre-filled.")}
+      </div>
+    </SettingsCard>
   );
 }
 
