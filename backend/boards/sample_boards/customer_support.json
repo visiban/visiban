@@ -15912,5 +15912,17 @@
       },
       "external_ref": null
     }
+  ],
+  "relations": [
+    {
+      "from": 87,
+      "kind": "blocks",
+      "to": 24
+    },
+    {
+      "from": 9,
+      "kind": "relates_to",
+      "to": 38
+    }
   ]
 }

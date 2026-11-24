@@ -2431,6 +2431,11 @@ export interface ImportSkippedCounts {
    * can see, so those imported unassigned (#2198); absent from older servers.
    */
   assignees?: number;
+  /** Block and gate history rows left out with `history` off (#2413); absent from older servers. */
+  blocks?: number;
+  gate_transitions?: number;
+  /** Card relations left out with `cards` off (#1448); absent from older servers. */
+  relations?: number;
 }
 
 export interface ImportSummary {

@@ -203,6 +203,7 @@ class JsonSkipCountsTests(TestCase):
             {
                 "cards": 0, "comments": 0, "checklist_items": 0,
                 "label_refs": 0, "movements": 0, "activities": 0, "colors": 0, "assignees": 0,
+                "blocks": 0, "gate_transitions": 0, "relations": 0,
             },
         )
 
@@ -229,6 +230,7 @@ class JsonSkipCountsTests(TestCase):
             {
                 "cards": 1, "comments": 0, "checklist_items": 0,
                 "label_refs": 0, "movements": 0, "activities": 0, "colors": 0, "assignees": 0,
+                "blocks": 0, "gate_transitions": 0, "relations": 0,
             },
         )
 

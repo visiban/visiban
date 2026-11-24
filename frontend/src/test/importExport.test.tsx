@@ -514,6 +514,18 @@ describe('formatImportSkipped (#119)', () => {
     )
   })
 
+  it('counts block and gate history as history entries and lists card relations (#2413, #1448)', () => {
+    expect(formatImportSkipped(summaryOf({ movements: 2, blocks: 3, gate_transitions: 1 }))).toBe(
+      'Board imported. Skipped: 6 history entries.',
+    )
+    expect(formatImportSkipped(summaryOf({ relations: 1 }))).toBe(
+      'Board imported. Skipped: 1 card relation.',
+    )
+    expect(formatImportSkipped(summaryOf({ cards: 4, relations: 2 }))).toBe(
+      'Board imported. Skipped: 4 cards, 2 card relations.',
+    )
+  })
+
   it('caps at three items then "and N more"', () => {
     expect(formatImportSkipped(summaryOf({ cards: 2, comments: 3, checklist_items: 4, label_refs: 1, movements: 5 }))).toBe(
       'Board imported. Skipped: 2 cards, 3 comments, 4 checklist items, and 2 more.',

@@ -1397,8 +1397,14 @@ class Command(BaseCommand):
             # rows look exactly like ones created through the API.
             if relation_type in CardRelation.SYMMETRIC_TYPES and low.pk > high.pk:
                 low, high = high, low
-            CardRelation.objects.create(
-                from_card=low, to_card=high, relation_type=relation_type, created_by=low.assignee or admin,
+            # Only a hand-built board gets here (_create_demo_site_board); an
+            # imported sample keeps the sample's own relations (#1448) and
+            # never runs these extras, so no pair pre-exists. get_or_create
+            # only keeps a spec that lists a pair twice (in either order, for
+            # a symmetric type) from failing the reset on unique_together.
+            CardRelation.objects.get_or_create(
+                from_card=low, to_card=high, relation_type=relation_type,
+                defaults={"created_by": low.assignee or admin},
             )
 
         for title, (provider, ref, url) in spec["external_refs"].items():

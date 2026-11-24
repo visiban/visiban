@@ -8576,5 +8576,17 @@
       "external_ref": null,
       "archived_at": "2026-03-12T12:00:00+00:00"
     }
+  ],
+  "relations": [
+    {
+      "from": 22,
+      "kind": "blocks",
+      "to": 20
+    },
+    {
+      "from": 34,
+      "kind": "relates_to",
+      "to": 35
+    }
   ]
 }

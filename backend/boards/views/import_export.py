@@ -41,7 +41,7 @@ from visiban.parsers import LimitedMultiPartParser
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
     CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardGateTransition,
-    CardMovement, Column, CustomFieldDefinition, CustomFieldValue, Label, StageTrack, SubColumn,
+    CardMovement, CardRelation, Column, CustomFieldDefinition, CustomFieldValue, Label, StageTrack, SubColumn,
     Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue, SwimlaneTrackException,
 )
 from .. import broadcast as _broadcast
@@ -319,24 +319,66 @@ def _activity_export_entry(act):
     }
 
 
-def _deleted_card_history_export(board):
+def _block_export_entry(blk):
+    """One manual block (#1149) in a JSON export, live card or deleted (#2413)."""
+    return {
+        "blocked_at": blk.blocked_at.isoformat(),
+        "blocked_by": blk.blocked_by.username if blk.blocked_by else None,
+        "reason": blk.reason,
+        "unblocked_at": blk.unblocked_at.isoformat() if blk.unblocked_at else None,
+        "unblocked_by": blk.unblocked_by.username if blk.unblocked_by else None,
+        "resolution": blk.resolution,
+        "column": blk.column_name,
+        "imported_from_username": blk.imported_from_username,
+    }
+
+
+def _gate_transition_export_entry(gt, movement_index):
+    """One gate transition (#1102) in a JSON export, live card or deleted (#2413).
+
+    ``movement_index`` maps a movement pk to its position in the same card's
+    (or deleted-card entry's) exported ``movements`` list.
+    """
+    return {
+        "kind": gt.kind,
+        "from_index": gt.from_index,
+        "to_index": gt.to_index,
+        "column": gt.column_name,
+        "sub_column": gt.sub_column_name,
+        "reason": gt.reason,
+        "cause": gt.cause,
+        "actor": gt.actor.username if gt.actor else None,
+        "created_at": gt.created_at.isoformat(),
+        "imported_from_username": gt.imported_from_username,
+        # Index into this card's ``movements`` (#1102).
+        "movement_index": movement_index.get(gt.movement_id),
+    }
+
+
+def _deleted_card_history_export(board, exported_uids=frozenset()):
     """The board's retained history of hard-deleted cards, for the JSON export (#1796).
 
     Since #1469 (movements) and #1799 (activities), a hard-deleted card's rows
     stay on its board with ``card`` NULL and the card's uid and title kept as a
-    snapshot. One entry per deleted card, by uid, ordered by its first row:
-    ``{"card_uid", "card_title", "movements", "activities"}``, the two lists
-    shaped exactly like a card's own and oldest first. ``card_title`` is the
-    newest snapshot among the card's rows. Read by the rows' own ``board``, as
-    Board History reads them: two queries whatever the size (both served by a
-    ``(board, ...)`` index), no per-card query.
+    snapshot; its ``CardBlock`` and ``CardGateTransition`` rows do the same
+    (#2413). One entry per deleted card, by uid, ordered by its first row:
+    ``{"card_uid", "card_title", "movements", "activities", "blocks",
+    "gate_transitions"}``, each list shaped exactly like a card's own and
+    oldest first. A gate transition's ``movement_index`` points into the same
+    entry's ``movements``. ``card_title`` is the newest snapshot among the
+    card's rows. Read by the rows' own ``board``, as Board History reads them:
+    four queries whatever the size (each served by a ``(board, ...)`` index),
+    no per-card query.
 
     Not in the CSV export: a CSV row is a card, and the CSV importer creates a
     card from every row, so a deleted card there would come back to life
     (whether the CSV should carry it in another form: #2414).
 
-    Movements and activities only: a deleted card's retained ``CardBlock`` and
-    ``CardGateTransition`` rows are not exported or imported yet (#2413).
+    ``exported_uids`` are the uids of the cards the export already carries as
+    live cards. This is read after the cards, so a card deleted while the
+    export ran can be in both; its entry is left out here so the file names
+    each card once (an import would otherwise restore it twice, live and
+    deleted).
     """
     movements = (
         CardMovement.objects.filter(board=board, card__isnull=True)
@@ -348,31 +390,146 @@ def _deleted_card_history_export(board):
         .select_related("actor")
         .order_by("created_at", "id")
     )
+    blocks = (
+        CardBlock.objects.filter(board=board, card__isnull=True)
+        .select_related("blocked_by", "unblocked_by")
+        .order_by("blocked_at", "id")
+    )
+    gate_transitions = (
+        CardGateTransition.objects.filter(board=board, card__isnull=True)
+        .select_related("actor")
+        .order_by("created_at", "id")
+    )
     entries = {}
     newest = {}
+    first = {}
+    # Movement pk -> its index in its entry's ``movements`` (for
+    # movement_index), and the deleted card it belongs to.
+    movement_index = {}
+    movement_card = {}
 
     def entry_for(row, at):
         entry = entries.get(row.card_uid)
         if entry is None:
             entry = entries[row.card_uid] = {
                 "card_uid": row.card_uid, "card_title": row.card_title,
-                "movements": [], "activities": [],
+                "movements": [], "activities": [], "blocks": [], "gate_transitions": [],
             }
         if row.card_uid not in newest or at >= newest[row.card_uid]:
             newest[row.card_uid] = at
             entry["card_title"] = row.card_title
+        if row.card_uid not in first or at < first[row.card_uid]:
+            first[row.card_uid] = at
         return entry
 
     for mv in movements:
-        entry_for(mv, mv.moved_at)["movements"].append(_movement_export_entry(mv))
+        entry = entry_for(mv, mv.moved_at)
+        movement_index[mv.pk] = len(entry["movements"])
+        movement_card[mv.pk] = mv.card_uid
+        entry["movements"].append(_movement_export_entry(mv))
     for act in activities:
         entry_for(act, act.created_at)["activities"].append(_activity_export_entry(act))
+    for blk in blocks:
+        entry_for(blk, blk.blocked_at)["blocks"].append(_block_export_entry(blk))
+    for gt in gate_transitions:
+        entry = entry_for(gt, gt.created_at)
+        # Only a movement of the same deleted card resolves to an index: the
+        # index points into this entry's list.
+        index = movement_index if movement_card.get(gt.movement_id) == gt.card_uid else {}
+        entry["gate_transitions"].append(_gate_transition_export_entry(gt, index))
+    # By each entry's first row of any kind. Timestamps compare as datetimes;
+    # the old isoformat-string sort gave the same order (every value is UTC
+    # with the same offset).
     return sorted(
-        entries.values(),
-        key=lambda e: min(
-            [m["moved_at"] for m in e["movements"]] + [a["created_at"] for a in e["activities"]]
-        ),
+        (e for e in entries.values() if e["card_uid"] not in exported_uids),
+        key=lambda e: first[e["card_uid"]],
     )
+
+
+# Cards per chunk of the board export (#1962). Each chunk is one card query
+# plus one query per prefetch; a board of fewer than this many cards exports in
+# the same queries as before chunking (see _iter_export_cards). A full first
+# page, exactly this many cards, takes the id-list path and adds one query.
+_EXPORT_CHUNK_SIZE = 500
+
+
+def _iter_export_cards(queryset):
+    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
+
+    The first chunk is a plain ``LIMIT`` page. A board of fewer than
+    ``_EXPORT_CHUNK_SIZE`` cards is wholly in a not-full page, so it exports in one card
+    query, a single read, as before chunking. A first page that is full
+    (``_EXPORT_CHUNK_SIZE`` cards) cannot show the board has no more, so the
+    board then reads the whole ordered list of card ids once (integers only, one sort) and emits
+    the cards in that list's order, a window of ``_EXPORT_CHUNK_SIZE`` ids at
+    a time: first-page cards come from the page already read, the rest are
+    fetched by primary key, so the database sorts the board twice in all
+    rather than once per chunk (Card has no ``(board, position, id)`` index a
+    keyset page could range-scan). Each fetch's ``prefetch_related`` runs for
+    that window only, so at most two chunks of cards (the first page and one
+    window) are held at a time.
+
+    Why the id list, read before anything is yielded, decides membership and
+    order: the export holds no snapshot across its queries, and cards move
+    while it runs. Resuming from a ``position`` cursor after the first page
+    emitted a first-page card twice when it moved past the cursor, and
+    skipped a not-yet-read card that moved below it (an import of the first
+    file creates a duplicate card). Every card is emitted once, at its place
+    in the id list: a first-page card gone from the list (deleted meanwhile)
+    is dropped, one created meanwhile is included, and a card deleted after
+    the list was read is skipped when its window is fetched. The
+    ``relations`` indexes are built from the cards as they are emitted, so
+    they always point at the right entry. A first-page card that moved keeps
+    the field values of the first read.
+
+    Not ``QuerySet.iterator()``: that opens a server-side cursor on
+    PostgreSQL, which breaks behind transaction-mode PgBouncer (the pooling
+    docs/architecture/scaling.md recommends) unless
+    ``DISABLE_SERVER_SIDE_CURSORS`` is set. ``id`` breaks position ties
+    (positions repeat across columns), which makes the order, and so the
+    ``relations`` indexes, reproducible.
+    """
+    size = _EXPORT_CHUNK_SIZE
+    ordered = queryset.order_by("position", "id")
+    first_page = list(ordered[:size])
+    if len(first_page) < size:
+        yield from first_page
+        return
+    held = {card.pk: card for card in first_page}
+    del first_page
+    ids = list(ordered.select_related(None).prefetch_related(None).values_list("pk", flat=True))
+    for start in range(0, len(ids), size):
+        window = ids[start:start + size]
+        missing = [pk for pk in window if pk not in held]
+        by_pk = {card.pk: card for card in queryset.filter(pk__in=missing)} if missing else {}
+        for pk in window:
+            card = held.pop(pk, None) or by_pk.get(pk)
+            if card is not None:
+                yield card
+
+
+def _relations_export(board, card_index):
+    """The board's card relations (#1448) as ``{from, kind, to}``, for the JSON export.
+
+    ``from`` and ``to`` are indexes into the export's ``cards`` list. A live
+    card has no other key in the file: it carries no id or uid, and a title
+    (even with its swimlane) is not unique. The index is also how the file
+    already cross-references (a gate transition's ``movement_index``), and the
+    importer creates the cards in file order, so an index names the same card
+    on both sides. Stored direction is kept: ``blocks`` reads "from blocks
+    to", and ``relates_to`` (symmetric) is stored lower card id first. One
+    query; a relation with an end outside the export is left out.
+    """
+    rows = (
+        CardRelation.objects.filter(from_card__board=board)
+        .order_by("id")
+        .values_list("from_card_id", "relation_type", "to_card_id")
+    )
+    return [
+        {"from": card_index[src], "kind": kind, "to": card_index[dst]}
+        for src, kind, dst in rows
+        if src in card_index and dst in card_index
+    ]
 
 
 def _external_ref_export(card):
@@ -397,6 +554,11 @@ _IMPORT_SKIP_KEYS = (
     # that matched no user in the importer's visible pool (Rule 5), so the card
     # or item imported unassigned. Counts references, not distinct names.
     "assignees",
+    # Additive (#2413): block and gate history, live and deleted cards, left
+    # out with ``history`` off.
+    "blocks", "gate_transitions",
+    # Additive (#1448): card relations left out with ``cards`` off.
+    "relations",
 )
 
 
@@ -727,6 +889,11 @@ def _list_len(value):
     return len(value) if isinstance(value, list) else 0
 
 
+def _dict_items(value):
+    """The object entries of ``value`` when it is a list, else none."""
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
 def _import_color(item, default, skipped):
     """The color a JSON-imported row is stored with (#2093).
 
@@ -782,8 +949,17 @@ def _json_skip_counts(data, options):
                     if isinstance(act, dict) and isinstance(act.get("event_type"), str)
                     and act["event_type"] in valid_event_types
                 )
-    # Retained history of hard-deleted cards (#1796) rides ``history`` too.
-    # The shape is validated before this runs.
+            # Block and gate history (#2413): only the rows the import writes
+            # with ``history`` on (the open block a blocked card gets is card
+            # state, written either way, so it is not counted).
+            skipped["blocks"] += sum(
+                1 for blk in _dict_items(card.get("blocks")) if _restorable_block(blk, keep_open=False)
+            )
+            skipped["gate_transitions"] += sum(
+                1 for gt in _dict_items(card.get("gate_transitions")) if _restorable_gate_transition(gt)
+            )
+    # Retained history of hard-deleted cards (#1796, #2413) rides ``history``
+    # too. The shape is validated before this runs.
     if not options["history"]:
         for entry in data.get("deleted_card_history", []):
             skipped["movements"] += _list_len(entry.get("movements", []))
@@ -791,7 +967,88 @@ def _json_skip_counts(data, options):
                 1 for act in entry.get("activities", [])
                 if isinstance(act.get("event_type"), str) and act["event_type"] in valid_event_types
             )
+            skipped["blocks"] += sum(
+                1 for blk in entry.get("blocks", []) if _restorable_block(blk, keep_open=True)
+            )
+            skipped["gate_transitions"] += sum(
+                1 for gt in entry.get("gate_transitions", []) if _restorable_gate_transition(gt)
+            )
+    # Relations (#1448) hang off cards: with ``cards`` off none is written.
+    if not cards_on:
+        skipped["relations"] = len(_relation_pairs(_dict_items(data.get("relations")), len(cards)))
     return skipped
+
+
+def _restorable_block(entry, *, keep_open):
+    """Whether the importer writes a row for this ``blocks`` entry (#1149, #2413).
+
+    It needs a usable ``blocked_at`` and must not end before it starts. An
+    open entry (no ``unblocked_at``) is written only for a deleted card
+    (``keep_open``): a live card's own ``blocked_at`` decides its open block.
+    """
+    blocked_at = _aware_timestamp(entry.get("blocked_at"))
+    if blocked_at is None:
+        return False
+    unblocked_at = _aware_timestamp(entry.get("unblocked_at"))
+    if unblocked_at is None:
+        return keep_open
+    return unblocked_at >= blocked_at
+
+
+_GATE_KINDS = frozenset(CardGateTransition.Kind.values)
+
+
+def _restorable_gate_transition(entry):
+    """Whether the importer writes a row for this ``gate_transitions`` entry (#1102)."""
+    kind = entry.get("kind")
+    return isinstance(kind, str) and kind in _GATE_KINDS
+
+
+_RELATION_KINDS = frozenset(CardRelation.Type.values)
+# Entries in the top-level ``relations`` list (#1448). Each writes at most one
+# row and counts toward _IMPORT_MAX_ROWS; this bounds the list itself.
+_IMPORT_MAX_RELATIONS = 10_000
+
+
+def _relation_index(value, card_count):
+    """``value`` as an index into the file's ``cards``, or None (bool is not an int here)."""
+    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value < card_count:
+        return value
+    return None
+
+
+def _relation_pairs(entries, card_count):
+    """The relations (#1448) an import writes, as ``(from_index, kind, to_index)``.
+
+    Lenient, like ``external_ref`` and custom field values: an entry that is
+    not an object, has an unknown ``kind``, names an index outside ``cards``
+    (or not an integer), or relates a card to itself is dropped, not fatal.
+    So are the entries the relation API would refuse: a duplicate, the
+    reverse of a symmetric ``relates_to`` already listed, and the second half
+    of a direct ``blocks`` two-cycle (the first one listed is kept). A
+    symmetric pair is put lower index first; the importer creates the cards
+    in file order, so that is also lower card id first, the model's canonical
+    order. Longer cycles are not looked for, as in the API.
+    """
+    pairs = []
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        kind = entry.get("kind")
+        if not isinstance(kind, str) or kind not in _RELATION_KINDS:
+            continue
+        src = _relation_index(entry.get("from"), card_count)
+        dst = _relation_index(entry.get("to"), card_count)
+        if src is None or dst is None or src == dst:
+            continue
+        if kind in CardRelation.SYMMETRIC_TYPES and src > dst:
+            src, dst = dst, src
+        if (src, kind, dst) in seen or (dst, kind, src) in seen:
+            continue
+        seen.add((src, kind, dst))
+        pairs.append((src, kind, dst))
+    return pairs
 
 
 def _sanitize_csv_field(value: str) -> str:
@@ -1374,12 +1631,15 @@ def _validate_json_import_values(data):
             return f"{where}: 'card_uid' must be a card uid (16 lowercase hex characters)"
         if error := _check_keys(entry, title_check, where):
             return error
-        for child, ts_key, str_keys in (
-            ("movements", "moved_at", (
+        for child, ts_keys, str_keys in (
+            ("movements", ("moved_at",), (
                 "from_column", "to_column", "from_swimlane", "to_swimlane", "moved_by",
                 "imported_from_username",
             )),
-            ("activities", "created_at", ("actor", "imported_from_username")),
+            ("activities", ("created_at",), ("actor", "imported_from_username")),
+            # A deleted card's retained blocks and gate history (#2413).
+            ("blocks", ("blocked_at", "unblocked_at"), ("blocked_by", "unblocked_by", "imported_from_username")),
+            ("gate_transitions", ("created_at",), ("actor", "imported_from_username")),
         ):
             items = entry.get(child, [])
             if not isinstance(items, list):
@@ -1395,18 +1655,27 @@ def _validate_json_import_values(data):
                 for key in str_keys:
                     if _is_truthy_non_string(item.get(key)):
                         return f"{item_where}: '{key}' must be a string"
-                if _timestamp_error(item.get(ts_key), parse_datetime):
-                    return f"{item_where}: invalid timestamp for '{ts_key}': {_bounded_repr(item.get(ts_key))}"
+                for ts_key in ts_keys:
+                    if _timestamp_error(item.get(ts_key), parse_datetime):
+                        return f"{item_where}: invalid timestamp for '{ts_key}': {_bounded_repr(item.get(ts_key))}"
                 if error := _check_keys(item, specs, item_where):
                     return error
-        total_rows += len(entry.get("movements", [])) + len(entry.get("activities", []))
+        # A block needs a reason, as on a live card (#1149).
+        if error := _block_reason_error({"blocks": entry.get("blocks", [])}, where):
+            return error
+        total_rows += sum(
+            len(entry.get(child, [])) for child in ("movements", "activities", "blocks", "gate_transitions")
+        )
         if total_rows > _IMPORT_MAX_ROWS:
             return _limit_error(f"Import would write more than {_IMPORT_MAX_ROWS} rows in total.")
-        # Only the two lists an entry may carry: _card_usernames would also
-        # walk keys (``blocks``, ``checklist``) this section never validates.
+        # Only the lists an entry may carry: _card_usernames would also walk
+        # ``checklist``, which this section never validates.
         names = (
             (key, item.get(key))
-            for child, key in (("movements", "moved_by"), ("activities", "actor"))
+            for child, key in (
+                ("movements", "moved_by"), ("activities", "actor"),
+                ("blocks", "blocked_by"), ("blocks", "unblocked_by"), ("gate_transitions", "actor"),
+            )
             for item in entry.get(child, [])
         )
         for key, value in names:
@@ -1417,6 +1686,20 @@ def _validate_json_import_values(data):
             usernames.add(value)
         if len(usernames) > _IMPORT_MAX_USERNAMES:
             return _limit_error(f"Import references more than {_IMPORT_MAX_USERNAMES} distinct usernames.")
+
+    # Card relations (#1448). The list itself must be a list and is bounded;
+    # its entries are lenient (_relation_pairs drops a bad one), so nothing
+    # inside an entry is a 400. Every entry counts toward the row limit.
+    relations = data.get("relations", [])
+    if not isinstance(relations, list):
+        return "'relations' must be a list"
+    if len(relations) > _IMPORT_MAX_RELATIONS:
+        return _limit_error(
+            f"'relations' has {len(relations)} entries; the limit is {_IMPORT_MAX_RELATIONS}"
+        )
+    total_rows += len(relations)
+    if total_rows > _IMPORT_MAX_ROWS:
+        return _limit_error(f"Import would write more than {_IMPORT_MAX_ROWS} rows in total.")
     return None
 
 
@@ -1686,28 +1969,15 @@ def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on)
     are dropped, the same leniency the importer applies to an unknown
     movement type.
     """
-    def _row(entry, *, blocked_at, unblocked_at, reason, resolution, imported_name):
-        # The file's column name when it gives one (None if that column is
-        # not on the imported board; the name is still kept), else the
-        # card's own column.
-        column_name = (entry.get("column") or "") if entry else ""
-        column = column_map.get(column_name) if column_name else card_obj.column
-        return CardBlock(
-            card_id=card_obj.pk,
-            # bulk_create skips save(); the snapshots are filled here.
-            board_id=card_obj.board_id,
-            card_uid=card_obj.uid,
-            card_title=card_obj.title,
-            blocked_at=blocked_at,
-            blocked_by=importer,
-            reason=reason,
-            unblocked_at=unblocked_at,
-            unblocked_by=importer if unblocked_at else None,
-            resolution=resolution,
-            column=column,
-            column_name=column.name if column else column_name,
-            column_uid=column.uid if column else "",
-            imported_from_username=imported_name,
+    identity = {
+        "card_id": card_obj.pk, "board_id": card_obj.board_id,
+        "card_uid": card_obj.uid, "card_title": card_obj.title,
+    }
+
+    def _row(entry, **values):
+        return _imported_block_row(
+            entry, identity=identity, column_map=column_map,
+            default_column=card_obj.column, importer=importer, **values,
         )
 
     rows = []
@@ -1737,6 +2007,69 @@ def _imported_card_blocks(card_obj, card_data, column_map, importer, history_on)
             ),
         ))
     return rows
+
+
+def _imported_block_row(entry, *, identity, column_map, default_column, importer,
+                        blocked_at, unblocked_at, reason, resolution, imported_name):
+    """One imported ``CardBlock``, on a live card or a deleted one (#1149, #2413).
+
+    ``identity`` is ``card_id``, ``board_id``, ``card_uid`` and ``card_title``
+    (bulk_create skips save(), so the snapshots are set here); ``card_id`` is
+    None for a deleted card's row. Attributed to the importer (Rule 5) with
+    the file's name in ``imported_from_username``. The file's column name
+    when it gives one (None if that column is not on the imported board; the
+    name is still kept), else ``default_column``.
+    """
+    column_name = (entry.get("column") or "") if entry else ""
+    column = column_map.get(column_name) if column_name else default_column
+    return CardBlock(
+        **identity,
+        blocked_at=blocked_at,
+        blocked_by=importer,
+        reason=reason,
+        unblocked_at=unblocked_at,
+        unblocked_by=importer if unblocked_at else None,
+        resolution=resolution,
+        column=column,
+        column_name=column.name if column else column_name,
+        column_uid=column.uid if column else "",
+        imported_from_username=imported_name,
+    )
+
+
+def _imported_deleted_card_blocks(entry, identity, column_map, importer):
+    """The ``CardBlock`` rows a JSON import writes for one deleted card (#2413).
+
+    Every entry ``_restorable_block`` accepts, open ones included: a deleted
+    card has no ``blocked_at`` of its own to decide its open block, and the
+    source board held the row open too (``flow_metrics`` already leaves an
+    open block without a card out of blocked time, and the one-open-block
+    constraint is per card, so it does not apply to card-less rows).
+    """
+    return [
+        _imported_block_row(
+            blk, identity=identity, column_map=column_map, default_column=None, importer=importer,
+            blocked_at=_aware_timestamp(blk.get("blocked_at")),
+            unblocked_at=_aware_timestamp(blk.get("unblocked_at")),
+            reason=blk["reason"].strip(), resolution=(blk.get("resolution") or "").strip(),
+            imported_name=_imported_from_username(blk, "blocked_by"),
+        )
+        for blk in entry.get("blocks", [])
+        if _restorable_block(blk, keep_open=True)
+    ]
+
+
+def _imported_relations(data, cards, importer):
+    """The ``CardRelation`` rows a JSON import writes (#1448), from the file's ``relations``.
+
+    ``cards`` are the created cards in file order, so ``cards[i]`` is the
+    card at index ``i`` of the file's ``cards`` list. Same-board by
+    construction: every card is on the new board.
+    """
+    return [
+        CardRelation(from_card=cards[src], to_card=cards[dst], relation_type=kind, created_by=importer)
+        for src, kind, dst in _relation_pairs(data.get("relations", []), len(cards))
+    ]
 
 
 def _import_envelope(board_data, summary):
@@ -2410,7 +2743,6 @@ class BoardImportExportMixin:
             valid_priorities = {c[0] for c in Card.Priority.choices}
             valid_event_types = {e[0] for e in CardActivity.EventType.choices}
             valid_movement_types = {t[0] for t in CardMovement.MovementType.choices}
-            valid_gate_kinds = {k[0] for k in CardGateTransition.Kind.choices}
             valid_gate_causes = {c[0] for c in CardGateTransition.Cause.choices}
 
             cards_to_create = []
@@ -2507,6 +2839,53 @@ class BoardImportExportMixin:
             imported_activities = []      # (CardActivity obj, created_at str or None)
             external_refs_to_create = []
             field_values_to_create = []
+
+            def _imported_gate_transition(gt_data, movement_objs, **identity):
+                """One imported gate transition (#1102), live card or deleted (#2413), or None.
+
+                ``identity`` is as for ``_imported_movement``. An unknown
+                ``kind`` is dropped and an unknown ``cause`` becomes
+                ``import``. ``movement_objs`` are the same card's (or deleted
+                entry's) imported movements, in file order, for
+                ``movement_index``.
+                """
+                if not _restorable_gate_transition(gt_data):
+                    return None
+                cause = gt_data.get("cause")
+                if not isinstance(cause, str) or cause not in valid_gate_causes:
+                    cause = CardGateTransition.Cause.IMPORT
+                gt_col_name = gt_data.get("column") or ""
+                gt_col = column_map.get(gt_col_name)
+                sub_name = gt_data.get("sub_column") or ""
+                sub_obj = sub_column_map.get((gt_col_name, sub_name)) if gt_col else None
+                # Re-link to the movement by its index in this card's
+                # exported list; an absent or out-of-range index leaves
+                # the link null (the file has no other safe key).
+                mv_index = gt_data.get("movement_index")
+                linked_mv = (
+                    movement_objs[mv_index]
+                    if isinstance(mv_index, int) and not isinstance(mv_index, bool)
+                    and 0 <= mv_index < len(movement_objs)
+                    else None
+                )
+                return CardGateTransition(
+                    **identity,
+                    movement=linked_mv,
+                    # bulk_create skips CardGateTransition.save().
+                    column=gt_col,
+                    column_name=gt_col.name if gt_col else gt_col_name,
+                    column_uid=gt_col.uid if gt_col else "",
+                    sub_column_name=sub_name,
+                    sub_column_uid=sub_obj.uid if sub_obj else "",
+                    kind=gt_data["kind"],
+                    from_index=gt_data.get("from_index", 0),
+                    to_index=gt_data.get("to_index", 0),
+                    reason=gt_data.get("reason", ""),
+                    cause=cause,
+                    actor=request.user,
+                    imported_from_username=_imported_from_username(gt_data, "actor"),
+                    created_at=_aware_timestamp(gt_data.get("created_at")) or import_now,
+                )
 
             def _imported_movement(mv_data, **identity):
                 """One imported movement row, on a live card or a deleted one (#1796).
@@ -2715,47 +3094,12 @@ class BoardImportExportMixin:
                 # blocks, and attributed the same way (Rule 5): the importer is
                 # the actor and the file's ``actor`` is kept only as text.
                 for gt_data in (card_data.get("gate_transitions", []) if history_on else []):
-                    kind = gt_data.get("kind")
-                    if not isinstance(kind, str) or kind not in valid_gate_kinds:
-                        continue
-                    cause = gt_data.get("cause")
-                    if not isinstance(cause, str) or cause not in valid_gate_causes:
-                        cause = CardGateTransition.Cause.IMPORT
-                    gt_col_name = gt_data.get("column") or ""
-                    gt_col = column_map.get(gt_col_name)
-                    sub_name = gt_data.get("sub_column") or ""
-                    sub_obj = sub_column_map.get((gt_col_name, sub_name)) if gt_col else None
-                    # Re-link to the movement by its index in this card's
-                    # exported list; an absent or out-of-range index leaves
-                    # the link null (the file has no other safe key).
-                    mv_index = gt_data.get("movement_index")
-                    linked_mv = (
-                        card_movement_objs[mv_index]
-                        if isinstance(mv_index, int) and not isinstance(mv_index, bool)
-                        and 0 <= mv_index < len(card_movement_objs)
-                        else None
+                    gt_obj = _imported_gate_transition(
+                        gt_data, card_movement_objs, card_id=card_pk, board_id=card_obj.board_id,
+                        card_uid=card_obj.uid, card_title=card_obj.title,
                     )
-                    gate_transitions_to_create.append(CardGateTransition(
-                        card_id=card_pk,
-                        movement=linked_mv,
-                        # bulk_create skips CardGateTransition.save().
-                        board_id=card_obj.board_id,
-                        card_uid=card_obj.uid,
-                        card_title=card_obj.title,
-                        column=gt_col,
-                        column_name=gt_col.name if gt_col else gt_col_name,
-                        column_uid=gt_col.uid if gt_col else "",
-                        sub_column_name=sub_name,
-                        sub_column_uid=sub_obj.uid if sub_obj else "",
-                        kind=kind,
-                        from_index=gt_data.get("from_index", 0),
-                        to_index=gt_data.get("to_index", 0),
-                        reason=gt_data.get("reason", ""),
-                        cause=cause,
-                        actor=request.user,
-                        imported_from_username=_imported_from_username(gt_data, "actor"),
-                        created_at=_aware_timestamp(gt_data.get("created_at")) or import_now,
-                    ))
+                    if gt_obj is not None:
+                        gate_transitions_to_create.append(gt_obj)
 
                 # Imported activity log entries (field-change history)
                 for act_data in (card_data.get("activities", []) if history_on else []):
@@ -2782,10 +3126,19 @@ class BoardImportExportMixin:
                     "card_id": None, "board_id": board.pk,
                     "card_uid": entry.get("card_uid", ""), "card_title": entry.get("card_title", ""),
                 }
+                entry_movement_objs = []  # for gate_transitions' movement_index
                 for mv_data in entry.get("movements", []):
-                    movements_to_create.append(
-                        (_imported_movement(mv_data, **identity), mv_data.get("moved_at"))
-                    )
+                    mv_obj = _imported_movement(mv_data, **identity)
+                    entry_movement_objs.append(mv_obj)
+                    movements_to_create.append((mv_obj, mv_data.get("moved_at")))
+                # Retained blocks and gate history (#2413), attributed the same way.
+                blocks_to_create.extend(
+                    _imported_deleted_card_blocks(entry, identity, column_map, request.user)
+                )
+                for gt_data in entry.get("gate_transitions", []):
+                    gt_obj = _imported_gate_transition(gt_data, entry_movement_objs, **identity)
+                    if gt_obj is not None:
+                        gate_transitions_to_create.append(gt_obj)
                 for act_data in entry.get("activities", []):
                     event_type = act_data.get("event_type", "")
                     if not isinstance(event_type, str) or event_type not in valid_event_types:
@@ -2847,6 +3200,13 @@ class BoardImportExportMixin:
                     CardMovement.objects.bulk_update(
                         [obj for obj, _ in backfill], ["moved_at"], batch_size=_IMPORT_BACKFILL_BATCH,
                     )
+
+            # Card relations (#1448), after the cards exist. Deduplicated in
+            # _relation_pairs, so unique_together cannot fire.
+            if options["cards"]:
+                relations_to_create = _imported_relations(data, cards_to_create, request.user)
+                if relations_to_create:
+                    CardRelation.objects.bulk_create(relations_to_create)
 
             # Manual blocks (#1149). Timestamps are set on the instances, and
             # blocked_at is a plain default rather than auto_now_add, so no
@@ -3561,6 +3921,8 @@ class BoardImportExportMixin:
                         "cards": drf_serializers.ListField(child=drf_serializers.DictField()),
                         # Retained history of hard-deleted cards (#1796).
                         "deleted_card_history": drf_serializers.ListField(child=drf_serializers.DictField()),
+                        # Card relations (#1448): {from, kind, to}, indexes into "cards".
+                        "relations": drf_serializers.ListField(child=drf_serializers.DictField()),
                     },
                 ),
                 description="JSON export (`?format=json`).",  # pragma: no mutate -- drf-spectacular emits one description per status code, from the first media type, so the document is unchanged
@@ -3623,7 +3985,11 @@ class BoardImportExportMixin:
         safe_name = slugify(board.name) or "board"
         stamp = _export_timestamp(request.user)
 
-        cards = list(
+        # Not materialized (#1962): both branches read it through
+        # _iter_export_cards, in chunks, so the model instances and
+        # their prefetched history are bounded per chunk however large the
+        # board. The output text is still assembled in memory.
+        cards = (
             Card.objects.filter(board=board)
             .select_related("column", "swimlane", "assignee", "created_by", "external_ref")
             .prefetch_related(
@@ -3646,12 +4012,10 @@ class BoardImportExportMixin:
                 # — the export's worst N+1, on its largest loop.
                 "swimlane__custom_field_values__field_definition",
             )
-            .order_by("position")
         )
-        # Row count for the audit log (#842). ``cards`` is materialized once
-        # here so both the JSON and CSV branches share the count without
-        # double-iterating the queryset.
-        row_count = len(cards)
+        # Row count for the audit log (#842), counted by each branch as it
+        # walks the cards (no extra COUNT query).
+        row_count = 0
 
         # Custom field definitions for this board, in display order (#371).
         # Materialized once: the CSV branch needs one column per definition and
@@ -3759,15 +4123,24 @@ class BoardImportExportMixin:
             column_names_by_id = {col.pk: col.name for col in columns}
             labels = board.labels.all()
             # Manual block history (#1149): JSON only, so the CSV branch does
-            # not pay for queries it never reads.
-            prefetch_related_objects(
-                cards, "blocks__blocked_by", "blocks__unblocked_by",
+            # not pay for queries it never reads. On the queryset, so it runs
+            # per chunk like the other prefetches.
+            cards = cards.prefetch_related(
+                "blocks__blocked_by", "blocks__unblocked_by",
                 # Gate history (#1102), JSON only like blocks.
                 "gate_transitions__actor",
             )
 
             cards_data = []
-            for card in cards:
+            # Card pk -> its index in ``cards_data``: how ``relations`` (#1448)
+            # name a card.
+            card_index = {}
+            # Uids of the cards emitted, so deleted_card_history below does
+            # not also carry one deleted while the export ran.
+            exported_uids = set()
+            for card in _iter_export_cards(cards):
+                card_index[card.pk] = len(cards_data)
+                exported_uids.add(card.uid)
                 # Use .all() + sorted() to read from the prefetch cache instead of
                 # issuing an ORDER BY query per card for movements, comments, and checklist.
                 movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
@@ -3830,16 +4203,7 @@ class BoardImportExportMixin:
                     "blocked_at": card.blocked_at.isoformat() if card.blocked_at else None,
                     "blocked_reason": card.blocked_reason,
                     "blocks": [
-                        {
-                            "blocked_at": blk.blocked_at.isoformat(),
-                            "blocked_by": blk.blocked_by.username if blk.blocked_by else None,
-                            "reason": blk.reason,
-                            "unblocked_at": blk.unblocked_at.isoformat() if blk.unblocked_at else None,
-                            "unblocked_by": blk.unblocked_by.username if blk.unblocked_by else None,
-                            "resolution": blk.resolution,
-                            "column": blk.column_name,
-                            "imported_from_username": blk.imported_from_username,
-                        }
+                        _block_export_entry(blk)
                         for blk in sorted(card.blocks.all(), key=lambda b: (b.blocked_at, b.pk))
                     ],
                     # Gated stages (#1102). Additive: the card's sub-column
@@ -3847,20 +4211,7 @@ class BoardImportExportMixin:
                     # the history option.
                     "gates_passed": card.gates_passed,
                     "gate_transitions": [
-                        {
-                            "kind": gt.kind,
-                            "from_index": gt.from_index,
-                            "to_index": gt.to_index,
-                            "column": gt.column_name,
-                            "sub_column": gt.sub_column_name,
-                            "reason": gt.reason,
-                            "cause": gt.cause,
-                            "actor": gt.actor.username if gt.actor else None,
-                            "created_at": gt.created_at.isoformat(),
-                            "imported_from_username": gt.imported_from_username,
-                            # Index into this card's ``movements`` (#1102).
-                            "movement_index": movement_index.get(gt.movement_id),
-                        }
+                        _gate_transition_export_entry(gt, movement_index)
                         for gt in sorted(card.gate_transitions.all(), key=lambda g: (g.created_at, g.pk))
                     ],
                 })
@@ -4000,8 +4351,12 @@ class BoardImportExportMixin:
                 # Retained history of hard-deleted cards (#1796), after "cards"
                 # so every existing key keeps its place. Additive: schema_version
                 # stays 2, and an importer that predates the key ignores it.
-                "deleted_card_history": _deleted_card_history_export(board),
+                "deleted_card_history": _deleted_card_history_export(board, exported_uids),
+                # Card relations (#1448), last so every existing key keeps its
+                # place. Additive: schema_version stays 2.
+                "relations": _relations_export(board, card_index),
             }
+            row_count = len(cards_data)
 
             content = json.dumps(payload, indent=2, ensure_ascii=False)
             response = HttpResponse(content, content_type="application/json")
@@ -4058,7 +4413,8 @@ class BoardImportExportMixin:
         ])
 
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
-        for card in cards:
+        for card in _iter_export_cards(cards):
+            row_count += 1
             movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
             # Sorted in Python, not .order_by(): labels are prefetched, and Label has no
             # Meta.ordering, so the DB returns them in arbitrary order. A stable

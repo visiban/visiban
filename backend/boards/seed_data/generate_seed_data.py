@@ -650,6 +650,33 @@ def _add_custom_field_change(cards: list[dict], slug: str, done_cols: set[str]) 
     ], key=lambda a: a["created_at"])
 
 
+def _add_relations(cards: list[dict], slug: str, done_cols: set[str]) -> list[dict]:
+    """The board's card relations (#1448): one active blocker and one ``relates_to``.
+
+    The shape the board exporter writes: ``{from, kind, to}`` with indexes
+    into ``cards`` (the importer creates the cards in file order). The blocker
+    and the card it blocks are both live and outside a done column, so every
+    sample shows an open dependency; the related pair is two other live
+    cards, lower index first (``relates_to`` is symmetric). Cards are picked by
+    a hash of slug and title, like ``_add_custom_field_change``: no random
+    draw, so no other card or template shifts.
+    """
+    def rank(i, tag):
+        return zlib.crc32(f"{slug}|{tag}|{cards[i]['title']}".encode())
+
+    live = [i for i, c in enumerate(cards) if not c.get("archived_at")]
+    active = [i for i in live if cards[i]["column"] not in done_cols]
+    if len(active) < 2 or len(live) < 4:
+        raise SystemExit(f"{slug}: too few live cards for the sample relations")
+    blocker, blocked = sorted(active, key=lambda i: rank(i, "blocker"))[:2]
+    rest = sorted((i for i in live if i not in (blocker, blocked)), key=lambda i: rank(i, "related"))
+    low, high = sorted(rest[:2])
+    return [
+        {"from": blocker, "kind": "blocks", "to": blocked},
+        {"from": low, "kind": "relates_to", "to": high},
+    ]
+
+
 # ── Card enrichment ───────────────────────────────────────────────────────────
 def _enrich(card: dict, col_names: list[str], card_seed: int, slug: str,
             label_pool: list[str], descriptions: list[str], done_cols: set[str]) -> dict:
@@ -727,10 +754,11 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
         _add_checklist_assign_due(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     if slug in CUSTOM_FIELD_CHANGE_SAMPLES:
         _add_custom_field_change(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
+    data["relations"] = _add_relations(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.
     order = ["schema_version", "name", "description", "columns", "swimlanes",
-             "labels", "custom_fields", "swimlane_custom_fields", "cards"]
+             "labels", "custom_fields", "swimlane_custom_fields", "cards", "relations"]
     return {k: data[k] for k in order}
 
 

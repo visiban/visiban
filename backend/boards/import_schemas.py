@@ -70,6 +70,15 @@ class ImportSkippedCountsSerializer(serializers.Serializer):
         "Card and checklist item assignee names that matched no user the importer can see, "
         "so the card or item was imported unassigned (#2198)."
     ))
+    blocks = serializers.IntegerField(help_text=(
+        "Block history rows (live and deleted cards) the import would have written with `history` on (#2413)."
+    ))
+    gate_transitions = serializers.IntegerField(help_text=(
+        "Gate history rows (live and deleted cards) the import would have written with `history` on (#2413)."
+    ))
+    relations = serializers.IntegerField(help_text=(
+        "Card relations the import would have written with `cards` on (#1448)."
+    ))
 
 
 class ImportSummarySerializer(serializers.Serializer):
