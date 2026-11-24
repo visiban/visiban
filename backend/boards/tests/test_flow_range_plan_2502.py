@@ -101,11 +101,13 @@ class RangeLoadPlanShapeTests(FlowFixture):
 
 
 class RecentDwellPlanShapeTests(FlowFixture):
-    """#2506: ``load_recent_dwell`` (summary/analytics, the MCP analytics tool) had
-    the same correlated ``EXISTS`` in an ``OR``. On a two-board PostgreSQL 17
-    fixture its history read went from 19,273 buffers (a merge semi join over
-    the whole ``card_movements_card_id`` index, every board's cards scanned in
-    ``cards_pkey``) to 2,111, keeping the same cards."""
+    """#2506 (partial): ``load_recent_dwell`` (summary/analytics, the MCP
+    analytics tool) had the same correlated ``EXISTS`` in an ``OR``. The
+    rewrite to an uncorrelated, board-bounded ``IN`` keeps the same cards and
+    trims the two movement-reading statements on the nightly fixture (board 1:
+    71,153 to 64,033 buffers; aged board 201: 74,530 to 72,473). It still
+    reads every board's movements in the range; these tests guard the shape
+    and the card set, not that residual read."""
 
     def setUp(self):
         super().setUp()
@@ -163,7 +165,11 @@ class RecentDwellPlanShapeTests(FlowFixture):
         self.assertEqual({card.id for card in flow.cards}, expected)
         self.assertIn(self.late_row.pk, {card.id for card in flow.cards})
 
-    def test_dwell_ignores_another_boards_recent_movement(self):
+    def test_dwell_card_set_is_unchanged_by_another_boards_recent_movement(self):
+        # Proves only the card set: the outer ``board`` filter already excludes
+        # the stranger, so this passes even without the subquery's
+        # ``card__board`` bound (verified by removing it). That bound is
+        # guarded by ``test_the_dwell_movement_subquery_reads_only_this_boards_cards``.
         other = Board.objects.create(name="Other", owner=self.user)
         other_done = Column.objects.create(board=other, name="Done", position=0, is_done=True)
         other_lane = Swimlane.objects.create(board=other, name="L", position=0)
