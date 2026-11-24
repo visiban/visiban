@@ -31,7 +31,7 @@ Four Git Lens surfaces are part of the frozen 1.x API contract and are **not** c
 | The `git_lens_enabled` field on the current user (`/auth/user/`) | [User profile](authentication.md#user-profile) |
 | The `git_lens_enabled` field on `GET /api/v1/auth/site-config/` (same value, public) | [Site configuration](authentication.md#get-apiv1authsite-config) |
 
-Everything else on this page (the REST endpoints, query parameters, and the issue grid response) remains experimental.
+**Yes, but:** everything else on this page (the REST endpoints, query parameters, and the issue grid response) remains experimental.
 
 The compatibility gate enforces this split: the REST endpoints are listed in `scripts/compat-baseline/experimental.json`, so they stay out of the frozen OpenAPI baseline. See [Experimental operations](../development/api-compat-gate.md#experimental-operations).
 
@@ -469,7 +469,7 @@ pipeline columns, so leading with it would make the badge flicker between pivots
 Board data is cached server-side for ~60 seconds per repository, pivot and filter combination,
 shared across everyone viewing that board. `?refresh=1` deliberately bypasses that cache.
 
-Three limits bound how much upstream traffic one account can cause. The first two are per user
+**By the numbers:** Three limits bound how much upstream traffic one account can cause. The first two are per user
 **per repository** — not per board — because the budget being protected is the provider's rate
 limit, which every board pointing at the same repository shares:
 
@@ -492,7 +492,7 @@ Filtered responses are retained for a shorter period than the unfiltered board (
 10). The unfiltered board is the hot, genuinely shared entry; filtered combinations are a long
 tail that is far less likely to be re-read.
 
-Refresh is available to **every** board role including viewers — the lens is a read-only surface
+**Yes, but:** refresh is available to **every** board role including viewers — the lens is a read-only surface
 whose main audience is viewers, so the cap is on rate, not on role.
 
 ---

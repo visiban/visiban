@@ -1,12 +1,13 @@
-# Maintainer Runbooks
+# Run the Visiban project: CI, credentials, and releases
 
-Operational reference for whoever runs the Visiban project itself — CI infrastructure,
-credentials, and known failure patterns. This is **not** end-user or self-hosted-instance
-documentation; see [Administration](../administration/index.md) for that audience.
+These runbooks are for whoever runs the project itself: CI infrastructure, credentials, and known failure patterns.
 
-These pages exist because operational facts that only live in a maintainer's personal notes
+**Why it matters:** These pages exist because operational facts that only live in a maintainer's personal notes
 are invisible to everyone else and nothing forces them to stay current. Point-in-time facts
 belong here, committed and versioned, not in a private notes file.
+
+**Yes, but:** This is **not** end-user or self-hosted-instance
+documentation; see [Administration](../administration/index.md) for that audience.
 
 | Guide | Description |
 |---|---|
@@ -21,8 +22,9 @@ belong here, committed and versioned, not in a private notes file.
 
 ## Release checklist
 
-The version-string half of a release is enforced by a gate rather than by memory. Do not
-re-verify these by hand; run the release and read what the gate says.
+The version-string half of a release is enforced by a gate rather than by memory.
+
+**Watch out:** Do not re-verify these by hand; run the release and read what the gate says.
 
 - `scripts/release.sh <version>` rewrites the version-bearing files, including the
   `docs/index.md` banner: the release-candidate banner for RC tags, a pre-release banner for
@@ -55,10 +57,10 @@ re-verify these by hand; run the release and read what the gate says.
   an already-released version anywhere in `README.md`, `VISIBAN_FEATURES.md` or `docs/`; an
   RC banner on a GA version; stale `APP_VERSION=` / image-tag pins in `README.md` and
   `docs/getting-started/`; and a tag that does not match `frontend/package.json`.
-- A failure means fix the page (there is no allowlist). `New in X` labels are provenance and
-  are intentionally not flagged.
+- A failure means fix the page (there is no allowlist).
+- `New in X` labels are provenance and are intentionally not flagged.
 
-Publishing is gated too, with one exception. On a `v*` tag, every publish job `needs:`
+**Yes, but:** Publishing is gated too, with one exception. On a `v*` tag, every publish job `needs:`
 `release-main-pipeline-guard`: images, manifests, attestations, the Helm chart and the GitHub
 release. That job refuses unless every check in the tagged commit's own `main` pipeline is
 green, including `allow_failure: true` jobs (#1154). That includes the versioned docs:

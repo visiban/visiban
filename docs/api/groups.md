@@ -60,7 +60,7 @@ Create a group. Any authenticated user may create a top-level group. Creating a 
 
 > **Added in 1.2**
 
-A subgroup create that arrives while its parent (or an ancestor of it) is being deleted waits for the delete to finish and then answers the same `400` as for an unknown `parent`, with nothing created; a delete that arrives while the create is in flight waits for it and then deletes the new subgroup with the rest of the tree (#1719).
+**Watch out:** A subgroup create that arrives while its parent (or an ancestor of it) is being deleted waits for the delete to finish and then answers the same `400` as for an unknown `parent`, with nothing created; a delete that arrives while the create is in flight waits for it and then deletes the new subgroup with the rest of the tree (#1719).
 
 **Request**
 ```json

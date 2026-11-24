@@ -1229,7 +1229,7 @@ Without a `name` field, both formats name the new board `Imported: <name>`:
 - **JSON** — `<name>` is the `name` field in the file. An unpaired UTF-16 surrogate in it (`"\ud800"`, which PostgreSQL cannot store) is replaced with U+FFFD in the default name.
 - **CSV** — a CSV carries no board name, so `<name>` is the uploaded filename without its extension (`Q3 plan.csv` → `Imported: Q3 plan`). An empty filename stem falls back to `Board`.
 
-If a board with that exact name exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every ungrouped board you can access (the boards under **All boards** with the **Personal** filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. Names are not unique, so two simultaneous imports can occasionally get the same name.
+If a board with that exact name exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every ungrouped board you can access (the boards under **All boards** with the **Personal** filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. **Yes, but:** names are not unique, so two simultaneous imports can occasionally get the same name.
 
 #### Import options
 
@@ -1255,7 +1255,7 @@ Three more options are not include flags. They move the file's dates (see [Date 
 | `shift_dates` | boolean, JSON only, optional, default `true` | `false` turns all shifting off: the file's dates are imported exactly as written, its `date_anchor` is not read, and `shift_dates_to` is ignored. Sending it with `shift_dates_from` is a contradiction and is rejected. Added in 1.2 (#1949). Echoed in `options_applied` when sent. |
 | `shift_dates_to` | `YYYY-MM-DD` string, JSON only, optional, default today (UTC) | The day to move dates *to*: the shifted board is dated around this day instead of today. Used only when dates shift (an explicit `shift_dates_from` or the file's `date_anchor`); otherwise ignored. It may be earlier than the source date, which moves dates back. Must not be in the future (UTC) or more than 10 years ago, so imported history never lands after the moment of import. Added in 1.2 (#1949). Echoed in `options_applied` and `import_options` when sent and applied. |
 
-A CSV import rejects all three as unknown options: dates in a CSV are always imported as written.
+**Yes, but:** A CSV import rejects all three as unknown options: dates in a CSV are always imported as written.
 
 #### Date shifting
 

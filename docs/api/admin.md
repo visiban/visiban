@@ -143,7 +143,7 @@ and an audit log an admin can edit is not evidence of anything.
 | `user.all_content_granted` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
 | `user.all_content_revoked` | `{"target_id": 42, "target_username": "jordan"}` *(1.3+)* |
 
-New action types may be added in any minor release; treat an unrecognized `action` as an
+**Yes, but:** new action types may be added in any minor release; treat an unrecognized `action` as an
 opaque string rather than failing on it.
 
 !!! note "Email credentials are recorded as markers, without values"
@@ -280,11 +280,11 @@ Sends a test email using the configuration currently in effect and reports the r
 
 Available to any site admin. It changes no settings and accepts no server overrides.
 
-**The recipient is always the requesting admin's own email address.** It cannot be
+**Watch out:** **The recipient is always the requesting admin's own email address.** It cannot be
 supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
 address would be usable as an open relay and as a network probe.
 
-Throttled to **5 requests per hour** per user (raised to 9999/hour in `DEBUG`, a finite budget; `VISIBAN_DISABLE_THROTTLING` is the CI-only full bypass).
+**By the numbers:** Throttled to **5 requests per hour** per user (raised to 9999/hour in `DEBUG`, a finite budget; `VISIBAN_DISABLE_THROTTLING` is the CI-only full bypass).
 
 ```json
 { "success": true, "code": null, "sent_to": "admin@example.org" }
@@ -326,7 +326,7 @@ The `detail` wording may be refined in any release; do not match on it.
     authentication failure can contain the submitted credentials. Only the code and the
     exception type are logged server-side — the error text is not logged either.
 
-New codes may be added in any minor release; treat an unrecognized `code` as `unknown`.
+**Yes, but:** new codes may be added in any minor release; treat an unrecognized `code` as `unknown`.
 
 ---
 
@@ -510,7 +510,7 @@ Clearing `is_site_admin` revokes the user's unused site invite links. Site invit
 
 Deactivate a user account and transfer ownership of any boards they own to other members.
 
-Deactivation also deletes the user's personal access tokens and API auth token, revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event) and *(1.2+)* their active, unused [group invite links](groups.md) (each affected group receives an `invite_link.revoked` event). Consumed single-use links are left as they are. *(1.2+)* It also turns off every public [board share link](boards.md#board-sharing) the user enabled, and each affected board receives a `board.updated` event and, *(1.3+)* for board admins only, a [`share_link.updated`](websockets.md#share-link-events-since-13) event. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and no longer resolve from the upgrade on, whoever is deactivated ([upgrade notes](../administration/upgrade.md#upgrading-to-12x), #1939).
+**Watch out:** Deactivation also deletes the user's personal access tokens and API auth token, revokes the user's unused site invite links and *(1.2+)* their pending [board invites](boards.md#board-invites) (`revoked_by` is the caller; each board gets an `invite_link.revoked` event) and *(1.2+)* their active, unused [group invite links](groups.md) (each affected group receives an `invite_link.revoked` event). Consumed single-use links are left as they are. *(1.2+)* It also turns off every public [board share link](boards.md#board-sharing) the user enabled, and each affected board receives a `board.updated` event and, *(1.3+)* for board admins only, a [`share_link.updated`](websockets.md#share-link-events-since-13) event. Links enabled before the enabler was recorded (for example under 1.1, or 1.2.0-beta.3 and earlier), record no enabler and no longer resolve from the upgrade on, whoever is deactivated ([upgrade notes](../administration/upgrade.md#upgrading-to-12x), #1939).
 
 *(1.3+)* Each board whose ownership the `transfers` list moves receives a `board.updated` event on its [board channel](websockets.md#board-channel) with the new `owner`, recorded in the board's change feed, and a board in a group also receives it on that [group's channel](websockets.md#group-channel-since-11), so open board pages and group board lists show the new owner without a reload. Before 1.3 the transfer sent no event (#1741).
 
@@ -840,7 +840,7 @@ Every board's [invites](boards.md#board-invites) — emailed invites and shareab
 | `single_use`, `use_count` | `use_count` is the number of distinct people who redeemed the invite (each account counts once). |
 | `can_register` | Advisory, computed when read: whether a new person could create an account from this invite under the current registration mode. `false` unless the invite is pending and its creator active; on an `invite_only` site, `true` only for an emailed single-use invite from a site admin (with email invites enabled); always `false` on a `closed` site. Registration re-checks everything, including the creator's board role. |
 
-The token and the address an invite was emailed to are never returned.
+**Watch out:** The token and the address an invite was emailed to are never returned.
 
 !!! note "Stored status, not the creator check"
     This list reports each invite's **stored** status and does **not** apply the check that the board's own list and the join endpoints apply: that the creator is still active and still an admin of the board. An invite whose creator was demoted can therefore show **pending** here while the board's own list shows `revoked` and joins are refused (`410 revoked`). (Deactivating an account revokes that user's pending invites outright, so those do show `revoked`.) Revoke such an invite here to make it permanent. `can_register` is advisory for the same reason.

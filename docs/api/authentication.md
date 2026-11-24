@@ -168,7 +168,7 @@ Personal Access Tokens (PATs) are named, long-lived tokens tied to a user accoun
 
 **Token format:** `vbn_` prefix + 40 hex characters, e.g. `vbn_0123456789abcdef0123456789abcdef01234567`.
 
-The raw token is shown **once**, at creation; Visiban stores only a SHA-256 hash.
+**Watch out:** The raw token is shown **once**, at creation; Visiban stores only a SHA-256 hash.
 
 All of a user's PATs are revoked automatically when the password is changed or reset through the web interface, the API or the Django admin: the REST endpoints, allauth's pages under `/accounts/password/`, or an administrator setting it in the Django admin.
 
@@ -398,7 +398,7 @@ A few account-security operations ignore token scopes: a request authenticated w
 
 ### Scopes never widen access
 
-A scope only narrows what a token may do; board membership, role, and site-administrator checks still apply. An `admin`-scoped token on a non-site-admin account reaches no admin endpoint.
+**Yes, but:** A scope only narrows what a token may do; board membership, role, and site-administrator checks still apply. An `admin`-scoped token on a non-site-admin account reaches no admin endpoint.
 
 ---
 
@@ -1047,7 +1047,7 @@ An **emailed board invite** (a `vbnb_` token from `POST /api/v1/boards/{id}/invi
 
 > **Added in 1.2** (#1678)
 
-An emailed site, group or board invite is bound to the address it was sent to. Registration with a different `email` is refused with `400 {"email": ["This invite was sent to a different email address. Sign up with the address the invite was sent to, or ask for a new invite."], "code": "invite_recipient_mismatch"}`. The invite is still valid, so this is an `email` field error, not an `invite_token` one; keep the token and retry with the invited address. The check runs only after the rest of the form is valid, so a form error such as mismatched passwords reads the same whatever address was typed. No account is created and the invite stays unused. Matching ignores case and surrounding spaces. For OAuth sign-up, the provider's address must match; otherwise the account is rolled back and the browser is redirected with `auth_error=invite_recipient_mismatch`. The new account still follows the normal email-verification setting. With `EMAIL_VERIFICATION=mandatory`, a group or board invite whose address is not yet verified on the new account grants its membership when that address is confirmed, not at registration; the `201` response is the usual verify-email answer (#1704). Shareable invite links and emailed invites sent before upgrading to this version are not bound to an address (#1703 extended the binding to emailed site invites).
+**Watch out:** An emailed site, group or board invite is bound to the address it was sent to. Registration with a different `email` is refused with `400 {"email": ["This invite was sent to a different email address. Sign up with the address the invite was sent to, or ask for a new invite."], "code": "invite_recipient_mismatch"}`. The invite is still valid, so this is an `email` field error, not an `invite_token` one; keep the token and retry with the invited address. The check runs only after the rest of the form is valid, so a form error such as mismatched passwords reads the same whatever address was typed. No account is created and the invite stays unused. Matching ignores case and surrounding spaces. For OAuth sign-up, the provider's address must match; otherwise the account is rolled back and the browser is redirected with `auth_error=invite_recipient_mismatch`. The new account still follows the normal email-verification setting. With `EMAIL_VERIFICATION=mandatory`, a group or board invite whose address is not yet verified on the new account grants its membership when that address is confirmed, not at registration; the `201` response is the usual verify-email answer (#1704). Shareable invite links and emailed invites sent before upgrading to this version are not bound to an address (#1703 extended the binding to emailed site invites).
 
 **Request body**
 

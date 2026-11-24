@@ -1,7 +1,10 @@
-# Hosted Demo (try.visiban.com)
+# Deploy try.visiban.com, and verify what CI cannot
 
-How the public demo is deployed, and what an operator must verify by hand — the preconditions
-no CI job can check. The chart side (values, guards, seed and reset, egress policy,
+An operator must check the hosted demo's preconditions by hand, because no CI job can see them.
+
+**Why it matters:** CI proves the chart on kind, not the real node or Cloudflare, so an unchecked precondition fails only in production.
+
+**The big picture:** This page covers how the public demo is deployed. The chart side (values, guards, seed and reset, egress policy,
 `helm test`) is documented for everyone in
 [Public demo mode](../administration/demo-data.md#public-demo-mode-helm); what follows is
 the one real deployment.
@@ -23,14 +26,16 @@ the one real deployment.
 | Exposure | The node's existing Cloudflare Tunnel (`cloudflared`, TruePPM ADR-0658 D9). No Ingress, no ingress controller, no cert-manager |
 | Values | `helm/visiban/values-demo.yaml` plus an uncommitted secrets file |
 
-Nothing is shared with TruePPM's release except the node and the tunnel. The frontend
-NetworkPolicy admits port 8080 from any peer, so the tunnel reaches it. The backend and the
-datastores admit only this release's own components, so TruePPM's namespace cannot reach
-them. Keep it that way: do not widen those policies for convenience.
+**The big picture:** Nothing is shared with TruePPM's release except the node and the tunnel.
+
+- The frontend NetworkPolicy admits port 8080 from any peer, so the tunnel reaches it.
+- The backend and the datastores admit only this release's own components, so TruePPM's namespace cannot reach them.
+
+**Watch out:** Keep it that way: do not widen those policies for convenience.
 
 ## Preconditions
 
-Check these before the first install, and again whenever the node is rebuilt.
+**How it works:** Check these before the first install, and again whenever the node is rebuilt.
 
 ### 1. The node is not a CI-runner host
 
@@ -47,7 +52,7 @@ systemctl list-units --all | grep -i gitlab-runner || echo "no gitlab-runner uni
 
 ### 2. NetworkPolicy is enforced on the node
 
-The demo egress policy (backend, seed and reset pods may reach DNS and their own
+**Why it matters:** The demo egress policy (backend, seed and reset pods may reach DNS and their own
 PostgreSQL and Valkey, and nothing else) is only a claim if the CNI enforces it. k3s
 enforces NetworkPolicy with its embedded kube-router controller unless it was installed
 with `--disable-network-policy`.
@@ -69,9 +74,10 @@ this precondition too: redeploy, then run it before exposing the demo again.
 ### 3. Cloudflare: bot and abuse reduction, not security controls
 
 The maintainer decided (2026-09-27) that there is **no Cloudflare Access or email gate**.
-Visitors give no email, so nothing needs to be disclosed. Configure only Cloudflare
-free-plan features that collect nothing. As TruePPM ADR-1197 D8 says, none of them is a
-security control; the write fence (#1179) is.
+
+- Visitors give no email, so nothing needs to be disclosed.
+- Configure only Cloudflare free-plan features that collect nothing.
+- As TruePPM ADR-1197 D8 says, none of them is a security control; the write fence (#1179) is.
 
 - The tunnel itself, plus Cloudflare's automatic DDoS protection.
 - A WAF **Managed Challenge** on the `/login` **page**, not the API endpoint (completeness
@@ -182,7 +188,7 @@ so the deployment record is the only durable trace that these were actually set 
     "
     ```
 
-    The backend image is a Django/Python base with neither `nc` nor `curl` installed — only
+    **Yes, but:** The backend image is a Django/Python base with neither `nc` nor `curl` installed — only
     `python3` — hence the socket-connect script instead of a one-line `nc` call.
 
     Then the control, so "denied" means the policy and not a node without internet. An
@@ -242,7 +248,7 @@ example a second proxy is added or `cloudflared` moves, recount. A value that is
 puts every visitor in one throttle bucket, so one crawler locks the demo for everyone. A
 value that is too high lets a visitor choose their own bucket.
 
-**The frontend access log cannot verify this** (completeness-check, #1180): nginx's default
+**Watch out:** **The frontend access log cannot verify this** (completeness-check, #1180): nginx's default
 log format records `$http_x_forwarded_for`, the header exactly as *received* — one address,
 the real visitor's, forwarded unchanged through Cloudflare and `cloudflared`. The hop nginx
 itself *appends* (`$proxy_add_x_forwarded_for`, what the backend actually sees) is never
@@ -298,7 +304,7 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
 ## Troubleshooting: Cloudflare Error 1033 and node DiskPressure
 
 **Signature:** try.visiban.com (and any other hostname on the node's tunnel) shows
-**Cloudflare Error 1033**, "Cloudflare Tunnel error". 1033 only means no `cloudflared`
+**Cloudflare Error 1033**, "Cloudflare Tunnel error". The error only means no `cloudflared`
 connector is registered for the tunnel. It does not say why, so work down this list.
 
 **Root cause seen on 2026-10-21 (#1820):** the node's root filesystem filled past the

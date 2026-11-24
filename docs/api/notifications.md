@@ -24,7 +24,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications
 
 Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
 
-Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
+**How it works:** Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
 can also be delivered by email, controlled by a parallel set of fields on the same
 endpoint — `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`,
 `email_notif_card_moved`, `email_notif_comment_added` — all of which default to `false`.
@@ -32,7 +32,7 @@ An email is a copy of the in-app notification, so an `email_notif_*` field has n
 while its `notif_*` counterpart is `false`. See
 [Email notifications](../features/notifications.md#email-notifications).
 
-`webhook_disabled` is the exception *(1.3+)*: it is always emailed, whatever these
+**Yes, but:** `webhook_disabled` is the exception *(1.3+)*: it is always emailed, whatever these
 fields say, but only to an active recipient with a **verified** address who still
 administers the board. Its link opens the board's Webhooks settings
 (`/boards/{id}?settings=webhooks`).
@@ -101,7 +101,7 @@ Mark notifications as read. Requires authentication.
 
 **Response** `{ "ok": true }`
 
-Since 1.2, a body that is not a JSON object, an `ids` value that is not a list, and an `ids` entry that is not an integer within the 64-bit range return `400 Bad Request` (they returned `500` before).
+**Watch out:** Since 1.2, a body that is not a JSON object, an `ids` value that is not a list, and an `ids` entry that is not an integer within the 64-bit range return `400 Bad Request` (they returned `500` before).
 
 ---
 

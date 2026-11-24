@@ -1,7 +1,10 @@
-# Known CI Failures
+# Match a red CI job to its known fix
 
-Failure signature → root cause → fix. Grep this page before re-deriving a diagnosis that's
-already been done once.
+Grep this page for the failure text before you debug: each entry maps a failure signature to its root cause and fix.
+
+**Why it matters:** Re-deriving a diagnosis that's already been done once wastes a pipeline run, and the obvious fix (a retry, a longer timeout) is often wrong.
+
+**How it works:** Failure signature → root cause → fix.
 
 ## `oidc-smoke`: "did not become ready within 240s"
 

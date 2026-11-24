@@ -138,7 +138,7 @@ Create a card. Requires member or above. The target column must have `allow_card
 
 The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
-`notify_assignee` (optional boolean, default `false`, since 1.3, #2211): `true` sends the card's assignee the `assigned` notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off `notif_card_assigned`, or is not a current member of the board. The web app sends it only for a swimlane [default team](boards.md)'s pre-assignment; without it, a create with an `assignee_id` sends no `assigned` notification, as before (the MCP `create_card` tool and board import never send it). A value that is not a JSON boolean returns `400` keyed `notify_assignee`. Ignored on update. When the `assigned` notification is sent, the card's creation does not also send the "moved to <first column>" one, so the assignee gets exactly one notification (*changed in 1.3*, only for creates with `notify_assignee: true`). Every other create keeps its "moved" notification: an assignee who has **Card moved** on is still told the new card "moved to" its first column.
+`notify_assignee` (optional boolean, default `false`, since 1.3, #2211): `true` sends the card's assignee the `assigned` notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off `notif_card_assigned`, or is not a current member of the board. The web app sends it only for a swimlane [default team](boards.md)'s pre-assignment; without it, a create with an `assignee_id` sends no `assigned` notification, as before (the MCP `create_card` tool and board import never send it). A value that is not a JSON boolean returns `400` keyed `notify_assignee`. Ignored on update. When the `assigned` notification is sent, the card's creation does not also send the "moved to `<first column>`" one, so the assignee gets exactly one notification (*changed in 1.3*, only for creates with `notify_assignee: true`). Every other create keeps its "moved" notification: an assignee who has **Card moved** on is still told the new card "moved to" its first column.
 
 Since 1.3 (#2191), the role is checked before the body is validated: a caller below member (a viewer or collaborator) gets `403` even when the body is invalid, where they previously got `400` with field errors for an invalid body. Members still get `400` for an invalid body, and a caller with no access to the board gets `404`.
 
@@ -1071,7 +1071,7 @@ single-item lists; that was normalized before 1.2.0, #1660.)
 
 An unknown `direction` is rejected as an ordinary field error on `direction`.
 
-Cycles longer than two hops (A → B → C → A) are **not** detected and are
+**Yes, but:** Cycles longer than two hops (A → B → C → A) are **not** detected and are
 permitted.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/`
@@ -1260,7 +1260,7 @@ registered or visible to you. `GET` only.
 | `value` | Typed as above, or `null` (not set). |
 | `display` | Optional preformatted read string, at most 200 characters, shown instead of `value`. |
 
-Values, labels and titles are plain text: clients must not render them as HTML.
+**Watch out:** Values, labels and titles are plain text: clients must not render them as HTML.
 The server drops a section that breaks any rule whole (it is never truncated),
 and an extension that raises is left out while the others still render. Never
 on the card payload, `/full/`, the card list, MCP, export or the public share.
