@@ -279,7 +279,9 @@ seconds. When the request needs more of the board's movement history than one re
 with `422 Unprocessable Entity`. Retrying the same request does not help; an
 administrator raises `ANALYTICS_MAX_MOVEMENTS`. A shorter `days` range helps only
 where the request's held history follows the range (most `metrics/*` charts); it
-does not help the `date` drill-down, which reads the whole history. The rows are
+does not help the `date` drill-down, which reads every card of the board whatever
+the range (only the few rows that decide where each card rests that day, counted
+against the same fixed ceiling as the settled pass). The rows are
 counted as they are read, so this refusal can take as long as reading up to the
 limit. Both bodies are always exactly
 these: they never include counts, limits or queue positions. Match on `code`,

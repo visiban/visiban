@@ -317,12 +317,18 @@ class AnalyticsGateViewTests(FlowFixture):
     def test_over_budget_is_refused_too_large(self):
         yesterday = (self.now.date() - __import__("datetime").timedelta(days=1)).isoformat()
         with override_settings(ANALYTICS_MAX_MOVEMENTS=2), mock.patch("django.utils.timezone.now", return_value=self.now):
-            for suffix in ("metrics/overview/", "analytics/", "metrics/cycle-time/", "metrics/cumulative-flow/",
-                           f"metrics/cumulative-flow/?date={yesterday}"):
+            for suffix in ("metrics/overview/", "analytics/", "metrics/cycle-time/", "metrics/cumulative-flow/"):
                 with self.subTest(suffix=suffix):
                     response = self.client.get(self.url(suffix))
                     self.assertEqual(response.status_code, 422)
                     self.assertEqual(response.json(), AnalyticsTooLarge().body())
+        # The day drill-down reads only each card's deciding rows (#2444), counted as
+        # streamed: it is refused past the streamed ceiling, with the same body.
+        with override_settings(ANALYTICS_MAX_MOVEMENTS=1), mock.patch.object(admission, "STREAMED_ROWS_MULTIPLE", 1), \
+                mock.patch("django.utils.timezone.now", return_value=self.now):
+            response = self.client.get(self.url(f"metrics/cumulative-flow/?date={yesterday}"))
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json(), AnalyticsTooLarge().body())
         with override_settings(ANALYTICS_MAX_MOVEMENTS=100):
             self.assertEqual(self.client.get(self.url("metrics/overview/")).status_code, 200)
 
@@ -347,7 +353,12 @@ class AnalyticsGateViewTests(FlowFixture):
         settled = moves.filter(card__archived_at__isnull=False).count()
         self.assertGreater(settled, live)
         with mock.patch("django.utils.timezone.now", return_value=self.now):
-            self.assertEqual(self._replay_counts("metrics/cumulative-flow/?days=30"), (200, live, settled))
+            # The settled pass reads only each settled card's deciding rows (#2444),
+            # all of them streamed, never held.
+            status_code, held, streamed = self._replay_counts("metrics/cumulative-flow/?days=30")
+            self.assertEqual((status_code, held), (200, live))
+            self.assertGreater(streamed, 0)
+            self.assertLessEqual(streamed, settled)
             # The held budget is the live history alone: the old history is
             # well past it and still does not count against it.
             with override_settings(ANALYTICS_MAX_MOVEMENTS=live):
@@ -364,22 +375,23 @@ class AnalyticsGateViewTests(FlowFixture):
             self.assertGreater(streamed, 0)
             with override_settings(ANALYTICS_MAX_MOVEMENTS=held):
                 self.assertEqual(self.client.get(self.url("metrics/overview/?days=30")).status_code, 200)
-                # The day drill-down holds the whole history: past the budget, refused.
-                response = self.client.get(self.url(f"metrics/cumulative-flow/?date={yesterday}"))
-                self.assertEqual(response.status_code, 422)
-                self.assertEqual(response.json(), AnalyticsTooLarge().body())
-            with override_settings(ANALYTICS_MAX_MOVEMENTS=total):
-                self.assertEqual(self.client.get(self.url(f"metrics/cumulative-flow/?date={yesterday}")).status_code, 200)
+                # The day drill-down reads every card but holds none of its rows
+                # (#2444): its deciding rows are streamed, so the held budget that
+                # fits the overview's range also lets an old board's day list load.
+                day_status, day_held, day_streamed = self._replay_counts(f"metrics/cumulative-flow/?date={yesterday}")
+                self.assertEqual((day_status, day_held), (200, 0))
+                self.assertGreater(day_streamed, 0)
+                self.assertLessEqual(day_streamed, total)
 
     def test_streamed_rows_still_stop_at_the_fixed_ceiling(self):
         self._age_the_board(generations=4)
         moves = CardMovement.objects.filter(card__board=self.board)
         live = moves.filter(card__archived_at__isnull=True).count()
-        settled = moves.filter(card__archived_at__isnull=False).count()
         with mock.patch("django.utils.timezone.now", return_value=self.now):
+            _, _, streamed = self._replay_counts("metrics/cumulative-flow/?days=30")
             with override_settings(ANALYTICS_MAX_MOVEMENTS=live), \
-                    mock.patch.object(admission, "STREAMED_ROWS_MULTIPLE", settled // live - 1 or 1):
-                self.assertLess(live * admission.STREAMED_ROWS_MULTIPLE, settled)
+                    mock.patch.object(admission, "STREAMED_ROWS_MULTIPLE", (streamed - 1) // live or 1):
+                self.assertLess(live * admission.STREAMED_ROWS_MULTIPLE, streamed)
                 response = self.client.get(self.url("metrics/cumulative-flow/?days=30"))
             self.assertEqual(response.status_code, 422)
             self.assertEqual(response.json(), AnalyticsTooLarge().body())

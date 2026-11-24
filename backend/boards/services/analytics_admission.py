@@ -14,7 +14,8 @@ Two limits, both operator settings:
 - ``ANALYTICS_MAX_MOVEMENTS``: how many movement rows one request may hold
   in memory. A load that keeps the rows it reads (``load_board_flow``) counts
   them as ``held``; a pass that folds each card's rows and drops them (the
-  cumulative-flow settled pass) counts them as streamed, against a fixed
+  cumulative-flow settled pass and the day drill-down, which read only each
+  card's deciding rows, #2444) counts them as streamed, against a fixed
   internal ceiling of ``STREAMED_ROWS_MULTIPLE`` times the same setting.
   Held rows are what one request's memory grows with; streamed rows cost
   CPU time, not memory, so they get the wider ceiling, and a runaway still

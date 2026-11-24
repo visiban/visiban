@@ -31,8 +31,8 @@ export function worstAnalyticsErrorKind(reasons: unknown[]): AnalyticsErrorKind 
 
 /**
  * What a failed analytics region says, per kind. `null` keeps the region's own generic copy.
- * `wholeHistory` is for a request that reads the board's whole history whatever the period
- * (the cumulative-flow day drill-down), where a shorter period would not help. `noPeriod` is
+ * `wholeHistory` is for a request whose size does not follow the period (the cumulative-flow
+ * day drill-down, which reads every card of the board), where a shorter period would not help. `noPeriod` is
  * for a surface with no period to shorten (the Summary tab).
  */
 export function analyticsErrorMessage(

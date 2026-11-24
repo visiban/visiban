@@ -1004,8 +1004,14 @@ def _deciding_rows(cards, *, now, as_of=None):
         .values_list(*_MOVEMENT_FIELDS)
     )
     interned: dict = {}
+    # The size limit (#2428): each caller places a card on its few rows and
+    # drops them (the cumulative-flow settled pass, the day drill-down), so
+    # they count as streamed rows. A card with any history has at least one
+    # deciding row, so this also bounds how many cards the pass reads.
+    counter = analytics_admission.row_counter()
     current_id, history = None, []
     for row in movements.iterator(chunk_size=2000):
+        counter.count_rows(1, held=False)
         card_id, movement = _movement_from_row(row, interned, False)
         if card_id != current_id:
             if current_id is not None:

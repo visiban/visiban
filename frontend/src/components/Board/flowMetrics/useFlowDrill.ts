@@ -106,7 +106,7 @@ export function useFlowDrill(boardId: number, filters: FlowFilters, data: DrillD
       setDrill({ kind: "cards", title, groups: null });
       const controller = new AbortController();
       drillRetry.current = controller;
-      // A day's cards read the whole history, so an old board can be too large here (#2428).
+      // A day's cards read every card of the board, so a large board can be too large here (#2428).
       withAnalyticsBusyRetry(() => getFlowCumulativeDay(boardId, filters, date), cancelableWait, controller.signal)
         .then((day) => {
           if (request !== drillRequest.current) return;
