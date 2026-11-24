@@ -4,6 +4,10 @@ These require neither the database nor the git_lens app to be installed (the
 providers/types modules import no Django models), so they run in the main test
 suite regardless of the GIT_LENS_ENABLED flag. Upstream HTTP is mocked.
 """
+import json
+import os
+import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
@@ -768,6 +772,72 @@ class MaxPagesSettingTests(SimpleTestCase):
         self.assertTrue(data.truncated)
 
 
+
+# Settings are evaluated in a subprocess (same pattern as test_fuzz_stub._eval):
+# MAX_PAGES and the lock TTL are module-level constants derived at import time, so
+# the only honest test of the env var -> settings -> providers -> views wiring is a
+# fresh interpreter. GIT_LENS_ENABLED is set so git_lens.views can import its models.
+_MAX_PAGES_SCRIPT = """\
+import json, os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "visiban.settings")
+import django
+django.setup()
+from git_lens import providers, views
+print(json.dumps({
+    "MAX_PAGES": providers.MAX_PAGES,
+    "LOCK_TTL": views.LENS_FETCH_LOCK_TTL,
+    "BOUNDS": views.lens_bounds(),
+}))
+"""
+
+
+class MaxPagesEnvWiringTests(SimpleTestCase):
+    """#1580: GIT_LENS_MAX_PAGES actually reaches the page cap, the fetch lock and
+    the admin bounds report, and a bogus value degrades to the default."""
+
+    databases = []
+
+    def _eval(self, **overrides):
+        env = {
+            "DJANGO_SECRET_KEY": "test-secret-key-not-change-me-in-production",
+            "DATABASE_URL": "sqlite:///dev.db",
+            "GIT_LENS_ENABLED": "true",
+            **overrides,
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONPATH": os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        }
+        result = subprocess.run(
+            [sys.executable, "-c", _MAX_PAGES_SCRIPT],
+            env=env, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout.strip().splitlines()[-1])
+
+    def _worst_case_calls(self, pages):
+        return pages + providers.CLOSED_PAGES + 2 * providers.MAX_AUX_PAGES + 1
+
+    def test_raised_value_reaches_providers_lock_and_bounds(self):
+        out = self._eval(GIT_LENS_MAX_PAGES="5")
+        self.assertEqual(out["MAX_PAGES"], 5)
+        self.assertEqual(out["BOUNDS"]["max_issue_pages"], 5)
+        calls = self._worst_case_calls(5)
+        self.assertEqual(out["BOUNDS"]["max_outbound_calls_per_fetch"], calls)
+        self.assertGreaterEqual(out["LOCK_TTL"], calls * providers.REQUEST_TIMEOUT)
+
+    def test_bogus_value_falls_back_to_the_default(self):
+        out = self._eval(GIT_LENS_MAX_PAGES="bogus")
+        self.assertEqual(out["MAX_PAGES"], providers.DEFAULT_MAX_PAGES)
+        self.assertEqual(out["BOUNDS"]["max_issue_pages"], providers.DEFAULT_MAX_PAGES)
+        calls = self._worst_case_calls(providers.DEFAULT_MAX_PAGES)
+        self.assertEqual(out["BOUNDS"]["max_outbound_calls_per_fetch"], calls)
+        self.assertGreaterEqual(out["LOCK_TTL"], calls * providers.REQUEST_TIMEOUT)
+
+    def test_lock_ttl_grows_with_the_setting(self):
+        self.assertGreater(
+            self._eval(GIT_LENS_MAX_PAGES="5")["LOCK_TTL"],
+            self._eval(GIT_LENS_MAX_PAGES="bogus")["LOCK_TTL"],
+        )
+
 def _gl_raw(n, state="opened"):
     return {"iid": n, "title": "t", "web_url": "u", "state": state, "labels": [], "assignees": []}
 
@@ -886,3 +956,34 @@ class ClosedLimitTests(SimpleTestCase):
         data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(closed_limit=20))
         self.assertTrue(data.closed_truncated)
         self.assertIsNone(data.total_count)
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_closed_pass_carries_every_server_side_filter(self, mock_get):
+        mock_get.side_effect = self._by_state([[_gl_raw(1)]], [_gl_raw(2, "closed")])
+        providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(
+            labels=("bug", "ui"), assignee="ana", milestone="v1", closed_limit=20,
+        ))
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["labels"], "bug,ui")
+        self.assertEqual(params["assignee_username"], "ana")
+        self.assertEqual(params["milestone"], "v1")
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_closed_pass_carries_every_server_side_filter(self, mock_get):
+        by_state = self._by_state([[_gh_raw(1)]], [_gh_raw(2, "closed")], gitlab=False)
+
+        def fake(url, params=None, **kwargs):
+            if url.endswith("/milestones"):
+                return _resp([{"title": "v1", "number": 7}])
+            return by_state(url, params=params, **kwargs)
+
+        mock_get.side_effect = fake
+        providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(
+            labels=("bug", "ui"), assignee="ana", milestone="v1", closed_limit=20,
+        ))
+        params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(params["state"], "closed")
+        self.assertEqual(params["labels"], "bug,ui")
+        self.assertEqual(params["assignee"], "ana")
+        self.assertEqual(params["milestone"], "7")
