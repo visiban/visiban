@@ -41,7 +41,8 @@ from visiban.parsers import LimitedMultiPartParser
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
     CardActivity, CardBlock, CardChecklist, CardComment, CardExternalRef, CardGateTransition,
-    CardMovement, CardRelation, Column, CustomFieldDefinition, CustomFieldValue, Label, StageTrack, SubColumn,
+    CardMovement, CardRelation, Column, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, Label, StageTrack,
+    SubColumn,
     Swimlane, SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue, SwimlaneTrackException,
 )
 from .. import broadcast as _broadcast
@@ -629,6 +630,69 @@ def _parse_import_options(raw, serializer_class):
         message = _bounded_text(_flatten_serializer_errors(ser.errors), _IMPORT_SERIALIZER_ECHO_MAX)
         return None, f"Invalid 'options': {message}"
     return dict(ser.validated_data), None
+
+
+def _validate_import_field_sets(raw, field_names, swimlane_names):
+    """Validate a JSON import's ``field_sets`` list (#2570).
+
+    Returns ``(entries, error_detail)``. Each set names its members by custom
+    field name and its lanes by swimlane name, like stage tracks. A field may
+    belong to at most one set, and at most ``SET_CAP`` sets are accepted, the
+    same rules the field-set API applies one request at a time.
+    """
+    if raw is None:
+        return [], None
+    if not isinstance(raw, list):
+        return None, "'field_sets' must be a list."
+    if len(raw) > CustomFieldSet.SET_CAP:
+        return None, f"'field_sets' has {len(raw)} entries; a board may define at most {CustomFieldSet.SET_CAP}."
+    entries, names, members = [], set(), set()
+    sizes, scopes = set(CustomFieldSet.Size.values), set(CustomFieldSet.Scope.values)
+    for i, fs in enumerate(raw):
+        where = f"'field_sets' entry at index {i}"
+        if not isinstance(fs, dict):
+            return None, f"{where} must be an object."
+        name = fs.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100 or "\x00" in name:
+            return None, f"{where}: 'name' must be a non-empty string of at most 100 characters."
+        name = name.strip()
+        if name in names:
+            return None, f"{where}: duplicate field set name {_bounded_repr(name)}."
+        names.add(name)
+        desc = fs.get("description")
+        if desc is not None and (
+            not isinstance(desc, str) or len(desc) > CustomFieldSet.MAX_DESCRIPTION_LENGTH or "\x00" in desc
+        ):
+            return None, f"{where}: 'description' must be a string of at most {CustomFieldSet.MAX_DESCRIPTION_LENGTH} characters."
+        size = fs.get("default_size", CustomFieldSet.Size.SUMMARY)
+        scope = fs.get("scope", CustomFieldSet.Scope.ALL)
+        if size not in sizes:
+            return None, f"{where}: unknown 'default_size' {_bounded_repr(size)}."
+        if scope not in scopes:
+            return None, f"{where}: unknown 'scope' {_bounded_repr(scope)}."
+        fields = fs.get("fields") or []
+        lanes = fs.get("swimlanes") or []
+        if not isinstance(fields, list) or not isinstance(lanes, list):
+            return None, f"{where}: 'fields' and 'swimlanes' must be lists."
+        for fname in fields:
+            if fname not in field_names:
+                return None, f"{where}: 'fields' references a field not in 'custom_fields': {_bounded_repr(fname)}"
+            if fname in members:
+                return None, f"{where}: field {_bounded_repr(fname)} is already in another set."
+            members.add(fname)
+        for lname in lanes:
+            if lname not in swimlane_names:
+                return None, f"{where}: 'swimlanes' references an undefined swimlane: {_bounded_repr(lname)}"
+        if scope == CustomFieldSet.Scope.SWIMLANES and not lanes:
+            # A lane-scoped set with no lanes would hide on every card; fall
+            # back to every card rather than refusing the whole file.
+            scope = CustomFieldSet.Scope.ALL
+        entries.append({
+            "name": name, "description": (desc or "").strip() or None,
+            "default_size": size, "scope": scope, "fields": fields,
+            "swimlanes": lanes if scope == CustomFieldSet.Scope.SWIMLANES else [],
+        })
+    return entries, None
 
 
 def _validate_import_field_definitions(raw, serializer_class, model, pin_attr, list_name):
@@ -2576,6 +2640,13 @@ class BoardImportExportMixin:
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
+        field_sets, _err = _validate_import_field_sets(
+            data.get("field_sets"), {d["name"] for d in card_field_defs},
+            {sw["name"] for sw in data["swimlanes"] if isinstance(sw, dict)},
+        )
+        if _err:
+            return Response({"detail": _err}, status=status.HTTP_400_BAD_REQUEST)
+
         explicit_name = request.data.get("name")
         if explicit_name and (problem := _text_error(explicit_name, _field_max_length(Board, "name"))):
             return Response({"detail": f"'name' {problem}", "code": ImportErrorCode.INVALID_NAME}, status=status.HTTP_400_BAD_REQUEST)
@@ -2703,6 +2774,18 @@ class BoardImportExportMixin:
                 for sw in sw_data
                 for name in sw.get("not_applicable_tracks") or ()
             ])
+            # Field sets (#2570), by field and swimlane name; every name was
+            # checked against this file above.
+            for i, fs in enumerate(field_sets):
+                field_set = CustomFieldSet.objects.create(
+                    board=board, position=i, name=fs["name"], description=fs["description"],
+                    default_size=fs["default_size"], scope=fs["scope"],
+                )
+                if fs["scope"] == CustomFieldSet.Scope.SWIMLANES:
+                    field_set.swimlanes.set([swimlane_map[n] for n in fs["swimlanes"] if n in swimlane_map])
+                CustomFieldDefinition.objects.filter(
+                    pk__in=[card_field_map[n].pk for n in fs["fields"]],
+                ).update(field_set=field_set)
             if swimlane_field_map:
                 SwimlaneCustomFieldValue.objects.bulk_create([
                     SwimlaneCustomFieldValue(
@@ -4346,6 +4429,23 @@ class BoardImportExportMixin:
                         "band_visibility": sf.band_visibility,
                     }
                     for sf in swimlane_field_definitions
+                ],
+                # Field sets (#2570), re-keyed by name like stage tracks:
+                # members by custom field name, lanes by swimlane name.
+                # Additive; schema_version stays 2.
+                "field_sets": [
+                    {
+                        "name": fs.name,
+                        "description": fs.description,
+                        "position": fs.position,
+                        "default_size": fs.default_size,
+                        "scope": fs.scope,
+                        "fields": [
+                            f.name for f in sorted(fs.fields.all(), key=lambda f: (f.position, f.id))
+                        ],
+                        "swimlanes": sorted(sw.name for sw in fs.swimlanes.all()),
+                    }
+                    for fs in board.custom_field_sets.prefetch_related("fields", "swimlanes").order_by("position", "id")
                 ],
                 "cards": cards_data,
                 # Retained history of hard-deleted cards (#1796), after "cards"

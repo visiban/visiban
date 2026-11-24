@@ -2609,6 +2609,75 @@ another board are ignored.
 
 ---
 
+## Field sets (since 1.3)
+
+A field set groups some of a board's [card custom fields](#custom-fields-since-12) into a
+named, collapsible block on the card detail (#2570). It is display only: a set has no values
+of its own, does not count against the 30-field cap, and enforces nothing. A field is in at
+most one set; a field in no set shows under **Other fields**. The board's sets are also
+returned on `GET /api/v1/boards/{id}/full/` as `custom_field_sets`, and each card field
+definition carries a read-only `field_set` (the set's `id`, or `null`).
+
+**Limit:** at most **10** sets per board. A create past the cap returns `400` with
+`{"detail": "This board has reached its 10-set limit. Delete a set to add a new one."}`.
+
+**Set object**
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | integer | Read-only |
+| `uid` | string | Stable across renames, read-only |
+| `name` | string | 1–100 characters, unique per board |
+| `description` | string \| null | Optional, at most 120 characters; blank is stored as `null` |
+| `position` | integer | Read-only; change it with `reorder` |
+| `default_size` | `"collapsed"` \| `"summary"` \| `"expanded"` | How the block opens for a viewer with no saved choice. Default `"summary"` |
+| `scope` | `"all"` \| `"swimlanes"` | `"all"` shows the set on every card. Default `"all"` |
+| `swimlanes` | integer[] | Swimlane ids on this board the set applies to. Required (at least one) when `scope` is `"swimlanes"`; cleared when `scope` is `"all"`. A deleted swimlane drops out of every set |
+| `field_ids` | integer[] | Card custom field ids on this board, returned in board field order. On write it **replaces** the membership: a listed field moves here from any other set, and a field left out returns to Other fields. Omit it to leave membership unchanged |
+| `created_at` | datetime | Read-only |
+
+### `GET /api/v1/boards/{id}/field-sets/`
+List the board's sets in position order. Any role with access to the board. Not paginated.
+
+### `POST /api/v1/boards/{id}/field-sets/`
+Create a set, appended to the end. Requires board admin (a lower role gets `403`, checked
+before the body is validated). `400` for a duplicate name, an id in `field_ids` or
+`swimlanes` that is not on this board, `scope: "swimlanes"` with no lanes, or the set cap.
+
+### `GET`, `PATCH`, `PUT`, `DELETE /api/v1/boards/{id}/field-sets/{set_id}/`
+Read any role; write board admin. A set id from another board is a `404`. **Delete**
+ungroups the set's fields; it never deletes a field or a value.
+
+### `POST /api/v1/boards/{id}/field-sets/reorder/`
+Requires board admin. **Request** `{ "order": [3, 1, 2] }`. Ids on another board are ignored;
+sets not listed keep their relative order after the listed ones. **Response** the full list.
+
+### `POST /api/v1/boards/{id}/field-sets/copy/`
+A one-time copy of a set from another board, with no link between the two. Requires board
+admin on this board and read access (any role) to the source board; a source board you
+cannot read is a `404`, as is a `source_set` that is not on `source_board`.
+
+**Request** `{ "source_board": 7, "source_set": 12, "name": "MEDDIC" }` (`name` optional,
+defaults to the source set's name; a name already used here becomes "{name} (copy)").
+
+Each source field, in order, either reuses this board's field of the same name and type
+when that field is in no set, or is created. A created field whose name is taken here is
+named "{name} (copied)". Copied fields carry the type, choices, colors, number format,
+thresholds, help text and dimension settings, never `show_on_card` and never values. The
+copy carries the set's `description` and `default_size`; `scope` is always `"all"`, because
+swimlanes are per board. `400` when the created fields would pass the 30-field cap ("Copying
+adds {k} fields; this board has room for {r}. ...") or the set cap. **Response** `201` with
+the new set.
+
+### Export and import
+The JSON export carries `field_sets`, each with `name`, `description`, `position`,
+`default_size`, `scope`, `fields` (custom field names) and `swimlanes` (swimlane names).
+`schema_version` stays `2`; an older importer ignores the key. Import validates the list as
+the API does (cap, names, one set per field) and returns `400` naming the bad entry. A
+lane-scoped set whose lane list is empty imports as `scope: "all"`.
+
+---
+
 ## Swimlane custom fields (since 1.2)
 
 Typed, per-board metadata fields that **swimlane rows** can carry — the row-level

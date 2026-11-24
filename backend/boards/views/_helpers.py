@@ -494,6 +494,9 @@ def get_board_for_user(board_id, user, *, slim=False, with_archived_card_count=F
                 queryset=annotate_has_values(CustomFieldDefinition.objects.all()),
             ),
             "swimlane_custom_field_definitions",
+            # #2570: BoardFullSerializer.custom_field_sets and its two lists.
+            "custom_field_sets__fields",
+            "custom_field_sets__swimlanes",
             # ``columns`` (#1351) follows the same rule: BoardFullSerializer
             # declares ColumnSerializer(many=True) with no filter/order_by,
             # and Column.Meta.ordering (["position"]) applies either way. Same

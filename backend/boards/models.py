@@ -2363,6 +2363,65 @@ class BoardEventPruneTypeMark(models.Model):
         return f"board {self.board_id} {self.event} pruned through {self.max_pruned_id}"
 
 
+class CustomFieldSet(models.Model):
+    """A named, ordered group of a board's card custom fields (#2570).
+
+    Display grouping only: a set has no values of its own and does not count
+    against ``CustomFieldDefinition.MAX_PER_BOARD``. Membership lives on the
+    definition (``CustomFieldDefinition.field_set``, SET_NULL), so a field is in
+    at most one set and deleting a set ungroups its fields rather than deleting
+    them. Entry requirements (#1923) will reference a set; nothing here
+    enforces anything.
+
+    ``SET_CAP`` is a count over a board's rows, so like the field caps it is
+    enforced at the serializer boundary and re-checked in the viewset under the
+    board row lock (``boards.serializers.assert_field_set_cap``).
+
+    ``swimlanes`` is an M2M rather than a JSON id list (owner ruling,
+    2026-11-24): a deleted swimlane drops out of every set through the CASCADE
+    on the through table, so no list can name a lane that no longer exists.
+    """
+
+    SET_CAP = 10
+    MAX_DESCRIPTION_LENGTH = 120
+
+    class Size(models.TextChoices):
+        COLLAPSED = "collapsed", "Collapsed"
+        SUMMARY = "summary", "Summary"
+        EXPANDED = "expanded", "All fields"
+
+    class Scope(models.TextChoices):
+        ALL = "all", "Every card"
+        SWIMLANES = "swimlanes", "Only cards in these swimlanes"
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="custom_field_sets")
+    name = models.CharField(max_length=100)
+    description = models.CharField(max_length=MAX_DESCRIPTION_LENGTH, blank=True, null=True)
+    position = models.IntegerField(default=0)
+    default_size = models.CharField(
+        max_length=10, choices=Size.choices, default=Size.SUMMARY, db_default=Size.SUMMARY,
+    )
+    scope = models.CharField(
+        max_length=10, choices=Scope.choices, default=Scope.ALL, db_default=Scope.ALL,
+    )
+    swimlanes = models.ManyToManyField(Swimlane, blank=True, related_name="custom_field_sets")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "custom_field_sets"
+        ordering = ["position", "id"]
+        # Built with the new table, so exempt from the concurrent-build rule.
+        # Name uniqueness makes a set addressable by name, which export/import
+        # re-keys on (the StageTrack precedent).
+        constraints = [
+            models.UniqueConstraint(fields=["board", "name"], name="custom_field_set_board_name_uniq"),
+        ]
+
+    def __str__(self):
+        return f"{self.board_id} / {self.name}"
+
+
 class CustomFieldDefinition(models.Model):
     """A typed metadata field that every card on one board may carry (#371).
 
@@ -2517,6 +2576,14 @@ class CustomFieldDefinition(models.Model):
     choice_resolutions = models.JSONField(
         default=dict, blank=True, db_default=models.Value({}, output_field=models.JSONField()),
     )
+    # The field set this field displays under (#2570); null means "Other
+    # fields". SET_NULL so deleting a set ungroups, never deletes. Written only
+    # through the field-set endpoint, never a definition PATCH, so membership
+    # has one write path. Index built concurrently (0135).
+    field_set = models.ForeignKey(
+        CustomFieldSet, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="fields", db_index=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2527,6 +2594,7 @@ class CustomFieldDefinition(models.Model):
         # (board, name) makes a field addressable by name, which the CSV export
         # header and the (future) import both rely on.
         unique_together = [("board", "position"), ("board", "name")]
+        indexes = [models.Index(fields=["field_set"], name="cfdef_field_set_idx")]
 
     def __str__(self):
         return f"{self.board_id} / {self.name}"

@@ -54,7 +54,7 @@ from .permissions import (
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardInviteLink, BoardMembership, BoardPresetId, BoardTemplate, Column, Swimlane, Label, Card,
     CardMovement, CardParentLink, CardComment, CardActivity, CardAttachment, CardBlock, CardChecklist, CardExternalRef,
-    CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
+    CardRelation, CustomFieldDefinition, CustomFieldSet, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
     CardGateTransition, StageTrack, SubColumn, SwimlaneTrackException,
     validate_external_ref_ref, validate_external_ref_url,
@@ -1938,8 +1938,11 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             "created_at", "has_values",
             # Additive (#1921): dimension fields.
             "is_dimension", "choice_resolutions",
+            # Additive (#2570): the set this field displays under, or null.
+            # Read-only: membership is written through the field-set endpoint.
+            "field_set",
         ]
-        read_only_fields = ["id", "uid", "position", "created_at"]
+        read_only_fields = ["id", "uid", "position", "created_at", "field_set"]
         # Schema-only (#1077): class token without a model help_text migration.
         extra_kwargs = {
             "is_required": {"help_text": field_enforcement.CUSTOM_FIELD_IS_REQUIRED},
@@ -2044,6 +2047,171 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
                 ),
             )
         return attrs
+
+
+def assert_field_set_cap(board, *, instance=None):
+    """Enforce ``CustomFieldSet.SET_CAP`` for ``board``, or raise (#2570).
+
+    Called from :class:`CustomFieldSetSerializer.validate` (a 400 with a
+    field-shaped body) and again by the viewset inside its board-row-locked
+    transaction, so two concurrent creates cannot both read a count of 9 and
+    land an 11th set. Same two-call-site shape as ``assert_definition_caps``.
+    """
+    if instance is not None and instance.pk is not None:
+        return
+    if CustomFieldSet.objects.filter(board=board).count() >= CustomFieldSet.SET_CAP:
+        raise serializers.ValidationError({
+            "detail": (
+                f"This board has reached its {CustomFieldSet.SET_CAP}-set limit. "
+                "Delete a set to add a new one."
+            )
+        })
+
+
+class _IdListField(serializers.ListField):
+    """A list of ids read through ``reader(instance)`` and written as given.
+
+    One key for both directions, so the API and the TS interface name the
+    relation once. ``reader`` iterates ``.all()`` so a prefetch serves it.
+    """
+
+    def __init__(self, *, reader, **kwargs):
+        self._reader = reader
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        return self._reader(instance)
+
+    def to_representation(self, data):
+        return list(data)
+
+
+class CustomFieldSetSerializer(serializers.ModelSerializer):
+    """A board's named group of card custom fields (#2570). Display only.
+
+    ``field_ids`` is the set's membership, in board field order on read. On
+    write it replaces the membership: a listed field from another set moves
+    here, and a field left out returns to "Other fields". It is the only write
+    path for ``CustomFieldDefinition.field_set``.
+
+    ``swimlanes`` holds lane ids and is meaningful only when ``scope`` is
+    ``swimlanes``; ``all`` clears it, so a stale lane list cannot linger behind
+    a scope that ignores it.
+
+    The board comes from ``context["board"]`` and is required: without it the
+    ids in ``field_ids`` / ``swimlanes`` could not be checked against a board,
+    so validation refuses rather than skipping the check (#1075).
+    """
+
+    field_ids = _IdListField(
+        reader=lambda obj: [f.id for f in sorted(obj.fields.all(), key=lambda f: (f.position, f.id))],
+        child=serializers.IntegerField(), required=False,
+        max_length=CustomFieldDefinition.MAX_PER_BOARD,
+        help_text=(
+            "Custom field ids on this board that belong to the set, in board field "
+            "order. On write, replaces the membership: a listed field moves here "
+            "from any other set; a field left out returns to Other fields."
+        ),
+    )
+    swimlanes = _IdListField(
+        reader=lambda obj: sorted(s.id for s in obj.swimlanes.all()),
+        child=serializers.IntegerField(), required=False, max_length=200,
+        help_text="Swimlane ids the set applies to when scope is 'swimlanes'; empty when scope is 'all'.",
+    )
+    description = serializers.CharField(
+        max_length=CustomFieldSet.MAX_DESCRIPTION_LENGTH, required=False,
+        allow_blank=True, allow_null=True,
+    )
+
+    class Meta:
+        model = CustomFieldSet
+        fields = [
+            "id", "uid", "name", "description", "position", "default_size", "scope",
+            "swimlanes", "field_ids", "created_at",
+        ]
+        read_only_fields = ["id", "uid", "position", "created_at"]
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Name cannot be blank.")
+        return reject_nul_byte(name, field_label="Name")
+
+    def validate_description(self, value):
+        if value is None:
+            return None
+        value = reject_nul_byte(value.strip(), field_label="Description")
+        return value or None
+
+    def validate(self, attrs):
+        board = self.context.get("board")
+        if board is None:
+            # Absent-input guard (#1075): never validate ids without a board.
+            raise serializers.ValidationError({"detail": "A board is required to validate a field set."})
+        instance = self.instance
+        name = attrs.get("name", instance.name if instance else None)
+        if name is not None:
+            clash = CustomFieldSet.objects.filter(board=board, name=name)
+            if instance is not None:
+                clash = clash.exclude(pk=instance.pk)
+            if clash.exists():
+                raise serializers.ValidationError({"name": "A field set with this name already exists on this board."})
+        if "field_ids" in attrs:
+            ids = list(dict.fromkeys(attrs["field_ids"]))
+            found = set(
+                CustomFieldDefinition.objects.filter(board=board, pk__in=ids).values_list("pk", flat=True)
+            )
+            if len(found) != len(ids):
+                raise serializers.ValidationError({"field_ids": "Every entry must be a custom field on this board."})
+            attrs["field_ids"] = ids
+        scope = attrs.get("scope", instance.scope if instance else CustomFieldSet.Scope.ALL)
+        if "swimlanes" in attrs:
+            lane_ids = sorted(set(attrs["swimlanes"]))
+            found = set(Swimlane.objects.filter(board=board, pk__in=lane_ids).values_list("pk", flat=True))
+            if len(found) != len(lane_ids):
+                raise serializers.ValidationError({"swimlanes": "Every entry must be a swimlane on this board."})
+            attrs["swimlanes"] = lane_ids
+        if scope == CustomFieldSet.Scope.ALL:
+            attrs["swimlanes"] = []
+        else:
+            lanes = attrs.get("swimlanes")
+            if lanes is None:
+                lanes = list(instance.swimlanes.values_list("pk", flat=True)) if instance else []
+            if not lanes:
+                raise serializers.ValidationError({"swimlanes": "Choose at least one swimlane, or show the set on every card."})
+        assert_field_set_cap(board, instance=instance)
+        return attrs
+
+    def _apply_membership(self, field_set, field_ids):
+        """Replace the set's membership; return the ids of other sets that lost fields."""
+        if field_ids is None:
+            return set()
+        moved_from = set(
+            CustomFieldDefinition.objects.filter(pk__in=field_ids, field_set__isnull=False)
+            .exclude(field_set=field_set).values_list("field_set_id", flat=True)
+        )
+        CustomFieldDefinition.objects.filter(field_set=field_set).exclude(pk__in=field_ids).update(field_set=None)
+        CustomFieldDefinition.objects.filter(board_id=field_set.board_id, pk__in=field_ids).update(field_set=field_set)
+        return moved_from
+
+    def create(self, validated_data):
+        field_ids = validated_data.pop("field_ids", None)
+        lanes = validated_data.pop("swimlanes", [])
+        field_set = CustomFieldSet.objects.create(**validated_data)
+        field_set.swimlanes.set(lanes)
+        self.affected_set_ids = self._apply_membership(field_set, field_ids)
+        return field_set
+
+    def update(self, instance, validated_data):
+        field_ids = validated_data.pop("field_ids", None)
+        lanes = validated_data.pop("swimlanes", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if lanes is not None:
+            instance.swimlanes.set(lanes)
+        self.affected_set_ids = self._apply_membership(instance, field_ids)
+        return instance
 
 
 class CustomFieldValueSerializer(serializers.ModelSerializer):
@@ -5395,6 +5563,9 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
     swimlane_custom_field_definitions = SwimlaneCustomFieldDefinitionSerializer(
         many=True, read_only=True
     )
+    # The board's field sets (#2570), shipped with the board like the field
+    # schema above; managed through the admin-gated /boards/{id}/field-sets/.
+    custom_field_sets = CustomFieldSetSerializer(many=True, read_only=True)
     # Read-only here like every field of /full/; written through
     # PATCH /boards/{id}/ (BoardSerializer). Overrides the mixin's writable one.
     health_status = serializers.ChoiceField(
@@ -5444,6 +5615,8 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             # Additive (#2212): parent-card naming; written via PATCH /boards/{id}/.
             "parent_name_singular",
             "parent_name_plural",
+            # Additive (#2570): custom field sets.
+            "custom_field_sets",
         ]
         # `group` is read-only here: this serializer only renders /full/, and a
         # group change goes through BoardSerializer.validate_group or move-group.

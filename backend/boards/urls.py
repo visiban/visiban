@@ -4,7 +4,7 @@ from rest_framework.routers import SimpleRouter
 from .views import (
     BoardViewSet, BoardTemplateListView, SampleBoardListView, SampleBoardDetailView,
     ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
-    CardQueryViewSet, CustomFieldDefinitionViewSet,
+    CardQueryViewSet, CustomFieldDefinitionViewSet, CustomFieldSetViewSet,
     SwimlaneCustomFieldDefinitionViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
     VersionView, JoinBoardView,
@@ -30,6 +30,9 @@ boards_router.register(r"labels", LabelViewSet, basename="board-label")
 boards_router.register(r"cards", CardViewSet, basename="board-card")
 boards_router.register(
     r"custom-fields", CustomFieldDefinitionViewSet, basename="board-custom-field"
+)
+boards_router.register(
+    r"field-sets", CustomFieldSetViewSet, basename="board-field-set"
 )
 boards_router.register(
     r"swimlane-custom-fields",
