@@ -99,10 +99,10 @@ The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi
 | Largest board | Suggested `backend.resources.limits.memory` |
 |---|---|
 | Up to about 2.4k active cards, under a year of history | `512Mi` (the default) |
-| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to under 3 years of history | `1Gi` |
-| 12k or more active cards with a year or more of history, or 3 or more years of history | `2Gi` |
+| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to 2 years of history | `1Gi` |
+| 12k or more active cards with a year or more of history, or 2 or more years of history | `2Gi` (leaves only about 190 MB over the 1,956 MB burst peak) |
 
-The tiers are interpolated from the peaks above, not measured per tier.
+The tiers are interpolated from the peaks above, not measured per tier. These peaks were measured on 2026-11-20, before #2426 and #2427 shipped. Process memory for 12k cards with a year of history was never measured.
 
 ```yaml
 backend:
@@ -115,7 +115,7 @@ backend:
       memory: 2Gi
 ```
 
-`daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on the committed Analytics fixes. The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
+`daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on #2425 (still open) and a re-measure (#2430). The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
 
 ## Bundled Valkey
 

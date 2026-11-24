@@ -1229,7 +1229,7 @@ Without a `name` field, both formats name the new board `Imported: <name>`:
 - **JSON** — `<name>` is the `name` field in the file. An unpaired UTF-16 surrogate in it (`"\ud800"`, which PostgreSQL cannot store) is replaced with U+FFFD in the default name.
 - **CSV** — a CSV carries no board name, so `<name>` is the uploaded filename without its extension (`Q3 plan.csv` → `Imported: Q3 plan`). An empty filename stem falls back to `Board`.
 
-**Yes, but:** If a board with that exact name exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every ungrouped board you can access (the boards under **All boards** with the **Personal** filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. Names are not unique, so two simultaneous imports can occasionally get the same name.
+If a board with that exact name exists, the lowest unused number is appended: `Imported: Roadmap - 1`, then `- 2`, and so on. A gap left by a deleted or renamed board is reused first. Only boards where the new board lands count: the target group's boards when `group_id` is set, otherwise every ungrouped board you can access (the boards under **All boards** with the **Personal** filter on Home). The name is truncated to the 255-character limit so the prefix and number always fit. **Yes, but:** names are not unique, so two simultaneous imports can occasionally get the same name.
 
 #### Import options
 

@@ -1,6 +1,6 @@
 # Know which CI scanner blocks your merge
 
-Nine CI security jobs can fail a pipeline, and each runs on a different trigger. Accept a finding with an expiring suppression, never by turning the scanner off.
+Eleven CI security jobs, in nine table rows, can fail a pipeline, and their triggers differ. Accept a finding with an expiring suppression, never by turning the scanner off.
 
 **Why it matters:** A scanner you think blocks but does not gives false safety, and one you disable to get green hides a real leak. The table below says which is which.
 
@@ -20,7 +20,7 @@ Nine CI security jobs can fail a pipeline, and each runs on a different trigger.
 
 **Yes, but:** `dep-scan-osv`, `pip-audit`, and the license checks are deliberately outside this policy.
 
-**Watch out:** GitLab's analyzers exit 0 on findings. The secret scanners that gate are `gitleaks-scan`, `gitleaks-commits`, `gitleaks-history`, and
+**Watch out:** The secret scanners that gate are `gitleaks-scan`, `gitleaks-commits`, `gitleaks-history`, and
 `secret-detection-gate`. GitLab's analyzers exit 0 even when they find something, so
 `allow_failure: false` on the component's `secret_detection` job only turns an analyzer crash
 into a red job; it does not stop a leak. `secret-detection-gate` (`scripts/secret-detection-gate.py`,

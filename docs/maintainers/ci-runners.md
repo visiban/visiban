@@ -24,7 +24,7 @@ As of 2026-10-20, these GitLab group runners are registered against `visiban/vis
 | 57236808 | `gitlab-runner-dell-02-visiban` | paused | `dell-small` | true |
 | 57236862 | `gitlab-runner-dell-03-visiban` | online | `dell-small` | true |
 
-**By the numbers:** All are self-hosted.
+All are self-hosted.
 
 - **The `nuc` tag.** The NUC runners carry it (added 2026-10-08) so that
   hardware-sensitive jobs can pin to them. Today that is only `nightly-load-test`, whose latency
@@ -62,7 +62,7 @@ here (the `gitlab-runner` binary itself runs under Rosetta) and `uname -m` on th
 `backend-docker-push` / `frontend-docker-push` (`.kaniko-push-common` in `.gitlab-ci.yml`)
 build and push **amd64** with **kaniko**, which needs no Docker daemon and runs on any runner.
 
-**How it got here:** This wasn't always true. Before the kaniko conversion (merged in **!852**, 2026-09-14), these
+This wasn't always true. Before the kaniko conversion (merged in **!852**, 2026-09-14), these
 jobs ran `docker buildx` against a Docker socket mounted by a self-hosted runner's
 `config.toml` (`volumes = ["/var/run/docker.sock:/var/run/docker.sock"]`). That runner (the
 "nuc runner", group runner id `53511568`) went stale on **2026-07-18**. Because the jobs

@@ -2,12 +2,12 @@
 
 These runbooks are for whoever runs the project itself: CI infrastructure, credentials, and known failure patterns.
 
-**Yes, but:** This is **not** end-user or self-hosted-instance
-documentation; see [Administration](../administration/index.md) for that audience.
-
 **Why it matters:** These pages exist because operational facts that only live in a maintainer's personal notes
 are invisible to everyone else and nothing forces them to stay current. Point-in-time facts
 belong here, committed and versioned, not in a private notes file.
+
+**Yes, but:** This is **not** end-user or self-hosted-instance
+documentation; see [Administration](../administration/index.md) for that audience.
 
 | Guide | Description |
 |---|---|
