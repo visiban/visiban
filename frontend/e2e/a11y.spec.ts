@@ -31,29 +31,20 @@ type StateName =
 // maxNodes is exact: more nodes is a new violation, fewer means lower the count.
 const BASELINE: Partial<Record<StateName, Record<string, { maxNodes: number }>>> = {
   'board view': {
-    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2560)
   },
   'card detail dialog': {
-    'button-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'color-contrast': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2466)
-    'label': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
   },
   'command palette': {
-    'aria-required-attr': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
-    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2560)
   },
   'filter bar expanded': {
-    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2560)
   },
   'settings page': {
   },
   'member management modal': {
-    'aria-toggle-field-name': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2468)
-    'aria-valid-attr-value': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
-    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2469)
+    'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2560)
   },
   'mobile navigation': {
   },

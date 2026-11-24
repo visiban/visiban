@@ -1178,7 +1178,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       <input
         type="search"
         aria-label="Find a setting"
-        aria-controls="board-settings-find-results"
+        // The listbox/status node only exists while a query is typed; an aria-controls to a missing id is invalid (#2469).
+        aria-controls={findQuery.trim() !== "" ? "board-settings-find-results" : undefined}
         aria-activedescendant={findResults.length > 0 ? `board-settings-find-${findIndex}` : undefined}
         aria-autocomplete="list"
         placeholder="Find a setting (e.g. export, WIP, fields)"

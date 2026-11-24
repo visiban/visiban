@@ -421,6 +421,7 @@ export default function CommandPalette({
             aria-autocomplete="list"
             aria-activedescendant={results[activeIndex] ? `palette-item-${results[activeIndex].key}` : undefined}
             role="combobox"
+            aria-controls="palette-results"
             aria-expanded={results.length > 0}
           />
           <kbd className="text-xs px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">
@@ -440,7 +441,7 @@ export default function CommandPalette({
         )}
 
         {/* Results */}
-        <div ref={listRef} className="overflow-y-auto flex-1 py-1" role="listbox" aria-label="Results">
+        <div ref={listRef} id="palette-results" className="overflow-y-auto flex-1 py-1" role="listbox" aria-label="Results">
           {loadingBoards && !drill && !sub && results.length === 0 && (
             <p className="px-3 py-2 text-xs text-fg-muted italic">Loading…</p>
           )}

@@ -36,14 +36,14 @@ in an adjacent span needs a real space before it); use the contrast-checked colo
 ## The baseline
 
 When the gate landed, the scanned states already had violations. They are recorded in `BASELINE`
-in the spec, each tied to an open issue: #2466 (color-contrast), #2468 (missing accessible names), #2469 (ARIA validity). Fix the
+in the spec, each tied to an open issue: #2560 (nested-interactive on the board card). Fix the
 issue, then remove the matching entries. Never add an entry for a regression you just introduced;
 fix the regression. A new entry needs an open tracking issue.
 
 Each entry names its issue only as a `// SUPPRESSED-UNTIL(#N)` comment on the same line:
 
 ```ts
-'color-contrast': { maxNodes: 4 }, // SUPPRESSED-UNTIL(#2466)
+'nested-interactive': { maxNodes: 1 }, // SUPPRESSED-UNTIL(#2560)
 ```
 
 `suppressions-check` scans `frontend/e2e`, so once that issue closes with the entry still in

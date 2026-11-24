@@ -887,6 +887,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       {onSelect && (
         <div
           role="checkbox"
+          aria-label={`Select card ${card.title}`}
           aria-checked={selected}
           tabIndex={0}
           className={`absolute top-[7px] right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10

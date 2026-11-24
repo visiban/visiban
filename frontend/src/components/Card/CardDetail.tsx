@@ -27,7 +27,7 @@ import type { CardPatch, TimelineCounts, TimelinePage } from "../../api/cards";
 import { moveChoices, parseMoveChoice } from "../../utils/cardActions";
 import { cardSubColumnIndex, isGatedStage } from "../../utils/stages";
 import { createLabel } from "../../api/boards";
-import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
+import { PALETTE_COLORS, PRIORITY_COLORS, readableTextOn } from "../../constants/colors";
 import ColorSwatchPicker from "../Common/ColorSwatchPicker";
 import { focusEnclosingDialog } from "../../utils/focusEnclosingDialog";
 import { hasOpenDismissLayer } from "../../utils/dismissLayer";
@@ -1628,6 +1628,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <div className={`flex-1 min-w-0 ${fullscreen ? "basis-full" : ""}`} data-testid="card-detail-title-block">
             <input
               id="card-detail-title"
+              aria-label="Card title"
               ref={titleInputRef}
               value={localCard.title}
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
@@ -1987,6 +1988,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         ? [{ value: String(localCard.assignee.id), label: userDisplayName(localCard.assignee) }]
                         : []),
                     ]}
+                    ariaLabel="Assignee"
                     disabled={!canAssign}
                     // Never shown to the demo visitor: canAssign is widened for
                     // a demo member (canModifyOthersContentInDemo), so this
@@ -2072,10 +2074,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }).catch(() => {}); }}
                       className={`max-sm:min-h-11 text-xs px-3 py-1 rounded-full border font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                         localCard.priority === opt.value
-                          ? "text-on-primary border-transparent shadow-sm"
+                          ? "border-transparent shadow-sm"
                           : "text-fg-tertiary border-line-strong hover:border-line-emphasis bg-transparent"
                       }`}
-                      style={localCard.priority === opt.value ? { backgroundColor: opt.color, borderColor: opt.color } : {}}
+                      style={localCard.priority === opt.value ? { backgroundColor: opt.color, borderColor: opt.color, color: readableTextOn(opt.color) } : {}}
                     >
                       {opt.label}
                     </button>
