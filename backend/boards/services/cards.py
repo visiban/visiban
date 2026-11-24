@@ -77,7 +77,7 @@ from .errors import (
     InvalidGatesPassed, InvalidPosition, InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
     SwimlaneWeightLimitExceeded, SwimlaneWipHardBlocked, SwimlaneWipLimitExceeded,
     UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
-    WipLimitExceeded,
+    WipLimitExceeded, clean_override_reason,
 )
 
 logger = logging.getLogger(__name__)
@@ -909,6 +909,8 @@ def create_card(
     if not column.allow_card_creation:
         raise CardCreationNotAllowed()
     swimlane = _board_scoped(Swimlane, swimlane_id, board, SwimlaneNotFound)
+    # After the role and object checks, so those answer first (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     board_id = board.id
     with transaction.atomic():
@@ -1304,6 +1306,8 @@ def update_card(
             expected_version = int(expected_version)
         except (TypeError, ValueError):
             raise InvalidVersion() from None
+    # Same placement rule for the override reason (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     _reject_cell_change(board, card, submitted)
 
@@ -2242,6 +2246,8 @@ def _move_card_attempt(
 
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)
+        # After the role, assignment and lookup checks (#1923).
+        override_reason = clean_override_reason(override_reason)
 
         cells = {
             (card.column_id, card.swimlane_id),
@@ -2695,6 +2701,8 @@ def unarchive_card(
     _require_own_content(
         board, role, actor, card, denial="You can only restore cards you created.",
     )
+    # After the role, lookup and ownership checks (#1923).
+    override_reason = clean_override_reason(override_reason)
 
     if card.archived_at is None:
         # No-op path: the card was not archived. One render to return state.

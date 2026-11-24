@@ -1024,10 +1024,12 @@ class SwimlaneAdmin(ContainerChangedAdminMixin, _BoardEventAdminMixin, admin.Mod
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if change:
-            setting_changes.record_swimlane_enforcement_change(
-                swimlane=obj, actor=request.user, old_value=obj._old_limit_enforcement,
-            )
+        # #2584: an added lane is audited against the unset default, as on the
+        # REST create.
+        setting_changes.record_swimlane_enforcement_change(
+            swimlane=obj, actor=request.user,
+            old_value=obj._old_limit_enforcement if change else None,
+        )
         # A parent's lane name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change. The old name was read under the lane
@@ -1364,6 +1366,10 @@ class BoardAdmin(RowVersionAdminMixin, ContainerChangedAdminMixin, admin.ModelAd
             setting_changes.record_board_setting_changes(
                 board=obj, actor=request.user, before=old_settings,
             )
+        else:
+            # #2584: a board added here with non-default settings is audited,
+            # as on the REST create.
+            setting_changes.record_board_initial_settings(board=obj, actor=request.user)
         # A parent board's name shows on each child (#2416): the same one
         # coalesced, ids-only ping per child board as the REST rename (#2500),
         # only on a real name change, published on commit.

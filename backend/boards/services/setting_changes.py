@@ -4,7 +4,7 @@ Board saves otherwise leave only a ``board.updated`` feed row, which carries
 no old value and is pruned after ``BOARD_EVENT_RETENTION_DAYS``. Every toggle
 that widens or relaxes who can place a card past a limit is recorded here, on
 every write path that changes it (the board and swimlane create and PATCH/PUT
-views).
+views, and the Django admin add and change forms).
 """
 
 from ..models import BoardSettingChange

@@ -211,6 +211,24 @@ class OverrideRecordingTests(_Fixture, TestCase):
                 self.assertIn("override_reason", resp.json())
         self.assertEqual(self._move(self.admin, reason="x" * 500).status_code, 200)
 
+    def test_bad_reason_never_masks_403_or_404(self):
+        viewer = User.objects.create_user(username="ao_viewer", password="pass")
+        BoardMembership.objects.create(board=self.board, user=viewer, role=R.VIEWER)
+        base = f"/api/v1/boards/{self.board.pk}/cards"
+        bad = {"override_reason": 5}
+        move = {**bad, "column_id": self.dst.pk, "swimlane_id": self.lane.pk, "position": 0}
+        cases = (
+            (viewer, f"{base}/{self.card.pk}/move/", move, 403),
+            (viewer, f"{base}/{self.card.pk}/unarchive/", bad, 403),
+            (self.admin, f"{base}/999999/move/", move, 404),
+            (self.admin, f"{base}/999999/unarchive/", bad, 404),
+            (self.other, f"{base}/{self.card.pk}/move/", move, 403),
+        )
+        for user, url, body, status in cases:
+            with self.subTest(url=url, user=user.username):
+                resp = self._client(user).post(url + "?force=true", body, format="json")
+                self.assertEqual(resp.status_code, status, resp.content)
+
     def test_self_assigned_member_gets_coded_403(self):
         Card.objects.filter(pk=self.card.pk).update(assigned_by=self.member)
         resp = self._move(self.member, reason="mine")
@@ -507,6 +525,24 @@ class AdminSettingAuditTests(_Fixture, TestCase):
         self.assertEqual(row.setting, f"swimlane:{lane.uid}:limit_enforcement")
         self.assertEqual((row.new_value, row.actor_id), ("hard", self.staff.pk))
         self.assertNotEqual(old, "hard")
+
+
+    def test_admin_add_records_non_default_settings(self):
+        board = Board(name="Added", owner=self.admin, enforce_wip_hard=True)
+        BoardAdmin(Board, AdminSite()).save_model(self.request, board, form=None, change=False)
+        row = BoardSettingChange.objects.get(board=board)
+        self.assertEqual(
+            (row.setting, row.old_value, row.new_value, row.actor_id),
+            ("enforce_wip_hard", "false", "true", self.staff.pk),
+        )
+        admin = SwimlaneAdmin(Swimlane, AdminSite())
+        plain = Swimlane(board=board, name="Plain", position=0)
+        admin.save_model(self.request, plain, form=None, change=False)
+        self.assertEqual(BoardSettingChange.objects.count(), 1)
+        lane = Swimlane(board=board, name="Strict", position=1, limit_enforcement="hard")
+        admin.save_model(self.request, lane, form=None, change=False)
+        row = BoardSettingChange.objects.get(setting=f"swimlane:{lane.uid}:limit_enforcement")
+        self.assertEqual((row.old_value, row.new_value, row.actor_id), ("", "hard", self.staff.pk))
 
 
 class AssigneeOverrideEndToEndTests(_Fixture, TestCase):

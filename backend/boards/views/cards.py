@@ -38,7 +38,7 @@ from ..services import cards as card_services
 from ..services.notifications import (
     card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
 )
-from ..services.errors import CardNotFound, CardServiceError, clean_override_reason
+from ..services.errors import CardNotFound, CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
@@ -462,12 +462,13 @@ def _force_requested(request):
 def _override_reason(request):
     """The optional body field ``override_reason`` sent with ``?force=true`` (#1923).
 
-    Validated at the boundary (stripped, at most 500 characters, no NUL) by
-    the shared ``clean_override_reason``; a bad value is a 400. Whether a
-    reason is *required* is the service's decision (assignee basis only).
+    Returned raw: the card service validates it (``clean_override_reason``)
+    only after its role and object checks, so a caller who fails those sees
+    403/404, not a 400 about the reason. Whether a reason is *required* is the
+    service's decision too (assignee basis only).
     """
     data = request.data if hasattr(request.data, "get") else {}
-    return clean_override_reason(data.get("override_reason"))
+    return data.get("override_reason")
 
 
 _FORCE_PARAM = OpenApiParameter(
