@@ -3172,6 +3172,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-role-x-endpoint-matrix-1573" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The role x endpoint matrix (#1573)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-done-here" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4687,6 +4698,16 @@
 <li><strong>No broadcast storm.</strong> An emit inside a <code>for</code>/<code>while</code> is a finding unless the loop is recorded in <code>LOOP_FANOUT_BY_DESIGN</code> with the channels it iterates.</li>
 </ol>
 <p><strong>Watch out:</strong> Resolving every call by bare name alone made <code>instance.delete()</code> in <code>LabelViewSet.perform_destroy</code> edge to <code>LensConnectionView.delete</code>, which <em>does</em> broadcast, so a handler that broadcast nothing came back clean. A method on a name the function itself bound is never a call into the module-level call graph.</p>
+<h2 id="the-role-x-endpoint-matrix-1573">The role x endpoint matrix <em>(#1573)</em><a class="headerlink" href="#the-role-x-endpoint-matrix-1573" title="Permanent link">&para;</a></h2>
+<p><code>rbac-coverage</code> is static. The runtime counterpart is <code>backend/boards/tests/test_rbac_matrix_1573.py</code>, which sends every board-scoped write route as all seven principals (non-member, viewer, collaborator, member, board admin, site admin, access-all-content account) and compares the outcome to an expected table.</p>
+<ul>
+<li><strong>Routes come from the OpenAPI schema</strong>, not a list. A new <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, or <code>DELETE</code> under <code>/api/v1/boards/</code> fails <code>test_every_write_route_has_an_expected_outcome</code> by name until it has an entry in <code>EXPECTED</code>. A stale entry fails it too.</li>
+<li><strong>Each entry is a policy</strong> (<code>admin</code>, <code>mutate</code>, <code>annotate</code>, <code>any_member</code>, <code>authenticated</code>, <code>content_admin</code>) defined in <code>backend/boards/tests/rbac_matrix.py</code>, or <code>skip:&lt;reason&gt;</code> for a route the harness cannot address yet. Write the entry from the route's documented minimum role in <code>docs/features/rbac/roles.md</code>, not from what the route returns today.</li>
+<li><strong>A denied principal must also change nothing</strong>: card, comment, attachment, checklist, movement, activity, feed, board, membership, column, swimlane, label, saved-filter, and invite-link row counts are compared before and after.</li>
+<li><strong>Each request runs in a rolled-back savepoint</strong>, so an admitted <code>DELETE</code> cannot disturb the next request.</li>
+<li><strong>Ownership is held constant</strong>: each request runs as the author of the fixture card, comment, and checklist item, so the role gate is what is measured. The ownership gate has its own tests (<code>test_ownership_gating.py</code>).</li>
+</ul>
+<p>Group routes (<code>/api/v1/groups/...</code>) and the <code>skip:</code> rows (attachment, child link, relation, custom field, webhook, join token) are not covered yet. To fill a row, add a fixture to <code>MatrixWorld</code> and replace the <code>skip:</code> with a policy.</p>
 <h2 id="not-done-here">Not done here<a class="headerlink" href="#not-done-here" title="Permanent link">&para;</a></h2>
 <p>The <code>CLAUDE.md</code> pre-MR gate cluster still lists <code>rbac-check</code> and <code>broadcast-check</code> as agent calls. That instruction lives in the user's global <code>~/.claude/CLAUDE.md</code>, not in this repository, so no merge request against this repo can change it. #1143 also gates the change on "once both scripts are trusted". Narrow the agent invocations once these jobs have a few releases of clean runs behind them. Until then, running both is belt and braces rather than waste.</p>
 
