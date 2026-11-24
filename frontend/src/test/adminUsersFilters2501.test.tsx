@@ -88,6 +88,8 @@ describe('Users filter pills (#2501)', () => {
     expect(pill('Deactivated')).toHaveTextContent('1')
     expect(pill('Admins')).toHaveTextContent('1')
     expect(pill('Admins')).toHaveAttribute('aria-pressed', 'false')
+    // The filter is a group named for the concept; its phone select has its own name.
+    expect(screen.getByRole('combobox', { name: 'User status' })).toBeInTheDocument()
   })
 
   it.each([
@@ -102,6 +104,8 @@ describe('Users filter pills (#2501)', () => {
     for (const n of names) expect(screen.getByText(n)).toBeInTheDocument()
     expect(pill(label)).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByText(`Showing 1–${names.length} of ${names.length}`)).toBeInTheDocument()
+    // The new total is announced in the polite status region.
+    expect(screen.getByText(`${names.length} ${names.length === 1 ? 'user' : 'users'}`)).toHaveClass('sr-only')
   })
 
   it('combines with the search, keeping both in the request', async () => {
@@ -161,7 +165,7 @@ describe('Users filter pills (#2501)', () => {
 
   it('the phone select carries the same filters and counts', async () => {
     await renderUsers()
-    const select = screen.getByRole('combobox', { name: 'Filter users' })
+    const select = screen.getByRole('combobox', { name: 'User status' })
     expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['All (3)', 'Active (2)', 'Deactivated (1)', 'Admins (1)'])
     fireEvent.change(select, { target: { value: 'deactivated' } })
     await waitFor(() => expect(lastCall()).toMatchObject({ status: 'deactivated', offset: 0 }))
@@ -171,7 +175,7 @@ describe('Users filter pills (#2501)', () => {
     api.getAdminUsers.mockResolvedValue({ count: 3, offset: 0, page_size: 50, results: ROWS })
     await renderUsers()
     expect(pill('All').textContent).toBe('All')
-    expect(within(screen.getByRole('combobox', { name: 'Filter users' })).getAllByRole('option')[0].textContent).toBe('All')
+    expect(within(screen.getByRole('combobox', { name: 'User status' })).getAllByRole('option')[0].textContent).toBe('All')
   })
 
   it('a row action that changes a status moves the counts', async () => {

@@ -964,8 +964,8 @@ function AccessTokensTab({ user, isSiteAdmin = false, onUnsavedChange }: { user?
               onChange={(e) => setExpiresAt(e.target.value)}
               max={latestExpiry}
               required={expiryRequired}
-              hint={expiryRequired ? `This site requires tokens to expire within ${maxDays} days.` : undefined}
-              title={expiryRequired ? `Required. On or before ${latestExpiry}.` : "Optional expiry date (max 1 year)"}
+              hint={expiryRequired ? `This site requires tokens to expire within ${maxDays} days (by ${latestExpiry}).` : undefined}
+              title={expiryRequired ? undefined : "Optional expiry date (max 1 year)"}
               data-testid="token-expiry-input"
             />
           </div>

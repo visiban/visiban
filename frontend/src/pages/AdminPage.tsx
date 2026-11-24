@@ -1019,7 +1019,11 @@ function TokenPolicyCard({ settings, busy, onSave }: {
       autoComplete="off"
       placeholder="None"
       value={text[name]}
-      onChange={(e) => setText((t) => ({ ...t, [name]: e.target.value }))}
+      onChange={(e) => {
+        setText((t) => ({ ...t, [name]: e.target.value }));
+        // A corrected value must not keep showing the stale error; blur validates again.
+        setErrors((er) => ({ ...er, [name]: undefined }));
+      }}
       onBlur={() => commit(name)}
       aria-busy={busy}
     />
@@ -1560,7 +1564,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
           ))}
         </div>
         <select
-          aria-label="Filter users"
+          aria-label="User status"
           value={statusFilter}
           onChange={(e) => handleStatusChange(e.target.value as AdminUserStatus)}
           className="sm:hidden h-11 w-full rounded border border-line-strong bg-surface px-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -1574,6 +1578,8 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       <div role="status" aria-live="polite">
         {actionError && <p className="text-sm text-danger">{actionError}</p>}
         {actionMessage && <p className="text-sm text-success">{actionMessage}</p>}
+        {/* A filter or search changes the list, so the new total is announced (frontend/CLAUDE.md). */}
+        <p className="sr-only">{loading || error ? "" : `${total} ${total === 1 ? "user" : "users"}`}</p>
       </div>
 
       {loading ? (

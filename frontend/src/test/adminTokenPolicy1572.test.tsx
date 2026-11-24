@@ -99,6 +99,9 @@ describe('Token lifetime policy card (#1572)', () => {
     expect(await screen.findByText('Enter a whole number of days from 1 to 365, or leave it blank.')).toBeInTheDocument()
     expect(max).toHaveAttribute('aria-invalid', 'true')
     expect(api.patchAdminSettings).not.toHaveBeenCalled()
+    // Typing a correction clears the stale error before the next blur.
+    fireEvent.change(max, { target: { value: '30' } })
+    expect(max).not.toHaveAttribute('aria-invalid', 'true')
   })
 
   it('refuses a default longer than the maximum, from either field', async () => {

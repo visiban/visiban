@@ -487,7 +487,7 @@ describe('AccessTokensTab — site token lifetime policy (#1572)', () => {
     await waitFor(() => expect(input).toBeRequired())
     expect(screen.getByLabelText('Expires')).toBe(input)
     expect(input).toHaveAttribute('max', utcDateIn(30))
-    expect(screen.getByText('This site requires tokens to expire within 30 days.')).toBeInTheDocument()
+    expect(screen.getByText(`This site requires tokens to expire within 30 days (by ${utcDateIn(30)}).`)).toBeInTheDocument()
   })
 
   it('a required expiry left blank does not submit', async () => {
