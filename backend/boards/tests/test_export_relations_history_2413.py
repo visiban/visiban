@@ -496,6 +496,24 @@ class ChunkedExportTests(_Fixture):
                 self.export("csv")
             return len(ctx.captured_queries)
 
-        # 4 cards: one chunk at 4 needs a second, empty page; at 5 it does not.
+        # 4 cards: at 5 (or 500) one page, as before chunking.
         self.assertEqual(count(5), count(500))
-        self.assertGreater(count(2), count(5))
+        # At 4 the page is full, so the remaining ids are read once (none).
+        self.assertEqual(count(4), count(5) + 1)
+        # At 2: first page, the id list, then one more chunk with its prefetches.
+        self.assertGreater(count(2), count(4))
+
+    def test_card_deleted_during_the_export_is_left_out(self):
+        refs = self.build_rich_board()
+        original = ie._iter_export_cards
+
+        def deleting(queryset):
+            for i, card in enumerate(original(queryset)):
+                if i == 1:
+                    # After the remaining ids were read, before Gamma's chunk is fetched.
+                    Card.objects.filter(pk=refs["c"].pk).delete()
+                yield card
+
+        with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", 1), mock.patch.object(ie, "_iter_export_cards", deleting):
+            data = self.export_json()
+        self.assertEqual([c["title"] for c in data["cards"]], ["Alpha", "Beta", "Delta"])

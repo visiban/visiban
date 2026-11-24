@@ -9,7 +9,8 @@ const MAX_LISTED = 3;
 /**
  * The post-import notice copy, or `null` when nothing was skipped (#119):
  * "Board imported. Skipped: 12 cards, 30 comments, 4 card labels."
- * Movements and activity entries are reported together as history entries.
+ * Movements, activity entries and (#2413) block and gate history are reported
+ * together as history entries; card relations (#1448) are their own item.
  * Only non-zero counts, singular for 1, at most three then "and N more".
  */
 export function formatImportSkipped(summary: ImportSummary | null | undefined): string | null {
@@ -21,10 +22,12 @@ export function formatImportSkipped(summary: ImportSummary | null | undefined): 
     { n: skipped.checklist_items ?? 0, one: "checklist item", many: "checklist items" },
     { n: skipped.label_refs ?? 0, one: "card label", many: "card labels" },
     {
-      n: (skipped.movements ?? 0) + (skipped.activities ?? 0),
+      n: (skipped.movements ?? 0) + (skipped.activities ?? 0)
+        + (skipped.blocks ?? 0) + (skipped.gate_transitions ?? 0),
       one: "history entry",
       many: "history entries",
     },
+    { n: skipped.relations ?? 0, one: "card relation", many: "card relations" },
   ];
   const parts = items.filter(({ n }) => n > 0).map(({ n, one, many }) => `${n} ${n === 1 ? one : many}`);
   // Unmatched assignees (#2198) get their own sentence, ahead of the list: the

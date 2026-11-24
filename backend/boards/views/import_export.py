@@ -438,33 +438,47 @@ def _deleted_card_history_export(board):
 
 
 # Cards per chunk of the board export (#1962). Each chunk is one card query
-# plus one query per prefetch; a board below this size exports in the same
-# queries as before chunking.
+# plus one query per prefetch; a board up to this size exports in the same
+# queries as before chunking (see _iter_export_cards).
 _EXPORT_CHUNK_SIZE = 500
 
 
 def _iter_export_cards(queryset):
-    """Yield the export's cards in ``(position, id)`` order, one keyset chunk at a time (#1962).
+    """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
 
-    Keyset pages rather than ``QuerySet.iterator()``: ``iterator()`` opens a
-    server-side cursor on PostgreSQL, which breaks behind transaction-mode
-    PgBouncer (the pooling docs/architecture/scaling.md recommends) unless
-    ``DISABLE_SERVER_SIDE_CURSORS`` is set. Each page is a plain query whose
-    ``prefetch_related`` runs for that page only, so at most one chunk of
-    cards and their prefetched rows is held at a time. ``id`` breaks position
-    ties (positions repeat across columns), which keeps the pages disjoint
-    and makes the order, and so the ``relations`` indexes, reproducible.
+    The first chunk is a plain ``LIMIT`` page, so a board of up to
+    ``_EXPORT_CHUNK_SIZE`` cards exports in the queries it always did. A
+    larger board then reads the remaining card ids in order once (integers
+    only, one sort) and fetches each further chunk by primary key, so the
+    database sorts the board twice in all rather than once per chunk: Card has
+    no ``(board, position, id)`` index a keyset page could range-scan. Each
+    chunk's ``prefetch_related`` runs for that chunk only, so at most one
+    chunk of cards and their prefetched rows is held at a time.
+
+    Not ``QuerySet.iterator()``: that opens a server-side cursor on
+    PostgreSQL, which breaks behind transaction-mode PgBouncer (the pooling
+    docs/architecture/scaling.md recommends) unless
+    ``DISABLE_SERVER_SIDE_CURSORS`` is set. ``id`` breaks position ties
+    (positions repeat across columns), which makes the order, and so the
+    ``relations`` indexes, reproducible. A card deleted while the export runs
+    is left out rather than failing it.
     """
     size = _EXPORT_CHUNK_SIZE
     ordered = queryset.order_by("position", "id")
-    page = ordered
-    while True:
-        chunk = list(page[:size])
-        yield from chunk
-        if len(chunk) < size:
-            return
-        last = chunk[-1]
-        page = ordered.filter(Q(position__gt=last.position) | Q(position=last.position, id__gt=last.pk))
+    chunk = list(ordered[:size])
+    yield from chunk
+    if len(chunk) < size:
+        return
+    last = chunk[-1]
+    rest = list(
+        ordered.filter(Q(position__gt=last.position) | Q(position=last.position, id__gt=last.pk))
+        .select_related(None).prefetch_related(None)
+        .values_list("pk", flat=True)
+    )
+    for start in range(0, len(rest), size):
+        ids = rest[start:start + size]
+        by_pk = {card.pk: card for card in queryset.filter(pk__in=ids)}
+        yield from (by_pk[pk] for pk in ids if pk in by_pk)
 
 
 def _relations_export(board, card_index):
@@ -3945,7 +3959,7 @@ class BoardImportExportMixin:
         stamp = _export_timestamp(request.user)
 
         # Not materialized (#1962): both branches read it through
-        # _iter_export_cards, in keyset chunks, so the model instances and
+        # _iter_export_cards, in chunks, so the model instances and
         # their prefetched history are bounded per chunk however large the
         # board. The output text is still assembled in memory.
         cards = (
