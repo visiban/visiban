@@ -499,3 +499,13 @@ describe("CommandPalette — card actions (#2059)", () => {
     expect(resolveCardActions).not.toHaveBeenCalled();
   });
 });
+
+describe("CommandPalette — aria-controls (#2469)", () => {
+  it("points the combobox at a listbox that exists", () => {
+    renderPalette();
+    const combo = screen.getByRole("combobox");
+    const id = combo.getAttribute("aria-controls");
+    expect(id).toBe("palette-results");
+    expect(document.getElementById(id!)).toHaveAttribute("role", "listbox");
+  });
+});

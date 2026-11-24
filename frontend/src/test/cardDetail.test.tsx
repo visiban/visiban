@@ -4453,3 +4453,11 @@ describe('CardDetail track hint (#2542)', () => {
     expect(screen.queryByTestId('card-track-hint')).not.toBeInTheDocument()
   })
 })
+
+describe('CardDetail — accessible names (#2468)', () => {
+  it('names the title input and the assignee trigger', () => {
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.getByDisplayValue('Test Card')).toHaveAccessibleName('Card title')
+    expect(screen.getByRole('combobox')).toHaveAccessibleName('Assignee: Unassigned')
+  })
+})
