@@ -161,9 +161,11 @@ export function placementVerdict({ flags, columns, cards, card, column, lane }: 
 }
 
 /** One sentence per tripped limit, for live regions and the toast's second line. */
-export function trippedLimitSentence(t: TrippedLimit): string {
+export function trippedLimitSentence(t: TrippedLimit, allowAssigneeOverride?: boolean): string {
   const subject = t.scope === "swimlane" ? `Swimlane "${t.name}"` : `Column "${t.name}"`;
-  const override = t.mode === "hard" ? "no one can override it" : "admins can override";
+  // #1923: with the board's switch on, the card's assignee can override a block too.
+  const who = allowAssigneeOverride ? "admins and the card's assignee can override" : "admins can override";
+  const override = t.mode === "hard" ? "no one can override it" : who;
   if (t.kind === "wip") {
     return `${subject} is at its WIP limit (${t.current}/${t.limit}), ${override}.`;
   }

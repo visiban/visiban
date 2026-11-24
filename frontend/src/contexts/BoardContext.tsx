@@ -23,7 +23,7 @@ export interface BoardContextType {
   getLastFullFetchAt?: () => number | null;
   /** `gatesPassed` (#1102): the target sub-column of a gated stage; omitted = server default. */
   moveCard: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number) => Promise<MoveOutcome>;
-  forceMoveCard: (reason?: string) => Promise<void>;
+  forceMoveCard: (reason?: string) => Promise<MoveOutcome | void>;
   forceMoveCardTo: (cardId: number, columnId: number, swimlaneId: number, position: number, gatesPassed?: number, reason?: string) => Promise<MoveOutcome>;
   /** The card of the refused move `forceMoveCard` would replay (#1923). */
   pendingMoveCardId?: number | null;

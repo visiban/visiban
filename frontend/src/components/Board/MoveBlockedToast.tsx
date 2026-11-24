@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MoveBlockedError } from "../../hooks/useBoard";
 import { useToast } from "../../contexts/useToast";
 import type { ToastInput } from "../../utils/toastQueue";
+import { failureReason } from "../../utils/moveFailure";
 import { canOverride, overrideHint, overrideLabel, type OverrideEligibility } from "../../utils/forceOverride";
 import ModalWrapper from "../shared/ModalWrapper";
 import OverrideReasonForm from "./OverrideReasonForm";
@@ -11,7 +12,10 @@ interface Props {
   error: MoveBlockedError;
   /** Who may force this refusal (utils/forceOverride). */
   eligibility: OverrideEligibility;
-  /** `reason` is set on the assignee basis, which the server requires it for. */
+  /** The refused card, focused after the reason dialog's move succeeds. */
+  cardId?: number | null;
+  /** `reason` is set on the assignee basis, which the server requires it for. A
+   *  resolved `{ ok: false }` keeps the dialog open. */
   onForce: (reason?: string) => void | Promise<unknown>;
   onDismiss: () => void;
 }
@@ -88,13 +92,25 @@ function reportedByMovePopover(): boolean {
   return document.querySelector("[data-move-popover]") !== null;
 }
 
+const notMoved = (err: unknown) => `Card could not be moved: ${failureReason(err)}.`;
+
+/** The moved card re-renders in its new cell, so retry for a few frames. Only
+ *  takes focus that would otherwise be lost to `body`. */
+function focusCardSoon(cardId: number, framesLeft = 10) {
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>(`[data-card-id="${cardId}"]`);
+    if (el && document.activeElement === document.body) el.focus();
+    else if (!el && framesLeft > 0) focusCardSoon(cardId, framesLeft - 1);
+  });
+}
+
 /**
  * Bridges the board's `moveError` into the shared toast region. Renders only
  * the assignee's reason dialog (a toast cannot hold a form); mount it while
  * there is an error, and it raises, replaces and finally removes the `move`
  * toast.
  */
-export default function MoveBlockedToast({ error, eligibility, onForce, onDismiss }: Props) {
+export default function MoveBlockedToast({ error, eligibility, cardId, onForce, onDismiss }: Props) {
   const { notify, dismiss } = useToast();
   const forceRef = useRef(onForce);
   forceRef.current = onForce;
@@ -102,6 +118,29 @@ export default function MoveBlockedToast({ error, eligibility, onForce, onDismis
   dismissRef.current = onDismiss;
   // The refusal the reason dialog was opened for, so a newer refusal closes it.
   const [reasonFor, setReasonFor] = useState<MoveBlockedError | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const openReason = (e: MoveBlockedError) => { setFailure(""); setReasonFor(e); };
+  const closeReason = () => { setFailure(""); setReasonFor(null); };
+  const submitReason = async (reason: string) => {
+    // Read now: both can change, and this component can unmount, while it runs.
+    const movedId = cardId;
+    setBusy(true);
+    setFailure("");
+    try {
+      const outcome = (await forceRef.current(reason)) as { ok: boolean; error?: unknown } | undefined;
+      if (outcome?.ok === false) {
+        setFailure(notMoved(outcome.error));
+        return;
+      }
+      setReasonFor(null);
+      if (movedId != null) focusCardSoon(movedId);
+    } catch (err) {
+      setFailure(notMoved(err));
+    } finally {
+      setBusy(false);
+    }
+  };
   // Eligibility is a fresh object on every host render; key the toast on its content.
   const kind = eligibility.kind;
   const assigneeName = eligibility.kind === "other_member" ? eligibility.assigneeName : "";
@@ -109,7 +148,7 @@ export default function MoveBlockedToast({ error, eligibility, onForce, onDismis
   useEffect(() => {
     const e = (kind === "other_member" ? { kind, assigneeName } : { kind }) as OverrideEligibility;
     notify({
-      ...moveBlockedToast(error, e, () => (kind === "assignee" ? setReasonFor(error) : forceRef.current())),
+      ...moveBlockedToast(error, e, () => (kind === "assignee" ? openReason(error) : forceRef.current())),
       announce: !reportedByMovePopover(),
       onDismiss: () => dismissRef.current(),
     });
@@ -121,14 +160,13 @@ export default function MoveBlockedToast({ error, eligibility, onForce, onDismis
   return (
     <ModalWrapper
       open={reasonFor === error && kind === "assignee"}
-      onClose={() => setReasonFor(null)}
+      onClose={closeReason}
+      dismissable={!busy}
       title={column ? `Move to ${column} anyway?` : "Move anyway?"}
       maxWidth="max-w-md"
     >
-      <OverrideReasonForm
-        onCancel={() => setReasonFor(null)}
-        onSubmit={(reason) => { setReasonFor(null); void forceRef.current(reason); }}
-      />
+      <p role="alert" className={failure ? "text-xs text-danger mb-2" : "sr-only"}>{failure}</p>
+      <OverrideReasonForm busy={busy} onCancel={closeReason} onSubmit={(reason) => void submitReason(reason)} />
     </ModalWrapper>
   );
 }

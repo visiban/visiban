@@ -819,6 +819,24 @@ describe('useBoard', () => {
     expect(result.current.moveError).toBeNull()
   })
 
+  it('forceMoveCard with a reason keeps the refusal until the move succeeds (#1923)', async () => {
+    mockGetBoardFull.mockResolvedValue(makeBoard())
+    mockMoveCard.mockRejectedValueOnce({ response: { status: 409, data: { code: 'wip_limit_exceeded', column_name: 'X', current_count: 1, wip_limit: 1 } } })
+    mockMoveCard.mockRejectedValueOnce(new Error('Network Error'))
+    mockMoveCard.mockResolvedValueOnce({ card: { ...makeBoard().cards[0], column: 11 } })
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+    await act(async () => { await result.current.moveCard(100, 11, 20, 0) })
+    let outcome: unknown
+    await act(async () => { outcome = await result.current.forceMoveCard('urgent') })
+    expect(outcome).toMatchObject({ ok: false })
+    expect(result.current.moveError?.code).toBe('wip_limit_exceeded')
+    expect(result.current.board!.cards[0].column).toBe(10)
+    await act(async () => { outcome = await result.current.forceMoveCard('urgent') })
+    expect(outcome).toEqual({ ok: true })
+    expect(result.current.moveError).toBeNull()
+  })
+
   it('forceMoveCard raises move_failed on a network error (#1761)', async () => {
     const board = makeBoard()
     mockGetBoardFull.mockResolvedValue(board)

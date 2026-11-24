@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { isImeComposing } from "../../utils/imeComposition";
 import { OVERRIDE_REASON_MAX_LENGTH } from "../../utils/forceOverride";
 
 interface Props {
@@ -43,6 +44,12 @@ export default function OverrideReasonForm({ busy = false, onSubmit, onCancel, e
         maxLength={OVERRIDE_REASON_MAX_LENGTH}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey) || isImeComposing(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (!blocked) onSubmit(trimmed);
+        }}
         aria-describedby={helpId}
         className="w-full bg-surface-hover border border-line-strong rounded px-2 py-1 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       />

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AxiosError } from 'axios'
+import { useState } from 'react'
 import MoveBlockedToast from '../components/Board/MoveBlockedToast'
 import { overrideEligibility, type OverrideEligibility } from '../utils/forceOverride'
 import { activityLabel } from '../utils/cardTimelineLabels'
@@ -65,7 +66,52 @@ describe('MoveBlockedToast assignee override (#1923)', () => {
     await user.type(within(dialog).getByLabelText('Reason (required)'), 'Hotfix')
     await user.click(within(dialog).getByRole('button', { name: 'Move anyway' }))
     expect(onForce).toHaveBeenCalledWith('Hotfix')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  const openReason = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
+    return screen.getByRole('dialog', { name: 'Move to Review anyway?' })
+  }
+
+  it('keeps the dialog and the typed reason when the move fails, and says why', async () => {
+    const user = userEvent.setup()
+    const onForce = show({ kind: 'assignee' }, vi.fn().mockResolvedValue({ ok: false, error: new Error('offline') }))
+    const dialog = await openReason(user)
+    await user.type(within(dialog).getByLabelText('Reason (required)'), 'Hotfix')
+    await user.click(within(dialog).getByRole('button', { name: 'Move anyway' }))
+    expect(onForce).toHaveBeenCalledOnce()
+    expect(await within(dialog).findByText('Card could not be moved: a network error occurred.')).toHaveAttribute('role', 'alert')
+    expect(within(dialog).getByLabelText('Reason (required)')).toHaveValue('Hotfix')
+  })
+
+  it.each(['{Control>}{Enter}{/Control}', '{Meta>}{Enter}{/Meta}'])('submits the reason with %s, never an empty one', async (chord) => {
+    const user = userEvent.setup()
+    const onForce = show({ kind: 'assignee' })
+    const dialog = await openReason(user)
+    await user.keyboard(chord)
+    expect(onForce).not.toHaveBeenCalled()
+    await user.type(within(dialog).getByLabelText('Reason (required)'), 'Hotfix')
+    await user.keyboard(chord)
+    expect(onForce).toHaveBeenCalledExactlyOnceWith('Hotfix')
+  })
+
+  it('focuses the moved card after a successful submit', async () => {
+    const user = userEvent.setup()
+    function Host() {
+      const [open, setOpen] = useState(true)
+      return (
+        <ToastProvider>
+          <div data-card-id="42" tabIndex={0}>Moved card</div>
+          {open && <MoveBlockedToast error={error} eligibility={{ kind: 'assignee' }} cardId={42} onForce={async () => { setOpen(false); return { ok: true } }} onDismiss={vi.fn()} />}
+        </ToastProvider>
+      )
+    }
+    render(<Host />)
+    const dialog = await openReason(user)
+    await user.type(within(dialog).getByLabelText('Reason (required)'), 'Hotfix')
+    await user.click(within(dialog).getByRole('button', { name: 'Move anyway' }))
+    await waitFor(() => expect(screen.getByText('Moved card')).toHaveFocus())
   })
 
   it('Cancel closes the dialog without moving', async () => {

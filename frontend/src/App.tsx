@@ -534,6 +534,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
               allowAssigneeOverride: board?.allow_assignee_override,
               card: board?.cards.find((c) => c.id === pendingMoveCardId),
             })}
+            cardId={pendingMoveCardId}
             onForce={forceMoveCard}
             onDismiss={clearMoveError}
           />
