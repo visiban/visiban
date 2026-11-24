@@ -183,7 +183,7 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 
 ## Child cards setting
 
-*Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the cards on its children live on another board. A board with that setting off is an ordinary board that can *hold* children; it is a child board only once it holds children, or when another board names it as its default child board. A board never plays both roles. To decide between a child card and a checklist item, see [Breaking work down: which tool?](breaking-work-down.md).
+*Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the child cards live on another board. A board with that setting off is an ordinary board that can *hold* children; it is a child board only once it holds children, or when another board names it as its default child board. A board never plays both roles. To decide between a child card and a checklist item, see [Breaking work down: which tool?](breaking-work-down.md).
 
 A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards on this board can have children** switch. It is off by default, so every existing board stays an ordinary board and nothing changes until an admin turns it on. Boards that never use hierarchy are never asked to pick a role. Other members see the choice as a read-only line.
 
