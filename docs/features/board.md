@@ -183,7 +183,7 @@ On exit, the swimlane collapse state is restored to exactly what it was before f
 
 ## Child cards setting
 
-*Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the child cards live on another board. A board with that setting off is an ordinary board that can *hold* children; it is a child board only once it holds children, or when another board names it as its default child board. A board never plays both roles. To decide between a child card and a checklist item, see [Breaking work down: which tool?](breaking-work-down.md).
+*Added in 1.3 (#2208).* Cards can be linked parent to child across boards, and the hierarchy is two-tier by design: a board whose cards can have children is a parent board, and the child cards live on another board. A board with that setting off is an ordinary board that can *hold* children; it is a child board only once it holds children, or when another board names it as its default child board. A card is never both a parent and a child, so each card stays within two tiers. To decide between a child card and a checklist item, see [Breaking work down: which tool?](breaking-work-down.md).
 
 A board admin chooses which one in **Board settings → Rules & limits → Child cards** with the **Cards on this board can have children** switch. It is off by default, so every existing board stays an ordinary board and nothing changes until an admin turns it on. Boards that never use hierarchy are never asked to pick a role. Other members see the choice as a read-only line.
 
@@ -201,7 +201,7 @@ The name appears in two places: on a child card, the parent row is labeled with 
 
 ## Parent card (child side)
 
-*Added in 1.3 (#1104).* On a child board, a card can be linked to one **parent** card on a parent board. The parent's own columns and this card's columns stay independent: moving one never moves the other.
+*Added in 1.3 (#1104).* A card on a board whose cards cannot have children can be linked to one **parent** card on another board. The parent's own columns and this card's columns stay independent: moving one never moves the other.
 
 - **Link a parent.** Open the card. The **Parent** row at the top of the details reads "Not linked" with a **Link a parent** button. It appears only for members and admins, and only when there is at least one parent board you are a member or admin of. The picker lists those boards in a **Board** select; search the chosen board by title or card number, then choose **Link to** *card*. Up and Down move through the matches and Enter links the highlighted one. Cards that can't be chosen stay listed with the reason, such as "Its children are on Onboarding" (a parent's children all live on one board) or "Has 100 children (the limit)". A card you can't open is never listed, and a search that finds nothing reads "No matching cards", whatever the reason.
 - **Siblings.** When the parent has two or more live children on this board, the Parent row also reads, for example, "2 of 5 siblings done": this card and its siblings on this board, and how many of them are done. A child counts as done in a done column unless it is blocked, the same rule the parent's Children tab summary uses, so the two never disagree. Archived children, and children on any other board, are not counted. The line is not shown for a parent you can't open.
@@ -210,7 +210,7 @@ The name appears in two places: on a child card, the parent row is labeled with 
 - **Unlink.** The **Unlink** button on the Parent row removes the link at once, without asking. It changes nothing else about the card, and you can link it again from the picker. Both cards record the link and the unlink in their history.
 - **Live.** When someone links, unlinks, renames or moves a parent, the parent line updates for everyone viewing the child board. The sibling line updates the same way when a sibling is moved to another column, archived, restored, blocked, unblocked, deleted, linked or unlinked.
 
-Public share links show no parent line. On a phone the picker opens as a full-screen sheet with **‹ Card** and **Close**, and the sheet shrinks to the space above the on-screen keyboard, so the keyboard never covers the list, and Cancel and Link stay pinned at the bottom. Showing a parent's children is not available yet (#2209).
+Public share links show no parent line. On a phone the picker opens as a full-screen sheet with **‹ Card** and **Close**, and the sheet shrinks to the space above the on-screen keyboard, so the keyboard never covers the list, and Cancel and Link stay pinned at the bottom. A parent's children are shown on its [Children tab](#children-tab-parent-side).
 
 ### Default child board and Add child
 
