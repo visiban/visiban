@@ -256,6 +256,15 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   const filtersActive =
     stateFilter !== "all" || milestone !== "" || labels.length > 0 || assignee !== "";
 
+  // With a closed limit applied the page cap only ever bounds OPEN issues, so the
+  // truncation warning counts those; memoized so typing in the q box doesn't recount.
+  const capCount = useMemo(() => {
+    if (!data) return 0;
+    return data.closed_limit != null
+      ? data.issues.filter((i) => i.state === "open").length
+      : data.issues.length;
+  }, [data]);
+
   // Client-side text filter over the fetched set (title substring / number prefix).
   const filteredData = useMemo(() => {
     if (!data) return null;
@@ -302,13 +311,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
           repo={data.source.repo}
           url={data.source.url}
           truncated={data.truncated}
-          // With a closed limit applied the page cap only ever bounds OPEN issues,
-          // so the warning counts those; otherwise it counts everything fetched.
-          shownCount={
-            data.closed_limit != null
-              ? data.issues.filter((i) => i.state === "open").length
-              : data.issues.length
-          }
+          shownCount={capCount}
           openOnly={data.closed_limit != null}
           closedLimit={data.closed_limit}
           closedTruncated={data.closed_truncated}

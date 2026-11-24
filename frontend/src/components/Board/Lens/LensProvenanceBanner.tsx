@@ -70,7 +70,7 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
         )}
       </span>
       {truncated && (
-        <span className="text-warning flex items-center gap-1 ml-2">
+        <span className="text-warning flex items-center gap-1 ml-2 min-w-0">
           <span aria-hidden="true">⚠</span>
           {filtersActive
             ? `Showing first ${shownCount} matching ${noun} — more match beyond the fetch limit`
@@ -78,7 +78,10 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
         </span>
       )}
       {closedNote && (
-        <span className="text-fg-tertiary ml-2" data-testid="lens-closed-note">
+        // One line that truncates (full text in title) so it never pushes the
+        // freshness/Refresh control out of view; text-info because it names an
+        // omission, not ambient metadata (#1581 ux-review).
+        <span className="text-info ml-2 min-w-0 truncate" title={closedNote} data-testid="lens-closed-note">
           {closedNote}
         </span>
       )}

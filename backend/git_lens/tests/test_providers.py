@@ -715,7 +715,7 @@ class NoRedirectTests(SimpleTestCase):
 
 
 class MaxPagesSettingTests(SimpleTestCase):
-    """The issue page cap is operator-set since #1580 (VISIBAN_GIT_LENS_MAX_PAGES)."""
+    """The issue page cap is operator-set since #1580 (GIT_LENS_MAX_PAGES)."""
 
     def test_default_keeps_the_historical_300_issue_cap(self):
         # No env var in the test settings: existing installs behave identically.
@@ -735,8 +735,15 @@ class MaxPagesSettingTests(SimpleTestCase):
         self.assertEqual(providers.clamp_max_pages(500), providers.MAX_PAGES_CEILING)
 
     def test_clamp_falls_back_to_default_for_non_int(self):
-        for value in (None, "7", 2.5, True, False):
+        for value in (None, "", "abc", "2.5", 2.5, True, False):
             self.assertEqual(providers.clamp_max_pages(value), providers.DEFAULT_MAX_PAGES)
+
+    def test_clamp_parses_the_env_string(self):
+        # settings.py reads the env var as a string so a typo cannot stop the boot.
+        self.assertEqual(providers.clamp_max_pages("7"), 7)
+        self.assertEqual(providers.clamp_max_pages(" 5 "), 5)
+        self.assertEqual(providers.clamp_max_pages("50"), providers.MAX_PAGES_CEILING)
+        self.assertEqual(providers.clamp_max_pages("0"), 1)
 
     @patch("git_lens.providers.requests.get")
     def test_gitlab_reads_up_to_a_raised_page_cap(self, mock_get):

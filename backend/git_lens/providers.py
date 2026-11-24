@@ -50,19 +50,24 @@ MAX_PAGES_CEILING = 10
 
 
 def clamp_max_pages(value) -> int:
-    """``VISIBAN_GIT_LENS_MAX_PAGES`` reduced to a usable page count.
+    """``GIT_LENS_MAX_PAGES`` reduced to a usable page count.
 
     Out-of-range values clamp to 1..``MAX_PAGES_CEILING`` rather than raising, and
     anything that is not an int falls back to the default: a misconfigured env var
     should degrade the lens to a sane cap, never stop the app booting or make the
     fetch unbounded.
     """
+    if isinstance(value, str):
+        try:
+            value = int(value.strip())
+        except ValueError:
+            return DEFAULT_MAX_PAGES
     if isinstance(value, bool) or not isinstance(value, int):
         return DEFAULT_MAX_PAGES
     return max(1, min(MAX_PAGES_CEILING, value))
 
 
-MAX_PAGES = clamp_max_pages(getattr(settings, "VISIBAN_GIT_LENS_MAX_PAGES", DEFAULT_MAX_PAGES))
+MAX_PAGES = clamp_max_pages(getattr(settings, "GIT_LENS_MAX_PAGES", DEFAULT_MAX_PAGES))
 MAX_ISSUES = PER_PAGE * MAX_PAGES
 # Closed-issue limit (#1581). With no state filter, open issues get the whole page
 # budget and closed issues are read separately: ONE page of the most recently

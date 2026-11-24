@@ -263,7 +263,7 @@ All seven parameters above are declared in the generated OpenAPI schema (`/api/s
 
 ### Filtering
 
-The `state`, `milestone`, `labels` and `assignee` parameters narrow which issues are returned. All four are applied **server-side** — pushed into the upstream provider query before any fetching occurs — so that a filter can surface issues that fall outside the issue fetch budget: 3 pages × 100 per page (300 issues) by default, configurable per instance with `VISIBAN_GIT_LENS_MAX_PAGES` up to 10 pages (1,000 issues). The admin usage report's `bounds.max_issue_pages` shows the live value.
+The `state`, `milestone`, `labels` and `assignee` parameters narrow which issues are returned. All four are applied **server-side** — pushed into the upstream provider query before any fetching occurs — so that a filter can surface issues that fall outside the issue fetch budget: 3 pages × 100 per page (300 issues) by default, configurable per instance with `GIT_LENS_MAX_PAGES` up to 10 pages (1,000 issues). The admin usage report's `bounds.max_issue_pages` shows the live value.
 
 **GitLab** — `state`, `milestone`, `labels` (as `labels=`) and `assignee` (as `assignee_username=`) are all pushed to the GitLab API query. A `?milestone=Sprint+5` request asks GitLab for _only_ that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).
 

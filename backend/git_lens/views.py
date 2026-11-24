@@ -190,7 +190,7 @@ LENS_USER_FETCH_BUDGET = LENS_FETCH_BUDGET * 4
 # budget and then ONE capped page of recently updated closed issues
 # (CLOSED_PAGES), so that leg is one more call in the formula.
 #
-# Since #1580 MAX_PAGES is operator-set (VISIBAN_GIT_LENS_MAX_PAGES, clamped), so
+# Since #1580 MAX_PAGES is operator-set (GIT_LENS_MAX_PAGES, clamped), so
 # the lock TTL is DERIVED from the worst case rather than fixed: at the default page
 # cap it is the historical 90 seconds, and raising the cap lengthens the lock with it
 # instead of letting it expire mid-fetch.

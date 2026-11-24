@@ -238,7 +238,7 @@ By default the lens loads at most **300 issues** per refresh (three pages of 100
 
 With a filter active it reads "Showing first N matching issues — more match beyond the fetch limit" instead.
 
-The cap applies per refresh. An operator can raise it for the whole instance with `VISIBAN_GIT_LENS_MAX_PAGES` (pages of 100, default `3`, at most `10` for 1,000 issues); see [Configuration](../administration/configuration.md). Each extra page is one more request to the provider per refresh. *(new in 1.3)*
+The cap applies per refresh. An operator can raise it for the whole instance with `GIT_LENS_MAX_PAGES` (pages of 100, default `3`, at most `10` for 1,000 issues); see [Configuration](../administration/configuration.md). Each extra page is one more request to the provider per refresh. *(new in 1.3)*
 
 ---
 
@@ -250,7 +250,7 @@ The cap applies per refresh. An operator can raise it for the whole instance wit
 | Read-only | Issues cannot be created, edited, closed, or labeled from Visiban. |
 | Single repository per board | Each board can have at most one lens configuration. |
 | No automatic refresh | Data must be refreshed manually. |
-| Issue cap | At most 300 issues are loaded per refresh by default, 1,000 at most when the operator raises `VISIBAN_GIT_LENS_MAX_PAGES`. |
+| Issue cap | At most 300 issues are loaded per refresh by default, 1,000 at most when the operator raises `GIT_LENS_MAX_PAGES`. |
 | GitHub OAuth required | GitHub repositories require a linked GitHub account for the user viewing the Lens tab. |
 
 ---
@@ -264,5 +264,5 @@ The cap applies per refresh. An operator can raise it for the whole instance wit
 | "GitHub account not linked" prompt. | Link your GitHub account in **Settings → Connected accounts** and reload the Lens tab. |
 | "GitHub API error (301)" or another upstream error after the repository was renamed or transferred. | The Lens does not follow redirects, so a moved repository returns an upstream error. Update the connection's repository slug to the new `owner/name`. |
 | Issues are missing or stale. | Click **Refresh** in the provenance banner above the board to pull the latest data from the provider. |
-| The issue cap notice appears. | Filter the view by milestone, label, or assignee to focus on a subset of work. Those filters are applied at the provider, so they reach issues beyond the cap. An operator can raise the cap to at most 1,000 issues with `VISIBAN_GIT_LENS_MAX_PAGES`. |
+| The issue cap notice appears. | Filter the view by milestone, label, or assignee to focus on a subset of work. Those filters are applied at the provider, so they reach issues beyond the cap. An operator can raise the cap to at most 1,000 issues with `GIT_LENS_MAX_PAGES`. |
 | A GitHub milestone filter returns an empty board. | No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization, so pick one from the suggestions to be sure. |
