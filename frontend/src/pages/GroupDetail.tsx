@@ -154,8 +154,9 @@ function isAccessLoss(err: unknown): boolean {
 }
 
 const SG_PAGE_SIZE = 50;
-// A realtime re-read refreshes at most this many loaded pages; beyond it the list is rebuilt from them and Load more continues.
+// A realtime re-read refreshes at most this many loaded pages; rows loaded beyond them stay (possibly stale) and Load more continues where it was.
 const SG_REFETCH_PAGES = 4;
+const sgNoun = (n: number) => `subgroup board${n !== 1 ? "s" : ""}`;
 const SG_TEXT_BUTTON = "max-sm:min-h-11 flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 
 export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggled }: Props) {
@@ -230,7 +231,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [sgAnnouncement, setSgAnnouncement] = useState("");
   const [sgRetryTick, setSgRetryTick] = useState(0);
   const sgOffsetRef = useRef(0);
+  // Highest board id the server window has consumed (the endpoint orders by id), so a removal
+  // can tell whether it shifted the rows after the window back by one.
+  const sgLastIdRef = useRef(0);
+  // Bumped when a load starts (toggle on/off, group change, Retry): a Load more answer for an
+  // earlier load is dropped instead of appended to, or moving the offset of, the new one.
+  const sgLoadGenRef = useRef(0);
   const sgBusyRef = useRef(false);
+  const subgroupBoardsRef = useRef<Board[]>([]);
   const sgFocusIdRef = useRef<number | null>(null);
   const sgCountLineRef = useRef<HTMLParagraphElement>(null);
 
@@ -506,6 +514,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // A ref, so the socket handler does not re-subscribe when the toggle flips.
   const showSubgroupBoardsRef = useRef(false);
   const directBoardIdsRef = useRef<Set<number>>(new Set());
+  const directBoardsRef = useRef<Board[]>([]);
   // Re-read the direct boards list (reconnect, late first open, health change)
   // and apply it over the list on screen (#2139), like useBoard's
   // mergeFullSnapshot does for a board's columns and labels (#2130).
@@ -587,29 +596,64 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // Re-reads the pages already loaded (at most SG_REFETCH_PAGES, one after another, never in
   // parallel), so a health change shows on every loaded
   // row without collapsing the list back to one page. Never moves focus.
-  const refetchSubgroupBoards = useCallback(() => readSubgroupBoards(
-    async () => {
-      const target = sgOffsetRef.current;
-      const byId = new Map<number, Board>();
-      let offset = 0;
-      let count = 0;
-      let fetched = 0;
-      // At least the first page, then as many more as were loaded (and still exist), up to the cap.
-      while (fetched === 0 || (offset < target && offset < count && fetched < SG_REFETCH_PAGES)) {
-        fetched += 1;
-        const page = await getGroupDescendantBoardsPaged(groupId, offset, SG_PAGE_SIZE);
-        count = page.count;
-        page.results.forEach((b) => { if (!directBoardIdsRef.current.has(b.id)) byId.set(b.id, b); });
-        offset += page.results.length;
-        if (page.results.length === 0) break;
-      }
-      sgOffsetRef.current = offset;
-      setSgOffset(offset);
-      setSgCount(count);
-      return [...byId.values()];
-    },
-    { onError: handleGroupReadError, onSettled: () => setLoadingSubgroupBoards(false) },
-  ), [readSubgroupBoards, groupId, handleGroupReadError]);
+  const refetchSubgroupBoards = useCallback(() => {
+    // Collected by the fetch and applied in onApplied, which runs only when this is still the
+    // latest read: a superseded read, or one for the previous group, must not write the paging
+    // state (it would show that group's count and make Load more skip rows).
+    let offset = 0;
+    let count = 0;
+    let lastId = 0;
+    readSubgroupBoards(
+      async () => {
+        const target = sgOffsetRef.current;
+        const byId = new Map<number, Board>();
+        let fetched = 0;
+        let ended = false;
+        // At least the first page, then as many more as were loaded (and still exist), up to the cap.
+        while (fetched === 0 || (offset < target && offset < count && fetched < SG_REFETCH_PAGES)) {
+          fetched += 1;
+          const page = await getGroupDescendantBoardsPaged(groupId, offset, SG_PAGE_SIZE);
+          count = page.count;
+          page.results.forEach((b) => {
+            lastId = Math.max(lastId, b.id);
+            if (!directBoardIdsRef.current.has(b.id)) byId.set(b.id, b);
+          });
+          offset += page.results.length;
+          if (page.results.length === 0) { ended = true; break; }
+        }
+        // Capped before reaching the loaded rows: keep the ones past the last page re-read (the
+        // endpoint orders by id) so no row disappears and focus on one survives. They may be
+        // stale until the next full load.
+        if (!ended && offset < target && offset < count) {
+          subgroupBoardsRef.current.forEach((b) => { if (b.id > lastId && !byId.has(b.id)) byId.set(b.id, b); });
+        }
+        return [...byId.values()];
+      },
+      {
+        onError: handleGroupReadError,
+        onSettled: () => setLoadingSubgroupBoards(false),
+        onApplied: () => {
+          // Never behind a Load more that landed meanwhile, nor behind the capped target.
+          sgOffsetRef.current = Math.max(offset, sgOffsetRef.current);
+          sgLastIdRef.current = Math.max(lastId, sgLastIdRef.current);
+          setSgOffset(sgOffsetRef.current);
+          setSgCount(count);
+          setSgFirstError(false);
+          setSgMoreError(false);
+        },
+      },
+    );
+  }, [readSubgroupBoards, groupId, handleGroupReadError]);
+  // Rows removed locally (a delete, a move out) that sat inside the consumed server window shift
+  // the rows after it back by one, so the next Load more would skip them: move the offset back.
+  // Over-fetching is harmless, since appends de-duplicate by id.
+  const shiftSgWindow = useCallback((removedIds: Iterable<number>) => {
+    let n = 0;
+    for (const id of removedIds) if (id <= sgLastIdRef.current) n += 1;
+    if (n === 0) return;
+    sgOffsetRef.current = Math.max(0, sgOffsetRef.current - n);
+    setSgOffset(sgOffsetRef.current);
+  }, []);
   // Refetch every list on this page whose rows carry an inherited health
   // status (#1133): subgroups, direct boards, and subgroup boards when shown.
   const refreshHealthListings = useCallback(() => {
@@ -644,8 +688,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       captureFocusedBoardId();
       const matches = (b: Board) =>
         (uid !== undefined && b.uid === uid) || (id !== undefined && b.id === id);
+      // Direct boards are in the subgroup list's server window too (the endpoint returns them).
+      const removed = new Set([...directBoardsRef.current, ...subgroupBoardsRef.current].filter((b) => matches(b)).map((b) => b.id));
       writeBoards(removeBoardRows(matches));
       writeSubgroupBoards((prev) => prev.filter((b) => !matches(b)));
+      shiftSgWindow(removed);
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
       refetchGroup();
@@ -714,7 +761,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setIsStarred(!!payload.is_starred);
       }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, refetchSubgroupBoards, setIsStarred]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id, refreshHealthListings, refetchForAccess, writeBoards, writeSubgroups, writeSubgroupBoards, refetchGroup, refetchSubgroups, refetchMembers, refetchSubgroupBoards, setIsStarred, shiftSgWindow]);
 
   // Events fired while the socket was disconnected are not replayed. Re-read
   // everything the page shows that a frame can change after a reconnect so the
@@ -790,14 +837,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   }, [boards]);
 
   useEffect(() => { showSubgroupBoardsRef.current = showSubgroupBoards; }, [showSubgroupBoards]);
-  const subgroupBoardsRef = useRef<Board[]>([]);
   useEffect(() => { subgroupBoardsRef.current = subgroupBoards; }, [subgroupBoards]);
-  useEffect(() => { directBoardIdsRef.current = new Set(boards.map((b) => b.id)); }, [boards]);
+  useEffect(() => {
+    directBoardsRef.current = boards;
+    directBoardIdsRef.current = new Set(boards.map((b) => b.id));
+  }, [boards]);
 
   useEffect(() => {
     // A single request for all boards in the group subtree avoids the previous N+1
     // pattern (one getGroupBoards call per direct subgroup) and correctly surfaces
     // boards in groups nested 3+ levels deep.
+    ++sgLoadGenRef.current; // a Load more still in flight belongs to the previous load
     if (!showSubgroupBoards) return;
     setLoadingSubgroupBoards(true);
     // This is a load, like the initial one (#2150): it yields only to a re-read
@@ -808,6 +858,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // Exclude boards already shown in the direct boards list; the descendant
     // endpoint returns boards from the root group too.
     sgOffsetRef.current = 0;
+    sgLastIdRef.current = 0;
     setSgOffset(0);
     setSgCount(0);
     setSgMoreError(false);
@@ -816,13 +867,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       .then((page) => {
         if (stale) return;
         const directIds = new Set(boards.map((b) => b.id));
+        // false: a re-read already applied a newer answer and its paging state, which this
+        // older page must not overwrite.
+        if (!applyLoadSubgroupBoards(page.results.filter((b) => !directIds.has(b.id)))) return;
         sgOffsetRef.current = page.results.length;
+        sgLastIdRef.current = page.results.reduce((m, b) => Math.max(m, b.id), 0);
         setSgOffset(page.results.length);
         setSgCount(page.count);
-        applyLoadSubgroupBoards(page.results.filter((b) => !directIds.has(b.id)));
       })
       // A failed load is never an empty state: show the error and a Retry instead.
-      .catch(() => { if (!stale) { applyLoadSubgroupBoards([]); setSgFirstError(true); } })
+      // A re-read that already applied (and cleared the error) has the rows: keep them.
+      .catch(() => { if (!stale && applyLoadSubgroupBoards([])) setSgFirstError(true); })
       .finally(() => { if (!stale) setLoadingSubgroupBoards(false); });
     return () => { stale = true; };
   // boards is intentionally not listed here — we only want to re-fetch when the
@@ -836,13 +891,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     setSgLoadingMore(true);
     setSgMoreError(false);
     const startGroup = groupId;
+    const startGen = sgLoadGenRef.current;
     try {
       const page = await getGroupDescendantBoardsPaged(groupId, sgOffsetRef.current, SG_PAGE_SIZE);
-      if (startGroup !== groupIdRef.current) return;
+      // A group change, a toggle off/on or a Retry started a new load since: this page is not its.
+      if (startGroup !== groupIdRef.current || startGen !== sgLoadGenRef.current) return;
       const have = new Set(subgroupBoardsRef.current.map((b) => b.id));
       const fresh = page.results.filter((b) => !directBoardIdsRef.current.has(b.id) && !have.has(b.id));
       sgFocusIdRef.current = fresh.length > 0 ? fresh[0].id : null;
       sgOffsetRef.current += page.results.length;
+      sgLastIdRef.current = page.results.reduce((m, b) => Math.max(m, b.id), sgLastIdRef.current);
       setSgOffset(sgOffsetRef.current);
       setSgCount(page.count);
       // Idempotent append (by id), so the re-read replay rule holds.
@@ -850,7 +908,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         const ids = new Set(prev.map((b) => b.id));
         return [...prev, ...fresh.filter((b) => !ids.has(b.id))];
       });
-      setSgAnnouncement(`Loaded ${fresh.length} more subgroup boards.`);
+      setSgAnnouncement(`Loaded ${fresh.length} more ${sgNoun(fresh.length)}.`);
       if (fresh.length === 0 && sgOffsetRef.current >= page.count) {
         requestAnimationFrame(() => sgCountLineRef.current?.focus());
       }
@@ -1092,6 +1150,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     // Through writeBoards, like the board.deleted frame it also produces (#2139).
     writeBoards(removeBoardRows((b) => b.id === boardId));
     writeSubgroupBoards((prev) => prev.filter((b) => b.id !== boardId));
+    shiftSgWindow([boardId]);
     shellRemoveBoard(boardId);
   };
 
@@ -1610,8 +1669,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <li className="flex flex-col items-center gap-2 px-3 py-3 border-t border-line">
               <p ref={sgCountLineRef} tabIndex={-1} className="text-xs text-fg-tertiary focus:outline-none">
                 {sgOffset < sgCount
-                  ? `Showing ${subgroupBoards.length} of ${Math.max(subgroupBoards.length, sgCount - boards.length)} subgroup boards`
-                  : `Showing ${subgroupBoards.length} subgroup boards`}
+                  ? `Showing ${subgroupBoards.length} of ${Math.max(subgroupBoards.length, sgCount - boards.length)} ${sgNoun(Math.max(subgroupBoards.length, sgCount - boards.length))}`
+                  : `Showing ${subgroupBoards.length} ${sgNoun(subgroupBoards.length)}`}
               </p>
               {sgOffset < sgCount && (
                 // One button for Load more, Loading and Retry, so focus never leaves it (it stays mounted).
@@ -2143,6 +2202,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             // Remove from this group's list if moved elsewhere
             if (updated.group !== groupId) {
               writeBoards(removeBoardRows((b) => b.id === updated.id));
+              // Out of the subtree it leaves the subgroup list's window; into a subgroup it stays,
+              // and the shift only re-fetches one row (de-duplicated by id).
+              shiftSgWindow([updated.id]);
             }
             setMovingBoard(null);
           }}
