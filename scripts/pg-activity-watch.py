@@ -3,11 +3,20 @@
 """Background Postgres activity watcher for CI backend test jobs (#2536).
 
 Why it exists: ``backend-test`` shards intermittently hang in a SELECT that
-takes under 1 ms when run alone (#2534, #2536). The query plan is ruled out,
-so the suspect is a lock held by another connection, for example one an
-earlier test leaked. The faulthandler dump only shows the client side; this
-script records the server side: which backend is stuck, who blocks it, and
-what the blocker is doing (an idle-in-transaction blocker is the key evidence).
+takes under 1 ms when run alone (#2534, #2536). The faulthandler dump only
+shows the client side; this script records the server side: which backend is
+stuck, who blocks it, and what the blocker is doing.
+
+The first report (main pipeline 3105471449, 2026-11-23) ruled a lock OUT: the
+stuck backend was ``state=active wait=None/None`` with no blockers, and the
+same zero-row statement ran for minutes several times in a row, so the server
+was busy on CPU. For that case (active, no wait event) the report now adds
+the PLAN of the stuck statement: ``EXPLAIN`` (never ``ANALYZE``, so nothing
+runs) of the same text, on the same database, from a read-only connection
+with a statement timeout. It also says how long planning took, which tells a
+planner stall from an executor one, the plan's total cost against the JIT
+thresholds, and the planner statistics of the tables involved. CI raises
+``track_activity_query_size`` so the full statement text is available.
 
 DIAGNOSTIC ONLY. It never changes database state, never fails the job, and
 prints at most one ``[pg-activity-watch]`` report per stuck query (pid, query_start) to stderr.
@@ -15,6 +24,7 @@ It reads ``DATABASE_URL`` but never prints it.
 """
 
 import os
+import re
 import signal
 import sys
 import time
@@ -25,6 +35,11 @@ INTERVAL = 30
 LONG_QUERY_SECONDS = 90
 LOCK_WAIT_SECONDS = 60
 QUERY_LIMIT = 500
+#: Upper bound on the diagnostic EXPLAIN. Planning that runs past it is itself
+#: the finding (a planner stall), reported as such.
+EXPLAIN_TIMEOUT_MS = 60_000
+#: Tables whose planner statistics are printed with a plan, at most.
+STATS_TABLE_LIMIT = 20
 # Plain literals, never f-strings: every value reaches Postgres as a bound
 # parameter, and SAST (bandit B608) flags any formatted SQL string.
 ACTIVITY_SQL = """
@@ -37,6 +52,16 @@ WHERE pid <> pg_backend_pid() AND backend_type = 'client backend'
 BACKEND_SQL = """
 SELECT pid, datname, state, wait_event_type, wait_event, xact_start, query_start, query
 FROM pg_stat_activity WHERE pid = ANY(%s)
+"""
+TABLE_STATS_SQL = """
+SELECT s.relname, c.reltuples::bigint AS reltuples, c.relpages, pg_relation_size(c.oid) / 8192 AS curpages,
+       s.n_live_tup, s.n_dead_tup, s.last_autoanalyze, s.last_analyze, s.last_autovacuum
+FROM pg_stat_user_tables s JOIN pg_class c ON c.oid = s.relid
+WHERE s.relname = ANY(%s) ORDER BY s.relname
+"""
+JIT_SQL = """
+SELECT current_setting('jit') AS jit, current_setting('jit_above_cost') AS above,
+       current_setting('jit_optimize_above_cost') AS optimize, current_setting('jit_inline_above_cost') AS inline
 """
 LOCKS_SQL = """
 SELECT l.pid, l.locktype, l.mode, l.granted, c.relname
@@ -94,6 +119,91 @@ def format_report(stuck, blockers, locks):
     return "\n".join(lines)
 
 
+def wants_plan(row):
+    """True for a stall with no wait event: on CPU (planning or executing), not waiting."""
+    return row.get("state") == "active" and not row.get("wait_event_type") and not (row.get("blockers") or [])
+
+
+def explainable(query):
+    """The statement text when it is safe and complete to EXPLAIN, else None.
+
+    Only a single SELECT: EXPLAIN without ANALYZE never runs a statement, but a
+    diagnostic has no business planning writes. A text cut at
+    ``track_activity_query_size`` does not parse; its EXPLAIN is reported as
+    failed with ``SyntaxError``, which is the cue to raise that setting.
+    """
+    text = str(query or "").strip().rstrip(";").strip()
+    if not text.upper().startswith("SELECT ") or ";" in text:
+        return None
+    return text
+
+
+_TABLE_RE = re.compile(r'(?:FROM|JOIN)\s+"([A-Za-z0-9_]+)"')
+
+
+def table_names(query):
+    """Quoted table names after FROM/JOIN in a Django statement, sorted and deduped."""
+    return sorted(set(_TABLE_RE.findall(str(query or ""))))[:STATS_TABLE_LIMIT]
+
+
+def format_plan(plan_lines, seconds, jit, stats, error=None):
+    """Pure: the plan section of a report."""
+    lines = []
+    if error is not None:
+        lines.append(f"{PREFIX} plan: EXPLAIN failed after {seconds:.1f}s: {error}")
+    else:
+        lines.append(f"{PREFIX} plan: EXPLAIN (plan only) took {seconds:.3f}s")
+        for line in plan_lines:
+            lines.append(f"{PREFIX} plan| {line}")
+    if jit:
+        lines.append(
+            f"{PREFIX} jit={jit['jit']} above_cost={jit['above']} optimize_above={jit['optimize']} "
+            f"inline_above={jit['inline']}"
+        )
+    for t in stats:
+        lines.append(
+            f"{PREFIX} stats: {t['relname']} reltuples={t['reltuples']} relpages={t['relpages']} "
+            f"curpages={t['curpages']} live={t['n_live_tup']} dead={t['n_dead_tup']} "
+            f"autoanalyze={t['last_autoanalyze']} analyze={t['last_analyze']} autovacuum={t['last_autovacuum']}"
+        )
+    return "\n".join(lines)
+
+
+def database_dsn(url, dbname):
+    """Same server and credentials as DATABASE_URL, on database ``dbname``."""
+    parts = urlsplit(url)
+    return urlunsplit(parts._replace(path=f"/{dbname}"))
+
+
+def plan_report(url, row):
+    """EXPLAIN the stuck statement on its own database; never raises."""
+    import psycopg
+    from psycopg.rows import dict_row
+
+    query = explainable(row.get("query"))
+    if query is None:
+        return f"{PREFIX} plan: skipped (not a single SELECT)"
+    started = time.monotonic()
+    try:
+        with psycopg.connect(
+            database_dsn(url, row["datname"]), autocommit=True, connect_timeout=10,
+            options=f"-c default_transaction_read_only=on -c statement_timeout={EXPLAIN_TIMEOUT_MS}",
+        ) as conn, conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(JIT_SQL)
+            jit = cur.fetchone()
+            cur.execute(TABLE_STATS_SQL, (table_names(query),))
+            stats = cur.fetchall()
+            started = time.monotonic()
+            # The statement text is the stuck backend's own, read back from
+            # pg_stat_activity, never user input; EXPLAIN without ANALYZE does
+            # not execute it, and the connection is read-only.
+            cur.execute("EXPLAIN (COSTS, SETTINGS) " + query)
+            plan = [r["QUERY PLAN"] for r in cur.fetchall()]
+            return format_plan(plan, time.monotonic() - started, jit, stats)
+    except Exception as exc:  # diagnostic only
+        return format_plan([], time.monotonic() - started, None, [], error=type(exc).__name__)
+
+
 def maintenance_dsn(url):
     """Same server and credentials as DATABASE_URL, but the ``postgres`` database."""
     parts = urlsplit(url)
@@ -135,6 +245,8 @@ def main():
                         reported.add((row["pid"], row.get("query_start")))
                         blockers, locks = collect(conn, row)
                         print(format_report(row, blockers, locks), file=sys.stderr, flush=True)
+                        if wants_plan(row):
+                            print(plan_report(url, row), file=sys.stderr, flush=True)
                     time.sleep(INTERVAL)
         except Exception as exc:  # diagnostic only: never take the job down
             print(f"{PREFIX} {type(exc).__name__}; retrying in {INTERVAL}s", file=sys.stderr, flush=True)

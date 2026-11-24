@@ -281,6 +281,11 @@ default:
   - synchronous_commit=off
   - -c
   - full_page_writes=off
+  # Not a speed flag: pg_stat_activity keeps 16 KB of each statement instead of
+  # 1 KB, so scripts/pg-activity-watch.py can EXPLAIN a stuck statement whole
+  # (#2536). Shared memory cost is 16 KB per backend slot.
+  - -c
+  - track_activity_query_size=16384
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 #
@@ -1354,6 +1359,9 @@ backend-test-pg-matrix:
   services:
     - name: ${DOCKERHUB_MIRROR}/postgres:${PG_MAJOR}-alpine
       alias: postgres
+      # Server defaults otherwise (this matrix tests stock settings); the full
+      # statement text lets pg-activity-watch EXPLAIN a stall (#2536).
+      command: ["postgres", "-c", "track_activity_query_size=16384"]
     - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
