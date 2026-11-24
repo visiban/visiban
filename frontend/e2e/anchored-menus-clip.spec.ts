@@ -193,7 +193,8 @@ test.describe('anchored filter menus (#1482)', () => {
       }),
     )
     await page.goto('/admin?tab=users')
-    await page.getByRole('button', { name: /deactivate/i }).first().click()
+    // Target bob's row button by its label: the Users status filter's "Deactivated" pill (#2501) also matches /deactivate/i.
+    await page.getByRole('button', { name: 'Deactivate bob', exact: true }).click()
     // A user who owns boards: the inline confirm opens the transfer dialog (#2476).
     await page.getByRole('button', { name: 'Transfer boards…' }).click()
     const inputs = page.getByPlaceholder('Search for a member…')
