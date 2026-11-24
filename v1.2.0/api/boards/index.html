@@ -6519,7 +6519,7 @@
 <tr>
 <td><code>blocked_cards</code></td>
 <td>integer</td>
-<td><em>Added in 1.3</em> (#1149). Active cards in this swimlane (not archived and not in a done column, the cards <code>active_cards</code> counts) that are blocked now, manually or by an active <code>blocks</code> relation (the card's <a href="../cards/#block-and-unblock-since-13"><code>is_blocked</code></a>). One more aggregate query</td>
+<td><em>Added in 1.3</em> (#1149). Active cards in this swimlane (not archived and not in a done column, the cards <code>active_cards</code> counts) that are blocked now, manually or by an active <code>blocks</code> relation (the card's <a href="../cards/#block-and-unblock-since-13"><code>is_blocked</code></a>). Counted in the same grouped query as the per-column card counts behind <code>stage_distribution</code> (#2432), so it adds no query</td>
 </tr>
 <tr>
 <td><code>extension_panels</code></td>

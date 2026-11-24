@@ -5599,6 +5599,46 @@ check (#1298) is not a latency scenario and has no budget.</p>
 </table>
 <p>The aged board keeps the #2425 win. Its <code>wip-age</code> was 324 ms p50 with either predicate, against 756 ms for the whole-history load. No budget changed. The residual of about 5-8% over <code>2655a9f81</code> on the load-test board wasn't attributed. It's inside the 1.4x budget factor.</p>
 <p>The closing check is the manual <code>nightly-load-test</code> job on the NUC: its p95 for all eight flow scenarios (<code>cycle-time</code>, <code>throughput</code>, <code>cumulative-flow</code>, <code>wip-age</code>, <code>dwell</code>, <code>blocked</code>, <code>attention</code>, <code>swimlanes</code>) must come back under their budgets. The local DRF-client table above covers only four of the eight (<code>wip-age</code>, <code>attention</code>, <code>cycle-time</code>, <code>cumulative-flow</code>); <code>throughput</code>, <code>dwell</code>, <code>blocked</code> and <code>swimlanes</code> were not measured locally.</p>
+<h3 id="the-dwell-loaders-movement-term-2506-2567">The dwell loader's movement term — #2506, #2567<a class="headerlink" href="#the-dwell-loaders-movement-term-2506-2567" title="Permanent link">&para;</a></h3>
+<p><code>flow_metrics.load_recent_dwell</code> (the analytics heatmap and the MCP aging tool, not <code>summary</code>) had the same correlated <code>EXISTS</code> inside an <code>OR</code>. #2506 made it an uncorrelated <code>IN</code>, but bounded only by <code>card__board</code>, so its subquery still read every board's movements in the range from <code>card_movements_moved_at</code>. #2567 narrows it to the cards the other two terms skip: this board's cards archived before the range, or live in a done column (named by id from the <code>columns</code> argument). That is the exact complement of the other terms, so the kept set is unchanged; <code>RecentDwellNarrowedMovementTests</code> in <code>test_flow_range_plan_2502.py</code> pins it against the old correlated rule with another board's cards moving inside the range.</p>
+<p><code>EXPLAIN (ANALYZE, BUFFERS)</code>, local PostgreSQL 17.11, the nightly fixture (<code>seed_demo_data --force --scale 20 --extra-boards 199 --with-notifications --aged-generations 4</code>, then <code>VACUUM ANALYZE</code>; 151,674 movements in the database). Buffers summed over every statement the loader issues that reads <code>card_movements</code> (the cards load, the history read, and on the load-test board the gate history read), with the heatmap's <code>also_matching</code> term, as <code>analytics/</code> sends it:</p>
+<table>
+<thead>
+<tr>
+<th>Board, range</th>
+<th>Kept cards</th>
+<th>Before (#2506)</th>
+<th>After (#2567)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Load-test (2,395 cards), 30 days</td>
+<td>2,395 / 2,395</td>
+<td>90,043</td>
+<td>13,726</td>
+</tr>
+<tr>
+<td>Load-test, 90 days</td>
+<td>2,395 / 2,395</td>
+<td>26,011</td>
+<td>8,740</td>
+</tr>
+<tr>
+<td>Aged (12,050 cards), 30 days</td>
+<td>2,410 / 2,410</td>
+<td>64,752</td>
+<td>64,752</td>
+</tr>
+<tr>
+<td>Aged, 90 days</td>
+<td>2,410 / 2,410</td>
+<td>17,542</td>
+<td>17,546</td>
+</tr>
+</tbody>
+</table>
+<p>On the load-test board the subquery now drives from the board's 479 narrowed cards with index-only probes of <code>movement_card_moved_idx</code> (2,883 buffers) instead of reading 29,428 rows over 2 loops from <code>card_movements_moved_at</code> (28,534 buffers); the cards load goes 28,984 -&gt; 3,545 buffers. On the aged board the plans do not change (the 4-buffer difference at 90 days is the narrowed predicate's extra filter on the same plan): 10,150 of its cards are narrowed-in (9,640 archived, 510 live done), and at 30 days the planner still prefers the instance-wide <code>moved_at</code> range scan to that many probes. That residual is the planner's choice of driver, not a wider bound. One variant was measured and rejected: reading <code>is_done</code> through a join to <code>columns</code> inside the subquery flipped the aged board's 90-day plan to one probe per narrowed card, 17,542 -&gt; 131,712 buffers. Execution times were too noisy at this size (median of 3, 2-40 ms per statement) to quote as a gain.</p>
 <h2 id="cumulative-flows-whole-history-read-2444">Cumulative flow's whole-history read — #2444<a class="headerlink" href="#cumulative-flows-whole-history-read-2444" title="Permanent link">&para;</a></h2>
 <p>After <a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a>, <code>metrics/cumulative-flow</code> still streamed every skipped card's whole movement history to find the band it rests in. The <code>?date=</code> drill-down still loaded the board's whole history through <code>load_board_flow</code>.</p>
 <p>Both now go through <code>flow_metrics._deciding_rows</code>, which reads per card only the rows <code>_replay_placements</code> can depend on:</p>
