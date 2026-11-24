@@ -250,8 +250,12 @@ class RecentDwellNarrowedMovementTests(FlowFixture):
         subquery = self.movement_subquery(statements)
         self.assertRegex(subquery, rf'"board_id" = {self.board.pk}\b')
         self.assertRegex(subquery, r'"archived_at" < ')
-        done_ids = sorted((self.done.pk, self.released.pk))
-        self.assertRegex(subquery, r'"column_id" IN \({}, {}\)'.format(*done_ids))
+        # The ids come from a set, so their order inside IN (...) is not defined.
+        in_match = re.search(r'"column_id" IN \(([^)]*)\)', subquery)
+        self.assertIsNotNone(in_match, subquery)
+        named = [int(x) for x in in_match.group(1).split(",")]
+        self.assertEqual(len(named), 2, subquery)
+        self.assertEqual(set(named), {self.done.pk, self.released.pk}, subquery)
         for sql in statements:
             self.assertIsNone(_OUTER_CARD_REF.search(sql), sql)
 
