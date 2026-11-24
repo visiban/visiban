@@ -1692,8 +1692,9 @@ class GroupViewSet(viewsets.ModelViewSet):
         """Return all boards in this group and all its descendants that the user can access.
 
         This endpoint answers the question "what boards live anywhere inside this group
-        subtree?" — including boards in deeply nested subgroups.  It powers the GroupDetail
-        page's subgroup-boards list (frontend/src/pages/GroupDetail.tsx via getGroupDescendantBoards).
+        subtree?" — including boards in deeply nested subgroups.  It stays as the documented
+        public contract (the bare array).  The GroupDetail subgroup-boards list no longer reads it:
+        it pages through ``descendant-boards/paged/`` via ``getGroupDescendantBoardsPaged``.
         See ``_descendant_boards_queryset`` for how the visible set is computed.
         """
         from boards.serializers import BoardSerializer

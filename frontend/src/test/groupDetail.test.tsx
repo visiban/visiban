@@ -1548,6 +1548,61 @@ describe('GroupDetail', () => {
       expect(mockGetGroupDescendantBoards).toHaveBeenLastCalledWith(1, 1, 50)
     })
 
+    it('announces the added count and moves focus to the count line when the last page adds no new rows (#1779)', async () => {
+      mockGetGroupDescendantBoards
+        .mockResolvedValueOnce(env(0, 2, [sgBoard(10, 'Alpha')]))
+        .mockResolvedValueOnce(env(1, 2, [sgBoard(10, 'Alpha')]))
+      await openToggle()
+      await screen.findByText('Alpha')
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText('Loaded 0 more subgroup boards.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByText('Showing 1 subgroup boards')).toHaveFocus())
+    })
+
+    it('announces "Loaded N more" after Load more (#1779)', async () => {
+      mockGetGroupDescendantBoards
+        .mockResolvedValueOnce(env(0, 3, [sgBoard(10, 'Alpha')]))
+        .mockResolvedValueOnce(env(1, 3, [sgBoard(11, 'Beta'), sgBoard(12, 'Gamma')]))
+      await openToggle()
+      await screen.findByText('Alpha')
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      expect(await screen.findByText('Loaded 2 more subgroup boards.')).toBeInTheDocument()
+    })
+
+    it('a realtime event re-reads every loaded page (offsets 0 and 50) and keeps the rows (#1779)', async () => {
+      const first = Array.from({ length: 50 }, (_, i) => sgBoard(100 + i, `Row${i}`))
+      mockGetGroupDescendantBoards.mockImplementation(async (_g: number, offset: number) =>
+        offset === 0 ? env(0, 60, first) : env(50, 60, [sgBoard(200, 'Tail')]))
+      await openToggle()
+      await screen.findByText('Row0')
+      fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+      await screen.findByText('Tail')
+      mockGetGroupDescendantBoards.mockClear()
+      act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 99 } } as BoardEvent) })
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(2))
+      expect(mockGetGroupDescendantBoards).toHaveBeenNthCalledWith(1, 1, 0, 50)
+      expect(mockGetGroupDescendantBoards).toHaveBeenNthCalledWith(2, 1, 50, 50)
+      expect(await screen.findByText('Tail')).toBeInTheDocument()
+      expect(screen.getByText('Row0')).toBeInTheDocument()
+    })
+
+    it('the realtime re-read is capped at 4 pages however many are loaded (#1779)', async () => {
+      mockGetGroupDescendantBoards.mockImplementation(async (_g: number, offset: number) =>
+        env(offset, 100, [sgBoard(300 + offset, `P${offset}`)]))
+      await openToggle()
+      await screen.findByText('P0')
+      for (let i = 1; i <= 5; i++) {
+        fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+        await screen.findByText(`P${i}`)
+      }
+      mockGetGroupDescendantBoards.mockClear()
+      act(() => { capturedOnEvent?.({ event: 'group.deleted', data: { id: 99 } } as BoardEvent) })
+      await waitFor(() => expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(4))
+      // Let any further (wrongly uncapped) call land before asserting the ceiling.
+      await act(async () => { await Promise.resolve() })
+      expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(4)
+    })
+
     it('shows an error with Retry, never the empty state, when the first page fails', async () => {
       mockGetGroupDescendantBoards
         .mockRejectedValueOnce(new Error('boom'))

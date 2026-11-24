@@ -227,6 +227,12 @@ describe('GroupTree health status (#1133)', () => {
     const row = screen.getAllByRole('button').find((el) => el.getAttribute('role') === 'button' && el.tagName === 'DIV')!
     expect(row).toHaveAccessibleName('Engineering 2 boards · 3 members')
     expect(row).not.toHaveAccessibleName(/Expand|Add subgroup/)
+    // jsdom's name computation skips nested buttons even without aria-labelledby, so the name check
+    // alone cannot tell the fix from its absence: pin the explicit reference the browsers rely on.
+    const refs = (row.getAttribute('aria-labelledby') ?? '').split(' ').filter(Boolean)
+    expect(refs.length).toBeGreaterThanOrEqual(2)
+    refs.forEach((id) => expect(row.querySelector('#' + CSS.escape(id))).not.toBeNull())
+    expect(row.querySelector('#' + CSS.escape(refs[0]))).toHaveTextContent('Engineering')
     // The nested buttons stay individually named and reachable.
     expect(screen.getByRole('button', { name: 'Expand Engineering' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add subgroup to Engineering' })).toBeInTheDocument()
