@@ -475,7 +475,7 @@ http_status() { # http_status <expected> <label> <curl args...>; prints body to 
   fi
 }
 csrf_token() { awk '$6=="csrftoken"{print $7}' "${JAR}" | tail -1; }
-json_post() { # json_post <expected> <label> <path> <body on stdin>
+json_post() { # json_post <expected> <label> <path> <body on stdin; use a here-string, never a pipe>
   local expected="$1" label="$2" path="$3"
   http_status "${expected}" "${label}" -X POST -H 'Content-Type: application/json' \
     -H "X-CSRFToken: $(csrf_token)" --data @- "${BASE_URL}${path}"
@@ -490,8 +490,10 @@ http_status 200 "GET /boards/1 (deep link)" "${BASE_URL}/boards/1"
 grep -q '<div id="root"' "${BODY}" || fail "a deep link did not fall back to index.html — nginx try_files is broken"
 
 log "USER JOURNEY: login with the bootstrapped admin password"
-printf '{"username":"admin","password":"%s"}' "${admin_password}" \
-  | json_post 200 "POST /api/v1/auth/login/ (bootstrapped admin)" /api/v1/auth/login/
+# json_post reads its body from a here-string, not a pipe: a pipe would run it in
+# a subshell and lose $BODY (and delete the parent's previous body file).
+json_post 200 "POST /api/v1/auth/login/ (bootstrapped admin)" /api/v1/auth/login/ \
+  <<<"$(printf '{"username":"admin","password":"%s"}' "${admin_password}")"
 http_status 200 "GET /api/v1/auth/user/" "${BASE_URL}/api/v1/auth/user/"
 grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}" || fail \
   "the bootstrapped admin is not flagged must_change_password — the forced first-login change would never be offered: $(head -c 300 "${BODY}")"
@@ -499,19 +501,19 @@ grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}" || fail
 log "USER JOURNEY: forced password change, then re-login with the new password"
 # Prefix keeps the hex from ever being all digits (NumericPasswordValidator).
 new_password="Drill-$(gen_secret)"
-printf '{"current_password":"%s","new_password":"%s"}' "${admin_password}" "${new_password}" \
-  | json_post 200 "POST /api/v1/auth/change-password/" /api/v1/auth/change-password/
+json_post 200 "POST /api/v1/auth/change-password/" /api/v1/auth/change-password/ \
+  <<<"$(printf '{"current_password":"%s","new_password":"%s"}' "${admin_password}" "${new_password}")"
 http_status 200 "POST /api/v1/auth/logout/" -X POST -H "X-CSRFToken: $(csrf_token)" "${BASE_URL}/api/v1/auth/logout/"
 : > "${JAR}"
-printf '{"username":"admin","password":"%s"}' "${new_password}" \
-  | json_post 200 "re-login with the new password" /api/v1/auth/login/
+json_post 200 "re-login with the new password" /api/v1/auth/login/ \
+  <<<"$(printf '{"username":"admin","password":"%s"}' "${new_password}")"
 http_status 200 "GET /api/v1/auth/user/ after change" "${BASE_URL}/api/v1/auth/user/"
 if grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}"; then
   fail "must_change_password is still true after a successful change"
 fi
 
 log "USER JOURNEY: board create"
-printf '{"name":"Compose drill board"}' | json_post 201 "POST /api/v1/boards/" /api/v1/boards/
+json_post 201 "POST /api/v1/boards/" /api/v1/boards/ <<<'{"name":"Compose drill board"}'
 board_id="$(grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' "${BODY}" | head -1 | grep -o '[0-9]*$')"
 [ -n "${board_id}" ] || fail "board create returned no id: $(head -c 300 "${BODY}")"
 
@@ -523,7 +525,7 @@ log "USER JOURNEY: WebSocket upgrade through nginx on /ws/boards/${board_id}/"
 # the open socket, so cap it with -m and read the status line from the dumped
 # headers (exit 28 on the cap is expected).
 ws_headers="$(mktemp)"
-"${CURL[@]}" -m 5 -o /dev/null -D "${ws_headers}" -b "${JAR}" \
+"${CURL[@]}" --http1.1 -m 5 -o /dev/null -D "${ws_headers}" -b "${JAR}" \
   -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" -H "Origin: ${BASE_URL}" \
   "${BASE_URL}/ws/boards/${board_id}/" || true
