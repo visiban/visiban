@@ -332,7 +332,9 @@ def _aged_endpoints(base_url, board_id):
         "aged_board_analytics_365": f"{root}/analytics/?days=365",
         "aged_flow_cycle_time": f"{root}/metrics/cycle-time/",
         "aged_flow_throughput": f"{root}/metrics/throughput/",
-        # #2444: each card's placement is read from its few deciding rows, not its whole history.
+        # #2444: a SETTLED card's placement (one can_affect_range skips) is read from its few deciding
+        # rows; the live and recent cards are still a range load that holds their whole history,
+        # counted against ANALYTICS_MAX_MOVEMENTS, so a large enough board is refused with 422 (#2595).
         "aged_flow_cumulative_flow": f"{root}/metrics/cumulative-flow/",
         # The day drill-down, mid-history (#2444): every filtered card, finished work from any
         # year included, each from at most four rows.
@@ -787,6 +789,11 @@ def _self_test():
             "over_cap": (True, "ok")}
     if not all(r["passed"] for r in _evaluate_exit_run(good)):
         failures.append("exit run: an all-inside-the-bars input did not pass")
+    if {r.get("status") for r in _evaluate_exit_run(good)} != {STATUS_MEASURED}:
+        failures.append("exit run: a fully measured input has a record whose status is not 'measured'")
+    _unmeasured = {r["check"]: r for r in _evaluate_exit_run({**good, "cumulative_flow_p95_ms": None})}
+    if _unmeasured["cumulative_flow_p95_ms"].get("status") != STATUS_ERROR or _unmeasured["cumulative_flow_p95_ms"]["passed"]:
+        failures.append("exit run: a missing value with no recorded reason is not a failed 'error' record")
     for key, bad in (("cumulative_flow_p95_ms", 3000), ("drill_down_peak_rss_mb", CONTAINER_MEMORY_LIMIT_MB),
                      ("overview_peak_rss_mb", 513), ("analytics_365_rss_growth_mb", 150), ("analytics_365_ms", 3000),
                      ("overview_payload_bytes", EXIT_OVERVIEW_PAYLOAD_BYTES), ("unread_count_p95_ms", 100),
@@ -848,9 +855,28 @@ def _self_test():
     def burst(rounds=2, ok=room, refused="busy"):
         return [(("ok", 1.0, r) if i < ok else (refused, 0.1, r)) for r in range(rounds) for i in range(n_opens)]
 
+    def mixed(*kinds):
+        return [(k, 1.0, 0) for k in kinds]
+
     for label, got, want in (
         ("global cap refusing, one user per open", _evaluate_over_cap(burst(), n_opens, cap1, True, n_opens)[0], True),
-        ("refused as too_large", _evaluate_over_cap(burst(refused="too_large"), n_opens, cap1, True, n_opens)[0], True),
+        # #2595: the first NUC run. The slot was still held by a timed-out analytics/?days=365, so every
+        # open of every round was refused busy and none reached the cap: that proves nothing.
+        ("all refused, none admitted", _evaluate_over_cap(burst(ok=0), n_opens, cap1, True, n_opens)[0], False),
+        ("one admitted, the rest refused", _evaluate_over_cap(burst(ok=1), n_opens, cap1, True, n_opens)[0], True),
+        # On a board over the movement cap every admitted open is a 422: it took the slot (the size check
+        # runs inside it), so it counts as admitted, and the busy ones are the refusals.
+        ("admitted as too_large, refused busy",
+         _evaluate_over_cap(mixed(*["too_large"] * room, *["busy"] * (n_opens - room)), n_opens, cap1, True, n_opens)[0],
+         True),
+        # too_large is not a refusal: with no busy at all, nothing was refused by the cap (a round within
+        # the bound, so only the refusal rule can fail it).
+        ("too_large is not a refusal", _evaluate_over_cap(mixed("ok", "too_large", "too_large"), n_opens, cap1, True, n_opens)[0],
+         False),
+        ("too_large is not a refusal (wide round)",
+         _evaluate_over_cap(burst(refused="too_large"), n_opens, cap1, True, n_opens)[0], False),
+        ("too_large counted toward the round's admissions",
+         _evaluate_over_cap(mixed(*["ok"] * 3, *["too_large"] * 3, "busy", "busy"), n_opens, cap1, True, n_opens)[0], False),
         ("stall", _evaluate_over_cap(burst() + [("stall", None, 0)], n_opens, cap1, True, n_opens)[0], False),
         ("unexpected status", _evaluate_over_cap(burst() + [("unexpected", 0.1, 0)], n_opens, cap1, True, n_opens)[0], False),
         ("server gone", _evaluate_over_cap(burst(), n_opens, cap1, False, n_opens)[0], False),
@@ -889,10 +915,24 @@ def _self_test():
 
     class _StubOps:
         raises = ()
+        timeouts = ()
+        busy_server = False
+
+        def __init__(self):
+            self.calls = []
+
+        def wait_idle(self):
+            self.calls.append("idle")
+            if self.busy_server:
+                raise ExitServerNotIdle("stub: slot still busy")
+            return 0.0
 
         def _go(self, name, value):
+            self.calls.append(name)
             if name in self.raises:
                 raise _TooLarge()
+            if name in self.timeouts:
+                raise requests.exceptions.ReadTimeout("stub: read timed out")
             return value
 
         def fixture(self):
@@ -916,7 +956,12 @@ def _self_test():
         def alive(self):
             return True
 
-    wired = _collect_exit_measurements(_StubOps(), n_opens, cap1, n_opens)
+    _order_ops = _StubOps()
+    wired = _collect_exit_measurements(_order_ops, n_opens, cap1, n_opens)
+    # #2595: every analytics measurement waits for the slot first; the fixture reads do not need to.
+    _want_order = ["fx", "idle", "cf", "idle", "dd", "idle", "ov", "idle", "a365", "idle", "conc"]
+    if _order_ops.calls != _want_order:
+        failures.append(f"exit run: measurements ran as {_order_ops.calls}, not each after an idle wait {_want_order}")
     for key, want in (("cumulative_flow_p95_ms", 1000.0), ("drill_down_peak_rss_mb", 111.0),
                       ("overview_peak_rss_mb", 222.0), ("analytics_365_ms", 2000.0),
                       ("analytics_365_rss_growth_mb", 77.0), ("overview_payload_bytes", 9000),
@@ -942,6 +987,41 @@ def _self_test():
     partial_records = {r["check"]: r for r in _evaluate_exit_run(partial)}
     if partial_records["analytics_365_ms"]["passed"] or TOO_LARGE_CODE not in partial_records["analytics_365_ms"].get("detail", ""):
         failures.append("exit run: a refused analytics/?days=365 was not recorded as that check's failure with its reason")
+    for _c in ("analytics_365_ms", "analytics_365_rss_growth_mb"):
+        _r = partial_records[_c]
+        if _r.get("status") != STATUS_REFUSED or _r["value"] is not None or "movement cap" not in _r.get("detail", ""):
+            failures.append(f"exit run: a 422 analytics_too_large on {_c} is not a 'refused' record naming the movement cap")
+    # A 422 on the whole-history cumulative flow (the first NUC run): refused, value null, and the bar FAILS.
+    broken.raises = ("cf",)
+    _cf = {r["check"]: r for r in _evaluate_exit_run(_collect_exit_measurements(broken, n_opens, cap1, n_opens))}
+    if _cf["cumulative_flow_p95_ms"]["passed"] or _cf["cumulative_flow_p95_ms"].get("status") != STATUS_REFUSED \
+            or _cf["cumulative_flow_p95_ms"]["value"] is not None:
+        failures.append("exit run: a refused cumulative flow is not a failed 'refused' record with no value")
+    if _cf["drill_down_peak_rss_mb"].get("status") != STATUS_MEASURED:
+        failures.append("exit run: a refused cumulative flow stopped the drill-down being measured")
+    # A timed-out request (#2595): recorded as a timeout, never a figure, and the next measurement still
+    # runs, after an idle wait, and is measured.
+    _slow = _StubOps()
+    _slow.timeouts = ("a365",)
+    _slow_records = {r["check"]: r for r in _evaluate_exit_run(_collect_exit_measurements(_slow, n_opens, cap1, n_opens))}
+    for _c in ("analytics_365_ms", "analytics_365_rss_growth_mb"):
+        if _slow_records[_c]["passed"] or _slow_records[_c].get("status") != STATUS_TIMEOUT or _slow_records[_c]["value"] is not None:
+            failures.append(f"exit run: a timed-out {_c} is not a failed 'timeout' record with no value")
+    if _slow.calls[_slow.calls.index("a365") + 1:] != ["idle", "conc"] \
+            or _slow_records["over_cap_refused_cleanly"].get("status") != STATUS_MEASURED \
+            or not _slow_records["over_cap_refused_cleanly"]["passed"]:
+        failures.append("exit run: the measurement after a timeout did not wait for the slot and get measured")
+    # The server never goes idle: no analytics measurement runs, and each says it was not run.
+    _stuck = _StubOps()
+    _stuck.busy_server = True
+    _stuck_records = {r["check"]: r for r in _evaluate_exit_run(_collect_exit_measurements(_stuck, n_opens, cap1, n_opens))}
+    if [c for c in _stuck.calls if c not in ("idle", "fx")]:
+        failures.append(f"exit run: a measurement ran although the slot never came free: {_stuck.calls}")
+    for _c, _r in _stuck_records.items():
+        if _c == "fixture_is_stress_fixture":
+            continue
+        if _r["passed"] or _r.get("status") != STATUS_ERROR or not _r.get("detail", "").startswith("not run"):
+            failures.append(f"exit run: {_c} is not a failed 'error' record saying it was not run when the server stayed busy")
     if not partial_records["cumulative_flow_p95_ms"]["passed"] or not partial_records["over_cap_refused_cleanly"]["passed"]:
         failures.append("exit run: one failed measurement stopped the other checks")
     if _exit_output(partial, list(partial_records.values()), n_opens, 2, cap1, n_opens)["passed"]:
@@ -962,6 +1042,71 @@ def _self_test():
     if not all(r["passed"] for r in _evaluate_exit_run(enough)):
         failures.append("exit run: the minimum number of unread-count samples did not pass")
 
+    # _failure (#2595): each way a measurement can fail names its own status.
+    class _HttpResp:
+        def __init__(self, status, code, url="https://x/m/"):
+            self.status_code, self._code, self.url, self.reason = status, code, url, "R"
+
+        def json(self):
+            return {"code": self._code}
+
+    def _http_exc(status, code):
+        exc = requests.exceptions.HTTPError(str(status))
+        exc.response = _HttpResp(status, code)
+        return exc
+
+    for label, exc, want in (
+        ("422 analytics_too_large", _http_exc(422, TOO_LARGE_CODE), STATUS_REFUSED),
+        ("503 analytics_busy on a single request", _http_exc(503, ANALYTICS_BUSY_CODE), STATUS_ERROR),
+        ("422 with another code", _http_exc(422, "other"), STATUS_ERROR),
+        ("500", _http_exc(500, None), STATUS_ERROR),
+        ("ReadTimeout", requests.exceptions.ReadTimeout("x"), STATUS_TIMEOUT),
+        ("ConnectTimeout", requests.exceptions.ConnectTimeout("x"), STATUS_TIMEOUT),
+        ("ConnectionError", requests.exceptions.ConnectionError("x"), STATUS_ERROR),
+        ("server never idle", ExitServerNotIdle("x"), STATUS_ERROR),
+    ):
+        if _failure(exc)[0] != want:
+            failures.append(f"exit run: _failure({label}) is {_failure(exc)[0]!r}, expected {want!r}")
+    if "movement cap" not in _failure(_http_exc(422, TOO_LARGE_CODE))[1]:
+        failures.append("exit run: a 422 analytics_too_large does not say it is the movement cap")
+    if not _failure(ExitServerNotIdle("x"))[1].startswith("not run"):
+        failures.append("exit run: a measurement skipped for a busy server does not say it was not run")
+
+    # _wait_for_analytics_slot (#2595), on a fake clock: no real sleeps.
+    def _slot(answers, budget=10, poll=2):
+        now, slept, seq = [0.0], [], list(answers)
+
+        def probe():
+            kind = seq.pop(0) if seq else "busy"
+            if kind == "timeout":
+                raise requests.exceptions.ReadTimeout("probe")
+            return kind
+
+        def sleep(sec):
+            slept.append(sec)
+            now[0] += sec
+
+        try:
+            return _wait_for_analytics_slot(probe, budget, poll, clock=lambda: now[0], sleep=sleep), slept
+        except ExitServerNotIdle as exc:
+            return exc, slept
+
+    if _slot(["ok"]) != (0.0, []):
+        failures.append(f"exit run idle wait: a free slot did not return at once: {_slot(['ok'])}")
+    if _slot(["busy", "timeout", "busy", "ok"]) != (6.0, [2, 2, 2]):
+        failures.append(f"exit run idle wait: busy, timeout, busy, ok gave {_slot(['busy', 'timeout', 'busy', 'ok'])}")
+    if _slot(["busy", "too_large"])[0] != 2.0:
+        failures.append("exit run idle wait: a too_large probe (admitted) did not count as a free slot")
+    _never = _slot([], budget=10, poll=2)
+    if not isinstance(_never[0], ExitServerNotIdle) or len(_never[1]) != 5 or "10s" not in str(_never[0]):
+        failures.append(f"exit run idle wait: a slot busy past the budget did not fail after it: {_never}")
+    if not isinstance(_slot(["unexpected"])[0], ExitServerNotIdle) or _slot(["unexpected"])[1]:
+        failures.append("exit run idle wait: an unexpected probe answer did not fail at once")
+    if EXIT_IDLE_PROBE_TIMEOUT[1] <= 8:
+        failures.append("exit run: the idle probe's read timeout does not outlast the server's 8 s REST wait")
+    if EXIT_READ_TIMEOUT_SECONDS <= 30:
+        failures.append("exit run: the measured requests' read timeout is back at or under the first run's 30 s")
+
     # _ExitOps, the real ops: which endpoint each measurement requests, and which element of
     # peak_of's (result, peak RSS, RSS growth) it returns. Recording stubs, no network.
     requested = []
@@ -978,13 +1123,17 @@ def _self_test():
                 return {"count": 120, "results": []}
             return {"cards": [{}] * 10}
 
+    timeouts_used = []
+
     class _RecSession:
         def get(self, url, timeout=None):
             requested.append(url)
+            timeouts_used.append((url, timeout))
             return _RecResp(url)
 
-    def _rec_time(_session, url, iterations, warmup):
+    def _rec_time(_session, url, iterations, warmup, timeout=None):
         requested.append(url)
+        timeouts_used.append((url, timeout))
         return [float(iterations)]
 
     hwm_mb, growth_mb = 444.0, 7.0
@@ -995,7 +1144,7 @@ def _self_test():
     rec_ops = _ExitOps(_RecSession(), "https://x", 9, _rec_peak,
                        concurrent=lambda: (wired_burst, [1.0], [], 55),
                        alive=lambda: True, iterations=3, warmup=1,
-                       declared={"declared_scale": 100}, time_requests=_rec_time)
+                       declared={"declared_scale": 100}, time_requests=_rec_time, log=lambda _m: None)
     root9 = "https://x/api/v1/boards/9"
 
     def _one_call(label, fn, check_url):
@@ -1023,6 +1172,14 @@ def _self_test():
     conc = rec_ops.concurrent()
     if conc[4] != hwm_mb or conc[3] != 55:
         failures.append(f"exit run ops: concurrent returned peak {conc[4]}, payload {conc[3]}")
+    _measured_timeouts = {t for u, t in timeouts_used if "/cards/archived/" not in u and not u.endswith("/full/")}
+    if _measured_timeouts != {EXIT_REQUEST_TIMEOUT}:
+        failures.append(f"exit run ops: measured requests used timeouts {_measured_timeouts}, not {EXIT_REQUEST_TIMEOUT}")
+    if not isinstance(_raises(rec_ops.wait_idle), str):
+        failures.append("exit run ops: wait_idle with no probe wired did not refuse")
+    if _ExitOps(_RecSession(), "https://x", 9, _rec_peak, concurrent=None, alive=None, iterations=1, warmup=0,
+                wait_idle=lambda: 4.0).wait_idle() != 4.0:
+        failures.append("exit run ops: wait_idle does not run the wired probe")
     del requested[:]
     fx = rec_ops.fixture()
     if sorted(requested) != sorted([f"{root9}/cards/archived/", f"{root9}/full/"]) \
@@ -1183,21 +1340,23 @@ def _count_accessible_boards(session, base_url):
     return _boards_in_page(r.json())
 
 
-def _time_requests(session, url, iterations, warmup):
+def _time_requests(session, url, iterations, warmup, timeout=30):
     """GET *url* `warmup` times (discarded) then `iterations` times, timed.
 
     Returns a list of elapsed times in milliseconds. Raises on any non-2xx
     response — a failed request has no meaningful latency and must not be
-    silently averaged in with the successful ones.
+    silently averaged in with the successful ones. ``timeout`` is the budget
+    run's 30 s unless a caller passes its own (the exit run passes
+    ``EXIT_REQUEST_TIMEOUT``).
     """
     for _ in range(warmup):
-        r = session.get(url, timeout=30)
+        r = session.get(url, timeout=timeout)
         r.raise_for_status()
 
     samples_ms = []
     for _ in range(iterations):
         start = time.perf_counter()
-        r = session.get(url, timeout=30)
+        r = session.get(url, timeout=timeout)
         elapsed_ms = (time.perf_counter() - start) * 1000
         r.raise_for_status()
         samples_ms.append(elapsed_ms)
@@ -1244,6 +1403,39 @@ EXIT_MIN_ACTIVE_CARDS = 11_000
 TOO_LARGE_CODE = "analytics_too_large"
 _EXIT_UNREAD_URL = "/api/v1/notifications/unread-count/"
 _EXIT_CURRENT_USER_URL = "/api/v1/auth/user/"
+# The read timeout of every measured exit-run request (#2595). 90 s is the production proxy's read
+# timeout, the longest a request the server is allowed to run can take before a user loses it
+# (analytics_admission.STREAMED_ROWS_MULTIPLE is sized to stay inside it). The first run's 30 s cut
+# analytics/?days=365 off while the server was still allowed to finish it. A request slower than this
+# is recorded as a timeout, never as a latency.
+EXIT_READ_TIMEOUT_SECONDS = 90
+EXIT_CONNECT_TIMEOUT_SECONDS = 10
+EXIT_REQUEST_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_READ_TIMEOUT_SECONDS)
+# The idle wait before each analytics measurement (#2595), independent of the read timeout above. A
+# client timeout does not stop the server: it keeps running the request and holds the analytics slot
+# (ANALYTICS_MAX_CONCURRENT=1), so every later request would be refused busy or share the CPU. Before
+# each measurement the script therefore probes the slot with a cheap analytics request on the small
+# linked board (_EXIT_IDLE_PROBE_PATH) and waits until one is admitted, for at most
+# EXIT_IDLE_WAIT_SECONDS; past that the measurement is not run and is recorded as an error that says so.
+EXIT_IDLE_WAIT_SECONDS = 300
+EXIT_IDLE_POLL_SECONDS = 2
+# A busy probe waits up to analytics_admission.REST_WAIT_SECONDS (8) on the server before its 503, so
+# the probe's own read timeout must be longer than that; a probe that times out counts as busy.
+EXIT_IDLE_PROBE_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, 30)
+_EXIT_IDLE_PROBE_PATH = "metrics/wip-age/"
+# What each exit-run record's ``status`` says (#2595), so a refusal is never read as an error or a
+# timeout, nor any of them as a measurement. Only ``measured`` can pass a bar.
+#   measured: the figure was measured (it may still be over its bar).
+#   refused:  a documented refusal, 422 analytics_too_large: the board is over the movement cap
+#             (ANALYTICS_MAX_MOVEMENTS). Recorded with value null and still FAILS the bar: the bar is
+#             about this board, and the server did not answer for it.
+#   timeout:  no response within EXIT_READ_TIMEOUT_SECONDS.
+#   error:    anything else, including a 503 analytics_busy on a single-request check (it runs alone,
+#             after the idle wait, so a busy there is a defect, not the cap working), a measurement
+#             not run because the server never went idle, and too few samples.
+# In the over-cap burst, 503 analytics_busy and 422 analytics_too_large are the MEASUREMENT (see
+# _evaluate_over_cap), not failures.
+STATUS_MEASURED, STATUS_REFUSED, STATUS_TIMEOUT, STATUS_ERROR = "measured", "refused", "timeout", "error"
 
 
 def _bar(name, value, limit, unit, lower_is_better=True):
@@ -1278,10 +1470,20 @@ def _evaluate_over_cap(outcomes, concurrency, cap, server_alive, users):
     The bar is about the GLOBAL cap, ANALYTICS_MAX_CONCURRENT, so it accepts a refusal as proof
     only when nothing else could have refused: each open is a different user (so the per-user
     limit, checked first on the server, never trips), and the burst is wider than the cap plus
-    the waiting room (so a refusal is forced, not left to timing). It then passes only when every
-    request was ok, busy or too_large (no stall, no unexpected status), at least one was refused,
-    no round admitted more opens than the cap plus the waiting room can hold (else the cap was not
-    applied), and the server still answers (no OOM).
+    the waiting room (so a refusal is forced, not left to timing).
+
+    WHY ``too_large`` counts as ADMITTED, not refused (#2595): the server checks the movement cap
+    inside the slot (analytics_admission.analytics_slot), so a 422 analytics_too_large took a slot
+    and ran until the first row past ANALYTICS_MAX_MOVEMENTS. Only a 503 analytics_busy is a
+    refusal by admission. On a board over the movement cap every admitted open is a 422, and that
+    still tests the cap.
+
+    It then passes only when every request was ok, busy or too_large (no stall, no unexpected
+    status), AT LEAST ONE open was admitted AND at least one was refused (an all-refused burst
+    proves nothing: the first exit run's 24 busy, 0 admitted came from a slot still held by an
+    earlier timed-out request, and no open ever reached the cap), no round admitted more opens
+    than the cap plus the waiting room can hold (else the cap was not applied), and the server
+    still answers (no OOM).
     """
     kinds = [o[0] for o in outcomes]
     room = cap + EXIT_SERVER_MAX_WAITERS
@@ -1296,19 +1498,25 @@ def _evaluate_over_cap(outcomes, concurrency, cap, server_alive, users):
         return False, "a request stalled"
     if "unexpected" in kinds:
         return False, f"{kinds.count('unexpected')} request(s) had an unexpected status"
-    if not (kinds.count("busy") + kinds.count("too_large")):
-        return False, "no request was refused, so the cap was never exercised"
+    admitted_total = kinds.count("ok") + kinds.count("too_large")
+    refused_total = kinds.count("busy")
+    counts = (f"{kinds.count('ok')} ok, {kinds.count('too_large')} too_large (admitted), "
+              f"{refused_total} busy (refused) over {users} distinct users")
+    if not admitted_total:
+        return False, (f"{counts}: no open was admitted, so nothing tested the cap (was the analytics slot "
+                       "already held when the burst started?)")
+    if not refused_total:
+        return False, f"{counts}: no open was refused, so the cap was never exercised"
     admitted = {}
     for kind, _, rnd in outcomes:
-        admitted[rnd] = admitted.get(rnd, 0) + (kind == "ok")
+        admitted[rnd] = admitted.get(rnd, 0) + (kind in ("ok", "too_large"))
     most = max(admitted.values(), default=0)
     if most > room:
-        return False, (f"one round admitted {most} opens, more than ANALYTICS_MAX_CONCURRENT={cap} plus "
+        return False, (f"{counts}; one round admitted {most} opens, more than ANALYTICS_MAX_CONCURRENT={cap} plus "
                        f"{EXIT_SERVER_MAX_WAITERS} waiters can hold: the cap was not applied")
     if not server_alive:
         return False, "the server stopped answering after the burst (OOM?)"
-    return True, (f"{kinds.count('ok')} ok, {kinds.count('busy')} busy, {kinds.count('too_large')} too_large "
-                  f"over {users} distinct users; at most {most} admitted in one round (bound {room})")
+    return True, f"{counts}; at most {most} admitted in one round (bound {room})"
 
 
 def _evaluate_exit_fixture(fixture):
@@ -1332,24 +1540,74 @@ def _evaluate_exit_fixture(fixture):
             "unit": "cards", "passed": bool(passed), "detail": detail}
 
 
-def _failure_reason(exc):
-    """A one-line reason a measurement could not run; names a documented refusal as itself."""
+class ExitServerNotIdle(RuntimeError):
+    """The analytics slot did not come free in time (or its state is unknown): the measurement was not run."""
+
+
+def _failure(exc):
+    """``(status, detail)`` for a measurement that raised *exc* (#2595): a refusal, a timeout or an error.
+
+    Names a documented refusal as itself, and never as a figure. See the STATUS_* constants for
+    what each status means and why a refusal still fails its bar.
+    """
+    if isinstance(exc, ExitServerNotIdle):
+        return STATUS_ERROR, f"not run: {exc}"
+    if isinstance(exc, requests.exceptions.Timeout):
+        return STATUS_TIMEOUT, (f"no response within the {EXIT_READ_TIMEOUT_SECONDS}s read timeout "
+                                f"({type(exc).__name__}); not measured. The server may still be running it, "
+                                "so the next measurement waits for the analytics slot first")
     resp = getattr(exc, "response", None)
     if resp is not None:
         try:
             code = resp.json().get("code")
         except (ValueError, AttributeError):
             code = None
-        return f"{resp.status_code} {code or resp.reason} from {resp.url} (the request was refused, not measured)"
-    return f"{type(exc).__name__}: {exc}"
+        if resp.status_code == 422 and code == TOO_LARGE_CODE:
+            return STATUS_REFUSED, (f"422 {TOO_LARGE_CODE} from {resp.url}: refused, not measured. The board is "
+                                    "over the movement cap (ANALYTICS_MAX_MOVEMENTS), a documented limit; the bar "
+                                    "fails because the server did not answer for this board")
+        if resp.status_code == 503 and code == ANALYTICS_BUSY_CODE:
+            return STATUS_ERROR, (f"503 {ANALYTICS_BUSY_CODE} from {resp.url} although the analytics slot was "
+                                  "free just before: the measurement did not run alone; not measured")
+        return STATUS_ERROR, f"{resp.status_code} {code or resp.reason} from {resp.url}; not measured"
+    return STATUS_ERROR, f"{type(exc).__name__}: {exc}"
+
+
+def _wait_for_analytics_slot(probe, budget_s=EXIT_IDLE_WAIT_SECONDS, poll_s=EXIT_IDLE_POLL_SECONDS,
+                             clock=time.monotonic, sleep=time.sleep):
+    """Block until the server admits an analytics request; return the seconds waited (#2595).
+
+    ``probe()`` sends one cheap analytics request and returns its classification
+    (``_classify_analytics_response``). ``ok`` or ``too_large`` means it was admitted, so the
+    slot was free (a too_large ran inside the slot). ``busy``, or a probe timeout, means a
+    request is still running: wait ``poll_s`` and probe again, for at most ``budget_s``, then raise
+    ``ExitServerNotIdle``. Any other answer leaves the slot's state unknown and raises at once.
+    The budget is the idle wait's own, never the measured requests' read timeout.
+    """
+    start = clock()
+    while True:
+        try:
+            kind = probe()
+        except requests.exceptions.Timeout:
+            kind = "probe timeout"
+        if kind in ("ok", "too_large"):
+            return clock() - start
+        if kind not in ("busy", "probe timeout"):
+            raise ExitServerNotIdle(f"the analytics-slot probe answered {kind!r}, so whether the slot is free is unknown")
+        if clock() - start >= budget_s:
+            raise ExitServerNotIdle(f"the server's analytics slot was still busy after {budget_s}s (last probe: "
+                                    f"{kind}); an earlier request is still running")
+        sleep(poll_s)
 
 
 def _evaluate_exit_run(m):
     """Turn the measured figures *m* into the list of absolute-bar records (pure; self-tested).
 
-    ``m["failures"]`` maps a check name to the reason its measurement could not run (a refused
-    or failed request). Such a check is recorded as failed with that reason; the others are still
-    evaluated, so one failure never hides the rest.
+    ``m["failures"]`` maps a check name to ``(status, detail)`` from ``_failure``: why its
+    measurement could not run (refused, timed out, errored, not run). Such a check is recorded
+    as failed with that status and reason; the others are still evaluated, so one failure never
+    hides the rest. Every record carries a ``status`` (the STATUS_* constants); only a
+    ``measured`` record can pass.
     """
     failures = m.get("failures", {})
     over_ok, over_detail = m.get("over_cap", (False, "not measured"))
@@ -1374,14 +1632,24 @@ def _evaluate_exit_run(m):
         _bar("unread_count_p95_ms_under_load", unread, EXIT_UNREAD_COUNT_P95_MS, "ms"),
         _bar("concurrent_peak_rss_mb", m.get("concurrent_peak_rss_mb"), CONTAINER_MEMORY_LIMIT_MB, "MB"),
     ]
-    over = {"check": "over_cap_refused_cleanly", "value": None, "bar": "503 analytics_busy / 422 analytics_too_large, no stall, no OOM",
+    over = {"check": "over_cap_refused_cleanly", "value": None,
+            "bar": ("at least one open admitted (200, or 422 analytics_too_large after taking the slot) and at least "
+                    "one refused 503 analytics_busy; no stall, no OOM"),
             "unit": "", "passed": bool(over_ok), "detail": over_detail}
     records.append(over)
     for r in records:
         if r["check"] in failures:
-            r["passed"], r["detail"] = False, failures[r["check"]]
-        elif not r["passed"] and r["check"] == "unread_count_p95_ms_under_load" and unread_detail:
-            r["detail"] = unread_detail
+            r["status"], r["detail"] = failures[r["check"]]
+            r["passed"] = False
+        elif r["check"] == "over_cap_refused_cleanly":
+            r["status"] = STATUS_MEASURED if "over_cap" in m else STATUS_ERROR
+        elif r["value"] is None:
+            r["status"], r["passed"] = STATUS_ERROR, False
+            if r["check"] == "unread_count_p95_ms_under_load" and unread_detail:
+                r["detail"] = unread_detail
+            r.setdefault("detail", "not measured")
+        else:
+            r["status"] = STATUS_MEASURED
     return records
 
 
@@ -1391,22 +1659,31 @@ def _collect_exit_measurements(ops, concurrency, cap, users):
     *ops* has: fixture() -> {active_cards, archived_cards, ...}, cumulative_flow() -> [ms],
     drill_down() -> peak_mb, overview_open() -> (peak_mb, payload_bytes), analytics_365() ->
     ([ms], growth_mb), concurrent() -> (outcomes, unread_ms, unread_errors, largest_payload,
-    peak_mb), alive() -> bool. A measurement that raises (a refused request,
-    ``analytics_too_large``, a timeout) is recorded under ``m["failures"]`` for the checks it
-    feeds. Kept apart from ``run_exit`` so --self-test can feed it stubs; ``_ExitOps`` is the real
-    *ops*. ``users`` is how many distinct users the burst ran as.
-    """
-    m = {"failures": {}}
+    peak_mb), alive() -> bool, wait_idle() -> seconds waited. A measurement that raises (a
+    refused request, ``analytics_too_large``, a timeout) is recorded under ``m["failures"]`` as
+    ``_failure``'s (status, detail) for the checks it feeds. Kept apart from ``run_exit`` so
+    --self-test can feed it stubs; ``_ExitOps`` is the real *ops*. ``users`` is how many distinct
+    users the burst ran as.
 
-    def attempt(checks, fn):
+    Every analytics measurement first calls ``ops.wait_idle()`` (#2595), outside the measurement
+    (so outside its RSS window), because an earlier request that timed out on the client may
+    still hold the server's analytics slot. If the slot never comes free the measurement is not
+    run, and its checks say so, rather than measuring a refusal or a shared CPU.
+    """
+    m = {"failures": {}, "idle_waits_s": {}}
+
+    def attempt(checks, fn, idle=True):
         try:
+            if idle:
+                m["idle_waits_s"][checks[0]] = round(ops.wait_idle(), 1)
             return fn()
-        except Exception as exc:  # noqa: BLE001 -- recorded as the checks' failure reason
+        except Exception as exc:  # noqa: BLE001 -- recorded as the checks' failure status and reason
             for c in checks:
-                m["failures"][c] = _failure_reason(exc)
+                m["failures"][c] = _failure(exc)
             return None
 
-    fx = attempt(("fixture_is_stress_fixture",), ops.fixture)
+    # The fixture reads are not analytics requests and run first, so they need no idle wait.
+    fx = attempt(("fixture_is_stress_fixture",), ops.fixture, idle=False)
     if fx:
         m["fixture"] = dict(fx)
     cf = attempt(("cumulative_flow_p95_ms",), ops.cumulative_flow)
@@ -1432,7 +1709,7 @@ def _collect_exit_measurements(ops, concurrency, cap, users):
         m["unread_samples"] = len(unread)
         if unread_errors:
             m["failures"]["unread_count_p95_ms_under_load"] = (
-                f"unread-count failed during the concurrent opens: {unread_errors[0]}")
+                STATUS_ERROR, f"unread-count failed during the concurrent opens: {unread_errors[0]}")
         elif unread:
             m["unread_count_p95_ms"] = _percentile(unread, 95)
         m["over_cap"] = _evaluate_over_cap(outcomes, concurrency, cap, ops.alive(), users)
@@ -1539,6 +1816,9 @@ def _exit_output(m, records, concurrency, rounds, cap, users):
         "concurrent_opens": concurrency, "rounds": rounds, "burst_users": users,
         "analytics_max_concurrent": cap,
         "responses": m.get("responses", {}),
+        "read_timeout_seconds": EXIT_READ_TIMEOUT_SECONDS,
+        "idle_wait_budget_seconds": EXIT_IDLE_WAIT_SECONDS,
+        "idle_waits_s": m.get("idle_waits_s", {}),
         "checks": records,
         "passed": all(r["passed"] for r in records),
     }
@@ -1554,9 +1834,10 @@ class _ExitOps:
     """
 
     def __init__(self, session, base_url, board_id, peak_of, concurrent, alive, iterations, warmup,
-                 declared=None, time_requests=_time_requests):
+                 declared=None, time_requests=_time_requests, wait_idle=None, log=print):
         self.session, self.peak_of, self._concurrent, self._alive = session, peak_of, concurrent, alive
         self.iterations, self.warmup, self.time_requests = iterations, warmup, time_requests
+        self._wait_idle, self._log = wait_idle, log
         self.declared = dict(declared or {})
         self.root = f"{base_url}/api/v1/boards/{board_id}"
         self.endpoints = _aged_endpoints(base_url, board_id)
@@ -1571,24 +1852,38 @@ class _ExitOps:
         return {**self.declared, "active_cards": len(full.json().get("cards", [])),
                 "archived_cards": _count_of(archived.json())}
 
+    def wait_idle(self):
+        # Absent input never passes (#1075): with no probe wired there is no idle wait to skip to.
+        if self._wait_idle is None:
+            raise ExitServerNotIdle("no analytics-slot probe is wired, so the server was never confirmed idle")
+        return self._wait_idle()
+
+    def _time(self, key, warmup):
+        url = self.endpoints[key]
+        self._log(f"  measuring {key}: {url}")
+        return self.time_requests(self.session, url, self.iterations, warmup, timeout=EXIT_REQUEST_TIMEOUT)
+
     def cumulative_flow(self):
-        return self.time_requests(self.session, self.endpoints["aged_flow_cumulative_flow"],
-                                  self.iterations, self.warmup)
+        # The whole-history chart, no ``date``: what the Analytics page draws. It is NOT the request
+        # the ?date= drill-down below sends (#2595: the first run's ten streamed=... ok lines in the
+        # server log were the drill-down's). On a board whose live and recent cards hold more than
+        # ANALYTICS_MAX_MOVEMENTS rows the server refuses it with 422, by design; see STATUS_REFUSED.
+        return self._time("aged_flow_cumulative_flow", self.warmup)
 
     def drill_down(self):
         # Peak RSS (the high-water mark) during the ?date= drill-down.
-        return self.peak_of(lambda: self.time_requests(
-            self.session, self.endpoints["aged_flow_cumulative_flow_day"], self.iterations, 0))[1]
+        return self.peak_of(lambda: self._time("aged_flow_cumulative_flow_day", 0))[1]
 
     def overview_open(self):
-        one, peak, _ = self.peak_of(lambda: self.session.get(self.endpoints["aged_flow_overview"], timeout=120))
+        url = self.endpoints["aged_flow_overview"]
+        self._log(f"  measuring aged_flow_overview: {url}")
+        one, peak, _ = self.peak_of(lambda: self.session.get(url, timeout=EXIT_REQUEST_TIMEOUT))
         one.raise_for_status()
         return peak, len(one.content)
 
     def analytics_365(self):
         # RSS GROWTH, not the peak: #2451's bar is how much one request adds.
-        t365, _, growth = self.peak_of(lambda: self.time_requests(
-            self.session, self.endpoints["aged_board_analytics_365"], self.iterations, 0))
+        t365, _, growth = self.peak_of(lambda: self._time("aged_board_analytics_365", 0))
         return t365, growth
 
     def concurrent(self):
@@ -1633,11 +1928,16 @@ def run_exit(args):
     if not mem.enabled:
         raise RuntimeError("--exit-run cannot read the server's RSS (needs Linux /proc, same host).")
     board = _find_board(session, base_url, args.aged_board_name)
+    # The idle probe's board: the small linked child board (500 cards), also loadtest_analytics's, so
+    # one probe costs milliseconds and holds the slot only that long (#2595).
+    probe_board = _find_board(session, base_url, args.linked_board_name)
+    probe_url = f"{base_url}/api/v1/boards/{probe_board['id']}/{_EXIT_IDLE_PROBE_PATH}"
     users_error = None
     try:
         users = _burst_users(base_url, burst_headers)
     except (requests.exceptions.RequestException, ValueError) as exc:
-        users, users_error = 0, f"could not confirm the burst tokens' users from auth/user/: {_failure_reason(exc)}"
+        users, users_error = 0, (STATUS_ERROR, "could not confirm the burst tokens' users from auth/user/: "
+                                 + _failure(exc)[1])
     print(f"Exit run on board {board['id']} ({args.aged_board_name}); container limit {CONTAINER_MEMORY_LIMIT_MB} MB; "
           f"burst of {concurrency} opens as {users} distinct users.")
 
@@ -1649,12 +1949,27 @@ def run_exit(args):
         hwm = mem.read()["hwm_mb"]
         return result, hwm, hwm - before
 
+    def probe():
+        r = session.get(probe_url, timeout=EXIT_IDLE_PROBE_TIMEOUT)
+        try:
+            code = r.json().get("code") if r.status_code != 200 else None
+        except (ValueError, AttributeError):
+            code = None
+        return _classify_analytics_response(r.status_code, code, r.headers.get("Retry-After"))
+
+    def wait_idle():
+        waited = _wait_for_analytics_slot(probe)
+        if waited >= EXIT_IDLE_POLL_SECONDS:
+            print(f"  waited {waited:.0f}s for the analytics slot to come free", flush=True)
+        return waited
+
     ops = _ExitOps(
         session, base_url, board["id"], peak_of,
         concurrent=lambda: _concurrent_overview(base_url, burst_headers, poll_headers, board["id"], args.exit_rounds),
         alive=lambda: _server_alive(base_url),
         iterations=args.aged_iterations, warmup=args.aged_warmup,
         declared={"declared_scale": args.fixture_scale, "declared_aged_generations": args.fixture_aged_generations},
+        wait_idle=wait_idle, log=lambda msg: print(msg, flush=True),
     )
     m = _collect_exit_measurements(ops, concurrency, args.exit_max_concurrent, users)
     if users_error:
@@ -1662,7 +1977,7 @@ def run_exit(args):
     records = _evaluate_exit_run(m)
     print("\nEXIT RUN RESULTS (absolute bars, #2588)")
     for r in records:
-        print(f"  {'PASS' if r['passed'] else 'FAIL'}  {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
+        print(f"  {'PASS' if r['passed'] else 'FAIL'}  [{r.get('status')}] {r['check']}: {r['value']} {r['unit']} (bar {r['bar']})"
               + (f" - {r['detail']}" if r.get("detail") else ""))
     output = _exit_output(m, records, concurrency, args.exit_rounds, args.exit_max_concurrent, users)
     out_path = resolve_within(cli_roots(), args.exit_output)
