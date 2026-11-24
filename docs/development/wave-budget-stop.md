@@ -75,7 +75,10 @@ with none of the hook's `stopReason`; `SubagentStop` did not fire after a hook s
 **Accepted risk.** The store sits where an implementer with Bash can write, so an agent can
 delete its own count on purpose. The hook still runs before every call, so that is deliberate
 sabotage rather than a way around it, and a stopped agent's marker stays for the orchestrator,
-whose reader follows no symlink and prints only the marker's parsed fields. The count covers the
+whose reader follows no symlink and prints only the marker's parsed fields. The store is shared,
+so the same agent could also reset a sibling implementer's count, plant a sibling's marker (a
+false handoff) or hold the lock (which denies every worker): still deliberate sabotage, but with
+a reach past its own count. The count covers the
 implementer's own calls only: the gate agents it spawns have their own `agent_id` and type.
 
 **Untested live.** The hook has not run inside Claude Code in this repo; the probe used a
