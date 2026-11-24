@@ -4905,7 +4905,7 @@ not <code>manage.py test</code> — <code>pytest-django</code> reads the same <c
 <li><code>page.getByLabel('Email address')</code> — form controls without a visible label</li>
 <li><code>page.getByPlaceholder('Search…')</code> — no label, has a placeholder</li>
 <li><code>page.getByText('Download started')</code> — status copy with no interactive role</li>
-<li><code>page.locator('#card-detail-title')</code> — last resort, when no accessible name exists</li>
+<li><code>page.locator('#card-detail-title')</code> — last resort; the card title input has the accessible name "Card title" (<code>getByRole('textbox', { name: 'Card title' })</code>), and the card detail dialog is located with <code>page.getByTestId('card-detail-dialog')</code></li>
 </ol>
 <p>Avoid class-based selectors (<code>page.locator('.btn-primary')</code>) — they break on every Tailwind refactor.</p>
 <h3 id="moving-the-caret-to-the-end-of-a-line">Moving the caret to the end of a line<a class="headerlink" href="#moving-the-caret-to-the-end-of-a-line" title="Permanent link">&para;</a></h3>
