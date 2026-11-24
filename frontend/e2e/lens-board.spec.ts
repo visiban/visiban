@@ -26,7 +26,7 @@ const PIPELINE_COLUMNS = [
   ['done', 'Done'],
 ].map(([key, label]) => ({ key, label, is_current: false }))
 
-function issue(number: number, title: string, state: 'open' | 'closed', column: string) {
+function issue(number: number, title: string, state: 'open' | 'closed', column: string, milestone = '1.0') {
   return {
     number,
     title,
@@ -34,11 +34,11 @@ function issue(number: number, title: string, state: 'open' | 'closed', column: 
     state,
     labels: [],
     assignees: [],
-    milestone: '1.0',
+    milestone,
     milestone_due: null,
     milestone_state: 'active',
     column_keys: [column],
-    swimlane_keys: ['1.0'],
+    swimlane_keys: [milestone],
     has_branch: column === 'doing',
     has_open_pr: column === 'review',
     pipeline_evidence: column === 'doing' ? { branch: '2-fix-login', mr_number: null, mr_url: null, mr_closes: false } : null,
@@ -47,14 +47,15 @@ function issue(number: number, title: string, state: 'open' | 'closed', column: 
 
 const OPEN_ISSUES = [
   issue(1, 'Write the spec', 'open', 'backlog'),
-  issue(2, 'Fix the login redirect', 'open', 'doing'),
+  issue(2, 'Fix the login redirect', 'open', 'doing', '2.0'),
 ]
 const CLOSED_ISSUE = issue(3, 'Ship the beta', 'closed', 'done')
 
-function lensData(issues: unknown[], extra: Record<string, unknown> = {}) {
+function lensData(issues: ReturnType<typeof issue>[], extra: Record<string, unknown> = {}) {
+  const milestones = [...new Set(issues.map((i) => i.milestone))].sort()
   return {
     columns: PIPELINE_COLUMNS,
-    swimlanes: [{ key: '1.0', label: '1.0', is_current: true }],
+    swimlanes: milestones.map((m, n) => ({ key: m, label: m, is_current: n === 0 })),
     issues,
     fetched_at: new Date().toISOString(),
     source: { provider: 'gitlab', repo: 'acme/widgets', url: 'https://gitlab.com/acme/widgets' },
@@ -62,7 +63,7 @@ function lensData(issues: unknown[], extra: Record<string, unknown> = {}) {
     total_count: issues.length,
     closed_limit: 50,
     closed_truncated: false,
-    available_milestones: ['1.0'],
+    available_milestones: milestones,
     ...extra,
   }
 }
@@ -103,10 +104,13 @@ async function setup(page: Page): Promise<Mock> {
       })
     }
     // Server-side filtering is the server's job; this mock plays that part.
+    const milestone = params.get('milestone')
+    const inMilestone = (list: ReturnType<typeof issue>[]) =>
+      milestone ? list.filter((i) => i.milestone === milestone) : list
     let body
-    if (params.get('state') === 'open') body = lensData(OPEN_ISSUES, { closed_limit: null })
-    else if (params.get('closed_limit') === '0') body = lensData(OPEN_ISSUES, { closed_limit: 0 })
-    else body = lensData([...OPEN_ISSUES, CLOSED_ISSUE])
+    if (params.get('state') === 'open') body = lensData(inMilestone(OPEN_ISSUES), { closed_limit: null })
+    else if (params.get('closed_limit') === '0') body = lensData(inMilestone(OPEN_ISSUES), { closed_limit: 0 })
+    else body = lensData(inMilestone([...OPEN_ISSUES, CLOSED_ISSUE]))
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
   })
   await page.routeWebSocket(`**/ws/boards/${BOARD_FULL.id}/`, (ws) => {
@@ -156,11 +160,26 @@ test.describe('Issue Board Lens', () => {
     await expect(page).toHaveURL(/[?&]state=open/)
   })
 
+  test('a Milestone filter is sent to the server and narrows the cards to its answer', async ({ page }) => {
+    const mock = await setup(page)
+    await openLens(page)
+    await expect(card(page, 2, 'Fix the login redirect')).toBeVisible()
+    await showFilters(page)
+    await page.getByLabel('Filter by milestone').fill('1.0')
+    await expect.poll(() => mock.requests.at(-1)?.get('milestone')).toBe('1.0')
+    await expect(card(page, 2, 'Fix the login redirect')).toHaveCount(0)
+    await expect(card(page, 1, 'Write the spec')).toBeVisible()
+    await expect(card(page, 3, 'Ship the beta')).toBeVisible()
+    await expect(page).toHaveURL(/[?&]milestone=1\.0/)
+  })
+
   test('the Closed filter hides closed issues at the server and the banner says so (#1581)', async ({ page }) => {
     const mock = await setup(page)
     await openLens(page)
-    // The default limit is the server's, so the first request does not send one.
-    expect(mock.requests[0].get('closed_limit')).toBeNull()
+    // The API's own default is the pre-#1581 all-states read (the 1.x contract),
+    // so the web app always asks for its 50 explicitly.
+    expect(mock.requests[0].get('closed_limit')).toBe('50')
+    await expect(page).not.toHaveURL(/closed_limit=/)
     await showFilters(page)
     await page.getByRole('button', { name: /Closed: Last 50/ }).click()
     await page.getByRole('menuitem', { name: 'Closed: Hidden' }).click()
