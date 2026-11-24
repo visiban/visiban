@@ -91,6 +91,15 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
   // limit (never over, never weight-over, which keep their warning treatment) it takes a calm,
   // hue-free "=" cue, since the expanded header's n / limit line is not visible here.
   const atWipLimit = showWipAtLimit && hasLimit && cardCount === column.wip_limit && !overWeight;
+  // The button's aria-label replaces its content and `title` is not reliably announced, so the
+  // limit state is part of the accessible name (#972); the glyphs stay aria-hidden.
+  const collapsedStateLabel = overWip
+    ? `, over WIP limit (${cardCount}/${column.wip_limit})`
+    : overWeight
+    ? `, over weight limit (${totalWeight}/${column.weight_limit})`
+    : atWipLimit
+    ? `, at WIP limit (${cardCount}/${column.wip_limit})`
+    : "";
   const accentClass = overWip || overWeight ? "border-t-2 border-t-warning-emphasis" : "";
   const cardCountLabel = cardCount === 1 ? "1 card" : `${cardCount} cards`;
   // Meter fill: proportional to the limit, full at and over it. Never rendered without a limit.
@@ -196,7 +205,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
         data-no-pan
         tabIndex={0}
         role="button"
-        aria-label={`Expand ${column.name}`}
+        aria-label={`Expand ${column.name}${collapsedStateLabel}`}
         onClick={(e) => {
           // The color-dot drag handle must not expand the column when a click lands on it.
           if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
