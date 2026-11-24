@@ -3397,6 +3397,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#exit-run-absolute-bars-for-the-analytics-beta-exit-2588" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit run: absolute bars for the Analytics beta exit — #2588
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Exit run: absolute bars for the Analytics beta exit — #2588">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-bars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The bars
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#email-login-a-plan-check-not-a-latency-scenario" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4849,6 +4877,119 @@
 <li>The first scenario to use this was <code>card_search_multi_board</code> (<a href="https://gitlab.com/visiban/visiban/-/issues/1810">#1810</a> added the scenario), which got its budget in <a href="https://gitlab.com/visiban/visiban/-/issues/1808">#1808</a>.</li>
 <li>The <code>suppressions-check</code> CI job fails, naming the entry and the issue, if the cited issue closes while the entry is still pending (<a href="https://gitlab.com/visiban/visiban/-/issues/1812">#1812</a>; see <a href="../suppressions/#what-ci-enforces">Suppression markers</a>).</li>
 </ul>
+<h2 id="exit-run-absolute-bars-for-the-analytics-beta-exit-2588">Exit run: absolute bars for the Analytics beta exit — #2588<a class="headerlink" href="#exit-run-absolute-bars-for-the-analytics-beta-exit-2588" title="Permanent link">&para;</a></h2>
+<p>The Analytics beta exit needs a one-off stress run that checks <strong>absolute bars</strong>, not ratios to a baseline (decision on <a href="https://gitlab.com/visiban/visiban/-/issues/2559">#2559</a>: no stored placements; the 1.5x ratio is replaced by absolute bars). The scheduled nightly cannot do that: it serves with <code>runserver</code> and <code>DEBUG=True</code>, which keeps a query log in memory and inflates RSS, and no budget run times <code>unread-count</code> while overviews open. The exit run is a manual mode of the same job; <strong>the scheduled nightly is unchanged</strong> (runserver, <code>DEBUG=True</code>, the committed budgets), and the exit-run bars are never added to <code>backend/nightly-load-test-baseline.json</code> and use no <code>pending_budget</code>.</p>
+<p>Start it from CI/CD → Run pipeline (or the job's manual button) with these variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value for the exit run</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LOAD_TEST_EXIT_RUN</code></td>
+<td><code>true</code></td>
+<td>Serves with <code>daphne -b 0.0.0.0 -p 8000 visiban.asgi:application</code> and <code>DEBUG=False</code>, as production does, then runs <code>scripts/nightly_load_test.py --exit-run</code> instead of the budget run and the email-login plan check. Default <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_SERVER</code></td>
+<td>leave at <code>runserver</code>, or <code>daphne</code></td>
+<td>Exit-run only. <code>daphne</code> is accepted only together with <code>LOAD_TEST_EXIT_RUN=true</code>, which serves with daphne anyway; <code>LOAD_TEST_SERVER=daphne</code> without it fails the job at once, before the seed (see below). Default <code>runserver</code>.</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_AGED_GENERATIONS</code></td>
+<td><code>12</code></td>
+<td>3 years of history. Set by whoever starts the run; the job's default (<code>4</code>) is not changed. The run fails its fixture check below 12.</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_SCALE</code></td>
+<td><code>100</code></td>
+<td>About 12k active cards (<a href="https://gitlab.com/visiban/visiban/-/issues/2451">#2451</a>'s fixture). Set by whoever starts the run; the default stays <code>20</code>. The run fails its fixture check below 11,000 active cards.</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_EXIT_MAX_CONCURRENT</code></td>
+<td><code>1</code> (default)</td>
+<td>The server's <code>ANALYTICS_MAX_CONCURRENT</code> during the exit run: the shipped default, not the nightly's <code>2</code>, because the over-cap bar is about the real cap (<a href="https://gitlab.com/visiban/visiban/-/issues/2428">#2428</a>).</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_EXIT_CONCURRENT_OPENS</code></td>
+<td><code>8</code> (default)</td>
+<td>N: how many <code>metrics/overview/</code> opens are fired together on the aged board, one per distinct user. Must exceed the cap plus the server's 4 waiters (5 at the default cap), or the over-cap check fails.</td>
+</tr>
+<tr>
+<td><code>LOAD_TEST_EXIT_ROUNDS</code></td>
+<td><code>3</code> (default)</td>
+<td>How many times that burst is repeated.</td>
+</tr>
+</tbody>
+</table>
+<p>The server is started as a plain <code>daphne</code> command with <code>DEBUG</code> and <code>ANALYTICS_MAX_CONCURRENT</code> as per-command variables (no <code>sh -c</code>, no subshell), so <code>$!</code> written to <code>--server-pid-file</code> is the daphne process itself and the VmHWM the script reads is the server's, not a wrapper's. With <code>DEBUG=False</code>, <code>settings.py</code> refuses a localhost <code>CORS_ALLOWED_ORIGINS</code> (its default is <code>http://localhost:5173</code>), so the job passes <code>CORS_ALLOWED_ORIGINS=https://loadtest.invalid</code> to daphne; the load test sends no <code>Origin</code>. Settings were loaded under the job's environment with <code>DEBUG=False</code> and nothing else raised (only a <code>DEFAULT_FROM_EMAIL</code> placeholder warning). If daphne does not answer liveness within 30 seconds, the job fails at once and prints the server log tail. <code>DEBUG=False</code> also lowers the DRF throttles (<code>user</code> 5000/hour, <code>card_query</code> 120/min instead of 9999), so the concurrent scenario polls <code>unread-count</code> about 4 times a second, and a 429 there is recorded as that check's failure. <strong>The budget run is never run under daphne</strong>: it would go through those throttles and likely get 429s, and its budgets are derived on runserver with <code>DEBUG=True</code>. That is why <code>LOAD_TEST_SERVER=daphne</code> without <code>LOAD_TEST_EXIT_RUN=true</code> fails the job. Reading RSS needs Linux <code>/proc</code> on the same host, as for the budget run.</p>
+<p><strong>Burst users.</strong> The server admits analytics requests through two limits (<code>backend/boards/services/analytics_admission.py</code>): each user may have 2 requests running or waiting (<code>PER_USER_MAX_IN_FLIGHT</code>), and the process runs <code>ANALYTICS_MAX_CONCURRENT</code> at once with up to 4 more waiting up to 8 seconds (<code>MAX_WAITERS</code>, <code>REST_WAIT_SECONDS</code>). The per-user limit is checked first, so N opens from one user are refused by it whatever the cap is. In exit-run mode the job therefore creates <code>LOAD_TEST_EXIT_CONCURRENT_OPENS</code> plain members of the aged board (<code>loadtest_exit_01</code>, <code>loadtest_exit_02</code>, ..., unusable passwords, created after the seed so no budget scenario's data changes), mints one token for each into <code>VISIBAN_LOAD_TEST_EXIT_BURST_TOKEN_DIR</code>, and the script fires each open as a different one of them, after confirming through <code>auth/user/</code> that the tokens belong to that many distinct users. The script mirrors the two server limits as constants, and <code>--self-test</code> fails if <code>analytics_admission.py</code> changes either.</p>
+<h3 id="the-bars">The bars<a class="headerlink" href="#the-bars" title="Permanent link">&para;</a></h3>
+<p><code>--exit-run</code> records pass/fail for each check, prints them, writes <code>nightly-load-test-exit-run.json</code> (a job artifact), and exits 1 if any fails. A check whose request is refused or fails (for example <code>analytics_too_large</code> on <code>analytics/?days=365</code>, which can legitimately happen at <code>LOAD_TEST_SCALE=100</code> with 12 generations) is recorded as failed with that reason, the other checks still run, and the artifact is always written. The run needs <code>--token-file</code> (demo2) as well as the analytics token: <code>unread-count</code> is timed as demo2, the only seeded user with notifications (loadtest_analytics has none, so it would time a near-empty query), while the single-request checks run as loadtest_analytics and the burst as the burst users. The <code>unread-count</code> p95 bar needs at least 20 samples (<code>EXIT_MIN_UNREAD_SAMPLES</code>) and fails below that. The container memory limit is the named constant <code>CONTAINER_MEMORY_LIMIT_MB</code> (512) in the script; change it there. The artifact records the fixture (the declared <code>LOAD_TEST_SCALE</code> and <code>LOAD_TEST_AGED_GENERATIONS</code>, and the active and archived card counts read off the board), the burst's user count, and the count of each response kind.</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Bar</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The fixture: active cards (<code>boards/{id}/full/</code>) and generations (archived cards from <code>cards/archived/</code>, divided by active cards: each generation copies every active card once)</td>
+<td>at least 11,000 active cards and at least 12 generations</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2588">#2588</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2451">#2451</a></td>
+</tr>
+<tr>
+<td><code>metrics/cumulative-flow/</code> p95 on the aged board</td>
+<td>under 3 s</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2425">#2425</a>, <a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a></td>
+</tr>
+<tr>
+<td><code>metrics/cumulative-flow/?date=</code> drill-down, peak RSS</td>
+<td>under 512 MB (the container limit)</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2444">#2444</a></td>
+</tr>
+<tr>
+<td>One <code>metrics/overview/</code> open, peak RSS</td>
+<td>under 512 MB</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2426">#2426</a></td>
+</tr>
+<tr>
+<td><code>analytics/?days=365</code>, RSS growth and time</td>
+<td>under 150 MB and under 3 s</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2451">#2451</a></td>
+</tr>
+<tr>
+<td>Overview payload</td>
+<td>under 1 MB</td>
+<td></td>
+</tr>
+<tr>
+<td><code>notifications/unread-count/</code> p95 while N overview opens run (as demo2, at least 20 samples)</td>
+<td>under 100 ms</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2428">#2428</a></td>
+</tr>
+<tr>
+<td>Peak RSS during those concurrent opens</td>
+<td>under 512 MB</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2428">#2428</a></td>
+</tr>
+<tr>
+<td>Over-cap requests</td>
+<td>N exceeds the cap plus 4 waiters and every open is a distinct user; each response is 200, <code>503 analytics_busy</code> with <code>Retry-After</code>, or <code>422 analytics_too_large</code>; none stalls (60 s); at least one was refused; no round admitted more than the cap plus 4 (5 at the default cap); the server still answers afterward (no OOM)</td>
+<td><a href="https://gitlab.com/visiban/visiban/-/issues/2428">#2428</a></td>
+</tr>
+</tbody>
+</table>
+<p>The fixture floor is 11,000 active cards, not 12,000: <code>seed_demo_data</code> gives each of <code>LOAD_TEST_SCALE</code> x 10 swimlanes 11 to 13 cards at random, so <code>LOAD_TEST_SCALE=100</code> is 11,000 to 13,000 active cards, about 12,000 on average, and a 12,000 floor could fail the fixture #2451 names. 11,000 is what scale 100 guarantees; the scheduled nightly's fixture (about 2,400 active cards, 4 generations) fails it, so a run started with only <code>LOAD_TEST_EXIT_RUN=true</code> can never report every bar met.</p>
+<p><strong>What the over-cap check proves, and what it does not.</strong> With one open per distinct user, the per-user limit cannot refuse anything, so a refusal comes from the process-wide admission: the cap and its waiting room. With N above the cap plus 4 waiters, a refusal is forced on every round if the cap is applied, and the check fails if no open is refused (the cap was never exercised) or if a round admitted more than the cap plus 4 (the cap was not applied). The bound assumes a round's opens all reach the server while its first admitted open is still running; on the aged board one overview open takes far longer than starting N threads, but if opens were fast enough to finish before the rest arrived, a correct server could admit more and fail the check. It does not prove the cap is exactly <code>ANALYTICS_MAX_CONCURRENT=1</code> rather than a slightly higher value: when an open takes longer than the 8 s wait, the waiters time out, so a cap of 1 admits 1 open a round and a cap of 2 admits 2, and both are inside the bound of 5. In the concurrent scenario a <code>503 analytics_busy</code> or <code>422 analytics_too_large</code> is an <strong>expected</strong> response, counted in the artifact's <code>responses</code>, never an error; any other status is <code>unexpected</code> and fails the over-cap check. The <code>unread-count</code> p95 and RSS are reported either way. A value that could not be measured fails its bar.</p>
+<p>The script's <code>--self-test</code> (run first by the job) covers the pass/fail logic: each bar failing at its boundary, a missing value, the fixture check (the scheduled nightly's fixture, one card short and one generation short each fail; the floor passes), the response classification, each over-cap failure mode (including a one-user burst, whose per-user refusals are not accepted as proof of the cap, an every-open-admitted burst, a round admitting more than the cap plus 4, and a burst too narrow to force a refusal), the sample-count guard, a refused measurement recorded as a failed check with the others still running, and the mirrored admission limits against <code>analytics_admission.py</code>. It also runs the real measurement class (<code>_ExitOps</code>) against recording stubs and asserts which endpoint each measurement requests (<code>metrics/cumulative-flow/</code>, the <code>?date=</code> drill-down, <code>metrics/overview/</code>, <code>analytics/?days=365</code>, the two fixture reads) and which figure it returns: the peak RSS for the drill-down, the overview open and the burst, the RSS growth for <code>analytics/?days=365</code>. It starts no server, so the HTTP, <code>/proc</code> and CI wiring around those classes is not covered by it. <strong>Neither the daphne path, the burst-user setup, nor any figure here has been run yet; nothing is verified until the first run on the NUC runner.</strong></p>
+<p>Out of scope here: re-deriving the budgets (<a href="https://gitlab.com/visiban/visiban/-/issues/2430">#2430</a>) and any change to flow-metric semantics (ADR <a href="https://gitlab.com/visiban/visiban/-/issues/1532">#1532</a>).</p>
 <h2 id="email-login-a-plan-check-not-a-latency-scenario">Email login: a plan check, not a latency scenario<a class="headerlink" href="#email-login-a-plan-check-not-a-latency-scenario" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.3</strong> (#1298).</p>
