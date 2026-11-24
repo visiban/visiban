@@ -28,7 +28,7 @@ vi.mock('../hooks/useGroupSocket', () => ({
 }))
 vi.mock('../api/groups', () => ({
   getGroup: vi.fn(), getGroupMembers: vi.fn(), getSubgroups: vi.fn(), getGroupBoards: vi.fn(),
-  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
+  getGroupDescendantBoardsPaged: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   createGroupBoard: vi.fn(), removeGroupMember: vi.fn(), updateGroupMemberRole: vi.fn(), updateGroup: vi.fn(),
   setGroupHealthStatus: vi.fn(), getGroupHealthHistory: vi.fn(), deleteGroup: vi.fn(),
   listInviteLinks: vi.fn().mockResolvedValue([]), createInviteLink: vi.fn(), revokeInviteLink: vi.fn(),
@@ -114,6 +114,7 @@ function renderPage(user: User, url = '/groups/1') {
 }
 
 const h2 = (name: string) => screen.findByRole('heading', { level: 2, name })
+
 
 describe('GroupDetail roles and Group settings (#2478)', () => {
   beforeEach(() => {

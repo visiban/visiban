@@ -194,8 +194,10 @@ describe('GroupTree health status (#1133)', () => {
     expect(pills).toHaveLength(1)
     const pill = pills[0] as HTMLElement
     expect(pill.tagName).toBe('SPAN')
-    expect(pill.previousElementSibling).toHaveTextContent('Engineering')
-    expect(pill.nextElementSibling).toHaveTextContent('2 boards')
+    // The pill sits in a display:contents wrapper that the row's aria-labelledby points at (#2569).
+    const slot = pill.parentElement as HTMLElement
+    expect(slot.previousElementSibling).toHaveTextContent('Engineering')
+    expect(slot.nextElementSibling).toHaveTextContent('2 boards')
   })
 
   it('shows a compact not-reviewed cue past the review time (#2244)', () => {
@@ -214,5 +216,25 @@ describe('GroupTree health status (#1133)', () => {
     )
     expect(screen.getByText('18d')).toBeInTheDocument()
     expect(screen.getByText('Not reviewed in 18 days')).toHaveClass('sr-only')
+  })
+
+  it('names the row from its group, not from its nested buttons (#2569)', () => {
+    render(
+      <MemoryRouter>
+        <GroupTree nodes={buildGroupTree([makeGroup({ id: 1, name: 'Engineering' }), makeGroup({ id: 2, name: 'Backend', parent: 1 })])} onGroupCreated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    const row = screen.getAllByRole('button').find((el) => el.getAttribute('role') === 'button' && el.tagName === 'DIV')!
+    expect(row).toHaveAccessibleName('Engineering 2 boards · 3 members')
+    expect(row).not.toHaveAccessibleName(/Expand|Add subgroup/)
+    // jsdom's name computation skips nested buttons even without aria-labelledby, so the name check
+    // alone cannot tell the fix from its absence: pin the explicit reference the browsers rely on.
+    const refs = (row.getAttribute('aria-labelledby') ?? '').split(' ').filter(Boolean)
+    expect(refs.length).toBeGreaterThanOrEqual(2)
+    refs.forEach((id) => expect(row.querySelector('#' + CSS.escape(id))).not.toBeNull())
+    expect(row.querySelector('#' + CSS.escape(refs[0]))).toHaveTextContent('Engineering')
+    // The nested buttons stay individually named and reachable.
+    expect(screen.getByRole('button', { name: 'Expand Engineering' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add subgroup to Engineering' })).toBeInTheDocument()
   })
 })

@@ -81,7 +81,7 @@ Boards in a group are visible to all group members. This includes `viewer` membe
 
 Group admins can create subgroups. Access is inherited through up to 6 levels of nesting; creating a subgroup, or moving a group under a new parent, is refused when the resulting tree would be deeper than 6 levels. Trees that were already deeper before this limit applied to creation are left as they are.
 
-The group detail page shows subgroups, and the "Show subgroup boards" toggle optionally lists all boards across subgroups.
+The group detail page shows subgroups, and the "Show subgroup boards" toggle optionally lists all boards across subgroups. *(1.3+)* Those boards load 50 at a time: the list ends with "Showing N of M subgroup boards" and a **Load more** button, which keeps the boards already shown if a page fails to load and offers **Retry**. The total excludes boards already shown in the group's own list, so "M" counts only boards that belong in this list. The boards are listed oldest first (by when they were created); before 1.3 the list showed the most recently updated board first. When a change arrives in real time, the page refreshes up to the first four pages it has loaded; boards loaded beyond those stay on screen and can show stale details, or a board deleted elsewhere, until the list is next loaded in full (turn the toggle off and on, or reload the page).
 
 ## Invite links
 

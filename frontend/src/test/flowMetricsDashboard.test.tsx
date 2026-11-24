@@ -794,6 +794,20 @@ describe('the drill-down drawer', () => {
     expect(await dialog.findByText('No recorded transitions.')).toBeInTheDocument()
   })
 
+  it('keeps keyboard focus in the drawer when the transitions Retry unmounts itself (#2568)', async () => {
+    movementsMock.mockRejectedValueOnce(new Error('no'))
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-wip-age')).getByRole('button', { name: /^Fix the login/ }))
+    const dialogEl = await screen.findByRole('dialog', { name: 'Fix the login' })
+    const retry = await within(dialogEl).findByRole('button', { name: 'Retry' })
+    retry.focus()
+    await userEvent.keyboard('{Enter}')
+    // Retry is gone; focus must be on the dialog panel, not <body>.
+    expect(within(dialogEl).queryByRole('button', { name: 'Retry' })).toBeNull()
+    expect(dialogEl).toHaveFocus()
+    expect(await within(dialogEl).findByText('No recorded transitions.')).toBeInTheDocument()
+  })
+
   it('closes with Escape and the Close button, and is a modal dialog', async () => {
     await renderLoaded()
     await userEvent.click(within(screen.getByTestId('flow-wip-age')).getByRole('button', { name: /^Fix the login/ }))

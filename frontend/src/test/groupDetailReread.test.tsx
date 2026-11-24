@@ -49,7 +49,7 @@ vi.mock('../api/groups', () => ({
   getGroupMembers: vi.fn(),
   getSubgroups: vi.fn(),
   getGroupBoards: vi.fn(),
-  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
+  getGroupDescendantBoardsPaged: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
@@ -90,13 +90,13 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, createGroupBoard } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoardsPaged, createGroupBoard } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
-const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
+const mockGetGroupDescendantBoards = getGroupDescendantBoardsPaged as ReturnType<typeof vi.fn>
 const mockCreateGroupBoard = createGroupBoard as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
@@ -164,6 +164,8 @@ function rows() {
   return Array.from(document.querySelectorAll('[data-board-id]')).map((el) => el.textContent?.trim())
 }
 
+const page = (results: unknown[]) => ({ count: results.length, offset: 0, page_size: 50, results })
+
 describe('GroupDetail boards re-read (#2139)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -172,7 +174,7 @@ describe('GroupDetail boards re-read (#2139)', () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
   })
 
   it('replaces the list with the answer when no write landed during the re-read', async () => {
@@ -380,7 +382,7 @@ describe('GroupDetail initial load vs a failed re-read (#2150)', () => {
     mockGetGroup.mockResolvedValue(fakeGroup)
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
   })
 
   function renderPage() {

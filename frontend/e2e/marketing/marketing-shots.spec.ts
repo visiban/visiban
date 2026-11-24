@@ -135,7 +135,7 @@ async function mockApi(page: Page): Promise<void> {
     if (p === '/api/v1/groups/') {
       return json(route, page_(q.get('starred') === 'true' ? GROUPS.filter((g) => g.is_starred) : GROUPS))
     }
-    const group = /^\/api\/v1\/groups\/(\d+)\/(\w[\w-]*)?\/?$/.exec(p)
+    const group = /^\/api\/v1\/groups\/(\d+)\/(\w[\w-]*)?(?:\/paged)?\/?$/.exec(p)
     if (group) {
       const g = GROUPS.find((x) => x.id === Number(group[1]))
       if (!g) return json(route, { detail: 'Not found.' }, 404)
@@ -148,8 +148,10 @@ async function mockApi(page: Page): Promise<void> {
           return json(route, GROUPS.filter((x) => x.parent === g.id))
         case 'boards':
           return json(route, BOARDS.filter((b) => b.group === g.id))
-        case 'descendant-boards':
-          return json(route, BOARDS.filter((b) => b.group !== null))
+        case 'descendant-boards': {
+          const rows = BOARDS.filter((b) => b.group !== null)
+          return json(route, { count: rows.length, offset: 0, page_size: 50, results: rows })
+        }
         case 'labels':
           return json(route, g.shared_labels)
         default:

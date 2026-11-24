@@ -55,7 +55,7 @@ vi.mock('../api/groups', () => ({
   getGroupMembers: vi.fn(),
   getSubgroups: vi.fn(),
   getGroupBoards: vi.fn(),
-  getGroupDescendantBoards: vi.fn().mockResolvedValue([]),
+  getGroupDescendantBoardsPaged: vi.fn().mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] }),
   createGroupBoard: vi.fn(),
   removeGroupMember: vi.fn(),
   updateGroupMemberRole: vi.fn(),
@@ -101,13 +101,13 @@ vi.mock('../api/auth', () => ({
   }),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, deleteGroup } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoardsPaged, deleteGroup } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
 const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
-const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
+const mockGetGroupDescendantBoards = getGroupDescendantBoardsPaged as ReturnType<typeof vi.fn>
 const mockDeleteGroup = deleteGroup as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
@@ -152,12 +152,14 @@ class FakeWebSocket {
   constructor() { sockets.push(this as unknown as FakeWS) }
 }
 
+const page = (results: unknown[]) => ({ count: results.length, offset: 0, page_size: 50, results })
+
 describe('GroupDetail with the real group socket (#2041)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sockets = []
     vi.stubGlobal('WebSocket', FakeWebSocket)
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
@@ -276,7 +278,7 @@ describe('GroupDetail first-open resync (#2088)', () => {
     vi.clearAllMocks()
     sockets = []
     vi.stubGlobal('WebSocket', FakeWebSocket)
-    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockGetGroupDescendantBoards.mockResolvedValue(page([]))
     mockGetGroup.mockResolvedValue({ ...fakeGroup, can_place_boards: true })
     mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
     mockGetSubgroups.mockResolvedValue([])
