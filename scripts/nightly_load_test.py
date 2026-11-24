@@ -34,7 +34,7 @@ cursor page, as a one-board user (#1805).
   - linked_card_list        GET  .../{linked board}/cards/           (#2424)
   - children_view           GET  .../{parent board}/children-view/   (#2538, 500 parents x ~100 children)
   - aged_*                  the summary, analytics and the metrics/* reads (single and overview) on the AGED board (#2430)
-  - analytics_overview, aged_analytics_overview   the overview's two reads fired at once (#2430)
+  - analytics_overview, aged_analytics_overview   the overview's two reads fired together by this script (#2430); the web app sends them one after the other
 
 Peak memory (#2430): with --server-pid-file the script also records the server
 process's peak RSS (VmHWM, reset before each scenario) per scenario. Linux only.
@@ -252,7 +252,8 @@ _MEMORY_GATED = (
     + _CHILDREN_VIEW_SCENARIOS
 )
 
-# The overview opens with these two reads at once, into one server process: since #2426 the
+# The overview's two reads, which this script fires together into one server process (the web
+# app itself sends them one after the other since #2428, so this is a stricter shape): since #2426 the
 # seven flow charts come from one metrics/overview request (getFlowOverview in
 # frontend/src/api/flowMetrics.ts:101) and the heatmap from analytics/ (getBoardAnalytics in
 # frontend/src/api/boards.ts:188), both fired by useAnalyticsOverviewData.ts.
@@ -1121,7 +1122,7 @@ def run(args):
         measure(name, lambda sess=sess, url=url: _time_requests(sess, url, args.iterations, args.warmup),
                 args.iterations, args.warmup)
 
-    # The overview, as a plain member: its two reads at once on the active-only board.
+    # The overview, as a plain member: its two reads fired together on the active-only board (the web app sends them in sequence).
     measure(
         "analytics_overview",
         lambda: _fan_out_samples(dict(session.headers), _overview_urls(base_url, board_id),

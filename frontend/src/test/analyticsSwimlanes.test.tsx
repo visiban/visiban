@@ -207,6 +207,28 @@ describe('Swimlanes view', () => {
     expect(screen.getAllByTestId('swimlane-row').length).toBeGreaterThan(0)
   })
 
+  it('keeps keyboard focus on the view when the first-load Retry unmounts itself (#2428)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(getFlowSwimlanes).mockReset()
+    vi.mocked(getFlowSwimlanes).mockRejectedValueOnce(new Error('x')).mockResolvedValue(data(lanes))
+    render(<AnalyticsView {...props} />)
+    await user.click(screen.getByRole('link', { name: 'Swimlanes' }))
+    await user.click(await screen.findByRole('button', { name: 'Retry' }))
+    await screen.findByTestId('swimlanes-finding')
+    expect(document.activeElement).toBe(screen.getByTestId('analytics-swimlanes'))
+  })
+
+  it('keeps keyboard focus on the view when the refresh Retry unmounts itself (#2428)', async () => {
+    const user = await openSwimlanes()
+    vi.mocked(getFlowSwimlanes).mockRejectedValueOnce(new Error('x'))
+    await user.click(screen.getByRole('button', { name: /^Date range/ }))
+    await user.click(screen.getByRole('menuitem', { name: 'Last 30 days' }))
+    const alert = await screen.findByRole('alert')
+    await user.click(within(alert).getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+    expect(document.activeElement).toBe(screen.getByTestId('analytics-swimlanes'))
+  })
+
   it('keeps old numbers with an alert and Retry when a refetch fails, and hides the legend without rows', async () => {
     const user = await openSwimlanes()
     expect(screen.getByTestId('swimlanes-legend')).toBeInTheDocument()

@@ -753,6 +753,17 @@ describe('the drill-down drawer', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('keeps keyboard focus in the drawer when the day list Retry unmounts itself (#2428)', async () => {
+    dayMock.mockRejectedValueOnce(new Error('no'))
+    dayMock.mockResolvedValueOnce({ definition: 'd', date: '2026-06-01', columns: [], cards: [] })
+    await renderLoaded()
+    await userEvent.click(within(screen.getByTestId('flow-cumulative')).getByRole('button', { name: /1 card$/ }))
+    const dialog = await screen.findByRole('dialog', { name: /^Cards on/ })
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Retry' }))
+    expect(await within(dialog).findByText('No cards.')).toBeInTheDocument()
+    expect(document.activeElement).toBe(dialog)
+  })
+
   it('reports a failed day list and retries it', async () => {
     dayMock.mockRejectedValueOnce(new Error('no'))
     dayMock.mockResolvedValueOnce({ definition: 'd', date: '2026-06-01', columns: [], cards: [] })

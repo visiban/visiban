@@ -48,7 +48,8 @@ from rest_framework.exceptions import APIException
 logger = logging.getLogger(__name__)
 
 # Requests one user may have running or waiting at once. Two fits the web
-# app's Analytics page, which opens the overview and the heatmap together.
+# app's Analytics page, which sends the overview and then the heatmap one after the other, so a
+# new open can briefly overlap the tail of the previous one.
 PER_USER_MAX_IN_FLIGHT = 2
 # Requests that may wait for a slot at once, process-wide. Kept small so the
 # running plus waiting requests stay well under the default connection pool

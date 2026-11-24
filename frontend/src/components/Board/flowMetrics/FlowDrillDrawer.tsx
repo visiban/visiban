@@ -314,11 +314,13 @@ function ColumnBody({
 }
 
 function CardList({
-  selection, cards, onSelectCard,
+  selection, cards, onSelectCard, onBeforeRetry,
 }: {
   selection: Extract<DrillSelection, { kind: "cards" }>;
   cards: Map<string, FlowCard>;
   onSelectCard: (uid: string) => void;
+  /** Runs before Retry reloads: Retry unmounts, so focus moves to the dialog, which survives (#2428). */
+  onBeforeRetry: () => void;
 }) {
   if (selection.failed) {
     return (
@@ -327,7 +329,7 @@ function CardList({
         {selection.onRetry && (
           <button
             type="button"
-            onClick={selection.onRetry}
+            onClick={() => { onBeforeRetry(); selection.onRetry?.(); }}
             className="underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
@@ -444,6 +446,7 @@ export default function FlowDrillDrawer({ boardId, selection, cards, onChange, o
               selection={selection}
               cards={cards}
               onSelectCard={(uid) => onChange({ kind: "card", uid, facts: [], back: selection })}
+              onBeforeRetry={() => panelRef.current?.focus()}
             />
           )}
         </div>

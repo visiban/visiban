@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getFlowSwimlanes } from "../../../api/flowMetrics";
 import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../../api/analyticsErrors";
@@ -133,6 +133,10 @@ export default function AnalyticsSwimlanes({
   const [sort, setSort] = useState<SwimlaneSort>("slowest");
   const [groupId, setGroupId] = useState<number | null>(null);
   const { days, labelId } = filters;
+  // Both Retry buttons unmount when the reload starts. The root stays mounted through
+  // loading, refusal and loaded, so Retry focuses it and focus never drops to <body> (#2428).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const retry = () => { rootRef.current?.focus(); setAttempt((n) => n + 1); };
 
   useEffect(() => {
     let current = true;
@@ -173,7 +177,7 @@ export default function AnalyticsSwimlanes({
   const groupName = swimlaneFields.find((f) => f.id === groupId)?.name;
 
   return (
-    <div className="flex flex-col gap-4 min-w-0" data-testid="analytics-swimlanes">
+    <div ref={rootRef} tabIndex={-1} className="flex flex-col gap-4 min-w-0 focus:outline-none" data-testid="analytics-swimlanes">
       <div className="flex flex-wrap items-center gap-2 min-w-0">
         <AnalyticsFilterBar filters={filters} onFiltersChange={onFiltersChange} swimlanes={[]} labels={labels} showSwimlane={false} />
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -203,7 +207,7 @@ export default function AnalyticsSwimlanes({
       {failed && !data ? (
         <div role="alert" className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-2 items-start">
           <p className="text-sm text-fg-secondary">{analyticsErrorMessage(failedKind) ?? "Could not load swimlanes."}</p>
-          {analyticsErrorRetryable(failedKind) && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+          {analyticsErrorRetryable(failedKind) && <button type="button" onClick={retry} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Retry
           </button>}
         </div>
@@ -216,7 +220,7 @@ export default function AnalyticsSwimlanes({
           {failed && (
             <div role="alert" className="text-sm text-fg-secondary flex flex-wrap items-center gap-3">
               {analyticsErrorMessage(failedKind) ?? "Could not refresh swimlanes."} The numbers below are from the last load.
-              {analyticsErrorRetryable(failedKind) && <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
+              {analyticsErrorRetryable(failedKind) && <button type="button" onClick={retry} className="min-h-6 px-3 text-sm rounded border border-line-strong text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Retry
               </button>}
             </div>

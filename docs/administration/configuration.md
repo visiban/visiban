@@ -436,17 +436,24 @@ baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_M
 ```
 
 The defaults are a starting point for the chart's default `512Mi` memory and
-`500m` CPU limits, to be tuned for each deployment. As an example, on a server
-whose baseline is about 120 MB, one Overview request holding close to the default
-150000 rows peaked at roughly 150-190 MB above that baseline (more for a longer
-range; a single chart costs less), so `ANALYTICS_MAX_CONCURRENT=1` leaves headroom
-for the rest of the process's work under `512Mi`. Measure your
+`500m` CPU limits, to be tuned for each deployment. As a rough estimate (an
+illustration, not a measured figure for your data), a request holding close to
+the default 150000 rows needs on the order of 150-190 MB above the server's
+baseline of about 120 MB, more for a longer range and less for a single chart;
+at that size `ANALYTICS_MAX_CONCURRENT=1` leaves headroom for the rest of the
+process's work under `512Mi`. Measure your
 own peak (the `analytics.replay` log line reports each request's `movements`
 held and `streamed`) before raising either setting.
 
 Raise `ANALYTICS_MAX_MOVEMENTS` (and the pod's memory limit with it) when a
-board's Analytics page says the board has more history than the server is set up to analyze. Raise
-`ANALYTICS_MAX_CONCURRENT` only with more CPU and memory per pod: analytics is
+board's Analytics page says the board has more history than the server is set up to analyze.
+
+The slot count bounds how much analytics work and memory a process takes on at
+once. It does not guarantee how fast the rest of the server answers while a
+request is running: analytics shares the process's CPU with everything else, so
+other requests can still slow down during a long replay.
+
+Raise `ANALYTICS_MAX_CONCURRENT` only with more CPU and memory per pod: analytics is
 CPU-bound, so two requests at once in one process take about twice as long
 each. A request waiting for a slot uses a database connection, so with
 connection pooling on keep `ANALYTICS_MAX_CONCURRENT` + 4 (the waiting
