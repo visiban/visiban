@@ -1,5 +1,9 @@
 /** Shared color palettes used across board modals and card components. */
 
+import { contrastRatio } from "../utils/colorContrast";
+
+const READABLE_DARK = "#111827"; // 0.0094 relative luminance
+
 /** Default palette for columns and swimlane editing (6 colors). */
 export const COLUMN_COLORS = [
   "#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
@@ -46,4 +50,13 @@ export const COLOR_NAMES: Record<string, string> = {
 /** Name for a swatch hex; falls back to "Custom color" for a value outside the palette. */
 export function colorName(hex: string): string {
   return COLOR_NAMES[hex.toUpperCase()] ?? "Custom color";
+}
+
+/** Text color with the higher WCAG contrast on a solid `#RRGGBB` background (white or near-black).
+ *  Priority chips and other data-driven fills use it so the label clears 4.5:1 on every swatch (#2466). */
+export function readableTextOn(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return "#FFFFFF";
+  const bg = "#" + m[1];
+  return contrastRatio(bg, READABLE_DARK) >= contrastRatio(bg, "#FFFFFF") ? READABLE_DARK : "#FFFFFF";
 }

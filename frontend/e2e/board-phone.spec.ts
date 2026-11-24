@@ -769,9 +769,9 @@ test.describe('phone card detail panel (#2377)', () => {
     for (const leaf of ['attachments', 'relations', 'activity', 'blocks']) await page.route(`${base}/${leaf}/`, json([]))
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
-    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    const panel = page.locator('[data-testid="card-detail-dialog"]')
     await expect(panel).toBeVisible()
-    const sweep = () => smallControls(page, ['[aria-labelledby="card-detail-title"]'])
+    const sweep = () => smallControls(page, ['[data-testid="card-detail-dialog"]'])
     // Expand every collapsed section so its controls are measured too.
     for (const name of [/^Relations/, /^Checklist/, /^Attachments/, /Custom fields/]) {
       const t = page.getByRole('button', { name }).first()
@@ -881,7 +881,7 @@ test.describe('phone card detail header (#2401)', () => {
     } as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
-    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    const panel = page.locator('[data-testid="card-detail-dialog"]')
     await expect(panel).toBeVisible()
     const header = page.getByTestId('card-detail-title-block').locator('xpath=..')
     const hb = (await header.boundingBox())!
@@ -986,15 +986,14 @@ test.describe('phone board settings modal (#2404)', () => {
 })
 
 // #2407: the shared ModalWrapper carries one container rule (MODAL_PHONE_TOUCH_TARGETS), so every modal's controls are
-// lifted to 44px at 390px through it. Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
+// lifted to 44px at 390px through it. All 30 <ModalWrapper sites are covered (Board settings in its own #2404 block
+// above, every tab). Swept here, one test per modal: this block (Keyboard shortcuts, Add Column, Add
 // Swimlane, Edit Column, Edit Swimlane, Delete card confirm, Export Board, Import board, New Board) and the REMAINING
 // block below (Delete column, Archive card, Add child, Admin Add user, Admin Transfer boards & deactivate, both Delete field dialogs, Move board, Trello import, Join a
 // group, Create group, Delete board on the dashboard, Force password change, Force username rename, Connect provider).
 // Also swept in REMAINING: GroupDetail "Delete board?" and "Delete group" (group server state mocked by routeGroup),
 // CreateGroupModal's post-creation "created" phase, the "Delete this card?" branch of CardDetail.tsx (shares one
 // wrapper with Archive), PolicyConfirmModal and LensConnectionModal.
-// The one site left out of the sweep: ProfileModal ("Your profile") is unreachable. Nothing but its own unit test
-// imports it, so no route or opener can show it; it is not swept, and its removal is tracked in #2555.
 // BoardSelector "Delete board?" and GroupDetail "Transfer ownership" no longer
 // exist as ModalWrapper sites (drawer-only nav #2473; Transfer ownership is an inline panel).
 test.describe('phone ModalWrapper modals (#2407)', () => {

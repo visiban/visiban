@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import CardItem from '../components/Card/CardItem'
 import CardPeekPopover from '../components/Card/CardPeekPopover'
 import type { Card, CustomFieldDefinition } from '../types'
+import { PRIORITY_COLORS, readableTextOn } from '../constants/colors'
 
 // Mock dnd-kit — CardItem calls useDraggable unconditionally (hook rules).
 // We expose a mutable `isDraggingRef` so individual tests can simulate dragging.
@@ -510,5 +511,19 @@ describe('CardPeekPopover — a card payload without labels (#2391)', () => {
     render(<CardPeekPopover card={noLabels as Card} anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
     expect(screen.getByRole('tooltip')).toBeInTheDocument()
     expect(screen.queryByTestId('card-peek-labels')).toBeNull()
+  })
+})
+
+describe('priority pill text color (#2466)', () => {
+  const rect = { top: 100, left: 50, bottom: 160, right: 250, width: 200, height: 60, x: 50, y: 100, toJSON: () => {} } as DOMRect
+
+  it.each(['medium', 'high', 'urgent'] as const)('CardItem %s pill uses readableTextOn(its fill)', (priority) => {
+    render(<CardItem card={makeCard({ priority })} density="dense" compact />)
+    expect(screen.getByTitle(`Priority: ${priority}`)).toHaveStyle({ color: readableTextOn(PRIORITY_COLORS[priority]) })
+  })
+
+  it.each(['medium', 'high', 'urgent'] as const)('CardPeekPopover %s pill uses readableTextOn(its fill)', (priority) => {
+    render(<CardPeekPopover card={makeCard({ priority })} anchorRect={rect} onMouseEnter={() => {}} onMouseLeave={() => {}} />)
+    expect(screen.getByText(priority, { selector: 'span.capitalize' })).toHaveStyle({ color: readableTextOn(PRIORITY_COLORS[priority]) })
   })
 })

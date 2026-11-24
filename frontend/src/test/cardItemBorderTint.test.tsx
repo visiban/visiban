@@ -113,3 +113,10 @@ describe('CardItem — urgency border tint (#977)', () => {
     expect(face().style.boxShadow).toBe('')
   })
 })
+
+describe('CardItem — selection checkbox name (#2468)', () => {
+  it('names the checkbox for the card it selects', () => {
+    render(<CardItem card={makeCard()} onSelect={() => {}} selected={false} />)
+    expect(screen.getByRole('checkbox')).toHaveAccessibleName('Select card Tint card')
+  })
+})
