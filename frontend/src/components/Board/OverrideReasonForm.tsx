@@ -34,7 +34,7 @@ export default function OverrideReasonForm({ busy = false, onSubmit, onCancel, e
 
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <label htmlFor={id} className="text-xs text-fg-secondary">Reason</label>
+      <label htmlFor={id} className="text-xs text-fg-secondary">Reason (required)</label>
       <textarea
         id={id}
         ref={fieldRef}
@@ -61,6 +61,7 @@ export default function OverrideReasonForm({ busy = false, onSubmit, onCancel, e
           type="button"
           onClick={() => { if (!blocked) onSubmit(trimmed); }}
           aria-disabled={blocked}
+          aria-describedby={helpId}
           className="max-sm:min-h-11 text-sm font-medium bg-warning-bg hover:bg-warning-bg-hover text-on-warning px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
         >{busy ? "Moving anyway…" : "Move anyway"}</button>
       </div>

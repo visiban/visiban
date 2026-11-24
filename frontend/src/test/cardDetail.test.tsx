@@ -3122,10 +3122,10 @@ describe('CardDetail', () => {
         expect(onForceMoveCard).not.toHaveBeenCalled()
         // Escape closes only the reason box and returns to the link.
         await user.keyboard('{Escape}')
-        expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Reason (required)')).not.toBeInTheDocument()
         await waitFor(() => expect(screen.getByRole('button', { name: 'Move anyway (assignee override)' })).toHaveFocus())
         await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
-        await user.type(screen.getByLabelText('Reason'), ' Customer deadline ')
+        await user.type(screen.getByLabelText('Reason (required)'), ' Customer deadline ')
         await user.click(screen.getByRole('button', { name: 'Move anyway' }))
         expect(onForceMoveCard).toHaveBeenCalledWith(card.id, expect.any(Number), expect.any(Number), 9999, undefined, 'Customer deadline')
       })

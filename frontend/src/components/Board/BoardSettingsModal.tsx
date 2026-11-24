@@ -1833,7 +1833,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <span className="text-sm text-fg">Let a card&apos;s assignee move it anyway</span>
                         <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-surface-hover text-fg-secondary">Board-wide</span>
                         <p className="text-xs text-fg-muted mt-0.5">
-                          Covers Block limits on WIP and weight. Not for cards they assigned to themselves.
+                          Covers Block limits on WIP and weight, with a reason. Hard limits still stop everyone. Not for cards they assigned to themselves.
                         </p>
                       </div>
                       <Toggle

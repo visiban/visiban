@@ -57,11 +57,12 @@ describe('MoveBlockedToast assignee override (#1923)', () => {
     const onForce = show({ kind: 'assignee' })
     await user.click(screen.getByRole('button', { name: 'Move anyway (assignee override)' }))
     const dialog = screen.getByRole('dialog', { name: 'Move to Review anyway?' })
+    expect(within(dialog).getByLabelText('Reason (required)')).toHaveFocus()
     expect(within(dialog).getByText('Visible to everyone on this board.')).toBeInTheDocument()
-    expect(within(dialog).getByLabelText('Reason')).toHaveAttribute('maxlength', '500')
+    expect(within(dialog).getByLabelText('Reason (required)')).toHaveAttribute('maxlength', '500')
     await user.click(within(dialog).getByRole('button', { name: 'Move anyway' }))
     expect(onForce).not.toHaveBeenCalled()
-    await user.type(within(dialog).getByLabelText('Reason'), 'Hotfix')
+    await user.type(within(dialog).getByLabelText('Reason (required)'), 'Hotfix')
     await user.click(within(dialog).getByRole('button', { name: 'Move anyway' }))
     expect(onForce).toHaveBeenCalledWith('Hotfix')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -89,7 +90,7 @@ describe('MoveBlockedToast assignee override (#1923)', () => {
 describe('override copy (#1923)', () => {
   it('labels the timeline row with kinds, basis and reason', () => {
     expect(activityLabel('override_used', { from_value: 'assignee', to_value: 'wip,weight', item_text: 'Hotfix' }))
-      .toBe('WIP and weight limit overridden (assignee override). Reason: Hotfix')
+      .toBe('WIP and weight limits overridden (assignee override). Reason: Hotfix')
     expect(activityLabel('override_used', { from_value: 'site_admin', to_value: 'weight', item_text: '' }))
       .toBe('Weight limit overridden (admin override)')
     expect(activityLabel('override_used', { from_value: 'admin' })).toBe('Card limit overridden (admin override)')

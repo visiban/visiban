@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cardSubColumnIndex, currentStopIndex, moveStops, stageSubColumns } from "../../utils/stages";
 import { getCardMovements } from "../../api/cards";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -315,6 +315,12 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
   const forceHint = softRefusal ? overrideHint(eligibility) : null;
   // The assignee override's inline reason box.
   const [reasonOpen, setReasonOpen] = useState(false);
+  const overrideLinkRef = useRef<HTMLButtonElement>(null);
+  const refusalId = useId();
+
+  useEffect(() => {
+    if (!moveOpen) setReasonOpen(false);
+  }, [moveOpen]);
 
   const forceMove = async (reason?: string) => {
     if (!onForceMoveCard || forcingRef.current || movesPaused) return;
@@ -325,13 +331,17 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
         ? await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, ...gateArg)
         : await onForceMoveCard(card.id, targetColumn, targetSwimlane, 9999, gateArg[0], reason);
       if (result.ok === false) {
+        const refusal = limitRefusal(result.error);
         setMoveError(moveFailureMessage(result.error));
-        setMoveRefusal(limitRefusal(result.error));
+        setMoveRefusal(refusal);
+        // The typed reason survives any failure but a hard block (#1923).
+        if (refusal !== null && isHardLimit(refusal.code)) setReasonOpen(false);
         return;
       }
       setMoveError(null);
       setMoveRefusal(null);
       setMoveOpen(false);
+      requestAnimationFrame(() => moveBtnRef.current?.focus());
     } catch (err) {
       setMoveError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
@@ -635,43 +645,48 @@ export default function CardPeekSheet({ card, board, canEdit, onClose, onOpenCar
           <div className="mb-3 space-y-2" data-testid="card-peek-move-form">
             <label className="block text-xs text-fg-secondary">
               Column
-              <select className={selectClass} value={targetKey} onChange={(e) => { setTargetKey(e.target.value); setMoveError(null); setMoveRefusal(null); }}>
+              <select className={selectClass} value={targetKey} onChange={(e) => { setTargetKey(e.target.value); setMoveError(null); setMoveRefusal(null); setReasonOpen(false); }}>
                 {stops.map((s) => <option key={stopKey(s)} value={stopKey(s)}>{s.label}</option>)}
               </select>
             </label>
             <label className="block text-xs text-fg-secondary">
               Swimlane
-              <select className={selectClass} value={targetSwimlane} onChange={(e) => { setTargetSwimlane(Number(e.target.value)); setMoveError(null); setMoveRefusal(null); }}>
+              <select className={selectClass} value={targetSwimlane} onChange={(e) => { setTargetSwimlane(Number(e.target.value)); setMoveError(null); setMoveRefusal(null); setReasonOpen(false); }}>
                 {board.swimlanes.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
             {moveError && (
-              <div role="alert" className="text-sm">
+              <div id={refusalId} role="alert" className="text-sm">
                 <p className="text-danger">{moveError}</p>
                 {moveRefusal && <p className="mt-0.5 text-xs text-fg-tertiary">{limitCounts(moveRefusal)}</p>}
               </div>
             )}
-            {forceHint && <p className="text-xs text-fg-tertiary">{forceHint}</p>}
+            {forceHint && <p id={`${refusalId}-hint`} className="text-xs text-fg-tertiary">{forceHint}</p>}
             {canForceMove && !reasonOpen && (
               <button
+                ref={overrideLinkRef}
                 type="button"
+                aria-describedby={refusalId}
                 onClick={() => (eligibility.kind === "assignee" ? setReasonOpen(true) : void forceMove())}
                 aria-disabled={moving}
-                className="text-xs text-warning hover:text-warning underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
+                className="max-sm:min-h-11 text-xs text-warning hover:text-warning underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
               >{moving ? "Moving anyway…" : overrideLabel(eligibility)}</button>
             )}
-            {canForceMove && reasonOpen && (
+            {reasonOpen && eligibility.kind === "assignee" && (
               <OverrideReasonForm
                 busy={moving}
                 escapePriority={36.5}
                 onSubmit={(reason) => void forceMove(reason)}
-                onCancel={() => setReasonOpen(false)}
+                onCancel={() => {
+                  setReasonOpen(false);
+                  requestAnimationFrame(() => overrideLinkRef.current?.focus());
+                }}
               />
             )}
-            <div className="flex gap-2">
-              <button type="button" disabled={moving} onClick={submitMove} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
+            {!reasonOpen && <div className="flex gap-2">
+              <button type="button" disabled={moving} onClick={submitMove} aria-describedby={forceHint ? `${refusalId}-hint` : undefined} className="disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis bg-button-primary hover:bg-button-primary-hover text-on-primary rounded-md px-3 py-2 text-sm font-medium min-h-[44px] sm:min-h-0">{moving ? "Moving..." : "Move card"}</button>
               <button type="button" disabled={moving} onClick={() => setMoveOpen(false)} className="disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary-emphasis text-fg-secondary hover:text-fg rounded-md px-3 py-2 text-sm min-h-[44px] sm:min-h-0 hover:bg-surface-hover">Cancel</button>
-            </div>
+            </div>}
           </div>
         )}
         <div className="flex gap-2">

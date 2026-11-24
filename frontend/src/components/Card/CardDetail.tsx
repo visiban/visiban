@@ -1010,8 +1010,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         setMoveRefusal(refusal);
         // The link the user activated is gone unless the new failure is again
         // an overridable limit: move focus to the popover's Move button rather
-        // than letting it drop to the panel.
-        if (refusal === null || isHardLimit(refusal.code)) focusMoveSubmitRef.current = true;
+        // than letting it drop to the panel. The reason box stays open, with
+        // what was typed, unless the new refusal cannot be overridden (#1923).
+        const hard = refusal !== null && isHardLimit(refusal.code);
+        if (hard) setOverrideReasonOpen(false);
+        if (hard || (refusal === null && reason === undefined)) focusMoveSubmitRef.current = true;
         return;
       }
       setLocalCard((c) => ({ ...c, column: columnId, swimlane: swimlaneId, ...(gates !== undefined ? { gates_passed: gates } : {}) }));
@@ -1025,12 +1028,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       // gets its cause shown instead of an unhandled rejection.
       setMovePopoverError(moveFailureMessage(err));
       setMoveRefusal(limitRefusal(err));
-      focusMoveSubmitRef.current = true;
+      if (reason === undefined) focusMoveSubmitRef.current = true;
     } finally {
       moveForcingRef.current = false;
       setMoveForcing(false);
     }
   };
+
+  useEffect(() => {
+    if (!showMovePopover) setOverrideReasonOpen(false);
+  }, [showMovePopover]);
 
   // The popover's Move button is disabled while the override is in flight, so
   // it can only take focus after the render that re-enables it.
@@ -2867,7 +2874,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 )}
               </p>
               {/* Outside the live region: the link is an action, not part of the announcement (#1772). */}
-              {forceHint && <p className="text-xs text-fg-tertiary">{forceHint}</p>}
+              {forceHint && <p id={`${moveErrorId}-hint`} className="text-xs text-fg-tertiary">{forceHint}</p>}
               {canForceMove && !overrideReasonOpen && (
                 <button
                   ref={overrideLinkRef}
@@ -2879,7 +2886,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   className="max-sm:min-h-11 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded aria-disabled:opacity-40 aria-disabled:cursor-not-allowed"
                 >{moveForcing ? "Moving anyway…" : overrideLabel(eligibility)}</button>
               )}
-              {canForceMove && overrideReasonOpen && (
+              {overrideReasonOpen && eligibility.kind === "assignee" && (
                 <OverrideReasonForm
                   busy={moveForcing}
                   escapePriority={36.5}
@@ -2891,7 +2898,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 />
               )}
             </div>
-            <div className="flex gap-3 justify-end">
+            {/* One Cancel and one submit at a time: the reason box has its own (#1923). */}
+            {!overrideReasonOpen && <div className="flex gap-3 justify-end">
               <button
                 onClick={() => closeMovePopover()}
                 disabled={moveForcing}
@@ -2899,11 +2907,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               >Cancel</button>
               <button
                 ref={moveSubmitRef}
+                aria-describedby={forceHint ? `${moveErrorId}-hint` : undefined}
                 onClick={handleMoveSubmit}
                 disabled={moveForcing || moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || moveIsNoop}
                 className="max-sm:min-h-11 text-sm font-medium bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >{moveSubmitting ? "Moving…" : "Move"}</button>
-            </div>
+            </div>}
           </div>
         )}
         </div>

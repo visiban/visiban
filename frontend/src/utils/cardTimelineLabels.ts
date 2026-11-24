@@ -113,9 +113,11 @@ export function activityLabel(
       return d.from_value === "created" ? "Created planned for a later stage" : "Needed column changed";
     // #1923: from_value is the actor basis, to_value the kinds, item_text the reason.
     case "override_used": {
-      const kinds = (d.to_value ?? "").split(",").map((k) => (k === "wip" ? "WIP" : k)).filter(Boolean).join(" and ");
+      const list = (d.to_value ?? "").split(",").filter(Boolean).map((k) => (k === "wip" ? "WIP" : k));
+      const kinds = list.join(" and ");
+      const noun = list.length > 1 ? "limits" : "limit";
       const basis = d.from_value === "assignee" ? "assignee override" : "admin override";
-      const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} limit overridden (${basis})`;
+      const head = `${kinds ? `${kinds.charAt(0).toUpperCase()}${kinds.slice(1)}` : "Card"} ${noun} overridden (${basis})`;
       return d.item_text ? `${head}. Reason: ${d.item_text}` : head;
     }
     case "archived":
