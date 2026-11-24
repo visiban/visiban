@@ -174,7 +174,7 @@ State, milestone, label, and assignee are applied **at the provider**, before is
 
 On a repository with a long history, closed issues used to fill the **Done** column and use up the issue cap, crowding out open work. Since 1.3 the lens loads **open issues first**, with the whole issue cap, and then the **50 most recently updated closed issues** on top. Closed issues never count against the cap for open ones.
 
-Change the number with the **Closed** filter. **Hidden** shows open issues only. **All** goes back to the earlier behavior, where open and closed issues share the cap. When more closed issues exist than are shown, the provenance banner says so ("Showing the 50 most recently updated closed issues"); with **Hidden** it says "Closed issues hidden". GitHub and GitLab don't report how many closed issues there are without extra requests, so the banner doesn't give a count.
+Change the number with the **Closed** filter. **Hidden** shows open issues only. **All** goes back to the earlier behavior, where open and closed issues share the cap. When more closed issues exist than are shown, the provenance banner says so ("Showing up to 50 most recently updated closed issues"; "up to" because on GitHub pull requests count toward the limit and are then left out, so fewer issues can appear); with **Hidden** it says "Closed issues hidden". GitHub and GitLab don't report how many closed issues there are without extra requests, so the banner doesn't give a count.
 
 "Most recently updated" is the closest order both providers offer: a closed issue that someone comments on moves back up the list.
 
@@ -234,9 +234,9 @@ GitLab public repositories are read anonymously and need no linked account.
 
 By default the lens loads at most **300 issues** per refresh (three pages of 100). When a repository has more, the provenance banner shows a warning:
 
-> ⚠ Showing first 300 issues
+> ⚠ Showing first 300 open issues
 
-With a filter active it reads "Showing first N matching issues — more match beyond the fetch limit" instead.
+The cap then counts open issues only, because closed issues are loaded separately (see the **Closed** filter above). With **Closed: All**, open and closed issues share the cap and the warning reads "Showing first 300 issues". With a filter active it reads "Showing first N matching open issues — more match beyond the fetch limit" instead ("matching issues" with **Closed: All**, or when a **State** filter is set).
 
 The cap applies per refresh. An operator can raise it for the whole instance with `GIT_LENS_MAX_PAGES` (pages of 100, default `3`, at most `10` for 1,000 issues); see [Configuration](../administration/configuration.md). Each extra page is one more request to the provider per refresh. *(new in 1.3)*
 

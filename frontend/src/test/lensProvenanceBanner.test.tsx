@@ -102,7 +102,7 @@ describe('LensProvenanceBanner closed-issue limit (#1581)', () => {
   it('names the closed limit when more closed issues exist beyond it', () => {
     render(<LensProvenanceBanner {...base} closedLimit={50} closedTruncated />)
     expect(screen.getByTestId('lens-closed-note')).toHaveTextContent(
-      'Showing the 50 most recently updated closed issues',
+      'Showing up to 50 most recently updated closed issues',
     )
   })
 

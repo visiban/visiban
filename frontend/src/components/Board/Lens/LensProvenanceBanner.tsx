@@ -37,11 +37,13 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
   const providerName = provider === "github" ? "GitHub" : "GitLab";
   const noun = `${openOnly ? "open " : ""}issue${shownCount === 1 ? "" : "s"}`;
   // Says what the closed limit hid (#1581). The provider does not report a
-  // closed total without extra calls, so this names the rule, not a count.
+  // closed total without extra calls, so this names the rule, not a count. "Up
+  // to" because GitHub counts pull requests toward the limit and then drops them,
+  // so a full closed page can hold fewer than N issues.
   let closedNote: string | null = null;
   if (closedLimit === 0) closedNote = "Closed issues hidden";
   else if (closedLimit != null && closedTruncated)
-    closedNote = `Showing the ${closedLimit} most recently updated closed issues`;
+    closedNote = `Showing up to ${closedLimit} most recently updated closed issues`;
 
   return (
     <div
