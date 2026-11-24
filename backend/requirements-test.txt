@@ -19,3 +19,9 @@ schemathesis==4.27.1
 # (checked via OSV before adding — see the `dependency` gate note in the
 # #1076 MR). Pinned exact, matching this file's other test-only deps.
 diff-cover==10.5.1
+# Property-based tests (#1424): boards/tests/test_card_position_invariants_1424.py.
+# Already installed transitively by schemathesis (which needs hypothesis>=6.130.12,<7);
+# pinned exact here so a schemathesis bump cannot silently change the version the
+# stateful test runs on. MPL-2.0 (not GPL; test-only, never shipped in an image),
+# no known CVEs as of 2026-11-24.
+hypothesis==6.168.0
