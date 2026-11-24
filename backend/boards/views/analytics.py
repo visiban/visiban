@@ -1411,23 +1411,6 @@ class BoardAnalyticsMixin:
             swimlanes = list(board.swimlanes.order_by("position"))
             done_column_ids = {col.id for col in columns if col.is_done}
 
-            # Query 1: card count per (swimlane, column) in one shot.
-            raw_counts = (
-                board.cards.filter(archived_at__isnull=True)
-                .values("swimlane_id", "column_id")
-                .annotate(cnt=Count("id"))
-            )
-            counts: dict[int, dict[int, int]] = {}
-            for row in raw_counts:
-                counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
-
-            # Queries 2-3: velocity, done_30d and avg_cycle_days, by first completion,
-            # from the flow service (ADR #1532, #448). A card that bounces between
-            # done columns counts once and stays counted after it is archived.
-            rollup = flow_metrics.swimlane_completion_rollup(
-                flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
-            )
-
             # Blocked active cards per swimlane (#1149), manual or
             # relation, the same union as CardSerializer.is_blocked. "Active" as
             # in active_cards: not archived and not in a done column, so
@@ -1439,13 +1422,35 @@ class BoardAnalyticsMixin:
                 # Same-board only; see _active_blockers_prefetch (#2229).
                 from_card__board_id=F("to_card__board_id"),
             ))
-            blocked_by_swimlane = dict(
+            blocked = Q(blocked_at__isnull=False) | Q(relation_blocked)
+            if done_column_ids:
+                # Only spares the relation probe on done-column cards; the
+                # done columns are left out of the sum below either way.
+                blocked = Q(blocked_at__isnull=False) | (~Q(column_id__in=done_column_ids) & Q(relation_blocked))
+
+            # Query 1: card count and blocked count per (swimlane, column), in
+            # one scan of the board's live cards (#2432; the blocked count was a
+            # second scan before). Grouping by column too keeps blocked_cards
+            # exact: it sums only the non-done cells, the same cards the old
+            # ``exclude(column_id__in=done_column_ids)`` query counted.
+            raw_counts = (
                 board.cards.filter(archived_at__isnull=True)
-                .exclude(column_id__in=done_column_ids)
-                .filter(Q(blocked_at__isnull=False) | Q(relation_blocked))
-                .values("swimlane_id")
-                .annotate(cnt=Count("id"))
-                .values_list("swimlane_id", "cnt")
+                .values("swimlane_id", "column_id")
+                .annotate(cnt=Count("id"), blocked=Count("id", filter=blocked))
+            )
+            counts: dict[int, dict[int, int]] = {}
+            blocked_by_swimlane: dict[int, int] = {}
+            for row in raw_counts:
+                counts.setdefault(row["swimlane_id"], {})[row["column_id"]] = row["cnt"]
+                if row["column_id"] not in done_column_ids:
+                    lane_id = row["swimlane_id"]
+                    blocked_by_swimlane[lane_id] = blocked_by_swimlane.get(lane_id, 0) + row["blocked"]
+
+            # Queries 2-3: velocity, done_30d and avg_cycle_days, by first completion,
+            # from the flow service (ADR #1532, #448). A card that bounces between
+            # done columns counts once and stays counted after it is archived.
+            rollup = flow_metrics.swimlane_completion_rollup(
+                flow_metrics.load_recent_completions(board, flow_metrics.rolling_range(30, now=now), columns=columns)
             )
 
             result = []

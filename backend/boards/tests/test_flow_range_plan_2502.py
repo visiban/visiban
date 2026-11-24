@@ -40,6 +40,19 @@ def _range_cards(case):
     case.old = case.path(case.backlog, 300, case.done, 200, archived=150)
 
 
+def _old_dwell_rule_ids(board, flow_range):
+    """The pre-#2506 correlated predicate, kept here only as the reference set."""
+    moved = CardMovement.objects.filter(
+        card=OuterRef("pk"), moved_at__gte=flow_range.start, moved_at__lte=flow_range.end,
+    )
+    rule = (
+        (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
+        | Q(archived_at__gte=flow_range.start)
+        | Exists(moved)
+    )
+    return set(Card.objects.filter(board=board).filter(rule).values_list("pk", flat=True))
+
+
 class RangeLoadPlanShapeTests(FlowFixture):
     def setUp(self):
         super().setUp()
@@ -101,13 +114,11 @@ class RangeLoadPlanShapeTests(FlowFixture):
 
 
 class RecentDwellPlanShapeTests(FlowFixture):
-    """#2506 (partial): ``load_recent_dwell`` (summary/analytics, the MCP
-    analytics tool) had the same correlated ``EXISTS`` in an ``OR``. The
-    rewrite to an uncorrelated, board-bounded ``IN`` keeps the same cards and
-    trims the two movement-reading statements on the nightly fixture (board 1:
-    71,153 to 64,033 buffers; aged board 201: 74,530 to 72,473). It still
-    reads every board's movements in the range; these tests guard the shape
-    and the card set, not that residual read."""
+    """#2506: ``load_recent_dwell`` (analytics, the MCP aging tool) had the
+    same correlated ``EXISTS`` in an ``OR``. The rewrite to an uncorrelated,
+    board-bounded ``IN`` keeps the same cards; these tests guard the shape and
+    the card set. ``RecentDwellNarrowedMovementTests`` below guards the
+    #2567 narrowing of that ``IN`` to the cards the other terms skip."""
 
     def setUp(self):
         super().setUp()
@@ -121,16 +132,7 @@ class RecentDwellPlanShapeTests(FlowFixture):
         return flow, [q["sql"] for q in ctx.captured_queries]
 
     def _old_rule_ids(self):
-        """The pre-#2506 correlated predicate, kept here only as the reference set."""
-        moved = CardMovement.objects.filter(
-            card=OuterRef("pk"), moved_at__gte=self.flow_range.start, moved_at__lte=self.flow_range.end,
-        )
-        rule = (
-            (Q(archived_at__isnull=True) & ~Q(column__is_done=True))
-            | Q(archived_at__gte=self.flow_range.start)
-            | Exists(moved)
-        )
-        return set(Card.objects.filter(board=self.board).filter(rule).values_list("pk", flat=True))
+        return _old_dwell_rule_ids(self.board, self.flow_range)
 
     def test_no_dwell_load_statement_correlates_card_movements_to_the_card(self):
         for kwargs in ({}, {"also_matching": Q(pk=self.old.pk)}):
@@ -181,3 +183,85 @@ class RecentDwellPlanShapeTests(FlowFixture):
         self.row(stranger, None, other_done, 1)
         flow, _ = self.dwell_queries()
         self.assertEqual({card.id for card in flow.cards}, self._old_rule_ids())
+
+
+class RecentDwellNarrowedMovementTests(FlowFixture):
+    """#2567: the dwell movement term reads only the cards the other terms skip.
+
+    The #2506 ``IN`` was bounded only by ``card__board``, so on the load-test
+    board the planner read every board's movements in the range from
+    ``card_movements_moved_at``. It now names only this board's cards archived
+    before the range or live in a done column, the exact complement of the
+    other two terms, so the kept set cannot change: these tests pin it against
+    the old correlated rule with other boards' movements in the range, plus
+    the narrowing itself.
+    """
+
+    def setUp(self):
+        super().setUp()
+        _range_cards(self)
+        # Live in a done column: kept only by a movement in the range.
+        self.done_recent = self.path(self.backlog, 60, self.done, 10)
+        self.released_recent = self.path(self.doing, 40, self.released, 5)
+        self.done_old = self.path(self.backlog, 90, self.done, 50)
+        # Another board whose cards all moved inside the range, each one a
+        # shape the movement term would keep on this board.
+        other = Board.objects.create(name="Other", owner=self.user)
+        other_doing = Column.objects.create(board=other, name="Doing", position=0)
+        other_done = Column.objects.create(board=other, name="Done", position=1, is_done=True)
+        other_lane = Swimlane.objects.create(board=other, name="L", position=0)
+        self.strangers = []
+        for column, archived in ((other_done, None), (other_done, 150), (other_doing, None)):
+            stranger = Card.objects.create(
+                board=other, column=column, swimlane=other_lane, title="x", created_by=self.user, position=0,
+            )
+            Card.objects.filter(pk=stranger.pk).update(
+                created_at=self.ago(300), archived_at=self.ago(archived) if archived else None,
+            )
+            stranger.refresh_from_db()
+            self.row(stranger, None, column, 3)
+            self.strangers.append(stranger.pk)
+
+    def dwell(self, **kwargs):
+        columns = list(self.board.columns.order_by("position"))
+        with CaptureQueriesContext(connection) as ctx:
+            flow = fm.load_recent_dwell(self.board, self.flow_range, columns=columns, **kwargs)
+        return {card.id for card in flow.cards}, [q["sql"] for q in ctx.captured_queries]
+
+    def movement_subquery(self, statements):
+        cards_statement = next(sql for sql in statements if sql.lstrip().startswith('SELECT "cards"."id"'))
+        return cards_statement[cards_statement.index('"card_movements"'):]
+
+    def test_keeps_exactly_the_old_rules_cards_with_other_boards_moving_in_range(self):
+        expected = _old_dwell_rule_ids(self.board, self.flow_range)
+        # Not vacuous: only the movement term keeps these three.
+        self.assertTrue({self.late_row.pk, self.done_recent.pk, self.released_recent.pk} <= expected)
+        self.assertNotIn(self.done_old.pk, expected)
+        kept, _ = self.dwell()
+        self.assertEqual(kept, expected)
+        self.assertFalse(kept & set(self.strangers))
+
+    def test_also_matching_keeps_the_old_rules_cards_plus_the_extra_ones(self):
+        kept, _ = self.dwell(also_matching=Q(pk=self.done_old.pk))
+        self.assertEqual(kept, _old_dwell_rule_ids(self.board, self.flow_range) | {self.done_old.pk})
+
+    def test_the_movement_subquery_names_only_the_cards_the_other_terms_skip(self):
+        _, statements = self.dwell()
+        subquery = self.movement_subquery(statements)
+        self.assertRegex(subquery, rf'"board_id" = {self.board.pk}\b')
+        self.assertRegex(subquery, r'"archived_at" < ')
+        done_ids = sorted((self.done.pk, self.released.pk))
+        self.assertRegex(subquery, r'"column_id" IN \({}, {}\)'.format(*done_ids))
+        for sql in statements:
+            self.assertIsNone(_OUTER_CARD_REF.search(sql), sql)
+
+    def test_a_board_without_done_columns_narrows_to_archived_cards_only(self):
+        # The live-in-done branch has no column to name. Every live card is
+        # then kept by the first term, so the old rule's set still holds.
+        Column.objects.filter(board=self.board).update(is_done=False)
+        kept, statements = self.dwell()
+        self.assertEqual(kept, _old_dwell_rule_ids(self.board, self.flow_range))
+        self.assertIn(self.late_row.pk, kept)
+        subquery = self.movement_subquery(statements)
+        self.assertRegex(subquery, r'"archived_at" < ')
+        self.assertNotRegex(subquery, r'"column_id" IN')
