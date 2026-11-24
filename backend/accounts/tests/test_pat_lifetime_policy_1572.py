@@ -4,6 +4,7 @@ Two SiteSetting fields: ``pat_max_lifetime_days`` (when set, token creation
 needs an expiry within that many days) and ``pat_default_lifetime_days`` (what
 the token form pre-fills). Both default to null, which keeps today's behavior.
 """
+from unittest import mock
 from datetime import datetime, time, timedelta, timezone as dt_timezone
 
 from django.core.exceptions import ValidationError
@@ -200,6 +201,22 @@ class AdminPolicySettingsTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("pat_default_lifetime_days", r.json())
         self.assertEqual(SiteSetting.get().pat_max_lifetime_days, 90)
+
+    def test_locked_row_recheck_refuses_a_default_the_stale_read_let_through(self):
+        # The serializer judges default <= max against the pre-lock read. Make
+        # that read stale (both fields null, as if a concurrent PATCH had not
+        # landed yet) while the stored row holds default=60, so ONLY the
+        # re-check on the locked row can refuse max=30. Patched in the main
+        # thread only (a patch inside worker threads leaks process-wide).
+        set_policy(max_days=90, default_days=60)
+        stale = SiteSetting(pk=1, pat_max_lifetime_days=None, pat_default_lifetime_days=None)
+        with mock.patch.object(SiteSetting, "get", return_value=stale):
+            r = self.patch({"pat_max_lifetime_days": 30})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("pat_default_lifetime_days", r.json())
+        s = SiteSetting.objects.get(pk=1)
+        self.assertEqual((s.pat_max_lifetime_days, s.pat_default_lifetime_days), (90, 60))
+        self.assertFalse(AdminActionLog.objects.exists())
 
     def test_raising_the_default_above_the_stored_max_is_refused(self):
         set_policy(max_days=30)
