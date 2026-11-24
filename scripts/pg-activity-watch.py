@@ -21,6 +21,12 @@ thresholds, and the planner statistics of the tables involved. CI raises
 DIAGNOSTIC ONLY. It never changes database state, never fails the job, and
 prints at most one ``[pg-activity-watch]`` report per stuck query (pid, query_start) to stderr.
 It reads ``DATABASE_URL`` but never prints it.
+
+The EXPLAIN connection is to the TEST database, which the shard drops at
+teardown, and a session left open makes that ``DROP DATABASE`` fail ("being
+accessed by other users"). So the connection is bounded (5 s connect, 20 s
+statement timeout; a planner stall past that is itself reported as the
+finding) and always closed in a ``finally`` before the report returns.
 """
 
 import os
@@ -37,7 +43,13 @@ LOCK_WAIT_SECONDS = 60
 QUERY_LIMIT = 500
 #: Upper bound on the diagnostic EXPLAIN. Planning that runs past it is itself
 #: the finding (a planner stall), reported as such.
-EXPLAIN_TIMEOUT_MS = 60_000
+EXPLAIN_TIMEOUT_MS = 20_000
+#: Connect bound for the diagnostic connection to the TEST database. Together
+#: with ``EXPLAIN_TIMEOUT_MS`` the connection lives at most about 25 s (plus the
+#: two cheap catalog reads): it is always closed in a ``finally``, and short
+#: so it is gone before the shard tears down, because Django's ``DROP DATABASE``
+#: fails with "being accessed by other users" while any session is still open.
+EXPLAIN_CONNECT_TIMEOUT_S = 5
 #: Tables whose planner statistics are printed with a plan, at most.
 STATS_TABLE_LIMIT = 20
 # Plain literals, never f-strings: every value reaches Postgres as a bound
@@ -184,11 +196,13 @@ def plan_report(url, row):
     if query is None:
         return f"{PREFIX} plan: skipped (not a single SELECT)"
     started = time.monotonic()
+    conn = None
     try:
-        with psycopg.connect(
-            database_dsn(url, row["datname"]), autocommit=True, connect_timeout=10,
+        conn = psycopg.connect(
+            database_dsn(url, row["datname"]), autocommit=True, connect_timeout=EXPLAIN_CONNECT_TIMEOUT_S,
             options=f"-c default_transaction_read_only=on -c statement_timeout={EXPLAIN_TIMEOUT_MS}",
-        ) as conn, conn.cursor(row_factory=dict_row) as cur:
+        )
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(JIT_SQL)
             jit = cur.fetchone()
             cur.execute(TABLE_STATS_SQL, (table_names(query),))
@@ -202,6 +216,14 @@ def plan_report(url, row):
             return format_plan(plan, time.monotonic() - started, jit, stats)
     except Exception as exc:  # diagnostic only
         return format_plan([], time.monotonic() - started, None, [], error=type(exc).__name__)
+    finally:
+        # Always release the session: it is on the test database, and an open
+        # one fails the shard's DROP DATABASE at teardown.
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # diagnostic only
+                pass
 
 
 def maintenance_dsn(url):

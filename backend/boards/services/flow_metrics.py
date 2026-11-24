@@ -1197,7 +1197,8 @@ def load_recent_dwell(
     improvement). It names the same cards: the load is already bounded to
     ``board``, and this board's movements in the range are exactly the ones
     the ``EXISTS`` matched. Measured on the nightly fixture (PostgreSQL 17,
-    ``explain-2506-plans.txt``): the two statements that read movements go
+    the before/after ``EXPLAIN (ANALYZE, BUFFERS)`` plans are in the MR
+    description for #2506): the two statements that read movements go
     from 71,153 to 64,033 buffers on board 1 and from 74,530 to 72,473 on
     the aged board 201, and the cards load and history read are faster in ms.
 

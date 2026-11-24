@@ -1,9 +1,13 @@
 """#2536: the CI Postgres activity watcher's pure threshold and report logic."""
 
 import importlib.util
+import time
 from pathlib import Path
+from unittest import skipUnless
+from urllib.parse import quote
 
-from django.test import SimpleTestCase
+from django.db import connection
+from django.test import SimpleTestCase, TransactionTestCase
 
 _PATH = Path(__file__).resolve().parents[3] / "scripts" / "pg-activity-watch.py"
 _spec = importlib.util.spec_from_file_location("pg_activity_watch", _PATH)
@@ -134,3 +138,49 @@ class PlanOnCpuStallTests(SimpleTestCase):
 
     def test_plan_report_skips_a_write_without_connecting(self):
         self.assertIn("skipped", watch.plan_report("postgres://u:p@nowhere.invalid/x", _row(query="DELETE FROM a")))
+
+
+def _test_db_url():
+    """DATABASE_URL-shaped URL for the live test database (never printed)."""
+    d = connection.settings_dict
+    auth = f"{quote(d['USER'], safe='')}:{quote(d['PASSWORD'], safe='')}@"
+    return f"postgres://{auth}{d['HOST'] or 'localhost'}:{d['PORT'] or 5432}/{d['NAME']}"
+
+
+@skipUnless(connection.vendor == "postgresql", "plan_report connects to a real PostgreSQL database")
+class PlanReportAgainstPostgresTests(TransactionTestCase):
+    """The connect-and-EXPLAIN branch of ``plan_report``, on the real test database."""
+
+    def _plan(self, query):
+        return watch.plan_report(_test_db_url(), _row(datname=connection.settings_dict["NAME"], query=query))
+
+    def _other_sessions(self):
+        with connection.cursor() as cur:
+            cur.execute(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()"
+            )
+            return cur.fetchone()[0]
+
+    def test_fast_select_returns_the_plan_and_planning_time(self):
+        text = self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" = 1')
+        self.assertIn("plan: EXPLAIN (plan only) took", text)
+        self.assertIn("plan| ", text)
+        self.assertIn("cards", text)
+        self.assertIn("stats: cards reltuples=", text)
+
+    def test_truncated_statement_is_reported_failed_not_raised(self):
+        text = self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" IN (1, 2')
+        self.assertIn("EXPLAIN failed after", text)
+        self.assertIn("SyntaxError", text)
+
+    def test_pg_sleep_is_planned_not_executed(self):
+        started = time.monotonic()
+        text = self._plan('SELECT pg_sleep(30)')
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertIn("plan: EXPLAIN (plan only) took", text)
+
+    def test_connection_is_closed_after_success_and_after_failure(self):
+        before = self._other_sessions()
+        self._plan('SELECT "cards"."id" FROM "cards"')
+        self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" IN (1, 2')
+        self.assertEqual(self._other_sessions(), before)
