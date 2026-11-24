@@ -94,7 +94,7 @@ The lower-frequency actions live behind the **More actions** (`⋮`) button at t
 - **Clear lockout**
 - **Restart onboarding tour**
 
-Deactivating, making or removing an admin, revoking all-content access, and clearing a lockout each open a confirmation under the row. A user who owns boards gets "<name> owns N boards. Choose a new owner for each before deactivating." and a **Transfer boards…** button instead.
+Deactivating, making or removing an admin, revoking all-content access, and clearing a lockout each open a confirmation under the row. A user who owns boards gets "`<name>` owns N boards. Choose a new owner for each before deactivating." and a **Transfer boards…** button instead.
 
 On a phone the row has only the **More actions** button, which opens a sheet from the bottom of the screen with the user's name and every row action, including **Deactivate** and **Make admin**, then **Cancel**. A confirmation replaces the list inside the sheet; its **Cancel** (or Esc) goes back to the list. For a user who owns boards the item reads **Transfer boards and deactivate…**, with "Choose a new owner for each of their N boards first" under it, and opens the transfer dialog full screen.
 
