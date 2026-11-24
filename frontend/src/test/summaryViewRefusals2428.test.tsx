@@ -38,6 +38,15 @@ describe('the Summary tab and the analytics limits (#2428)', () => {
     expect(summaryMock).toHaveBeenCalledTimes(3)
   })
 
+  it('keeps keyboard focus on the tab region when Retry unmounts itself', async () => {
+    summaryMock.mockRejectedValueOnce(new Error('no')).mockResolvedValue(summary)
+    render(<SummaryView boardId={1} columns={[]} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }))
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toContainElement(screen.getByRole('table'))
+  })
+
   it('drops a pending busy retry on unmount', async () => {
     vi.useFakeTimers()
     summaryMock.mockRejectedValueOnce(busy).mockResolvedValue(summary)

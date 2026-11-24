@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getBoardSummary } from "../../api/boards";
 import { analyticsErrorKind, analyticsErrorMessage, analyticsErrorRetryable, cancelableWait, withAnalyticsBusyRetry } from "../../api/analyticsErrors";
 import type { AnalyticsErrorKind } from "../../api/analyticsErrors";
@@ -16,6 +16,9 @@ export default function SummaryView({ boardId, columns }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AnalyticsErrorKind | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Every state renders the same root <div>, so React keeps one DOM node across loading,
+  // refusal and loaded. Retry focuses it, so focus survives the button unmounting (#2428).
+  const regionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let current = true;
@@ -33,10 +36,16 @@ export default function SummaryView({ boardId, columns }: Props) {
   // Hook sits above the early returns; the parser tolerates a missing key.
   const panels = useMemo(() => parseExtensionPanels(data?.extension_panels), [data]);
 
-  if (loading) return <div className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary">Loading summary…</div>;
+  if (loading) {
+    return (
+      <div ref={regionRef} tabIndex={-1} className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary focus:outline-none">
+        Loading summary…
+      </div>
+    );
+  }
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-sunken">
+      <div ref={regionRef} tabIndex={-1} className="flex-1 flex flex-col items-center justify-center gap-2 bg-sunken focus:outline-none">
         <p role="alert" className="text-sm text-danger">
           {analyticsErrorMessage(error, { noPeriod: true }) ?? "Failed to load summary."}
         </p>
@@ -44,7 +53,10 @@ export default function SummaryView({ boardId, columns }: Props) {
         {analyticsErrorRetryable(error) && (
           <button
             type="button"
-            onClick={() => setAttempt((n) => n + 1)}
+            onClick={() => {
+              regionRef.current?.focus();
+              setAttempt((n) => n + 1);
+            }}
             className="px-3 py-1.5 text-sm rounded border border-line-strong bg-surface text-fg-secondary hover:text-fg hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Retry
@@ -56,7 +68,7 @@ export default function SummaryView({ boardId, columns }: Props) {
   if (!data) return null;
 
   return (
-    <div className="flex-1 overflow-auto p-4 bg-sunken">
+    <div ref={regionRef} tabIndex={-1} className="flex-1 overflow-auto p-4 bg-sunken focus:outline-none">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="border-b border-line text-xs text-fg-muted uppercase tracking-wider">
