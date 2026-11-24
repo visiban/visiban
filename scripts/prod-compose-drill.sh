@@ -446,7 +446,7 @@ log "stack recovered after 'docker compose restart backend'"
 # ---- 8. the stack carries real user traffic through nginx (#1364) ----------
 # Readiness proves nginx reaches the backend; it does not prove the ingress
 # carries an authenticated session, a CSRF-checked write, or a WebSocket
-# upgrade. A broken `proxy_set_header Upgrade` block, a CORS/FRONTEND_URL
+# upgrade. A broken `proxy_set_header Upgrade` block, a CORS/CSRF trusted-origin
 # mismatch, or a first-login flow that never completes would all pass steps
 # 1-7. This walks the first-run path an operator takes, every request through
 # the published nginx port (${BASE_URL}), as a browser would:
@@ -514,7 +514,7 @@ fi
 
 log "USER JOURNEY: board create"
 json_post 201 "POST /api/v1/boards/" /api/v1/boards/ <<<'{"name":"Compose drill board"}'
-board_id="$(grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' "${BODY}" | head -1 | grep -o '[0-9]*$')"
+board_id="$(grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' "${BODY}" | head -1 | grep -o '[0-9]*$' || true)"
 [ -n "${board_id}" ] || fail "board create returned no id: $(head -c 300 "${BODY}")"
 
 log "USER JOURNEY: WebSocket upgrade through nginx on /ws/boards/${board_id}/"
