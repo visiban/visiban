@@ -1073,7 +1073,10 @@ def _evaluate_exit_run(m):
 
 
 def _unread_poller(base_url, headers, stop, samples, errors):
-    """Time notifications/unread-count/ about every 50 ms until *stop* is set."""
+    """Time notifications/unread-count/ about every 250 ms until *stop* is set.
+
+    Slower than the 50 ms first tried: under DEBUG=False the `user` throttle is 5000/hour, not
+    9999, and a 429 would abort the run with no results written."""
     with requests.Session() as sess:
         sess.headers.update(headers)
         while not stop.is_set():
@@ -1087,7 +1090,7 @@ def _unread_poller(base_url, headers, stop, samples, errors):
                     errors.append(f"unread-count returned {r.status_code}")
             except requests.exceptions.RequestException as exc:
                 errors.append(f"unread-count: {exc}")
-            stop.wait(0.05)
+            stop.wait(0.25)
 
 
 def _concurrent_overview(base_url, headers, board_id, concurrency, rounds):

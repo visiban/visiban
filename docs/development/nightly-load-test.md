@@ -121,7 +121,7 @@ Start it from CI/CD → Run pipeline (or the job's manual button) with these var
 | `LOAD_TEST_EXIT_CONCURRENT_OPENS` | `4` (default) | N: how many `metrics/overview/` opens are fired together on the aged board. Must exceed the cap, or the over-cap check fails. |
 | `LOAD_TEST_EXIT_ROUNDS` | `3` (default) | How many times that burst is repeated. |
 
-The server is started as a plain `daphne` command with `DEBUG` and `ANALYTICS_MAX_CONCURRENT` as per-command variables (no `sh -c`, no subshell), so `$!` written to `--server-pid-file` is the daphne process itself and the VmHWM the script reads is the server's, not a wrapper's. Reading RSS needs Linux `/proc` on the same host, as for the budget run.
+The server is started as a plain `daphne` command with `DEBUG` and `ANALYTICS_MAX_CONCURRENT` as per-command variables (no `sh -c`, no subshell), so `$!` written to `--server-pid-file` is the daphne process itself and the VmHWM the script reads is the server's, not a wrapper's. `DEBUG=False` also lowers the DRF throttles (`user` 5000/hour instead of 9999), so the concurrent scenario polls `unread-count` about 4 times a second, and a 429 there aborts the run. `LOAD_TEST_SERVER=daphne` without `LOAD_TEST_EXIT_RUN` starts the server with `ANALYTICS_MAX_CONCURRENT=${LOAD_TEST_EXIT_MAX_CONCURRENT}` (default 1, not the nightly's 2), so set that variable to `2` for it, or the budget run's overview fan-out is refused with `analytics_busy`. Reading RSS needs Linux `/proc` on the same host, as for the budget run.
 
 ### The bars
 
