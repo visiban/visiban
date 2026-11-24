@@ -4858,6 +4858,11 @@
 <td>Renders <code>GIT_LENS_ENABLED=true</code>, enabling the <a href="../../features/issue-board-lens/">Issue Board Lens</a> (adds the <code>git_lens</code> tables; added in 1.3)</td>
 </tr>
 <tr>
+<td><code>backend.settings.gitLensMaxPages</code></td>
+<td>unset</td>
+<td><code>GIT_LENS_MAX_PAGES</code>: pages of 100 issues one lens refresh may load, <code>1</code> to <code>10</code>. Unset keeps the backend default of <code>3</code> (300 issues). Above <code>3</code>, a slow refresh can outlast the frontend nginx's fixed <code>/api/</code> read timeout (nginx's 60-second default); see <a href="../../administration/configuration/">Configuration</a> (added in 1.3)</td>
+</tr>
+<tr>
 <td><code>backend.settings.webhooksEnabled</code></td>
 <td><code>false</code></td>
 <td>Renders <code>WEBHOOKS_ENABLED=true</code>, enabling <a href="../../features/webhooks/">outbound webhooks</a>. Also enable <code>webhooks.dispatcher.enabled</code>, or nothing is delivered. Refused together with <code>demo.enabled</code> (added in 1.3)</td>

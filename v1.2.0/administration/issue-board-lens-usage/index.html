@@ -4644,8 +4644,8 @@
 </tr>
 <tr>
 <td>Calls per fetch (<code>max_outbound_calls_per_fetch</code>)</td>
-<td>8</td>
-<td>At most 3 issue pages, 2 branch pages, 2 merge-request pages and 1 milestone page.</td>
+<td>9</td>
+<td>At most 3 issue pages (<code>max_issue_pages</code>, set by <code>GIT_LENS_MAX_PAGES</code>), 1 page of recently updated closed issues (read separately since 1.3 so closed issues don't use the open-issue budget), 2 branch pages, 2 merge-request pages and 1 milestone page. Each extra issue page adds one call here and ten seconds to the fetch lock.</td>
 </tr>
 <tr>
 <td>Fetches per user per repository (<code>fetch_budget_per_user_repo</code>)</td>
@@ -4659,7 +4659,7 @@
 </tr>
 <tr>
 <td>Calls per user (<code>max_outbound_calls_per_user_per_window</code>)</td>
-<td>384 per 5 min</td>
+<td>432 per 5 min</td>
 <td>The product of the two lines above: the most one account can cause, whatever it does.</td>
 </tr>
 </tbody>
