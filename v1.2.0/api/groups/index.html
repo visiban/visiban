@@ -5101,7 +5101,7 @@
 <tr>
 <td><code>member_preview</code></td>
 <td>array</td>
-<td><em>(1.3+)</em> Up to the first five direct members by join date, each <code>{ "id", "username", "display_name", "avatar_url" }</code> (no email). Read-only. Use <code>member_count</code> for the total. Fetched in one bounded query for the whole list (#2487).</td>
+<td><em>(1.3+)</em> Up to the first five direct members by join date, each <code>{ "id", "username", "display_name", "avatar_url" }</code> (no email). Read-only. Use <code>member_count</code> for the total. Fetched in two bounded queries for the whole list, however many groups it holds (#2487, #2557).</td>
 </tr>
 <tr>
 <td><code>board_count</code></td>

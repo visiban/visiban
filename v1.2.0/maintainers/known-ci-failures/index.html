@@ -5164,6 +5164,24 @@ job timeout. These diagnostics exist so the next stall names its cause instead o
   stuck backend, <code>pg_blocking_pids</code>, each blocker's state and query, and the ungranted and blocking
   <code>pg_locks</code> rows. A blocker in <code>idle in transaction</code> is a connection a test leaked. It is
   diagnostic only and never fails the job.</li>
+<li><strong><code>[pg-activity-watch] plan</code> lines</strong> (#2536): the first real report (main pipeline 3105471449,
+  <code>backend-test 4/8</code>, 2026-11-23) ruled a lock <strong>out</strong>. The stuck backend was
+  <code>state=active wait=None/None</code>, <code>blocked by pids: none</code>, and the same zero-row <code>card_parent_links</code>
+  statement in <code>parents_for_viewer</code> started again three more times (<code>query_start</code> 21:02, 21:10,
+  21:16, 21:22), so each run took minutes on CPU. For a stall like that (active, no wait event, no
+  blocker) the watcher now also prints an <code>EXPLAIN</code> (plan only, never <code>ANALYZE</code>) of the stuck
+  statement, run on the same database from a read-only connection with a 5 s connect timeout and a 20 s statement timeout (the connection is to the
+  test database and always closed, and the timeouts bound its life to about 25 s. That is a
+  reduced risk, not an eliminated one: a teardown inside that window can still meet the open
+  session, and an open session makes the shard's <code>DROP DATABASE</code> fail with "being accessed by
+  other users").
+  Alongside it come how long planning took, the JIT thresholds to compare with the plan's top-line
+  cost, and <code>reltuples</code>/<code>relpages</code>/current pages/live/dead tuples and last (auto)analyze for each
+  table in the statement. Read it like this: <code>EXPLAIN failed after 20.0s: QueryCanceled</code> means the
+  <strong>planner</strong> is the stall. A fast EXPLAIN whose cost is over <code>jit_above_cost</code> points at JIT. A fast,
+  cheap plan that still hangs points at the executor or the stats rows. <code>SyntaxError</code> means the
+  statement text was cut short. CI sets <code>track_activity_query_size=16384</code> on the <code>backend-test</code>
+  and <code>backend-test-pg-matrix</code> services for this.</li>
 <li><strong><code>lock timeout</code> failure</strong> (#2536): five jobs set <code>PGOPTIONS=-c lock_timeout=180s</code>:
   <code>backend-test</code> and <code>backend-test-pg-matrix</code> (which have the watcher), <code>backend-test-migrations</code> and <code>backend-test-slow</code>
   (via the shared <code>*backend-test-variables</code> anchor) and <code>backend-test-pg-matrix-nightly</code> (via
