@@ -116,3 +116,18 @@ export function chipsThatFit(widths: number[], available: number, reserve: numbe
   }
   return count;
 }
+
+/**
+ * Drop deleted custom field ids from every set (D1): the server sends only
+ * `custom_field.deleted`, and a stale id would be re-sent by the next save.
+ * Sets that name none of them are returned unchanged.
+ */
+export function pruneSetFields(sets: CustomFieldSet[], removed: Set<number>): CustomFieldSet[] {
+  if (removed.size === 0) return sets;
+  return sets.map((s) => (s.field_ids.some((id) => removed.has(id)) ? { ...s, field_ids: s.field_ids.filter((id) => !removed.has(id)) } : s));
+}
+
+/** The swimlane counterpart (D2): a lane delete cascades out of each set's lanes. */
+export function pruneSetLane(sets: CustomFieldSet[], swimlaneId: number): CustomFieldSet[] {
+  return sets.map((s) => (s.swimlanes.includes(swimlaneId) ? { ...s, swimlanes: s.swimlanes.filter((id) => id !== swimlaneId) } : s));
+}

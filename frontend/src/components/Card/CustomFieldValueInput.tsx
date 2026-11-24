@@ -27,6 +27,8 @@ interface Props {
    */
   onCommit: (value: string) => void | Promise<void>;
   disabled?: boolean;
+  /** Draw a dashed border while the value is empty (#2570 field set blocks). */
+  dashedWhenEmpty?: boolean;
   /** `sm` = quick-edit popover chrome (card face). `md` = card-detail / Fields-tab. */
   size?: "sm" | "md";
   autoFocus?: boolean;
@@ -71,7 +73,7 @@ interface Props {
 
 const DEBOUNCE_MS = 600;
 
-export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus, debounceMs = DEBOUNCE_MS, escapePriority, serverError, onInvalidChange, userDateFormat = "MM/DD/YYYY" }: Props) {
+export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus, debounceMs = DEBOUNCE_MS, escapePriority, serverError, onInvalidChange, userDateFormat = "MM/DD/YYYY", dashedWhenEmpty = false }: Props) {
   const [local, setLocal] = useState(value ?? "");
   // URL type (#1390): client-side validation error, and the last value handed
   // to onCommit — so a blur right after an Enter does not save twice, and a
@@ -123,7 +125,8 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
     debounceTimer.current = setTimeout(() => onCommit(next), debounceMs);
   };
 
-  const inputClasses = `max-sm:min-h-11 bg-surface border border-line rounded text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
+  const dashed = dashedWhenEmpty && !local ? "border-dashed" : "";
+  const inputClasses = `${dashed} max-sm:min-h-11 bg-surface border border-line rounded text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
     size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm"
   }`;
 
@@ -298,7 +301,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           // Not fixed-width: the wrapper grows with the adornments (up to 10
           // characters each) so they never squeeze the number itself, which
           // keeps the plain input's width with a 4rem floor.
-          <div className="inline-flex w-auto min-w-28 max-w-full items-center bg-surface border border-line rounded focus-within:ring-2 focus-within:ring-primary-emphasis focus-within:border-transparent">
+          <div className={`${dashed} inline-flex w-auto min-w-28 max-w-full items-center bg-surface border border-line rounded focus-within:ring-2 focus-within:ring-primary-emphasis focus-within:border-transparent`}>
             {prefix !== "" && <span className={`${adornment} ${size === "sm" ? "pl-1.5" : "pl-2"}`} aria-hidden="true">{prefix}</span>}
             <input
               type="number"
@@ -349,7 +352,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
       return (
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 cursor-pointer rounded focus-within:ring-2 focus-within:ring-primary-emphasis">
-            <div className={`text-sm border rounded px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${local ? "bg-surface-hover border-line-strong text-fg" : "bg-surface-hover border-line-strong text-fg-secondary"}`}>
+            <div className={`${dashed} text-sm border rounded px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${local ? "bg-surface-hover border-line-strong text-fg" : "bg-surface-hover border-line-strong text-fg-secondary"}`}>
               <span>{local ? formatDateStr(local, userDateFormat) : "Select a date"}</span>
               <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5" /><path d="M5 1v3M11 1v3M1.5 6h13" /></svg>
             </div>
@@ -393,7 +396,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           options={options}
           selected={local || null}
           onChange={(v) => { const next = v ?? ""; setLocal(next); void onCommit(next); }}
-          className={size === "md" ? "w-full justify-between" : undefined}
+          className={size === "md" ? `w-full justify-between ${dashed}` : dashed || undefined}
           escapePriority={escapePriority}
           // #1478: the menu must escape scroll-clipping ancestors (the Edit
           // Swimlane modal's field list is `overflow-y-auto`).

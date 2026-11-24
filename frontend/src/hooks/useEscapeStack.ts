@@ -43,9 +43,9 @@ function dispatch(e: KeyboardEvent): void {
  *   48 — canceling an in-flight load inside a modal (Import Board sample load)
  *   42 — card-detail block/unblock reason form (CardBlockSection, #1149)
  *   40.9 — Board Settings "Let a card's assignee move it anyway" turn-on confirm (#1923): cancels it, else false
+ *   40.8 — field-set editor delete / discard confirms and copy panel (BoardSettingsFieldSetsSection, #2570)
  *   40.7 — a choice-row keyboard drag in a Board Settings field editor (SortableChoiceList and, via useSortableFieldDrag, the card-field and swimlane-field lists, #2190): consumed only mid-drag, else false; both share the level because only one drag is active at a time
  *   40.6 — Board Settings column-policy discard prompt (BoardSettingsPoliciesSection, #2156): cancels the prompt, else false
- *   40.8 — field-set editor delete / discard confirms (BoardSettingsFieldSetsSection, #2570)
  *   40.5 — Board Settings Danger Zone delete confirmation (BoardSettingsModal, #2034): swallowed while the request runs, clears a typed name, else false
  *   40 — modals and overlays
  *   36.5 — the assignee override's reason box in the Move popover and peek sheet (OverrideReasonForm, #1923)

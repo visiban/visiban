@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { pruneSetFields, pruneSetLane } from "../utils/fieldSets";
 import { useParams } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard, getArchivedCards } from "../api/cards";
@@ -492,6 +493,18 @@ function withoutSwimlane(b: BoardFull, swimlaneId: number): BoardFull {
     ...b,
     swimlanes: b.swimlanes.filter((s) => s.id !== swimlaneId),
     cards: b.cards.filter((c) => c.swimlane !== swimlaneId),
+    ...(b.custom_field_sets ? { custom_field_sets: pruneSetLane(b.custom_field_sets, swimlaneId) } : {}),
+  };
+}
+
+/** `b` with new card field definitions; deleted ids also leave every field set (#2570). */
+export function withCardDefinitions(b: BoardFull, definitions: CustomFieldDefinition[]): BoardFull {
+  const kept = new Set(definitions.map((d) => d.id));
+  const removed = new Set(b.custom_field_definitions.filter((d) => !kept.has(d.id)).map((d) => d.id));
+  return {
+    ...b,
+    custom_field_definitions: definitions,
+    ...(b.custom_field_sets ? { custom_field_sets: pruneSetFields(b.custom_field_sets, removed) } : {}),
   };
 }
 
@@ -1423,12 +1436,12 @@ export function useBoard() {
     // tab, `custom_field.reordered`) is replayed as what it changed
     // (listChange), so it cannot erase a definition the snapshot holds.
     if (typeof definitions === 'function') {
-      writeBoard((b) => ({ ...b, custom_field_definitions: definitions(b.custom_field_definitions) }));
+      writeBoard((b) => withCardDefinitions(b, definitions(b.custom_field_definitions)));
       return;
     }
     writeBoardFrom((live) => {
       const change = listChange(live.custom_field_definitions, definitions);
-      return (b) => ({ ...b, custom_field_definitions: change(b.custom_field_definitions) });
+      return (b) => withCardDefinitions(b, change(b.custom_field_definitions));
     });
   }, [writeBoard, writeBoardFrom]);
 

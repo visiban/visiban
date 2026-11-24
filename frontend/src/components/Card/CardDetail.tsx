@@ -83,6 +83,8 @@ function checklistFaceFields(items: CardChecklistItem[]) {
 
 interface Props {
   card: Card;
+  /** Opens Board settings → Field sets (#2570); omitted where the host has no settings modal. */
+  onOpenBoardSettings?: () => void;
   board: BoardFull;
   onClose: () => void;
   onDeleted: (id: number) => void;
@@ -217,7 +219,7 @@ function laterParentColumns(columns: { id: number; name: string; position: numbe
   return at < 0 ? [] : sorted.slice(at + 1).map((c) => ({ id: c.id, name: c.name }));
 }
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
+export default function CardDetail({ onOpenBoardSettings, card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, onForceMoveCard, movesPaused = false, cellOrder, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false, refreshSignal = 0, childrenRefreshSignal = 0, blockFormRequest = null, tabRequest, backToParentId = null, focusChildId = null }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
@@ -1544,6 +1546,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+  // Once shown, the blocks stay for this open card even if the last set is
+  // deleted, so focus and the "was removed" announcement are not lost (#2570).
+  const [hadFieldSets, setHadFieldSets] = useState(false);
+  if (!hadFieldSets && (board.custom_field_sets?.length ?? 0) > 0) setHadFieldSets(true);
+  const [revealFieldId, setRevealFieldId] = useState<number | null>(null);
   const jumpTo = (target: KeyFactTarget, opener?: HTMLElement) => {
     if (target === "move") {
       if (!canEdit || !onMoveCard) return;
@@ -1552,14 +1559,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       if (focusMovePopoverNext.current && opener) moveOpenerRef.current = opener;
       return;
     }
-    if (target.startsWith("field:")) setCustomFieldsOpen(true);
+    if (target.startsWith("field:")) {
+      setCustomFieldsOpen(true);
+      setRevealFieldId(Number(target.slice("field:".length)));
+    }
     if (tab !== "details") selectTab("details");
     setPendingJump((j) => ({ target, n: (j?.n ?? 0) + 1 }));
   };
   useEffect(() => {
     if (!pendingJump || tab !== "details") return;
-    const section = bodyScrollRef.current?.querySelector<HTMLElement>(`[data-fact-section="${pendingJump.target}"]`);
+    const { target } = pendingJump;
     setPendingJump(null);
+    const run = () => {
+    const section = bodyScrollRef.current?.querySelector<HTMLElement>(`[data-fact-section="${target}"]`);
     if (!section) return;
     if (typeof section.scrollIntoView === "function") {
       // Instant under reduced motion; the body's scroll-padding keeps the
@@ -1570,7 +1582,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     // no control at all: fall back to the section itself (tabIndex -1).
     const control = section.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])");
     (control ?? section).focus({ preventScroll: true });
-  }, [pendingJump, tab]);
+    };
+    // A field inside a set block only exists after the block has expanded (#2570).
+    if (target.startsWith("field:") && hadFieldSets) requestAnimationFrame(() => requestAnimationFrame(run));
+    else run();
+  }, [pendingJump, tab, hadFieldSets]);
   useEffect(() => {
     if (!showMovePopover || !focusMovePopoverNext.current) return;
     focusMovePopoverNext.current = false;
@@ -2202,7 +2218,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {/* Field sets (#2570): a board with at least one set renders its
                   fields as blocks in this same slot; a board with none keeps
                   the flat section below exactly as before. */}
-              {board.custom_field_definitions.length > 0 && (board.custom_field_sets?.length ?? 0) > 0 && (
+              {board.custom_field_definitions.length > 0 && hadFieldSets && (
                 <>
                   <div className="border-t border-line" />
                   <FieldSetBlocks
@@ -2216,6 +2232,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     values={localCard.custom_field_values}
                     canEdit={canEdit}
                     isAdmin={board.current_user_role === "admin"}
+                    onOpenBoardSettings={onOpenBoardSettings}
+                    reveal={revealFieldId}
+                    onRevealed={() => setRevealFieldId(null)}
                     userId={currentUser?.id}
                     userDateFormat={userDateFormat}
                     userTimezone={userTimezone}
@@ -2225,7 +2244,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   />
                 </>
               )}
-              {board.custom_field_definitions.length > 0 && (board.custom_field_sets?.length ?? 0) === 0 && (
+              {board.custom_field_definitions.length > 0 && !hadFieldSets && (
                 <>
                   <div className="border-t border-line" />
                   <div>

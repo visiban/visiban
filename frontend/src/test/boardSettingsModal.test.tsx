@@ -4461,7 +4461,7 @@ describe('BoardSettingsModal — Find a setting index (#2436)', () => {
   // per-row or per-form actions); the ones worth finding have their own entries and direct tests.
   // A radio is covered by its group's legend.
   // Exempt: names that are this fixture's board data, not settings (a column and a lane).
-  const DATA_NAMES = new Set(['to do', 'lane'])
+  const DATA_NAMES = new Set(['to do', 'lane', 'no field sets yet']) // the last is an empty-state title, not a setting
   const textOf = (el: Element) => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
   const isHeading = (el: Element) => ['H3', 'H4', 'LEGEND'].includes(el.tagName)
   // `located` pairs each index entry with the element it resolves to in this panel, resolved once

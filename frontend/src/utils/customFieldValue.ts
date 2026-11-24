@@ -6,7 +6,7 @@
  * contract (a stale dropdown choice, a value that no longer parses for its
  * field's current type, a missing value) lives in exactly one place.
  */
-import type { FieldDefinitionShape } from "../types";
+import type { CustomFieldType, FieldDefinitionShape } from "../types";
 import { PALETTE_COLORS } from "../constants/colors";
 import { resolveChoiceColor, type ChoiceColor } from "../constants/choiceColors";
 import { formatDateStr, todayInTimezone } from "./date";
@@ -719,3 +719,13 @@ export function thresholdPayload(
     threshold_alert_days: isDate ? num(draft.alert) : null,
   };
 }
+
+export const CUSTOM_FIELD_TYPE_LABEL: Record<CustomFieldType, string> = {
+  text: "Text",
+  number: "Number",
+  date: "Date",
+  dropdown: "Dropdown",
+  checkbox: "Checkbox",
+  url: "URL",
+  multi_select: "Multi-select",
+};

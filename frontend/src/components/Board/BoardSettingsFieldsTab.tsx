@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CUSTOM_FIELD_TYPE_LABEL as TYPE_LABEL } from "../../utils/customFieldValue";
 import { useConfirmFocusReturn } from "../../hooks/useConfirmFocusReturn";
 import { useConfirmAnnouncement } from "../../hooks/useConfirmAnnouncement";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
@@ -33,6 +34,12 @@ interface Props {
   onFieldsUpdated: (definitions: CustomFieldDefinition[]) => void;
 }
 
+/** Read-only name of the field set a field belongs to (#2570). */
+function FieldSetChip({ name }: { name: string | undefined }) {
+  if (!name) return null;
+  return <span className="text-xs text-fg-secondary bg-surface-hover rounded px-2 py-0.5 shrink-0 max-w-[10rem] truncate" title={`In field set ${name}`}>{name}</span>;
+}
+
 const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string }[] = [
   { value: "text", label: "Text", glyph: "Aa" },
   { value: "number", label: "Number", glyph: "#" },
@@ -42,16 +49,6 @@ const FIELD_TYPE_OPTIONS: { value: CustomFieldType; label: string; glyph: string
   { value: "url", label: "URL", glyph: "↗" },
   { value: "multi_select", label: "Multi-select", glyph: "☰" },
 ];
-
-const TYPE_LABEL: Record<CustomFieldType, string> = {
-  text: "Text",
-  number: "Number",
-  date: "Date",
-  dropdown: "Dropdown",
-  checkbox: "Checkbox",
-  url: "URL",
-  multi_select: "Multi-select",
-};
 
 const TYPE_GLYPH: Record<CustomFieldType, string> = {
   text: "Aa",
@@ -488,6 +485,8 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
     }
   };
 
+  const setNameOfField = new Map((board.custom_field_sets ?? []).flatMap((s) => s.field_ids.map((id) => [id, s.name] as const)));
+
   if (!isAdmin) {
     return (
       <div>
@@ -501,6 +500,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
                 <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[f.field_type]}</span>
                 <span className="flex-1 min-w-0 truncate text-sm text-fg" title={f.name}>{f.name}</span>
                 <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[f.field_type]}</span>
+                <FieldSetChip name={setNameOfField.get(f.id)} />
                 {f.show_on_card && (
                   <span className="text-xs text-fg-secondary bg-surface-hover rounded px-2 py-0.5 shrink-0">Pinned</span>
                 )}
@@ -538,6 +538,7 @@ export default function BoardSettingsFieldsTab({ board, isAdmin, onFieldsUpdated
               <FieldRow
                 key={def.id}
                 def={def}
+                setName={setNameOfField.get(def.id)}
                 editing={editingId === def.id}
                 dragDisabled={editingId !== null}
                 onEdit={() => startEdit(def)}
@@ -700,6 +701,7 @@ function EmptyState({ isAdmin, onAdd }: { isAdmin: boolean; onAdd?: () => void }
 }
 
 interface FieldRowProps {
+  setName?: string;
   def: CustomFieldDefinition;
   editing: boolean;
   dragDisabled: boolean;
@@ -713,7 +715,7 @@ interface FieldRowProps {
   children?: React.ReactNode;
 }
 
-function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPromptOpen, pinnedFields, onSwap, onCancelSwap, children }: FieldRowProps) {
+function FieldRow({ def, setName, editing, dragDisabled, onEdit, onDelete, onPin, swapPromptOpen, pinnedFields, onSwap, onCancelSwap, children }: FieldRowProps) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: def.id, disabled: dragDisabled });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -744,6 +746,7 @@ function FieldRow({ def, editing, dragDisabled, onEdit, onDelete, onPin, swapPro
         <span className="w-5 text-center text-fg-tertiary shrink-0" aria-hidden="true">{TYPE_GLYPH[def.field_type]}</span>
         <span className="flex-1 min-w-0 truncate text-sm text-fg" title={def.name}>{def.name}</span>
         <span className="text-xs text-fg-muted capitalize w-20 whitespace-nowrap shrink-0">{TYPE_LABEL[def.field_type]}</span>
+        <FieldSetChip name={setName} />
         {isDimensionField(def) && !def.show_on_card ? (
           <span id={`track-pin-reason-${def.id}`} className="text-xs text-fg-muted whitespace-nowrap shrink-0">{TRACK_PIN_REASON}</span>
         ) : (

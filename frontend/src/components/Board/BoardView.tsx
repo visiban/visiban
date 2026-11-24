@@ -1500,7 +1500,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // "Change field order" link (#1458), the lane menu's "Change field order…", and the tiered details' manage link
   // (#2439); every other opener
   // leaves it undefined so Board settings opens on Members as before.
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "rules" | undefined>(undefined);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"swimlane-fields" | "webhooks" | "fields" | "field-sets" | "rules" | undefined>(undefined);
   // #863: set only by the ?settings=webhooks deep link from a webhook_disabled notification.
   const [webhookDeepLink, setWebhookDeepLink] = useState(false);
   const closeSettings = useCallback(() => {
@@ -4110,6 +4110,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             key={selectedCard.id}
             card={liveSelectedCard ?? selectedCard}
             board={board}
+            onOpenBoardSettings={isAdmin ? () => { setSettingsInitialTab("field-sets"); setShowSettings(true); } : undefined}
             onClose={() => setSelectedCard(null)}
             onDeleted={(id) => { onCardDeleted(id); setSelectedCard(null); }}
             onUpdated={onCardUpdated}

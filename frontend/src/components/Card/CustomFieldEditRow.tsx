@@ -18,6 +18,8 @@ interface Props {
   userDateFormat?: string;
   /** The viewer's timezone, for "today" in date thresholds (#1122); blank = the browser's. */
   userTimezone?: string;
+  /** Inside a field set block (#2570): an empty value is dashed, or reads "Not set" when read-only. */
+  fieldSetCell?: boolean;
 }
 
 /**
@@ -29,7 +31,7 @@ interface Props {
  * "extract a component so the hook isn't called in a loop" shape as
  * `CardDetail`'s single Weight field, just repeated per row here.
  */
-export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat, userTimezone = "" }: Props) {
+export default function CustomFieldEditRow({ definition, value, disabled, onSave, userDateFormat, userTimezone = "", fieldSetCell = false }: Props) {
   const { status, fadingOut, runSave } = useAutosaveStatus();
   // #1390: a URL the server refused (400) gets the editor's inline copy next
   // to the input, not just the row's generic "Failed to save".
@@ -65,7 +67,9 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
       {!isCheckbox && (
         <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">{definition.name}</p>
       )}
-      {disabled ? (
+      {disabled && fieldSetCell && !value ? (
+        <p className="text-sm text-fg-muted">Not set</p>
+      ) : disabled ? (
         <CustomFieldValueDisplay definition={definition} value={value} variant="detail" userDateFormat={userDateFormat} />
       ) : (
         <CustomFieldValueInput
@@ -73,6 +77,7 @@ export default function CustomFieldEditRow({ definition, value, disabled, onSave
           value={value}
           disabled={disabled}
           onCommit={commit}
+          dashedWhenEmpty={fieldSetCell}
           userDateFormat={userDateFormat}
           // Above CardDetail's panel close (30) and ModalWrapper's (40), so Escape on an
           // open dropdown menu closes only the menu (#1478).

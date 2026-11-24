@@ -29,7 +29,7 @@ import { applyHealthRecompute, pickBoardHealth } from "../../utils/healthStatus"
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, CustomFieldSet, EffectiveBoardMember, LensConnection, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
-import BoardSettingsFieldSetsSection from "./BoardSettingsFieldSetsSection";
+import BoardSettingsFieldSetsSection, { type FieldSetCloseGuard } from "./BoardSettingsFieldSetsSection";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
@@ -281,8 +281,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const registerWebhookCloseGuard = useCallback((guard: WebhookCloseGuard | null) => {
     webhookCloseGuardRef.current = guard;
   }, []);
+  // #2570: an unsaved field set draft asks before Close, Escape or a section switch.
+  const fieldSetGuardRef = useRef<FieldSetCloseGuard | null>(null);
+  const registerFieldSetGuard = useCallback((guard: FieldSetCloseGuard | null) => {
+    fieldSetGuardRef.current = guard;
+  }, []);
   const guardedClose = useCallback(() => {
     if (webhookCloseGuardRef.current?.(onClose)) return;
+    if (fieldSetGuardRef.current?.(onClose)) return;
     onClose();
   }, [onClose]);
   const selectTab = (next: Tab, afterSwitch?: () => void) => {
@@ -297,6 +303,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       if (tab === "webhooks") setWebhookDeepLinkLive(false);
     };
     if (tab === "webhooks" && webhookCloseGuardRef.current?.(go)) return;
+    if (tab === "field-sets" && fieldSetGuardRef.current?.(go)) return;
     go();
   };
   const [webhookDeepLinkLive, setWebhookDeepLinkLive] = useState(focusFirstStoppedWebhook);
@@ -1346,6 +1353,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {tab === "field-sets" && (
             <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <BoardSettingsFieldSetsSection
+              registerCloseGuard={registerFieldSetGuard}
               board={board}
               isAdmin={isAdmin}
               onFieldSetsUpdated={(sets) => onFieldSetsUpdated?.(sets)}

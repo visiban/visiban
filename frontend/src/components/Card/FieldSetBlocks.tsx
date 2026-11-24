@@ -16,15 +16,17 @@ import ActiveUnderline from "../Common/ActiveUnderline";
 import CustomFieldEditRow from "./CustomFieldEditRow";
 import { formatCustomFieldValue } from "../../utils/customFieldValue";
 import {
-  OTHER_FIELDS_KEY, blockProgress, buildCardBlocks, chipsThatFit, defaultSize, summaryChips, valueOf,
+  OTHER_FIELDS_KEY, blockProgress, buildCardBlocks, chipsThatFit, defaultSize, isValueFilled, summaryChips, valueOf,
   type CardFieldBlock,
 } from "../../utils/fieldSets";
 
 /** Escape priority of the Maximize layer: above the sheet (30), below 31–37.5 (frontend/CLAUDE.md). */
 export const MAXIMIZE_ESCAPE_PRIORITY = 30.5;
 
-const QUIET_BTN = "px-2 py-1 text-xs rounded max-sm:min-h-11 text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-50 aria-disabled:cursor-not-allowed";
-const ICON_BTN = "relative inline-flex items-center justify-center w-7 h-7 max-sm:w-11 max-sm:h-11 rounded text-fg-tertiary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const BTN_BASE = "px-2 py-1 text-xs rounded max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const QUIET_BTN = `${BTN_BASE} text-fg-secondary hover:text-fg hover:bg-surface-hover aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent`;
+const FILL_BTN = `${BTN_BASE} ml-1 text-info hover:bg-surface-hover`;
+const ICON_BTN = "relative inline-flex items-center justify-center w-7 h-7 max-sm:w-11 max-sm:h-11 rounded text-fg-tertiary focus:outline-none focus:ring-2 focus:ring-primary-emphasis aria-disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent";
 const WIDE_TYPES = new Set(["text", "url", "multi_select"]);
 
 interface Props {
@@ -43,6 +45,9 @@ interface Props {
   userTimezone: string;
   onSave: (definitionId: number, value: string) => Promise<void>;
   onOpenBoardSettings?: () => void;
+  /** A `field:` deep link: open the owning block (and close Maximize), then call `onRevealed`. */
+  reveal?: number | null;
+  onRevealed?: () => void;
 }
 
 function Progress({ filled, total, id }: { filled: number; total: number; id: string }) {
@@ -74,7 +79,7 @@ export function FieldSetSizeControl({ name, size, onSize, onMaximize, maximizeRe
       aria-label={label}
       title={label}
       onClick={() => onSize(value)}
-      className={`${ICON_BTN} ${size === value ? "bg-primary-emphasis/20 text-info" : ""}`}
+      className={`${ICON_BTN} ${size === value ? "bg-primary-emphasis/20 text-info" : "hover:bg-surface-hover"}`}
     >
       <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d={path} /></svg>
       <ActiveUnderline active={size === value} />
@@ -93,7 +98,7 @@ export function FieldSetSizeControl({ name, size, onSize, onMaximize, maximizeRe
         aria-haspopup="dialog"
         title="Maximize"
         onClick={onMaximize}
-        className={ICON_BTN}
+        className={`${ICON_BTN} hover:bg-surface-hover`}
       >
         <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 3h6v2H5v4H3zm8 0h6v6h-2V5h-4zM3 11h2v4h4v2H3zm12 0h2v6h-6v-2h4z" /></svg>
       </button>
@@ -101,52 +106,68 @@ export function FieldSetSizeControl({ name, size, onSize, onMaximize, maximizeRe
   );
 }
 
+const CHIP = "shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs";
+
+/**
+ * One line of whole chips (they never shrink), then "+N". Widths come from an
+ * invisible, never-hidden copy: a hidden chip measures 0, which would let it
+ * "fit" on the next pass. The copy draws its text with CSS content so the DOM
+ * holds each label once.
+ */
 function SummaryRow({ block, values, userDateFormat, onMore }: {
   block: CardFieldBlock; values: CustomFieldValue[]; userDateFormat: string; onMore: () => void;
 }) {
-  const chips = useMemo(() => summaryChips(block.definitions, values), [block.definitions, values]);
+  const chips = useMemo(() => summaryChips(block.definitions, values).map((chip) => {
+    const v = valueOf(values, chip.definition.id);
+    const text = chip.definition.field_type === "checkbox"
+      ? `${chip.definition.name}: ${v === "true" ? "Yes" : "No"}`
+      : chip.missing ? `${chip.definition.name} — missing` : `${chip.definition.name} ${formatCustomFieldValue(chip.definition, v ?? "", userDateFormat)}`;
+    return { ...chip, text };
+  }), [block.definitions, values, userDateFormat]);
   const rowRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(chips.length);
-  // Measure whole chips (they never shrink); jsdom reports 0 widths, so every chip "fits" there.
+  const missingCount = chips.filter((c) => c.missing).length;
+  const moreSample = `+${chips.length}${missingCount > 0 ? ` · ${missingCount} missing` : ""}`;
   useLayoutEffect(() => {
     const row = rowRef.current;
-    if (!row) return;
+    const copy = measureRef.current;
+    if (!row || !copy) return;
     const measure = () => {
-      const widths = Array.from(row.querySelectorAll<HTMLElement>("[data-chip]")).map((el) => el.offsetWidth);
-      setVisible(chipsThatFit(widths, row.clientWidth, 64, 6));
+      const widths = Array.from(copy.querySelectorAll<HTMLElement>("[data-measure-chip]")).map((el) => el.offsetWidth);
+      const more = copy.querySelector<HTMLElement>("[data-measure-more]")?.offsetWidth ?? 0;
+      const style = getComputedStyle(row);
+      const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      setVisible(chipsThatFit(widths, row.clientWidth - padding, more, 6));
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(row);
+    ro.observe(copy);
     return () => ro.disconnect();
   }, [chips]);
   const hidden = chips.slice(visible);
   const hiddenMissing = hidden.filter((c) => c.missing).length;
-  const filledAny = chips.some((c) => !c.missing && valueOf(values, c.definition.id) !== undefined);
-  if (!filledAny && chips.every((c) => c.missing)) return null;
+  const tone = (missing: boolean) => (missing ? "bg-warning/15 text-warning-on-tint" : "bg-surface-hover text-fg-secondary");
   return (
-    <div ref={rowRef} className="flex flex-nowrap items-center gap-1.5 overflow-hidden px-3 pb-2" data-testid="field-set-summary">
-      {chips.map((chip, i) => {
-        const v = valueOf(values, chip.definition.id);
-        const text = chip.definition.field_type === "checkbox"
-          ? `${chip.definition.name}: ${v === "true" ? "Yes" : "No"}`
-          : chip.missing ? `${chip.definition.name} — missing` : `${chip.definition.name} ${formatCustomFieldValue(chip.definition, v ?? "", userDateFormat)}`;
-        return (
-          <span
-            key={chip.definition.id}
-            data-chip
-            hidden={i >= visible}
-            title={text}
-            className={`shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-xs ${chip.missing ? "bg-warning/15 text-warning-on-tint" : "bg-surface-hover text-fg-secondary"}`}
-          >{text}</span>
-        );
-      })}
-      {hidden.length > 0 && (
-        <button type="button" onClick={onMore} className={`${QUIET_BTN} shrink-0 whitespace-nowrap`}>
-          +{hidden.length}{hiddenMissing > 0 ? ` · ${hiddenMissing} missing` : ""}
-        </button>
-      )}
+    <div className="relative overflow-hidden">
+      <div ref={measureRef} aria-hidden="true" className="invisible pointer-events-none absolute left-0 top-0 flex w-max gap-1.5">
+        {chips.map((chip) => (
+          <span key={chip.definition.id} data-measure-chip data-text={chip.text} className={`${CHIP} before:content-[attr(data-text)]`} />
+        ))}
+        <span data-measure-more data-text={moreSample} className={`${BTN_BASE} shrink-0 whitespace-nowrap before:content-[attr(data-text)]`} />
+      </div>
+      <div ref={rowRef} className="relative flex flex-nowrap items-center gap-1.5 px-3 pt-1 pb-2" data-testid="field-set-summary">
+        {chips.map((chip, i) => (
+          <span key={chip.definition.id} data-chip hidden={i >= visible} title={chip.text} className={`${CHIP} ${tone(chip.missing)}`}>{chip.text}</span>
+        ))}
+        {hidden.length > 0 && (
+          <button type="button" onClick={onMore} className={`${QUIET_BTN} shrink-0 whitespace-nowrap`}>
+            +{hidden.length}{hiddenMissing > 0 ? ` · ${hiddenMissing} missing` : ""}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -170,6 +191,7 @@ function FieldGrid({ block, values, props, gridClass, cellClass }: {
             userDateFormat={props.userDateFormat}
             userTimezone={props.userTimezone}
             onSave={(v) => props.onSave(definition.id, v)}
+            fieldSetCell
           />
         </div>
       ))}
@@ -182,26 +204,39 @@ export default function FieldSetBlocks(props: Props) {
   // Structural live updates wait while a field row inside has focus (rule:
   // a live update never unmounts a focused field row); applied on blur.
   const rootRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const otherKeyRef = useRef(OTHER_FIELDS_KEY);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [sets, setSets] = useState(props.sets);
   const [announcement, setAnnouncement] = useState("");
   useEffect(() => {
+    const active = document.activeElement;
+    // The Maximize layer is portaled into the sheet, outside rootRef.
+    const container = [rootRef.current, layerRef.current].find((n) => n && active && n.contains(active)) ?? null;
     const apply = () => {
       setSets((prev) => {
         const gone = prev.filter((p) => !props.sets.some((s) => s.uid === p.uid));
         if (gone.length > 0) setAnnouncement(`${gone.map((g) => g.name).join(", ")} was removed. Its fields are now under Other fields.`);
         return props.sets;
       });
+      if (!container) return;
+      // The focused control may have gone with its block: never leave focus on body.
+      requestAnimationFrame(() => {
+        if (document.activeElement && document.activeElement !== document.body) return;
+        const other = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${otherKeyRef.current}"] button[aria-expanded]`);
+        (other ?? headingRef.current)?.focus();
+      });
     };
-    const root = rootRef.current;
-    const active = document.activeElement;
-    if (root && active && root.contains(active) && active.closest("[data-fact-section]")) {
-      const onOut = (e: FocusEvent) => {
-        if (e.relatedTarget instanceof Node && (e.relatedTarget as Element).closest?.("[data-fact-section]") === active.closest("[data-fact-section]")) return;
-        root.removeEventListener("focusout", onOut);
+    const row = active?.closest("[data-fact-section]");
+    if (container && row) {
+      const onOut = (event: Event) => {
+        const next = (event as FocusEvent).relatedTarget;
+        if (next instanceof Element && next.closest("[data-fact-section]") === row) return;
+        container.removeEventListener("focusout", onOut);
         apply();
       };
-      root.addEventListener("focusout", onOut);
-      return () => root.removeEventListener("focusout", onOut);
+      container.addEventListener("focusout", onOut);
+      return () => container.removeEventListener("focusout", onOut);
     }
     apply();
   }, [props.sets]);
@@ -220,7 +255,6 @@ export default function FieldSetBlocks(props: Props) {
   };
 
   const maximizeButtons = useRef(new Map<string, HTMLButtonElement | null>());
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const [maximized, setMaximized] = useState<string | null>(null);
   const maxIndex = blocks.findIndex((b) => b.key === maximized);
   const closeMaximize = useCallback(() => {
@@ -240,6 +274,31 @@ export default function FieldSetBlocks(props: Props) {
     }
   }, [maximized, maxIndex]);
 
+  // After "+N", "Fill in" or a deep link, the block's fields exist only after the re-render.
+  const focusBlockRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = focusBlockRef.current;
+    if (!key) return;
+    const cell = rootRef.current?.querySelector<HTMLElement>(`[data-testid="field-set-${key}"] [data-fact-section]`);
+    if (!cell) return;
+    focusBlockRef.current = null;
+    (cell.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)") ?? cell).focus();
+  });
+  const openAndFocus = (b: CardFieldBlock) => {
+    focusBlockRef.current = b.key;
+    setSize(b, "expanded");
+  };
+  useEffect(() => {
+    if (props.reveal == null) return;
+    const owner = blocks.find((b) => b.definitions.some((d) => d.id === props.reveal));
+    setMaximized(null);
+    if (owner) setSize(owner, "expanded");
+    props.onRevealed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per reveal request
+  }, [props.reveal]);
+
+  const laneExcluded = sets.some((s) => s.scope === "swimlanes" && !(swimlaneId !== null && s.swimlanes.includes(swimlaneId))
+    && s.field_ids.some((id) => definitions.some((d) => d.id === id)));
   const anyOverride = blocks.some((b) => pref.get(cardId, b.key) !== undefined);
   const allCollapsed = blocks.every((b) => sizeOf(b) === "collapsed");
   const laneLabel = props.swimlaneName ?? "this swimlane";
@@ -261,7 +320,7 @@ export default function FieldSetBlocks(props: Props) {
           )}
         </div>
       </div>
-      {blocks.filter((b) => b.set).length === 0 && sets.length > 0 && (
+      {blocks.filter((b) => b.set).length === 0 && laneExcluded && (
         <p className="text-xs text-fg-muted mb-2">No field sets apply to cards in {laneLabel}.</p>
       )}
       <div className="flex flex-col gap-3">
@@ -271,7 +330,7 @@ export default function FieldSetBlocks(props: Props) {
           const prog = blockProgress(block.definitions, values);
           const ids = { head: `fs-${cardId}-${block.key}-h`, body: `fs-${cardId}-${block.key}-b`, prog: `fs-${cardId}-${block.key}-p` };
           const subtitle = block.outOfLane ? `Not used in ${laneLabel}` : block.set?.description;
-          const empty = prog.filled === 0 && block.definitions.every((d) => valueOf(values, d.id) === undefined);
+          const empty = block.definitions.every((d) => !isValueFilled(d, valueOf(values, d.id)));
           return (
             <section key={block.key} aria-labelledby={ids.head} className="rounded-[10px] border border-line bg-surface" data-testid={`field-set-${block.key}`}>
               <div className="flex items-center gap-3 px-3 min-h-11 flex-wrap">
@@ -282,7 +341,7 @@ export default function FieldSetBlocks(props: Props) {
                   aria-controls={ids.body}
                   aria-describedby={prog.total > 0 ? ids.prog : undefined}
                   onClick={() => setSize(block, open ? "collapsed" : lastOpenOf(block))}
-                  className="flex items-center gap-1.5 min-w-0 flex-1 text-left max-sm:min-h-11 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="flex items-center gap-1.5 min-w-0 flex-1 max-sm:basis-full text-left max-sm:min-h-11 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <svg className={`w-3.5 h-3.5 shrink-0 text-fg-faint transition-transform ${open ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -306,12 +365,12 @@ export default function FieldSetBlocks(props: Props) {
                   <p className="px-3 pb-2 text-xs text-fg-muted">
                     No values yet.
                     {canEdit && size === "summary" && (
-                      <button type="button" className={`${QUIET_BTN} ml-1 text-info`} onClick={() => setSize(block, "expanded")}>Fill in</button>
+                      <button type="button" className={FILL_BTN} onClick={() => openAndFocus(block)}>Fill in</button>
                     )}
                   </p>
                 )}
-                {size === "summary" && (
-                  <SummaryRow block={block} values={values} userDateFormat={props.userDateFormat} onMore={() => setSize(block, "expanded")} />
+                {size === "summary" && !empty && (
+                  <SummaryRow block={block} values={values} userDateFormat={props.userDateFormat} onMore={() => openAndFocus(block)} />
                 )}
                 {size === "expanded" && (
                   <FieldGrid block={block} values={values} props={props} gridClass="grid grid-cols-1 sm:grid-cols-2 gap-4 px-3 pb-3" />
@@ -324,6 +383,7 @@ export default function FieldSetBlocks(props: Props) {
       <div role="status" aria-live="polite" className="sr-only">{announcement}</div>
       {maximized !== null && maxIndex !== -1 && (
         <FieldSetMaximized
+          layerRef={layerRef}
           anchor={rootRef.current}
           blocks={blocks}
           index={maxIndex}
@@ -338,17 +398,16 @@ export default function FieldSetBlocks(props: Props) {
   );
 }
 
-function FieldSetMaximized({ anchor, blocks, index, cardTitle, values, props, onNavigate, onClose }: {
-  anchor: HTMLElement | null; blocks: CardFieldBlock[]; index: number; cardTitle: string; values: CustomFieldValue[];
+function FieldSetMaximized({ layerRef: ref, anchor, blocks, index, cardTitle, values, props, onNavigate, onClose }: {
+  layerRef: React.RefObject<HTMLDivElement | null>; anchor: HTMLElement | null; blocks: CardFieldBlock[]; index: number; cardTitle: string; values: CustomFieldValue[];
   props: Props; onNavigate: (i: number) => void; onClose: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const block = blocks[index];
   const prog = blockProgress(block.definitions, values);
   const [status, setStatus] = useState("");
   useFocusTrap(ref, true);
   useEscapeStack(() => { onClose(); return true; }, MAXIMIZE_ESCAPE_PRIORITY);
-  useEffect(() => { ref.current?.querySelector<HTMLElement>("[data-restore]")?.focus(); }, []);
+  useEffect(() => { ref.current?.querySelector<HTMLElement>("[data-restore]")?.focus(); }, [ref]);
   // Cover the whole card sheet: portal into the sheet dialog when there is one.
   const host = (anchor?.closest('[role="dialog"]') as HTMLElement | null) ?? document.body;
   const go = (i: number) => {
@@ -358,23 +417,23 @@ function FieldSetMaximized({ anchor, blocks, index, cardTitle, values, props, on
   };
   const navBtn = (label: string, target: number, d: string) => (
     <button type="button" aria-label={label} title={label} aria-disabled={target < 0 || target >= blocks.length}
-      onClick={() => go(target)} className={`${ICON_BTN} aria-disabled:opacity-50`}>
+      onClick={() => go(target)} className={`${ICON_BTN} hover:bg-surface-hover`}>
       <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d={d} /></svg>
     </button>
   );
   return createPortal(
     <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="field-set-max-title"
-      className="absolute inset-0 z-10 bg-surface flex flex-col" data-testid="field-set-maximized">
+      className="absolute inset-0 z-10 bg-surface flex flex-col rounded-[inherit] overflow-hidden" data-testid="field-set-maximized">
       <div className="flex items-center gap-3 px-5 py-3 border-b border-line flex-wrap">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-fg-muted truncate">{cardTitle} › Field sets</p>
-          <h2 id="field-set-max-title" className="text-base font-semibold text-fg truncate">{block.name}</h2>
+          <p className="text-xs text-fg-muted truncate" title={`${cardTitle} › Field sets`}>{cardTitle} › Field sets</p>
+          <h2 id="field-set-max-title" title={block.name} className="text-base font-semibold text-fg truncate">{block.name}</h2>
         </div>
         <Progress {...prog} id="field-set-max-prog" />
         {navBtn("Previous field set", index - 1, "M12.7 4.3l1.4 1.4L9.8 10l4.3 4.3-1.4 1.4L7 10z")}
         {navBtn("Next field set", index + 1, "M7.3 4.3L5.9 5.7 10.2 10l-4.3 4.3 1.4 1.4L13 10z")}
         <button type="button" data-restore onClick={onClose}
-          className="px-3 py-1.5 text-sm rounded border border-line-strong text-fg-secondary hover:bg-surface-hover max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Restore</button>
+          className="px-3 py-1.5 text-sm rounded bg-surface border border-line-strong text-fg font-medium hover:bg-surface-hover max-sm:min-h-11 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Restore</button>
       </div>
       <div className="relative flex-1 min-h-0">
         <div role="region" tabIndex={0} aria-label={`${block.name} fields`} data-testid="field-set-max-region"

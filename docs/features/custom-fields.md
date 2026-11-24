@@ -347,7 +347,10 @@ Board admins create, rename, reorder and delete sets; other roles see the list r
 set has a **name**, an optional **description** (up to 120 characters, shown under the name on
 the card), a **default size** (Collapsed, Summary or All fields), **Shows on** (every card, or
 only cards in chosen swimlanes), and its **fields**. A field is in at most one set; adding a
-field that is in another set moves it. A board can have up to **10** sets.
+field that is in another set moves it (pick it under **+ Add field**, then click **Add**). A board
+can have up to **10** sets. Leaving the section or closing Board settings with unsaved changes asks
+before discarding them. The **Card fields** tab shows each field's set. Admins can also open this
+section from a card with **Manage field sets**.
 
 **Deleting a set** moves its fields to **Other fields**. No field and no value is deleted.
 
