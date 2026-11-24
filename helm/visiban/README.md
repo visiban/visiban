@@ -117,6 +117,8 @@ backend:
 
 `daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on #2425 (still open) and a re-measure (#2430). The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
 
+Analytics also has its own per-process limits, `backend.settings.analyticsMaxConcurrent` and `backend.settings.analyticsMaxMovements` (#2428). If you raise `limits.memory` for a large board, raise `analyticsMaxMovements` with it, or that board's Analytics stays refused with `analytics_too_large`. See "Analytics limits" in `docs/administration/configuration.md`.
+
 ## Bundled Valkey
 
 `valkey.enabled=true` (the default) runs Valkey as this chart's own StatefulSet
