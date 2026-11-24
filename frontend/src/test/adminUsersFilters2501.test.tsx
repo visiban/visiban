@@ -9,15 +9,15 @@ vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => false 
 vi.mock('../components/Layout/Navbar', () => ({ default: () => <div data-testid="navbar" /> }))
 vi.mock('../components/Common/Avatar', () => ({ default: () => <span data-testid="avatar" /> }))
 
-const api = vi.hoisted(() => ({ getAdminUsers: vi.fn(), patchAdminUser: vi.fn() }))
+const api = vi.hoisted(() => ({ getAdminUsers: vi.fn(), patchAdminUser: vi.fn(), deactivateAdminUser: vi.fn(), createAdminUser: vi.fn() }))
 vi.mock('../api/auth', () => ({
   getAdminUsers: (...a: unknown[]) => api.getAdminUsers(...a),
   patchAdminUser: (...a: unknown[]) => api.patchAdminUser(...a),
-  deactivateAdminUser: vi.fn(),
+  deactivateAdminUser: (...a: unknown[]) => api.deactivateAdminUser(...a),
   clearAdminUserLockout: vi.fn(),
   getAdminSettings: vi.fn().mockResolvedValue({ registration_mode: 'open', uploads_enabled: true, maintenance_mode: false, maintenance_message: '' }),
   patchAdminSettings: vi.fn(),
-  createAdminUser: vi.fn(),
+  createAdminUser: (...a: unknown[]) => api.createAdminUser(...a),
   createAdminInviteLink: vi.fn(),
   revokeAdminInviteLink: vi.fn(),
   getAdminInviteLinksPage: vi.fn().mockResolvedValue({ links: [], total: 0, truncated: false }),
@@ -186,5 +186,37 @@ describe('Users filter pills (#2501)', () => {
     await waitFor(() => expect(pill('Admins')).toHaveTextContent('2'))
     expect(pill('All')).toHaveTextContent('3')
     expect(pill('Active')).toHaveTextContent('2')
+  })
+  it('a row that leaves the selected filter is removed and the total follows', async () => {
+    api.deactivateAdminUser.mockResolvedValue(row({ id: 2, username: 'alice', display_name: 'Alice', is_active: false }))
+    await renderUsers()
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate Alice' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }))
+    await waitFor(() => expect(screen.queryByText('Alice')).not.toBeInTheDocument())
+    expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument()
+    expect(pill('Active')).toHaveTextContent('1')
+    expect(pill('Deactivated')).toHaveTextContent('2')
+    expect(pill('All')).toHaveTextContent('3')
+    await waitFor(() => expect(pill('Active')).toHaveFocus())
+  })
+
+  it('creating a user under a search does not report the search total as the nav count', async () => {
+    api.createAdminUser.mockResolvedValue(row({ id: 9, username: 'alan', display_name: 'Alan' }))
+    await renderUsers()
+    const nav = () => screen.getByRole('button', { name: /^Users\b/ })
+    await waitFor(() => expect(nav()).toHaveTextContent('3'))
+    fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'al' } })
+    await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Add user'))
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'alan' } })
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alan@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
+    fireEvent.click(screen.getByText('Create user'))
+    await waitFor(() => expect(api.createAdminUser).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+    expect(nav()).toHaveTextContent('3')
+    expect(nav()).not.toHaveTextContent('2')
   })
 })

@@ -1207,6 +1207,17 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   const replaceUser = (updated: AdminUser) => {
     const before = users.find((u) => u.id === updated.id) ?? null;
     if (before) setCounts((c) => (c ? adjustStatusCounts(c, before, updated) : c));
+    // Under a status filter, a row that no longer matches it leaves the list and the total follows,
+    // so "Showing x of N" keeps agreeing with the pill counts. Its kebab unmounts with it, so focus
+    // moves to the selected filter, a control that outlives the row (frontend/CLAUDE.md, #2211).
+    if (before && !userStatuses(updated).includes(statusFilter)) {
+      setUsers((prev) => prev.filter((u) => u.id !== updated.id));
+      setTotal((t) => Math.max(0, t - 1));
+      setTimeout(() => {
+        document.querySelector<HTMLElement>('[role="group"][aria-label="Filter users"] [aria-pressed="true"]')?.focus();
+      }, 0);
+      return;
+    }
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
@@ -1758,7 +1769,9 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
               setTotal((t) => t + 1);
             }
             setCounts((c) => (c ? adjustStatusCounts(c, null, newUser) : c));
-            onTotal((counts?.all ?? total) + 1);
+            // The nav count is the site's total: a search's counts are not it (as in fetchUsers), and
+            // without counts only the unfiltered total is.
+            if (!searched && (counts || statusFilter === "all")) onTotal((counts?.all ?? total) + 1);
             setShowAddModal(false);
           }}
           onClose={() => setShowAddModal(false)}

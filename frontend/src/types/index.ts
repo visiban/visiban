@@ -217,7 +217,6 @@ export interface PersonalAccessToken {
   scopes: PersonalAccessTokenScope[] | null;
 }
 
-/** Returned only on token creation — includes the one-time raw value. */
 /** GET /api/v1/auth/tokens/policy/ (1.3+, #1572): the limits token creation enforces. */
 export interface PersonalAccessTokenPolicy {
   /** Site maximum lifetime in days; null = no site maximum, so an expiry is optional. */
@@ -229,6 +228,7 @@ export interface PersonalAccessTokenPolicy {
   max_tokens: number;
 }
 
+/** Returned only on token creation — includes the one-time raw value. */
 export interface CreatedPersonalAccessToken extends PersonalAccessToken {
   token: string;
 }
