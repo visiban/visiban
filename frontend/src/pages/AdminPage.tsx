@@ -1151,12 +1151,27 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     return false;
   }, 40);
 
+  // Only the latest request may land: a slower response for an earlier filter, search or page would
+  // otherwise show its rows under the pill now selected (and replaceUser would judge them against it).
+  const fetchSeqRef = useRef(0);
+
   const fetchUsers = useCallback(
     async (searchVal: string, offsetVal: number, statusVal: AdminUserStatus) => {
+      const seq = ++fetchSeqRef.current;
+      let steppedBack = false;
       setLoading(true);
       setError(null);
       try {
         const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal, status: statusVal });
+        if (seq !== fetchSeqRef.current) return;
+        // A page emptied under us (its last row left the filter) steps back to the last page that has
+        // rows; the offset effect fetches it, so loading stays on rather than flashing the empty state.
+        const lastPageOffset = Math.max(0, (Math.ceil(data.count / data.page_size) - 1) * data.page_size);
+        if (data.results.length === 0 && lastPageOffset < offsetVal) {
+          steppedBack = true;
+          setOffset(lastPageOffset);
+          return;
+        }
         setUsers(data.results);
         setTotal(data.count);
         setSearched(searchVal);
@@ -1169,9 +1184,9 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         // even if the server-side default changes.
         setPageSize(data.page_size);
       } catch {
-        setError("Failed to load users.");
+        if (seq === fetchSeqRef.current) setError("Failed to load users.");
       } finally {
-        setLoading(false);
+        if (seq === fetchSeqRef.current && !steppedBack) setLoading(false);
       }
     },
     [onTotal]
@@ -1206,18 +1221,20 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   /** Swap in a row the server returned, moving its pill counts if a status changed. */
   const replaceUser = (updated: AdminUser) => {
     const before = users.find((u) => u.id === updated.id) ?? null;
-    if (before) setCounts((c) => (c ? adjustStatusCounts(c, before, updated) : c));
-    // Under a status filter, a row that no longer matches it leaves the list and the total follows,
-    // so "Showing x of N" keeps agreeing with the pill counts. Its kebab unmounts with it, so focus
-    // moves to the selected filter, a control that outlives the row (frontend/CLAUDE.md, #2211).
+    // Under a status filter, a row that no longer matches it leaves the list. Dropping it locally
+    // would shift the server's pages by one (a user skipped by Next, or an emptied last page under
+    // a stale "Showing x of N"), so the page is fetched again and the server sets list, total and
+    // counts. Its kebab unmounts, so focus moves to the visible filter control, a control that
+    // outlives the row: the select on a phone, where the pills are hidden (frontend/CLAUDE.md, #2211).
     if (before && !userStatuses(updated).includes(statusFilter)) {
-      setUsers((prev) => prev.filter((u) => u.id !== updated.id));
-      setTotal((t) => Math.max(0, t - 1));
+      void fetchUsers(searched, offset, statusFilter);
       setTimeout(() => {
-        document.querySelector<HTMLElement>('[role="group"][aria-label="Filter users"] [aria-pressed="true"]')?.focus();
+        const group = '[role="group"][aria-label="Filter users"]';
+        document.querySelector<HTMLElement>(isPhone ? `${group} select` : `${group} [aria-pressed="true"]`)?.focus();
       }, 0);
       return;
     }
+    if (before) setCounts((c) => (c ? adjustStatusCounts(c, before, updated) : c));
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
@@ -1762,6 +1779,13 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       {showAddModal && (
         <AddUserModal
           onCreated={(newUser) => {
+            setShowAddModal(false);
+            // Under a search the list and counts are the search's, and the new account may not match
+            // it: the server decides, so the page is fetched again (the nav count is not a search's).
+            if (searched) {
+              void fetchUsers(searched, offset, statusFilter);
+              return;
+            }
             // A new account is active and not an admin: it shows only under All and Active.
             const shown = statusFilter === "all" || statusFilter === "active";
             if (shown) {
@@ -1771,8 +1795,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
             setCounts((c) => (c ? adjustStatusCounts(c, null, newUser) : c));
             // The nav count is the site's total: a search's counts are not it (as in fetchUsers), and
             // without counts only the unfiltered total is.
-            if (!searched && (counts || statusFilter === "all")) onTotal((counts?.all ?? total) + 1);
-            setShowAddModal(false);
+            if (counts || statusFilter === "all") onTotal((counts?.all ?? total) + 1);
           }}
           onClose={() => setShowAddModal(false)}
         />

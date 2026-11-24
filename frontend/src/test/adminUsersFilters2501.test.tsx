@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
 import type { AdminUser, AdminUserStatus, User } from '../types'
 
 // Users filter pills (#2501): All / Active / Deactivated / Admins, filtered on the server.
-vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => false }))
+const phone = vi.hoisted(() => ({ value: false }))
+vi.mock('../hooks/useIsPhoneViewport', () => ({ useIsPhoneViewport: () => phone.value }))
 vi.mock('../components/Layout/Navbar', () => ({ default: () => <div data-testid="navbar" /> }))
 vi.mock('../components/Common/Avatar', () => ({ default: () => <span data-testid="avatar" /> }))
 
@@ -48,18 +49,45 @@ const ROWS: AdminUser[] = [
   row({ id: 3, username: 'carol', display_name: 'Carol', is_active: false }),
 ]
 
+// The fake server's accounts: row actions below write to it, so a refetch sees their effect.
+let db: AdminUser[] = ROWS
+
 type Params = { search?: string; offset?: number; status?: AdminUserStatus }
 const matches = (u: AdminUser, s: AdminUserStatus = 'all') =>
   s === 'all' || (s === 'active' && u.is_active) || (s === 'deactivated' && !u.is_active) || (s === 'admins' && u.is_site_admin)
 
-/** A stateless fake of the endpoint: filters ROWS by search and status, like the server. */
-function serve({ total }: { total?: number } = {}) {
+/** A fake of the endpoint: filters `db` by search and status and pages it, like the server. */
+function serve({ total, pageSize }: { total?: number; pageSize?: number } = {}) {
   api.getAdminUsers.mockImplementation(async (p: Params = {}) => {
-    const searched = ROWS.filter((u) => !p.search || u.username.includes(p.search))
-    const results = searched.filter((u) => matches(u, p.status))
+    const searched = db.filter((u) => !p.search || u.username.includes(p.search))
+    const matching = searched.filter((u) => matches(u, p.status))
+    const offset = p.offset ?? 0
+    const results = pageSize ? matching.slice(offset, offset + pageSize) : matching
     const counts = Object.fromEntries((['all', 'active', 'deactivated', 'admins'] as const).map((s) => [s, searched.filter((u) => matches(u, s)).length]))
-    return { count: total ?? results.length, offset: p.offset ?? 0, page_size: 50, results, counts }
+    return { count: total ?? matching.length, offset, page_size: pageSize ?? 50, results, counts }
   })
+}
+
+/** Deactivation on the fake server: the account changes in `db` and the server returns it. */
+function serveDeactivate() {
+  api.deactivateAdminUser.mockImplementation(async (id: number) => {
+    db = db.map((u) => (u.id === id ? { ...u, is_active: false } : u))
+    return db.find((u) => u.id === id)
+  })
+}
+
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => { resolve = r })
+  return { promise, resolve }
+}
+
+/** 51 active accounts: page 1 holds 50 of them, page 2 holds "User 50" alone. */
+const manyActive = () => Array.from({ length: 51 }, (_, i) => row({ id: 100 + i, username: `user${i}`, email: `user${i}@example.com`, display_name: `User ${i}` }))
+
+async function deactivate(name: string) {
+  fireEvent.click(screen.getByRole('button', { name: `Deactivate ${name}` }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }))
 }
 
 async function renderUsers() {
@@ -76,7 +104,10 @@ const lastCall = () => api.getAdminUsers.mock.calls.at(-1)?.[0] as Params
 
 beforeEach(() => {
   vi.clearAllMocks()
+  phone.value = false
+  db = ROWS
   serve()
+  serveDeactivate()
 })
 
 describe('Users filter pills (#2501)', () => {
@@ -188,7 +219,6 @@ describe('Users filter pills (#2501)', () => {
     expect(pill('Active')).toHaveTextContent('2')
   })
   it('a row that leaves the selected filter is removed and the total follows', async () => {
-    api.deactivateAdminUser.mockResolvedValue(row({ id: 2, username: 'alice', display_name: 'Alice', is_active: false }))
     await renderUsers()
     fireEvent.click(pill('Active'))
     await waitFor(() => expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument())
@@ -218,5 +248,98 @@ describe('Users filter pills (#2501)', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
     expect(nav()).toHaveTextContent('3')
     expect(nav()).not.toHaveTextContent('2')
+  })
+  // A row leaving the selected filter shifts the server's pages, so the page is fetched again.
+  it('the last row of page 2 leaving the filter steps back to page 1 with a true "Showing" line', async () => {
+    db = manyActive()
+    serve({ pageSize: 50 })
+    await renderUsers()
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => expect(screen.getByText(/Showing 51.51 of 51/)).toBeInTheDocument())
+    await deactivate('User 50')
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 50/)).toBeInTheDocument())
+    expect(screen.queryByText('No active users.')).not.toBeInTheDocument()
+    expect(screen.getByText('User 0')).toBeInTheDocument()
+    expect(lastCall()).toMatchObject({ status: 'active', offset: 0 })
+    expect(pill('Active')).toHaveTextContent('50')
+    expect(pill('Deactivated')).toHaveTextContent('1')
+    await waitFor(() => expect(pill('Active')).toHaveFocus())
+  })
+
+  it('a row leaving the filter on page 1 of 2 refills the page from the server', async () => {
+    db = manyActive()
+    serve({ pageSize: 50 })
+    await renderUsers()
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(screen.getByText(/Showing 1.50 of 51/)).toBeInTheDocument())
+    expect(screen.queryByText('User 50')).not.toBeInTheDocument()
+    await deactivate('User 0')
+    // The user who shifted up from page 2 is shown, and the page is full again.
+    expect(await screen.findByText('User 50')).toBeInTheDocument()
+    expect(screen.queryByText('User 0')).not.toBeInTheDocument()
+    expect(screen.getByText(/Showing 1.50 of 50/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+  })
+
+  it('a slower response for an earlier filter never replaces the latest one', async () => {
+    await renderUsers()
+    const first = deferred<unknown>()
+    const second = deferred<unknown>()
+    api.getAdminUsers.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise)
+    fireEvent.click(pill('Active'))
+    await waitFor(() => expect(lastCall()).toMatchObject({ status: 'active' }))
+    fireEvent.click(pill('Deactivated'))
+    await waitFor(() => expect(lastCall()).toMatchObject({ status: 'deactivated' }))
+    const counts = { all: 3, active: 2, deactivated: 1, admins: 1 }
+    second.resolve({ count: 1, offset: 0, page_size: 50, results: [ROWS[2]], counts })
+    await waitFor(() => expect(screen.getByText('Carol')).toBeInTheDocument())
+    await act(async () => {
+      first.resolve({ count: 2, offset: 0, page_size: 50, results: [ROWS[0], ROWS[1]], counts })
+      await first.promise
+    })
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument()
+    expect(screen.getByText('Carol')).toBeInTheDocument()
+    expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument()
+    expect(pill('Deactivated')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('on a phone, a row leaving the filter moves focus to the status select', async () => {
+    phone.value = true
+    await renderUsers()
+    fireEvent.change(screen.getByRole('combobox', { name: 'User status' }), { target: { value: 'active' } })
+    await waitFor(() => expect(screen.getByText(/Showing 1.2 of 2/)).toBeInTheDocument())
+    const trigger = screen.getByRole('button', { name: 'More actions for Alice' })
+    trigger.focus()
+    fireEvent.click(trigger)
+    const sheet = screen.getByRole('dialog', { name: 'Alice' })
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Deactivate' }))
+    fireEvent.click(within(within(sheet).getByRole('group', { name: 'Deactivate' })).getByRole('button', { name: 'Deactivate' }))
+    await waitFor(() => expect(screen.queryByText('Alice')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'User status' })).toHaveFocus())
+  })
+
+  it('creating a user that does not match the search leaves the pill counts as the server has them', async () => {
+    api.createAdminUser.mockImplementation(async () => {
+      const created = row({ id: 9, username: 'bob', email: 'bob@example.com', display_name: 'Bob' })
+      db = [...db, created]
+      return created
+    })
+    await renderUsers()
+    fireEvent.change(screen.getByLabelText('Search users'), { target: { value: 'al' } })
+    await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
+    expect(pill('All')).toHaveTextContent('1')
+    fireEvent.click(screen.getByText('Add user'))
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'bob' } })
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'bob@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'SecurePass123!' } })
+    fireEvent.click(screen.getByText('Create user'))
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Add user' })).not.toBeInTheDocument())
+    await waitFor(() => expect(lastCall()).toMatchObject({ search: 'al' }))
+    await waitFor(() => expect(screen.getByText(/Showing 1.1 of 1/)).toBeInTheDocument())
+    expect(pill('All')).toHaveTextContent('1')
+    expect(pill('Active')).toHaveTextContent('1')
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument()
   })
 })
