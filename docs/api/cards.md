@@ -136,7 +136,7 @@ A filter value that fails its type check returns `400` with the field-keyed body
 ### `POST /api/v1/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
 
-The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin may pass the optional `?force=true` query parameter to override a soft limit (a non-admin gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
+The target column's WIP and weight limits are enforced exactly as on a [move](#wip-weight-limit-enforcement) into it: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, and a board admin (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) may pass the optional `?force=true` query parameter to override a soft limit (anyone else gets `403`; hard mode has no override). *Changed in 1.2 (#1428): creates were not checked before.*
 
 `notify_assignee` (optional boolean, default `false`, since 1.3, #2211): `true` sends the card's assignee the `assigned` notification ("You were assigned to ..."), the same one an assignee change sends, once the create commits. It is skipped when the assignee is the caller, is inactive, turned off `notif_card_assigned`, or is not a current member of the board. The web app sends it only for a swimlane [default team](boards.md)'s pre-assignment; without it, a create with an `assignee_id` sends no `assigned` notification, as before (the MCP `create_card` tool and board import never send it). A value that is not a JSON boolean returns `400` keyed `notify_assignee`. Ignored on update. When the `assigned` notification is sent, the card's creation does not also send the "moved to `<first column>`" one, so the assignee gets exactly one notification (*changed in 1.3*, only for creates with `notify_assignee: true`). Every other create keeps its "moved" notification: an assignee who has **Card moved** on is still told the new card "moved to" its first column.
 
@@ -257,7 +257,7 @@ Update card fields. Requires member or above. Returns `404 Not Found` if the car
 
 **`PUT /api/v1/boards/{board_id}/cards/{id}/`** is also accepted, with the same permissions, ownership gate, side effects and errors. The difference is which fields are required. `PATCH` needs none. `PUT` requires `title`, `column` and `swimlane`, as on create; `column` and `swimlane` must be the card's *current* values (see the note below on moving cards), so a `PUT` is in practice a round trip of a card you just read. Any other field a `PUT` leaves out keeps its current value; it is not reset. Prefer `PATCH` for edits.
 
-> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked, even in a column already over its WIP or weight limit. The WIP limit is not checked, since the column's card count does not change. *Changed in 1.2 (#1428).*
+> **Weight limit:** raising `weight` in a column with a `weight_limit`, on a board with `enforce_weight_limits` on, returns `409` with `weight_limit_exceeded` (same body as a [move](#wip-weight-limit-enforcement)) when the column's total would exceed the limit; a board admin (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) may override with the optional `?force=true` query parameter. Lowering `weight`, leaving it unchanged, or editing any other field is never blocked, even in a column already over its WIP or weight limit. The WIP limit is not checked, since the column's card count does not change. *Changed in 1.2 (#1428).*
 
 #### Custom field values (since 1.2)
 
@@ -370,7 +370,7 @@ Unarchive a card. Takes no request body (`force` is a query parameter, below). C
 
 **Response** — full card object with `archived_at: null`.
 
-Archived cards do not count toward a column's limits, so a restore is checked like a [move](#wip-weight-limit-enforcement) into the card's column: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, nothing restored. A board admin may override a soft limit with the optional `?force=true` query parameter; hard mode has no override. Restoring a card that is not archived is still a no-op `200`. *Changed in 1.2 (#1428).*
+Archived cards do not count toward a column's limits, so a restore is checked like a [move](#wip-weight-limit-enforcement) into the card's column: `409` with `wip_limit_exceeded`, `wip_hard_blocked`, or `weight_limit_exceeded`, nothing restored. A board admin (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) may override a soft limit with the optional `?force=true` query parameter; hard mode has no override. Restoring a card that is not archived is still a no-op `200`. *Changed in 1.2 (#1428).*
 
 Broadcasts `card.unarchived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
@@ -580,7 +580,7 @@ When `enforce_wip_hard` is enabled on the board, the limit cannot be overridden 
 { "detail": "WIP limit enforced — move blocked.", "code": "wip_hard_blocked", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }
 ```
 
-When `enforce_wip_hard` is not enabled, board admins may override the limit by appending `?force=true` to the move URL:
+When `enforce_wip_hard` is not enabled, board admins (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) may override the limit by appending `?force=true` to the move URL:
 
 ```bash
 POST /api/v1/boards/1/cards/42/move/?force=true
@@ -592,7 +592,7 @@ POST /api/v1/boards/1/cards/42/move/?force=true
 
 > **Added in 1.3** (#1150)
 
-A swimlane can have its own `wip_limit` and `weight_limit` (see [Swimlane limits](boards.md#swimlane-limits-since-13)). The same paths enforce them: move, create, restore, and a `PATCH` that raises `weight`. A move is checked against the target swimlane only when it adds to the swimlane's counted total, so a move between two counted columns of one swimlane, or into a column that does not count, never trips it. A move into a counted column from a column of the same swimlane that does not count (for example Done -> Doing under the default, where done columns do not count) *is* checked. Each swimlane chooses `limit_enforcement`: `"block"` (board admins can override with `?force=true`), `"hard"` (no override for the WIP limit), or `null` to follow the board's flags as a column does. The bodies add `swimlane_name`; `column_name` names the target cell's column, and the counters are the swimlane's:
+A swimlane can have its own `wip_limit` and `weight_limit` (see [Swimlane limits](boards.md#swimlane-limits-since-13)). The same paths enforce them: move, create, restore, and a `PATCH` that raises `weight`. A move is checked against the target swimlane only when it adds to the swimlane's counted total, so a move between two counted columns of one swimlane, or into a column that does not count, never trips it. A move into a counted column from a column of the same swimlane that does not count (for example Done -> Doing under the default, where done columns do not count) *is* checked. Each swimlane chooses `limit_enforcement`: `"block"` (board admins (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) can override with `?force=true`), `"hard"` (no override for the WIP limit), or `null` to follow the board's flags as a column does. The bodies add `swimlane_name`; `column_name` names the target cell's column, and the counters are the swimlane's:
 
 ```json
 { "code": "swimlane_wip_limit_exceeded", "column_name": "Doing", "swimlane_name": "Acme Corp", "current_count": 3, "wip_limit": 3 }
@@ -606,7 +606,7 @@ A swimlane can have its own `wip_limit` and `weight_limit` (see [Swimlane limits
 { "code": "swimlane_weight_limit_exceeded", "column_name": "Doing", "swimlane_name": "Acme Corp", "current_weight": 8, "weight_limit": 10, "card_weight": 3 }
 ```
 
-When more than one limit trips, the response names the strictest: a hard limit before a soft one, then the column before the swimlane, then WIP before weight. A board with no swimlane limits gets exactly the column bodies above. One `?force=true` from a board admin overrides every soft limit the move trips, and none of the hard ones.
+When more than one limit trips, the response names the strictest: a hard limit before a soft one, then the column before the swimlane, then WIP before weight. A board with no swimlane limits gets exactly the column bodies above. One `?force=true` from a board admin (or the card's assignee, [when enabled](#force-overrides-assignee-basis-reasons-and-audit-since-13-1923)) overrides every soft limit the move trips, and none of the hard ones.
 
 The `*_uid` fields in the movement record are permanent: they stay set after the referenced column or swimlane is deleted (the FK `*_id` becomes `null`, the UID is preserved). See [Stable UIDs](../features/stable-uids.md).
 

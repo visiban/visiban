@@ -846,7 +846,10 @@ ones, directly and under `migrate`), `groups/tests/test_groups.py`
 honors the target column's `wip_limit`/`weight_limit` and, since 1.3 (#1150),
 the target swimlane's, on every transport. A soft limit (`block`, or a board
 flag) refuses the write with `409` unless a board admin or site admin passes
-`?force=true`; a hard WIP limit refuses every role and ignores `force`. When
+`?force=true`, or, when the board's `allow_assignee_override` is on (default off,
+re-read at decision time), the card's assignee with role `member` passes it with
+an `override_reason` and did not assign the card to themselves (`assigned_by` set
+and not the caller; #1923); a hard WIP limit refuses every role and ignores `force`. When
 several limits trip, the strictest one is reported (hard before block; the
 column first when equal), and one `force` covers every soft limit tripped. A
 swimlane limit applies only when the write adds to the swimlane's counted total
@@ -871,7 +874,7 @@ check.
 
 | Surface | Entry point | Enforced via |
 |---|---|---|
-| REST move | `boards/views/cards.py` `CardViewSet.move` | `boards/services/cards.py` `move_card` -> `_move_card_attempt`: `enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)` when the column or the swimlane changes; `force` from `?force=true`, authorized by `_require_force_role` |
+| REST move | `boards/views/cards.py` `CardViewSet.move` | `boards/services/cards.py` `move_card` -> `_move_card_attempt`: `enforce_column_limits(..., swimlane=target_swimlane, source=(card.column, card.swimlane_id), check_column=column_changed)` when the column or the swimlane changes; `force` from `?force=true`, authorized by `_require_force` |
 | REST create | `boards/views/cards.py` `CardViewSet.create` | `create_card`: `enforce_column_limits(..., swimlane=swimlane, lock=False)` after the column lock, inside the create transaction (a refusal rolls the insert back) |
 | REST Add child (#2208) | `boards/views/cards.py` `CardViewSet.children` (POST) | `create_card` into the target board's first column and first lane: the same `enforce_column_limits` call as REST create, so a hard WIP limit answers `409` `wip_hard_blocked` and a soft one `409` for every role (no `force` on this endpoint); the link is written in the same transaction. Test: `boards/tests/test_default_child_board_2208.py` `test_hard_wip_limit_of_the_first_column_applies` |
 | REST restore | `boards/views/cards.py` `CardViewSet.unarchive` | `unarchive_card`: `enforce_column_limits(..., swimlane=card.swimlane)` under the card lock |
