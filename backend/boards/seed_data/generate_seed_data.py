@@ -522,6 +522,9 @@ CHECKLIST_ASSIGN_SAMPLES = {"simple_kanban"}
 # Templates that carry a custom_field_changed History row (#1921). The sample
 # set must carry every event type, and this is the one with custom fields.
 CUSTOM_FIELD_CHANGE_SAMPLES = {"product_roadmap"}
+# Templates that carry one override_used History row (#1923), on a card in the
+# board's over-WIP-limit column.
+OVERRIDE_SAMPLES = {"simple_kanban"}
 
 _BLOCK_REASONS = [
     "Waiting on a decision from the stakeholder.",
@@ -650,6 +653,33 @@ def _add_custom_field_change(cards: list[dict], slug: str, done_cols: set[str]) 
     ], key=lambda a: a["created_at"])
 
 
+def _add_override_used(data: dict, slug: str) -> None:
+    """Give one card an ``override_used`` History row (#1923).
+
+    Writes the shape ``record_overrides`` writes: the actor basis, the kind of
+    limit tripped and the reason in ``item_text``. It goes on a live card in
+    the column that is over its WIP limit, at the instant the card moved in,
+    so the row explains why the column reads over limit. No random draw is
+    made, so no other card or template shifts.
+    """
+    over = {
+        col["name"] for col in data["columns"]
+        if col.get("wip_limit") and col["wip_limit"] < sum(
+            c["column"] == col["name"] and not c.get("archived_at") for c in data["cards"]
+        )
+    }
+    eligible = [c for c in data["cards"] if c["column"] in over and not c.get("archived_at")]
+    if not eligible:
+        raise SystemExit(f"{slug}: no card in an over-limit column for the sample override")
+    card = max(eligible, key=lambda c: (c["movements"][-1]["moved_at"], c["title"]))
+    move = card["movements"][-1]
+    card["activities"] = sorted(card["activities"] + [
+        {"event_type": "override_used", "from_value": "admin", "to_value": "wip",
+         "actor": move["moved_by"], "created_at": move["moved_at"],
+         "item_text": "Deadline this week; finishing it before starting anything else."},
+    ], key=lambda a: a["created_at"])
+
+
 def _add_relations(cards: list[dict], slug: str, done_cols: set[str]) -> list[dict]:
     """The board's card relations (#1448): one active blocker and one ``relates_to``.
 
@@ -754,6 +784,8 @@ def _build(tpl: dict, features: dict | None = None) -> dict:
         _add_checklist_assign_due(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     if slug in CUSTOM_FIELD_CHANGE_SAMPLES:
         _add_custom_field_change(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
+    if slug in OVERRIDE_SAMPLES:
+        _add_override_used(data, slug)
     data["relations"] = _add_relations(enriched, slug, {c["name"] for c in data["columns"] if c["is_done"]})
     # Key order matches the board exporter, so a sample diffs cleanly
     # against an export of the board it produces.
