@@ -352,6 +352,8 @@ The throughput `median` is the median line in #448's weekly run chart. Zero week
     - Each card is listed once, with all its reasons, ordered by age (oldest first, no age last), then by time unmoved (longest first; always present, since a card with no movement counts from its creation date), then by card id.
     - It differs from the analytics endpoint's `stalled_cards` in two ways: a movement dated after the request is ignored, as everywhere in these definitions, and a card is judged by its current column, so a card whose latest movement went into a done column but that is no longer there is still listed. A card with no movement is judged the same way in both, from its creation date.
 
+> **Note (2026-11-24, #2554):** the stalled rule above now excludes planned children, and measures a released one from the later of its last movement and its release. The Needs attention list, the heatmap's stalled cards and the stale digest share it.
+
 > **Note (2026-11-15, #2307):** the done-side rate on the flow row needs a count that sums the done bands' `entered` without double counting, so the cumulative-flow payload adds `completed` and `completed_per_week`. `completed` counts first completions only, in the window `first_day < date <= last_day`, on the same `completion_at` definition as throughput. A card moving Done A to Done B counts once, and a finish after a reopen is not counted again. `completed_per_week` is `completed × 7 ÷ (days − 1)`, unrounded, and `null` under two whole days.
 
 ### Swimlane comparison (#2266)

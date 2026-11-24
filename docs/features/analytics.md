@@ -25,7 +25,7 @@ These are the definitions every flow metric follows. They are quoted verbatim fr
 - **WIP:** the number of cards, not archived, currently in each column that is not done.
 - **Cumulative flow:** for each day, the number of cards in each column at the end of that day.
 - **Blocked time:** the time cards spent blocked, reported as its own metric: total, per column and per reason. It is never subtracted from lead time, cycle time, dwell time or age.
-- **Needs attention:** the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold.
+- **Needs attention:** the cards, not archived and not in a done column, that are blocked, have been in progress longer than the 85th percentile of cycle time, or have not moved for longer than the board's stalled threshold. A planned child is never stalled, and a released one is measured from the later of its last move and its release.
 
 **Commitment point** *(new in 1.3, #2050)*: a board admin can choose the column where cycle time starts, in **Board Settings** → **Rules & limits** → **Flow metrics** (or search **Find a setting** for "commitment point"). With one set, a card starts its cycle when it first reaches that column or any later column that is not done, and age follows. A card created in that column starts at once; a card that reaches done without passing it has no cycle time. Boards without one keep the definitions above. On such a board the charts and the API quote these instead:
 

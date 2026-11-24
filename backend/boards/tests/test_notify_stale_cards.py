@@ -21,7 +21,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import User
-from boards.models import BoardMembership, Card, CardMovement, Column, Notification, Swimlane
+from boards.models import BoardMembership, Card, CardMovement, CardParentLink, Column, Notification, Swimlane
 from boards.tests.conftest import _make_board
 
 
@@ -137,6 +137,34 @@ class NotifyStaleCardsHappyPathTest(TestCase):
         self.assertEqual(
             Notification.objects.filter(card=card, recipient=self.owner).count(), 1
         )
+
+    def test_released_planned_child_counts_days_from_release(self):
+        """A released child's day count starts at its release when later than its last move (#2554).
+
+        Needs attention and the heatmap measure it that way, so the digest must not
+        report the older last-move age for the same card.
+        """
+        parent = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Parent", created_by=self.owner, position=0,
+        )
+        child = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Released Child", created_by=self.owner, position=1,
+        )
+        _make_stale_movement(child, self.owner, self.col, self.swim, days_ago=self.threshold + 20)
+        link = CardParentLink.objects.create(
+            parent=parent, child=child, needed_at_column=self.col,
+        )
+        released_days = self.threshold + 3
+        CardParentLink.objects.filter(pk=link.pk).update(
+            planned_released_at=timezone.now() - datetime.timedelta(days=released_days)
+        )
+
+        call_command("notify_stale_cards", verbosity=0)
+
+        notif = Notification.objects.get(card=child, recipient=self.owner)
+        self.assertIn(f"hasn't moved in {released_days} days", notif.verb)
 
     def test_assignee_receives_notification(self):
         """The card assignee (if opted-in) also receives a staleness notification."""
