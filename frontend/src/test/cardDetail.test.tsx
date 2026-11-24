@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { PRIORITY_COLORS, readableTextOn } from '../constants/colors'
 import CardDetail from '../components/Card/CardDetail'
 import type { Card, BoardFull, User } from '../types'
 
@@ -477,6 +478,13 @@ describe('CardDetail', () => {
     await waitFor(() => {
       expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { priority: 'high' })
     })
+  })
+
+  it('the selected priority chip takes the readable text color, dark on orange (#2466)', () => {
+    render(<CardDetail {...defaultProps()} card={makeCard({ priority: 'medium' })} />)
+    const chip = screen.getByRole('button', { name: 'Medium' })
+    expect(readableTextOn(PRIORITY_COLORS.medium)).not.toBe('#FFFFFF')
+    expect(chip).toHaveStyle({ color: readableTextOn(PRIORITY_COLORS.medium) })
   })
 
   it('priority buttons are keyboard reachable and have accessible text labels', () => {

@@ -1,5 +1,9 @@
 /** Shared color palettes used across board modals and card components. */
 
+import { contrastRatio } from "../utils/colorContrast";
+
+const READABLE_DARK = "#111827"; // 0.0094 relative luminance
+
 /** Default palette for columns and swimlane editing (6 colors). */
 export const COLUMN_COLORS = [
   "#6B7280", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6",
@@ -53,9 +57,6 @@ export function colorName(hex: string): string {
 export function readableTextOn(hex: string): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return "#FFFFFF";
-  const n = parseInt(m[1], 16);
-  const lin = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
-  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
-  const DARK = "#111827"; // 0.0094 relative luminance
-  return (L + 0.05) / 0.0594 >= 1.05 / (L + 0.05) ? DARK : "#FFFFFF";
+  const bg = "#" + m[1];
+  return contrastRatio(bg, READABLE_DARK) >= contrastRatio(bg, "#FFFFFF") ? READABLE_DARK : "#FFFFFF";
 }
