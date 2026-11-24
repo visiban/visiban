@@ -805,7 +805,14 @@ def create_card(
         if locked_column is None:
             raise ColumnNotFound()
         require_swimlane_exists(swimlane.pk)
-        max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
+        # One past the highest slot, not the row count (#2562): a same-cell
+        # reorder leaves a gap, so after one the count is a slot a live card
+        # already holds. Archived rows are included on purpose: they keep their
+        # slot, and a new card must not take one an unarchive may want back.
+        highest = Card.objects.filter(
+            board=board, column=column, swimlane=swimlane
+        ).aggregate(m=Max("position"))["m"]
+        max_pos = 0 if highest is None else highest + 1
         card = save(position=max_pos)
         # The column row is already locked above, so the helper does not lock
         # it again (it still locks the swimlane row, after the column, when the
@@ -2478,7 +2485,9 @@ def unarchive_card(
 ):
     """Restore a card by clearing ``archived_at``.
 
-    The card re-enters its original column/swimlane position. Restoring a card
+    The card re-enters its original column/swimlane, at its original position
+    when that slot is still free and at the end of the cell when a live card
+    has taken it (#2563). Restoring a card
     that is not archived is a no-op that still returns it, and broadcasts
     nothing.
 
@@ -2519,8 +2528,28 @@ def unarchive_card(
         # Under the lock, as in archive_card: a relation committed while we
         # waited must count, or its peer misses its card.updated frame.
         peer_ids = _blocked_peer_ids(card)
+        # Lock the cell's column row before choosing a slot (#2563): every path
+        # that puts a card into or reorders a cell holds it, so the slot read
+        # below cannot be taken by a concurrent move or create. Order stays
+        # card -> column, as move_card takes it.
+        Column.objects.select_for_update(no_key=True).filter(pk=card.column_id).first()
+        # The slot held at archive time may have been compacted into by a live
+        # card since (move_card's source-cell compaction skips archived cards).
+        # Keep it when free, so the card returns to roughly where it was. When
+        # taken, append at max+1 rather than shifting the cell's live cards up:
+        # a shift would UPDATE sibling rows after the column lock, against
+        # move_card's sibling-rows-then-columns order (#1522 deadlock), and
+        # would need a sibling_positions broadcast. An append changes no other
+        # card, so the card.unarchived frame (which carries the position) is
+        # enough.
+        cell = Card.objects.filter(
+            board=board, column_id=card.column_id, swimlane_id=card.swimlane_id
+        ).exclude(pk=card.pk)
+        if cell.filter(archived_at__isnull=True, position=card.position).exists():
+            highest = cell.aggregate(m=Max("position"))["m"]
+            card.position = 0 if highest is None else highest + 1
         card.archived_at = None
-        card.save(update_fields=["archived_at"])
+        card.save(update_fields=["archived_at", "position"])
         # Checked after the write, with the card row already locked above, so
         # the column row comes second (move_card's lock order); a refusal
         # rolls the restore back.
