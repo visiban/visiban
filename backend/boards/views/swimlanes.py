@@ -313,7 +313,13 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 _require_live_swimlane_definitions(field_pairs)
                 _require_live_limit_columns(board, serializer.validated_data)
                 old_name = serializer.instance.name
+                old_enforcement = serializer.instance.limit_enforcement
                 swimlane = serializer.save()
+                # #2584: audited like the board's enforce_* toggles.
+                from ..services.setting_changes import record_swimlane_enforcement_change
+                record_swimlane_enforcement_change(
+                    swimlane=swimlane, actor=self.request.user, old_value=old_enforcement,
+                )
                 if team_ids is not None:
                     # Re-checked under the board lock: a member removed while
                     # this request queued is not written back (#2211).

@@ -928,7 +928,7 @@ class RoleBoundaryTests(_RowFixture):
             f"/api/v1/boards/{self.board.pk}/cards/{mine.pk}/?force=true", {"weight": 5}, format="json",
         )
         self.assertEqual(heavier.status_code, 403, heavier.content)
-        self.assertEqual(heavier.json(), {"detail": "Only board admins can override a weight limit."})
+        self.assertEqual(heavier.json(), {"detail": "Only board admins can override a weight limit.", "code": "force_not_permitted"})
 
     def test_site_admin_may_force_a_soft_row_limit_but_not_a_hard_one(self):
         self._limit(self.beta, wip=1)

@@ -139,7 +139,7 @@ class CreateEnforcementTests(_LimitFixture):
         self._fill(self.limited, 2)
         r = self._create(self.member, self.limited, force=True)
         self.assertEqual(r.status_code, 403, r.content)
-        self.assertEqual(r.json(), {"detail": "Only board admins can override a WIP limit."})
+        self.assertEqual(r.json(), {"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"})
         self.assertEqual(self._active(self.limited), 2)
 
     def test_hard_mode_blocks_admin_even_with_force(self):
@@ -184,7 +184,7 @@ class CreateEnforcementTests(_LimitFixture):
         self._fill(self.free, 1)
         r = self._create(self.member, self.free, force=True)
         self.assertEqual(r.status_code, 403)
-        self.assertEqual(r.json(), {"detail": "Only board admins can override a weight limit."})
+        self.assertEqual(r.json(), {"detail": "Only board admins can override a weight limit.", "code": "force_not_permitted"})
         self.assertEqual(self._create(self.admin, self.free, force=True).status_code, 201)
 
     def test_allow_card_creation_still_checked_first(self):

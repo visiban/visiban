@@ -1671,3 +1671,16 @@ One entry per sub-column, in order: `cards` counts active cards and `archived_ca
 ### Card activity: `custom_field_changed`
 
 Every custom field value set, changed or cleared, on any transport, writes a card activity row with `event_type` `custom_field_changed`, `from_value` / `to_value` (`""` = no value), the actor, and `item_text` = the field's name at the time.
+
+
+## Force overrides: assignee basis, reasons and audit (since 1.3, #1923)
+
+`?force=true` on move, create, restore (`POST .../unarchive/`) and a weight-raising `PATCH` overrides a **Block** WIP or weight limit. Hard WIP still refuses every role.
+
+- **Who:** board admins and site admins, as before. When the board's `allow_assignee_override` is `true` (default `false`, admin-only to change), also the card's assignee with role `member`, provided someone else assigned the card to them (`assigned_by` is set and is not the caller).
+- **`override_reason`** (optional body field, string): stripped, at most 500 characters, no NUL bytes; otherwise `400 {"override_reason": ["..."]}`. **Required** for an assignee override: `400 {"code": "override_reason_required", "detail": "..."}`. Optional for an admin force (recorded as `""`), so existing clients keep working. Visible to everyone on the board.
+- **403 body** gains `code` (additive): `{"detail": "Only board admins can override a WIP limit.", "code": "force_not_permitted"}`. A self-assigned assignee on a board with the switch on gets `{"detail": "You assigned this card to yourself, so a board admin needs to move it anyway.", "code": "force_not_permitted", "reason": "self_assigned"}`.
+- **Response/broadcast:** when a limit was overridden, the move and restore bodies and the `card.moved` / `card.created` / `card.unarchived` frames carry an additive `override: {kinds: ["wip"|"weight", ...], actor_basis: "admin"|"site_admin"|"assignee", actor: {id, username}, reason}`. Absent otherwise.
+- **Card field `assigned_by`** (read-only, user id or `null`): who set the current assignee. `null` when unassigned, imported, or the assigner was deleted; a `null` value is never eligible for the assignee basis.
+- **History:** each override writes one `CardOverride` row per kind and an `override_used` activity (`from_value` = basis, `to_value` = kinds, `item_text` = reason).
+- MCP tools take no `force`: a Block limit acts as Hard over MCP.

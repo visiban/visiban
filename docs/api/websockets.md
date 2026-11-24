@@ -797,3 +797,8 @@ async function connect(boardId, apiToken) {
   );
 }
 ```
+
+
+## `override` on card placement events (since 1.3, #1923)
+
+`card.moved`, `card.created` and `card.unarchived` carry an additive top-level `override` object, present only when the placement overrode a soft WIP or weight limit: `{"kinds": ["wip"], "actor_basis": "admin" | "site_admin" | "assignee", "actor": {"id": 1, "username": "..."}, "reason": "..."}`. Like `gate_transitions`, every other payload is unchanged.

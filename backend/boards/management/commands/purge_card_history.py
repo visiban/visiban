@@ -110,7 +110,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 from accounts.models import AdminActionLog
 from boards import broadcast as _broadcast
 from boards.models import (
-    Board, BoardEvent, Card, CardActivity, CardBlock, CardGateTransition, CardMovement,
+    Board, BoardEvent, Card, CardActivity, CardBlock, CardGateTransition, CardMovement, CardOverride,
 )
 
 # Card and board uids are 16 lowercase hex characters (boards/uid.py).
@@ -171,6 +171,14 @@ def _redact_card(card):
     return out
 
 
+def _redact_override(data):
+    """Null the free-text ``reason`` of an additive ``override`` object (#1923)."""
+    override = data.get("override")
+    if isinstance(override, dict) and "reason" in override:
+        data = {**data, "override": {**override, "reason": None}}
+    return data
+
+
 def redact_card_event_payload(event, data):
     """Return the stored *data* of a card feed event with card content nulled.
 
@@ -181,7 +189,7 @@ def redact_card_event_payload(event, data):
     if not isinstance(data, dict):
         return data
     if event in _CARD_PAYLOAD_EVENTS:
-        return _redact_card(data)
+        return _redact_override(_redact_card(data))
     if event == _broadcast.EVT_CARD_MOVED:
         if "card" not in data:
             # A card.moved the MCP tools wrote in 1.2 pre-releases for a
@@ -194,7 +202,7 @@ def redact_card_event_payload(event, data):
             out["movement"] = {
                 k: (None if k in _MOVEMENT_CONTENT_KEYS else v) for k, v in movement.items()
             }
-        return out
+        return _redact_override(out)
     return data
 
 
@@ -313,6 +321,9 @@ class Command(BaseCommand):
         # Gate transitions (#1102) carry the same card snapshot and a free-text
         # reason, so they leave with the card's other history.
         gates = CardGateTransition.objects.all()
+        # Override rows (#1923) carry the same snapshot and a free-text
+        # reason, so they leave with the card's other history as well.
+        overrides = CardOverride.objects.all()
         # Activity rows (#1799) keep the card snapshot plus field values (a
         # description_change row records only that the description changed,
         # not its text), so they leave with the card's other history too.
@@ -321,6 +332,7 @@ class Command(BaseCommand):
             rows = rows.filter(card__isnull=True)
             blocks = blocks.filter(card__isnull=True)
             gates = gates.filter(card__isnull=True)
+            overrides = overrides.filter(card__isnull=True)
             activities = activities.filter(card__isnull=True)
 
         if card_uid is not None:
@@ -339,6 +351,9 @@ class Command(BaseCommand):
                 gates = gates.filter(
                     Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
                 )
+                overrides = overrides.filter(
+                    Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
+                )
                 activities = activities.filter(
                     Q(card__uid=card_uid) | Q(card__isnull=True, card_uid=card_uid)
                 )
@@ -352,6 +367,7 @@ class Command(BaseCommand):
                 rows = rows.filter(card_uid=card_uid)
                 blocks = blocks.filter(card_uid=card_uid)
                 gates = gates.filter(card_uid=card_uid)
+                overrides = overrides.filter(card_uid=card_uid)
                 activities = activities.filter(card_uid=card_uid)
 
         board = None
@@ -360,6 +376,7 @@ class Command(BaseCommand):
             rows = rows.filter(board_id=board.pk)
             blocks = blocks.filter(board_id=board.pk)
             gates = gates.filter(board_id=board.pk)
+            overrides = overrides.filter(board_id=board.pk)
             # A live card's row an older release wrote with bulk_create
             # carries no board until the card is deleted (#1799; every writer
             # sets it now), so a live card's rows are also found through the card.
@@ -373,12 +390,14 @@ class Command(BaseCommand):
             rows = rows.filter(moved_at__gte=since)
             blocks = blocks.filter(blocked_at__gte=since)
             gates = gates.filter(created_at__gte=since)
+            overrides = overrides.filter(created_at__gte=since)
             activities = activities.filter(created_at__gte=since)
         if before_raw is not None:
             before = _parse_moment(before_raw, "--before")
             rows = rows.filter(moved_at__lt=before)
             blocks = blocks.filter(blocked_at__lt=before)
             gates = gates.filter(created_at__lt=before)
+            overrides = overrides.filter(created_at__lt=before)
             activities = activities.filter(created_at__lt=before)
         if since is not None and before is not None and since >= before:
             raise CommandError("--since must be earlier than --before.")
@@ -458,6 +477,8 @@ class Command(BaseCommand):
             deleted_blocks = per_model.get(CardBlock._meta.label, 0)
             _, per_model = gates.order_by().delete()
             deleted_gates = per_model.get(CardGateTransition._meta.label, 0)
+            _, per_model = overrides.order_by().delete()
+            deleted_gates += per_model.get(CardOverride._meta.label, 0)
             # A queryset delete, which never calls the refusing
             # CardActivity.delete() (#1799).
             _, per_model = activities.order_by().delete()

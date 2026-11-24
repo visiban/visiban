@@ -2998,3 +2998,10 @@ Only boards where you are admin, whose cards cannot have children and whose firs
 - `parent_cards`: this board's cards that have children on other boards. The children stay as ordinary cards and record `parent_removed_board_deleted`.
 
 Deleting a board also clears `default_child_board` on every board that named it, and each of those boards gets a `board.updated` event.
+
+
+## `allow_assignee_override` (since 1.3, #1923)
+
+Boolean, default `false`. When `true`, a card's assignee (role `member`) may move it past a Block WIP or weight limit with `?force=true` and a required `override_reason`, unless they assigned the card to themselves. Only board admins can change it. Not on the public share payload.
+
+Every change to `allow_assignee_override`, `enforce_wip_limits`, `enforce_wip_hard`, `enforce_weight_limits`, and a swimlane's `limit_enforcement` is recorded in `BoardSettingChange` (actor, setting, old and new value), which is not pruned with the change feed (#2584).

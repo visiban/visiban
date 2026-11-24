@@ -131,6 +131,19 @@ class Board(models.Model):
             "?force=true (not in the Django admin). Board import is not checked."
         ),
     )
+    # #1923: off by default so existing installs keep "only board admins can
+    # force" (CLAUDE.md § Settings). ``db_default`` so an older pod's INSERT
+    # mid-rolling-deploy survives. Never on a public serializer.
+    allow_assignee_override = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text=(
+            "When enabled, a card's assignee (board role member or higher) can move it past a "
+            "Block WIP or weight limit with a reason, unless they assigned the card to "
+            "themselves. Hard limits still stop everyone. Every flip is recorded in "
+            "BoardSettingChange."
+        ),
+    )
     share_token = models.UUIDField(
         null=True, blank=True, default=None, editable=False, unique=True,
         help_text="Public share token. Null means sharing is disabled. Never set directly — use the share action.",
@@ -976,6 +989,21 @@ class Card(models.Model):
         blank=True,
         related_name="assigned_cards",
     )
+    # #1923: who set the current ``assignee``. Set to the actor on every
+    # assignee write path and cleared with it; import and seed leave it NULL.
+    # The assignee override is refused when this is NULL or the actor (a
+    # self-assignment must not turn the override into an any-member override).
+    # ``db_constraint=False`` / ``db_index=False``: the FK is added NOT VALID by
+    # hand and validated in a second migration, and the partial index is built
+    # concurrently in a third (docs/development/database-migrations.md).
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by card_assigned_by_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
     labels = models.ManyToManyField(Label, blank=True, related_name="cards")
     due_date = models.DateField(null=True, blank=True)
     weight = models.IntegerField(default=1)
@@ -1039,6 +1067,12 @@ class Card(models.Model):
         db_table = "cards"
         ordering = ["position"]
         indexes = [
+            # #1923: the user-delete SET_NULL cascade (UPDATE cards WHERE
+            # assigned_by_id = ...). Partial: most cards have no assigner.
+            models.Index(
+                fields=["assigned_by"], name="card_assigned_by_idx",
+                condition=models.Q(assigned_by__isnull=False),
+            ),
             # Composite index to speed up WIP count queries: filter by board + column,
             # then filter active cards (archived_at IS NULL). Avoids a full table scan
             # when enforcement is enabled and card moves are frequent.
@@ -1534,6 +1568,11 @@ class CardActivity(models.Model):
         # to_value is ``planned`` or ``now``.
         PLANNED_RELEASED = "planned_released", "Planned child released"
         NEEDED_CHANGED = "needed_changed", "Needed changed"
+        # #1923: a card was placed past a soft limit with ``force``.
+        # ``item_text`` is the override reason ("" when an admin gave none);
+        # from_value is the actor basis (admin | site_admin | assignee),
+        # to_value the comma-joined kinds tripped (wip, weight).
+        OVERRIDE_USED = "override_used", "Override used"
 
     # Event types whose ``item_text`` is meaningful (#2199, #1921): the
     # checklist item's text on assign/due rows, the custom field's name on
@@ -1543,6 +1582,7 @@ class CardActivity(models.Model):
         EventType.CHECKLIST_ITEM_ASSIGNED,
         EventType.CHECKLIST_ITEM_DUE_CHANGED,
         EventType.CUSTOM_FIELD_CHANGED,
+        EventType.OVERRIDE_USED,
     })
 
     # SET_NULL, not CASCADE (#1799): a hard-deleted card keeps its activity
@@ -3277,6 +3317,131 @@ class CardGateTransition(models.Model):
             if not self.card_title:
                 self.card_title = card.title
         super().save(*args, **kwargs)
+
+
+class CardOverride(models.Model):
+    """One soft limit a card was placed past with ``force`` (#1923).
+
+    Append-only, like ``CardGateTransition``: one row per kind tripped, so a
+    move forced past both a WIP and a weight limit writes two rows. Before
+    #1923 ``?force=true`` left no audit row anywhere. ``entry_requirements``
+    and ``stage_gates`` are reserved for #1923 MR B and #1102; only ``wip``
+    and ``weight`` are written today. ``unmet`` holds ids and operators only,
+    never field values. ``assigned_by`` is the assignment provenance that made
+    an ``assignee`` basis eligible, snapshotted because the card's value can
+    change after the override.
+    """
+
+    class Kind(models.TextChoices):
+        ENTRY_REQUIREMENTS = "entry_requirements", "Entry requirements"
+        STAGE_GATES = "stage_gates", "Stage gates"
+        WIP = "wip", "WIP limit"
+        WEIGHT = "weight", "Weight limit"
+
+    class Trigger(models.TextChoices):
+        MOVE = "move", "Move"
+        CREATE = "create", "Create"
+        RESTORE = "restore", "Restore"
+        WEIGHT_UPDATE = "weight_update", "Weight update"
+
+    class ActorBasis(models.TextChoices):
+        ADMIN = "admin", "Board admin"
+        SITE_ADMIN = "site_admin", "Site admin"
+        ASSIGNEE = "assignee", "Assignee"
+
+    card = models.ForeignKey(
+        Card,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,  # pragma: no mutate -- schema constant (migration-check)
+        db_index=False,  # pragma: no mutate -- covered by override_card_created_idx
+        related_name="overrides",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        db_index=False,  # pragma: no mutate -- covered by override_board_created_idx
+        related_name="+",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    card_uid = models.CharField(max_length=16, blank=True, default="", db_default="")
+    card_title = models.CharField(max_length=500, blank=True, default="", db_default="")
+    column = models.ForeignKey(
+        Column, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    column_name = models.CharField(max_length=255, blank=True, default="", db_default="")
+    column_uid = models.CharField(max_length=16, blank=True, default="", db_default="")
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    trigger = models.CharField(max_length=20, choices=Trigger.choices)
+    actor_basis = models.CharField(max_length=20, choices=ActorBasis.choices)
+    reason = models.CharField(max_length=500, blank=True, default="", db_default="")
+    unmet = models.JSONField(default=list, blank=True)
+    movement = models.ForeignKey(
+        CardMovement, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "card_overrides"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["card", "-created_at"], name="override_card_created_idx"),
+            models.Index(fields=["board", "-created_at"], name="override_board_created_idx"),
+        ]
+
+    def save(self, *args, **kwargs):
+        """Insert only, like ``CardGateTransition.save``.
+
+        ``purge_card_history`` redacts ``reason`` with a queryset ``update``,
+        which does not pass through here.
+        """
+        if self.pk is not None or not self._state.adding:
+            raise AppendOnlyViolation(
+                "CardOverride rows are append-only; an existing row cannot be changed."
+            )
+        super().save(*args, **kwargs)
+
+
+class BoardSettingChange(models.Model):
+    """One change to an audited board setting (#1923, #2584).
+
+    Board saves otherwise leave only a ``board.updated`` ``BoardEvent`` with no
+    old or new value, pruned after ``BOARD_EVENT_RETENTION_DAYS``. Every
+    enforcement toggle is written here so who widened or relaxed a limit, and
+    when, survives: ``allow_assignee_override``, ``enforce_wip_limits``,
+    ``enforce_wip_hard``, ``enforce_weight_limits``, and a swimlane's
+    ``limit_enforcement`` (``setting`` = ``swimlane:<uid>:limit_enforcement``).
+    Values are stored as strings ("true"/"false", or the enum value).
+    """
+
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        db_index=False,  # pragma: no mutate -- covered by setting_change_board_idx
+        related_name="setting_changes",  # pragma: no mutate -- schema constant (migration-check)
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+",
+    )
+    setting = models.CharField(max_length=100)
+    old_value = models.CharField(max_length=100, blank=True, default="", db_default="")
+    new_value = models.CharField(max_length=100, blank=True, default="", db_default="")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = "board_setting_changes"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["board", "-created_at"], name="setting_change_board_idx"),
+        ]
 
 
 class StageTrack(models.Model):

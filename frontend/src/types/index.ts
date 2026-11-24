@@ -873,6 +873,8 @@ export interface Card {
   blocked_at: string | null;
   /** The open manual block's reason; `""` when not manually blocked (#1149). */
   blocked_reason: string;
+  /** #1923: id of the user who set the current assignee; null when unassigned, imported, or the assigner was deleted. Read-only. */
+  assigned_by?: number | null;
   /** Gated stages (#1102): index of the card's sub-column in `column.sub_columns`; 0 on a plain column. */
   gates_passed?: number;
   /**
@@ -1444,6 +1446,8 @@ export interface Board {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  /** #1923: a card's assignee (member) may force past a Block WIP/weight limit with a reason. Off by default; admin-only to change. */
+  allow_assignee_override?: boolean;
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;
@@ -1653,6 +1657,8 @@ export interface BoardFull {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  /** #1923: a card's assignee (member) may force past a Block WIP/weight limit with a reason. Off by default; admin-only to change. */
+  allow_assignee_override?: boolean;
   show_wip_at_limit: boolean;
   /** #1418 — when false, swimlane row chips show field values without the `{name}:` label. */
   show_row_chip_field_names: boolean;

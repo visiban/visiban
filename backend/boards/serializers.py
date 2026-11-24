@@ -431,6 +431,14 @@ _BOARD_ENFORCEMENT_EXTRA_KWARGS = {
     "enforce_wip_limits": {"help_text": field_enforcement.BOARD_ENFORCE_WIP_LIMITS},
     "enforce_wip_hard": {"help_text": field_enforcement.BOARD_ENFORCE_WIP_HARD},
     "enforce_weight_limits": {"help_text": field_enforcement.BOARD_ENFORCE_WEIGHT_LIMITS},
+    "allow_assignee_override": {
+        "help_text": (
+            "Let a card's assignee (role member or higher) move it past a Block WIP or "
+            "weight limit with ?force=true and a required override_reason, unless they "
+            "assigned the card to themselves. Off by default. Board admins only; every "
+            "change is recorded (#1923)."
+        ),
+    },
 }
 
 
@@ -4267,6 +4275,9 @@ class CardSerializer(serializers.ModelSerializer):
             "checklist_open_due_dates", "checklist_open_assignee_ids",
             "is_stale", "archived_at", "version", "custom_field_values",
             "blocker_count", "external_ref", "notify_assignee",
+            # Who set the current assignee (#1923). Read-only; null when
+            # unassigned, imported, or the assigner was deleted.
+            "assigned_by",
             # Manual blocked state (#1149). Additive; read-only here — they
             # change only through POST .../block/ and .../unblock/, which
             # record the CardBlock row and activity a PATCH would skip.
@@ -4284,7 +4295,7 @@ class CardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "uid", "created_by", "created_at", "updated_at", "archived_at", "version",
-            "blocked_at", "blocked_reason", "gates_passed",
+            "blocked_at", "blocked_reason", "gates_passed", "assigned_by",
         ]
         # Schema-only (#1077): `version` reads as an OCC guard on every write;
         # only the move endpoint checks it.
@@ -4825,7 +4836,7 @@ class BoardSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, seria
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "archived_card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "is_starred", "template", "health_status", "effective_health_status", "health_status_source", *HEALTH_HISTORY_FIELDS, "default_preset", *HEALTH_REVIEW_FIELDS, *AUTO_HEALTH_BOARD_FIELDS, "swimlane_rollup_field", "commitment_column_uid", "cards_can_have_children", "default_child_board", "parent_name_singular", "parent_name_plural"]
         read_only_fields = ["uid", "created_at", "updated_at"]
         # Resolves every row's effective health from one ancestor map (#1133).
         list_serializer_class = HealthStatusListSerializer
@@ -5413,7 +5424,7 @@ class BoardFullSerializer(AutoHealthBoardFieldsMixin, HealthStatusFieldsMixin, s
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "custom_field_definitions",
             "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "allow_assignee_override", "export_min_role", "card_density", "show_wip_at_limit", "show_row_chip_field_names", "lane_details_cap", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
             "archived_card_count", "share_link_active",
             "health_status", "effective_health_status", "health_status_source",
             *HEALTH_HISTORY_FIELDS,

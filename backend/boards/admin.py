@@ -408,12 +408,20 @@ class CardAdmin(ContainerChangedAdminMixin, admin.ModelAdmin):
     # the two disagreeing.
     # gates_passed (#1102) is the card's sub-column index in its stage and
     # changes only through the gate/move services, which write its history.
-    readonly_fields = ("version", "blocked_at", "blocked_reason", "gates_passed")
+    readonly_fields = ("version", "blocked_at", "blocked_reason", "gates_passed", "assigned_by")
 
     def save_model(self, request, obj, form, change):
         peers = {}
         with transaction.atomic():
             stored = self._lock_cell_entry(obj, change)
+            # #1923: ``assigned_by`` is read-only here and follows the
+            # assignee: a changed (or new) assignee was assigned by this staff
+            # user, a cleared one clears it, an unchanged one keeps the stored
+            # provenance (``obj`` was loaded before the lock).
+            if stored is None or stored.assignee_id != obj.assignee_id:
+                obj.assigned_by_id = request.user.pk if obj.assignee_id else None
+            else:
+                obj.assigned_by_id = stored.assigned_by_id
             if stored is not None:
                 # ``obj`` was loaded before the lock, and the save writes every
                 # column, so the new version is computed from the locked row,

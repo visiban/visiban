@@ -38,7 +38,7 @@ from ..services import cards as card_services
 from ..services.notifications import (
     card_watcher_ids, create_notifications, notify_checklist_item_assigned, quoted_card_verb,
 )
-from ..services.errors import CardNotFound, CardServiceError
+from ..services.errors import CardNotFound, CardServiceError, clean_override_reason
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
@@ -457,6 +457,17 @@ class CardFilter(django_filters.FilterSet):
 def _force_requested(request):
     """``?force=true`` — the same parse the move endpoint has always used."""
     return request.query_params.get("force", "").lower() == "true"
+
+
+def _override_reason(request):
+    """The optional body field ``override_reason`` sent with ``?force=true`` (#1923).
+
+    Validated at the boundary (stripped, at most 500 characters, no NUL) by
+    the shared ``clean_override_reason``; a bad value is a 400. Whether a
+    reason is *required* is the service's decision (assignee basis only).
+    """
+    data = request.data if hasattr(request.data, "get") else {}
+    return clean_override_reason(data.get("override_reason"))
 
 
 _FORCE_PARAM = OpenApiParameter(
@@ -1048,6 +1059,7 @@ class CardViewSet(viewsets.ModelViewSet):
             ),
             render=self._refetch_card_data,
             force=_force_requested(self.request),
+            override_reason=_override_reason(self.request),
             notify_assignee=notify_assignee,
         )
         # No return value: DRF's CreateModelMixin renders the 201 body from
@@ -1187,6 +1199,7 @@ class CardViewSet(viewsets.ModelViewSet):
             render=self._plain_card_payload,
             render_many=self._batch_card_payloads,
             force=_force_requested(request),
+            override_reason=_override_reason(request),
         )
         return Response(result.payload)
 
@@ -1377,6 +1390,7 @@ class CardViewSet(viewsets.ModelViewSet):
             apply=apply,
             render=self._refetch_card_data,
             force=_force_requested(request),
+            override_reason=_override_reason(request),
         )
         return Response(result.payload)
 
@@ -1592,6 +1606,7 @@ class CardViewSet(viewsets.ModelViewSet):
             # exactly as it did before the extraction.
             expected_version=request.data.get("version"),
             force=_force_requested(request),
+            override_reason=_override_reason(request),
             render=render,
             # Passed raw for the same reason as ``version`` (#1102).
             gates_passed=request.data.get("gates_passed"),

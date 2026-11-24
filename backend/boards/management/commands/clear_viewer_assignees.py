@@ -186,7 +186,10 @@ class Command(BaseCommand):
                     for item in items
                 ]
             )
-            Card.objects.filter(pk__in=[c.pk for c in cards]).update(assignee=None)
+            # assigned_by is cleared with the assignee (#1923).
+            Card.objects.filter(pk__in=[c.pk for c in cards]).update(
+                assignee=None, assigned_by=None,
+            )
             CardChecklist.objects.filter(pk__in=[i.pk for i in items]).update(assignee=None)
 
             touched = {c.pk for c in cards} | {i.card_id for i in items}

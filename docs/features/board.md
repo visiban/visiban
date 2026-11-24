@@ -1240,3 +1240,10 @@ When the board has a gated stage, the **Filter** panel gains a **Sub-column** ro
 - **Track state** shows a card when at least one of its tracks on its own stage is in a picked state. A lane's not-applicable exception counts as **Not applicable**.
 - Both combine with every other filter, are remembered per board, and are saved with [saved filters](saved-filters.md). Not kept in the page address; a shared filter link does not carry them.
 
+
+
+### Letting a card's assignee move it anyway (since 1.3)
+
+By default only board admins can use **Move anyway** past a WIP or weight limit in Block mode. A board admin can turn on **Let a card's assignee move it anyway** (Board settings › Rules & limits › WIP & weight limits). The card's assignee can then move it past a Block limit too, with a reason, unless they assigned the card to themselves. Hard limits still stop everyone.
+
+Every override is recorded in the card's history with who did it, on what basis (admin or assignee) and the reason. The reason is visible to everyone on the board. Turning the switch on or off, and changing any WIP or weight enforcement setting, is recorded too.
