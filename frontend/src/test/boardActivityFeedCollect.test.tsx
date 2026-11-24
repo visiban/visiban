@@ -204,6 +204,7 @@ function makeContext(): BoardContextType {
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
     applyCustomFieldDefinitions: vi.fn(),
+    applyFieldSets: vi.fn(),
     applySwimlaneFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),

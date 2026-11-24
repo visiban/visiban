@@ -4184,7 +4184,7 @@ describe('BoardSettingsModal — grouped sidebar (#2436)', () => {
     mount({ gitLensEnabled: true })
     expect(screen.getByRole('tablist')).toHaveAttribute('aria-orientation', 'vertical')
     expect(tabNames().map((n) => n.replace(/ \(\d+\)$/, ''))).toEqual([
-      'Display', 'Rules & limits', 'Card fields', 'Swimlane fields', 'Members', 'Sharing', 'Webhooks', 'Issue lens', 'Export', 'Danger zone',
+      'Display', 'Rules & limits', 'Card fields', 'Field sets', 'Swimlane fields', 'Members', 'Sharing', 'Webhooks', 'Issue lens', 'Export', 'Danger zone',
     ])
     for (const g of ['Board', 'Fields', 'Access', 'Integrations', 'Data']) expect(screen.getByText(g)).toBeInTheDocument()
   })

@@ -2068,3 +2068,15 @@ Rule: **dashed outline = planned, solid outline = to do.** The blocked count is 
 - **A failed read that decides whether a control is usable** (blockers, permissions) shows a one-line `text-warning-on-tint` `role="status"` explanation and a Retry; it never leaves the control looking usable with no word. The Add child chooser's load failure has the same Retry.
 - **Cross-board settings links** use router `Link` to `/boards/:id?settings=<tab>`; BoardView opens the tab for admins only and strips the param. The link is 44px on a phone (`max-sm:min-h-11`).
 - **`border-line-strong` measures 2.56:1 light / 1.93:1 dark.** Do not use it where a border is the only cue (a lock-row outline, a drop target); use `border-line-boundary` (at least 3:1 on `surface`, `surface-sunken` and `canvas` in both themes) or `border-fg-tertiary`. #2505 moved the two dashed swatches (Automatic in `ChoiceColorPicker`, the empty custom trigger in `ColorSwatchPicker`) to `border-line-boundary`: line-strong measures 2.56/2.45/2.34 light and 1.93/2.36/2.66 dark on surface/sunken/canvas, boundary 4.76/4.55/4.34 light and 3.64/4.45/5.02 dark. Exempt, because visible text names the control (WCAG 1.4.11 applies only where the border is needed to identify it): dashed bordered buttons with a text label (`CardRelationsSection`, `CardExternalRefSection`, `CardDetail` add-link, `LaneTeamAssignee`, `BoardCell` hover edge (decorative hover feedback; the focus ring and the `Add card` label identify the cell), `BoardView` Modified tag), the `ImportBoardModal` and `TrelloImportModal` dropzones (each holds a text label that names it, though the border doubles as the drop area's extent), and disabled controls. A new dashed control with no text label must use the boundary token.
+
+
+## Field sets (#2570)
+
+1. Field set size toggles (Summary, All fields) use `aria-pressed` plus `ActiveUnderline`. Maximize is an action button (`aria-haspopup="dialog"`), never a pressed state.
+2. Field set progress excludes checkbox, dimension and hidden admin-only fields; "missing" must never mean "No".
+3. A set that is out of the card's lane never hides a stored value: it renders Collapsed with "Not used in {Lane}".
+4. Escape priorities: **30.5** is the field set Maximize layer (above the sheet's 30, below 31–37.5; field inputs at 41 still win); **40.8** is the field-set editor's delete and discard confirms. Both belong in the `useEscapeStack.ts` priority table.
+5. The field-set delete and discard confirms are #1367 focus-return sites: Cancel takes focus; on close, focus returns to the control that opened them.
+6. A structural live update (a set renamed, deleted, or a field moved) never unmounts a focused field row: keep the old grouping until that row blurs, then apply and announce.
+7. The Maximize scroll region keeps `scroll-pb-8` under its `h-8` bottom fade, pinned by a Vitest assertion (`fieldSets2570.test.tsx`); an `overflow-fade-focus.spec.ts` case is still owed.
+8. Summary chips never shrink or truncate: missing fields first, then as many whole chips as fit (measured), then "+N". Never a fixed per-viewport count.

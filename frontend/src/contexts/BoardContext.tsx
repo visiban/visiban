@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError, MoveOutcome } from "../hooks/useBoard";
-import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
 import type { CardPlannedFields } from "../utils/plannedFields";
 
 export interface BoardContextType {
@@ -48,6 +48,8 @@ export interface BoardContextType {
   updateLabel: (label: Label) => void;
   removeLabel: (labelUid: string) => void;
   applyCustomFieldDefinitions: (definitions: CustomFieldDefinition[] | ((prev: CustomFieldDefinition[]) => CustomFieldDefinition[])) => void;
+  /** #2570 — field sets: an updater (socket frames) or a whole list. */
+  applyFieldSets: (sets: CustomFieldSet[] | ((prev: CustomFieldSet[]) => CustomFieldSet[])) => void;
   applySwimlaneFieldDefinitions: (definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => void;
   addMember: (membership: BoardMembership) => void;
   updateMember: (membership: BoardMembership) => void;

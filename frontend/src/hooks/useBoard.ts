@@ -7,7 +7,7 @@ import { placementVerdict, pruneLaneLimitColumn, trippedLimitSentence } from "..
 import { dropUnknownLabels } from "../utils/cardLabels";
 import { isStaleCard } from "../utils/cardVersion";
 import { swimlaneForRole } from "../utils/swimlaneMerge";
-import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
+import type { CardChildrenRollup, BoardFull, BoardMembership, Card, CardParent, CardSiblingPosition, EffectiveBoardMember, Column, Swimlane, Label, CustomFieldDefinition, CustomFieldSet, SwimlaneCustomFieldDefinition } from "../types";
 import { pickPlannedFields, type CardPlannedFields } from "../utils/plannedFields";
 
 /** Result of useBoard.moveCard: it never rejects, so callers must check `ok`. */
@@ -1432,6 +1432,19 @@ export function useBoard() {
     });
   }, [writeBoard, writeBoardFrom]);
 
+  // Field sets (#2570) — same two forms as the definitions setter above: an
+  // updater for socket frames, or a whole list replayed as what it changed.
+  const applyFieldSets = useCallback((sets: CustomFieldSet[] | ((prev: CustomFieldSet[]) => CustomFieldSet[])) => {
+    if (typeof sets === 'function') {
+      writeBoard((b) => ({ ...b, custom_field_sets: sets(b.custom_field_sets ?? []) }));
+      return;
+    }
+    writeBoardFrom((live) => {
+      const change = listChange(live.custom_field_sets ?? [], sets);
+      return (b) => ({ ...b, custom_field_sets: change(b.custom_field_sets ?? []) });
+    });
+  }, [writeBoard, writeBoardFrom]);
+
   // Row field schema (#1140) — exactly parallel to the card version above,
   // and separate because the two are independent per-board schemas.
   const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[] | ((prev: SwimlaneCustomFieldDefinition[]) => SwimlaneCustomFieldDefinition[])) => {
@@ -1701,5 +1714,5 @@ export function useBoard() {
     }
   }, [boardId, load, writeBoard]);
 
-  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
+  return { board, loading, error, unavailable, reload: load, silentReload, getLastFullFetchAt, moveCard, forceMoveCard, forceMoveCardTo, moveError, ...({ pendingMoveCardId: pendingMove?.cardId } as { pendingMoveCardId?: number | null }), clearMoveError, addCard, removeCard, archiveCard, archiveCardByUid, unarchiveCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applyFieldSets, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState, applyCardParents, applyCardChildrenRollups };
 }

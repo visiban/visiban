@@ -47,6 +47,7 @@ import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
+import FieldSetBlocks from "./FieldSetBlocks";
 import CardExtensionSections from "./CardExtensionSections";
 import CardRelationsSection from "./CardRelationsSection";
 import CardParentSection from "./CardParentSection";
@@ -2198,7 +2199,33 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   the field is API-exposed but server-unenforced in v1, so a
                   required-field asterisk would promise validation that doesn't
                   exist. */}
-              {board.custom_field_definitions.length > 0 && (
+              {/* Field sets (#2570): a board with at least one set renders its
+                  fields as blocks in this same slot; a board with none keeps
+                  the flat section below exactly as before. */}
+              {board.custom_field_definitions.length > 0 && (board.custom_field_sets?.length ?? 0) > 0 && (
+                <>
+                  <div className="border-t border-line" />
+                  <FieldSetBlocks
+                    boardId={board.id}
+                    cardId={localCard.id}
+                    cardTitle={localCard.title}
+                    swimlaneId={localCard.swimlane ?? null}
+                    swimlaneName={board.swimlanes.find((sw) => sw.id === localCard.swimlane)?.name}
+                    definitions={board.custom_field_definitions}
+                    sets={board.custom_field_sets ?? []}
+                    values={localCard.custom_field_values}
+                    canEdit={canEdit}
+                    isAdmin={board.current_user_role === "admin"}
+                    userId={currentUser?.id}
+                    userDateFormat={userDateFormat}
+                    userTimezone={userTimezone}
+                    onSave={(definitionId, v) => save({
+                      custom_field_values: withCustomFieldValue(localCard.custom_field_values, definitionId, v),
+                    })}
+                  />
+                </>
+              )}
+              {board.custom_field_definitions.length > 0 && (board.custom_field_sets?.length ?? 0) === 0 && (
                 <>
                   <div className="border-t border-line" />
                   <div>

@@ -27,8 +27,9 @@ import HealthOffTrackInput from "../Common/HealthOffTrackInput";
 import { HealthComputedTime, HealthRecomputeButton } from "../Common/HealthComputedBlock";
 import { applyHealthRecompute, pickBoardHealth } from "../../utils/healthStatus";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardFull, BoardPresetId, CardDensity, CustomFieldDefinition, CustomFieldSet, EffectiveBoardMember, LensConnection, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
+import BoardSettingsFieldSetsSection from "./BoardSettingsFieldSetsSection";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import BoardSettingsWebhooksTab, { type WebhookCloseGuard } from "./BoardSettingsWebhooksTab";
 import { userDisplayName } from "../../types";
@@ -137,6 +138,8 @@ interface Props {
    *  owns syncing this into board state, the same role it plays for every
    *  other board sub-resource. */
   onFieldsUpdated?: (definitions: CustomFieldDefinition[]) => void;
+  /** #2570 — apply a field-set change (an updater, or the whole list). */
+  onFieldSetsUpdated?: (sets: CustomFieldSet[] | ((prev: CustomFieldSet[]) => CustomFieldSet[])) => void;
   onSwimlaneFieldsUpdated?: (definitions: SwimlaneCustomFieldDefinition[]) => void;
   /** #2245: merge a recomputed lane (resolver form of useBoard's updateSwimlane). */
   onUpdateSwimlane?: (resolver: (board: BoardFull) => Swimlane) => void;
@@ -240,7 +243,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab, onBoardDeleted, onBoardDeleting, onBoardDeleteFailed, currentUserId, onDeleteForbidden, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, onShowChildCards, onMergeBoardFields, cardDensityOverride = null, onSetCardDensityOverride, densityPresetSource = null, effectiveCardDensity, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onFieldSetsUpdated, onSwimlaneFieldsUpdated, onUpdateSwimlane, demoMode = false, currentUserIsSiteAdmin = false, inviteReloadSignal, onMembersAdded, onShareChanged, shareLinkIssuedAt = null, focusFirstStoppedWebhook = false, webhookChange = null, webhookReconnectSignal = 0, webhookSocketStatus, currentUserHasPassword = true, onColumnUpdated }: Props) {
   // The Child cards switch (#1104): the server refuses a flip while card links
   // depend on the flag (400). Say why, instead of the silent revert the
   // sibling switches do.
@@ -261,7 +264,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   };
   const settingsInert = demoMode && isAdmin;
   const isPhone = useIsPhoneViewport();
-  const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "swimlane-fields", "export"]);
+  const availableSections = new Set<Tab>(["members", "display", "rules", "fields", "field-sets", "swimlane-fields", "export"]);
   if (isAdmin) availableSections.add("sharing");
   if (isAdmin && !demoMode) availableSections.add("webhooks");
   if (isAdmin && gitLensEnabled) availableSections.add("lens");
@@ -1334,6 +1337,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <BoardSettingsFieldsTab
               board={board}
               isAdmin={isAdmin}
+              onFieldsUpdated={(definitions) => onFieldsUpdated?.(definitions)}
+            />
+            </DemoInert>
+          )}
+
+          {/* ── Field sets (#2570) ── */}
+          {tab === "field-sets" && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
+            <BoardSettingsFieldSetsSection
+              board={board}
+              isAdmin={isAdmin}
+              onFieldSetsUpdated={(sets) => onFieldSetsUpdated?.(sets)}
               onFieldsUpdated={(definitions) => onFieldsUpdated?.(definitions)}
             />
             </DemoInert>

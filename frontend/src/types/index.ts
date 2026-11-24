@@ -596,6 +596,38 @@ export interface CustomFieldDefinition {
   is_dimension?: boolean;
   /** #1921 — `{choice: resolution}`, keys a subset of `choices`; `{}` on non-dimensions. */
   choice_resolutions?: Record<string, DimensionResolution>;
+  /**
+   * #2570 — the id of the `CustomFieldSet` this field displays under, `null` for
+   * Other fields. Read-only; membership is written through the field-set
+   * endpoint. The UI derives membership from `CustomFieldSet.field_ids`.
+   * Optional because a payload from a server before 1.3 does not carry it.
+   */
+  field_set?: number | null;
+}
+
+/** #2570 — how a field set block opens. Mirrors `CustomFieldSet.Size`. */
+export type FieldSetSize = "collapsed" | "summary" | "expanded";
+
+/**
+ * A named group of a board's card custom fields (#2570). Mirrors
+ * `CustomFieldSetSerializer`; arrives with the board on `/full/` as
+ * `custom_field_sets`. Display only: no values, no enforcement.
+ */
+export interface CustomFieldSet {
+  id: number;
+  uid: string;
+  name: string;
+  /** Optional subtitle, at most 120 characters. */
+  description: string | null;
+  position: number;
+  default_size: FieldSetSize;
+  /** `"all"` = every card; `"swimlanes"` = only cards in `swimlanes`. */
+  scope: "all" | "swimlanes";
+  /** Swimlane ids; empty when `scope` is `"all"`. */
+  swimlanes: number[];
+  /** Member custom field ids, in board field order. */
+  field_ids: number[];
+  created_at: string;
 }
 
 /** `CustomFieldDefinition.threshold_direction` (#1122). `""` = thresholds off. */
@@ -1655,6 +1687,8 @@ export interface BoardFull {
   labels: Label[];
   members: EffectiveBoardMember[];
   custom_field_definitions: CustomFieldDefinition[];
+  /** #2570 — the board's field sets in position order. Optional: absent from a server before 1.3. */
+  custom_field_sets?: CustomFieldSet[];
   /** The board's swimlane-row field schema (#1140). Independent of the card schema above. */
   swimlane_custom_field_definitions: SwimlaneCustomFieldDefinition[];
   staleness_threshold_days: number;
