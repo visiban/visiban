@@ -4583,7 +4583,7 @@
 <li><strong>Same board only.</strong> Relations cannot span boards.</li>
 <li><strong>A card cannot be linked to itself.</strong></li>
 <li><strong>Two cards cannot block each other.</strong> Longer chains (A blocks B blocks C blocks A) are not detected and are permitted.</li>
-<li><strong>Relations are not carried by board export or import.</strong> A board exported and re-imported loses its relations.</li>
+<li><strong>Only the JSON export carries relations</strong> <em>(1.3+)</em>. A board exported as JSON and re-imported keeps its relations (<a href="../../api/boards/#get-apiv1boardsidexportformatjson">format</a>). The CSV export has none, so a board re-imported from CSV loses them.</li>
 <li><strong>Blockers are not cleared automatically.</strong> Moving a blocking card to a done column does not remove the relation or the indicator. Archive the card, or remove the relation, when the dependency is resolved.</li>
 </ul>
 <hr />

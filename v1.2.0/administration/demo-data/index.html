@@ -4796,7 +4796,7 @@ board — This is CI-only, used by the
 <li>closed deals (won and lost) already archived</li>
 <li>a <code>board.created</code> entry in its change feed</li>
 </ul>
-<p>The sample's cast (<code>demo1</code>-<code>demo5</code>) and the demo accounts are members. Dates move as the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset and nothing is dated in the future (every sample's newest event is a day before its anchor). The sample format carries no card relations yet (<a href="https://gitlab.com/visiban/visiban/-/issues/1448">#1448</a>), so this board has none. Its URL is stable across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at <code>/boards/6</code>.</p>
+<p>The sample's cast (<code>demo1</code>-<code>demo5</code>) and the demo accounts are members. Dates move as the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset and nothing is dated in the future (every sample's newest event is a day before its anchor). It also carries the sample's card relations (<a href="https://gitlab.com/visiban/visiban/-/issues/1448">#1448</a>): one card blocking another, both still in progress, and a related pair. The demo adds no relations of its own to this board. Its URL is stable across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at <code>/boards/6</code>.</p>
 <p>The six other boards each also show off (#1363):</p>
 <ul>
 <li>partly done <strong>checklists</strong>, such as a release checklist on Software Team and inspection steps on Construction</li>
