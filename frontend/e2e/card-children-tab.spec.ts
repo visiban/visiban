@@ -100,11 +100,6 @@ async function setup(page: Page, mode: () => Mode) {
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/timeline\//, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, next: null, results: [] }) }),
   )
-  // The card sheet reads its extension sections (#2212). Unmocked, that read reaches whatever listens on :8000: in CI
-  // nothing (refused, harmless), but locally the dev stack answers 401 and the app signs the test out mid-run (#2530).
-  await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/extensions\/$/, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sections: [] }) }),
-  )
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/children\/\d+\/$/, (route) => route.fulfill({ status: 204, body: '' }))
   await page.route(/\/api\/v1\/boards\/\d+\/cards\/\d+\/children\/(\?.*)?$/, async (route) => {
     const m = mode()
