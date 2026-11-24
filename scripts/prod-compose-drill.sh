@@ -52,7 +52,11 @@
 #   6. NEGATIVE: a boot with the chart's own placeholder DJANGO_SECRET_KEY
 #      is REJECTED. A guard that stopped firing looks exactly like one that
 #      never fires, so the fail-closed path is asserted, not assumed;
-#   7. the stack survives `docker compose restart backend`.
+#   7. the stack survives `docker compose restart backend`;
+#   8. the first-run user journey works THROUGH nginx (#1364): site-config,
+#      the SPA and a deep-link fallback, login with the bootstrapped admin
+#      password, the forced password change and re-login, board create, and a
+#      WebSocket upgrade (101) on /ws/boards/<id>/.
 #
 # Images are THIS COMMIT's builds of the exact production Dockerfiles
 # (backend/Dockerfile.prod, frontend/Dockerfile.prod), retagged as the
@@ -165,7 +169,7 @@ teardown() {
   [ "${status}" -eq 0 ] || dump_diagnostics
   log "tearing down (down -v)"
   compose down -v --remove-orphans >/dev/null 2>&1 || true
-  rm -f .env nginx/active.conf.template
+  rm -f .env nginx/active.conf.template "${JAR:-}" "${BODY:-}"
   # init-prod.sh mints the self-signed lineage into the checkout — a
   # generated artifact containing a private key. Leave neither it nor its
   # dirs behind for a later `git add -A`.
@@ -438,5 +442,98 @@ if compose logs backend 2>&1 | grep -q "ImproperlyConfigured"; then
   fail "backend refused to start on a boot guard AFTER restart"
 fi
 log "stack recovered after 'docker compose restart backend'"
+
+# ---- 8. the stack carries real user traffic through nginx (#1364) ----------
+# Readiness proves nginx reaches the backend; it does not prove the ingress
+# carries an authenticated session, a CSRF-checked write, or a WebSocket
+# upgrade. A broken `proxy_set_header Upgrade` block, a CORS/FRONTEND_URL
+# mismatch, or a first-login flow that never completes would all pass steps
+# 1-7. This walks the first-run path an operator takes, every request through
+# the published nginx port (${BASE_URL}), as a browser would:
+#   site-config -> SPA and a deep-link fallback -> login with the bootstrapped
+#   admin password -> forced password change -> re-login -> board create ->
+#   WebSocket upgrade on /ws/boards/<id>/.
+# Session auth + CSRF (the SPA's own mode): Origin/Referer are sent because
+# Django's CSRF check requires them on HTTPS and CSRF_TRUSTED_ORIGINS is
+# BASE_URL. Passwords go to curl on stdin (--data @-), never argv, so they are
+# not readable from the process list.
+JAR="$(mktemp)"
+
+http_status() { # http_status <expected> <label> <curl args...>; prints body to $BODY
+  local expected="$1" label="$2" code
+  shift 2
+  rm -f "${BODY:-}"
+  BODY="$(mktemp)"
+  code="$("${CURL[@]}" -o "${BODY}" -w '%{http_code}' -b "${JAR}" -c "${JAR}" \
+    -H "Origin: ${BASE_URL}" -H "Referer: ${BASE_URL}/" "$@")" || code="curl-failed"
+  if [ "${code}" != "${expected}" ]; then
+    echo "  response body (first 300 bytes):" >&2
+    head -c 300 "${BODY}" | sed 's/^/    /' >&2 || true
+    echo >&2
+    rm -f "${BODY}"
+    fail "${label}: expected HTTP ${expected} through nginx, got ${code} (#1364)"
+  fi
+}
+csrf_token() { awk '$6=="csrftoken"{print $7}' "${JAR}" | tail -1; }
+json_post() { # json_post <expected> <label> <path> <body on stdin>
+  local expected="$1" label="$2" path="$3"
+  http_status "${expected}" "${label}" -X POST -H 'Content-Type: application/json' \
+    -H "X-CSRFToken: $(csrf_token)" --data @- "${BASE_URL}${path}"
+}
+
+log "USER JOURNEY: site-config, SPA, deep link"
+http_status 200 "GET /api/v1/auth/site-config/" "${BASE_URL}/api/v1/auth/site-config/"
+grep -q '"registration_open"' "${BODY}" || fail "site-config payload lacks registration_open: $(head -c 200 "${BODY}")"
+http_status 200 "GET / (SPA)" "${BASE_URL}/"
+grep -q '<div id="root"' "${BODY}" || fail "GET / did not serve the SPA index.html"
+http_status 200 "GET /boards/1 (deep link)" "${BASE_URL}/boards/1"
+grep -q '<div id="root"' "${BODY}" || fail "a deep link did not fall back to index.html — nginx try_files is broken"
+
+log "USER JOURNEY: login with the bootstrapped admin password"
+printf '{"username":"admin","password":"%s"}' "${admin_password}" \
+  | json_post 200 "POST /api/v1/auth/login/ (bootstrapped admin)" /api/v1/auth/login/
+http_status 200 "GET /api/v1/auth/user/" "${BASE_URL}/api/v1/auth/user/"
+grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}" || fail \
+  "the bootstrapped admin is not flagged must_change_password — the forced first-login change would never be offered: $(head -c 300 "${BODY}")"
+
+log "USER JOURNEY: forced password change, then re-login with the new password"
+# Prefix keeps the hex from ever being all digits (NumericPasswordValidator).
+new_password="Drill-$(gen_secret)"
+printf '{"current_password":"%s","new_password":"%s"}' "${admin_password}" "${new_password}" \
+  | json_post 200 "POST /api/v1/auth/change-password/" /api/v1/auth/change-password/
+http_status 200 "POST /api/v1/auth/logout/" -X POST -H "X-CSRFToken: $(csrf_token)" "${BASE_URL}/api/v1/auth/logout/"
+: > "${JAR}"
+printf '{"username":"admin","password":"%s"}' "${new_password}" \
+  | json_post 200 "re-login with the new password" /api/v1/auth/login/
+http_status 200 "GET /api/v1/auth/user/ after change" "${BASE_URL}/api/v1/auth/user/"
+if grep -Eq '"must_change_password"[[:space:]]*:[[:space:]]*true' "${BODY}"; then
+  fail "must_change_password is still true after a successful change"
+fi
+
+log "USER JOURNEY: board create"
+printf '{"name":"Compose drill board"}' | json_post 201 "POST /api/v1/boards/" /api/v1/boards/
+board_id="$(grep -o '"id"[[:space:]]*:[[:space:]]*[0-9]*' "${BODY}" | head -1 | grep -o '[0-9]*$')"
+[ -n "${board_id}" ] || fail "board create returned no id: $(head -c 300 "${BODY}")"
+
+log "USER JOURNEY: WebSocket upgrade through nginx on /ws/boards/${board_id}/"
+# A real handshake: the session cookie authenticates it and the Origin must
+# pass OptionalOriginValidator. 101 only comes back if nginx forwards Upgrade
+# AND the consumer accepts this user; an unauthorized or un-upgraded request
+# gets 4xx instead. curl then waits on the open socket, so cap it with -m and
+# read the status line from the dumped headers (exit 28 on the cap is expected).
+ws_headers="$(mktemp)"
+"${CURL[@]}" -m 5 -o /dev/null -D "${ws_headers}" -b "${JAR}" \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" -H "Origin: ${BASE_URL}" \
+  "${BASE_URL}/ws/boards/${board_id}/" || true
+ws_status="$(head -1 "${ws_headers}" | tr -d '\r' | awk '{print $2}')"
+if [ "${ws_status}" != "101" ]; then
+  echo "  handshake response headers:" >&2
+  sed 's/^/    /' "${ws_headers}" >&2 || true
+  rm -f "${ws_headers}"
+  fail "WebSocket upgrade on /ws/boards/${board_id}/ returned '${ws_status:-no response}', not 101 — nginx is not forwarding Upgrade, or the origin/auth gate refused the handshake (#1364)"
+fi
+rm -f "${ws_headers}" "${BODY:-}"
+log "the first-run user journey works through nginx: login, forced change, board create, WebSocket 101"
 
 log "prod compose drill passed (TLS_MODE=${TLS_MODE})"
