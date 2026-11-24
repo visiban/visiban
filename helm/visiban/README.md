@@ -99,8 +99,10 @@ The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi
 | Largest board | Suggested `backend.resources.limits.memory` |
 |---|---|
 | Up to about 2.4k active cards, under a year of history | `512Mi` (the default) |
-| Up to about 12k active cards, or about 2.4k with a year or more of history | `1Gi` |
-| 12k or more active cards with a year or more of history, or several years of history | `2Gi` |
+| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to under 3 years of history | `1Gi` |
+| 12k or more active cards with a year or more of history, or 3 or more years of history | `2Gi` |
+
+The tiers are interpolated from the peaks above, not measured per tier.
 
 ```yaml
 backend:

@@ -217,21 +217,21 @@ The Helm defaults fit a small team, not a large board with long history. Opening
 
 **By the numbers:** From the 2026-11-20 stress run, per Analytics overview open (`analytics/?days=90`, `analytics/?days=365`, the `metrics/*` endpoints and `summary`):
 
-| Largest board | Cards / movements | Slowest single request (peak Python allocation) | Overview, 8 requests serial |
+| Largest board | Cards / movements | Largest single request (peak Python allocation) | Overview, 8 requests serial |
 |---|---|---|---|
 | 2.4k active, 80 days of history | 2,395 / 24,919 | `analytics/?days=365`: 0.49 s, 29 MB | 1.4 s |
 | 2.4k active, plus 1 year archived | 11,947 / 124,255 | `analytics/?days=365`: 1.95 s, 137 MB | 4.6 s |
 | 2.4k active, plus 3 years archived | 31,051 / 322,927 | `metrics/*`: 1.4-1.6 s, 186 MB | 10.0 s |
-| 12k active, 80 days of history | 12,058 / 124,374 | `analytics/?days=90`: 2.13 s, 144 MB | 7.4 s |
+| 12k active, 80 days of history | 12,058 / 124,374 | `analytics/?days=365`: 2.26 s, 144 MB | 7.4 s |
 | 12k active, plus 1 year archived | 60,262 / 621,534 | `analytics/?days=365`: 9.58 s, 691 MB | 22.9 s |
 
-**How to size it:** Process memory is higher than the Python allocation in the table (about 115 MB idle, plus the request, plus memory the process keeps). Use these as a starting point for `backend.resources.limits.memory`, and raise it if the pod restarts with `OOMKilled`:
+**How to size it:** Process memory is higher than the Python allocation in the table (about 115 MB idle, plus the request, plus memory the process keeps). Use these as a starting point for `backend.resources.limits.memory`, and raise it if the pod restarts with `OOMKilled`. The tiers are interpolated from the peaks above, not measured per tier:
 
 | Largest board | Suggested `limits.memory` | Suggested `requests.memory` |
 |---|---|---|
 | Up to about 2.4k active cards and under a year of history | `512Mi` (the default) | `256Mi` (the default) |
-| Up to about 12k active cards, or about 2.4k with a year or more of history | `1Gi` | `512Mi` |
-| Large boards: 12k or more active cards with a year or more of history, or several years of history | `2Gi` (the highest process peak measured was 1,956 MB) | `1Gi` |
+| Up to about 12k active cards with under a year of history, or about 2.4k active with 1 to under 3 years of history | `1Gi` | `512Mi` |
+| Large boards: 12k or more active cards with a year or more of history, or 3 or more years of history | `2Gi` (the highest process peak measured was 1,956 MB) | `1Gi` |
 
 ```yaml
 backend:

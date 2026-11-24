@@ -131,7 +131,7 @@ Some parameters are clamped or ignored rather than refused; each endpoint's page
 
 ### Rate limits
 
-**By the numbers:** Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
+Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
 
 Every endpoint counts against two defaults unless its page names a tighter scope:
 

@@ -22,7 +22,7 @@ curl -H "Authorization: Token $TOKEN" http://localhost:8000/api/v1/notifications
 - Someone else comments on a card they created or are assigned to (`notif_comment_added`) — *added in 1.2*; suppressed when the same comment @mentions them
 - A [webhook](webhooks.md) on a board they administer was turned off automatically (`webhook_disabled`) — *added in 1.3*. Sent to each active account that administers the board (its owner, an admin member, or an admin through a group), and to the webhook's owner (the account that last set it up) while that account still administers the board. Other site admins who only have instance-wide access are not notified. There is no preference to turn it off. The `verb` is `A webhook on "<board>" was turned off (webhook #<id>, <reason>)`, where the reason code is `failures`, `cursor_expired`, `creator_lost_access` or `secret_unavailable`; it never contains the webhook's URL. `card_id` is `null`.
 
-**Go deeper:** Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
+Each notification preference can be toggled individually via `PATCH /api/v1/auth/me/`. See [Authentication](authentication.md).
 
 **How it works:** Assignment, @mention, due-soon, card-moved, and comment-on-a-watched-card notifications
 can also be delivered by email, controlled by a parallel set of fields on the same
@@ -44,7 +44,7 @@ administers the board. Its link opens the board's Webhooks settings
 ### `GET /api/v1/notifications/`
 List the 50 most recent **unread** notifications for the current user. Requires authentication.
 
-**Watch out:** Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from `unread-count` below) — see #987.
+Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from `unread-count` below) — see #987.
 
 **Response**
 ```json
@@ -108,6 +108,6 @@ Mark notifications as read. Requires authentication.
 ### `GET /api/v1/notifications/unread-count/`
 Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.
 
-**By the numbers:** The count is uncapped and covers every unread notification on a board you can still access (plus notifications with no board). It can exceed the 50 the list endpoint returns. Since 1.3 (#1959), rows on boards you have lost access to no longer reduce the count when they fall inside the newest 50.
+The count is uncapped and covers every unread notification on a board you can still access (plus notifications with no board). It can exceed the 50 the list endpoint returns. Since 1.3 (#1959), rows on boards you have lost access to no longer reduce the count when they fall inside the newest 50.
 
 **Response** `{ "count": 5 }`
