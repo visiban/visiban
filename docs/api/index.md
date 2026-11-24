@@ -131,7 +131,7 @@ Some parameters are clamped or ignored rather than refused; each endpoint's page
 
 ### Rate limits
 
-Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
+**By the numbers:** Requests are throttled per client with DRF throttles. A request over its limit answers `429 Too Many Requests` with `{"detail": "Request was throttled. Expected available in N seconds."}` and a `Retry-After` header (seconds); wait that long before retrying.
 
 Every endpoint counts against two defaults unless its page names a tighter scope:
 
@@ -279,7 +279,7 @@ One legacy endpoint still accepts a `snake_case` alias for backward compatibilit
 |---|---|
 | `PATCH /boards/<id>/swimlanes/<id>/set-collapsed/` | `PATCH /boards/<id>/swimlanes/<id>/set_collapsed/` |
 
-The snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window. *(1.2+)* The OpenAPI schema marks the alias operation `deprecated: true`.
+**Yes, but:** the snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window. *(1.2+)* The OpenAPI schema marks the alias operation `deprecated: true`.
 
 ### Expanding foreign-key fields
 
