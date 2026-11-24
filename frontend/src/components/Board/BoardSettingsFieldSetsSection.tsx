@@ -334,7 +334,7 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                     <div className="flex gap-3 flex-wrap">
                       {(["collapsed", "summary", "expanded"] as FieldSetSize[]).map((s) => (
                         <label key={s} className="flex items-center gap-1.5 text-sm max-sm:min-h-11">
-                          <input type="radio" name="fs-size" checked={draft.default_size === s} onChange={() => setDraft({ ...draft, default_size: s })} />{SIZE_LABEL[s]}
+                          <input type="radio" className="accent-primary" name="fs-size" checked={draft.default_size === s} onChange={() => setDraft({ ...draft, default_size: s })} />{SIZE_LABEL[s]}
                         </label>
                       ))}
                     </div>
@@ -342,10 +342,10 @@ export default function BoardSettingsFieldSetsSection({ board, isAdmin, onFieldS
                   <fieldset className="flex flex-col gap-1">
                     <legend className="text-xs text-fg-muted mb-1">Shows on</legend>
                     <label className="flex items-center gap-1.5 text-sm max-sm:min-h-11">
-                      <input type="radio" name="fs-scope" checked={draft.scope === "all"} onChange={() => setDraft({ ...draft, scope: "all", swimlanes: [] })} />Every card
+                      <input type="radio" className="accent-primary" name="fs-scope" checked={draft.scope === "all"} onChange={() => setDraft({ ...draft, scope: "all", swimlanes: [] })} />Every card
                     </label>
                     <label className="flex items-center gap-1.5 text-sm max-sm:min-h-11">
-                      <input type="radio" name="fs-scope" disabled={board.swimlanes.length === 0} checked={draft.scope === "swimlanes"} onChange={() => setDraft({ ...draft, scope: "swimlanes" })} />Only cards in these swimlanes
+                      <input type="radio" className="accent-primary" name="fs-scope" disabled={board.swimlanes.length === 0} checked={draft.scope === "swimlanes"} onChange={() => setDraft({ ...draft, scope: "swimlanes" })} />Only cards in these swimlanes
                     </label>
                     {board.swimlanes.length === 0 && <p className="text-xs text-fg-muted">This board has no swimlanes.</p>}
                     {draft.scope === "swimlanes" && (
