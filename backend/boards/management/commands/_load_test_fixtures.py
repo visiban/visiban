@@ -16,7 +16,7 @@ or ``demo3`` filters on the viewer's accessible board ids, so giving either of
 them access would change a gated plan. Keeping the fixtures on their own
 account means what viewers can see is unchanged. Row counts still grow
 (``cards`` from about 4k to about 16.5k, movements about 5x, when the aged
-fixture is on), which can shift query plans and timings for the existing gated
+fixture is on; about 67.5k with the linked and children-view fixtures, #2538), which can shift query plans and timings for the existing gated
 scenarios, so their budgets may move: expected, not proven (#1810 did the same
 to the cards table).
 

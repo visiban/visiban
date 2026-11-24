@@ -217,6 +217,10 @@ class LoadTestFixtureTests(TestCase):
         client.force_authenticate(self.user)
         resp = client.get(f"/api/v1/boards/{parent_board.pk}/children-view/")
         self.assertEqual(resp.status_code, 200)
+        # One row per parent of the shrunk fixture (CHILDREN_VIEW_PARENTS patched to 6 above): a
+        # 200 with no rows would pass a fixture that seeds no parents, which is the case the
+        # script's own "first page has no parent rows" check exists for.
+        self.assertEqual(len(resp.json()["rows"]), 6)
 
     # -- gate rows on the load-test board (#2405) ---------------------------
 
