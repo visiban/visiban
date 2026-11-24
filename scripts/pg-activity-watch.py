@@ -46,9 +46,11 @@ QUERY_LIMIT = 500
 EXPLAIN_TIMEOUT_MS = 20_000
 #: Connect bound for the diagnostic connection to the TEST database. Together
 #: with ``EXPLAIN_TIMEOUT_MS`` the connection lives at most about 25 s (plus the
-#: two cheap catalog reads): it is always closed in a ``finally``, and short
-#: so it is gone before the shard tears down, because Django's ``DROP DATABASE``
-#: fails with "being accessed by other users" while any session is still open.
+#: two cheap catalog reads): it is always closed in a ``finally``. The timeouts
+#: only bound the window to about 25 s, they do not remove it: a shard teardown
+#: inside that window can still meet the open session, and Django's
+#: ``DROP DATABASE`` fails with "being accessed by other users" while any
+#: session is open. This is a reduced risk, not an eliminated one.
 EXPLAIN_CONNECT_TIMEOUT_S = 5
 #: Tables whose planner statistics are printed with a plan, at most.
 STATS_TABLE_LIMIT = 20

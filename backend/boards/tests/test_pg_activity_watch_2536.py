@@ -183,4 +183,11 @@ class PlanReportAgainstPostgresTests(TransactionTestCase):
         before = self._other_sessions()
         self._plan('SELECT "cards"."id" FROM "cards"')
         self._plan('SELECT "cards"."id" FROM "cards" WHERE "cards"."id" IN (1, 2')
-        self.assertEqual(self._other_sessions(), before)
+        # conn.close() only sends Terminate; the backend row can linger briefly in
+        # pg_stat_activity, so poll instead of asserting once (flaky on slow runners).
+        deadline = time.monotonic() + 2.0
+        after = self._other_sessions()
+        while after != before and time.monotonic() < deadline:
+            time.sleep(0.05)
+            after = self._other_sessions()
+        self.assertEqual(after, before)

@@ -619,8 +619,10 @@ job timeout. These diagnostics exist so the next stall names its cause instead o
   21:16, 21:22), so each run took minutes on CPU. For a stall like that (active, no wait event, no
   blocker) the watcher now also prints an `EXPLAIN` (plan only, never `ANALYZE`) of the stuck
   statement, run on the same database from a read-only connection with a 5 s connect timeout and a 20 s statement timeout (the connection is to the
-  test database, so it is bounded and always closed: an open session would make the shard's
-  `DROP DATABASE` fail with "being accessed by other users").
+  test database and always closed, and the timeouts bound its life to about 25 s. That is a
+  reduced risk, not an eliminated one: a teardown inside that window can still meet the open
+  session, and an open session makes the shard's `DROP DATABASE` fail with "being accessed by
+  other users").
   Alongside it come how long planning took, the JIT thresholds to compare with the plan's top-line
   cost, and `reltuples`/`relpages`/current pages/live/dead tuples and last (auto)analyze for each
   table in the statement. Read it like this: `EXPLAIN failed after 20.0s: QueryCanceled` means the
