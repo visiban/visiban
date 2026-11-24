@@ -5286,6 +5286,7 @@
 </li>
 </ul>
 <blockquote>
+<p><strong>Note (2026-11-24, #2554):</strong> the stalled rule above now excludes planned children, and measures a released one from the later of its last movement and its release. The Needs attention list, the heatmap's stalled cards and the stale digest share it.</p>
 <p><strong>Note (2026-11-15, #2307):</strong> the done-side rate on the flow row needs a count that sums the done bands' <code>entered</code> without double counting, so the cumulative-flow payload adds <code>completed</code> and <code>completed_per_week</code>. <code>completed</code> counts first completions only, in the window <code>first_day &lt; date &lt;= last_day</code>, on the same <code>completion_at</code> definition as throughput. A card moving Done A to Done B counts once, and a finish after a reopen is not counted again. <code>completed_per_week</code> is <code>completed × 7 ÷ (days − 1)</code>, unrounded, and <code>null</code> under two whole days.</p>
 </blockquote>
 <h3 id="swimlane-comparison-2266">Swimlane comparison (#2266)<a class="headerlink" href="#swimlane-comparison-2266" title="Permanent link">&para;</a></h3>
