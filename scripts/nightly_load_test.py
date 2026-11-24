@@ -32,6 +32,7 @@ cursor page, as a one-board user (#1805).
   - notifications_unread    GET  /api/v1/notifications/unread-count/
   - linked_board_full       GET  .../{linked board}/full/            (#2424, 500 cards each with a parent)
   - linked_card_list        GET  .../{linked board}/cards/           (#2424)
+  - children_view           GET  .../{parent board}/children-view/   (#2538, 500 parents x ~100 children)
   - aged_*                  the summary, analytics and the metrics/* reads (single and overview) on the AGED board (#2430)
   - analytics_overview, aged_analytics_overview   the overview's two reads fired at once (#2430)
 
@@ -244,9 +245,11 @@ _AGED_SCENARIOS = (
     "aged_flow_swimlanes", "aged_flow_overview", "aged_flow_cumulative_flow_day",
 )
 _LINKED_SCENARIOS = ("linked_board_full", "linked_card_list")
+_CHILDREN_VIEW_SCENARIOS = ("children_view",)
 _FANOUT_SCENARIOS = ("analytics_overview", "aged_analytics_overview")
 _MEMORY_GATED = (
     ("board_summary", "board_analytics") + _FLOW_SCENARIOS + _AGED_SCENARIOS + _FANOUT_SCENARIOS
+    + _CHILDREN_VIEW_SCENARIOS
 )
 
 # The overview opens with these two reads at once, into one server process: since #2426 the
@@ -278,11 +281,13 @@ def _check_measured(names, budgets, key, why):
         )
 
 
-_ANALYTICS_USER_SCENARIOS = _LINKED_SCENARIOS + _AGED_SCENARIOS + ("aged_analytics_overview",)
+_ANALYTICS_USER_SCENARIOS = (
+    _LINKED_SCENARIOS + _CHILDREN_VIEW_SCENARIOS + _AGED_SCENARIOS + ("aged_analytics_overview",)
+)
 
 
 def _check_analytics_measured(analytics_session, budgets):
-    """The 15 loadtest_analytics scenarios must be measured once any has a committed budget."""
+    """The 17 loadtest_analytics scenarios must be measured once any has a committed budget."""
     if analytics_session is not None:
         return
     for key in ("budget_p95_ms", "budget_peak_rss_mb"):
@@ -345,6 +350,33 @@ def _linked_endpoints(base_url, board_id):
     """The scenarios measured on the linked child board (#2424), name -> URL."""
     root = f"{base_url}/api/v1/boards/{board_id}"
     return {"linked_board_full": f"{root}/full/", "linked_card_list": f"{root}/cards/"}
+
+
+def _children_view_endpoints(base_url, board_id):
+    """The scenario measured on the children-view parent board (#2538), name -> URL.
+
+    The first page: the endpoint recomputes every live link on the board per page, so each page
+    costs the same and scrolling a board is that cost times the page count.
+    """
+    return {"children_view": f"{base_url}/api/v1/boards/{board_id}/children-view/"}
+
+
+def _gated_sample_card(cards):
+    """The card the timeline scenarios read: roughly mid-set among cards that passed 2+ gates.
+
+    #2405: the gate query runs for every card, gated or not, but it returns only gate rows with
+    no linked movement. A card that passed exactly one gate has only the row linked to its move
+    into the stage, so its timeline has no gate entries; every card with ``gates_passed >= 2``
+    has an unlinked second-gate row. Picking any gated card would time the no-gate path under
+    a name that says otherwise. Raises when the fixture has none, rather than falling back to a card that measures nothing.
+    """
+    gated = [c for c in cards if (c.get("gates_passed") or 0) >= 2]
+    if not gated:
+        raise RuntimeError(
+            "No card on the load-test board has passed a gate, so card_timeline would not "
+            "measure gate work. Re-seed with `manage.py seed_demo_data --force --scale N` (#2405)."
+        )
+    return gated[len(gated) // 2]
 
 
 def _overview_urls(base_url, board_id):
@@ -637,6 +669,16 @@ def _self_test():
         failures.append("_aged_endpoints and _AGED_SCENARIOS disagree, or the 365-day scenario lost its range")
     if aged["aged_board_analytics"] != "http://x/api/v1/boards/7/analytics/?days=90&limit=300":
         failures.append("aged_board_analytics must send exactly ?days=90&limit=300, as the overview does")
+    if _children_view_endpoints("http://x", 9) != {"children_view": "http://x/api/v1/boards/9/children-view/"}:
+        failures.append("_children_view_endpoints must name the children-view first page")
+    if set(_children_view_endpoints("http://x", 9)) != set(_CHILDREN_VIEW_SCENARIOS):
+        failures.append("_children_view_endpoints and _CHILDREN_VIEW_SCENARIOS disagree")
+    _cards = [{"id": i, "gates_passed": 0} for i in range(4)] + [{"id": 10 + i, "gates_passed": 2} for i in range(5)]
+    _cards += [{"id": 20 + i, "gates_passed": 1} for i in range(9)]
+    if _gated_sample_card(_cards)["id"] != 12:
+        failures.append("_gated_sample_card must pick the middle of the cards that passed 2+ gates, never a 1-gate card")
+    if "gate" not in (_raises(_gated_sample_card, [{"id": 1, "gates_passed": 1}, {"id": 2}]) or ""):
+        failures.append("_gated_sample_card must refuse a fixture with no gated card")
     if set(_linked_endpoints("http://x", 8)) != set(_LINKED_SCENARIOS):
         failures.append("_linked_endpoints and _LINKED_SCENARIOS disagree")
     # Exactly what useAnalyticsOverviewData.ts fires since #2426 (two requests; it never calls
@@ -676,7 +718,7 @@ def _self_test():
         pass
     if (_count_of({"count": 7, "results": []}), _count_of([1, 2]), _count_of({"results": [1]}), _count_of("x")) != (7, 2, 1, None):
         failures.append("_count_of misreads a page body")
-    for name in _AGED_SCENARIOS + _LINKED_SCENARIOS + _FANOUT_SCENARIOS:
+    for name in _AGED_SCENARIOS + _LINKED_SCENARIOS + _CHILDREN_VIEW_SCENARIOS + _FANOUT_SCENARIOS:
         if not isinstance(committed.get(name), dict):
             failures.append(f"scenario {name!r} has no entry in nightly-load-test-baseline.json (#2430)")
         elif committed[name].get("budget_p95_ms") is None and _pending_budget(name, committed) is None:
@@ -922,10 +964,10 @@ def run(args):
             "cannot exercise the card-timeline endpoint. Re-seed with a "
             "non-trivial --scale."
         )
-    # A card roughly in the middle of the fetched set, not the first or last —
-    # avoids accidentally always hitting whichever card the seed command
-    # happens to create first (which may have unusually little history).
-    sample_card_id = cards[len(cards) // 2]["id"]
+    # A card roughly in the middle of the cards that passed a gate, not the first or last —
+    # avoids accidentally always hitting whichever card the seed command happens to create
+    # first (which may have unusually little history), and makes the timeline read gate rows (#2405).
+    sample_card_id = _gated_sample_card(cards)["id"]
     fixture = {
         "board_name": args.board_name,
         "board_id": board_id,
@@ -1067,6 +1109,17 @@ def run(args):
                 "all with a parent). Seed with `manage.py seed_demo_data --force --scale N "
                 "--linked-boards` (#2424)."
             )
+        cv_board = _find_board(analytics_session, base_url, args.children_view_board_name)
+        cv_page = analytics_session.get(_children_view_endpoints(base_url, cv_board["id"])["children_view"], timeout=120)
+        cv_page.raise_for_status()
+        cv_body = cv_page.json()
+        cv_rows = cv_body.get("rows", cv_body.get("results"))
+        if not isinstance(cv_rows, list) or len(cv_rows) == 0:
+            raise RuntimeError(
+                "children-view on the children-view board returned no parent rows. Seed with "
+                "`manage.py seed_demo_data --force --scale N --linked-boards` (#2538)."
+            )
+        fixture["children_view_board_id"] = cv_board["id"]
         fixture["aged_board_id"] = aged_board["id"]
         fixture["aged_archived_cards"] = archived_count
         fixture["linked_board_id"] = linked_board["id"]
@@ -1077,6 +1130,11 @@ def run(args):
         for name, url in _linked_endpoints(base_url, linked_board["id"]).items():
             measure(name, lambda url=url: _time_requests(analytics_session, url, args.iterations, args.warmup),
                     args.iterations, args.warmup)
+        # Each request is a full recompute of 500 parents x ~100 children: the aged iteration
+        # count, not the default 40.
+        for name, url in _children_view_endpoints(base_url, cv_board["id"]).items():
+            measure(name, lambda url=url: _time_requests(analytics_session, url, args.aged_iterations, args.aged_warmup),
+                    args.aged_iterations, args.aged_warmup)
         # Few iterations: each aged request costs seconds, and p95 over ten samples is
         # the slowest one, which is what a "does it still fit" gate wants anyway.
         for name, url in _aged_endpoints(base_url, aged_board["id"]).items():
@@ -1153,6 +1211,7 @@ def main():
     )
     parser.add_argument("--aged-board-name", default="Visiban Load Test Aged Board")
     parser.add_argument("--linked-board-name", default="Visiban Load Test Linked Board")
+    parser.add_argument("--children-view-board-name", default="Visiban Load Test Children View Board")
     parser.add_argument(
         "--min-aged-archived", type=int, default=1000,
         help="Fail if the aged board has fewer archived cards than this (default: 1000).",

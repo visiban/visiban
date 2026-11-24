@@ -9,11 +9,17 @@ from io import StringIO
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from unittest import mock
+
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from boards.management.commands import _load_test_fixtures as fixtures
 from boards.management.commands._load_test_fixtures import (
+    GATE_SUB_COLUMN_NAMES,
     GENERATION_SPACING_DAYS,
+    LOAD_TEST_CHILDREN_VIEW_BOARD_NAME,
+    LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME,
     LINKED_CHILD_CARDS,
     LINKED_PARENT_BOARDS,
     LOAD_TEST_AGED_BOARD_NAME,
@@ -21,7 +27,9 @@ from boards.management.commands._load_test_fixtures import (
     LOAD_TEST_LINKED_BOARD_NAME,
     LOAD_TEST_PARENT_BOARD_PREFIX,
 )
-from boards.models import Board, BoardMembership, Card, CardMovement, CardParentLink
+from boards.models import (
+    Board, BoardMembership, Card, CardGateTransition, CardMovement, CardParentLink, SubColumn,
+)
 from boards.services.card_links import CHILDREN_PER_PARENT_LIMIT, link_allowed
 
 GENERATIONS = 2
@@ -30,11 +38,14 @@ GENERATIONS = 2
 class LoadTestFixtureTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command(
-            "seed_demo_data", "--force", "--scale", "2",
-            "--aged-generations", str(GENERATIONS), "--linked-boards",
-            stdout=StringIO(),
-        )
+        # Shrunk: the real 500 x 100 fixture is 50,000 cards (asserted below, not seeded).
+        with mock.patch.object(fixtures, "CHILDREN_VIEW_PARENTS", 6), \
+                mock.patch.object(fixtures, "CHILDREN_VIEW_CHILDREN_PER_PARENT", 4):
+            call_command(
+                "seed_demo_data", "--force", "--scale", "2",
+                "--aged-generations", str(GENERATIONS), "--linked-boards",
+                stdout=StringIO(),
+            )
         cls.aged = Board.objects.get(name=LOAD_TEST_AGED_BOARD_NAME)
         cls.linked = Board.objects.get(name=LOAD_TEST_LINKED_BOARD_NAME)
         cls.user = get_user_model().objects.get(username=LOAD_TEST_ANALYTICS_USERNAME)
@@ -178,6 +189,71 @@ class LoadTestFixtureTests(TestCase):
         self.assertEqual(len(cards), LINKED_CHILD_CARDS)
         self.assertTrue(all(c.get("parent") for c in cards))
 
+    # -- children-view fixture (#2538) --------------------------------------
+
+    def test_children_view_fixture_meets_the_issue_minimum(self):
+        # Pinned on the real constants: the test seeds a shrunk copy, so this is the only
+        # place a quiet cut of the fixture below "500 parents, about 100 children" shows.
+        self.assertGreaterEqual(fixtures.CHILDREN_VIEW_PARENTS, 500)
+        self.assertEqual(fixtures.CHILDREN_VIEW_CHILDREN_PER_PARENT, CHILDREN_PER_PARENT_LIMIT)
+
+    def test_children_view_boards_are_linked_and_owned_by_the_analytics_user(self):
+        parent_board = Board.objects.get(name=LOAD_TEST_CHILDREN_VIEW_BOARD_NAME)
+        child_board = Board.objects.get(name=LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME)
+        self.assertTrue(parent_board.cards_can_have_children)
+        self.assertEqual(Card.objects.filter(board=parent_board).count(), 6)
+        links = CardParentLink.objects.filter(parent__board=parent_board)
+        self.assertEqual(links.count(), 24)
+        self.assertEqual(Card.objects.filter(board=child_board).count(), 24)
+        for board in (parent_board, child_board):
+            self.assertEqual(
+                list(BoardMembership.objects.filter(board=board).values_list("user__username", flat=True)),
+                [LOAD_TEST_ANALYTICS_USERNAME],
+            )
+
+    def test_children_view_answers_for_the_analytics_user(self):
+        parent_board = Board.objects.get(name=LOAD_TEST_CHILDREN_VIEW_BOARD_NAME)
+        client = APIClient()
+        client.force_authenticate(self.user)
+        resp = client.get(f"/api/v1/boards/{parent_board.pk}/children-view/")
+        self.assertEqual(resp.status_code, 200)
+        # One row per parent of the shrunk fixture (CHILDREN_VIEW_PARENTS patched to 6 above): a
+        # 200 with no rows would pass a fixture that seeds no parents, which is the case the
+        # script's own "first page has no parent rows" check exists for.
+        self.assertEqual(len(resp.json()["rows"]), 6)
+
+    # -- gate rows on the load-test board (#2405) ---------------------------
+
+    def test_load_test_board_has_a_gated_stage_with_both_gate_shapes(self):
+        board = Board.objects.get(name="Visiban Load Test Board")
+        stage = board.columns.get(name="Doing")
+        self.assertEqual(
+            list(SubColumn.objects.filter(column=stage).values_list("name", flat=True)),
+            list(GATE_SUB_COLUMN_NAMES),
+        )
+        gates = CardGateTransition.objects.filter(board=board)
+        self.assertTrue(gates.filter(movement__isnull=False).exists())
+        self.assertTrue(gates.filter(movement__isnull=True).exists())
+        self.assertTrue(gates.filter(kind=CardGateTransition.Kind.REOPEN).exists())
+        # The card's gates_passed agrees with its last gate row.
+        for card in Card.objects.filter(board=board, column=stage, archived_at__isnull=True):
+            last = gates.filter(card=card).order_by("-created_at", "-id").first()
+            self.assertEqual(card.gates_passed, last.to_index if last else 0)
+
+    def test_gate_rows_are_only_on_the_load_test_board(self):
+        board = Board.objects.get(name="Visiban Load Test Board")
+        self.assertFalse(CardGateTransition.objects.exclude(board=board).exists())
+
+    def test_timeline_serves_gate_entries_for_a_gated_card(self):
+        board = Board.objects.get(name="Visiban Load Test Board")
+        # Only gate rows with no linked movement are their own timeline entries.
+        card = CardGateTransition.objects.filter(board=board, movement__isnull=True).first().card
+        client = APIClient()
+        client.force_authenticate(board.owner)
+        resp = client.get(f"/api/v1/boards/{board.pk}/cards/{card.pk}/timeline/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("gate", {e.get("kind") for e in resp.json().get("results", resp.json())})
+
     # -- guards -------------------------------------------------------------
 
     def test_wipe_removes_every_fixture_board(self):
@@ -186,7 +262,10 @@ class LoadTestFixtureTests(TestCase):
         )
         self.assertFalse(
             Board.objects.filter(
-                name__in=(LOAD_TEST_AGED_BOARD_NAME, LOAD_TEST_LINKED_BOARD_NAME)
+                name__in=(
+                    LOAD_TEST_AGED_BOARD_NAME, LOAD_TEST_LINKED_BOARD_NAME,
+                    LOAD_TEST_CHILDREN_VIEW_BOARD_NAME, LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME,
+                )
             ).exists()
         )
         self.assertFalse(Board.objects.filter(name__startswith=LOAD_TEST_PARENT_BOARD_PREFIX).exists())
