@@ -267,3 +267,42 @@ describe('ColumnHeader — multi-lane add-card keyboard (S1082)', () => {
     expect(await screen.findByRole('dialog', { name: /Edit Column/i })).toBeInTheDocument()
   })
 })
+
+// #972 — the collapsed strip surfaces the at-limit state when the board opts in.
+describe('ColumnHeader — collapsed at-limit cue (#972)', () => {
+  const limited = { ...column, wip_limit: 2 }
+  const cardsOf = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1, weight: 1 })) as never
+  it('shows the calm cue and title at the limit when show_wip_at_limit is on', () => {
+    renderHeader({ collapsed: true, column: limited, cards: cardsOf(2), showWipAtLimit: true })
+    expect(screen.getByTestId('collapsed-at-limit-glyph')).toHaveTextContent('=')
+    expect(screen.getByTestId('collapsed-at-limit-count')).toHaveClass('text-fg')
+    expect(screen.getByRole('button', { name: 'Expand Backlog, at WIP limit (2/2)' })).toHaveAttribute('title', 'Expand "Backlog" · At WIP limit (2/2)')
+    expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
+  it('shows nothing extra when the setting is off, under the limit, or without a limit', () => {
+    const { unmount } = render(<ColumnHeader column={limited} cards={cardsOf(2)} boardId={1} isAdmin onColumnUpdated={vi.fn()} onRequestDelete={vi.fn()} collapsed onToggleCollapse={vi.fn()} />)
+    expect(screen.queryByTestId('collapsed-at-limit-glyph')).not.toBeInTheDocument()
+    unmount()
+    renderHeader({ collapsed: true, column: limited, cards: cardsOf(1), showWipAtLimit: true })
+    expect(screen.queryByTestId('collapsed-at-limit-glyph')).not.toBeInTheDocument()
+  })
+  it('keeps the warning treatment, not the calm cue, when over the limit', () => {
+    renderHeader({ collapsed: true, column: limited, cards: cardsOf(3), showWipAtLimit: true })
+    expect(screen.queryByTestId('collapsed-at-limit-glyph')).not.toBeInTheDocument()
+    expect(screen.getByText('⚠')).toBeInTheDocument()
+  })
+  it('puts the state in the accessible name: at, over WIP, over weight, and plain when off or absent', () => {
+    const name = (over: Parameters<typeof renderHeader>[0]) => {
+      const { unmount } = render(<ColumnHeader column={column} cards={[]} boardId={1} isAdmin onColumnUpdated={vi.fn()} onRequestDelete={vi.fn()} collapsed onToggleCollapse={vi.fn()} {...(over as object)} />)
+      const label = screen.getByRole('button', { name: /^Expand/ }).getAttribute('aria-label')
+      unmount()
+      return label
+    }
+    expect(name({ column: limited, cards: cardsOf(2), showWipAtLimit: true })).toBe('Expand Backlog, at WIP limit (2/2)')
+    expect(name({ column: limited, cards: cardsOf(3), showWipAtLimit: true })).toBe('Expand Backlog, over WIP limit (3/2)')
+    expect(name({ column: limited, cards: cardsOf(3) })).toBe('Expand Backlog, over WIP limit (3/2)')
+    expect(name({ column: { ...column, weight_limit: 1 }, cards: cardsOf(2) })).toBe('Expand Backlog, over weight limit (2/1)')
+    expect(name({ column: limited, cards: cardsOf(2) })).toBe('Expand Backlog')
+    expect(name({ column: limited, cards: cardsOf(1), showWipAtLimit: true })).toBe('Expand Backlog')
+  })
+})

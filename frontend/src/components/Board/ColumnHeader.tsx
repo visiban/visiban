@@ -41,7 +41,7 @@ interface Props {
   width?: number;
   onToggleCollapse: () => void;
   hardWipEnforced?: boolean;
-  /** Kept for API compatibility; the redesigned count line always shows "n / limit" (#2270). */
+  /** Expanded header ignores it (its count line always shows "n / limit", #2270); the collapsed strip shows a calm "=" cue at the limit (#972). */
   showWipAtLimit?: boolean;
   /**
    * Opens the add-card input in this column (#2270). Omitted when the viewer cannot
@@ -56,7 +56,7 @@ interface Props {
   addCardLanes?: { id: number; name: string; color: string; collapsed: boolean }[];
 }
 
-export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, onAddCard, addCardLanes, showSubColumns = true }: Props) {
+export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, customFieldDefinitions, column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit = false, onAddCard, addCardLanes, showSubColumns = true }: Props) {
   // Which tab EditColumnModal opens on, or null when it is closed (#1101:
   // "Add policy…" and the popover's "Edit policy" open the Policy tab).
   const [editTab, setEditTab] = useState<EditColumnTab | null>(null);
@@ -87,6 +87,19 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
   const hasLimit = column.wip_limit !== null && column.wip_limit > 0;
   // Over-limit is a warning, not an error (board-redesign.md § Column headers): the accent
   // strip (collapsed header) and the meter and count (expanded) all use the warning tokens.
+  // The collapsed strip is the one header that still honors the board's opt-in (#972): exactly at the
+  // limit (never over, never weight-over, which keep their warning treatment) it takes a calm,
+  // hue-free "=" cue, since the expanded header's n / limit line is not visible here.
+  const atWipLimit = showWipAtLimit && hasLimit && cardCount === column.wip_limit && !overWeight;
+  // The button's aria-label replaces its content and `title` is not reliably announced, so the
+  // limit state is part of the accessible name (#972); the glyphs stay aria-hidden.
+  const collapsedStateLabel = overWip
+    ? `, over WIP limit (${cardCount}/${column.wip_limit})`
+    : overWeight
+    ? `, over weight limit (${totalWeight}/${column.weight_limit})`
+    : atWipLimit
+    ? `, at WIP limit (${cardCount}/${column.wip_limit})`
+    : "";
   const accentClass = overWip || overWeight ? "border-t-2 border-t-warning-emphasis" : "";
   const cardCountLabel = cardCount === 1 ? "1 card" : `${cardCount} cards`;
   // Meter fill: proportional to the limit, full at and over it. Never rendered without a limit.
@@ -192,7 +205,7 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
         data-no-pan
         tabIndex={0}
         role="button"
-        aria-label={`Expand ${column.name}`}
+        aria-label={`Expand ${column.name}${collapsedStateLabel}`}
         onClick={(e) => {
           // The color-dot drag handle must not expand the column when a click lands on it.
           if ((e.target as HTMLElement).closest("[data-column-drag-handle]")) return;
@@ -208,6 +221,8 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
             ? `Expand "${column.name}" · Over WIP limit (${cardCount}/${column.wip_limit})`
             : overWeight
             ? `Expand "${column.name}" · Over weight limit (${totalWeight}/${column.weight_limit})`
+            : atWipLimit
+            ? `Expand "${column.name}" · At WIP limit (${cardCount}/${column.wip_limit})`
             : `Expand "${column.name}"`
         }
       >
@@ -225,11 +240,17 @@ export default function ColumnHeader({ boardColors, isIntakeColumn, swimlanes, c
               ? "text-warning-on-tint font-semibold"
               : overWeight
               ? "text-warning-on-tint font-semibold"
+              : atWipLimit
+              ? "bg-surface-hover text-fg font-semibold"
               : "bg-surface-hover text-fg-secondary"
           }`}
+          data-testid={atWipLimit ? "collapsed-at-limit-count" : undefined}
         >
           {cardCount}
         </span>
+        {atWipLimit && (
+          <span aria-hidden="true" data-testid="collapsed-at-limit-glyph" className="text-xs leading-none text-fg-secondary">=</span>
+        )}
         {(overWip || overWeight) && (
           <span aria-hidden="true" className="text-xs leading-none text-warning-on-tint">⚠</span>
         )}
