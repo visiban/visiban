@@ -119,7 +119,7 @@ It creates, alongside the normal demo board:
     - closed deals (won and lost) already archived
     - a `board.created` entry in its change feed
 
-    The sample's cast (`demo1`-`demo5`) and the demo accounts are members. Dates move as the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset and nothing is dated in the future (every sample's newest event is a day before its anchor). The sample format carries no card relations yet ([#1448](https://gitlab.com/visiban/visiban/-/issues/1448)), so this board has none. Its URL is stable across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at `/boards/6`.
+    The sample's cast (`demo1`-`demo5`) and the demo accounts are members. Dates move as the gallery moves them: the sample's anchor date becomes the day of the reset, so ages and due dates count from the reset and nothing is dated in the future (every sample's newest event is a day before its anchor). It also carries the sample's card relations ([#1448](https://gitlab.com/visiban/visiban/-/issues/1448)): one card blocking another, both still in progress, and a related pair. The demo adds no relations of its own to this board. Its URL is stable across resets: the reset restarts the id sequences and creates the boards in a fixed order, which puts it at `/boards/6`.
 
     The six other boards each also show off (#1363):
 

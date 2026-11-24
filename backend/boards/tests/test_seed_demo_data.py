@@ -1174,8 +1174,9 @@ class SeedDemoSiteShowcaseTests(TestCase):
                 )
 
     def test_each_board_has_relations_including_an_active_blocker(self):
-        # Not the overlay board: the sample format carries no card relations,
-        # so the imported board has none (#1448).
+        # The hand-built boards. The overlay board carries its sample's own
+        # relations (two, since #1448) instead: DemoSiteOverlayBoardTests
+        # test_the_board_carries_the_sample_relations.
         for name in SeedDemoSiteTests.HAND_BUILT:
             rels = CardRelation.objects.filter(from_card__board__name=name)
             self.assertGreaterEqual(rels.count(), 3, name)
@@ -1797,6 +1798,24 @@ class DemoSiteOverlayBoardTests(TestCase):
 
         spec = next(b for b in BOARDS if b["name"] == OVERLAY)
         self.assertEqual(spec, {"name": OVERLAY, "sample": "sales_overlay"})
+
+    def test_the_board_carries_the_sample_relations(self):
+        # #1448: the import restores the sample's relations, an active blocker
+        # among them; the demo extras add none to an imported board.
+        titles = [c["title"] for c in self.data["cards"]]
+        self.assertEqual(len(set(titles)), len(titles))
+
+        def ends(kind, src, dst):
+            return frozenset((src, dst)) if kind in CardRelation.SYMMETRIC_TYPES else (src, dst)
+
+        expected = {(r["kind"], ends(r["kind"], titles[r["from"]], titles[r["to"]])) for r in self.data["relations"]}
+        rels = CardRelation.objects.filter(from_card__board=self.board)
+        actual = {(r.relation_type, ends(r.relation_type, r.from_card.title, r.to_card.title)) for r in rels}
+        self.assertTrue(expected)
+        self.assertEqual(actual, expected)
+        self.assertTrue(
+            rels.filter(relation_type=CardRelation.Type.BLOCKS, from_card__column__is_done=False).exists(),
+        )
 
     def test_the_board_is_the_sample(self):
         self.assertEqual(

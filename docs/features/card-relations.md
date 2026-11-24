@@ -74,7 +74,7 @@ Any member can remove any relation, including one someone else created. A member
 - **Same board only.** Relations cannot span boards.
 - **A card cannot be linked to itself.**
 - **Two cards cannot block each other.** Longer chains (A blocks B blocks C blocks A) are not detected and are permitted.
-- **Relations are not carried by board export or import.** A board exported and re-imported loses its relations.
+- **Only the JSON export carries relations** *(1.3+)*. A board exported as JSON and re-imported keeps its relations ([format](../api/boards.md#get-apiv1boardsidexportformatjson)). The CSV export has none, so a board re-imported from CSV loses them.
 - **Blockers are not cleared automatically.** Moving a blocking card to a done column does not remove the relation or the indicator. Archive the card, or remove the relation, when the dependency is resolved.
 
 ---
