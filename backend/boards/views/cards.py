@@ -1155,7 +1155,9 @@ class CardViewSet(viewsets.ModelViewSet):
     @extend_schema(
         summary="Restore an archived card",
         description=(
-            "Clears `archived_at` so the card re-enters its column/swimlane. Archived "
+            "Clears `archived_at` so the card re-enters its column/swimlane, keeping its "
+            "original position if that slot is free and otherwise going to the end of "
+            "the cell. Archived "
             "cards do not count toward a column's limits, so the restore is checked "
             "like a move into the column: WIP and weight limits, hard WIP mode, and "
             "the board-admin `?force=true` override all apply (#1428)."
@@ -1174,7 +1176,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def unarchive(self, request, board_pk=None, pk=None):
         """Restore a card by clearing archived_at.
 
-        The card re-enters its original column/swimlane position. Because
+        The card keeps its original position when that slot is still free,
+        and goes to the end of the cell when a live card has taken it. Because
         get_queryset() filters out archived cards, the service reads the raw
         manager directly. WIP/weight limits are enforced by the service (#1428).
         """

@@ -319,15 +319,17 @@ class Board(models.Model):
     )
     # Two-tier card links (#2208, prerequisite for #1104): a board with this on
     # is a "parent tier" board whose cards may have child cards on another
-    # board; a board with it off can only host children. Structural by design,
-    # so the rule is one boolean per board rather than a per-card guess
-    # (boards/services/card_links.py holds the shared predicate). db_default
+    # board. Since #2446 the rule is per card: a board with it off keeps any
+    # parent cards it already has, with their children, and turning it off is
+    # never refused (boards/services/card_links.py holds the shared predicate). db_default
     # keeps the column add zero-downtime and existing boards behave as before.
     cards_can_have_children = models.BooleanField(
         default=False, db_default=False,
         help_text=(
             "Cards on this board can have child cards on another board (#2208). "
-            "Off (the default) means the board can only hold child cards."
+            "Off (the default) stops cards that are not already parents from "
+            "getting children; a parent card left from before keeps its "
+            "children, and turning this off is never refused (#2446)."
         ),
     )
     # Where "Add child" creates a new child card (#2208 part 2): a preference,

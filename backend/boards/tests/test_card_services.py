@@ -1079,7 +1079,10 @@ class CreateInvariantTests(CardServiceTestBase):
     def test_new_card_lands_at_the_end_of_its_cell(self):
         self.col_a.allow_card_creation = True
         self.col_a.save(update_fields=["allow_card_creation"])
-        self._fill(self.col_a, 3)  # plus self.card == 4 cards in the cell
+        # self.card holds slot 0; these take 1..3, so the cell is contiguous
+        # (the new card goes one past the highest slot, #2562).
+        for i in range(1, 4):
+            _make_card(self.col_a, self.lane, title=f"f{i}", position=i)
 
         captured = {}
 
