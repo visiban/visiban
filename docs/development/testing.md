@@ -374,6 +374,21 @@ SQLite has no row locks, so a `select_for_update()` can be deleted without faili
 
 Decorate the class with `@skipUnless(connection.vendor == "postgresql", ...)` and use `TransactionTestCase`. Every thread that touches the ORM must call `connections.close_all()` in a `finally`. Prove the test is meaningful by temporarily removing the lock and confirming it fails on PostgreSQL. See `backend/boards/tests/test_concurrent_moves.py` (`ConcurrentMoveLockTests`) and `backend/boards/tests/test_concurrent_lock_sites.py`.
 
+### Successful writes assert persisted state, not just a status *(#1404)*
+
+The mirror of pattern 4: a success-path test must show the write landed correctly. Use the helpers in `backend/boards/tests/conftest.py`: `assert_response_matches_row(testcase, data, instance, fields)` compares response fields to the row re-read from the database, `last_board_event_id()` and `board_event_names(board, since_id)` check the change-feed rows the request produced. Also assert scope (board, column, swimlane), authorship, and the `CardMovement` or `CardActivity` row the endpoint owes. `backend/boards/tests/test_write_persistence_1404.py` is the reference for card, comment, checklist, attachment, column, swimlane, and label writes. Members edit only cards they created, so build the fixture card with `created_by=<the acting member>`.
+
+### Property-based tests (Hypothesis) *(#1424)*
+
+`backend/boards/tests/test_card_position_invariants_1424.py` is a Hypothesis state machine. It creates, moves, reorders, archives, and unarchives cards through the HTTP API on a small board and re-checks four invariants after every step: unique positions per cell (contiguous in cells with no reorder or archive), every card's column and swimlane on the card's board, one `move` movement per cross-cell move (and none per same-cell reorder, once that path is generated), and append-only movement history.
+
+- **CI profile:** `max_examples=40`, 16 steps, `derandomize=True`, `deadline=None`. The same examples run every time, so a red run is a real defect, not a flake. Roughly 10 to 30 seconds.
+- **Deeper local or nightly run:** `HYPOTHESIS_PROFILE=deep` (300 examples, 30 steps).
+- **Reading a failure:** Hypothesis prints the shrunk call sequence as `state.create(col=0, lane=0)`, `state.move(data=...)`, ... followed by the failing invariant. The position invariants also print a `steps:` line (every create and move with the position the API returned) and the live `(id, column, swimlane, position)` rows. Replay those steps by hand against the API to reproduce. Shrinking a deep sequence can take a minute or two; the first failing example is already enough to see which invariant broke.
+- **Verified by mutation:** removing the target-cell shift in `move_card` (`F("position") + 1` becomes `+ 0`) fails the machine within seconds with `positions in (1, 1) are not contiguous from 0: [0, 0]`.
+- **Two known defects are off by default.** The machine found two real position collisions: a create after a same-cell reorder (`create_card` uses the cell's row count as the next slot, which lands on a live card once a reorder has left a gap), and an unarchive after a move out of the cell (the restored card returns to a slot a live card now holds). Reordering inside one cell and unarchive are therefore not generated unless `HYPOTHESIS_INCLUDE_KNOWN_DEFECTS=1`; the guard comes out when each defect is fixed (create after reorder: #2562; unarchive onto a taken slot: #2563; the `SUPPRESSED-UNTIL` markers in the test file fail CI when either issue closes).
+- **Not asserted:** contiguity after a same-cell reorder (`position` is a raw slot, #2277) or after an archive (an archived card keeps its slot).
+
 ### What not to do
 
 - **Do not write one test per mutant.** Write the smallest assertion that states the behavior; one test often kills several mutants. A suite shaped like the survivor list breaks on every refactor.
