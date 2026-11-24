@@ -17519,5 +17519,17 @@
       },
       "external_ref": null
     }
+  ],
+  "relations": [
+    {
+      "from": 27,
+      "kind": "blocks",
+      "to": 21
+    },
+    {
+      "from": 30,
+      "kind": "relates_to",
+      "to": 50
+    }
   ]
 }

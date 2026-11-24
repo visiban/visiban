@@ -18091,5 +18091,17 @@
       },
       "external_ref": null
     }
+  ],
+  "relations": [
+    {
+      "from": 22,
+      "kind": "blocks",
+      "to": 50
+    },
+    {
+      "from": 80,
+      "kind": "relates_to",
+      "to": 100
+    }
   ]
 }

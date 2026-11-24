@@ -11133,5 +11133,17 @@
       },
       "external_ref": null
     }
+  ],
+  "relations": [
+    {
+      "from": 34,
+      "kind": "blocks",
+      "to": 54
+    },
+    {
+      "from": 75,
+      "kind": "relates_to",
+      "to": 79
+    }
   ]
 }

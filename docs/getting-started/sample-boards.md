@@ -110,7 +110,7 @@ Each template's `.csv` file uses the same layout as **Export → CSV**. Use it t
 
 **What CSV import restores:** each card's title, description, column, swimlane, priority, labels, due date, and weight. It also reads the `Custom:` and `Swimlane Custom:` columns, restoring card and swimlane custom field values as **text** fields. A CSV carries no field type, so import the JSON file to keep field types and choices.
 
-**Yes, but:** CSV import doesn't restore movement history, comments, checklists, or block history.
+**Yes, but:** CSV import doesn't restore movement history, comments, checklists, block history, or card relations.
 
 ## What each template includes
 
@@ -119,6 +119,7 @@ Each template's `.csv` file uses the same layout as **Export → CSV**. Use it t
 - **Column limits.** WIP and weight limits on the busy columns. On each template one column is deliberately just over its limit, so you can see how that's flagged.
 - **A full audit trail on every card.** Creation, assignments and reassignments, labels added and removed, priority escalations, due-date changes, renames, description edits, checklist items added, checked, unchecked, and deleted, and comments. Each entry has the user and time it happened, written in the same form the app writes it. So every label, assignee, and checked item on a card traces back to the entry that set it.
 - **Block history on Simple Kanban.** Blocked and unblocked entries in the activity trail, two cards with a closed block, and one card that is still blocked.
+- **Card relations.** *(1.3+)* Every template has one card that blocks another, both still in progress, so the card face shows an open dependency, and a pair of related cards. They travel in the JSON file's `relations` list and are restored on import.
 - **Movement history.** Cards move through the workflow, sometimes skipping a stage or going back one. Backward moves carry a note explaining why. A card that ends in a lost outcome (Lost, Rejected, Denied) never passes through a winning one first. The heatmap and dwell-time charts are populated as soon as you import. *(1.3+)* Each card's last move is spread across about a month, so the **Dwell time** board overlay shows cells on several of its steps (1, 3, 5 and 8 days) right after an import instead of one uniform shade. The same ages drive the staleness and aging cues, so a freshly imported sample shows a mix of fresh and stale cards.
 - **Archived cards.** Some finished cards are archived, the way a team clears its Done column.
 - **Merge request and issue links.** The engineering boards link cards to fictional GitLab and GitHub URLs.

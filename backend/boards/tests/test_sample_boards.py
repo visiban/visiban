@@ -27,7 +27,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, CardActivity, CardBlock, CardComment, CardExternalRef, CardMovement,
+    Board, CardActivity, CardBlock, CardComment, CardExternalRef, CardMovement, CardRelation,
     CustomFieldDefinition, CustomFieldValue, SwimlaneCustomFieldDefinition,
     SwimlaneCustomFieldValue,
 )
@@ -243,6 +243,30 @@ class SampleBoardFeatureCoverageTests(SimpleTestCase):
             self.assertEqual(len(over), 1, (path.name, over))
             self.assertTrue(any(c.get("weight_limit") for c in data["columns"]), path.name)
 
+    def test_every_board_has_an_active_blocker_and_valid_relations(self):
+        """#1448: relations by index into ``cards``, at least one open dependency per board."""
+        for path in TEMPLATES:
+            data = _load(path)
+            cards = data["cards"]
+            done = {c["name"] for c in data["columns"] if c.get("is_done")}
+            with self.subTest(path.name):
+                self.assertTrue(data["relations"])
+                for rel in data["relations"]:
+                    self.assertEqual(list(rel), ["from", "kind", "to"])
+                    self.assertIn(rel["kind"], ("blocks", "relates_to"))
+                    self.assertNotEqual(rel["from"], rel["to"])
+                    for end in (rel["from"], rel["to"]):
+                        self.assertFalse(cards[end].get("archived_at"))
+                    if rel["kind"] == "relates_to":
+                        self.assertLess(rel["from"], rel["to"])
+
+                def active(i):
+                    return cards[i]["column"] not in done and not cards[i].get("archived_at")
+
+                self.assertTrue(any(
+                    r["kind"] == "blocks" and active(r["from"]) and active(r["to"]) for r in data["relations"]
+                ))
+
     def test_samples_together_use_every_field_type_and_event_type(self):
         field_types, event_types = set(), set()
         for path in TEMPLATES:
@@ -413,6 +437,17 @@ class SampleBoardImportTests(TestCase):
                 self.assertEqual(
                     board.cards.filter(blocked_at__isnull=False).count(),
                     sum(1 for c in cards if c.get("blocked_at")),
+                )
+                # Relations (#1448): none dropped, each between the same cards.
+                titles = [c["title"] for c in cards]
+                self.assertEqual(
+                    sorted(
+                        (r.from_card.title, r.relation_type, r.to_card.title)
+                        for r in CardRelation.objects.filter(from_card__board=board).select_related(
+                            "from_card", "to_card",
+                        )
+                    ),
+                    sorted((titles[r["from"]], r["kind"], titles[r["to"]]) for r in data["relations"]),
                 )
                 # Exactly the file's history: no synthetic label / checklist /
                 # weight entries stacked on top of the recorded ones.

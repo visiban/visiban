@@ -1397,8 +1397,11 @@ class Command(BaseCommand):
             # rows look exactly like ones created through the API.
             if relation_type in CardRelation.SYMMETRIC_TYPES and low.pk > high.pk:
                 low, high = high, low
-            CardRelation.objects.create(
-                from_card=low, to_card=high, relation_type=relation_type, created_by=low.assignee or admin,
+            # get_or_create: since #1448 the imported sample carries relations
+            # of its own, and one may already be this pair.
+            CardRelation.objects.get_or_create(
+                from_card=low, to_card=high, relation_type=relation_type,
+                defaults={"created_by": low.assignee or admin},
             )
 
         for title, (provider, ref, url) in spec["external_refs"].items():
