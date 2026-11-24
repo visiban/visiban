@@ -339,7 +339,7 @@ See [Field Enforcement](../architecture/field-enforcement.md).
 
 - **Off (default):** a column at its WIP limit shows `N cards`, unchanged from the calm state.
 - **On:** a column at its WIP limit shows `WIP N/N` in place of the card count, styled the same as the calm state (`text-fg-muted`, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)".
-- **Collapsed columns (since 1.3):** with the setting on, a collapsed column exactly at its limit shows its card count in stronger text with a small `=` after it, and its tooltip reads "Expand \"Name\" · At WIP limit (N/N)". With the setting off, a collapsed column at its limit looks like any other.
+- **Collapsed columns (since 1.3):** with the setting on, a collapsed column exactly at its limit shows its card count in stronger text with a small `=` after it, and its tooltip reads "Expand \"Name\" · At WIP limit (N/N)", and the collapsed button's accessible name also carries the limit state (at WIP limit, over WIP limit, or over weight limit). With the setting off, a collapsed column at its limit looks like any other.
 - Columns **over** their limit are unaffected: the existing `⚠ Over WIP` treatment always takes precedence.
 - Columns under the limit are unaffected: always `N cards`.
 
