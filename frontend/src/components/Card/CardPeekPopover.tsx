@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import type { Card, CustomFieldDefinition } from "../../types";
-import { colorForPriority } from "../../constants/colors";
+import { colorForPriority, readableTextOn } from "../../constants/colors";
 import { formatDueDate, formatRelativeTime } from "../../utils/date";
 import { colorChipStyle } from "../../utils/colorContrast";
 import { formatCustomFieldValue, isValidForType, thresholdLevel, thresholdPhrase } from "../../utils/customFieldValue";
@@ -105,7 +105,7 @@ export default function CardPeekPopover({ card, anchorRect, minTop = null, onMou
         {card.priority !== "low" && (
           <span
             className="px-1.5 py-0.5 text-xs rounded font-semibold shrink-0 capitalize"
-            style={{ backgroundColor: priorityColor, color: "#fff" }}
+            style={{ backgroundColor: priorityColor, color: readableTextOn(priorityColor) }}
           >
             {card.priority}
           </span>

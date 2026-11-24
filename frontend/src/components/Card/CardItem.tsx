@@ -7,7 +7,7 @@ import { checklistFaceSuffix, checklistToday } from "../../utils/checklistFaceSu
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
-import { colorForPriority } from "../../constants/colors";
+import { colorForPriority, readableTextOn } from "../../constants/colors";
 import {
   blockedElapsedMs, blockedIndicatorLabel, formatBlockedDuration, isCardBlocked, isManuallyBlocked,
 } from "../../utils/blockedState";
@@ -1405,7 +1405,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             {!denseRow && showPriorityBadge && card.priority !== "low" && (
               <span
                 className="text-xs font-semibold shrink-0 capitalize px-1 py-0.5 rounded leading-none"
-                style={{ backgroundColor: priorityColor, color: "#fff" }}
+                style={{ backgroundColor: priorityColor, color: readableTextOn(priorityColor) }}
                 title={`Priority: ${card.priority}`}
               >
                 {card.priority}
