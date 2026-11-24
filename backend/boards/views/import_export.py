@@ -21,7 +21,7 @@ from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import DataError, IntegrityError, transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
@@ -355,7 +355,7 @@ def _gate_transition_export_entry(gt, movement_index):
     }
 
 
-def _deleted_card_history_export(board):
+def _deleted_card_history_export(board, exported_uids=frozenset()):
     """The board's retained history of hard-deleted cards, for the JSON export (#1796).
 
     Since #1469 (movements) and #1799 (activities), a hard-deleted card's rows
@@ -373,6 +373,12 @@ def _deleted_card_history_export(board):
     Not in the CSV export: a CSV row is a card, and the CSV importer creates a
     card from every row, so a deleted card there would come back to life
     (whether the CSV should carry it in another form: #2414).
+
+    ``exported_uids`` are the uids of the cards the export already carries as
+    live cards. This is read after the cards, so a card deleted while the
+    export ran can be in both; its entry is left out here so the file names
+    each card once (an import would otherwise restore it twice, live and
+    deleted).
     """
     movements = (
         CardMovement.objects.filter(board=board, card__isnull=True)
@@ -434,7 +440,10 @@ def _deleted_card_history_export(board):
     # By each entry's first row of any kind. Timestamps compare as datetimes;
     # the old isoformat-string sort gave the same order (every value is UTC
     # with the same offset).
-    return sorted(entries.values(), key=lambda e: first[e["card_uid"]])
+    return sorted(
+        (e for e in entries.values() if e["card_uid"] not in exported_uids),
+        key=lambda e: first[e["card_uid"]],
+    )
 
 
 # Cards per chunk of the board export (#1962). Each chunk is one card query
@@ -446,39 +455,55 @@ _EXPORT_CHUNK_SIZE = 500
 def _iter_export_cards(queryset):
     """Yield the export's cards in ``(position, id)`` order, one chunk at a time (#1962).
 
-    The first chunk is a plain ``LIMIT`` page, so a board of up to
-    ``_EXPORT_CHUNK_SIZE`` cards exports in the queries it always did. A
-    larger board then reads the remaining card ids in order once (integers
-    only, one sort) and fetches each further chunk by primary key, so the
-    database sorts the board twice in all rather than once per chunk: Card has
-    no ``(board, position, id)`` index a keyset page could range-scan. Each
-    chunk's ``prefetch_related`` runs for that chunk only, so at most one
-    chunk of cards and their prefetched rows is held at a time.
+    The first chunk is a plain ``LIMIT`` page. A board of up to
+    ``_EXPORT_CHUNK_SIZE`` cards is wholly in it, so it exports in one card
+    query, a single read, as before chunking. A larger board then reads the
+    whole ordered list of card ids once (integers only, one sort) and emits
+    the cards in that list's order, a window of ``_EXPORT_CHUNK_SIZE`` ids at
+    a time: first-page cards come from the page already read, the rest are
+    fetched by primary key, so the database sorts the board twice in all
+    rather than once per chunk (Card has no ``(board, position, id)`` index a
+    keyset page could range-scan). Each fetch's ``prefetch_related`` runs for
+    that window only, so at most two chunks of cards (the first page and one
+    window) are held at a time.
+
+    Why the id list, read before anything is yielded, decides membership and
+    order: the export holds no snapshot across its queries, and cards move
+    while it runs. Resuming from a ``position`` cursor after the first page
+    emitted a first-page card twice when it moved past the cursor, and
+    skipped a not-yet-read card that moved below it (an import of the first
+    file creates a duplicate card). Every card is emitted once, at its place
+    in the id list: a first-page card gone from the list (deleted meanwhile)
+    is dropped, one created meanwhile is included, and a card deleted after
+    the list was read is skipped when its window is fetched. The
+    ``relations`` indexes are built from the cards as they are emitted, so
+    they always point at the right entry. A first-page card that moved keeps
+    the field values of the first read.
 
     Not ``QuerySet.iterator()``: that opens a server-side cursor on
     PostgreSQL, which breaks behind transaction-mode PgBouncer (the pooling
     docs/architecture/scaling.md recommends) unless
     ``DISABLE_SERVER_SIDE_CURSORS`` is set. ``id`` breaks position ties
     (positions repeat across columns), which makes the order, and so the
-    ``relations`` indexes, reproducible. A card deleted while the export runs
-    is left out rather than failing it.
+    ``relations`` indexes, reproducible.
     """
     size = _EXPORT_CHUNK_SIZE
     ordered = queryset.order_by("position", "id")
-    chunk = list(ordered[:size])
-    yield from chunk
-    if len(chunk) < size:
+    first_page = list(ordered[:size])
+    if len(first_page) < size:
+        yield from first_page
         return
-    last = chunk[-1]
-    rest = list(
-        ordered.filter(Q(position__gt=last.position) | Q(position=last.position, id__gt=last.pk))
-        .select_related(None).prefetch_related(None)
-        .values_list("pk", flat=True)
-    )
-    for start in range(0, len(rest), size):
-        ids = rest[start:start + size]
-        by_pk = {card.pk: card for card in queryset.filter(pk__in=ids)}
-        yield from (by_pk[pk] for pk in ids if pk in by_pk)
+    held = {card.pk: card for card in first_page}
+    del first_page
+    ids = list(ordered.select_related(None).prefetch_related(None).values_list("pk", flat=True))
+    for start in range(0, len(ids), size):
+        window = ids[start:start + size]
+        missing = [pk for pk in window if pk not in held]
+        by_pk = {card.pk: card for card in queryset.filter(pk__in=missing)} if missing else {}
+        for pk in window:
+            card = held.pop(pk, None) or by_pk.get(pk)
+            if card is not None:
+                yield card
 
 
 def _relations_export(board, card_index):
@@ -4108,8 +4133,12 @@ class BoardImportExportMixin:
             # Card pk -> its index in ``cards_data``: how ``relations`` (#1448)
             # name a card.
             card_index = {}
+            # Uids of the cards emitted, so deleted_card_history below does
+            # not also carry one deleted while the export ran.
+            exported_uids = set()
             for card in _iter_export_cards(cards):
                 card_index[card.pk] = len(cards_data)
+                exported_uids.add(card.uid)
                 # Use .all() + sorted() to read from the prefetch cache instead of
                 # issuing an ORDER BY query per card for movements, comments, and checklist.
                 movements = sorted(card.movements.all(), key=lambda m: (m.moved_at, m.id))
@@ -4320,7 +4349,7 @@ class BoardImportExportMixin:
                 # Retained history of hard-deleted cards (#1796), after "cards"
                 # so every existing key keeps its place. Additive: schema_version
                 # stays 2, and an importer that predates the key ignores it.
-                "deleted_card_history": _deleted_card_history_export(board),
+                "deleted_card_history": _deleted_card_history_export(board, exported_uids),
                 # Card relations (#1448), last so every existing key keeps its
                 # place. Additive: schema_version stays 2.
                 "relations": _relations_export(board, card_index),

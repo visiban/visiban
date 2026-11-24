@@ -517,3 +517,84 @@ class ChunkedExportTests(_Fixture):
         with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", 1), mock.patch.object(ie, "_iter_export_cards", deleting):
             data = self.export_json()
         self.assertEqual([c["title"] for c in data["cards"]], ["Alpha", "Beta", "Delta"])
+
+
+class ChunkedExportRaceTests(_Fixture):
+    """#1962: a card that changes while the export runs is emitted exactly once.
+
+    The export holds no snapshot across its queries. Each test runs a change
+    right after the first card page is read (chunk size 2: Alpha, Beta), the
+    window in which the earlier position cursor duplicated a moved-up card and
+    skipped a moved-down one.
+    """
+
+    def _export_with_change_after_first_page(self, change):
+        fired = []
+
+        def wrapper(execute, sql, params, many, context):
+            result = execute(sql, params, many, context)
+            # The first card page: the only card query with a LIMIT.
+            if not fired and sql.lstrip().upper().startswith("SELECT") and 'FROM "cards"' in sql and "LIMIT" in sql:
+                fired.append(sql)
+                change()
+            return result
+
+        with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", 2), connection.execute_wrapper(wrapper):
+            data = self.export_json()
+        self.assertTrue(fired, "the first card page was never read")
+        return data
+
+    def _assert_each_once(self, data, titles):
+        self.assertCountEqual([c["title"] for c in data["cards"]], titles)
+        names = [c["title"] for c in data["cards"]]
+        relations = {(names[r["from"]], r["kind"], names[r["to"]]) for r in data["relations"]}
+        self.assertIn(("Alpha", "blocks", "Beta"), relations)
+        self.assertEqual(
+            {frozenset((f, t)) for f, k, t in relations if k == "relates_to"},
+            {frozenset(("Gamma", "Delta"))},
+        )
+
+    def test_first_page_card_moved_past_the_rest_is_emitted_once(self):
+        refs = self.build_rich_board()
+        data = self._export_with_change_after_first_page(
+            lambda: Card.objects.filter(pk=refs["a"].pk).update(position=9),
+        )
+        self._assert_each_once(data, ["Alpha", "Beta", "Gamma", "Delta"])
+
+    def test_unread_card_moved_before_the_first_page_is_not_skipped(self):
+        refs = self.build_rich_board()
+        data = self._export_with_change_after_first_page(
+            lambda: Card.objects.filter(pk=refs["c"].pk).update(position=-1),
+        )
+        self._assert_each_once(data, ["Alpha", "Beta", "Gamma", "Delta"])
+
+    def test_first_page_card_deleted_before_the_id_list_is_left_out(self):
+        refs = self.build_rich_board()
+        data = self._export_with_change_after_first_page(
+            lambda: Card.objects.filter(pk=refs["b"].pk).delete(),
+        )
+        names = [c["title"] for c in data["cards"]]
+        self.assertEqual(names, ["Alpha", "Delta", "Gamma"])
+        relations = {(names[r["from"]], r["kind"], names[r["to"]]) for r in data["relations"]}
+        self.assertEqual({frozenset((f, t)) for f, _, t in relations}, {frozenset(("Gamma", "Delta"))})
+        # Not emitted as live, so its retained history is carried as deleted.
+        self.assertIn(refs["b"].uid, [e["card_uid"] for e in data["deleted_card_history"]])
+
+    def test_card_deleted_after_it_was_emitted_is_not_also_deleted_history(self):
+        refs = self.build_rich_board()
+        original = ie._iter_export_cards
+
+        def deleting(queryset):
+            for i, card in enumerate(original(queryset)):
+                yield card
+                if i == 0:
+                    # Alpha is already in the file; its history is now retained
+                    # with card NULL, which deleted_card_history reads.
+                    Card.objects.filter(pk=refs["a"].pk).delete()
+
+        with mock.patch.object(ie, "_EXPORT_CHUNK_SIZE", 2), mock.patch.object(ie, "_iter_export_cards", deleting):
+            data = self.export_json()
+        self.assertEqual([c["title"] for c in data["cards"]], ["Alpha", "Beta", "Delta", "Gamma"])
+        uids = [e["card_uid"] for e in data["deleted_card_history"]]
+        self.assertNotIn(refs["a"].uid, uids)
+        self.assertIn(refs["deleted_uid"], uids)
