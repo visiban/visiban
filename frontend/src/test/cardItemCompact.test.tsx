@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { computeAccessibleName } from 'dom-accessibility-api'
 import CardItem from '../components/Card/CardItem'
 import { RollupLoadingContext } from '../components/Card/rollupLoading'
 import type { Card } from '../types'
@@ -402,4 +403,24 @@ describe('CardItem — child progress footer gate and memo (#2210)', () => {
     rerender(<CardItem density="comfortable" card={makeCard({ children_rollup: rollup(2) })} />)
     expect(screen.getByTestId('card-children-rollup')).toHaveAttribute('aria-label', expect.stringContaining('2 of 3 done'))
   })
+})
+
+describe('CardItem — accessible name with the selection checkbox (#2468)', () => {
+  it.each(['comfortable', 'standard', 'dense'] as const)(
+    'does not lead the card button name with "Select card" at %s density',
+    (density) => {
+      // The name without a checkbox is the baseline (what origin/main gave with one).
+      const plain = render(<CardItem density={density} card={makeCard({ title: 'Fix login' })} />)
+      const baseline = computeAccessibleName(plain.container.querySelector('[data-card-id]') as HTMLElement)
+      plain.unmount()
+      render(<CardItem density={density} card={makeCard({ title: 'Fix login' })} onSelect={() => {}} />)
+      const root = document.querySelector('[data-card-id]') as HTMLElement
+      expect(root).toHaveAttribute('role', 'button')
+      expect(baseline).toContain('Fix login')
+      expect(root).toHaveAccessibleName(baseline)
+      expect(root).not.toHaveAccessibleName(/Select card/)
+      // The checkbox keeps its own name, which is what #2466 added it for.
+      expect(screen.getByRole('checkbox', { name: 'Select card Fix login' })).toBeInTheDocument()
+    },
+  )
 })

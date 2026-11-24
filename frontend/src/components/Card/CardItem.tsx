@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
+import { Fragment, useId, useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, memo } from "react";
 import LockGlyph from "./LockGlyph";
 import CardChildrenRollup, { CardChildrenRollupSkeleton } from "./CardChildrenRollup";
 import { useRollupLoading } from "./rollupLoading";
@@ -277,6 +277,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
   const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
+  const bodyId = useId();
   // Quick-edit dropdown popover state (#371) — which pinned field's chip
   // opened it, and the chip's own rect for anchoring. Checkbox chips toggle
   // directly on click with no popover.
@@ -832,6 +833,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       // drag-overlay copy has none, so it never matches.
       data-card-id={overlay ? undefined : card.id}
       aria-current={current ? "true" : undefined}
+      // The selection checkbox is a child of this role="button" root, so its aria-label ("Select
+      // card <title>") would otherwise lead the card's own name. Naming the root from the body
+      // keeps the name what it is without onSelect; the checkbox keeps its own name.
+      aria-labelledby={onSelect ? bodyId : undefined}
       data-no-pan
       data-tour-step="card"
       // A selected card drops its bg-primary-emphasis/20 fill while an aging tint is shown:
@@ -956,7 +961,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           </span>
         </button>
       )}
-      <div className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
+      <div id={bodyId} className={`relative px-2.5 ${compact ? "pt-[7px] pb-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         {/* The title keeps clear of the card-face overlay controls. Show summary reserves pr-14 at fine pointers permanently, so hover never re-wraps the title; ⋯ reserves its width at coarse pointers only while shown. */}
         {/* Parent line (#1104): one line above the title, in link color,
             truncating. Text, not a link: the whole face is one control. A
