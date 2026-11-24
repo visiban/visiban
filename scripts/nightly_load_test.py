@@ -1100,6 +1100,52 @@ def _self_test():
             failures.append(f"exit run: _failure({label}) is {_failure(exc)[0]!r}, expected {want!r}")
     if "movement cap" not in _failure(_http_exc(422, TOO_LARGE_CODE))[1]:
         failures.append("exit run: a 422 analytics_too_large does not say it is the movement cap")
+    # The timeout detail names the limit that applied (#2595): read vs connect, and a per-call value.
+    _rt = _failure(requests.exceptions.ReadTimeout("x"))[1]
+    _ct = _failure(requests.exceptions.ConnectTimeout("x"))[1]
+    _ft = _failure(requests.exceptions.ReadTimeout("x"), EXIT_FIXTURE_TIMEOUT_SECONDS)[1]
+    _bt = _failure(requests.exceptions.ReadTimeout("x"), EXIT_STALL_SECONDS)[1]
+    if f"within the {EXIT_READ_TIMEOUT_SECONDS}s read timeout" not in _rt:
+        failures.append(f"exit run: a ReadTimeout does not name the {EXIT_READ_TIMEOUT_SECONDS}s read timeout: {_rt}")
+    if f"within the {EXIT_CONNECT_TIMEOUT_SECONDS}s connect timeout" not in _ct or "read timeout" in _ct:
+        failures.append(f"exit run: a ConnectTimeout is not reported as a connect timeout: {_ct}")
+    if f"within the {EXIT_FIXTURE_TIMEOUT_SECONDS}s read timeout" not in _ft \
+            or f"{EXIT_READ_TIMEOUT_SECONDS}s" in _ft:
+        failures.append(f"exit run: a fixture read timeout names the wrong limit: {_ft}")
+    if f"within the {EXIT_STALL_SECONDS}s read timeout" not in _bt:
+        failures.append(f"exit run: a burst timeout names the wrong limit: {_bt}")
+    if "30s" not in _failure(requests.exceptions.ReadTimeout("x"), 30)[1]:
+        failures.append("exit run: a bare-number timeout is not named as the read timeout")
+
+    class _PResp:
+        def __init__(self, status, body, retry_after=None):
+            self.status_code, self._body, self.reason, self.url = status, body, "Reason", "http://h/probe"
+            self.headers = {"Retry-After": retry_after} if retry_after else {}
+
+        def json(self):
+            if isinstance(self._body, Exception):
+                raise self._body
+            return self._body
+
+    _pk, _pd = _probe_result(_PResp(200, ValueError("no body")))
+    if _pk != "ok" or not isinstance(_pd, str) or "200" not in _pd or "http://h/probe" not in _pd:
+        failures.append(f"exit run: probe of a 200 gave ({_pk!r}, {_pd!r}), not ('ok', a detail naming status and URL)")
+    _pk, _pd = _probe_result(_PResp(503, {"code": ANALYTICS_BUSY_CODE, "detail": "x" * 500}, "2"))
+    if _pk != "busy" or not isinstance(_pd, str) or ANALYTICS_BUSY_CODE not in _pd or "x" * EXIT_PROBE_DETAIL_CHARS not in _pd \
+            or "x" * (EXIT_PROBE_DETAIL_CHARS + 1) in _pd:
+        failures.append(f"exit run: probe of a 503 busy gave ({_pk!r}, {_pd!r})")
+    _pk, _pd = _probe_result(_PResp(500, ValueError("not json")))
+    if _pk != "unexpected" or not isinstance(_pd, str) or "500 Reason" not in _pd:
+        failures.append(f"exit run: probe of a non-JSON 500 gave ({_pk!r}, {_pd!r}), not an unexpected answer with a detail")
+    _pk, _pd = _probe_result(_PResp(422, {"code": TOO_LARGE_CODE}))
+    if _pk != "too_large" or not isinstance(_pd, str):
+        failures.append(f"exit run: probe of a 422 too large gave ({_pk!r}, {_pd!r})")
+    _thr = EXIT_IDLE_CPU_QUIET_FRACTION * EXIT_IDLE_CPU_WINDOW_SECONDS
+    for label, delta, want in (("no CPU used", 0.0, True), ("just under the threshold", _thr - 0.01, True),
+                               ("exactly the threshold", _thr, False), ("just over", _thr + 0.01, False),
+                               ("busy", EXIT_IDLE_CPU_WINDOW_SECONDS, False)):
+        if _cpu_quiet(100.0, 100.0 + delta) is not want:
+            failures.append(f"exit run: _cpu_quiet({label}) is not {want}")
     if not _failure(ExitServerNotIdle("x"))[1].startswith("not run"):
         failures.append("exit run: a measurement skipped for a busy server does not say it was not run")
 
@@ -1473,10 +1519,15 @@ _EXIT_CURRENT_USER_URL = "/api/v1/auth/user/"
 # 60 s default applies there (docs/administration/configuration.md). Measuring up to the longest of
 # them means a request a 60 s proxy would cut off is still measured, and shows up over its bar, rather
 # than being lost. The first run's 30 s cut analytics/?days=365 off while the server was still running
-# it. A request slower than this is recorded as a timeout, never as a latency.
+# it. A request slower than this is recorded as a timeout, never as a latency. It applies to the
+# requests the bars are measured on (EXIT_REQUEST_TIMEOUT); the others have their own: the unread-count
+# poller (EXIT_UNREAD_TIMEOUT_SECONDS), each burst open (EXIT_STALL_SECONDS), the two fixture reads
+# (EXIT_FIXTURE_TIMEOUT_SECONDS) and the idle probe (EXIT_IDLE_PROBE_TIMEOUT).
 EXIT_READ_TIMEOUT_SECONDS = 90
 EXIT_CONNECT_TIMEOUT_SECONDS = 10
 EXIT_REQUEST_TIMEOUT = (EXIT_CONNECT_TIMEOUT_SECONDS, EXIT_READ_TIMEOUT_SECONDS)
+EXIT_UNREAD_TIMEOUT_SECONDS = 30
+EXIT_FIXTURE_TIMEOUT_SECONDS = 120   # both fixture reads: /cards/archived/ and /full/ on the 12k-card board
 # The idle wait before each analytics measurement (#2595), independent of the read timeout above. A
 # client timeout does not stop the server: it keeps running the request and holds the analytics slot
 # (ANALYTICS_MAX_CONCURRENT=1), so every later request would be refused busy or share the CPU. Before
@@ -1627,18 +1678,28 @@ class ExitServerNotIdle(RuntimeError):
     """The analytics slot did not come free in time (or its state is unknown): the measurement was not run."""
 
 
-def _failure(exc):
+def _timeout_part(timeout, index):
+    """The *index* (0 connect, 1 read) element of a requests timeout: a number applies to both."""
+    return timeout[index] if isinstance(timeout, tuple) else timeout
+
+
+def _failure(exc, timeout=EXIT_REQUEST_TIMEOUT):
     """``(status, detail)`` for a measurement that raised *exc* (#2595): a refusal, a timeout or an error.
 
     Names a documented refusal as itself, and never as a figure. See the STATUS_* constants for
-    what each status means and why a refusal still fails its bar.
+    what each status means and why a refusal still fails its bar. *timeout* is the requests
+    timeout the failed call used (a number, or a (connect, read) tuple), so a timeout's detail names
+    the limit that actually applied, and a ConnectTimeout is not reported as a read timeout.
     """
     if isinstance(exc, ExitServerNotIdle):
         return STATUS_ERROR, f"not run: {exc}"
     if isinstance(exc, requests.exceptions.Timeout):
-        return STATUS_TIMEOUT, (f"no response within the {EXIT_READ_TIMEOUT_SECONDS}s read timeout "
-                                f"({type(exc).__name__}); not measured. The server may still be running it, "
-                                "so the next measurement waits for the analytics slot first")
+        if isinstance(exc, requests.exceptions.ConnectTimeout):
+            what = f"no connection within the {_timeout_part(timeout, 0)}s connect timeout"
+        else:
+            what = f"no response within the {_timeout_part(timeout, 1)}s read timeout"
+        return STATUS_TIMEOUT, (f"{what} ({type(exc).__name__}); not measured. The server may still be "
+                                "running it, so the next measurement waits for the analytics slot first")
     resp = getattr(exc, "response", None)
     if resp is not None:
         try:
@@ -1663,6 +1724,27 @@ def _probe_detail(status, code, reason, url, body_detail=None):
     if isinstance(body_detail, str) and body_detail:
         text += f": {body_detail[:EXIT_PROBE_DETAIL_CHARS]}"
     return text
+
+
+def _probe_result(r):
+    """``(kind, detail)`` for the idle probe's response *r* (#2595): its classification and a
+    description naming status, code or reason, and URL. A non-JSON error body is tolerated. Pure
+    on a response-like object (``status_code``, ``reason``, ``url``, ``headers``, ``json()``)."""
+    code = body_detail = None
+    if r.status_code != 200:
+        try:
+            body = r.json()
+            code, body_detail = body.get("code"), body.get("detail")
+        except (ValueError, AttributeError):
+            pass
+    return (_classify_analytics_response(r.status_code, code, r.headers.get("Retry-After")),
+            _probe_detail(r.status_code, code, r.reason, r.url, body_detail))
+
+
+def _cpu_quiet(cpu_before, cpu_after):
+    """Whether the server used under EXIT_IDLE_CPU_QUIET_FRACTION of one CPU over the window (#2595).
+    Strictly under: exactly at the threshold is not quiet."""
+    return cpu_after - cpu_before < EXIT_IDLE_CPU_QUIET_FRACTION * EXIT_IDLE_CPU_WINDOW_SECONDS
 
 
 def _wait_for_analytics_slot(probe, budget_s=EXIT_IDLE_WAIT_SECONDS, poll_s=EXIT_IDLE_POLL_SECONDS,
@@ -1780,14 +1862,14 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
     """
     m = {"failures": {}, "idle_waits_s": {}}
 
-    def attempt(checks, fn, idle=True):
+    def attempt(checks, fn, idle=True, timeout=EXIT_REQUEST_TIMEOUT):
         try:
             if idle:
                 m["idle_waits_s"][checks[0]] = round(ops.wait_idle(), 1)
             return fn()
         except Exception as exc:  # noqa: BLE001 -- recorded as the checks' failure status and reason
             for c in checks:
-                m["failures"][c] = _failure(exc)
+                m["failures"][c] = _failure(exc, timeout)
             return None
 
     def saved():
@@ -1796,7 +1878,8 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
             checkpoint(m)
 
     # The fixture reads are not analytics requests and run first, so they need no idle wait.
-    fx = attempt(("fixture_is_stress_fixture",), ops.fixture, idle=False)
+    fx = attempt(("fixture_is_stress_fixture",), ops.fixture, idle=False,
+                  timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
     if fx:
         m["fixture"] = dict(fx)
     saved()
@@ -1819,7 +1902,7 @@ def _collect_exit_measurements(ops, concurrency, cap, users, checkpoint=None):
         m["analytics_365_ms"], m["analytics_365_rss_growth_mb"] = _percentile(a365[0], 95), a365[1]
     saved()
     conc = attempt(("unread_count_p95_ms_under_load", "concurrent_peak_rss_mb", "over_cap_refused_cleanly"),
-                   ops.concurrent)
+                   ops.concurrent, timeout=EXIT_STALL_SECONDS)
     if conc:
         outcomes, unread, unread_errors, big, peak = conc
         m["concurrent_peak_rss_mb"] = peak
@@ -1847,7 +1930,7 @@ def _unread_poller(base_url, headers, stop, samples, errors):
         while not stop.is_set():
             start = time.perf_counter()
             try:
-                r = sess.get(base_url + _EXIT_UNREAD_URL, timeout=30)
+                r = sess.get(base_url + _EXIT_UNREAD_URL, timeout=EXIT_UNREAD_TIMEOUT_SECONDS)
                 elapsed = (time.perf_counter() - start) * 1000
                 if r.status_code == 200:
                     samples.append(elapsed)
@@ -1987,9 +2070,9 @@ class _ExitOps:
     def fixture(self):
         # The same reads the budget run's aged-board guard uses: the archived page's count, and
         # the active cards /full/ returns.
-        archived = self.session.get(f"{self.root}/cards/archived/", timeout=60)
+        archived = self.session.get(f"{self.root}/cards/archived/", timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
         archived.raise_for_status()
-        full = self.session.get(f"{self.root}/full/", timeout=120)
+        full = self.session.get(f"{self.root}/full/", timeout=EXIT_FIXTURE_TIMEOUT_SECONDS)
         full.raise_for_status()
         return {**self.declared, "active_cards": len(full.json().get("cards", [])),
                 "archived_cards": _count_of(archived.json())}
@@ -2101,22 +2184,13 @@ def run_exit(args):
         return result, hwm, hwm - before
 
     def probe():
-        r = session.get(probe_url, timeout=EXIT_IDLE_PROBE_TIMEOUT)
-        code = body_detail = None
-        if r.status_code != 200:
-            try:
-                body = r.json()
-                code, body_detail = body.get("code"), body.get("detail")
-            except (ValueError, AttributeError):
-                pass
-        return (_classify_analytics_response(r.status_code, code, r.headers.get("Retry-After")),
-                _probe_detail(r.status_code, code, r.reason, r.url, body_detail))
+        return _probe_result(session.get(probe_url, timeout=EXIT_IDLE_PROBE_TIMEOUT))
 
     def quiet():
         # Above cap 1 only (see EXIT_IDLE_CPU_WINDOW_SECONDS): the server process's CPU over a short window.
         before = mem.cpu_seconds()
         time.sleep(EXIT_IDLE_CPU_WINDOW_SECONDS)
-        return mem.cpu_seconds() - before < EXIT_IDLE_CPU_QUIET_FRACTION * EXIT_IDLE_CPU_WINDOW_SECONDS
+        return _cpu_quiet(before, mem.cpu_seconds())
 
     def wait_idle():
         waited = _wait_for_analytics_slot(probe, cap=args.exit_max_concurrent, quiet=quiet)
