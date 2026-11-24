@@ -1180,6 +1180,13 @@ not just this parent's children. A parent with no children has no `board`.
 `enforce_wip_hard`, so a client can disable exactly the moves the move
 endpoint would refuse you. Neither is sent when `visible` is `false`.
 
+*Since 1.3 (#2553):* each row also carries `planned` (boolean): `true` while
+the child is planned for a later parent column and not yet released, so its
+`due_date` is inactive and it is neither Overdue nor Due soon. It is the
+child's own state, the same value as the card read's `planned`; the Needed
+column is not sent here. Like the other row fields, it is not sent when
+`visible` is `false`.
+
 ### `POST /api/v1/boards/{board_id}/cards/{id}/children/`
 
 **Add child** (#2208): create a new card on another board and link it under

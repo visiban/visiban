@@ -1039,6 +1039,8 @@ export interface CardChildRow {
   priority: Priority;
   due_date: string | null;
   labels: Pick<Label, "id" | "name" | "color">[];
+  /** Since 1.3 (#2553): planned for a later parent column, so `due_date` is inactive. Absent on older payloads. */
+  planned?: boolean;
 }
 
 /** A column of the child board, with the count of its whole column (#2209). */

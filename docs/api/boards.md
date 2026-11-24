@@ -999,6 +999,7 @@ The server rejects unknown top-level keys and type-checks each known key, but do
 | `subColumnIds` | integer[] | *Added in 1.3* (#2367). Show only cards in these sub-columns (ids from a column's `sub_columns`); at most 50 integers. Absent means no sub-column filter |
 | `trackStates` | string[] | *Added in 1.3* (#2367). Show only cards with at least one track on their own stage in one of these states: `done`, `open`, `not_applicable`. Absent means no track-state filter |
 | `parentFilter` | string \| integer | *Added in 1.3* (#2209). The Parent filter on a child board: `"any"` (cards with a parent), `"none"` (cards without one) or a parent card's id (a positive integer). The server checks the shape only; the client matches it on each card's `parent`, so an id that names a card the viewer cannot open matches nothing. Absent means any card |
+| `plannedFilter` | string | *Added in 1.3* (#2550). The Planned filter on a child board: `"hide"` (leave planned children out) or `"only"` (only planned children). Optional; absent means Any. Matched in the browser on each card's own `planned` field, so it names no column. Any other value is a `400` |
 
 All keys are optional. The total serialized size of `state_json` must not exceed 64 KB. String values (`search`, custom-field `query`, `equals`, `min`, `max` and `values` entries, and lane-rule `value`, `min`, and `max`) must not contain NUL (0x00) characters; they return `400`.
 

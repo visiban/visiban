@@ -6,6 +6,7 @@ import { loadCustomFields } from "./usePersistedFilters";
 import { sanitizeLaneFilter } from "../utils/laneFilter";
 import { sanitizeSubColumnIds, sanitizeTrackStates } from "../utils/stageFilter";
 import { sanitizeParentFilter } from "../utils/parentFilter";
+import { sanitizePlannedFilter } from "../utils/plannedFilter";
 import { normalizeFiltersForSave } from "../utils/numberFilter";
 
 export { normalizeFiltersForSave };
@@ -94,6 +95,8 @@ export function useSavedFilters(boardId: number) {
     const trackStates = sanitizeTrackStates(s["trackStates"]);
     // #2209 — absent in a filter saved before the Parent filter existed.
     const parentFilter = sanitizeParentFilter(s["parentFilter"]);
+    // #2550 — absent in a filter saved before the Planned filter existed.
+    const plannedFilter = sanitizePlannedFilter(s["plannedFilter"]);
     return {
       search: typeof s["search"] === "string" ? s["search"] : EMPTY_FILTER.search,
       assigneeIds: Array.isArray(s["assigneeIds"])
@@ -127,6 +130,7 @@ export function useSavedFilters(boardId: number) {
       ...(subColumnIds ? { subColumnIds } : {}),
       ...(trackStates ? { trackStates } : {}),
       ...(parentFilter !== undefined ? { parentFilter } : {}),
+      ...(plannedFilter !== undefined ? { plannedFilter } : {}),
     };
   }, []);
 

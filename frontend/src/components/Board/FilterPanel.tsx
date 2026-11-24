@@ -5,6 +5,7 @@ import { userDisplayName } from "../../types";
 import { POPOVER_VIEWPORT_MARGIN, visibleMaxHeight } from "../../hooks/useAnchoredPlacement";
 import { isCardBlocked } from "../../utils/blockedState";
 import { parentFilterAvailable, parentFilterLabel, parentFilterOptions, type ParentFilter } from "../../utils/parentFilter";
+import { plannedFilterAvailable, plannedFilterLabel, type PlannedFilter } from "../../utils/plannedFilter";
 import { choiceColor, explicitChoiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
 import { choiceColorBase } from "../../constants/choiceColors";
 import { isLaneBuiltinField, isLaneFilterActive, laneFilterAvailable, laneFilterFields, summarizeLaneFilter } from "../../utils/laneFilter";
@@ -56,12 +57,14 @@ interface Props {
 const PANEL_WIDTH = 520;
 const FOCUSABLE = 'button:not([disabled]),select:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "blocked" | "parent" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
+type RowId = "search" | "assignee" | "label" | "priority" | "dueDate" | "planned" | "blocked" | "parent" | "subColumn" | "trackState" | "lanes" | `cf:${number}`;
 interface Row {
   id: RowId;
   label: string;
   /** Current value text, or null when the row is not filtering. */
   value: string | null;
+  /** #2550 — an accessible name of its own ("Planned filter: Hide planned"); the visible text otherwise. */
+  ariaLabel?: string;
 }
 
 /** "Card" or "Swimlane" tag on a result row; text, not color, tells them apart. */
@@ -248,6 +251,11 @@ export default function FilterPanel({
     value: filters.priorities.length ? PRIORITY_OPTIONS.filter((o) => filters.priorities.includes(o.value)).map((o) => o.label).join(", ") : null,
   });
   rows.push({ id: "dueDate", label: "Due date", value: DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate)?.label ?? null });
+  // #2550 — the Planned row, right after Due date, when the board has planned cards (or while it is active).
+  if (plannedFilterAvailable(board.cards, filters.plannedFilter)) {
+    const value = plannedFilterLabel(filters.plannedFilter);
+    rows.push({ id: "planned", label: "Planned", value, ariaLabel: `Planned filter: ${value ?? "Any"}` });
+  }
   rows.push({ id: "blocked", label: "Blocked", value: filters.blockedOnly ? "Blocked only" : null });
   // #2209 — the Parent row, on a child-tier board with linked cards (or while the filter is active).
   if (parentFilterAvailable(board, filters.parentFilter)) {
@@ -489,6 +497,22 @@ export default function FilterPanel({
             ))}
           </div>
         );
+      case "planned": {
+        const setPlanned = (v: PlannedFilter | undefined) => {
+          const { plannedFilter: _dropped, ...rest } = filters;
+          onChange(v === undefined ? rest : { ...rest, plannedFilter: v });
+        };
+        return (
+          <div role="radiogroup" aria-label="Planned">
+            {([[undefined, "Any"], ["hide", "Hide planned"], ["only", "Only planned"]] as const).map(([v, label]) => (
+              <label key={v ?? "any"} className="flex items-center gap-2 px-2 py-1 max-sm:min-h-11 rounded text-sm text-fg cursor-pointer hover:bg-surface-hover focus-within:ring-2 focus-within:ring-primary-emphasis">
+                <input type="radio" name={`${id}-planned`} checked={filters.plannedFilter === v} onChange={() => setPlanned(v)} className="accent-primary" />
+                {label}
+              </label>
+            ))}
+          </div>
+        );
+      }
       case "subColumn":
         return (
           <div role="group" aria-label="Sub-column">
@@ -697,6 +721,7 @@ export default function FilterPanel({
                 onClick={onRow}
                 onKeyDown={needle ? onResultKeyDown : undefined}
                 data-fp-result={needle ? "" : undefined}
+                aria-label={row.ariaLabel}
                 aria-expanded={row.id === "lanes" ? undefined : isOpen}
                 aria-haspopup={row.id === "lanes" ? "dialog" : undefined}
                 className={`w-full flex items-center justify-between gap-3 px-2 py-2 rounded text-sm text-left transition ${MENU_ITEM_FOCUS_RING} ${active ? "bg-primary-emphasis/10 text-info-on-tint font-semibold" : "text-fg hover:bg-surface-hover"}`}
