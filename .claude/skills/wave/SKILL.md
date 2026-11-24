@@ -682,7 +682,8 @@ state plainly:
   `budget-exceeded:` (`rescue: none` on every MR of a wave with no rescue). `/kaizen` reads it via
   `scripts/kaizen_gate_ledger.py`, and `scripts/cost_ledger_lines.py --file <body.md>` rejects a
   malformed or contradictory one (#2304). An issue dropped with no MR leaves its line in this report
-  only.
+  only. The optional words after the trigger number may use only letters, digits, spaces and hyphens
+  (no `;`, `,`, `.` or `#`), or `cost_ledger_lines.py` rejects the line.
 - Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
   `completeness-check`), which agents reached a budget and whether you expanded it, and each
   branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
