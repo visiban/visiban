@@ -147,6 +147,25 @@ excludes). `subagent-tokens:` still comes from `## Gates` (per branch). Report i
 
 ---
 
+### Rescues — report the count, zero included
+
+The JSON's `rescue` object (and the text report's `## Fable rescues` section) reads the `rescue:`
+lines `/wave` writes in `## Gates` (#2304): `reported` MRs carry a line (`rescue: none` counts), and
+`by_choice` always lists `fable`, `opus-again`, `dropped` and `escalation-pending` with `total` and a
+`resolved` / `failed` / `n/a` split. This is the data the `/wave` "Measuring whether it earns its
+slot" section asks for: compare `fable` outcomes against `opus-again` outcomes. **State `reported`
+of `mrs` first**: an MR with no line is silent, not zero, and issues dropped with no MR never appear
+here. Small counts are not a verdict; say "n too small" rather than ranking the choices.
+
+**Two of the counts are not measurements** (macrodream/blueprint#416). `choice dropped` and
+`choice escalation-pending` are not recordable from MR ledgers (a rescue that never reaches an MR is
+never written to one), and `outcome failed` is undercounted (only a failed Opus-again attempt that a
+later rescue resolved is recorded; a rescue whose last attempt failed never reaches an MR ledger). The
+text report prints that note under the counts; a 0 there is a storage artifact, so do not quote it as
+a real outcome. Quote the rest of the block, zeros included. A `rescue:` line that parses as neither
+form is not counted: the report warns with the count (the JSON `rescue.malformed`), and the fix is in
+that MR's description (`scripts/cost_ledger_lines.py --file <body.md>` names the problem).
+
 ## Step 3 — apply the thresholds (already computed per gate)
 
 The script's `verdict` field per gate is one of:
@@ -267,6 +286,9 @@ Report format:
 
 ### Gate ledger
 <full table: gate | runs | zero | >0 | n/a | skipped | unscored | yield | verdict>
+
+### Rescues
+(reported of mrs; count by choice with outcomes, zeros included)
 
 ### Cost
 <state counts (recorded / disabled / none of N); how many recorded MRs were costed from windowed

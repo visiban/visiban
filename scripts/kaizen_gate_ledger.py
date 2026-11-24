@@ -478,6 +478,56 @@ def extract_gate_lines(description: str):
         yield name, outcome
 
 
+def analyze_rescue(mrs):
+    """Count the /wave Fable rescues recorded in the MRs' `## Gates` (#2304, blueprint#403).
+
+    `reported` is the MRs carrying a well-formed `rescue:` line (`rescue: none` counts: a zero is a
+    reading, and an MR with no line is silent, not zero). `by_choice` always carries every choice,
+    zero included, each split by outcome, so a window with no rescues still prints the zeros.
+    `malformed` counts the `rescue:` lines in `## Gates` that parse as neither form (macrodream/blueprint#403):
+    they are not counted as rescues, and the text report says so."""
+    by_choice = {c: {"total": 0, "resolved": 0, "failed": 0, "n/a": 0} for c in cost_lines.RESCUE_CHOICES}
+    reported = rescued_mrs = malformed = 0
+    for mr in mrs:
+        malformed += cost_lines.rescue_malformed(mr.get("description") or "")
+        found, rows = cost_lines.rescue_records(mr.get("description") or "")
+        if not found:
+            continue
+        reported += 1
+        if rows:
+            rescued_mrs += 1
+        for r in rows:
+            c = by_choice[r["choice"]]
+            c["total"] += 1
+            c[r["outcome"]] += 1
+    return {"mrs": len(mrs), "reported": reported, "rescued_mrs": rescued_mrs,
+            "rescues": sum(c["total"] for c in by_choice.values()), "malformed": malformed,
+            "by_choice": by_choice}
+
+
+# The honest limits of what an MR ledger can hold (macrodream/blueprint#403, tracked in macrodream/blueprint#416):
+# a rescue that never reaches an MR is never written to one.
+RESCUE_UNRECORDABLE_NOTE = (
+    "note: `choice dropped` and `choice escalation-pending` are not recordable from MR ledgers (rescues that "
+    "never reach an MR: tracked in macrodream/blueprint#416), and `outcome failed` is undercounted (only a "
+    "failed Opus-again attempt that a later rescue resolved is recorded; a rescue whose last attempt failed "
+    "never reaches an MR ledger); those counts above are a storage artifact, not a measurement")
+
+
+def render_rescue(rescue) -> list:
+    lines = ["## Fable rescues (`rescue:` lines, #2304)", ""]
+    lines.append(f"{rescue['reported']}/{rescue['mrs']} MRs report a `rescue:` line; "
+                 f"{rescue['rescued_mrs']} of them record at least one rescue "
+                 f"({rescue['rescues']} rescues). An MR with no line is silent, not zero.")
+    for choice, c in rescue["by_choice"].items():
+        lines.append(f"  {choice:<20} {c['total']:>3}  (resolved {c['resolved']}, failed {c['failed']}, n/a {c['n/a']})")
+    lines.append(RESCUE_UNRECORDABLE_NOTE)
+    if rescue.get("malformed"):
+        lines.append(f"warning: {rescue['malformed']} malformed `rescue:` line(s) in `## Gates` are not counted above "
+                     "(`scripts/cost_ledger_lines.py --file <body.md>` names the problem)")
+    return lines
+
+
 def analyze(mrs):
     """Compute per-gate stats and adoption across a list of MR objects."""
     gates: dict[str, GateStats] = {}
@@ -536,6 +586,7 @@ def analyze(mrs):
         "gates": gates,
         "malformed": per_mr_malformed,
         "cost": analyze_cost(figs, gate_runs),
+        "rescue": analyze_rescue(mrs),
     }
 
 
@@ -650,6 +701,8 @@ def render_text(result) -> str:
 
     lines.append("")
     lines.extend(render_cost(result["cost"]))
+    lines.append("")
+    lines.extend(render_rescue(result["rescue"]))
     return "\n".join(lines)
 
 
@@ -755,6 +808,7 @@ def to_jsonable(result):
         "gates": gates_out,
         "malformed_count": len(result["malformed"]),
         "cost": result["cost"],
+        "rescue": result["rescue"],
     }
 
 
@@ -809,6 +863,34 @@ def _attach_check(em, ct, note, rec, t) -> bool:
             and math.isclose(c["by_class"]["feat"]["mean_est_cost_usd"], 2.5)
             and c["excluded"] == {"no_record": [51], "notes_unreadable": [52]}
             and cost_buckets_total(c) == c["mrs"])
+
+
+def _rescue_check(em) -> bool:
+    def d(*lines):
+        return {"description": "## Gates\n" + "\n".join(lines) + "\n"}
+
+    r = analyze_rescue([
+        d("rescue: none"),
+        d(f"rescue: #1 {em} trigger 1; choice fable; outcome resolved",
+          "rescue: #2 - trigger 2; choice opus-again; outcome failed"),
+        d("rescue: #3 - trigger 2; choice dropped; outcome n/a"),
+        d("- gate: perf-check - n/a (x)"),
+        d("rescue: #4 - trigger 1; choice gemini; outcome resolved"),
+        {"description": "rescue: #5 - trigger 1; choice fable; outcome resolved"},
+        d("```", "rescue: #6 - trigger 1; choice fable; outcome resolved", "```"),
+        d("rescue: #7 - trigger 1 implementer strike two; choice fable; outcome resolved"),
+        d(f"rescue: #{'9' * 30} {em} trigger 1; choice fable; outcome failed"),
+    ])
+    empty = analyze_rescue([d("rescue: none")])
+    rendered = "\n".join(render_rescue(empty))
+    warned = "\n".join(render_rescue(r))
+    return (r["mrs"] == 9 and r["reported"] == 3 and r["rescued_mrs"] == 2 and r["rescues"] == 3
+            and r["malformed"] == 3 and empty["malformed"] == 0 and "warning:" not in rendered
+            and "3 malformed `rescue:` line(s)" in warned and "storage artifact, not a measurement" in rendered
+            and r["by_choice"]["fable"] == {"total": 1, "resolved": 1, "failed": 0, "n/a": 0}
+            and r["by_choice"]["opus-again"]["failed"] == 1 and r["by_choice"]["dropped"]["total"] == 1
+            and r["by_choice"]["escalation-pending"]["total"] == 0
+            and empty["rescues"] == 0 and empty["reported"] == 1 and "fable" in "\n".join(render_rescue(empty)))
 
 
 def self_test() -> int:
@@ -946,6 +1028,7 @@ def self_test() -> int:
          parse_outcome("0 findings (sonnet; budget-stopped)")[0] == "other"
          and parse_outcome("2 findings (opus; budget-stopped)")[0] == "other"
          and parse_outcome("0 findings (sonnet)") == ("findings", 0)),
+        ("rescue lines are counted by choice and outcome, zeros included (#2304)", _rescue_check(em)),
         ("text and JSON render", "## Cost" in render_text(r) and json.dumps(to_jsonable(r))),
     ]
     fails = [name for name, ok in checks if not ok]

@@ -235,7 +235,8 @@ established.
 
 **Reporting.** Show the model as `fable` in every status table and the Step 7 report, with the
 trigger and the user's answer. A gate a Fable agent ran is recorded `(model: fable)` in its `## Gates`
-line, like any model. Step 7 carries one `rescue:` line per issue a trigger fired on.
+line, like any model. The `rescue:` line(s), up to two per issue a trigger fired on, are sent with the go-ahead and
+persisted in the MR's `## Gates` (Step 5); Step 7 only reports them.
 
 "This issue is important" is not escalation criteria. Neither is "it touches
 security" — a one-line permission-class fix with a named root cause is Sonnet
@@ -523,6 +524,12 @@ Every agent finishes by, in order:
      the layer that turned it off. **`budget-exceeded: <N> (<role> <k>, ...)` is sent either way
      (`0` when no agent hit a budget):** it counts agents, not cost, so it does not depend on
      the setting.
+   **The `rescue:` line(s) are sent too, every time (#2304):** `rescue: none` when no *Rescue
+   escalation* trigger fired for the MR's issue(s) this wave, else up to two lines per issue (the
+   question is asked again after a failed Opus-again run, so triggers 1 and 2 can both fire):
+   `rescue: #N — trigger <1|2>; choice <fable|opus-again|dropped|escalation-pending>; outcome <resolved|failed|n/a>`.
+   Both triggers fire before the go-ahead, so it is known by then. It is not cost, so
+   `cost-ledger: off` does not suppress it.
    - **Record agent ids as you go.** Note the `agentId:` the Agent tool result prints for every
      agent you spawn or resume for this branch (the implementer, each `completeness-check` pass, each fresh fix agent).
    - **Measure with one command**, in the worktree and in your own session (it reads
@@ -603,7 +610,7 @@ Every agent finishes by, in order:
    that did not trigger the re-check records `completeness-check/fix-diff — n/a`;
    one that triggered it and the user declined records `skipped`. A gate or pass that
    stopped at its budget is recorded `(<model>; budget-stopped)`, never as a plain count. The
-   `budget-exceeded:` line and the cost lines the
+   `rescue:` line, the `budget-exceeded:` line and the cost lines the
    go-ahead message carried (or its one `cost-ledger: off` line) go last in `## Gates`,
    pasted unchanged; check the draft with `python3 scripts/cost_ledger_lines.py --file
    <body.md>` (the body file under the checkout, the temp dir or the git dir). If Step 5.5
@@ -675,10 +682,20 @@ state plainly:
 - Whether you raised the WIP cap, and whether any worktrees need cleanup
   (`scripts/wt remove <issue>` or `scripts/wt prune`).
 - The wave's shape: how many agents, how many on Opus and on Fable, and at what effort.
-- One `rescue:` line per issue a *Rescue escalation* trigger fired on, and `rescue: none` when
-  none did (report the zero too; no script reads this line yet (#2304), so it lives in this report
-  only): `rescue: #N — trigger <1 implementer strike two | 2 round-2 BLOCKER>; choice <fable |
-  opus-again | dropped | escalation-pending>; outcome <resolved | failed | n/a>`.
+- The `rescue:` line(s): up to two per issue a *Rescue escalation* trigger fired on (the question
+  is asked again after a failed Opus-again run, and triggers 1 and 2 can both fire), and
+  `rescue: none` when none did (report the zero too). Literal format: `rescue: #N — trigger <1|2>;
+  choice <fable|opus-again|dropped|escalation-pending>; outcome <resolved|failed|n/a>` (trigger 1 is an
+  implementer at strike two, trigger 2 a round-2 BLOCKER; `cost_ledger_lines.py` rejects any other
+  trigger text, so no descriptive words after the number). The go-ahead message already carried the
+  line(s) into the issue's MR `## Gates` (Step 5), beside `budget-exceeded:` (`rescue: none` on every MR
+  of a wave with no rescue). `/kaizen` reads them via `scripts/kaizen_gate_ledger.py`, and
+  `scripts/cost_ledger_lines.py --file <body.md>` rejects a malformed or contradictory record, or a
+  third line for one issue (#2304). Only a rescue that ended in an MR can be recorded there:
+  `escalation-pending` and `dropped` rescues never reach an MR ledger, and `outcome failed` is
+  undercounted (only a failed Opus-again attempt that a later rescue resolved is recorded; a rescue
+  whose last attempt failed never reaches an MR ledger). `/kaizen` labels those counts and they are
+  not a measurement (macrodream/blueprint#416).
 - Per role, the tool calls and minutes each agent spent against its budget (implementer, gate,
   `completeness-check`), which agents reached a budget and whether you expanded it, and each
   branch's `budget-exceeded:` line. This is the recalibration data for the provisional budgets.
