@@ -92,6 +92,29 @@ the deprecated 1.1 `redis.enabled` alias for `valkey.enabled` (removed no earlie
 than 1.3); any other `redis.*` key fails the render with a message naming the
 rename to `valkey:`; see [Bundled Valkey](#bundled-valkey).
 
+## Backend sizing
+
+The default `backend.resources` (`requests: 100m / 256Mi`, `limits: 500m / 512Mi`) fit a small team. One Analytics overview peaked at 551 MB of process memory on a 12k-card board, and at 1.1 GB on a 2.4k-card board with three years of history. Idle, the backend uses about 115 MB. A pod over its limit is `OOMKilled`, which drops every WebSocket.
+
+| Largest board | Suggested `backend.resources.limits.memory` |
+|---|---|
+| Up to about 2.4k active cards, under a year of history | `512Mi` (the default) |
+| Up to about 12k active cards, or about 2.4k with a year or more of history | `1Gi` |
+| 12k or more active cards with a year or more of history, or several years of history | `2Gi` |
+
+```yaml
+backend:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+```
+
+`daphne` keeps its high-water mark after an Analytics burst (CPython allocator behavior, not a proven leak), so leave headroom above the peak. The chart's defaults are unchanged: raising them alters behavior for existing installs, and waits on the committed Analytics fixes. The measurements, the CPU note and the restart options are in "Backend memory and CPU sizing" in `docs/administration/configuration.md`.
+
 ## Bundled Valkey
 
 `valkey.enabled=true` (the default) runs Valkey as this chart's own StatefulSet

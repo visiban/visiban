@@ -209,6 +209,53 @@ A transaction that writes [change feed](../api/events.md) events holds one Postg
 
 An ordinary write uses one or two entries. The largest case in the product is deactivating or deleting an account that has pending invite links on many boards, which uses one entry per such board. Deleting boards, including a bulk delete in the Django admin, uses none for the deleted boards themselves, plus one per other board where a deleted card was blocking a card (that card gets a `card.updated`). A single transaction therefore only nears the limit when it writes events on thousands of boards. If a write fails with `out of shared memory` and the hint `You might need to increase max_locks_per_transaction`, raise `max_locks_per_transaction` in `postgresql.conf` (or the chart's PostgreSQL configuration) and restart PostgreSQL.
 
+## Backend memory and CPU sizing
+
+The Helm defaults fit a small team, not a large board with long history. Opening Analytics on a big board can push the backend past the default memory limit and get the pod OOM-killed, which drops every WebSocket.
+
+**Why it matters:** The chart sets `backend.resources` to `requests: 100m / 256Mi` and `limits: 500m / 512Mi`. One Analytics overview on a 12k-card board peaked at 551 MB of process memory, and on a 2.4k-card board with three years of history it peaked at 1.1 GB. Idle, the backend uses about 115 MB.
+
+**By the numbers:** From the 2026-11-20 stress run, per Analytics overview open (`analytics/?days=90`, `analytics/?days=365`, the `metrics/*` endpoints and `summary`):
+
+| Largest board | Cards / movements | Slowest single request (peak Python allocation) | Overview, 8 requests serial |
+|---|---|---|---|
+| 2.4k active, 80 days of history | 2,395 / 24,919 | `analytics/?days=365`: 0.49 s, 29 MB | 1.4 s |
+| 2.4k active, plus 1 year archived | 11,947 / 124,255 | `analytics/?days=365`: 1.95 s, 137 MB | 4.6 s |
+| 2.4k active, plus 3 years archived | 31,051 / 322,927 | `metrics/*`: 1.4-1.6 s, 186 MB | 10.0 s |
+| 12k active, 80 days of history | 12,058 / 124,374 | `analytics/?days=90`: 2.13 s, 144 MB | 7.4 s |
+| 12k active, plus 1 year archived | 60,262 / 621,534 | `analytics/?days=365`: 9.58 s, 691 MB | 22.9 s |
+
+**How to size it:** Process memory is higher than the Python allocation in the table (about 115 MB idle, plus the request, plus memory the process keeps). Use these as a starting point for `backend.resources.limits.memory`, and raise it if the pod restarts with `OOMKilled`:
+
+| Largest board | Suggested `limits.memory` | Suggested `requests.memory` |
+|---|---|---|
+| Up to about 2.4k active cards and under a year of history | `512Mi` (the default) | `256Mi` (the default) |
+| Up to about 12k active cards, or about 2.4k with a year or more of history | `1Gi` | `512Mi` |
+| Large boards: 12k or more active cards with a year or more of history, or several years of history | `2Gi` (the highest process peak measured was 1,956 MB) | `1Gi` |
+
+```yaml
+backend:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+```
+
+**CPU:** The latencies above are from a laptop on a full core. The default `cpu: 500m` limit roughly doubles the wall time of a heavy request. Raise `limits.cpu` if Analytics on a large board feels slow. If you enable `backendAutoscaling`, keep `requests.cpu` set, because the autoscaler needs it.
+
+**Yes, but:** `daphne` keeps its high-water mark. After a burst of Analytics requests the process does not give the memory back: it sat at 703 MB before the next burst after a 1,128 MB peak, and at 1,407 MB after a 1,956 MB peak. A pod that survived one heavy open starts the next one closer to its limit. This is CPython allocator behavior (arenas and fragmentation), not a leak in Visiban code, and it was not proven to grow without bound. Leave headroom above the peak, not just above idle.
+
+**Watch out:**
+
+- The Helm chart's default limits are **not** raised yet. Raising a default changes behavior for existing installs, so that decision waits on the committed Analytics fixes (lifetime history, overview fan-out and the 365-day analytics load). Those should shrink most of these numbers.
+- These are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, `DEBUG=False`, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.
+- `daphne` has no `--max-requests`. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example `kubectl rollout restart deployment/<release>-backend`, which rolls pods without downtime when you run more than one replica). Tuning `MALLOC_ARENA_MAX` or `PYTHONMALLOC` is untested for Visiban, so measure before and after if you try it.
+
+**Go deeper:** [Helm chart README](https://gitlab.com/visiban/visiban/-/blob/main/helm/visiban/README.md#backend-sizing), [Kubernetes install](../getting-started/kubernetes.md).
+
 ## Valkey memory limit and eviction
 
 Valkey holds only short-lived state: the Channels layer (WebSocket groups, db 0) and the Django cache (db 1). The cache carries rate-limit counters, single-use WebSocket tickets, Git lens fetch locks, filter caches and, if you set a cache `SESSION_ENGINE`, sessions. Every one of these keys is written with a TTL. Nothing in Valkey is a system of record: PostgreSQL is.
