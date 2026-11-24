@@ -34,6 +34,8 @@ vi.mock('../components/Common/Avatar', () => ({
 const mockGetAdminSettings = vi.fn()
 const mockPatchAdminSettings = vi.fn()
 const mockGetAdminUsers = vi.fn()
+// The Users filter pills (#2501) are a labeled group too; the confirm lookups below mean the InlineConfirm.
+const notFilterGroup = (name: string) => name !== 'Filter users'
 const mockCreateAdminUser = vi.fn()
 const mockPatchAdminUser = vi.fn()
 const mockGetAdminInviteLinks = vi.fn()
@@ -574,7 +576,7 @@ describe('AdminPage — Users section', () => {
 
     // The action is confirm-gated — it must not fire before the dialog is confirmed.
     expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
-    const dialog = await screen.findByRole('group')
+    const dialog = await screen.findByRole('group', { name: notFilterGroup })
     fireEvent.click(within(dialog).getAllByRole('button')[1])
 
     await waitFor(() => {
@@ -589,7 +591,7 @@ describe('AdminPage — Users section', () => {
     await openRowMenu('Admin User')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
-    const dialog = await screen.findByRole('group')
+    const dialog = await screen.findByRole('group', { name: notFilterGroup })
     fireEvent.click(within(dialog).getByText('Cancel'))
 
     expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
@@ -605,7 +607,7 @@ describe('AdminPage — Users section', () => {
     await openRowMenu('Admin User')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
-    const dialog = await screen.findByRole('group')
+    const dialog = await screen.findByRole('group', { name: notFilterGroup })
     fireEvent.click(within(dialog).getAllByRole('button')[1])
 
     await waitFor(() => {
@@ -626,7 +628,7 @@ describe('AdminPage — Users section', () => {
     await openRowMenu('Alice')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Revoke all-content' }))
 
-    const dialog = await screen.findByRole('group')
+    const dialog = await screen.findByRole('group', { name: notFilterGroup })
     fireEvent.click(within(dialog).getAllByRole('button')[1])
 
     await waitFor(() => {
@@ -850,7 +852,7 @@ describe('AdminPage — Users section', () => {
       mockPatchAdminUser.mockResolvedValue({ ...holder, can_access_all_content: false })
       await openAliceMenu(adminUser, holder)
       fireEvent.click(screen.getByRole('menuitem', { name: 'Revoke all-content' }))
-      const dialog = await screen.findByRole('group')
+      const dialog = await screen.findByRole('group', { name: notFilterGroup })
       fireEvent.click(within(dialog).getAllByRole('button')[1])
       await waitFor(() => {
         expect(mockPatchAdminUser).toHaveBeenCalledWith(3, { can_access_all_content: false })
@@ -862,7 +864,7 @@ describe('AdminPage — Users section', () => {
       mockPatchAdminUser.mockResolvedValue({ ...row, can_access_all_content: true })
       await openAliceMenu(superuserActor, row)
       fireEvent.click(screen.getByRole('menuitem', { name: 'Grant all-content' }))
-      const dialog = await screen.findByRole('group')
+      const dialog = await screen.findByRole('group', { name: notFilterGroup })
       fireEvent.click(within(dialog).getAllByRole('button')[1])
       await waitFor(() => {
         expect(mockPatchAdminUser).toHaveBeenCalledWith(3, { can_access_all_content: true })
@@ -878,7 +880,7 @@ describe('AdminPage — Users section', () => {
       )
       await openAliceMenu(unknownActor, { ...fakeAdminUsers[1] })
       fireEvent.click(screen.getByRole('menuitem', { name: 'Grant all-content' }))
-      const dialog = await screen.findByRole('group')
+      const dialog = await screen.findByRole('group', { name: notFilterGroup })
       fireEvent.click(within(dialog).getAllByRole('button')[1])
       await waitFor(() => {
         expect(screen.getByText(message)).toBeInTheDocument()
@@ -894,7 +896,7 @@ describe('AdminPage — Users section', () => {
     await openRowMenu('Admin User')
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clear lockout' }))
 
-    const dialog = await screen.findByRole('group')
+    const dialog = await screen.findByRole('group', { name: notFilterGroup })
     fireEvent.click(within(dialog).getAllByRole('button')[1])
 
     await waitFor(() => {

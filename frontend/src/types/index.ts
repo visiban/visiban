@@ -1969,6 +1969,25 @@ export interface AdminUser {
   has_completed_tour?: boolean;
 }
 
+/** `status` filter on GET /api/v1/admin/users/ (#2501). `admins` includes deactivated admins. */
+export type AdminUserStatus = "all" | "active" | "deactivated" | "admins";
+
+/**
+ * Per-status totals for the current search, whichever status was requested
+ * (#2501). `admins` overlaps the others, so the four do not sum to `all`.
+ */
+export type AdminUserStatusCounts = Record<AdminUserStatus, number>;
+
+/** GET /api/v1/admin/users/ response (`AdminUserList` in the OpenAPI schema). */
+export interface AdminUserList {
+  count: number;
+  offset: number;
+  page_size: number;
+  results: AdminUser[];
+  /** 1.3+ (#2501). */
+  counts: AdminUserStatusCounts;
+}
+
 export interface AdminInviteLink {
   id: number;
   prefix: string;

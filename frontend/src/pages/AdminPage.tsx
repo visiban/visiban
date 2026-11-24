@@ -30,6 +30,7 @@ import {
   Button,
   EmptyState,
   Field,
+  FilterPill,
   InlineConfirm,
   ListRow,
   ListWell,
@@ -43,7 +44,7 @@ import {
   type StatusTone,
 } from "../components/Page";
 import type { AdminInviteLinkPage } from "../api/auth";
-import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
+import type { AdminInviteLink, AdminUser, AdminUserStatus, AdminUserStatusCounts, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 import AnchoredMenuPanel from "../components/Common/AnchoredMenuPanel";
 import { captureMenuAnchor, type MenuAnchor } from "../utils/menuAnchor";
@@ -955,6 +956,34 @@ function MaintenanceSwitch({ checked, onChange, busy }: { checked: boolean; onCh
 // Users section
 // ---------------------------------------------------------------------------
 
+/** The Users filter pills (#2501), filtered on the server before paging; `empty` is the list's no-match line. */
+const USER_STATUS_FILTERS: { id: AdminUserStatus; label: string; empty: string }[] = [
+  { id: "all", label: "All", empty: "No users found." },
+  { id: "active", label: "Active", empty: "No active users." },
+  { id: "deactivated", label: "Deactivated", empty: "No deactivated users." },
+  { id: "admins", label: "Admins", empty: "No admins." },
+];
+
+/** Which status buckets `u` is in (`admins` overlaps the other two). */
+function userStatuses(u: Pick<AdminUser, "is_active" | "is_site_admin">): AdminUserStatus[] {
+  return ["all", u.is_active ? "active" : "deactivated", ...(u.is_site_admin ? ["admins" as const] : [])];
+}
+
+/**
+ * Move one account's contribution to the pill counts from `before` to `after` (either may be absent:
+ * an added or a removed row), so a row action keeps the counts true without refetching the page.
+ */
+function adjustStatusCounts(
+  counts: AdminUserStatusCounts,
+  before: Pick<AdminUser, "is_active" | "is_site_admin"> | null,
+  after: Pick<AdminUser, "is_active" | "is_site_admin"> | null,
+): AdminUserStatusCounts {
+  const next = { ...counts };
+  for (const s of before ? userStatuses(before) : []) next[s] -= 1;
+  for (const s of after ? userStatuses(after) : []) next[s] += 1;
+  return next;
+}
+
 /** One open inline confirm, shown under the row it concerns. */
 interface ConfirmState {
   userId: number;
@@ -978,6 +1007,11 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [searched, setSearched] = useState("");
+  // The status pill (#2501). Filtered server-side before paging, so `total` is the filter's total.
+  const [statusFilter, setStatusFilter] = useState<AdminUserStatus>("all");
+  const [shownStatus, setShownStatus] = useState<AdminUserStatus>("all");
+  // Every pill's total for the current search; null until a response carries them.
+  const [counts, setCounts] = useState<AdminUserStatusCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -1015,16 +1049,19 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
   }, 40);
 
   const fetchUsers = useCallback(
-    async (searchVal: string, offsetVal: number) => {
+    async (searchVal: string, offsetVal: number, statusVal: AdminUserStatus) => {
       setLoading(true);
       setError(null);
       try {
-        const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal });
+        const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal, status: statusVal });
         setUsers(data.results);
         setTotal(data.count);
         setSearched(searchVal);
-        // The nav count is the site's total users, not a search's matches.
-        if (!searchVal) onTotal(data.count);
+        setShownStatus(statusVal);
+        setCounts(data.counts ?? null);
+        // The nav count is the site's total users, not a search's or a filter's matches.
+        const siteTotal = data.counts ? data.counts.all : statusVal === "all" ? data.count : null;
+        if (!searchVal && siteTotal !== null) onTotal(siteTotal);
         // Use the server-returned page_size so pagination controls stay in sync
         // even if the server-side default changes.
         setPageSize(data.page_size);
@@ -1039,19 +1076,35 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
 
   useEffect(() => {
     // void: fetchUsers handles its own errors via setError and never rethrows.
-    void fetchUsers(search, offset);
+    void fetchUsers(search, offset, statusFilter);
     // search is read from the latest closure intentionally: typing updates
     // `search` without refetching here — handleSearchChange below debounces
     // and fetches directly, so this effect only needs to react to offset
-    // (pagination) changes.
-  }, [offset]); // eslint-disable-line react-hooks/exhaustive-deps -- search intentionally excluded, see comment above
+    // (pagination) and status pill changes.
+  }, [offset, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps -- search intentionally excluded, see comment above
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearch(val);
     setOffset(0);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchUsers(val, 0), 400);
+    debounceRef.current = setTimeout(() => fetchUsers(val, 0, statusFilter), 400);
+  };
+
+  // A pill keeps the search and starts again at page 1. The effect above fetches once for both
+  // changes; a pending search debounce is dropped because that fetch already uses the typed text.
+  const handleStatusChange = (next: AdminUserStatus) => {
+    if (next === statusFilter) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setStatusFilter(next);
+    setOffset(0);
+  };
+
+  /** Swap in a row the server returned, moving its pill counts if a status changed. */
+  const replaceUser = (updated: AdminUser) => {
+    const before = users.find((u) => u.id === updated.id) ?? null;
+    if (before) setCounts((c) => (c ? adjustStatusCounts(c, before, updated) : c));
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
   };
 
   const closeConfirm = () => {
@@ -1068,7 +1121,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     setActionError(null);
     try {
       const updated = await patchAdminUser(userId, patch);
-      setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
+      replaceUser(updated);
     } catch (err: unknown) {
       const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
       setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1121,7 +1174,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         setActionError(null);
         try {
           const updated = await deactivateAdminUser(user.id);
-          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+          replaceUser(updated);
         } catch (err: unknown) {
           const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
           setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1166,7 +1219,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         setActionError(null);
         try {
           const updated = await clearAdminUserLockout(user.id);
-          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+          replaceUser(updated);
         } catch (err: unknown) {
           const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
           setActionError(data?.detail ?? "Action failed. Please try again.");
@@ -1191,7 +1244,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
     setRestartingTourIds((prev) => new Set(prev).add(user.id));
     try {
       const updated = await patchAdminUser(user.id, { has_completed_tour: false });
-      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+      replaceUser(updated);
       setActionMessage(
         `Tour will restart for ${nameOf(user)} on their next visit to a board.`
       );
@@ -1400,6 +1453,25 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
         />
       </div>
 
+      {/* Pills on desktop, a native select with counts below sm (frontend/CLAUDE.md, one DOM). */}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter users">
+        <div className="flex flex-wrap gap-2 max-sm:hidden">
+          {USER_STATUS_FILTERS.map((f) => (
+            <FilterPill key={f.id} label={f.label} count={counts?.[f.id]} selected={statusFilter === f.id} onClick={() => handleStatusChange(f.id)} />
+          ))}
+        </div>
+        <select
+          aria-label="Filter users"
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value as AdminUserStatus)}
+          className="sm:hidden h-11 w-full rounded border border-line-strong bg-surface px-3 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          {USER_STATUS_FILTERS.map((f) => (
+            <option key={f.id} value={f.id}>{counts ? `${f.label} (${counts[f.id]})` : f.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div role="status" aria-live="polite">
         {actionError && <p className="text-sm text-danger">{actionError}</p>}
         {actionMessage && <p className="text-sm text-success">{actionMessage}</p>}
@@ -1408,12 +1480,12 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       {loading ? (
         <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <LoadError message={error} onRetry={() => void fetchUsers(search, offset)} />
+        <LoadError message={error} onRetry={() => void fetchUsers(search, offset, statusFilter)} />
       ) : (
         <>
           {users.length === 0 ? (
             <EmptyState
-              title={searched ? `No users match "${searched}".` : "No users found."}
+              title={searched ? `No users match "${searched}".` : USER_STATUS_FILTERS.find((f) => f.id === shownStatus)?.empty ?? "No users found."}
               description={searched ? "Check the spelling, or clear the filter." : undefined}
               headingLevel="h3"
             />
@@ -1574,9 +1646,14 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
       {showAddModal && (
         <AddUserModal
           onCreated={(newUser) => {
-            setUsers((prev) => [newUser, ...prev]);
-            setTotal((t) => t + 1);
-            onTotal(total + 1);
+            // A new account is active and not an admin: it shows only under All and Active.
+            const shown = statusFilter === "all" || statusFilter === "active";
+            if (shown) {
+              setUsers((prev) => [newUser, ...prev]);
+              setTotal((t) => t + 1);
+            }
+            setCounts((c) => (c ? adjustStatusCounts(c, null, newUser) : c));
+            onTotal((counts?.all ?? total) + 1);
             setShowAddModal(false);
           }}
           onClose={() => setShowAddModal(false)}
@@ -1609,7 +1686,7 @@ function UsersSection({ currentUser, onTotal, onOpenEmailSettings }: {
           user={offboardingUser}
           restoreFocusTo={isPhone ? () => sheetTriggerRef.current : undefined}
           onDeactivated={(updated) => {
-            setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+            replaceUser(updated);
             setOffboardingUser(null);
           }}
           onClose={() => setOffboardingUser(null)}

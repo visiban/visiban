@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, AdminBoardInviteLink, AdminBoardInviteStatusFilter, InviteEmailSent, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
+import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminUserList, AdminUserStatus, AdminInviteLink, CreatedAdminInviteLink, AdminBoardInviteLink, AdminBoardInviteStatusFilter, InviteEmailSent, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken, ConnectedAccount } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -156,11 +156,14 @@ export const patchAdminEmailSettings = (data: SiteEmailSettingsPatch) =>
 export const sendAdminTestEmail = () =>
   client.post<EmailTestResult>("/api/v1/admin/email-settings/test/", {}).then((r) => r.data);
 
-export const getAdminUsers = (params?: { search?: string; offset?: number }) =>
-  client.get<{ count: number; offset: number; page_size: number; results: AdminUser[] }>(
+/** `status` other than "all" filters server-side before paging (#2501); "all" is the server default and is not sent. */
+export const getAdminUsers = (params?: { search?: string; offset?: number; status?: AdminUserStatus }) => {
+  const { status, ...rest } = params ?? {};
+  return client.get<AdminUserList>(
     "/api/v1/admin/users/",
-    { params }
+    { params: status && status !== "all" ? { ...rest, status } : rest }
   ).then((r) => r.data);
+};
 
 export const createAdminUser = (data: {
   username: string;
