@@ -28,7 +28,7 @@ Returns `200 OK` if the process is running. No authentication required. No exter
 {"status": "ok"}
 ```
 
-Use this as a **liveness probe** — if it fails, the container should be restarted.
+**Watch out:** use this as a **liveness probe** only. If it fails, the container should be restarted.
 
 ---
 
@@ -46,7 +46,7 @@ Returns `200 OK` while the database is reachable. No authentication required. A 
 {"status": "degraded"}
 ```
 
-Valkey backs realtime updates and the cache. With it down the database is fine, so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
+**Yes, but:** Valkey backs realtime updates and the cache. With it down the database is fine, so the pod stays ready instead of every pod leaving the Service at once *(1.3+, [#1465](https://gitlab.com/visiban/visiban/-/issues/1465))*. The body names no component; the server log carries `Readiness degraded: cache`. Alert on that log line or on Valkey's own metrics, not on the probe.
 
 **What works while Valkey is down** *(1.3+)*. Each cache call gives up after `REDIS_CACHE_SOCKET_TIMEOUT` / `REDIS_CACHE_SOCKET_CONNECT_TIMEOUT` (0.5 s by default), so this holds whether Valkey refuses connections or silently drops them:
 
@@ -67,7 +67,9 @@ The server log carries one `Cache unreachable (...)` warning per affected compon
 }
 ```
 
-Only the database can fail readiness, so `db` is the only key that appears in `errors`, with the fixed value `unavailable`. (Before 1.3 a Valkey failure returned `503` with a `redis` key; it now returns the `200` `degraded` response above.) Failure details are written to the server log, not the response. Use this as a **readiness probe** — traffic should not be routed to the instance until it returns `200`.
+Only the database can fail readiness, so `db` is the only key that appears in `errors`, with the fixed value `unavailable`. (Before 1.3 a Valkey failure returned `503` with a `redis` key; it now returns the `200` `degraded` response above.) Failure details are written to the server log, not the response.
+
+**Watch out:** use this as a **readiness probe**. Traffic should not be routed to the instance until it returns `200`.
 
 !!! warning "Deprecated *(1.3+)*: the `errors` object"
     The `errors` object is deprecated. It is still returned, with its `db` key, on every `503` for all of 1.x, but it names the backing services to anonymous callers, so it is planned for removal in 2.0 ([#1902](https://gitlab.com/visiban/visiban/-/issues/1902)). After that the not-ready body is `{"status": "error"}` only. The `redis` key no longer appears from 1.3, because a Valkey failure no longer fails readiness (see above).
