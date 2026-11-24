@@ -5367,6 +5367,14 @@
 <td><code>move_card</code>: <code>gates_passed</code> (since 1.3) is not an integer, is negative, or is past the target stage's last sub-column.</td>
 </tr>
 <tr>
+<td><code>analytics_busy</code></td>
+<td><code>board_flow_metrics</code> and <code>aging_cards</code>. <em>Added in 1.3</em> (#2428). No analytics slot is free on this server right now (<code>ANALYTICS_MAX_CONCURRENT</code>). The tools never wait for one: call again in a few seconds. <code>{"code": "analytics_busy", "detail": "..."}</code>. These codes and settings follow the 1.0+ compatibility rules.</td>
+</tr>
+<tr>
+<td><code>analytics_too_large</code></td>
+<td><code>board_flow_metrics</code> and <code>aging_cards</code>. <em>Added in 1.3</em> (#2428). The request needs more of the board's movement history than one analytics request may hold (<code>ANALYTICS_MAX_MOVEMENTS</code>). Calling again does not help; an administrator raises the limit. <code>{"code": "analytics_too_large", "detail": "..."}</code>. These codes and settings follow the 1.0+ compatibility rules.</td>
+</tr>
+<tr>
 <td><code>card_creation_not_allowed</code></td>
 <td><code>create_card</code> targeted a column that has card creation turned off. Carries a <code>column</code> message instead of <code>detail</code>: <code>{"column": "Card creation is not allowed in this column.", "code": "card_creation_not_allowed"}</code>.</td>
 </tr>
@@ -5478,6 +5486,7 @@
 </blockquote>
 <p>Flow metrics for one board over a rolling window, from the same service as the REST <a href="../../features/analytics/"><code>metrics/*</code> endpoints</a> (ADR #1532; both default to 90 days): cycle time and throughput equal <code>GET /boards/{id}/metrics/cycle-time</code> and <code>/throughput</code> for the same <code>days</code> and <code>swimlane_id</code>; WIP counts and the <code>blocked</code> block come from the same service but are not those REST responses; <code>blocked_summary</code> is. WIP has no REST endpoint of its own (the closest is <code>metrics/wip-age/</code>'s <code>columns[].wip_count</code>). The <code>blocked</code> block follows the window and <code>swimlane_id</code> (since #2280), but it has the shape of the older <code>/analytics/</code> blocked-time block, not of <code>metrics/blocked/</code>: days rounded to 0.1, columns keyed by name rather than <code>column_uid</code>, and reasons ranked by how many blocks they have, then by time. All board roles may call it; it needs only <code>mcp:read</code> and spends from the <a href="#rate-limiting">compute bucket</a>.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>window_days</code> (integer 1 to 365, default <code>90</code>, the REST <code>days</code> default); <code>swimlane_id</code> (integer, optional, must belong to the board). A value that reaches the tool out of range, or a swimlane that is not on the board, is a <code>validation_error</code> keyed by the argument. Type coercion and the rejection of non-integers (<code>30.5</code>, <code>"abc"</code>) are done by the MCP SDK's input schema, as for every tool. A swimlane of another board and a nonexistent swimlane get the same message.</p>
+<p><strong>Errors:</strong> besides <code>board_not_found</code> and <code>validation_error</code>, <em>since 1.3</em> (#2428) <code>analytics_busy</code> and <code>analytics_too_large</code> (see <a href="#tool-errors">Tool errors</a>). The tool is refused at once when no analytics slot is free; it never waits.</p>
 <p><strong>Returns:</strong></p>
 <table>
 <thead>
@@ -5524,6 +5533,7 @@
 </blockquote>
 <p>Cards that have been in their current column longer than the given percentile of how long cards stayed in that column. The history is the stays that ended in the last 90 days (<code>history_days</code>, REST's default dwell range), board-wide. Done columns and archived cards never appear. All board roles; <code>mcp:read</code>; compute bucket.</p>
 <p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>percentile</code> (integer 1 to 99, default <code>85</code>). A high percentile needs many samples: above 95 a column almost always has a <code>null</code> threshold.</p>
+<p><strong>Errors:</strong> besides <code>board_not_found</code> and <code>validation_error</code>, <em>since 1.3</em> (#2428) <code>analytics_busy</code> and <code>analytics_too_large</code> (see <a href="#tool-errors">Tool errors</a>). The tool is refused at once when no analytics slot is free; it never waits.</p>
 <p><strong>Returns:</strong> <code>{percentile, history_days, columns, total, truncated, limit, cards}</code>.</p>
 <ul>
 <li><code>columns</code>: one row per not-done column, <code>{column_id, column_uid, column_name, sample_size, threshold_days}</code>. <code>threshold_days</code> is <code>null</code> when the column has too few finished stays (fewer than 5, or too few for that percentile), and such a column flags nothing. An empty <code>cards</code> array therefore does not prove nothing is aging; read <code>columns</code>.</li>

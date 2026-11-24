@@ -3343,6 +3343,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rule-20-analytics-replays-are-admitted-through-one-gate-on-every-transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 20: Analytics replays are admitted through one gate on every transport
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-to-add-a-rule" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6577,6 +6588,51 @@ deleted) carry no actor.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="rule-20-analytics-replays-are-admitted-through-one-gate-on-every-transport">Rule 20: Analytics replays are admitted through one gate on every transport<a class="headerlink" href="#rule-20-analytics-replays-are-admitted-through-one-gate-on-every-transport" title="Permanent link">&para;</a></h2>
+<p><em>Since 1.3 (#2428).</em> Every request that replays a board's history through
+<code>flow_metrics.load_*</code> takes a slot from
+<code>boards.services.analytics_admission.analytics_slot</code> first, on every
+transport, and counts its movement rows against one budget: held rows against <code>ANALYTICS_MAX_MOVEMENTS</code>, rows a pass folds and drops against a fixed ceiling of <code>STREAMED_ROWS_MULTIPLE</code> times it. The order is fixed: authorize
+the board (Rule 7's <code>404</code>), validate parameters (<code>400</code>), then take the slot, so
+a refusal never answers for a board the caller cannot see. The slot is keyed on
+the user (<code>user.pk</code>, never the token), is released in <code>try</code>/<code>finally</code>, is
+counted in-process and never in the cache, and an absent or anonymous user is
+never admitted. No caller is exempt, site admins included. The refusal bodies
+(<code>analytics_busy</code> <code>503</code>, <code>analytics_too_large</code> <code>422</code>) and <code>Retry-After</code> are
+constant: no counts, limits or queue positions.</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Entry point</th>
+<th>Enforcement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REST</td>
+<td><code>boards/views/analytics.py</code> <code>BoardAnalyticsMixin</code>: <code>summary</code>, <code>analytics</code>, <code>metrics_cycle_time</code>, <code>metrics_swimlanes</code>, <code>metrics_throughput</code>, <code>metrics_cumulative_flow</code> (with and without <code>date</code>), <code>metrics_wip_age</code>, <code>metrics_dwell</code>, <code>metrics_blocked</code>, <code>metrics_attention</code>, <code>metrics_overview</code></td>
+<td><code>_analytics_slot(request, board, "&lt;action&gt;")</code> after <code>get_board_for_user</code> and parameter validation; waits a bounded time, then <code>503</code></td>
+</tr>
+<tr>
+<td>MCP</td>
+<td><code>mcp_server/tools.py</code> <code>board_flow_metrics</code>, <code>aging_cards</code></td>
+<td><code>analytics_slot(..., wait=False)</code> after <code>_resolve_board</code> and argument validation, inside the tool body; refusals through <code>_error_payload</code></td>
+</tr>
+<tr>
+<td>Direct service callers (enterprise, management commands)</td>
+<td><code>boards/services/flow_metrics.py</code> <code>_movement_rows</code>, <code>analytics_admission.row_counter</code></td>
+<td>with no active slot, each read (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>, the block-row reads) gets its own fresh counter at <code>settings.ANALYTICS_MAX_MOVEMENTS</code> (and its streamed ceiling) and raises <code>AnalyticsTooLarge</code>, never unlimited, so a call with no slot can hold about twice the budget across its reads; a direct caller should take <code>analytics_slot</code> so the reads share one ticket; every loop over movement or gate-transition rows (<code>_movement_rows</code>, <code>_deciding_rows</code>, <code>_attach_wait</code>) calls <code>row_counter().count_rows(n, held=...)</code>, and so must any new loop over card history rows</td>
+</tr>
+</tbody>
+</table>
+<p>Tests: <code>boards/tests/test_analytics_admission_2428.py</code> (<code>CoveragePinTests</code>
+fails when a REST analytics action that calls <code>flow_metrics.load_*</code> is not
+gated, plus the busy, too-large, order, release and absent-input tests) and
+<code>mcp_server/tests/test_mcp_flow.py</code> (<code>McpCoveragePinTests</code> fails when an MCP
+tool that calls <code>flow_metrics.load_*</code> does not open <code>analytics_slot</code>;
+<code>FlowToolsAdmissionTests</code> covers the refusals; both run only with
+<code>MCP_SERVER_ENABLED=true</code>).</p>
 <h2 id="how-to-add-a-rule">How to add a rule<a class="headerlink" href="#how-to-add-a-rule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Write the rule as a statement of behavior, not an implementation: what must

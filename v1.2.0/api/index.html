@@ -4708,6 +4708,32 @@ the session is checked before the API token. A page of the web app loaded during
 keeps retrying until the cache answers; it does not fall back to the sign-in page. Before 1.3 such a request answered <code>401</code> and deleted the session cookie,
 which signed the web app user out until they signed in again (#2143). The browser pages under
 <code>/accounts/</code> and <code>/admin/</code> answer the same JSON <code>503</code>.</p>
+<h3 id="analytics-refusals-analytics_busy-analytics_too_large">Analytics refusals (<code>analytics_busy</code>, <code>analytics_too_large</code>)<a class="headerlink" href="#analytics-refusals-analytics_busy-analytics_too_large" title="Permanent link">&para;</a></h3>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>The Analytics endpoints (<code>summary</code>, <code>analytics</code> and every <code>metrics/*</code>, see
+<a href="boards/#flow-metrics">Boards</a>) are admitted through an operator-configurable
+concurrency limit and size limit (<a href="../administration/configuration/#analytics-limits">Analytics limits</a>).
+These codes and settings follow the 1.0+ compatibility rules.</p>
+<p>When no slot comes free within a few seconds (or the server already has its
+limit of waiting requests, or you already have two Analytics requests running
+or waiting, in which case the refusal is immediate):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"analytics_busy"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Analytics is busy on this server right now. Try again in a moment."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>with <code>503 Service Unavailable</code> and <code>Retry-After: 10</code>. Retry after that many
+seconds. When the request needs more of the board's movement history than one request may hold:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"analytics_too_large"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This board has more history than this server is set up to analyze in one request. Ask your administrator to raise the server's analytics limit."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>with <code>422 Unprocessable Entity</code>. Retrying the same request does not help; an
+administrator raises <code>ANALYTICS_MAX_MOVEMENTS</code>. A shorter <code>days</code> range helps only
+where the request's held history follows the range (most <code>metrics/*</code> charts); it
+does not help the <code>date</code> drill-down, which reads every card of the board whatever
+the range (only the few rows that decide where each card rests that day, counted
+against the same fixed ceiling as the settled pass). The rows are
+counted as they are read, so this refusal can take as long as reading up to the
+limit. Both bodies are always exactly
+these: they never include counts, limits or queue positions. Match on <code>code</code>,
+not on the status alone. A board you cannot access is still <code>404</code>, and a bad
+parameter still <code>400</code>, whatever the limits.</p>
 <h3 id="actor-fields-who-did-it">Actor fields ("who did it")<a class="headerlink" href="#actor-fields-who-did-it" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Settled in 1.2</strong> (#1663)</p>

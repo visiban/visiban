@@ -3815,6 +3815,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#analytics-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analytics limits
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analytics limits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sizing-analytics-for-your-pod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sizing analytics for your pod
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#comment-and-checklist-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5314,6 +5342,7 @@
 <ul>
 <li>The Helm chart's default limits are <strong>not</strong> raised yet. Raising a default changes behavior for existing installs, so that decision waits on #2425 (still open) and a re-measure (#2430). #2426 and #2427 have shipped and should shrink most of these numbers.</li>
 <li>These are pre-fix numbers from a local run (Apple Silicon laptop, PostgreSQL 17, <code>DEBUG=False</code>, an aged copy of the demo seed). Treat them as a floor for sizing, not a guarantee. Re-measure on your own data.</li>
+<li>They were also measured before the <a href="#analytics-limits">Analytics limits</a> existed. Since 1.3 a request that would hold more than <code>ANALYTICS_MAX_MOVEMENTS</code> movement rows is refused with <code>analytics_too_large</code>, and each process computes at most <code>ANALYTICS_MAX_CONCURRENT</code> Analytics requests at once. If you raise <code>limits.memory</code> for a large board, raise <code>ANALYTICS_MAX_MOVEMENTS</code> with it, or that board's Analytics stays refused.</li>
 <li><code>daphne</code> has no <code>--max-requests</code>. If memory keeps climbing between Analytics bursts, restart the backend pods on a schedule (for example <code>kubectl -n &lt;namespace&gt; rollout restart deployment -l app.kubernetes.io/instance=&lt;release&gt;,app.kubernetes.io/component=backend</code>; in-flight requests can be cut and WebSocket clients reconnect). Tuning <code>MALLOC_ARENA_MAX</code> or <code>PYTHONMALLOC</code> is untested for Visiban, so measure before and after if you try it.</li>
 </ul>
 <p><strong>Go deeper:</strong> <a href="https://gitlab.com/visiban/visiban/-/blob/main/helm/visiban/README.md#backend-sizing">Helm chart README</a>, <a href="../../getting-started/kubernetes/">Kubernetes install</a>.</p>
@@ -5612,6 +5641,89 @@ the instance by uploading in a loop.</p>
   that in mind. Turning uploads off entirely is in <strong>Site admin → General</strong>.</li>
 </ul>
 <hr />
+<h2 id="analytics-limits">Analytics limits<a class="headerlink" href="#analytics-limits" title="Permanent link">&para;</a></h2>
+<p><span class="vb-version" title="Added in 1.3">1.3+</span></p>
+<p>Every Analytics request (the Summary tab, the dwell time heatmap, each <code>metrics/*</code>
+chart and the MCP flow tools) replays the board's card history in the server
+process. Two settings bound that work. Both are per server process, so with
+several pods or worker processes the instance-wide figure is that many times
+larger. These codes and settings follow the 1.0+ compatibility rules.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ANALYTICS_MAX_CONCURRENT</code></td>
+<td>Analytics requests one server process computes at once. A request that finds every slot taken waits up to 8 seconds for one (REST) or is refused at once (MCP) with <code>503</code> <code>analytics_busy</code> and <code>Retry-After: 10</code>. Helm: <code>backend.settings.analyticsMaxConcurrent</code>.</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><code>ANALYTICS_MAX_MOVEMENTS</code></td>
+<td>Card movement rows one Analytics request may hold in memory. A pass that reads rows one card at a time and drops them (the cumulative flow diagram's cards that rest outside the range, and its day drill-down) has a fixed ceiling of four times this instead. A request that needs more is refused with <code>422</code> <code>analytics_too_large</code>; it is never answered from part of the history. Helm: <code>backend.settings.analyticsMaxMovements</code>.</td>
+<td><code>150000</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both must be a whole number of at least 1; blank keeps the default. Unlike the
+attachment and comment quotas, <code>0</code> does <strong>not</strong> mean "no limit": there is no
+off switch, and <code>0</code>, a negative number or a non-integer stops the server at
+startup with a configuration error.</p>
+<p>No account is exempt, site admins included. Each user may also have at most two
+Analytics requests running or waiting at once (the Analytics page sends two, one after the other), and
+at most four requests wait for a slot per process. In
+<a href="../demo-data/">demo mode</a> every visitor shares one login, so the per-user limit
+there is effectively the process-wide one.</p>
+<h3 id="sizing-analytics-for-your-pod">Sizing analytics for your pod<a class="headerlink" href="#sizing-analytics-for-your-pod" title="Permanent link">&para;</a></h3>
+<p>One Analytics request's memory grows with the movement rows it holds, so the
+size limit is what bounds it. Rows a pass reads one card at a time and drops
+cost CPU time, not memory; they are bounded by the fixed ceiling of four times
+<code>ANALYTICS_MAX_MOVEMENTS</code>, so even a runaway pass ends. Rows are counted as
+they are read: a request over a limit is refused once it has read up to that
+limit, and holds its slot until then. Size a pod so that:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>baseline memory + ANALYTICS_MAX_CONCURRENT × (one request's peak at ANALYTICS_MAX_MOVEMENTS) &lt; the pod's memory limit
+</code></pre></div>
+<p>The defaults are a starting point for the chart's default <code>512Mi</code> memory and
+<code>500m</code> CPU limits, to be tuned for each deployment. As a rough estimate (an
+illustration, not a measured figure for your data), a request holding close to
+the default 150000 rows needs on the order of 150-190 MB above the server's
+idle baseline of about 115 MB, more for a longer range and less for a single chart;
+at that size <code>ANALYTICS_MAX_CONCURRENT=1</code> leaves headroom for the rest of the
+process's work under <code>512Mi</code>. Measure your
+own peak (the <code>analytics.replay</code> log line reports each request's <code>movements</code>
+held and <code>streamed</code>) before raising either setting.</p>
+<p>The baseline in the formula is not only idle memory: <code>daphne</code> keeps its
+high-water mark after a burst of Analytics requests, so a process that has
+already served one heavy request starts the next one higher (see
+<a href="#backend-memory-and-cpu-sizing">Backend memory and CPU sizing</a> for the
+measured peaks, the suggested memory tiers and the restart options). Leave
+headroom above that, not just above idle.</p>
+<p>Raise <code>ANALYTICS_MAX_MOVEMENTS</code> (and the pod's memory limit with it, using the
+tiers in <a href="#backend-memory-and-cpu-sizing">Backend memory and CPU sizing</a>) when a
+board's Analytics page says the board has more history than the server is set up to analyze.</p>
+<p>The slot count bounds how much analytics work and memory a process takes on at
+once. It does not guarantee how fast the rest of the server answers while a
+request is running: analytics shares the process's CPU with everything else, so
+other requests can still slow down during a long replay.</p>
+<p>Raise <code>ANALYTICS_MAX_CONCURRENT</code> only with more CPU and memory per pod: analytics is
+CPU-bound, so two requests at once in one process take about twice as long
+each. A request waiting for a slot uses a database connection, so with
+connection pooling on keep <code>ANALYTICS_MAX_CONCURRENT</code> + 4 (the waiting
+requests) well under <code>DATABASE_POOL_MAX_SIZE</code>.</p>
+<p>One open of the Analytics page sends its two requests one after the other
+(the overview first, then the heatmap), so the second waits for the first to
+finish and the page's two requests never compete for the same slot. A request
+that waits more than 8 seconds for a slot is refused and retried once by the web
+app after <code>Retry-After</code>. A "busy" message therefore means another request,
+yours in another tab or another user's, held the slot beyond that wait. On boards
+whose Analytics takes longer than that, or when several people or tabs open
+Analytics at once, expect a "busy" message, and raise <code>ANALYTICS_MAX_CONCURRENT</code>
+together with the pod's CPU and memory.</p>
+<hr />
 <h2 id="comment-and-checklist-limits">Comment and checklist limits<a class="headerlink" href="#comment-and-checklist-limits" title="Permanent link">&para;</a></h2>
 <p><em>New in 1.3 (#2376).</em> One card's comments and checklist items are capped, so
 a single member (or a leaked API token) cannot grow one card without bound,
@@ -5773,24 +5885,24 @@ Settings are never merged across the two:</p>
 </tbody>
 </table>
 <h3 id="example-gmail-google-workspace">Example: Gmail / Google Workspace<a class="headerlink" href="#example-gmail-google-workspace" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>smtp.gmail.com
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>noreply@yourdomain.com
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-app-password
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
-</code></pre></div>
-<h3 id="example-amazon-ses">Example: Amazon SES<a class="headerlink" href="#example-amazon-ses" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>email-smtp.us-east-1.amazonaws.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>smtp.gmail.com
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>AKIAIOSFODNN7EXAMPLE
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-ses-smtp-password
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>noreply@yourdomain.com
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-app-password
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
 </code></pre></div>
+<h3 id="example-amazon-ses">Example: Amazon SES<a class="headerlink" href="#example-amazon-ses" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">EMAIL_HOST</span><span class="o">=</span>email-smtp.us-east-1.amazonaws.com
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nv">EMAIL_PORT</span><span class="o">=</span><span class="m">587</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nv">EMAIL_HOST_USER</span><span class="o">=</span>AKIAIOSFODNN7EXAMPLE
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nv">EMAIL_HOST_PASSWORD</span><span class="o">=</span>your-ses-smtp-password
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="nv">EMAIL_USE_TLS</span><span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nv">DEFAULT_FROM_EMAIL</span><span class="o">=</span>noreply@yourdomain.com
+</code></pre></div>
 <h3 id="console-backend-development">Console backend (development)<a class="headerlink" href="#console-backend-development" title="Permanent link">&para;</a></h3>
 <p>To print emails to stdout instead of sending them (useful for development):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">EMAIL_BACKEND</span><span class="o">=</span>django.core.mail.backends.console.EmailBackend
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">EMAIL_BACKEND</span><span class="o">=</span>django.core.mail.backends.console.EmailBackend
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
