@@ -321,7 +321,7 @@ class DeletedCardHistoryExportTests(_BoardFixture):
         history = self._export()["deleted_card_history"]
         self.assertEqual([e["card_uid"] for e in history], ["a" * 16, "b" * 16, "p" * 16])
         by_uid = {e["card_uid"]: e for e in history}
-        self.assertEqual(list(by_uid["a" * 16]), ["card_uid", "card_title", "movements", "activities"])
+        self.assertEqual(list(by_uid["a" * 16]), ["card_uid", "card_title", "movements", "activities", "blocks", "gate_transitions"])
         self.assertEqual(by_uid["a" * 16]["card_title"], "Newest name")
         self.assertEqual(by_uid["b" * 16]["card_title"], "Tie second")
         self.assertEqual(len(by_uid["a" * 16]["movements"]), 2)

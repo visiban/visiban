@@ -346,7 +346,7 @@ class DeletedCardHistoryExportImportTests(_Fixture):
         [entry] = data["deleted_card_history"]
         self.assertEqual(
             (entry["card_uid"], entry["card_title"], list(entry)),
-            (uid, "Was here", ["card_uid", "card_title", "movements", "activities"]),
+            (uid, "Was here", ["card_uid", "card_title", "movements", "activities", "blocks", "gate_transitions"]),
         )
         # Same entry shape as a live card's lists.
         self.assertEqual(list(entry["movements"][0]), list(data["cards"][0]["movements"][0]))
@@ -362,15 +362,16 @@ class DeletedCardHistoryExportImportTests(_Fixture):
         self.assertEqual(entry["card_uid"], uid)
         self.assertEqual(entry["movements"][-1]["to_column"], "Done")
 
-    def test_export_is_two_queries_whatever_the_number_of_deleted_cards(self):
+    def test_export_is_four_queries_whatever_the_number_of_deleted_cards(self):
+        # Movements, activities and, since #2413, blocks and gate transitions.
         from boards.views.import_export import _deleted_card_history_export
 
         self._deleted_card_with_history()
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             _deleted_card_history_export(self.board)
         for _ in range(3):
             self._deleted_card_with_history()
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(4):
             self.assertEqual(len(_deleted_card_history_export(self.board)), 4)
 
     def test_round_trip_restores_retained_rows_on_the_new_board(self):
