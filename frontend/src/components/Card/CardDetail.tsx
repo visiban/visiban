@@ -1738,7 +1738,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="card-detail-title"
+        // Named from the card title directly: the title input carries aria-label="Card title" (#2468), and
+        // aria-labelledby on an input resolves to that label, not the card's text.
+        aria-label={localCard.title.trim() || 'Card'}
+        data-testid="card-detail-dialog"
         tabIndex={-1}
         data-sheet-mode={placement.mode}
         data-sheet-side={anchored ? placement.side ?? undefined : undefined}

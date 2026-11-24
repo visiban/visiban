@@ -769,9 +769,9 @@ test.describe('phone card detail panel (#2377)', () => {
     for (const leaf of ['attachments', 'relations', 'activity', 'blocks']) await page.route(`${base}/${leaf}/`, json([]))
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
-    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    const panel = page.locator('[data-testid="card-detail-dialog"]')
     await expect(panel).toBeVisible()
-    const sweep = () => smallControls(page, ['[aria-labelledby="card-detail-title"]'])
+    const sweep = () => smallControls(page, ['[data-testid="card-detail-dialog"]'])
     // Expand every collapsed section so its controls are measured too.
     for (const name of [/^Relations/, /^Checklist/, /^Attachments/, /Custom fields/]) {
       const t = page.getByRole('button', { name }).first()
@@ -881,7 +881,7 @@ test.describe('phone card detail header (#2401)', () => {
     } as unknown as typeof BOARD_FULL)
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.locator(`[data-card-id="${CARD.id}"]`).tap()
-    const panel = page.locator('[aria-labelledby="card-detail-title"]')
+    const panel = page.locator('[data-testid="card-detail-dialog"]')
     await expect(panel).toBeVisible()
     const header = page.getByTestId('card-detail-title-block').locator('xpath=..')
     const hb = (await header.boundingBox())!

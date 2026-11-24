@@ -178,7 +178,8 @@ describe('CardDetail', () => {
     render(<CardDetail {...defaultProps()} />)
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveAttribute('aria-modal', 'true')
-    expect(dialog).toHaveAttribute('aria-labelledby', 'card-detail-title')
+    // Named from the card's own title, not the title input's aria-label (#2468).
+    expect(dialog).toHaveAccessibleName(defaultProps().card.title)
     expect(dialog).toHaveAttribute('tabindex', '-1')
   })
 
