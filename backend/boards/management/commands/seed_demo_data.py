@@ -145,10 +145,14 @@ from groups.serializers import GROUP_INVITE_LINK_MAX_EXPIRY_DAYS
 from ._load_test_fixtures import (
     GENERATION_SPACING_DAYS,
     LOAD_TEST_AGED_BOARD_NAME,
+    LOAD_TEST_CHILDREN_VIEW_BOARD_NAME,
+    LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME,
     LOAD_TEST_LINKED_BOARD_NAME,
     LOAD_TEST_PARENT_BOARD_PREFIX,
     copy_archived_generations,
     ensure_analytics_user,
+    seed_children_view_boards,
+    seed_gate_rows,
     seed_linked_boards,
 )
 from ._seed_history import (
@@ -619,8 +623,9 @@ class Command(BaseCommand):
             action="store_true",
             help=(
                 "Also seed the card-parent-link fixture (#2424): a 500-card child "
-                "board whose every card has a parent on one of 5 parent boards. "
-                "Requires --scale > 1. Off by default."
+                "board whose every card has a parent on one of 5 parent boards, "
+                "and (#2538) a 500-parent board with about 100 children each for the "
+                "children-view scenario. Requires --scale > 1. Off by default."
             ),
         )
         parser.add_argument(
@@ -810,7 +815,10 @@ class Command(BaseCommand):
                 wipe_qs = Board.objects.filter(
                     Q(name=board_name)
                     | Q(name__startswith=LOAD_TEST_EXTRA_BOARD_PREFIX)
-                    | Q(name__in=(LOAD_TEST_AGED_BOARD_NAME, LOAD_TEST_LINKED_BOARD_NAME))
+                    | Q(name__in=(
+                        LOAD_TEST_AGED_BOARD_NAME, LOAD_TEST_LINKED_BOARD_NAME,
+                        LOAD_TEST_CHILDREN_VIEW_BOARD_NAME, LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME,
+                    ))
                     | Q(name__startswith=LOAD_TEST_PARENT_BOARD_PREFIX)
                 )
             deleted, _ = delete_seed_boards(wipe_qs)
@@ -855,6 +863,10 @@ class Command(BaseCommand):
             self._add_load_test_members(board)
         cards = self._create_cards(board, columns, swimlanes, labels, users)
         n_archived = self._archive_some_cards(cards)
+        if scale > 1 and board_name == LOAD_TEST_BOARD_NAME:
+            # #2405: a gated stage with gate rows, so card_timeline measures gate work.
+            n_gates, _ = seed_gate_rows(board, columns)
+            self.stdout.write(f"Seeded {n_gates} gate transitions on the gated stage.")
 
         if board_name == BOARD_NAME:
             # ── #1125: fixtures for resource families schemathesis_hooks.py
@@ -896,6 +908,8 @@ class Command(BaseCommand):
         if options["linked_boards"]:
             _, _, n_links = seed_linked_boards(ensure_analytics_user(), self._create_columns)
             self.stdout.write(f"Seeded the linked-board fixture: {n_links} card parent links.")
+            _, _, n_cv = seed_children_view_boards(ensure_analytics_user(), self._create_columns)
+            self.stdout.write(f"Seeded the children-view fixture: {n_cv} card parent links.")
 
         self.stdout.write(
             self.style.SUCCESS(

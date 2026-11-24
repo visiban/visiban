@@ -41,8 +41,10 @@ from boards.models import (
     Board,
     BoardMembership,
     Card,
+    CardGateTransition,
     CardMovement,
     CardParentLink,
+    SubColumn,
     Swimlane,
 )
 from boards.services.card_links import CHILDREN_PER_PARENT_LIMIT, link_allowed
@@ -51,6 +53,9 @@ LOAD_TEST_ANALYTICS_USERNAME = "loadtest_analytics"
 LOAD_TEST_AGED_BOARD_NAME = "Visiban Load Test Aged Board"
 LOAD_TEST_LINKED_BOARD_NAME = "Visiban Load Test Linked Board"
 LOAD_TEST_PARENT_BOARD_PREFIX = "Visiban Load Test Parent Board"
+#: #2538: the parent-tier board Children mode reads, and its child board.
+LOAD_TEST_CHILDREN_VIEW_BOARD_NAME = "Visiban Load Test Children View Board"
+LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME = "Visiban Load Test Children View Child Board"
 
 #: Gap between archived generations. A generation is the board's active cards
 #: copied back in time, so N generations at this spacing is a board that has
@@ -62,6 +67,18 @@ GENERATION_SPACING_DAYS = 90
 LINKED_CHILD_CARDS = 500
 LINKED_PARENT_BOARDS = 5
 LINKED_PARENTS_PER_BOARD = 5
+
+#: #2538: ``children-view`` recomputes every live parent link on the board per page, so its
+#: cost is parents x children. At least 500 parents with about 100 children each (the per-parent
+#: cap), spread over 5 lanes. Module constants so a test can shrink them; the command reads
+#: them at call time.
+CHILDREN_VIEW_PARENTS = 500
+CHILDREN_VIEW_CHILDREN_PER_PARENT = CHILDREN_PER_PARENT_LIMIT
+CHILDREN_VIEW_LANES = 5
+
+#: #2405: the gated stage on the load-test board. Three sub-columns make two gates.
+GATE_STAGE_COLUMN_INDEX = 2  # "Doing"
+GATE_SUB_COLUMN_NAMES = ("Build", "Test", "Ready")
 
 _BULK_BATCH = 2000
 
@@ -205,3 +222,113 @@ def seed_linked_boards(owner, create_columns):
     ]
     CardParentLink.objects.bulk_create(links, batch_size=_BULK_BATCH)
     return child_board, parent_boards, len(links)
+
+
+def seed_children_view_boards(owner, create_columns):
+    """Create the #2538 fixture: a parent board with many parents, each with ~100 children.
+
+    ``GET boards/{id}/children-view/`` reads the parent-tier board and recomputes every live
+    link on it per page with correlated subqueries, so a board with 500 parents and about
+    50,000 links is the shape where its cost shows. One child board holds every child, spread
+    over the demo column shape so the rollup partition (done / doing / to do) has all states.
+    Returns ``(parent_board, child_board, link_count)``. Both boards are owned by ``owner`` alone,
+    like the other fixtures (see the module docstring).
+    """
+    parents_n = CHILDREN_VIEW_PARENTS
+    per_parent = CHILDREN_VIEW_CHILDREN_PER_PARENT
+    assert per_parent <= CHILDREN_PER_PARENT_LIMIT
+    parent_board = Board.objects.create(
+        name=LOAD_TEST_CHILDREN_VIEW_BOARD_NAME,
+        description="Parent-tier board for the children-view load-test fixture (#2538). Not for demos.",
+        owner=owner,
+        staleness_threshold_days=7,
+        cards_can_have_children=True,
+    )
+    BoardMembership.objects.create(board=parent_board, user=owner, role=BoardMembership.Role.ADMIN)
+    pcols = create_columns(parent_board)
+    lanes = [
+        Swimlane.objects.create(board=parent_board, name=f"Lane {i + 1}", position=i)
+        for i in range(CHILDREN_VIEW_LANES)
+    ]
+    parents = Card.objects.bulk_create([
+        Card(board=parent_board, column=pcols[0], swimlane=lanes[i % len(lanes)],
+             title=f"Parent {i + 1}", position=i, created_by=owner)
+        for i in range(parents_n)
+    ])
+
+    child_board = Board.objects.create(
+        name=LOAD_TEST_CHILDREN_VIEW_CHILD_BOARD_NAME,
+        description="Child-tier board for the children-view load-test fixture (#2538). Not for demos.",
+        owner=owner,
+        staleness_threshold_days=7,
+        cards_can_have_children=False,
+    )
+    BoardMembership.objects.create(board=child_board, user=owner, role=BoardMembership.Role.ADMIN)
+    ccols = create_columns(child_board)
+    lane = Swimlane.objects.create(board=child_board, name="Children", position=0)
+    assert link_allowed(parent_board, child_board)
+    total = 0
+    for start in range(0, parents_n, 20):  # 20 parents (2,000 children) per batch
+        batch = parents[start:start + 20]
+        children = Card.objects.bulk_create([
+            Card(board=child_board, column=ccols[(total + j) % len(ccols)], swimlane=lane,
+                 title=f"Child {total + j + 1}", position=total + j, created_by=owner)
+            for j in range(len(batch) * per_parent)
+        ])
+        CardParentLink.objects.bulk_create([
+            CardParentLink(parent=batch[j // per_parent], child=child, created_by=owner)
+            for j, child in enumerate(children)
+        ], batch_size=_BULK_BATCH)
+        total += len(children)
+    return parent_board, child_board, total
+
+
+def seed_gate_rows(board, columns):
+    """Give the load-test board a gated stage with gate transitions (#2405).
+
+    ``card_timeline`` reads a third source, ``CardGateTransition`` rows (#2365), and the
+    seed had no sub-columns, so the budget measured no gate work. The "Doing" stage gets
+    three sub-columns (two gates) and every active card in it a ``gates_passed`` of 0, 1 or 2
+    in rotation. Each gate a card passed is a ``pass`` row; the first is linked to the card's
+    move into the stage, when it has one, and the rest are not (the two shapes the timeline
+    merges differently). Some two-gate cards are then reopened one gate. Deterministic (no
+    ``random``), so the main fixture's seeded stream and every committed budget derived from
+    it are unchanged. Bulk-written: ``CardGateTransition.save`` is the append-only guard.
+    Returns ``(gate_rows, cards_with_gates)``.
+    """
+    stage = columns[GATE_STAGE_COLUMN_INDEX]
+    subs = [
+        SubColumn.objects.create(column=stage, position=i, name=name)
+        for i, name in enumerate(GATE_SUB_COLUMN_NAMES)
+    ]
+    cards = list(Card.objects.filter(board=board, column=stage, archived_at__isnull=True).order_by("id"))
+    entered = {}
+    for mv in CardMovement.objects.filter(card__in=cards, to_column=stage).order_by("id"):
+        entered[mv.card_id] = mv  # the latest move into the stage wins
+    now = datetime.datetime.now(datetime.timezone.utc)
+    rows = []
+    for i, card in enumerate(cards):
+        passed = i % 3
+        reopened = passed == 2 and (i // 3) % 2 == 0
+        mv = entered.get(card.id)
+        base = mv.moved_at if mv else now - datetime.timedelta(days=1)
+
+        def row(kind, frm, to, sub, minutes, movement=None):
+            return CardGateTransition(
+                card=card, board=board, card_uid=card.uid, card_title=card.title,
+                column=stage, column_name=stage.name, column_uid=stage.uid,
+                sub_column_name=sub.name, sub_column_uid=sub.uid,
+                kind=kind, from_index=frm, to_index=to, movement=movement,
+                created_at=base + datetime.timedelta(minutes=minutes),
+            )
+
+        for gate in range(1, passed + 1):
+            rows.append(row(CardGateTransition.Kind.PASS, gate - 1, gate, subs[gate],
+                            gate * 10, mv if gate == 1 else None))
+        if reopened:
+            rows.append(row(CardGateTransition.Kind.REOPEN, 2, 1, subs[1], 40))
+            passed = 1
+        card.gates_passed = passed
+    Card.objects.bulk_update(cards, ["gates_passed"], batch_size=_BULK_BATCH)
+    CardGateTransition.objects.bulk_create(rows, batch_size=_BULK_BATCH)
+    return len(rows), sum(1 for c in cards if c.gates_passed)
