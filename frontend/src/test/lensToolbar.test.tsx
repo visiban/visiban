@@ -66,7 +66,7 @@ describe('LensToolbar', () => {
     expect(screen.getByRole('button', { name: 'Filters, 2 active' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('tooltip names the active count when the bar is hidden (singular only) (#2556)', async () => {
+  it('tooltip names the active count when the bar is hidden (singular) (#2556)', async () => {
     const user = userEvent.setup()
     setup({ url: '/?state=open', showFilters: false })
     await user.hover(screen.getByRole('button', { name: 'Filters, 1 active' }))
