@@ -137,7 +137,14 @@ export default function LensToolbar({
           );
         }}
       />
-      <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
+      {/* Same hidden-bar hint as the board's Filters button (#2459, #2556). */}
+      <Tooltip
+        content={
+          !showFilters && activeCount > 0
+            ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active (bar hidden)`
+            : showFilters ? "Hide filters (F)" : "Filters (F)"
+        }
+      >
         <button
           type="button"
           onClick={onToggleFilters}

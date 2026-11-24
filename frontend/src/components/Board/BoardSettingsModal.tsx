@@ -1971,7 +1971,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   <ChildCardsSettings board={board} error={childCardsError} onShowChildCards={onShowChildCards} onUpdate={async (patch) => { if (typeof patch.cards_can_have_children === "boolean") { /* awaited so the turn-off confirm (#2446) stays open, Escape swallowed, until the save settles */ await flipChildCards(patch.cards_can_have_children); return null; } /* ParentNameSettings awaits this result to roll back and show the error */ return await onUpdateBoardSettings?.(patch); }} />
                 ) : (
                   <p className="text-sm text-fg-secondary">
-                    Cards on this board {board.cards_can_have_children ? "can" : "cannot"} have child cards on another board.
+                    {board.cards_can_have_children ? "Cards on this board can have child cards on another board." : "Cards on this board can't get new child cards. Cards that already have children keep them."}
                   </p>
                 )}
               </section>

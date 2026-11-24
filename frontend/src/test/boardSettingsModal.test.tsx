@@ -2008,7 +2008,7 @@ describe('BoardSettingsModal — Child cards toggle (#2208)', () => {
 
   it('tells a non-admin when the board cannot have child cards', async () => {
     await openRules(fakeBoard, vi.fn(), false)
-    expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent('cannot have child cards')
+    expect(screen.getByRole('region', { name: 'Child cards' })).toHaveTextContent("Cards on this board can't get new child cards. Cards that already have children keep them.")
   })
 
   it('blocks turning it on: stays focusable, aria-disabled, and activating moves focus to the reasons', async () => {
