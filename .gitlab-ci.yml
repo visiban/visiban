@@ -3276,6 +3276,13 @@ helm-netpol:
 compose-prod-drill:
   <<: *compose-drill-base
   timeout: 20m
+  # Two legs (#2561): `none` drills the plain-HTTP nginx template and
+  # `selfsigned` the HTTPS one (nginx/app.conf.template), whose /api/ and /ws/
+  # locations and Django's HTTPS-only CSRF Referer check nothing else exercises.
+  # Both share the rules below, so both block on the same paths.
+  parallel:
+    matrix:
+      - TLS_MODE: ["none", "selfsigned"]
   # The per-commit Dockerfile.prod images (#2492), pulled by digest and
   # revision-checked by scripts/drill-image.sh instead of rebuilt in dind. This
   # also stops the drill waiting for the whole lint stage (it had no needs:).
