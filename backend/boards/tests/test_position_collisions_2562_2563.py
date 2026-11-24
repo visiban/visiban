@@ -82,9 +82,11 @@ class CreateAfterSameCellReorderTests(_Base, TestCase):
         self.assertEqual(Card.objects.get(pk=z).position, 0)
 
     def test_create_does_not_reuse_an_archived_cards_slot(self):
-        a = self._create("A")
-        self._create("B")
-        self.client.post(f"{self.base}/cards/{a}/archive/")
+        self._create("A")
+        b = self._create("B")
+        # Archive the card in the TOP slot: a live-only maximum would be 0 and
+        # hand the new card slot 1, B's still-reserved slot.
+        self.client.post(f"{self.base}/cards/{b}/archive/")
         z = self._create("Z")
         self.assertEqual(Card.objects.get(pk=z).position, 2)
 
