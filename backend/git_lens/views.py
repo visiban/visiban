@@ -116,19 +116,20 @@ def _parse_filters(request) -> LensFilters:
         request.query_params.get("assignee") or ""
     ).strip()[:MAX_FILTER_VALUE_LEN] or None
 
-    # Closed-issue limit (#1581): "all" restores the single state=all pass, an int
-    # from the fixed choice set caps the closed pass, anything else (absent
-    # included) is the default. Canonicalized to the default whenever a state
-    # filter is set, because the provider ignores it then and a distinct value
-    # would only mint a second cache key for the same board.
+    # Closed-issue limit (#1581): an int from the fixed choice set caps the closed
+    # pass; "all" and anything else — ABSENT INCLUDED — is the single state=all
+    # pass. The API default is the pre-#1581 read on purpose: 1.x is a public API
+    # contract, and a plain GET must keep returning every closed issue inside the
+    # page cap with the old truncated/total_count meaning. The SPA opts in to its
+    # 50-issue default by sending closed_limit=50 explicitly. Canonicalized to
+    # None whenever a state filter is set, because the provider ignores it then
+    # and a distinct value would only mint a second cache key for the same board.
     raw_closed = request.query_params.get("closed_limit")
-    closed_limit: int | None = providers.DEFAULT_CLOSED_LIMIT
-    if raw_closed == "all":
-        closed_limit = None
-    elif raw_closed in {str(c) for c in providers.CLOSED_LIMIT_CHOICES}:
+    closed_limit: int | None = None
+    if raw_closed in {str(c) for c in providers.CLOSED_LIMIT_CHOICES}:
         closed_limit = int(raw_closed)
     if state is not None:
-        closed_limit = providers.DEFAULT_CLOSED_LIMIT
+        closed_limit = None
 
     return LensFilters(
         state=state, milestone=milestone, labels=labels, assignee=assignee,
@@ -471,7 +472,7 @@ LENS_BOARD_QUERY_PARAMETERS = [
     _q("milestone", "Filter to one milestone by title, or `__none__` for issues with no milestone. Trimmed, max 255 characters."),
     _q("labels", "Comma-separated label names, AND-ed (an issue must carry every one). Trimmed, deduplicated and sorted; at most 5 (extras dropped); case-sensitive; each max 255 characters."),
     _q("assignee", "Filter to issues assigned to a single username (single-valued by design). Trimmed, max 255 characters."),
-    _q("closed_limit", "With no `state` filter, how many closed issues to include: `0`, `20`, `50` or `100` of the most recently updated, read separately so they never use the open-issue budget; `all` restores the single all-states read. Default `50`; any other value is the default. Ignored when `state` is set."),
+    _q("closed_limit", "With no `state` filter, how many closed issues to include: `0`, `20`, `50` or `100` of the most recently updated, read separately so they never use the open-issue budget. `all` is the single all-states read, where open and closed issues share the page cap. Default `all` (the pre-#1581 behavior); any other value is treated as `all`. The web app sends `50` by default. Ignored when `state` is set."),
     _q("refresh", "`1` or `true` forces a re-fetch past the soft cache TTL. Rate-limited per user and repository; inside the cooldown the cached copy is served instead."),
 ]
 

@@ -81,7 +81,11 @@ export type LensClosedLimit = (typeof LENS_CLOSED_LIMITS)[number];
 /** The server default — the URL omits the param for it. */
 export const DEFAULT_LENS_CLOSED_LIMIT: LensClosedLimit = "50";
 
-/** `?closed_limit=` read back, falling back to the default exactly as the server does. */
+/**
+ * `?closed_limit=` read back from the page URL. Absent or invalid means the UI
+ * default (50), which LensView always sends to the API — the API's own default
+ * for an absent param is `all`, the pre-#1581 read, kept for the 1.x contract.
+ */
 export function parseLensClosedLimit(raw: string | null): LensClosedLimit {
   return (LENS_CLOSED_LIMITS as readonly string[]).includes(raw ?? "")
     ? (raw as LensClosedLimit)

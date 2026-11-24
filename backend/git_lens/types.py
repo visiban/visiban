@@ -51,9 +51,9 @@ class LensFilters:
     # most recently updated closed issues", so closed work can no longer crowd open
     # work out of the cap; 0 hides closed issues. None is the pre-#1581 behavior:
     # one interleaved state=all pagination. Ignored when ``state`` is set (the
-    # caller asked for one state outright). The view defaults it to 50
-    # (``providers.DEFAULT_CLOSED_LIMIT``); this dataclass defaults to None so a
-    # direct provider caller keeps the old semantics.
+    # caller asked for one state outright). Both the view and this dataclass
+    # default it to None, so an API caller that does not send ``closed_limit``
+    # keeps the old semantics; the SPA sends ``providers.DEFAULT_CLOSED_LIMIT``.
     closed_limit: int | None = None
 
     @property

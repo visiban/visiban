@@ -81,7 +81,7 @@ export interface LensFilterState {
   labels?: string[];
   /** A single username. */
   assignee?: string;
-  /** Closed-issue limit (#1581): "0" | "20" | "50" | "100" | "all"; omit for the default. */
+  /** Closed-issue limit (#1581): "0" | "20" | "50" | "100" | "all"; omit for the API default (`all`). */
   closedLimit?: string;
 }
 

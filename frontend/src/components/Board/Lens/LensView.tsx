@@ -59,8 +59,10 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
   // client-side over the fetched set. All URL-persisted like the pivot.
   const rawState = searchParams.get("state");
   const stateFilter: LensState = rawState === "open" || rawState === "closed" ? rawState : "all";
-  // Closed-issue limit (#1581) — validated like the pivot; the default is omitted
-  // from the URL (and the request) so an untouched board keeps its plain link.
+  // Closed-issue limit (#1581) — validated like the pivot. The default is omitted
+  // from the URL so an untouched board keeps its plain link, but it is ALWAYS sent
+  // to the API: the API's own default is the pre-#1581 all-states read (the 1.x
+  // response contract), so the web app's 50 has to be asked for explicitly.
   const closedLimit = parseLensClosedLimit(searchParams.get("closed_limit"));
   const milestone = searchParams.get("milestone") ?? "";
   // Canonicalized on read, exactly as the server canonicalizes it, so a hand-edited
@@ -83,8 +85,7 @@ export default function LensView({ boardId, connection, cardLayout, showFilters,
       milestone: milestone || undefined,
       labels,
       assignee: assignee || undefined,
-      closedLimit:
-        stateFilter === "all" && closedLimit !== DEFAULT_LENS_CLOSED_LIMIT ? closedLimit : undefined,
+      closedLimit: stateFilter === "all" ? closedLimit : undefined,
     },
   });
 

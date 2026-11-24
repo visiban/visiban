@@ -74,6 +74,10 @@ MAX_ISSUES = PER_PAGE * MAX_PAGES
 # updated ones, sized to the limit. A fixed choice set (not free text) keeps the
 # cache-key fan-out it adds to five values, and the single page keeps the extra
 # outbound cost to one call (CLOSED_PAGES, counted in views' worst-case formula).
+# DEFAULT_CLOSED_LIMIT is the web app's default, which it sends explicitly; the
+# API's own default (no closed_limit param) stays the single state=all read, so
+# the 1.x response contract is unchanged. It is also the fallback for an
+# out-of-choice value reaching a provider directly.
 CLOSED_LIMIT_CHOICES = (0, 20, 50, 100)
 DEFAULT_CLOSED_LIMIT = 50
 CLOSED_PAGES = 1

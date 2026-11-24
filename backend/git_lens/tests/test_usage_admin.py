@@ -149,8 +149,7 @@ class BoardOutcomeCounterTests(TestCase):
 
     def _expire_soft_ttl(self):
         key = views._board_cache_key(
-            "gitlab", "g/p", "status", "milestone", None,
-            LensFilters(closed_limit=providers.DEFAULT_CLOSED_LIMIT),
+            "gitlab", "g/p", "status", "milestone", None, LensFilters(),
         )
         entry = cache.get(key)
         entry["soft_expires"] = time.time() - 1
