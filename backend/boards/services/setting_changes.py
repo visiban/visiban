@@ -3,7 +3,8 @@
 Board saves otherwise leave only a ``board.updated`` feed row, which carries
 no old value and is pruned after ``BOARD_EVENT_RETENTION_DAYS``. Every toggle
 that widens or relaxes who can place a card past a limit is recorded here, on
-every write path that changes it (the board and swimlane PATCH/PUT views).
+every write path that changes it (the board and swimlane create and PATCH/PUT
+views).
 """
 
 from ..models import BoardSettingChange
@@ -48,6 +49,15 @@ def record_board_setting_changes(*, board, actor, before):
     if rows:
         BoardSettingChange.objects.bulk_create(rows)
     return rows
+
+
+def record_board_initial_settings(*, board, actor):
+    """Record the audited settings a new board was created with (#2584).
+
+    Only values that differ from the model default, as a change from it.
+    """
+    defaults = {name: board._meta.get_field(name).default for name in AUDITED_BOARD_SETTINGS}
+    return record_board_setting_changes(board=board, actor=actor, before=defaults)
 
 
 def record_swimlane_enforcement_change(*, swimlane, actor, old_value):

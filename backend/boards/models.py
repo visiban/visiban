@@ -3410,7 +3410,7 @@ class CardOverride(models.Model):
     def save(self, *args, **kwargs):
         """Insert only, like ``CardGateTransition.save``.
 
-        ``purge_card_history`` redacts ``reason`` with a queryset ``update``,
+        ``purge_card_history`` deletes the rows with a queryset ``delete``,
         which does not pass through here.
         """
         if self.pk is not None or not self._state.adding:

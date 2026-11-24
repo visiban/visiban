@@ -97,6 +97,7 @@ Board
  ├── enforce_wip_limits (bool — block card placement into over-limit columns; default true)
  ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
  ├── enforce_weight_limits (bool — block placement or weight increases that exceed column weight budget; default true)
+ ├── allow_assignee_override (bool — a card's assignee may force past a Block limit; default false; 1.3+, #1923)
  ├── description (text, optional — board description; blank = no description)
  ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
  ├── stale_warning_pct (int 0–100 — % of the threshold used before the warning step, for the heatmap and card tint; default 50)
@@ -120,6 +121,7 @@ Board
  ├── CustomFieldDefinition  (uid, name, field_type, choices_json, show_on_card, is_required, is_dimension + choice_resolutions 1.3+ — max 30/board)
  ├── SwimlaneCustomFieldDefinition  (same shape, one level up — max 30/board (15 before 1.3))
  ├── BoardExportLog  (actor, role_at_export, export_format, row_count)
+ ├── BoardSettingChange  (actor, setting, old_value, new_value, created_at — audit of enforcement settings; 1.3+)
  └── BoardInviteLink  (token_hash, prefix, role — member | collaborator | viewer, expires_at, single_use, used_at, revoked_at/revoked_by, use_count, delivery — link | email, recipient_hash — nullable keyed hash of an emailed invite's address; reserved_for — nullable account awaiting confirmation of the invited address; 1.2+)
       └── BoardInviteRedemption → User  (role_granted, membership_created, via — join | registration; unique per invite+user)
 
@@ -137,6 +139,7 @@ Card
  ├── created_by (→ User, nullable — set to null if the creator account is deleted)
  ├── version (int, default 1 — optimistic concurrency control; incremented by a field update (`update_card`), a block or unblock (`block_card` / `unblock_card`, since 1.3), a move (`move_card`) or any Django admin change save (`CardAdmin.save_model`, since 1.3, including one that only archives or restores) only — the API's archive/unarchive, comments, attachments, checklists and relations leave it unchanged, and it never decreases; clients send the version they have; 409 returned if the card has been modified in the meantime)
  ├── assignee → User (nullable)
+ ├── assigned_by → User (nullable, SET_NULL — who set the current assignee; read-only; 1.3+, #1923)
  ├── labels → Label (M2M)
  ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
  ├── mentioned_user_ids (JSON — dedup guard for @mention notifications)
@@ -147,6 +150,7 @@ Card
  ├── CardActivity  (event_type, from_value, to_value, actor)
  ├── CardBlock  (blocked_at, blocked_by, reason, unblocked_at, unblocked_by, resolution, column + name + uid at block time, board, card uid/title snapshot; at most one open per card; 1.3+)
  ├── CardGateTransition  (card, board, column + name + uid, sub-column name + uid, kind pass/reopen, from_index, to_index, reason, cause, optional movement, actor, created_at; append-only history of gate crossings; 1.3+)
+ ├── CardOverride  (card, board, column + name + uid, kind, trigger, actor_basis, reason, unmet, movement, actor, assigned_by; 1.3+)
  ├── CardChecklist  (text, is_checked, position, created_by, assignee, due_date; assignee and due_date 1.3+)
  ├── CardAttachment  (file, filename, size, uploaded_by)
  ├── CustomFieldValue  (field_definition, value — one row per set field, unique per card+definition)
@@ -242,8 +246,9 @@ Append-only record of a fixed set of instance-wide admin actions (#1126):
 
 ### Board
 
-- **`enforce_wip_limits`** (default true) blocks moving, creating, or restoring a card into a column at or over its WIP limit with a 409 (board import is exempt). Board admins can override with `?force=true`. When `enforce_wip_hard` is also true, the limit is a hard stop for all roles including admins, with no override.
-- **`enforce_weight_limits`** (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Board admins can override unless hard mode is active.
+- **`enforce_wip_limits`** (default true) blocks moving, creating, or restoring a card into a column at or over its WIP limit with a 409 (board import is exempt). Board admins can override with `?force=true`; the card's assignee can too when `allow_assignee_override` is on and they did not assign the card to themselves. When `enforce_wip_hard` is also true, the limit is a hard stop for all roles including admins, with no override.
+- **`enforce_weight_limits`** (default true) blocks moving, creating, or restoring a card into a column that would exceed its weight budget, and raising a card's weight past it. Board admins can override unless hard mode is active; the card's assignee can too when `allow_assignee_override` is on and they did not assign the card to themselves.
+- **`allow_assignee_override`** (default false, 1.3+, #1923) lets a card's assignee (board role member) force past a Block WIP or weight limit with a reason, unless they assigned the card to themselves or the assigner is unknown. Hard limits stop everyone. See [Force overrides](../api/cards.md#force-overrides-assignee-basis-reasons-and-audit-since-13-1923).
 
 `stale_warning_pct` (default 50, range 0--100) is the percentage of `staleness_threshold_days` a card has used before it is flagged as approaching stale. It drives the yellow warning band in the analytics heatmap (yellow at this percentage, red at 100%) and the yellow step of the card [aging tint](../features/card-history.md#card-aging-tint). `0` turns the warning step off. The tint's further steps at 2× and 3× the threshold are fixed in the frontend and not stored.
 
@@ -275,6 +280,8 @@ A column becomes a gated stage (1.3, #1102) by having 2 to 4 `SubColumn` rows (`
 
 `mentioned_user_ids` is a JSON list of user PKs that guards against re-notification for `@mention` references in the description: when the description is edited, only newly mentioned users are notified. The list holds only users who actually received a notification, so a user skipped at the time is still notified by a later mention.
 
+`assigned_by` (1.3+, #1923) is the user who set the current assignee. It is `null` when the card is unassigned or imported, or the assigner was deleted, and a `null` value never qualifies for the assignee override.
+
 ### CardBlock
 
 One manual block of a card (#1149, 1.3+), from block to unblock. `unblocked_at` NULL means the block is open; the partial unique constraint `cardblock_one_open_per_card` allows at most one open block per card, and the open block's `blocked_at` / `reason` are mirrored onto `Card.blocked_at` / `Card.blocked_reason` so the board payload needs no join. Both are written together, under the card lock, only by `services.cards.block_card` / `unblock_card` (and the JSON import), so REST and MCP share one path; the REST serializer and the Django admin treat the card fields as read-only.
@@ -284,6 +291,14 @@ Its own table rather than `CardMovement` rows: movements feed the dwell and cycl
 ### CardGateTransition
 
 One crossing of a gate on a card in a gated stage (#1102, 1.3+): `kind` is `pass` or `reopen`, with the `from_index` / `to_index` of `Card.gates_passed`. `cause` is `move` (the move endpoint), `stage_edited` (a stage save removed the card's own sub-column and it fell back) or `import`. A move that crosses gates links its row to the `CardMovement` through the nullable `movement` FK. Like movements, rows snapshot the card, board, column and sub-column names and UIDs so they survive deletion, and are purged by `purge_card_history`. A stage save that only re-indexes a card writes no row.
+
+### CardOverride *(1.3+)*
+
+One soft limit a card was placed past with `force` (#1923): one row per `kind` tripped (`wip`, `weight`; `entry_requirements` and `stage_gates` are reserved). `trigger` is `move`, `create`, `restore` or `weight_update`; `actor_basis` is `admin`, `site_admin` or `assignee`. `reason` is free text, `unmet` holds ids and operators, never field values, and `assigned_by` snapshots the assignment that made an `assignee` basis eligible. Rows are append-only, keep the card's uid and title and survive a card delete; `purge_card_history` deletes them. See [Force overrides](../api/cards.md#force-overrides-assignee-basis-reasons-and-audit-since-13-1923).
+
+### BoardSettingChange *(1.3+)*
+
+One change to an audited board setting (#1923, #2584): `allow_assignee_override`, `enforce_wip_limits`, `enforce_wip_hard`, `enforce_weight_limits`, or a swimlane's `limit_enforcement` (`setting` is `swimlane:<uid>:limit_enforcement`). `old_value` and `new_value` are strings (`true` / `false`, the enum value, or empty for null). A board or swimlane created with a non-default value records it as a change from the default. Rows go with the board.
 
 ### CardMovement
 

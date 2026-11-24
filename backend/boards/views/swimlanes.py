@@ -253,6 +253,11 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 _max = board.swimlanes.aggregate(m=Max("position"))["m"]
                 max_pos = 0 if _max is None else _max + 1
                 swimlane = serializer.save(board=board, position=max_pos)
+                # #2584: a lane created with its own enforcement is audited.
+                from ..services.setting_changes import record_swimlane_enforcement_change
+                record_swimlane_enforcement_change(
+                    swimlane=swimlane, actor=self.request.user, old_value=None,
+                )
                 if team_ids:
                     set_team(swimlane, team_ids, eligible_ids(board))
                 if field_pairs:

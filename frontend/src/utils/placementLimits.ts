@@ -23,6 +23,8 @@ export interface LimitFlags {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  /** #1923: wording only; absent reads as off. Never widens a limit mode. */
+  allow_assignee_override?: boolean;
 }
 
 export type LimitMode = "hard" | "block";

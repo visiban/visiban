@@ -81,6 +81,9 @@ SWIMLANE_WEIGHT_LIMIT = (
     "counted column (409 swimlane_weight_limit_exceeded). Weight has no hard "
     "mode: a board admin can always override with ?force=true. Board import "
     "is not checked."
+    " The card's assignee can also override a Block limit (never a hard "
+    "one) when the board's allow_assignee_override is on and they did not "
+    "assign the card to themselves."
 )
 
 SWIMLANE_LIMIT_ENFORCEMENT = (
@@ -90,6 +93,9 @@ SWIMLANE_LIMIT_ENFORCEMENT = (
     "any role (the weight limit stays a block). null (the default): inherit "
     "the board's enforce_wip_limits, enforce_wip_hard and "
     "enforce_weight_limits, exactly as a column does."
+    " The card's assignee can also override a Block limit (never a hard "
+    "one) when the board's allow_assignee_override is on and they did not "
+    "assign the card to themselves."
 )
 
 SWIMLANE_LIMIT_COLUMN_IDS = (
@@ -107,6 +113,9 @@ BOARD_ENFORCE_WIP_LIMITS = (
     "true, moving, creating or restoring a card into a column at or over its "
     "wip_limit is blocked with 409; board admins can override with "
     "?force=true. Board import is not checked."
+    " The card's assignee can also override a Block limit (never a hard "
+    "one) when the board's allow_assignee_override is on and they did not "
+    "assign the card to themselves."
 )
 
 BOARD_ENFORCE_WIP_HARD = (
@@ -123,6 +132,9 @@ BOARD_ENFORCE_WEIGHT_LIMITS = (
     "PATCH, so that a column would exceed its weight_limit is blocked with "
     "409; board admins can override with ?force=true. Board import is not "
     "checked."
+    " The card's assignee can also override a Block limit (never a hard "
+    "one) when the board's allow_assignee_override is on and they did not "
+    "assign the card to themselves."
 )
 
 BOARD_ALLOWED_PRIORITIES = (

@@ -105,17 +105,25 @@ class ForceNotPermitted(CardServiceError):
         "wip": "Only board admins can override a WIP limit.",
         "weight": "Only board admins can override a weight limit.",
     }
+    # Used instead when the board's ``allow_assignee_override`` is on (#1923):
+    # "only board admins" would not be true there.
+    _ASSIGNEE_ON_DETAIL = (
+        "Only board admins, or the card's assignee when someone else assigned it to "
+        "them, can override a {} limit."
+    )
+    _LABEL = {"wip": "WIP", "weight": "weight"}
     # #1923: the actor is the card's assignee and the board lets assignees
     # override, but they assigned the card to themselves.
     SELF_ASSIGNED_DETAIL = (
         "You assigned this card to yourself, so a board admin needs to move it anyway."
     )
 
-    def __init__(self, limit: str, *, self_assigned: bool = False):
+    def __init__(self, limit: str, *, self_assigned: bool = False, assignee_override: bool = False):
         if limit not in self._DETAIL:
             raise ValueError(f"unknown limit kind: {limit!r}")
         self.limit = limit
         self.self_assigned = self_assigned
+        self.assignee_override = assignee_override
         super().__init__(limit)
 
     def body(self) -> dict:
@@ -127,7 +135,11 @@ class ForceNotPermitted(CardServiceError):
                 "code": "force_not_permitted",
                 "reason": "self_assigned",
             }
-        return {"detail": self._DETAIL[self.limit], "code": "force_not_permitted"}
+        if self.assignee_override:
+            detail = self._ASSIGNEE_ON_DETAIL.format(self._LABEL[self.limit])
+        else:
+            detail = self._DETAIL[self.limit]
+        return {"detail": detail, "code": "force_not_permitted"}
 
 
 OVERRIDE_REASON_MAX_LENGTH = 500

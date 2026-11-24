@@ -428,6 +428,51 @@ class BoardSettingChangeTests(_Fixture, TestCase):
         self.assertEqual(row.setting, f"swimlane:{self.lane.uid}:limit_enforcement")
         self.assertEqual(row.new_value, "hard")
 
+    def test_board_create_records_non_default_settings(self):
+        resp = self._client(self.admin).post("/api/v1/boards/", {
+            "name": "Born strict", "allow_assignee_override": True,
+            "enforce_wip_hard": True, "enforce_wip_limits": True,
+        }, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        rows = {
+            r.setting: (r.old_value, r.new_value, r.actor_id)
+            for r in BoardSettingChange.objects.filter(board_id=resp.json()["id"])
+        }
+        self.assertEqual(rows, {
+            "allow_assignee_override": ("false", "true", self.admin.pk),
+            "enforce_wip_hard": ("false", "true", self.admin.pk),
+        })
+
+    def test_board_create_with_defaults_records_nothing(self):
+        resp = self._client(self.admin).post("/api/v1/boards/", {"name": "Plain"}, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertFalse(BoardSettingChange.objects.exists())
+
+    def test_swimlane_create_records_non_default_enforcement(self):
+        url = f"/api/v1/boards/{self.board.pk}/swimlanes/"
+        resp = self._client(self.admin).post(url, {"name": "Plain lane"}, format="json")
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertFalse(BoardSettingChange.objects.exists())
+        resp = self._client(self.admin).post(
+            url, {"name": "Hard lane", "limit_enforcement": "hard"}, format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+        row = BoardSettingChange.objects.get()
+        self.assertEqual(row.setting, f"swimlane:{resp.json()['uid']}:limit_enforcement")
+        self.assertEqual((row.old_value, row.new_value, row.actor_id), ("", "hard", self.admin.pk))
+
+    def test_switch_on_refusal_does_not_claim_admins_only(self):
+        for kind, label in (("wip", "WIP"), ("weight", "weight")):
+            self.assertEqual(
+                ForceNotPermitted(kind, assignee_override=True).body()["detail"],
+                "Only board admins, or the card's assignee when someone else assigned it "
+                f"to them, can override a {label} limit.",
+            )
+            self.assertEqual(
+                ForceNotPermitted(kind).body()["detail"],
+                f"Only board admins can override a {label} limit.",
+            )
+
 
 class AdminSettingAuditTests(_Fixture, TestCase):
     """Django admin is a write path for the audited settings too (#1923)."""

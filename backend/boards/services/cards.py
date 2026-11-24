@@ -221,18 +221,18 @@ def _require_force(*, role, card, actor, board, kinds):
     if role == SITE_ADMIN:
         return CardOverride.ActorBasis.SITE_ADMIN
     actor_id = getattr(actor, "pk", None)
+    # No board is no switch: the refusal then reads admins-only.
+    switch_on = board is not None and _assignee_override_on(board)
     if (
         role != BoardMembership.Role.MEMBER
         or card is None
-        or board is None
         or actor_id is None
         or card.assignee_id is None
         or card.assignee_id != actor_id
-        or not _assignee_override_on(board)
+        or not switch_on
+        or card.assigned_by_id is None
     ):
-        raise ForceNotPermitted(kind)
-    if card.assigned_by_id is None:
-        raise ForceNotPermitted(kind)
+        raise ForceNotPermitted(kind, assignee_override=switch_on)
     if card.assigned_by_id == actor_id:
         raise ForceNotPermitted(kind, self_assigned=True)
     return CardOverride.ActorBasis.ASSIGNEE

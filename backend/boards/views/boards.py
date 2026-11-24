@@ -397,6 +397,8 @@ class BoardViewSet(
             # not a wait: see security-invariants Rule 6.
             serializer.recheck_group_under_lock(None)
             board = serializer.save(owner=self.request.user)
+            # #2584: a create body can set the audited toggles too.
+            setting_changes.record_board_initial_settings(board=board, actor=self.request.user)
             # A status sent on create is a change from nothing (#2242).
             record_if_changed(board, change_model=BoardHealthChange, from_status=None, user=self.request.user)
             BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
