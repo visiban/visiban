@@ -650,9 +650,10 @@ def _heatmap_card(card, rows, *, now, days, period_cutoff, buffer_cutoff, stall_
     stalled = None
     if card.archived_at is None:
         last_col_is_done = last_col_id in done_col_ids or card.column_id in done_col_ids
-        # A card with no movement counts from created_at, matching
-        # is_stale on the card serializer and Needs attention (#2291).
-        last_moved = last_moved_at or card.created_at
+        # A card with no movement counts from created_at (#2291); a planned
+        # child is never stalled and a released one counts from its release,
+        # through the helper Needs attention shares (#2554), matching is_stale.
+        last_moved = flow_metrics.stall_clock_start(card, last_moved_at or card.created_at)
         if not last_col_is_done and last_moved is not None and last_moved < stall_cutoff:
             stalled = {
                 "id": card.id,

@@ -539,7 +539,7 @@ An invalid `days` or `stalled_days` returns `400 Bad Request` with `{"detail": "
 | `blocked.seconds_per_column` | object | The same blocked time in whole seconds, for durations under a day. |
 | `blocked.blocks_per_column` | object | Number of blocks overlapping the window per column. |
 | `blocked.top_reasons` | array | Up to 10 `{reason, count, total_days, total_seconds}`, most frequent first (ties: more blocked time first). Reasons that differ only in case or spacing are one entry, shown with the newest spelling. Includes blocks in a column that no longer exists. |
-| `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move", "days_since_move_exact" }`. `days_since_move` is whole days, floored (a card unmoved 7.9 days reads `7`); `days_since_move_exact` (*new in 1.3*, #2297) is the same span rounded to 0.1, matching the Needs attention list. |
+| `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move", "days_since_move_exact" }`. `days_since_move` is whole days, floored (a card unmoved 7.9 days reads `7`); `days_since_move_exact` (*new in 1.3*, #2297) is the same span rounded to 0.1, matching the Needs attention list. A [planned child](../features/board.md) is never listed, and a released one counts from its release if that is later than its last move (*new in 1.3*, #2554). |
 
 *Changed in 1.3* (#448): columns are matched by identity, never by name. A column deleted and recreated under the same name no longer inherits the old column's visits, done flag or blocked time.
 

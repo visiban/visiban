@@ -3193,6 +3193,44 @@ class AnalyticsRoundingTests(FlowFixture):
         self.assertEqual(stalled["days_since_move"], 7)
         self.assertEqual(stalled["days_since_move_exact"], 7.9)
 
+    def plan_child(self, card, *, released_days_ago=None):
+        parent = self.card(self.doing, created=1, title="Parent")
+        CardParentLink.objects.create(
+            parent=parent, child=card, needed_at_column=self.doing,
+            planned_released_at=self.ago(released_days_ago) if released_days_ago is not None else None,
+        )
+
+    def test_a_planned_child_is_not_a_stalled_card(self):
+        """#2554: the heatmap's stalled list shares Needs attention's planned rule."""
+        planned = self.path(self.backlog, 40)
+        twin = self.path(self.backlog, 40)
+        self.plan_child(planned)
+        ids = {s["id"] for s in self.analytics()["stalled_cards"]}
+        self.assertNotIn(planned.id, ids)
+        self.assertIn(twin.id, ids)
+
+    def test_a_released_child_is_stalled_from_its_release(self):
+        recent = self.path(self.backlog, 40)
+        self.plan_child(recent, released_days_ago=1)
+        old = self.path(self.backlog, 40)
+        self.plan_child(old, released_days_ago=20)
+        stalled = {s["id"]: s for s in self.analytics()["stalled_cards"]}
+        self.assertNotIn(recent.id, stalled)
+        self.assertEqual(stalled[old.id]["days_since_move"], 20)
+
+    def test_needs_attention_endpoint_leaves_out_a_planned_child(self):
+        """#2554 through REST: the view's attention list, not only the service."""
+        planned = self.path(self.backlog, 40)
+        twin = self.path(self.backlog, 40)
+        self.plan_child(planned)
+        client = APIClient()
+        client.force_authenticate(self.user)
+        resp = client.get(f"/api/v1/boards/{self.board.pk}/metrics/attention/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        uids = {i["card_uid"] for i in resp.json()["items"]}
+        self.assertNotIn(planned.uid, uids)
+        self.assertIn(twin.uid, uids)
+
 
 class GroupingEdgeCaseTests(GroupingFixture):
     """#2297: the overlapping flag, checkbox groups, empty groups, per-group sizes."""

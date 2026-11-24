@@ -2003,6 +2003,23 @@ def _attention_block_reason(card, reasons):
     return card.blocked_reason.strip() or None
 
 
+def stall_clock_start(card, unmoved_since):
+    """When the "stalled" clock of ``card`` starts, or None when it never runs (#2554).
+
+    The one planned-child rule for every stalled judgment (Needs attention and the
+    heatmap's ``stalled_cards``), so they cannot drift apart: a planned child is
+    never stalled, and a released one counts from the later of its last move and
+    ``planned_released_at``, the rule ``_annotate_is_stale`` applies (Rule 10).
+    ``unmoved_since`` is the card's last move, or ``created_at`` with none.
+    """
+    if card.planned_active:
+        return None
+    released = card.planned_released_at
+    if released is not None and (unmoved_since is None or released > unmoved_since):
+        return released
+    return unmoved_since
+
+
 def needs_attention(flow, flow_range, *, stalled_days):
     """Live cards outside done that are blocked, past the cycle-time p85, or stalled (#2260).
 
@@ -2027,21 +2044,15 @@ def needs_attention(flow, flow_range, *, stalled_days):
         # without this fallback it could never be stalled (#2291). ``created_at`` is the import time unless
         # the importer set it, and Card has no separate import timestamp.
         unmoved_since = card.last_moved_at if card.last_moved_at is not None else card.created_at
-        # Planned children (#2554): never stalled while planned, and a released one is measured
-        # from the later of its last move and its release, the rule ``_annotate_is_stale`` applies
-        # to every other surface (Rule 10).
-        planned_exempt = card.planned_active
-        if card.planned_released_at is not None and (
-            unmoved_since is None or card.planned_released_at > unmoved_since
-        ):
-            unmoved_since = card.planned_released_at
-        unmoved_days = _days_between(unmoved_since, flow.now)
+        clock_start = stall_clock_start(card, unmoved_since)
+        # A planned child has no running clock; it is still listed (if blocked) with its plain unmoved days.
+        unmoved_days = _days_between(clock_start if clock_start is not None else unmoved_since, flow.now)
         reasons = []
         if card.id in blocked:
             reasons.append("blocked")
         if age_days is not None and p85 is not None and age_days > p85:
             reasons.append("past_p85")
-        if not planned_exempt and unmoved_days is not None and unmoved_days > stalled_days:
+        if clock_start is not None and unmoved_days is not None and unmoved_days > stalled_days:
             reasons.append("stalled")
         if reasons:
             entries.append((card, age_days, unmoved_days, reasons))
