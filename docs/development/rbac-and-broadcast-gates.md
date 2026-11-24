@@ -143,6 +143,18 @@ Scope: `backend/boards`, `backend/groups`, `backend/git_lens`, `backend/webhooks
 
 **Watch out:** Resolving every call by bare name alone made `instance.delete()` in `LabelViewSet.perform_destroy` edge to `LensConnectionView.delete`, which *does* broadcast, so a handler that broadcast nothing came back clean. A method on a name the function itself bound is never a call into the module-level call graph.
 
+## The role x endpoint matrix *(#1573)*
+
+`rbac-coverage` is static. The runtime counterpart is `backend/boards/tests/test_rbac_matrix_1573.py`, which sends every board-scoped write route as all seven principals (non-member, viewer, collaborator, member, board admin, site admin, access-all-content account) and compares the outcome to an expected table.
+
+- **Routes come from the OpenAPI schema**, not a list. A new `POST`, `PUT`, `PATCH`, or `DELETE` under `/api/v1/boards/` fails `test_every_write_route_has_an_expected_outcome` by name until it has an entry in `EXPECTED`. A stale entry fails it too.
+- **Each entry is a policy** (`admin`, `mutate`, `annotate`, `any_member`, `authenticated`, `content_admin`) defined in `backend/boards/tests/rbac_matrix.py`, or `skip:<reason>` for a route the harness cannot address yet. Write the entry from the route's documented minimum role in `docs/features/rbac/roles.md`, not from what the route returns today.
+- **A denied principal must also change nothing**: card, comment, attachment, checklist, movement, activity, feed, board, membership, column, swimlane, label, saved-filter, and invite-link row counts are compared before and after.
+- **Each request runs in a rolled-back savepoint**, so an admitted `DELETE` cannot disturb the next request.
+- **Ownership is held constant**: each request runs as the author of the fixture card, comment, and checklist item, so the role gate is what is measured. The ownership gate has its own tests (`test_ownership_gating.py`).
+
+Group routes (`/api/v1/groups/...`) and the `skip:` rows (attachment, child link, relation, custom field, webhook, join token) are not covered yet. To fill a row, add a fixture to `MatrixWorld` and replace the `skip:` with a policy.
+
 ## Not done here
 
 The `CLAUDE.md` pre-MR gate cluster still lists `rbac-check` and `broadcast-check` as agent calls. That instruction lives in the user's global `~/.claude/CLAUDE.md`, not in this repository, so no merge request against this repo can change it. #1143 also gates the change on "once both scripts are trusted". Narrow the agent invocations once these jobs have a few releases of clean runs behind them. Until then, running both is belt and braces rather than waste.
